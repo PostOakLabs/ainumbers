@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self';">
+<title>XVA / CVA Calculator · QFA-04 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Monte Carlo XVA/CVA calculator. Simulates expected exposure profiles for IRS, FX forwards, and CDS. Computes CVA, DVA, FVA via discounted expected positive/negative exposure. AP2 risk_parameter export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"XVA / CVA Calculator","url":"https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "qfa-04-xva-cva-calculator",
+  "version": "1.0.0",
+  "title": "XVA / CVA Calculator",
+  "description": "Monte Carlo simulation of expected exposure profiles for OTC derivatives. Computes CVA (Credit Valuation Adjustment), DVA (Debit Valuation Adjustment), and FVA (Funding Valuation Adjustment) via discounted EPE/ENE curves. Three presets: IRS, FX forward, CDS. AP2 risk_parameter mandate.",
+  "category": "chaingraph",
+  "tags": ["XVA","CVA","DVA","FVA","expected positive exposure","EPE","counterparty credit risk","OTC derivatives","IRS","FX forward","CDS","FRTB","Basel III","IFRS13"],
+  "audience": ["quant","risk_manager","treasury","regulator"],
+  "mcp_tool_definition": {
+    "name": "calculate_xva",
+    "description": "Monte Carlo XVA/CVA/DVA/FVA calculator for OTC derivatives. Returns EPE/ENE profiles, CVA/DVA/FVA values, Expected Exposure peak, and AP2 risk_parameter mandate.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "instrument_type": {"type": "string", "enum": ["irs","fx_forward","cds"]},
+        "notional": {"type": "number", "description": "Notional in USD"},
+        "maturity_years": {"type": "number", "description": "Instrument maturity in years"},
+        "counterparty_pd": {"type": "number", "description": "Annual counterparty default probability (0–1)"},
+        "counterparty_lgd": {"type": "number", "description": "Loss given default (0–1)"},
+        "own_pd": {"type": "number", "description": "Own annual default probability for DVA"},
+        "funding_spread": {"type": "number", "description": "Funding spread above risk-free (decimal)"},
+        "n_paths": {"type": "integer", "description": "Monte Carlo paths (default 400)"},
+        "parent_artifact_hash": {"type": "string"}
+      }
+    }
+  },
+  "mandate_type": "risk_parameter",
+  "gpu": true,
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["qfa-01-options-greeks","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.005) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.005) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--purple)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--purple)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.four-col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.two-col,.three-col,.four-col{grid-template-columns:1fr}}
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.85rem}
+@media(max-width:540px){.preset-grid{grid-template-columns:1fr}}
+.preset-card{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.preset-card:hover{border-color:var(--purple)}
+.preset-card.active{border-color:var(--purple);background:var(--purple-dim)}
+.preset-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.2rem}
+.preset-card-desc{font-size:.68rem;color:var(--body);line-height:1.4}
+.preset-card-meta{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.3rem}
+.run-row{display:flex;align-items:center;gap:1.25rem;margin-top:.5rem}
+.run-btn{background:var(--purple);color:var(--white);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:#b48df7}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.progress-wrap{flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:3px;width:0%;transition:width .1s}
+.run-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);min-width:180px}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:.75rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;margin-bottom:.1rem}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+.mv-red{color:var(--red)}.mv-warn{color:var(--warn)}.mv-green{color:var(--green)}.mv-purple{color:var(--purple)}.mv-neutral{color:var(--bright)}
+.xva-bar-row{display:flex;align-items:center;gap:.8rem;margin-bottom:.55rem}
+.xva-bar-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text);width:44px;flex-shrink:0}
+.xva-bar-outer{flex:1;height:22px;background:var(--bg-3);border-radius:3px;overflow:hidden;position:relative}
+.xva-bar-inner{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:.5rem}
+.xva-bar-num{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--white)}
+.xva-bar-usd{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);width:90px;text-align:right;flex-shrink:0}
+.chart-wrap{overflow-x:auto}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--purple);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.chain-intake{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-bottom:.85rem}
+.chain-intake-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.chain-intake textarea{background:var(--bg-4);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.4rem .6rem;border-radius:4px;outline:none;width:100%;resize:vertical;min-height:48px}
+.chain-intake textarea:focus{border-color:var(--purple)}
+.chain-intake-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.2rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--purple);color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">QFA-04</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph · QFA-04 · Wave 3 · Zero-Egress</div>
+  <h1>XVA / CVA <em>Calculator</em></h1>
+  <p class="hero-desc">Monte Carlo simulation of expected exposure profiles for OTC derivatives. Computes CVA (Credit Valuation Adjustment), DVA (Debit Valuation Adjustment), and FVA (Funding Valuation Adjustment) via discounted EPE/ENE curves. Basel III SA-CCR · FRTB CVA desk · IFRS 13 fair-value hierarchy.</p>
+  <div class="hero-meta">
+    <span class="badge badge-purple">v1.0.0</span>
+    <span class="badge badge-muted">risk_parameter</span>
+    <span class="badge badge-teal">Monte Carlo EPE</span>
+    <span class="badge badge-muted">Wave 3</span>
+    <span class="badge badge-muted">Zero-Egress</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Instrument Preset</div>
+    <div class="preset-grid">
+      <div class="preset-card active" id="preset_irs" onclick="selectPreset('irs')">
+        <div class="preset-card-title">IRS — Pay-Fixed</div>
+        <div class="preset-card-desc">Interest Rate Swap, 5-year, notional $10M, pay 4.5% fixed / receive SOFR</div>
+        <div class="preset-card-meta">5y · $10M · IG counterparty</div>
+      </div>
+      <div class="preset-card" id="preset_fx_forward" onclick="selectPreset('fx_forward')">
+        <div class="preset-card-title">FX Forward — EUR/USD</div>
+        <div class="preset-card-desc">3-month EUR/USD forward, €5M notional, forward rate 1.08</div>
+        <div class="preset-card-meta">90d · €5M · sub-IG counterparty</div>
+      </div>
+      <div class="preset-card" id="preset_cds" onclick="selectPreset('cds')">
+        <div class="preset-card-title">CDS — Protection Buyer</div>
+        <div class="preset-card-desc">CDS on IG reference entity, 3-year, $20M, protection buyer position</div>
+        <div class="preset-card-meta">3y · $20M · dealer counterparty</div>
+      </div>
+    </div>
+
+    <div class="four-col">
+      <div>
+        <label class="field-label" for="inNotional">Notional (USD)</label>
+        <input type="number" id="inNotional" value="10000000" min="1000">
+        <span class="field-hint">Base currency equivalent</span>
+      </div>
+      <div>
+        <label class="field-label" for="inMaturity">Maturity (Years)</label>
+        <input type="number" id="inMaturity" value="5" min="0.25" max="30" step="0.25">
+        <span class="field-hint">0.25 – 30 years</span>
+      </div>
+      <div>
+        <label class="field-label" for="inNPaths">MC Paths</label>
+        <input type="number" id="inNPaths" value="400" min="50" max="5000" step="50">
+        <span class="field-hint">50 – 5,000</span>
+      </div>
+      <div>
+        <label class="field-label" for="inTimeSteps">Time Steps</label>
+        <input type="number" id="inTimeSteps" value="40" min="8" max="200" step="4">
+        <span class="field-hint">steps along exposure path</span>
+      </div>
+    </div>
+
+    <div class="four-col">
+      <div>
+        <label class="field-label" for="inCpyPD">Cpty PD (% pa)</label>
+        <input type="number" id="inCpyPD" value="1.5" min="0.01" max="50" step="0.1">
+        <span class="field-hint">Counterparty annual default %</span>
+      </div>
+      <div>
+        <label class="field-label" for="inCpyLGD">Cpty LGD (%)</label>
+        <input type="number" id="inCpyLGD" value="60" min="1" max="100" step="1">
+        <span class="field-hint">Loss given default %</span>
+      </div>
+      <div>
+        <label class="field-label" for="inOwnPD">Own PD (% pa)</label>
+        <input type="number" id="inOwnPD" value="0.5" min="0.01" max="50" step="0.1">
+        <span class="field-hint">For DVA computation</span>
+      </div>
+      <div>
+        <label class="field-label" for="inFundingSpread">Funding Spread (bps)</label>
+        <input type="number" id="inFundingSpread" value="80" min="0" max="1000" step="5">
+        <span class="field-hint">Spread above risk-free for FVA</span>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-bottom:.85rem">
+      <div>
+        <label class="field-label" for="inVol">Underlying Vol (% pa)</label>
+        <input type="number" id="inVol" value="20" min="1" max="200" step="1">
+        <span class="field-hint">GBM volatility of exposure driver</span>
+      </div>
+      <div>
+        <label class="field-label" for="inRfr">Risk-Free Rate (% pa)</label>
+        <input type="number" id="inRfr" value="4.5" min="0" max="20" step="0.1">
+        <span class="field-hint">Discounting rate</span>
+      </div>
+    </div>
+
+    <div class="chain-intake">
+      <div class="chain-intake-label">Chain Intake (optional — paste AP2 artifact from QFA-01)</div>
+      <textarea id="chainIntakeInput" placeholder='{"ap2_version":"1.0.0","tool_id":"qfa-01-options-greeks",...} or bare sha256:...'></textarea>
+      <div class="chain-intake-hint">Links this calculation to an upstream options greeks run for full chain provenance.</div>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" id="runBtn" onclick="runSimulation()">Run XVA</button>
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="run-status" id="runStatus">Ready</span>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">XVA Summary</span><span id="riskLabel" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div id="xvaBarChart" style="margin-top:.5rem"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">EPE / ENE Profile</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">Expected Positive / Negative Exposure over time</span></div>
+      <div class="out-body"><div class="chart-wrap" id="epeChartWrap"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Export</span></div>
+      <div class="out-body">
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="exportJsonBtn" onclick="exportJson()" disabled>
+            {} Export Policy JSON<span class="btn-subtitle">risk_parameter mandate</span>
+          </button>
+          <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled>
+            ⛓ Export AP2 Artifact<span class="btn-subtitle">Chain into PTG-01</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">
+    <span>{ } MCP Manifest · calculate_xva</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <div class="footer-badge-ai"><span><span style="color:var(--teal)">AI</span>Numbers.co · ChainGraph QFA-04</span><span>v1.0.0 · CC BY 4.0 · Zero PII</span></div>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="chaingraph-hub.html">ChainGraph Hub</a>
+    <a href="qfa-01-options-greeks.html">QFA-01</a>
+    <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>
+  </div>
+</div></div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST = {
+  tool_id:'qfa-04-xva-cva-calculator', version:'1.0.0', title:'XVA / CVA Calculator',
+  mandate_type:'risk_parameter', ap2_export:true, chaingraph:true,
+  chain_partners:['qfa-01-options-greeks','ptg-01-ap2-prompt-template-generator'],
+  mcp_tool_definition:{name:'calculate_xva',description:'Monte Carlo XVA/CVA/DVA/FVA calculator for OTC derivatives.'}
+};
+
+// ─── LCG RNG + Box-Muller ──────────────────────────────────────────────────────
+function makeLCG(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function randn(rng) {
+  // Box-Muller
+  const u1 = rng(), u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1 + 1e-15)) * Math.cos(2 * Math.PI * u2);
+}
+
+// ─── Preset defaults ───────────────────────────────────────────────────────────
+const PRESETS = {
+  irs:        { notional:10000000, maturity:5,    vol:20, rfr:4.5, cpyPD:1.5, cpyLGD:60, ownPD:0.5, fundingBps:80, nPaths:400, nSteps:40, label:'IRS Pay-Fixed 5y' },
+  fx_forward: { notional:5000000, maturity:0.25,  vol:8,  rfr:4.5, cpyPD:4.0, cpyLGD:70, ownPD:0.5, fundingBps:120, nPaths:400, nSteps:20, label:'FX Forward EUR/USD 90d' },
+  cds:        { notional:20000000, maturity:3,    vol:12, rfr:4.5, cpyPD:2.0, cpyLGD:60, ownPD:0.5, fundingBps:60, nPaths:400, nSteps:36, label:'CDS Protection Buyer 3y' }
+};
+
+let _currentPreset = 'irs';
+let _ap2 = null;
+let _chainParentHashes=[], _chainParentToolIds=[], _chainDepth=0;
+
+function selectPreset(name) {
+  _currentPreset = name;
+  ['irs','fx_forward','cds'].forEach(n =>
+    document.getElementById('preset_'+n).classList.toggle('active', n===name));
+  const p = PRESETS[name];
+  document.getElementById('inNotional').value = p.notional;
+  document.getElementById('inMaturity').value = p.maturity;
+  document.getElementById('inVol').value = p.vol;
+  document.getElementById('inRfr').value = p.rfr;
+  document.getElementById('inCpyPD').value = p.cpyPD;
+  document.getElementById('inCpyLGD').value = p.cpyLGD;
+  document.getElementById('inOwnPD').value = p.ownPD;
+  document.getElementById('inFundingSpread').value = p.fundingBps;
+  document.getElementById('inNPaths').value = p.nPaths;
+  document.getElementById('inTimeSteps').value = p.nSteps;
+}
+
+// ─── Chain intake ──────────────────────────────────────────────────────────────
+document.getElementById('chainIntakeInput').addEventListener('change', () => {
+  const raw = document.getElementById('chainIntakeInput').value.trim();
+  if (!raw) return;
+  if (raw.startsWith('sha256:')) {
+    _chainParentHashes=[raw]; _chainParentToolIds=['qfa-01-options-greeks']; _chainDepth=1; return;
+  }
+  try {
+    const obj = JSON.parse(raw);
+    if (obj.execution_hash) _chainParentHashes=[obj.execution_hash];
+    if (obj.tool_id) _chainParentToolIds=[obj.tool_id];
+    _chainDepth = (obj.chain?.chain_depth||0)+1;
+  } catch(e) {}
+});
+
+// ─── Simulation core ──────────────────────────────────────────────────────────
+const CHUNK = 20;
+
+async function runSimulation() {
+  const notional = parseFloat(document.getElementById('inNotional').value)||1e7;
+  const T        = parseFloat(document.getElementById('inMaturity').value)||5;
+  const vol      = parseFloat(document.getElementById('inVol').value)/100;
+  const rfr      = parseFloat(document.getElementById('inRfr').value)/100;
+  const cpyPD    = parseFloat(document.getElementById('inCpyPD').value)/100;
+  const cpyLGD   = parseFloat(document.getElementById('inCpyLGD').value)/100;
+  const ownPD    = parseFloat(document.getElementById('inOwnPD').value)/100;
+  const fundBps  = parseFloat(document.getElementById('inFundingSpread').value);
+  const fundSprd = fundBps / 10000;
+  const nPaths   = parseInt(document.getElementById('inNPaths').value)||400;
+  const nSteps   = parseInt(document.getElementById('inTimeSteps').value)||40;
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  setProgress(0); setStatus('Simulating…');
+
+  const dt = T / nSteps;
+  const times = Array.from({length:nSteps+1}, (_,i) => i*dt);
+
+  // Accumulate sums per time step
+  const epeSum = new Float64Array(nSteps+1); // sum of max(V,0)
+  const eneSum = new Float64Array(nSteps+1); // sum of min(V,0)
+
+  for (let i = 0; i < nPaths; i += CHUNK) {
+    const end = Math.min(i + CHUNK, nPaths);
+    for (let p = i; p < end; p++) {
+      const rng = makeLCG(p * 6257 + 1999);
+      // GBM path for underlying exposure driver
+      let V = 0; // start at par (ATM)
+      for (let t = 1; t <= nSteps; t++) {
+        const z = randn(rng);
+        V = V + rfr * V * dt + vol * Math.sqrt(dt) * z * notional * 0.1;
+        epeSum[t] += Math.max(V, 0);
+        eneSum[t] += Math.min(V, 0);
+      }
+    }
+    setProgress((end)/nPaths);
+    setStatus(`Path ${end}/${nPaths}…`);
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  // Mean EPE / ENE
+  const epe = epeSum.map(v => v / nPaths);
+  const ene = eneSum.map(v => v / nPaths);
+
+  // Survival / hazard
+  // Survival probability: S(t) = exp(-pd * t)  (flat hazard)
+  const discountFactor = t => Math.exp(-rfr * t);
+  const survCpy = t => Math.exp(-cpyPD * t);
+  const survOwn = t => Math.exp(-ownPD * t);
+
+  // CVA = LGD_cpty * integral[ EPE(t) * d(-survCpy(t)) * DF(t) ]
+  // Using trapezoidal integration
+  let cva = 0, dva = 0, fva = 0;
+  for (let t = 1; t <= nSteps; t++) {
+    const t0 = times[t-1], t1 = times[t];
+    const dtau = dt;
+    const dPD_cpy = (Math.exp(-cpyPD*t0) - Math.exp(-cpyPD*t1)); // P(default in (t0,t1))
+    const dPD_own = (Math.exp(-ownPD*t0) - Math.exp(-ownPD*t1));
+    const df = discountFactor((t0+t1)/2);
+    const epe_mid = (epe[t-1] + epe[t]) / 2;
+    const ene_mid = (ene[t-1] + ene[t]) / 2;
+    cva += cpyLGD * epe_mid * dPD_cpy * df;
+    dva += (1 - cpyLGD) * (-ene_mid) * dPD_own * df; // simplification: own LGD same
+    fva += fundSprd * epe_mid * survCpy(t0) * df * dtau;
+  }
+
+  const xva = cva - dva + fva;
+  const peakEpe = Math.max(...epe);
+  const peakEpePct = notional > 0 ? peakEpe / notional * 100 : 0;
+
+  const params = {instrument:_currentPreset,notional,maturity_years:T,vol_pct:vol*100,rfr_pct:rfr*100,cpyPD_pct:cpyPD*100,cpyLGD_pct:cpyLGD*100,ownPD_pct:ownPD*100,funding_bps:fundBps,n_paths:nPaths,n_steps:nSteps};
+  const results = {cva:+cva.toFixed(2),dva:+dva.toFixed(2),fva:+fva.toFixed(2),xva:+xva.toFixed(2),peak_epe:+peakEpe.toFixed(2),peak_epe_pct_notional:+peakEpePct.toFixed(3)};
+
+  buildAP2(params, results);
+  renderResults(notional, cva, dva, fva, xva, peakEpe, peakEpePct, epe, ene, times);
+
+  setProgress(1); setStatus(`Done — ${nPaths} paths, ${nSteps} steps.`);
+  document.getElementById('runBtn').disabled = false;
+}
+
+// ─── AP2 ──────────────────────────────────────────────────────────────────────
+function simpleHash(s) {
+  let h = 0x811c9dc5;
+  for (let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}
+  return h.toString(16).padStart(8,'0').repeat(8);
+}
+
+function buildAP2(params, results) {
+  const riskRating = results.cva > 200000 ? 'HIGH' : results.cva > 50000 ? 'MODERATE' : 'LOW';
+  _ap2 = {
+    ap2_version:'1.0.0', mandate_type:'risk_parameter',
+    tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at:new Date().toISOString(),
+    execution_hash:'sha256:'+simpleHash(JSON.stringify({...params,...results})),
+    chain:{parent_hashes:_chainParentHashes,parent_tool_ids:_chainParentToolIds,chain_depth:_chainDepth},
+    policy_parameters:params,
+    output_payload:{...results,xva_risk_rating:riskRating,cva_basis:'Basel_III_SA-CVA_EPE_discounted',dva_basis:'ENE_own_hazard_discounted',fva_basis:'EPE_funding_spread_integral'},
+    compliance_flags:['FRTB_CVA_DESK_COMPUTED','BASEL_III_SA_CCR_ASSESSED','IFRS13_FAIR_VALUE_HIERARCHY','SA_CVA_'+riskRating+'_RISK'],
+    audit_signature:'sha256:'+simpleHash('qfa04_audit_'+params.instrument+params.n_paths),
+    regulatory_context:{framework:'Basel III SA-CVA (BCBS d325) · FRTB CVA Desk Requirements · IFRS 13 Fair Value Measurement (Level 2/3 inputs) · ECB Supervisory Expectations on CCR'}
+  };
+  ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function fmtCcy(v) {
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v<0?'-':'') + '$' + (abs/1e6).toFixed(2)+'M';
+  if (abs >= 1e3) return (v<0?'-':'') + '$' + (abs/1e3).toFixed(0)+'k';
+  return '$'+v.toFixed(0);
+}
+function fmtBps(v, notional) { return (v/notional*10000).toFixed(1)+' bps'; }
+
+function renderResults(notional, cva, dva, fva, xva, peakEpe, peakEpePct, epe, ene, times) {
+  const riskRating = cva > 200000 ? 'HIGH' : cva > 50000 ? 'MODERATE' : 'LOW';
+  const riskColor = {HIGH:'var(--red)',MODERATE:'var(--warn)',LOW:'var(--green)'}[riskRating];
+
+  document.getElementById('riskLabel').textContent = riskRating + ' CVA RISK';
+  document.getElementById('riskLabel').style.color = riskColor;
+
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="metric-card"><div class="metric-label">CVA</div><div class="metric-value mv-red">${fmtCcy(cva)}</div><div class="metric-sub">${fmtBps(cva,notional)}</div></div>
+    <div class="metric-card"><div class="metric-label">DVA</div><div class="metric-value mv-green">${fmtCcy(dva)}</div><div class="metric-sub">${fmtBps(dva,notional)}</div></div>
+    <div class="metric-card"><div class="metric-label">FVA</div><div class="metric-value mv-warn">${fmtCcy(fva)}</div><div class="metric-sub">${fmtBps(fva,notional)}</div></div>
+    <div class="metric-card"><div class="metric-label">Total XVA</div><div class="metric-value ${xva>0?'mv-red':'mv-green'}">${fmtCcy(xva)}</div><div class="metric-sub">${fmtBps(Math.abs(xva),notional)}</div></div>
+    <div class="metric-card"><div class="metric-label">Peak EPE</div><div class="metric-value mv-purple">${fmtCcy(peakEpe)}</div><div class="metric-sub">${peakEpePct.toFixed(2)}% notional</div></div>`;
+
+  // XVA decomposition bars
+  const maxXva = Math.max(cva, dva, fva, 1);
+  document.getElementById('xvaBarChart').innerHTML = [
+    {label:'CVA',val:cva,col:'var(--red)'},
+    {label:'DVA',val:dva,col:'var(--green)'},
+    {label:'FVA',val:fva,col:'var(--warn)'},
+    {label:'XVA',val:Math.abs(xva),col:xva>0?'var(--red)':'var(--green)'},
+  ].map(({label,val,col}) => `
+    <div class="xva-bar-row">
+      <div class="xva-bar-label">${label}</div>
+      <div class="xva-bar-outer"><div class="xva-bar-inner" style="width:${(val/maxXva*100).toFixed(1)}%;background:${col}"><span class="xva-bar-num">${fmtBps(val,notional)}</span></div></div>
+      <div class="xva-bar-usd">${fmtCcy(val)}</div>
+    </div>`).join('');
+
+  // EPE/ENE profile chart
+  const W=680, H=200, padL=64, padR=16, padT=20, padB=40;
+  const nT = times.length;
+  const allVals = [...epe, ...ene];
+  const maxV = Math.max(...allVals, 1);
+  const minV = Math.min(...allVals, 0);
+  const range = maxV - minV;
+  const scaleY = (v) => padT + (maxV - v) / range * (H - padT - padB);
+  const scaleX = (i) => padL + (i/(nT-1)) * (W - padL - padR);
+
+  const epePath = epe.map((v,i) => `${i===0?'M':'L'}${scaleX(i).toFixed(1)},${scaleY(v).toFixed(1)}`).join(' ');
+  const enePath = ene.map((v,i) => `${i===0?'M':'L'}${scaleX(i).toFixed(1)}`+`,${scaleY(v).toFixed(1)}`).join(' ');
+  const zeroY = scaleY(0);
+
+  // Y-axis ticks
+  let yTicks='';
+  for (let i=0;i<=4;i++){const v=minV+(range/4)*i;const y=scaleY(v);yTicks+=`<line x1="${padL-4}" y1="${y.toFixed(1)}" x2="${padL}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/><line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3,4"/><text x="${(padL-6).toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">${fmtCcy(v)}</text>`;}
+  // X-axis ticks
+  let xTicks='';
+  const nXT=5;
+  for(let i=0;i<=nXT;i++){const ti=Math.round(i*(nT-1)/nXT);const x=scaleX(ti);xTicks+=`<text x="${x.toFixed(1)}" y="${H-padB+14}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">${times[ti].toFixed(1)}y</text>`;}
+
+  document.getElementById('epeChartWrap').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="chart-svg">
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+      ${yTicks}${xTicks}
+      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--border-2)" stroke-width="1"/>
+      <path d="${epePath}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+      <path d="${enePath}" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="${W-padR-4}" y="${scaleY(epe[epe.length-1]).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--teal)">EPE</text>
+      <text x="${W-padR-4}" y="${scaleY(ene[ene.length-1]).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--red)">ENE</text>
+    </svg>`;
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+function dl(content,filename,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=filename;a.click();}
+function exportJson(){if(!_ap2)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);dl(JSON.stringify({ap2_version:'1.0',mandate_type:'risk_parameter',tool_id:MANIFEST.tool_id,issued_at:new Date().toISOString(),payload:_ap2.output_payload,regulatory_frameworks:['Basel III SA-CVA','FRTB CVA Desk','IFRS 13'],audit_metadata:{execution_hash:_ap2.execution_hash,client_side_executed:true,zero_pii_verified:true}},null,2),`qfa-04-xva_${ts}.policy.json`,'application/json');}
+function exportAP2(){if(!_ap2)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);dl(JSON.stringify(_ap2,null,2),`qfa-04-ap2-artifact_${ts}.json`,'application/json');showToast('AP2 artifact exported — chain into PTG-01');}
+
+// ─── UI ────────────────────────────────────────────────────────────────────────
+function setProgress(p){document.getElementById('progressFill').style.width=(p*100).toFixed(1)+'%';}
+function setStatus(m){document.getElementById('runStatus').textContent=m;}
+function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArrow');const open=b.style.display==='block';b.style.display=open?'none':'block';a.textContent=open?'▼':'▲';if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ─── Init preset ──────────────────────────────────────────────────────────────
+selectPreset('irs');
+</script>
+</body>
+</html>

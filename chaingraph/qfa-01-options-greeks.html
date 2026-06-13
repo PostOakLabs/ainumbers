@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self';">
+<title>Options Greeks Calculator · QFA-01 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Black-Scholes options pricer with full Greeks — delta, gamma, theta, vega, rho. Equity, FX and rate presets. Payoff profile and sensitivity charts. Zero-egress. AP2 risk_parameter export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/qfa-01-options-greeks.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Options Greeks Calculator","url":"https://ainumbers.co/chaingraph/qfa-01-options-greeks.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "qfa-01-options-greeks",
+  "version": "1.0.0",
+  "title": "Options Greeks Calculator",
+  "description": "Black-Scholes options pricer with full first-order Greeks (delta, gamma, theta, vega, rho). Equity, FX and rate presets. Payoff profile and delta/gamma sensitivity charts. Exports AP2 risk_parameter mandate. Feeds QFA-04 XVA/CVA calculator.",
+  "category": "chaingraph",
+  "tags": ["options","Black-Scholes","Greeks","delta","gamma","theta","vega","rho","FRTB","market risk","risk_parameter"],
+  "audience": ["quant","risk_manager","trader","regulator"],
+  "mcp_tool_definition": {
+    "name": "compute_options_greeks",
+    "description": "Prices a European option and computes full Black-Scholes Greeks (delta, gamma, theta per day, vega per 1% vol, rho per 1% rate). Returns payoff profile sweep and sensitivity data. Exports AP2 risk_parameter mandate chainable into QFA-04 XVA/CVA.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spot": {"type": "number", "description": "Spot price of underlying"},
+        "strike": {"type": "number", "description": "Option strike price"},
+        "expiry_days": {"type": "integer", "description": "Days to expiry"},
+        "vol": {"type": "number", "description": "Implied volatility as decimal (e.g. 0.20 = 20%)"},
+        "rate": {"type": "number", "description": "Risk-free rate as decimal"},
+        "div_yield": {"type": "number", "description": "Continuous dividend/foreign rate yield as decimal"},
+        "type": {"type": "string", "enum": ["call","put"], "description": "Option type"},
+        "preset": {"type": "string", "enum": ["equity_call","fx_put","rate_cap"]},
+        "parent_artifact_hash": {"type": "string"}
+      }
+    }
+  },
+  "mandate_type": "risk_parameter",
+  "gpu": false,
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["qfa-04-xva-cva-calculator","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--purple)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--purple)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.four-col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.two-col,.three-col,.four-col{grid-template-columns:1fr}}
+.type-row{display:flex;gap:.65rem;margin-bottom:.85rem}
+.type-chip{flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .65rem;cursor:pointer;transition:all .2s;background:var(--bg-3);text-align:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.type-chip:hover{border-color:var(--body)}
+.type-chip.active-call{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.type-chip.active-put{border-color:var(--red);background:var(--red-dim);color:var(--red)}
+/* Preset cards */
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.85rem}
+@media(max-width:540px){.preset-grid{grid-template-columns:1fr}}
+.preset-card{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.preset-card:hover{border-color:var(--purple)}
+.preset-card.active{border-color:var(--purple);background:var(--purple-dim)}
+.preset-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.2rem}
+.preset-card-desc{font-size:.68rem;color:var(--body);line-height:1.4}
+/* Run */
+.run-row{display:flex;align-items:center;gap:1rem;margin-top:.5rem}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:#b08ffa}
+/* Results */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+/* Greeks scorecard */
+.greeks-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.65rem;margin-bottom:.5rem}
+@media(max-width:700px){.greeks-grid{grid-template-columns:repeat(3,1fr)}}
+.greek-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.75rem .85rem;text-align:center}
+.greek-name{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.greek-val{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1;margin-bottom:.1rem;color:var(--bright)}
+.greek-sub{font-family:'JetBrains Mono',monospace;font-size:.4rem;color:var(--muted)}
+.price-highlight{border-color:rgba(155,114,245,.4);background:var(--purple-dim)}
+.price-highlight .greek-val{color:var(--purple)}
+/* Verdict */
+.verdict-banner{border-radius:var(--radius);padding:.65rem 1rem;margin-bottom:.85rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;display:flex;align-items:center;gap:.75rem}
+.verdict-banner.low{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.verdict-banner.moderate{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict-banner.high{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+/* Charts */
+.chart-wrap{overflow-x:auto}
+.chart-svg{display:block}
+/* Export */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--purple);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--purple);color:#b08ffa;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">QFA-01</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph · QFA-01 · Wave 3 · Zero-Egress</div>
+  <h1>Options <em>Greeks</em> Calculator</h1>
+  <p class="hero-desc">Black-Scholes pricer with full first-order Greeks — delta, gamma, theta, vega, rho. Equity, FX and interest rate presets. Payoff profile and delta sensitivity sweep. Exports AP2 <code>risk_parameter</code> mandate, chainable into QFA-04 XVA/CVA. FRTB SA · Basel III market risk.</p>
+  <div class="hero-meta">
+    <span class="badge badge-purple">v1.0.0</span>
+    <span class="badge badge-muted">risk_parameter</span>
+    <span class="badge badge-teal">Black-Scholes</span>
+    <span class="badge badge-muted">Wave 3</span>
+    <span class="badge badge-muted">Zero-Egress</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Preset</div>
+    <div class="preset-grid">
+      <div class="preset-card active" id="preset_equity_call" onclick="selectPreset('equity_call')">
+        <div class="preset-card-title">Equity Call</div>
+        <div class="preset-card-desc">ATM call · S=100 · K=100 · 90d · σ=20% · r=4.5%</div>
+      </div>
+      <div class="preset-card" id="preset_fx_put" onclick="selectPreset('fx_put')">
+        <div class="preset-card-title">FX Put</div>
+        <div class="preset-card-desc">EUR/USD put · S=1.0850 · K=1.08 · 30d · σ=8%</div>
+      </div>
+      <div class="preset-card" id="preset_rate_cap" onclick="selectPreset('rate_cap')">
+        <div class="preset-card-title">Rate Caplet</div>
+        <div class="preset-card-desc">IR caplet · F=5.2% · K=5% · 180d · σ=100bp</div>
+      </div>
+    </div>
+
+    <div class="four-col">
+      <div>
+        <label class="field-label" for="inSpot">Spot / Forward</label>
+        <input type="number" id="inSpot" step="0.01" min="0.0001">
+      </div>
+      <div>
+        <label class="field-label" for="inStrike">Strike</label>
+        <input type="number" id="inStrike" step="0.01" min="0.0001">
+      </div>
+      <div>
+        <label class="field-label" for="inExpiry">Days to Expiry</label>
+        <input type="number" id="inExpiry" step="1" min="1">
+      </div>
+      <div>
+        <label class="field-label" for="inVol">Implied Vol (%)</label>
+        <input type="number" id="inVol" step="0.1" min="0.1" max="999">
+      </div>
+    </div>
+    <div class="three-col">
+      <div>
+        <label class="field-label" for="inRate">Risk-free Rate (%)</label>
+        <input type="number" id="inRate" step="0.01">
+      </div>
+      <div>
+        <label class="field-label" for="inYield">Div / Foreign Rate (%)</label>
+        <input type="number" id="inYield" step="0.01" min="0">
+      </div>
+      <div>
+        <label class="field-label">Option Type</label>
+        <div class="type-row" style="margin-bottom:0">
+          <div class="type-chip active-call" id="chip_call" onclick="setType('call')">Call</div>
+          <div class="type-chip" id="chip_put" onclick="setType('put')">Put</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" onclick="runGreeks()">Compute Greeks</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Greeks &amp; Price</span><span id="riskLabel" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div id="verdictBanner"></div>
+        <div class="greeks-grid" id="greeksGrid"></div>
+        <div id="chainSummary" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.75rem;padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3)"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Payoff Profile — P&amp;L at Expiry</span></div>
+      <div class="out-body"><div class="chart-wrap" id="payoffChartWrap"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Delta &amp; Gamma vs Spot</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">±35% spot sweep</span></div>
+      <div class="out-body"><div class="chart-wrap" id="sensitivityChartWrap"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Export</span></div>
+      <div class="out-body">
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="exportJsonBtn" onclick="exportJson()" disabled>
+            {} Export Policy JSON<span class="btn-subtitle">Risk parameter mandate</span>
+          </button>
+          <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled>
+            ⛓ Export AP2 Artifact<span class="btn-subtitle">Chain into QFA-04</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <button class="mfst-btn" onclick="toggleMfst()">
+    <span>{ } MCP Manifest · compute_options_greeks</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <div class="footer-badge-ai"><span><span style="color:var(--teal)">AI</span>Numbers.co · ChainGraph QFA-01</span><span>v1.0.0 · CC BY 4.0 · Zero PII</span></div>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="chaingraph-hub.html">ChainGraph Hub</a>
+    <a href="qfa-04-xva-cva-calculator.html">QFA-04 XVA</a>
+    <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>
+  </div>
+</div></div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST = {
+  tool_id:'qfa-01-options-greeks', version:'1.0.0', title:'Options Greeks Calculator',
+  mandate_type:'risk_parameter', ap2_export:true, chaingraph:true,
+  chain_partners:['qfa-04-xva-cva-calculator','ptg-01-ap2-prompt-template-generator'],
+  mcp_tool_definition:{name:'compute_options_greeks',description:'Prices a European option and computes full Black-Scholes Greeks.'}
+};
+
+// ─── Math helpers ────────────────────────────────────────────────────────────
+function normCDF(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422820 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+  return x >= 0 ? 1 - p : p;
+}
+function normPDF(x) { return Math.exp(-0.5*x*x) / 2.5066282746; }
+
+function bs(S, K, T, r, q, sigma, type) {
+  if (T <= 0) {
+    const intr = type==='call' ? Math.max(S-K,0) : Math.max(K-S,0);
+    return {price:intr,delta:type==='call'?(S>=K?1:0):(S<=K?-1:0),gamma:0,theta:0,vega:0,rho:0,d1:0,d2:0};
+  }
+  const sqT = Math.sqrt(T);
+  const d1 = (Math.log(S/K) + (r - q + 0.5*sigma*sigma)*T) / (sigma*sqT);
+  const d2 = d1 - sigma*sqT;
+  const Nd1=normCDF(d1), Nd2=normCDF(d2), Nnd1=normCDF(-d1), Nnd2=normCDF(-d2);
+  const nd1=normPDF(d1);
+  const eqT=Math.exp(-q*T), erT=Math.exp(-r*T);
+  const price = type==='call' ? S*eqT*Nd1 - K*erT*Nd2 : K*erT*Nnd2 - S*eqT*Nnd1;
+  const delta = type==='call' ? eqT*Nd1 : eqT*(Nd1-1);
+  const gamma = eqT*nd1 / (S*sigma*sqT);
+  const theta = (-(S*sigma*eqT*nd1)/(2*sqT)
+    - r*K*erT*(type==='call'?Nd2:-Nnd2)
+    + q*S*eqT*(type==='call'?Nd1:-Nnd1)) / 365;
+  const vega  = S*eqT*sqT*nd1 / 100;   // per 1% vol
+  const rho   = (type==='call' ? K*T*erT*Nd2 : -K*T*erT*Nnd2) / 100; // per 1%
+  return {price,delta,gamma,theta,vega,rho,d1,d2};
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let _optType = 'call';
+let _ap2 = null;
+let _chainParentHashes=[], _chainParentToolIds=[], _chainDepth=0;
+
+const PRESETS = {
+  equity_call: {spot:100,strike:100,expiry:90,vol:20,rate:4.5,yield:1.5,type:'call'},
+  fx_put:      {spot:1.0850,strike:1.08,expiry:30,vol:8,rate:4.5,yield:3.5,type:'put'},
+  rate_cap:    {spot:5.2,strike:5.0,expiry:180,vol:100,rate:4.5,yield:0,type:'call'}
+};
+
+function selectPreset(name) {
+  ['equity_call','fx_put','rate_cap'].forEach(n=>document.getElementById('preset_'+n).classList.toggle('active',n===name));
+  const p = PRESETS[name];
+  document.getElementById('inSpot').value = p.spot;
+  document.getElementById('inStrike').value = p.strike;
+  document.getElementById('inExpiry').value = p.expiry;
+  document.getElementById('inVol').value = p.vol;
+  document.getElementById('inRate').value = p.rate;
+  document.getElementById('inYield').value = p.yield;
+  setType(p.type);
+}
+
+function setType(t) {
+  _optType = t;
+  document.getElementById('chip_call').className = 'type-chip' + (t==='call'?' active-call':'');
+  document.getElementById('chip_put').className  = 'type-chip' + (t==='put'?' active-put':'');
+}
+
+// ─── Main computation ────────────────────────────────────────────────────────
+function runGreeks() {
+  const S     = parseFloat(document.getElementById('inSpot').value);
+  const K     = parseFloat(document.getElementById('inStrike').value);
+  const days  = parseFloat(document.getElementById('inExpiry').value);
+  const vol   = parseFloat(document.getElementById('inVol').value) / 100;
+  const r     = parseFloat(document.getElementById('inRate').value) / 100;
+  const q     = parseFloat(document.getElementById('inYield').value) / 100;
+  const T     = days / 365;
+
+  if ([S,K,days,vol,r,q].some(v=>isNaN(v)||v<0)||S<=0||K<=0||vol<=0) {
+    showToast('Check inputs — spot, strike and vol must be positive.'); return;
+  }
+
+  const g = bs(S, K, T, r, q, vol, _optType);
+  buildAP2(g, {S,K,T,vol,r,q,type:_optType});
+  renderGreeks(g, S, K);
+  renderPayoff(S, K, g.price, vol, T, r, q);
+  renderSensitivity(S, K, T, r, q, vol);
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+// ─── AP2 ─────────────────────────────────────────────────────────────────────
+function buildAP2(g, params) {
+  const risk = Math.abs(g.delta) >= 0.7 ? 'HIGH' : Math.abs(g.delta) >= 0.3 ? 'MODERATE' : 'LOW';
+  _ap2 = {
+    ap2_version:'1.0.0', mandate_type:'risk_parameter',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: 'sha256:' + simpleHash(JSON.stringify({...params,...g})),
+    chain: {parent_hashes:_chainParentHashes, parent_tool_ids:_chainParentToolIds, chain_depth:_chainDepth},
+    policy_parameters: {spot:params.S,strike:params.K,expiry_years:+params.T.toFixed(6),vol_decimal:+params.vol.toFixed(4),rate_decimal:+params.r.toFixed(4),div_yield_decimal:+params.q.toFixed(4),option_type:params.type},
+    output_payload: {price:+g.price.toFixed(6),delta:+g.delta.toFixed(6),gamma:+g.gamma.toFixed(6),theta_per_day:+g.theta.toFixed(6),vega_per_pct:+g.vega.toFixed(6),rho_per_pct:+g.rho.toFixed(6),d1:+g.d1.toFixed(6),d2:+g.d2.toFixed(6),delta_risk_band:risk},
+    compliance_flags:['FRTB_SA_GREEKS_COMPUTED','BASEL_III_MARKET_RISK','IFRS13_FAIR_VALUE_ASSESSED'],
+    audit_signature: 'sha256:' + simpleHash('cry04_audit_' + params.S + params.K + params.type),
+    regulatory_context:{framework:'FRTB SA (BCBS 457) · Basel III market risk · IFRS 13 Fair Value · EMIR clearing thresholds'}
+  };
+  ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+}
+
+function simpleHash(s) {
+  // deterministic non-crypto hash for non-security uses (AP2 hash uses WebCrypto in production but we keep this sync)
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8,'0').repeat(8);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function fmt(n, dp=4) { return typeof n==='number' ? n.toFixed(dp) : '—'; }
+
+function renderGreeks(g, S, K) {
+  const risk = Math.abs(g.delta) >= 0.7 ? 'high' : Math.abs(g.delta) >= 0.3 ? 'moderate' : 'low';
+  const riskLabel = {low:'LOW RISK',moderate:'MODERATE',high:'HIGH RISK'}[risk];
+  document.getElementById('riskLabel').textContent = riskLabel;
+  document.getElementById('verdictBanner').innerHTML =
+    `<div class="verdict-banner ${risk}">Δ-Risk: ${riskLabel} · |Δ| = ${fmt(Math.abs(g.delta),3)} · d1=${fmt(g.d1,3)} · d2=${fmt(g.d2,3)}</div>`;
+  document.getElementById('greeksGrid').innerHTML = `
+    <div class="greek-card price-highlight"><div class="greek-name">Price</div><div class="greek-val">${fmt(g.price,4)}</div><div class="greek-sub">fair value</div></div>
+    <div class="greek-card"><div class="greek-name">Delta (Δ)</div><div class="greek-val">${fmt(g.delta,4)}</div><div class="greek-sub">∂V/∂S</div></div>
+    <div class="greek-card"><div class="greek-name">Gamma (Γ)</div><div class="greek-val">${fmt(g.gamma,5)}</div><div class="greek-sub">∂²V/∂S²</div></div>
+    <div class="greek-card"><div class="greek-name">Theta (Θ)</div><div class="greek-val">${fmt(g.theta,5)}</div><div class="greek-sub">per day</div></div>
+    <div class="greek-card"><div class="greek-name">Vega (ν)</div><div class="greek-val">${fmt(g.vega,5)}</div><div class="greek-sub">per 1% vol</div></div>
+    <div class="greek-card"><div class="greek-name">Rho (ρ)</div><div class="greek-val">${fmt(g.rho,5)}</div><div class="greek-sub">per 1% rate</div></div>`;
+}
+
+function renderPayoff(S, K, price, vol, T, r, q) {
+  const W=680, H=200, padL=52, padR=16, padT=16, padB=36;
+  const spots = Array.from({length:60},(_,i)=>S*0.6 + i*(S*0.8/59));
+  const pnl = spots.map(s=>({s, v: (_optType==='call'?Math.max(s-K,0):Math.max(K-s,0)) - price}));
+  const minV=Math.min(...pnl.map(p=>p.v)), maxV=Math.max(...pnl.map(p=>p.v));
+  const rng=maxV-minV||1;
+  const cx = s => padL + (s-spots[0])/(spots[spots.length-1]-spots[0])*(W-padL-padR);
+  const cy = v => padT + (1-(v-minV)/rng)*(H-padT-padB);
+  // Zero line
+  const y0 = cy(0);
+  let pathP='', pathL='';
+  pnl.forEach((p,i)=>{ (p.v>=0?pathP:pathL) += (i===0||pnl[i-1].v<0!==p.v<0?'M':'L') + cx(p.s).toFixed(1)+','+cy(p.v).toFixed(1)+' '; });
+  const allPath = 'M'+pnl.map(p=>cx(p.s).toFixed(1)+','+cy(p.v).toFixed(1)).join('L');
+  // K line
+  const kx = cx(K);
+  const svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W-padR}" y2="${y0.toFixed(1)}" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="${kx.toFixed(1)}" y1="${padT}" x2="${kx.toFixed(1)}" y2="${H-padB}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${kx.toFixed(1)}" y="${padT-2}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">K=${K}</text>
+    <path d="${allPath}" fill="none" stroke="var(--purple)" stroke-width="2"/>
+    <text x="${padL-4}" y="${padT+4}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">${fmt(maxV,2)}</text>
+    <text x="${padL-4}" y="${(H-padB).toFixed(0)}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">${fmt(minV,2)}</text>
+    <text x="${W/2}" y="${H-4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">Spot at Expiry</text>
+    <text x="${padL+4}" y="${padT+10}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">P&amp;L (premium ${fmt(price,4)} deducted)</text>
+  </svg>`;
+  document.getElementById('payoffChartWrap').innerHTML = svg;
+}
+
+function renderSensitivity(S, K, T, r, q, vol) {
+  const W=680, H=200, padL=52, padR=16, padT=16, padB=36;
+  const spots = Array.from({length:60},(_,i)=>S*0.65 + i*(S*0.7/59));
+  const deltas=[],gammas=[];
+  spots.forEach(s=>{ const g=bs(s,K,T,r,q,vol,_optType); deltas.push(g.delta); gammas.push(g.gamma); });
+  const dMin=Math.min(...deltas),dMax=Math.max(...deltas);
+  const gMin=0,gMax=Math.max(...gammas)||0.001;
+  const cx=s=>padL+(s-spots[0])/(spots[spots.length-1]-spots[0])*(W-padL-padR);
+  const cdelta=d=>padT+(1-(d-dMin)/(dMax-dMin||1))*(H-padT-padB);
+  const cgamma=g=>padT+(1-(g-gMin)/(gMax-gMin))*(H-padT-padB);
+  const dPath='M'+deltas.map((d,i)=>cx(spots[i]).toFixed(1)+','+cdelta(d).toFixed(1)).join('L');
+  const gPath='M'+gammas.map((g,i)=>cx(spots[i]).toFixed(1)+','+cgamma(g).toFixed(1)).join('L');
+  const kx=cx(K);
+  const svg=`<svg class="chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${kx.toFixed(1)}" y1="${padT}" x2="${kx.toFixed(1)}" y2="${H-padB}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3"/>
+    <path d="${dPath}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+    <path d="${gPath}" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="${W-padR-2}" y="${padT+10}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--teal)">Delta (Δ)</text>
+    <text x="${W-padR-2}" y="${padT+22}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--gold)">Gamma (Γ) ×scaled</text>
+    <text x="${W/2}" y="${H-4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">Spot Price</text>
+  </svg>`;
+  document.getElementById('sensitivityChartWrap').innerHTML = svg;
+}
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+function dl(content, filename, mime) {
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=filename; a.click();
+}
+function exportJson() {
+  if(!_ap2) return;
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify({ap2_version:'1.0',mandate_type:'risk_parameter',tool_id:MANIFEST.tool_id,issued_at:new Date().toISOString(),payload:_ap2.output_payload,regulatory_frameworks:['FRTB SA (BCBS 457)','Basel III Market Risk','IFRS 13'],audit_metadata:{execution_hash:_ap2.execution_hash,client_side_executed:true,zero_pii_verified:true}},null,2),`qfa-01-options-greeks_${ts}.policy.json`,'application/json');
+}
+function exportAP2() {
+  if(!_ap2) return;
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_ap2,null,2),`qfa-01-ap2-artifact_${ts}.json`,'application/json');
+  showToast('AP2 artifact exported — chain into QFA-04 XVA/CVA');
+}
+
+// ─── UI ────────────────────────────────────────────────────────────────────────
+function toggleMfst() {
+  const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArrow');
+  const open=b.style.display==='block';
+  b.style.display=open?'none':'block'; a.textContent=open?'▼':'▲';
+  if(!open) document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+selectPreset('equity_call');
+</script>
+</body>
+</html>

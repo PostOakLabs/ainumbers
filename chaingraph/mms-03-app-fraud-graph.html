@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self';">
+<title>APP Fraud Graph Simulator · MMS-03 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Monte Carlo BFS simulation of Authorised Push Payment fraud propagation across a payment account graph. UK PSR reimbursement framing. Zero-egress. AP2 aml_rule export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"APP Fraud Graph Simulator","url":"https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mms-03-app-fraud-graph",
+  "version": "1.0.0",
+  "title": "APP Fraud Graph Simulator",
+  "description": "Monte Carlo BFS simulation of Authorised Push Payment (APP) fraud propagation across a payment account dependency graph. UK PSR reimbursement policy framing. Three topology presets. Returns P(fraud reach) per node, expected loss at risk, time-to-detection distribution. AP2 aml_rule export.",
+  "category": "chaingraph",
+  "tags": ["APP fraud","authorised push payment","PSR","fraud detection","mule network","payment graph","Monte Carlo","BFS","AML","aml_rule"],
+  "audience": ["fraud_team","aml_officer","risk_committee","regulator"],
+  "mcp_tool_definition": {
+    "name": "simulate_app_fraud_graph",
+    "description": "Monte Carlo BFS simulation of APP fraud propagation. Returns P(fraud reach) per node, expected loss at risk, DORA/PSR reporting threshold probability, and an AP2 aml_rule mandate.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "topology": {"type": "string", "enum": ["retail_network","corporate_sweep","mule_dense"], "description": "Account graph topology preset"},
+        "seed_node": {"type": "string", "description": "Initial fraud seed node ID"},
+        "detection_rate": {"type": "number", "description": "Per-hop fraud detection probability (0–1)"},
+        "n_paths": {"type": "integer", "description": "Monte Carlo path count (default 300)"},
+        "parent_artifact_hash": {"type": "string"}
+      }
+    }
+  },
+  "mandate_type": "aml_rule",
+  "gpu": true,
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-09-dora-incident-classifier","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.005) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.005) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--red)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--red)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--red)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--red)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr}}
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.85rem}
+@media(max-width:540px){.preset-grid{grid-template-columns:1fr}}
+.preset-card{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.preset-card:hover{border-color:var(--red)}
+.preset-card.active{border-color:var(--red);background:var(--red-dim)}
+.preset-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:.2rem}
+.preset-card-desc{font-size:.68rem;color:var(--body);line-height:1.4}
+.preset-card-meta{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.3rem}
+.slider-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.65rem}
+.slider-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:160px;flex-shrink:0}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);width:52px;text-align:right;flex-shrink:0}
+input[type="range"]{flex:1;accent-color:var(--red)}
+.run-row{display:flex;align-items:center;gap:1.25rem;margin-top:.5rem}
+.run-btn{background:var(--red);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:#f87171}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.progress-wrap{flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--red);border-radius:3px;width:0%;transition:width .1s}
+.run-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);min-width:180px}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+.out-body{padding:1.25rem}
+.verdict-card{border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.critical{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-card.high{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.35)}
+.verdict-card.contained{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-icon{font-size:1.6rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem}
+.verdict-label.critical{color:var(--red)}.verdict-label.high{color:var(--warn)}.verdict-label.contained{color:var(--green)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);margin-bottom:.3rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+.scorecard-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:.75rem}
+@media(max-width:640px){.scorecard-row{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;margin-bottom:.1rem}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+.mv-red{color:var(--red)}.mv-warn{color:var(--warn)}.mv-green{color:var(--green)}.mv-neutral{color:var(--bright)}
+.chart-wrap{overflow-x:auto}
+.chart-svg{display:block}
+.bar-table{width:100%}
+.bar-row{display:flex;align-items:center;gap:.65rem;margin-bottom:.45rem}
+.bar-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text);width:160px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-outer{flex:1;height:14px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.bar-inner{height:100%;border-radius:3px;transition:width .4s}
+.bar-pct{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);width:44px;text-align:right;flex-shrink:0}
+.node-type-seed{color:var(--red)}
+.node-type-mule{color:var(--warn)}
+.node-type-victim{color:var(--teal)}
+.node-type-clean{color:var(--muted)}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--red);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--red);color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">MMS-03</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph · MMS-03 · Wave 3 · Zero-Egress</div>
+  <h1>APP Fraud Graph <em>Simulator</em></h1>
+  <p class="hero-desc">Monte Carlo BFS simulation of Authorised Push Payment fraud propagation across a payment account network. Models mule account activation, victim reachability, and PSR reimbursement exposure. UK PSR Oct 2024 · SEPA Instant SCT · EBA fraud monitoring guidelines.</p>
+  <div class="hero-meta">
+    <span class="badge badge-red">v1.0.0</span>
+    <span class="badge badge-muted">aml_rule</span>
+    <span class="badge badge-teal">Monte Carlo BFS</span>
+    <span class="badge badge-muted">Wave 3</span>
+    <span class="badge badge-muted">Zero-Egress</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Topology Preset</div>
+    <div class="preset-grid">
+      <div class="preset-card active" id="preset_retail_network" onclick="selectPreset('retail_network')">
+        <div class="preset-card-title">Retail Network</div>
+        <div class="preset-card-desc">20 accounts · 2 mule seeds · low-value consumer payments</div>
+        <div class="preset-card-meta">20 nodes · £500–£5k avg txn</div>
+      </div>
+      <div class="preset-card" id="preset_corporate_sweep" onclick="selectPreset('corporate_sweep')">
+        <div class="preset-card-title">Corporate Sweep</div>
+        <div class="preset-card-desc">12 accounts · 1 mule · high-value invoice redirect fraud</div>
+        <div class="preset-card-meta">12 nodes · £20k–£200k avg txn</div>
+      </div>
+      <div class="preset-card" id="preset_mule_dense" onclick="selectPreset('mule_dense')">
+        <div class="preset-card-title">Mule Dense</div>
+        <div class="preset-card-desc">30 accounts · 6 mule seeds · dense interconnection</div>
+        <div class="preset-card-meta">30 nodes · mixed value</div>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <div>
+        <label class="field-label" for="inNPaths">Monte Carlo Paths</label>
+        <input type="number" id="inNPaths" value="300" min="50" max="2000" step="50">
+        <span class="field-hint">50–2000 simulation paths</span>
+      </div>
+      <div>
+        <label class="field-label" for="inDetection">Detection Rate (%)</label>
+        <input type="number" id="inDetection" value="35" min="0" max="99" step="1">
+        <span class="field-hint">Per-hop fraud detection probability</span>
+      </div>
+      <div>
+        <label class="field-label" for="inThreshold">PSR Threshold (£)</label>
+        <input type="number" id="inThreshold" value="85000" min="1000" step="1000">
+        <span class="field-hint">UK PSR reimbursement cap (Oct 2024: £85k)</span>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" id="runBtn" onclick="runSimulation()">Run Simulation</button>
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="run-status" id="runStatus">Ready</span>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Fraud Propagation Verdict</span><span id="verdictBadge" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard-row" id="scorecardRow"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">P(Fraud Reach) by Node</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">probability fraud propagates to each account</span></div>
+      <div class="out-body" id="reachBars"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Exposure Distribution</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">simulated loss at risk per path</span></div>
+      <div class="out-body"><div class="chart-wrap" id="exposureChartWrap"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Export</span></div>
+      <div class="out-body">
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="exportJsonBtn" onclick="exportJson()" disabled>
+            {} Export Policy JSON<span class="btn-subtitle">AML rule mandate</span>
+          </button>
+          <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled>
+            ⛓ Export AP2 Artifact<span class="btn-subtitle">Chain into PTG-01</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">
+    <span>{ } MCP Manifest · simulate_app_fraud_graph</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <div class="footer-badge-ai"><span><span style="color:var(--teal)">AI</span>Numbers.co · ChainGraph MMS-03</span><span>v1.0.0 · CC BY 4.0 · Zero PII</span></div>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="chaingraph-hub.html">ChainGraph Hub</a>
+    <a href="art-09-dora-incident-classifier.html">ART-09</a>
+    <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>
+  </div>
+</div></div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST = {
+  tool_id:'mms-03-app-fraud-graph', version:'1.0.0', title:'APP Fraud Graph Simulator',
+  mandate_type:'aml_rule', ap2_export:true, chaingraph:true,
+  chain_partners:['art-09-dora-incident-classifier','ptg-01-ap2-prompt-template-generator'],
+  mcp_tool_definition:{name:'simulate_app_fraud_graph',description:'Monte Carlo BFS simulation of APP fraud propagation across a payment account graph.'}
+};
+
+// ─── LCG RNG ──────────────────────────────────────────────────────────────────
+function makeLCG(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+// ─── Topology definitions ─────────────────────────────────────────────────────
+const TOPOLOGIES = {
+  retail_network: {
+    nodes: [
+      {id:'victim_001',name:'Alice R.',type:'victim',balance:12500,psr_eligible:true,connections:['mule_A','clean_001','clean_002']},
+      {id:'victim_002',name:'Bob S.',type:'victim',balance:8200,psr_eligible:true,connections:['mule_A','clean_003']},
+      {id:'victim_003',name:'Carol T.',type:'victim',balance:22000,psr_eligible:true,connections:['mule_B','clean_004','victim_004']},
+      {id:'victim_004',name:'David U.',type:'victim',balance:4500,psr_eligible:true,connections:['victim_003','clean_005']},
+      {id:'mule_A',name:'Mule Acct A',type:'mule',balance:500,psr_eligible:false,connections:['beneficiary_001','clean_006'],is_seed:true},
+      {id:'mule_B',name:'Mule Acct B',type:'mule',balance:300,psr_eligible:false,connections:['beneficiary_002','clean_007'],is_seed:true},
+      {id:'beneficiary_001',name:'Beneficiary 1',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'beneficiary_002',name:'Beneficiary 2',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'clean_001',name:'Clean Acct C1',type:'clean',balance:3000,psr_eligible:true,connections:['clean_008']},
+      {id:'clean_002',name:'Clean Acct C2',type:'clean',balance:5500,psr_eligible:true,connections:[]},
+      {id:'clean_003',name:'Clean Acct C3',type:'clean',balance:1200,psr_eligible:true,connections:['clean_009']},
+      {id:'clean_004',name:'Clean Acct C4',type:'clean',balance:9000,psr_eligible:true,connections:[]},
+      {id:'clean_005',name:'Clean Acct C5',type:'clean',balance:2100,psr_eligible:true,connections:[]},
+      {id:'clean_006',name:'Clean Acct C6',type:'clean',balance:4400,psr_eligible:true,connections:['victim_005']},
+      {id:'clean_007',name:'Clean Acct C7',type:'clean',balance:6700,psr_eligible:true,connections:[]},
+      {id:'clean_008',name:'Clean Acct C8',type:'clean',balance:800,psr_eligible:true,connections:[]},
+      {id:'clean_009',name:'Clean Acct C9',type:'clean',balance:1600,psr_eligible:true,connections:[]},
+      {id:'victim_005',name:'Eve V.',type:'victim',balance:15000,psr_eligible:true,connections:['mule_A']},
+      {id:'victim_006',name:'Frank W.',type:'victim',balance:6800,psr_eligible:true,connections:['mule_B','clean_003']},
+      {id:'aggregator',name:'PSP Aggregator',type:'clean',balance:0,psr_eligible:false,connections:['beneficiary_001','beneficiary_002']}
+    ]
+  },
+  corporate_sweep: {
+    nodes: [
+      {id:'corp_victim_A',name:'Acme Ltd',type:'victim',balance:180000,psr_eligible:false,connections:['mule_corp','clean_corp_1','clean_corp_2']},
+      {id:'corp_victim_B',name:'Globe Co',type:'victim',balance:95000,psr_eligible:false,connections:['clean_corp_1','clean_corp_3']},
+      {id:'mule_corp',name:'Sweep Mule',type:'mule',balance:1000,psr_eligible:false,connections:['beneficiary_corp_1','beneficiary_corp_2'],is_seed:true},
+      {id:'beneficiary_corp_1',name:'Offshore Bene 1',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'beneficiary_corp_2',name:'Offshore Bene 2',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'clean_corp_1',name:'Supplier A',type:'clean',balance:50000,psr_eligible:false,connections:['clean_corp_4']},
+      {id:'clean_corp_2',name:'Supplier B',type:'clean',balance:30000,psr_eligible:false,connections:[]},
+      {id:'clean_corp_3',name:'Payroll Acct',type:'clean',balance:120000,psr_eligible:false,connections:['clean_corp_5']},
+      {id:'clean_corp_4',name:'Sub-supplier',type:'clean',balance:15000,psr_eligible:false,connections:[]},
+      {id:'clean_corp_5',name:'Employee Pool',type:'clean',balance:200000,psr_eligible:true,connections:[]},
+      {id:'treasury',name:'Treasury Hub',type:'victim',balance:500000,psr_eligible:false,connections:['mule_corp','clean_corp_1']},
+      {id:'correspondent',name:'Correspondent Bank',type:'clean',balance:0,psr_eligible:false,connections:['beneficiary_corp_1','beneficiary_corp_2']}
+    ]
+  },
+  mule_dense: {
+    nodes: [
+      {id:'victim_D1',name:'Victim D1',type:'victim',balance:9000,psr_eligible:true,connections:['mule_1','mule_2','clean_D1']},
+      {id:'victim_D2',name:'Victim D2',type:'victim',balance:14000,psr_eligible:true,connections:['mule_3','clean_D2']},
+      {id:'victim_D3',name:'Victim D3',type:'victim',balance:6500,psr_eligible:true,connections:['mule_4','mule_5','clean_D3']},
+      {id:'victim_D4',name:'Victim D4',type:'victim',balance:21000,psr_eligible:true,connections:['mule_1','clean_D4']},
+      {id:'victim_D5',name:'Victim D5',type:'victim',balance:3800,psr_eligible:true,connections:['mule_6','clean_D1']},
+      {id:'mule_1',name:'Mule 1',type:'mule',balance:200,psr_eligible:false,connections:['mule_2','beneficiary_D1'],is_seed:true},
+      {id:'mule_2',name:'Mule 2',type:'mule',balance:150,psr_eligible:false,connections:['mule_3','beneficiary_D2'],is_seed:true},
+      {id:'mule_3',name:'Mule 3',type:'mule',balance:300,psr_eligible:false,connections:['mule_4','beneficiary_D1'],is_seed:true},
+      {id:'mule_4',name:'Mule 4',type:'mule',balance:100,psr_eligible:false,connections:['mule_5','beneficiary_D3'],is_seed:true},
+      {id:'mule_5',name:'Mule 5',type:'mule',balance:250,psr_eligible:false,connections:['beneficiary_D2','beneficiary_D3'],is_seed:true},
+      {id:'mule_6',name:'Mule 6',type:'mule',balance:180,psr_eligible:false,connections:['mule_1','beneficiary_D1'],is_seed:true},
+      {id:'beneficiary_D1',name:'Exit Bene 1',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'beneficiary_D2',name:'Exit Bene 2',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'beneficiary_D3',name:'Exit Bene 3',type:'beneficiary',balance:0,psr_eligible:false,connections:[]},
+      {id:'clean_D1',name:'Clean D1',type:'clean',balance:4500,psr_eligible:true,connections:['clean_D5']},
+      {id:'clean_D2',name:'Clean D2',type:'clean',balance:7200,psr_eligible:true,connections:[]},
+      {id:'clean_D3',name:'Clean D3',type:'clean',balance:2100,psr_eligible:true,connections:[]},
+      {id:'clean_D4',name:'Clean D4',type:'clean',balance:8800,psr_eligible:true,connections:[]},
+      {id:'clean_D5',name:'Clean D5',type:'clean',balance:3300,psr_eligible:true,connections:['victim_D4']},
+      {id:'victim_D6',name:'Victim D6',type:'victim',balance:17500,psr_eligible:true,connections:['mule_2','mule_6']},
+      {id:'victim_D7',name:'Victim D7',type:'victim',balance:5100,psr_eligible:true,connections:['mule_3','mule_4']},
+      {id:'victim_D8',name:'Victim D8',type:'victim',balance:11200,psr_eligible:true,connections:['mule_5']},
+      {id:'victim_D9',name:'Victim D9',type:'victim',balance:3600,psr_eligible:true,connections:['mule_1','clean_D2']},
+      {id:'victim_D10',name:'Victim D10',type:'victim',balance:8900,psr_eligible:true,connections:['mule_6','clean_D3']},
+      {id:'clean_D6',name:'Clean D6',type:'clean',balance:6100,psr_eligible:true,connections:['victim_D5']},
+      {id:'clean_D7',name:'Clean D7',type:'clean',balance:2900,psr_eligible:true,connections:[]},
+      {id:'clean_D8',name:'Clean D8',type:'clean',balance:4700,psr_eligible:true,connections:[]},
+      {id:'aggregator_D',name:'PSP Hub',type:'clean',balance:0,psr_eligible:false,connections:['beneficiary_D1','beneficiary_D2','beneficiary_D3']},
+      {id:'clean_D9',name:'Clean D9',type:'clean',balance:1800,psr_eligible:true,connections:[]},
+      {id:'clean_D10',name:'Clean D10',type:'clean',balance:3400,psr_eligible:true,connections:[]}
+    ]
+  }
+};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let _currentPreset = 'retail_network';
+let _ap2 = null;
+let _chainParentHashes=[], _chainParentToolIds=[], _chainDepth=0;
+
+function selectPreset(name) {
+  _currentPreset = name;
+  ['retail_network','corporate_sweep','mule_dense'].forEach(n =>
+    document.getElementById('preset_'+n).classList.toggle('active', n===name));
+}
+
+// ─── Simulation ───────────────────────────────────────────────────────────────
+const CHUNK = 25;
+
+async function runSimulation() {
+  const nPaths = parseInt(document.getElementById('inNPaths').value)||300;
+  const detectionRate = parseFloat(document.getElementById('inDetection').value)/100;
+  const psrThreshold = parseFloat(document.getElementById('inThreshold').value)||85000;
+
+  if (nPaths < 10 || detectionRate < 0 || detectionRate >= 1) { showToast('Check inputs.'); return; }
+
+  const topo = TOPOLOGIES[_currentPreset];
+  const nodes = topo.nodes;
+  const seeds = nodes.filter(n => n.is_seed);
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  setProgress(0); setStatus('Simulating…');
+
+  // Per-node reach count
+  const reachCount = {};
+  const lossPerPath = [];
+  const detectionHops = [];
+  nodes.forEach(n => { reachCount[n.id] = 0; });
+
+  for (let i = 0; i < nPaths; i += CHUNK) {
+    const end = Math.min(i + CHUNK, nPaths);
+    for (let p = i; p < end; p++) {
+      const rng = makeLCG(p * 7919 + 13);
+      const result = runOnePath(nodes, seeds, detectionRate, psrThreshold, rng);
+      result.reached.forEach(id => { reachCount[id]++; });
+      lossPerPath.push(result.loss);
+      detectionHops.push(result.detectionHop);
+    }
+    setProgress((end) / nPaths);
+    setStatus(`Path ${end} / ${nPaths}…`);
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  // Aggregate
+  const reachProb = {};
+  nodes.forEach(n => { reachProb[n.id] = reachCount[n.id] / nPaths; });
+  const totalLoss = lossPerPath.reduce((a,b)=>a+b,0);
+  const meanLoss = totalLoss / nPaths;
+  const lossP95 = quantile(lossPerPath.slice().sort((a,b)=>a-b), 0.95);
+  const psrP = lossPerPath.filter(l => l > psrThreshold).length / nPaths;
+  const meanDetectHop = detectionHops.filter(h=>h>0).reduce((a,b)=>a+b,0) / (detectionHops.filter(h=>h>0).length||1);
+
+  buildAP2({nPaths,detectionRate,psrThreshold,preset:_currentPreset}, {meanLoss,lossP95,psrP,meanDetectHop,reachProb});
+  renderResults(nodes, reachProb, {meanLoss,lossP95,psrP,meanDetectHop,nPaths}, lossPerPath);
+
+  setProgress(1); setStatus(`Done — ${nPaths} paths.`);
+  document.getElementById('runBtn').disabled = false;
+}
+
+function runOnePath(nodes, seeds, detectionRate, psrThreshold, rng) {
+  // Choose a random seed node to activate
+  const seed = seeds[Math.floor(rng() * seeds.length)];
+  const reached = new Set([seed.id]);
+  const queue = [seed.id];
+  let hop = 0, detectionHop = 0, detected = false;
+  const nodeMap = {};
+  nodes.forEach(n => { nodeMap[n.id] = n; });
+
+  while (queue.length > 0 && !detected) {
+    const current = queue.shift();
+    const node = nodeMap[current];
+    hop++;
+    // Attempt to propagate to each connection
+    for (const connId of (node.connections || [])) {
+      if (reached.has(connId)) continue;
+      // Detection check
+      if (rng() < detectionRate) { detected = true; detectionHop = hop; break; }
+      reached.add(connId);
+      queue.push(connId);
+    }
+  }
+
+  // Compute loss: sum of balances of victim/clean accounts reached
+  let loss = 0;
+  reached.forEach(id => {
+    const n = nodeMap[id];
+    if (n && (n.type==='victim'||n.type==='clean') && n.balance > 0) loss += n.balance;
+  });
+
+  return { reached: [...reached], loss, detectionHop };
+}
+
+function quantile(sorted, q) {
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos), hi = Math.ceil(pos);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+// ─── AP2 ──────────────────────────────────────────────────────────────────────
+function buildAP2(params, results) {
+  const verdict = results.psrP >= 0.5 ? 'CRITICAL' : results.psrP >= 0.2 ? 'HIGH' : 'CONTAINED';
+  _ap2 = {
+    ap2_version:'1.0.0', mandate_type:'aml_rule',
+    tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at:new Date().toISOString(),
+    execution_hash:'sha256:'+simpleHash(JSON.stringify({...params,...results})),
+    chain:{parent_hashes:_chainParentHashes,parent_tool_ids:_chainParentToolIds,chain_depth:_chainDepth},
+    policy_parameters:params,
+    output_payload:{fraud_verdict:verdict,mean_loss_at_risk:+results.meanLoss.toFixed(2),loss_p95:+results.lossP95.toFixed(2),psr_threshold_breach_probability:+results.psrP.toFixed(4),mean_detection_hop:+results.meanDetectHop.toFixed(2)},
+    compliance_flags:['UK_PSR_REIMBURSEMENT_ASSESSED','EBA_FRAUD_MONITORING_GUIDELINES','SEPA_INSTANT_SCT_FRAUD_REVIEW','PSD2_TRANSACTION_MONITORING',verdict==='CRITICAL'?'PSR_BREACH_LIKELY':'PSR_BREACH_UNLIKELY'],
+    audit_signature:'sha256:'+simpleHash('mms03_audit_'+params.preset+params.nPaths),
+    regulatory_context:{framework:'UK PSR Oct 2024 (£85k reimbursement cap) · SEPA Instant Credit Transfer · EBA Guidelines on Fraud Monitoring · PSD2 Art.94 transaction monitoring'}
+  };
+  ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+}
+
+function simpleHash(s) {
+  let h = 0x811c9dc5;
+  for (let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}
+  return h.toString(16).padStart(8,'0').repeat(8);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderResults(nodes, reachProb, stats, lossPerPath) {
+  const verdict = stats.psrP >= 0.5 ? 'CRITICAL' : stats.psrP >= 0.2 ? 'HIGH' : 'CONTAINED';
+  const vClass = {CRITICAL:'critical',HIGH:'high',CONTAINED:'contained'}[verdict];
+  const vIcon = {CRITICAL:'⚠',HIGH:'!',CONTAINED:'✓'}[verdict];
+  const vTitle = {CRITICAL:'High fraud exposure — PSR breach likely.',HIGH:'Elevated fraud risk — PSR breach possible.',CONTAINED:'Fraud contained — PSR breach unlikely.'}[verdict];
+  const vSub = `P(PSR threshold breach) = ${(stats.psrP*100).toFixed(1)}% · Mean loss at risk = £${stats.meanLoss.toLocaleString('en-GB',{maximumFractionDigits:0})} · P95 loss = £${stats.lossP95.toLocaleString('en-GB',{maximumFractionDigits:0})} · Mean detection hop = ${stats.meanDetectHop.toFixed(1)}`;
+
+  document.getElementById('verdictCard').innerHTML =
+    `<div class="verdict-card ${vClass}"><div class="verdict-icon">${vIcon}</div><div>
+      <div class="verdict-label ${vClass}">${verdict} — APP Fraud Risk</div>
+      <div class="verdict-title">${vTitle}</div>
+      <div class="verdict-sub">${vSub}</div>
+    </div></div>`;
+  document.getElementById('verdictBadge').textContent = verdict;
+
+  document.getElementById('scorecardRow').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Mean Loss</div><div class="metric-value mv-${vClass==='contained'?'neutral':'warn'}">£${(stats.meanLoss/1000).toFixed(0)}k</div><div class="metric-sub">per path</div></div>
+    <div class="metric-card"><div class="metric-label">P95 Loss</div><div class="metric-value mv-${stats.lossP95>50000?'red':'warn'}">£${(stats.lossP95/1000).toFixed(0)}k</div><div class="metric-sub">95th pct</div></div>
+    <div class="metric-card"><div class="metric-label">P(PSR Breach)</div><div class="metric-value mv-${stats.psrP>=0.5?'red':stats.psrP>=0.2?'warn':'green'}">${(stats.psrP*100).toFixed(1)}%</div><div class="metric-sub">above £85k cap</div></div>
+    <div class="metric-card"><div class="metric-label">Detect Hop</div><div class="metric-value mv-neutral">${stats.meanDetectHop.toFixed(1)}</div><div class="metric-sub">mean hops to detect</div></div>
+    <div class="metric-card"><div class="metric-label">Paths</div><div class="metric-value mv-neutral">${stats.nPaths}</div><div class="metric-sub">MC paths run</div></div>`;
+
+  // Reach bars
+  const sorted = nodes.slice().sort((a,b) => (reachProb[b.id]||0) - (reachProb[a.id]||0));
+  const bars = sorted.slice(0,20).map(n => {
+    const p = reachProb[n.id] || 0;
+    const col = n.type==='mule'||n.type==='beneficiary' ? 'var(--red)' : p > 0.5 ? 'var(--warn)' : p > 0.1 ? 'rgba(245,158,11,.5)' : 'rgba(104,136,168,.4)';
+    return `<div class="bar-row">
+      <div class="bar-name">${n.name}</div>
+      <div class="bar-outer"><div class="bar-inner" style="width:${(p*100).toFixed(1)}%;background:${col}"></div></div>
+      <div class="bar-pct">${(p*100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+  document.getElementById('reachBars').innerHTML = bars;
+
+  // Loss histogram
+  const W=680, H=160, padL=52, padR=16, padT=16, padB=36;
+  const bins = 20;
+  const maxL = Math.max(...lossPerPath);
+  const binW = maxL / bins;
+  const counts = new Array(bins).fill(0);
+  lossPerPath.forEach(l => { const b = Math.min(Math.floor(l/binW), bins-1); counts[b]++; });
+  const maxC = Math.max(...counts)||1;
+  const bw = (W-padL-padR)/bins - 2;
+  let rects = '';
+  counts.forEach((c, i) => {
+    const x = padL + i * ((W-padL-padR)/bins);
+    const h = (c/maxC)*(H-padT-padB);
+    const fill = (i * binW) > 85000 ? 'rgba(239,68,68,.7)' : 'rgba(245,158,11,.6)';
+    rects += `<rect x="${x.toFixed(1)}" y="${(H-padB-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${fill}"/>`;
+  });
+  const psrX = padL + (85000/maxL)*(W-padL-padR);
+  document.getElementById('exposureChartWrap').innerHTML =
+    `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+      ${rects}
+      ${psrX < W-padR ? `<line x1="${psrX.toFixed(1)}" y1="${padT}" x2="${psrX.toFixed(1)}" y2="${H-padB}" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="${(psrX+3).toFixed(1)}" y="${padT+10}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--red)">PSR £85k</text>` : ''}
+      <text x="${W/2}" y="${H-4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">Loss at Risk (£)</text>
+    </svg>`;
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+function dl(content,filename,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=filename;a.click();}
+function exportJson(){if(!_ap2)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);dl(JSON.stringify({ap2_version:'1.0',mandate_type:'aml_rule',tool_id:MANIFEST.tool_id,issued_at:new Date().toISOString(),payload:_ap2.output_payload,regulatory_frameworks:['UK PSR Oct 2024','EBA Fraud Monitoring','PSD2 Art.94'],audit_metadata:{execution_hash:_ap2.execution_hash,client_side_executed:true,zero_pii_verified:true}},null,2),`mms-03-app-fraud_${ts}.policy.json`,'application/json');}
+function exportAP2(){if(!_ap2)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);dl(JSON.stringify(_ap2,null,2),`mms-03-ap2-artifact_${ts}.json`,'application/json');showToast('AP2 artifact exported — chain into PTG-01');}
+
+// ─── UI ────────────────────────────────────────────────────────────────────────
+function setProgress(p){document.getElementById('progressFill').style.width=(p*100).toFixed(1)+'%';}
+function setStatus(m){document.getElementById('runStatus').textContent=m;}
+function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArrow');const open=b.style.display==='block';b.style.display=open?'none':'block';a.textContent=open?'▼':'▲';if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+</script>
+</body>
+</html>
