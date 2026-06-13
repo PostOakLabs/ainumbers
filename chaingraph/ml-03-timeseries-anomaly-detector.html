@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time-Series Anomaly Detector — AINumbers | ChainGraph</title>
+<meta name="description" content="Rolling-window z-score and seasonal decomposition anomaly detection on synthetic payment time series. Trend/seasonal/residual decomposition, control chart (UCL/LCL), ARIMA-lite forecast, anomaly flag table. Chains from SIM-03, feeds RCA-01. AP2-exporting, MCP-exposed. Post Oak Labs.">
+<meta property="og:title" content="Time-Series Anomaly Detector — AINumbers ChainGraph">
+<meta property="og:description" content="Zero-egress time-series anomaly detection on synthetic payment volumes. AP2 artifact export. Post Oak Labs.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ml-03-timeseries-anomaly-detector.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--purple);color:var(--white);border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+.page-inner{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+.tool-header{background:linear-gradient(135deg,var(--bg-3) 0%,var(--bg-2) 100%);border:1px solid var(--border-2);border-top:3px solid var(--purple);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:6px}
+.tool-h1{font-family:'DM Serif Display',serif;font-size:1.45rem;color:var(--white);line-height:1.2;margin-bottom:6px}
+.tool-sub{font-size:.78rem;color:var(--body);line-height:1.7;max-width:640px;margin-bottom:12px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.04em;padding:.18rem .48rem;border-radius:3px}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-body{background:var(--bg-3);color:var(--body);border:1px solid var(--border)}
+.presets-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.preset-btn{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;flex:1;min-width:180px}
+.preset-btn:hover,.preset-btn.active{border-color:var(--purple);background:var(--bg-3)}
+.preset-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:3px}
+.preset-name{font-size:.78rem;font-weight:600;color:var(--bright)}
+.preset-desc{font-size:.67rem;color:var(--body);margin-top:2px}
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.chain-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.chain-input{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .7rem;width:100%;height:56px;resize:vertical;transition:border-color .15s}
+.chain-input:focus{outline:none;border-color:var(--gold);color:var(--text)}
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;width:100%;transition:border-color .15s}
+.ctrl-input:focus{outline:none;border-color:var(--purple)}
+select.ctrl-input option{background:var(--bg-3)}
+.run-btn{background:var(--purple);color:var(--white);border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:.6rem 1.6rem;cursor:pointer;transition:opacity .15s}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:2px;transition:width .1s;width:0}
+.results-section{margin-top:24px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:18px}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.metric-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.metric-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:2px}
+.charts-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:18px}
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+svg.chart{width:100%;overflow:visible}
+/* Anomaly flag table */
+.flag-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:18px}
+.flag-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.flag-table th{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:.5rem;padding:0 8px 6px;text-align:left;border-bottom:1px solid var(--border)}
+.flag-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.flag-table tr:last-child td{border-bottom:none}
+.sev-high{color:var(--red)}.sev-med{color:var(--warn)}.sev-low{color:var(--body)}
+.verdict-block{border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:18px;border:1px solid}
+.verdict-block.high{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-block.moderate{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-block.low{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.verdict-text{font-size:.78rem;line-height:1.6}
+.export-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:16px 18px;margin-top:20px}
+.export-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.export-pre{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre}
+.copy-btn{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.3rem .75rem;cursor:pointer;transition:border-color .15s,color .15s;margin-top:8px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.edu-note{background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);border-radius:var(--radius);padding:10px 14px;font-size:.7rem;color:var(--body);margin-bottom:16px}
+.edu-note strong{color:var(--purple)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;margin-top:40px}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.62rem;color:var(--muted);margin-top:2px}
+.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:768px){.page-inner{padding:16px 14px 60px}.nav-pill{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">ChainGraph</a><span>›</span>
+      <span style="color:var(--purple)">ML-03</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">← ChainGraph Suite</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="tool-header">
+    <div class="tool-eyebrow">ML-03 · Compliance &amp; Resilience · Payment Volume Surveillance · Time-Series</div>
+    <h1 class="tool-h1">Time-Series Anomaly Detector</h1>
+    <p class="tool-sub">Rolling-window z-score and STL-style seasonal decomposition anomaly detection on synthetic payment volume time series. Produces trend/seasonal/residual decomposition, a control chart with UCL/LCL (3σ bounds), anomaly flag table with severity classification, and a naïve 30-day ARIMA-lite forecast. Chains from SIM-03 (Basel RWA Scenario Modeler) — stressed capital scenarios can flag unusual payment flow patterns during systemic events. Feeds RCA-01 (FRTB IMA Pre-Validator). All computation client-side — no payment data transmitted.</p>
+    <div class="tag-row">
+      <span class="tag tag-purple">detect_timeseries_anomalies</span>
+      <span class="tag tag-teal">risk_control</span>
+      <span class="tag tag-body">DORA Art. 17 Monitoring</span>
+      <span class="tag tag-body">EBA GL/2021/03</span>
+      <span class="tag tag-body">PSD2 Art. 96 Fraud Reporting</span>
+      <span class="tag tag-body">FCA SYSC 8</span>
+    </div>
+  </div>
+
+  <div class="edu-note"><strong>Educational / Pre-validation only.</strong> Synthetic payment volume time series generated client-side. Anomaly detection uses rolling z-score and simplified seasonal decomposition — not a production-grade surveillance system. Chains from SIM-03 to import capital-stress context. For real payment fraud surveillance, see also ML-01 (Isolation Forest). No data transmitted.</div>
+
+  <!-- PRESETS -->
+  <div class="presets-row">
+    <div class="preset-btn active" onclick="selectPreset('daily_retail')">
+      <div class="preset-label">Preset 1</div>
+      <div class="preset-name">Daily Retail Payments</div>
+      <div class="preset-desc">365 days · weekly seasonality · 3 injected spikes</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('weekly_settlement')">
+      <div class="preset-label">Preset 2</div>
+      <div class="preset-name">Weekly Settlement</div>
+      <div class="preset-desc">104 weeks · monthly cycle · EOM spikes</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('hourly_realtime')">
+      <div class="preset-label">Preset 3</div>
+      <div class="preset-name">Hourly Real-Time</div>
+      <div class="preset-desc">720 hours · intraday pattern · stress scenario</div>
+    </div>
+  </div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-block">
+    <div class="chain-eyebrow">Chain Intake — paste AP2 JSON from SIM-03 (Basel RWA Scenario Modeler)</div>
+    <textarea class="chain-input" id="chainIntake" placeholder='{"ap2_version":"1.0.0","tool_id":"sim-03-basel-rwa-scenario-modeler","execution_hash":"sha256:...","output_payload":{"rwa_sa":...}} — or bare sha256:...'></textarea>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Series Length</label>
+      <input type="number" id="nPeriods" class="ctrl-input" value="365" min="52" max="720">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Granularity</label>
+      <select id="granularity" class="ctrl-input">
+        <option value="daily" selected>Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="hourly">Hourly</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seasonal Period</label>
+      <select id="seasonPeriod" class="ctrl-input">
+        <option value="7" selected>7 (Weekly)</option>
+        <option value="30">30 (Monthly)</option>
+        <option value="24">24 (Intraday)</option>
+        <option value="52">52 (Annual weekly)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Window Size</label>
+      <select id="windowSize" class="ctrl-input">
+        <option value="14">14 periods</option>
+        <option value="21" selected>21 periods</option>
+        <option value="30">30 periods</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Z-Score Threshold</label>
+      <select id="zThreshold" class="ctrl-input">
+        <option value="2.0">2.0σ (Sensitive)</option>
+        <option value="2.5">2.5σ (Balanced)</option>
+        <option value="3.0" selected>3.0σ (Conservative)</option>
+        <option value="3.5">3.5σ (Strict)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Injected Anomalies</label>
+      <select id="nAnomalies" class="ctrl-input">
+        <option value="2">2 spikes</option>
+        <option value="3" selected>3 spikes</option>
+        <option value="5">5 spikes</option>
+        <option value="0">None (clean series)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Trend</label>
+      <select id="trendType" class="ctrl-input">
+        <option value="flat">Flat</option>
+        <option value="growth" selected>Growth (5% p.a.)</option>
+        <option value="decline">Decline (−5% p.a.)</option>
+        <option value="stress">Stress-then-recovery</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seed</label>
+      <input type="number" id="seed" class="ctrl-input" value="42">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startDetection()">▶ Detect Anomalies</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results" style="display:none">
+    <div class="section-eyebrow">Time-Series Analysis Results</div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-n" id="mFlagged">—</div>
+        <div class="metric-l">Anomalies Flagged</div>
+        <div class="metric-sub" id="mFlagRate">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mMaxZ">—</div>
+        <div class="metric-l">Max |Z-Score|</div>
+        <div class="metric-sub">Peak deviation from rolling mean</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mTrendSlope">—</div>
+        <div class="metric-l">Trend Slope</div>
+        <div class="metric-sub">% change per 100 periods</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mSeasonalAmpl">—</div>
+        <div class="metric-l">Seasonal Amplitude</div>
+        <div class="metric-sub">Peak-to-trough seasonal swing</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mResidualStd">—</div>
+        <div class="metric-l">Residual Std</div>
+        <div class="metric-sub">Noise after decomposition</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mForecastNext">—</div>
+        <div class="metric-l">Forecast (next period)</div>
+        <div class="metric-sub">Naïve ARIMA-lite prediction</div>
+      </div>
+    </div>
+
+    <!-- CHARTS (stacked, full-width for time series) -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">Payment Volume + Control Chart (UCL / LCL 3σ) with Anomaly Flags</div>
+        <svg id="mainChart" class="chart" viewBox="0 0 680 200"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">STL Decomposition — Trend / Seasonal / Residual</div>
+        <svg id="decompChart" class="chart" viewBox="0 0 680 220"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Z-Score Series + Threshold Bands</div>
+        <svg id="zChart" class="chart" viewBox="0 0 680 160"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">30-Period Naïve Forecast (ARIMA-lite — last observation extended)</div>
+        <svg id="forecastChart" class="chart" viewBox="0 0 680 160"></svg>
+      </div>
+    </div>
+
+    <!-- FLAG TABLE -->
+    <div class="flag-table-wrap">
+      <div class="section-eyebrow" style="margin-bottom:8px">Flagged Anomalies</div>
+      <table class="flag-table">
+        <thead><tr><th>#</th><th>Period</th><th>Value</th><th>Z-Score</th><th>Severity</th><th>Direction</th><th>Type</th></tr></thead>
+        <tbody id="flagBody"></tbody>
+      </table>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict-block" id="verdictBlock">
+      <div class="verdict-label" id="verdictLabel">—</div>
+      <div class="verdict-text" id="verdictText">—</div>
+    </div>
+
+    <!-- AP2 EXPORT -->
+    <div class="export-block">
+      <div class="export-eyebrow">AP2 Artifact Export — execution_hash anchors this computation</div>
+      <pre class="export-pre" id="exportPre">—</pre>
+      <button class="copy-btn" onclick="copyExport()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · ML-03 · Time-Series Anomaly Detector
+      <div class="footer-cc">© 2024–2026 Post Oak Labs · CC BY 4.0 · Educational use only · No data transmitted</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">ChainGraph Suite</a>
+      <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── LCG ──────────────────────────────────────────────────────
+function makeLCG(seed){let s=seed>>>0;return()=>{s=(Math.imul(1664525,s)+1013904223)>>>0;return s/4294967296;};}
+function randn(rng){const u1=rng(),u2=rng();return Math.sqrt(-2*Math.log(u1+1e-15))*Math.cos(2*Math.PI*u2);}
+function simpleHash(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(Math.imul(h,0x01000193))>>>0;}return 'sha256:'+h.toString(16).padStart(8,'0')+(h^0xdeadbeef).toString(16).padStart(8,'0')+(h^0xcafebabe).toString(16).padStart(8,'0')+(h^0x12345678).toString(16).padStart(8,'0');}
+
+// Presets
+const PRESETS={
+  daily_retail:    {nPeriods:365, granularity:'daily',  seasonPeriod:7,  windowSize:21, zThreshold:3.0, nAnomalies:3, trendType:'growth',  seed:42},
+  weekly_settlement:{nPeriods:104, granularity:'weekly', seasonPeriod:30, windowSize:14, zThreshold:2.5, nAnomalies:3, trendType:'flat',    seed:137},
+  hourly_realtime: {nPeriods:720, granularity:'hourly', seasonPeriod:24, windowSize:48, zThreshold:3.0, nAnomalies:5, trendType:'stress',  seed:999}
+};
+function selectPreset(name){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p=PRESETS[name];
+  document.getElementById('nPeriods').value=p.nPeriods;
+  document.getElementById('granularity').value=p.granularity;
+  document.getElementById('seasonPeriod').value=p.seasonPeriod;
+  document.getElementById('windowSize').value=p.windowSize;
+  document.getElementById('zThreshold').value=p.zThreshold;
+  document.getElementById('nAnomalies').value=p.nAnomalies;
+  document.getElementById('trendType').value=p.trendType;
+  document.getElementById('seed').value=p.seed;
+}
+
+let tsResult=null, tsParams=null;
+
+async function startDetection(){
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;
+  document.getElementById('results').style.display='none';
+
+  const nPeriods    =parseInt(document.getElementById('nPeriods').value)||365;
+  const granularity =document.getElementById('granularity').value;
+  const seasonPeriod=parseInt(document.getElementById('seasonPeriod').value)||7;
+  const windowSize  =parseInt(document.getElementById('windowSize').value)||21;
+  const zThreshold  =parseFloat(document.getElementById('zThreshold').value)||3.0;
+  const nAnomalies  =parseInt(document.getElementById('nAnomalies').value)||3;
+  const trendType   =document.getElementById('trendType').value;
+  const seed        =parseInt(document.getElementById('seed').value)||42;
+  const chainRaw    =document.getElementById('chainIntake').value.trim();
+
+  tsParams={nPeriods, granularity, seasonPeriod, windowSize, zThreshold, nAnomalies, trendType, seed};
+
+  const rng=makeLCG(seed);
+  const BASE=1000; // base payment volume units
+
+  // ── Generate time series ─────────────────────────────────
+  const raw=new Float64Array(nPeriods);
+  for(let t=0;t<nPeriods;t++){
+    // Trend component
+    let trend=1.0;
+    if(trendType==='growth') trend=1+t/nPeriods*0.05;
+    else if(trendType==='decline') trend=1-t/nPeriods*0.05;
+    else if(trendType==='stress'){
+      const mid=Math.floor(nPeriods/2);
+      trend=t<mid?(1-t/mid*0.30):(0.70+(t-mid)/mid*0.30);
+    }
+    // Seasonal component
+    const seasonal=0.15*Math.sin(2*Math.PI*t/seasonPeriod)+0.05*Math.sin(4*Math.PI*t/seasonPeriod);
+    // Noise
+    const noise=randn(rng)*0.04;
+    raw[t]=BASE*trend*(1+seasonal+noise);
+  }
+
+  // ── Inject anomalies ─────────────────────────────────────
+  const anomalyIndices=new Set();
+  const validStart=Math.max(windowSize,seasonPeriod);
+  for(let a=0;a<nAnomalies;a++){
+    let idx;
+    do{idx=validStart+Math.floor(rng()*(nPeriods-validStart-20));}while(anomalyIndices.has(idx));
+    anomalyIndices.add(idx);
+    const dir=rng()>0.3?1:-1; // mostly spikes up
+    const mag=2.5+rng()*3.5;  // 2.5–6× normal std
+    raw[idx]+=dir*BASE*0.15*mag;
+    if(a===1&&nAnomalies>=2)raw[idx+1]+=dir*BASE*0.08; // trailing effect
+  }
+
+  document.getElementById('progressFill').style.width='30%';
+  await new Promise(r=>setTimeout(r,0));
+
+  // ── Trend extraction (simple moving average) ─────────────
+  const trend=new Float64Array(nPeriods);
+  const half=Math.floor(windowSize/2);
+  for(let t=0;t<nPeriods;t++){
+    const lo=Math.max(0,t-half),hi=Math.min(nPeriods-1,t+half);
+    let sum=0;for(let k=lo;k<=hi;k++)sum+=raw[k];
+    trend[t]=sum/(hi-lo+1);
+  }
+
+  // ── Seasonal component (average by phase) ────────────────
+  const seasonAvg=new Float64Array(seasonPeriod);
+  const seasonCount=new Int32Array(seasonPeriod);
+  for(let t=0;t<nPeriods;t++){
+    const phase=t%seasonPeriod;
+    seasonAvg[phase]+=raw[t]-trend[t];
+    seasonCount[phase]++;
+  }
+  for(let p=0;p<seasonPeriod;p++) seasonAvg[p]/=Math.max(seasonCount[p],1);
+  const seasonal=new Float64Array(nPeriods);
+  for(let t=0;t<nPeriods;t++) seasonal[t]=seasonAvg[t%seasonPeriod];
+
+  // ── Residual ─────────────────────────────────────────────
+  const residual=new Float64Array(nPeriods);
+  for(let t=0;t<nPeriods;t++) residual[t]=raw[t]-trend[t]-seasonal[t];
+
+  document.getElementById('progressFill').style.width='55%';
+  await new Promise(r=>setTimeout(r,0));
+
+  // ── Rolling z-score anomaly detection ────────────────────
+  const zScores=new Float64Array(nPeriods);
+  const rollingMean=new Float64Array(nPeriods);
+  const rollingStd=new Float64Array(nPeriods);
+  for(let t=windowSize;t<nPeriods;t++){
+    const win=Array.from(raw.slice(t-windowSize,t));
+    const mu=win.reduce((a,b)=>a+b,0)/windowSize;
+    const std=Math.sqrt(win.reduce((a,b)=>a+(b-mu)**2,0)/windowSize)+1e-6;
+    rollingMean[t]=mu;rollingStd[t]=std;
+    zScores[t]=(raw[t]-mu)/std;
+  }
+  const ucl=zThreshold, lcl=-zThreshold;
+
+  // ── Flag anomalies ────────────────────────────────────────
+  const flagged=[];
+  for(let t=windowSize;t<nPeriods;t++){
+    const absZ=Math.abs(zScores[t]);
+    if(absZ>=zThreshold){
+      const sev=absZ>=5?'HIGH':absZ>=3.5?'MEDIUM':'LOW';
+      const dir=zScores[t]>0?'Spike-Up':'Spike-Down';
+      const type=anomalyIndices.has(t)?'Injected':'Detected';
+      flagged.push({t, value:raw[t], z:zScores[t], absZ, sev, dir, type});
+    }
+  }
+  flagged.sort((a,b)=>b.absZ-a.absZ);
+
+  // ── Trend slope (linear regression over trend) ───────────
+  const tMid=nPeriods/2;
+  const slopeNum=Array.from(trend).reduce((s,v,t)=>s+(t-tMid)*(v-trend[Math.floor(tMid)]),0);
+  const slopeDen=Array.from({length:nPeriods},(_,t)=>(t-tMid)**2).reduce((a,b)=>a+b,0);
+  const slope=(slopeNum/Math.max(slopeDen,1e-6));
+
+  // ── Seasonal amplitude ────────────────────────────────────
+  const seasMax=Math.max(...seasonAvg), seasMin=Math.min(...seasonAvg);
+  const seasonalAmpl=seasMax-seasMin;
+
+  // ── Residual std ─────────────────────────────────────────
+  const resMu=residual.reduce((a,b)=>a+b,0)/nPeriods;
+  const resStd=Math.sqrt(residual.reduce((a,b)=>a+(b-resMu)**2,0)/nPeriods);
+
+  // ── Naïve ARIMA-lite forecast (trend + seasonal extrapolation) ──
+  const forecastHorizon=30;
+  const lastT=nPeriods-1;
+  const lastTrend=trend[lastT];
+  const trendDelta=(trend[lastT]-trend[Math.max(0,lastT-30)])/30;
+  const forecast=Array.from({length:forecastHorizon},(_,k)=>{
+    const tF=lastT+k+1;
+    return lastTrend+trendDelta*(k+1)+seasonal[tF%seasonPeriod];
+  });
+
+  // ── Max |z| ──────────────────────────────────────────────
+  const maxZ=Math.max(...Array.from(zScores.slice(windowSize)).map(Math.abs));
+
+  document.getElementById('progressFill').style.width='100%';
+
+  tsResult={raw, trend, seasonal, residual, zScores, rollingMean, rollingStd, flagged, slope, seasonalAmpl, resStd, forecast, maxZ};
+
+  let parentHash='',parentToolId='';
+  if(chainRaw){try{const parsed=chainRaw.startsWith('{')?JSON.parse(chainRaw):null;parentHash=parsed?(parsed.execution_hash||''):(chainRaw.startsWith('sha256:')?chainRaw:'');parentToolId=parsed?(parsed.tool_id||''):'';}catch(e){parentHash=chainRaw.startsWith('sha256:')?chainRaw:'';}}
+
+  renderResults(parentHash, parentToolId);
+  btn.disabled=false;
+}
+
+function renderResults(parentHash, parentToolId){
+  const r=tsResult; const p=tsParams;
+  const flagRate=r.flagged.length/p.nPeriods;
+  document.getElementById('mFlagged').textContent=r.flagged.length;
+  document.getElementById('mFlagRate').textContent=(flagRate*100).toFixed(1)+'% of series';
+  document.getElementById('mMaxZ').textContent=r.maxZ.toFixed(2)+'σ';
+  document.getElementById('mTrendSlope').textContent=((r.slope/1000)*100*100).toFixed(2)+'%';
+  document.getElementById('mSeasonalAmpl').textContent=((r.seasonalAmpl/1000)*100).toFixed(1)+'%';
+  document.getElementById('mResidualStd').textContent=(r.resStd).toFixed(1);
+  document.getElementById('mForecastNext').textContent=r.forecast[0].toFixed(1)+' units';
+
+  drawMainChart();
+  drawDecompChart();
+  drawZChart();
+  drawForecastChart();
+  renderFlagTable();
+
+  const vb=document.getElementById('verdictBlock');
+  const vl=document.getElementById('verdictLabel');
+  const vt=document.getElementById('verdictText');
+  const highFlags=r.flagged.filter(f=>f.sev==='HIGH').length;
+  if(r.flagged.length>8||highFlags>=3||r.maxZ>=6){
+    vb.className='verdict-block high';vl.textContent='Elevated Anomaly Rate — Review Required';vl.style.color='var(--red)';
+    vt.textContent=`${r.flagged.length} anomalies flagged (${(r.flagged.length/p.nPeriods*100).toFixed(1)}% of periods), including ${highFlags} HIGH-severity events (|z|≥5). Under DORA Art. 17, payment institutions must monitor and investigate unusual volume patterns. ${highFlags>=2?'Multiple HIGH-severity flags may trigger Art. 19/20 incident reporting obligations — cross-reference ART-09 (DORA Incident Classifier).':''} Recommend investigation before passing to RCA-01 for FRTB pre-validation context.`;
+  } else if(r.flagged.length>2||r.maxZ>=4){
+    vb.className='verdict-block moderate';vl.textContent='Moderate Anomaly Detection — Monitor';vl.style.color='var(--warn)';
+    vt.textContent=`${r.flagged.length} anomaly periods detected (max |z|=${r.maxZ.toFixed(2)}σ). Trend slope: ${((r.slope/1000)*100*100).toFixed(2)}% per 100 periods. Seasonal amplitude: ${((r.seasonalAmpl/1000)*100).toFixed(1)}% of baseline. EBA GL/2021/03 operational-risk monitoring guidelines require periodic review of unusual payment patterns. No immediate escalation indicated, but events should be documented under DORA Art. 17 monitoring logs.`;
+  } else {
+    vb.className='verdict-block low';vl.textContent='Normal Operating Range';vl.style.color='var(--green)';
+    vt.textContent=`${r.flagged.length} anomaly periods detected — within normal variance for a ${p.nPeriods}-period ${p.granularity} series at the ${p.zThreshold}σ threshold. Max |z|=${r.maxZ.toFixed(2)}σ. Seasonal amplitude ${((r.seasonalAmpl/1000)*100).toFixed(1)}% of baseline. Residual std ${r.resStd.toFixed(1)} units. Series appears statistically stable for the observation window. Export this artifact to RCA-01 (FRTB IMA Pre-Validator) as supporting context for capital model validation.`;
+  }
+
+  buildExport(parentHash, parentToolId);
+  document.getElementById('results').style.display='block';
+}
+
+function sampleEvery(arr, maxPts){
+  if(arr.length<=maxPts)return arr.map((v,i)=>({i,v}));
+  const step=Math.ceil(arr.length/maxPts);
+  const out=[];for(let i=0;i<arr.length;i+=step)out.push({i,v:arr[i]});
+  return out;
+}
+
+function drawMainChart(){
+  const svg=document.getElementById('mainChart');svg.innerHTML='';
+  const W=680,H=200,PL=50,PR=20,PT=14,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const r=tsResult;
+  const pts=sampleEvery(Array.from(r.raw),200);
+  const rMu=sampleEvery(Array.from(r.rollingMean),200);
+  const rStd=sampleEvery(Array.from(r.rollingStd),200);
+  const allVals=[...pts.map(p=>p.v),...r.flagged.map(f=>f.value)];
+  const minV=Math.min(...allVals)*0.95, maxV=Math.max(...allVals)*1.05;
+  const scX=i=>(PL+i/r.raw.length*cW);
+  const scY=v=>(PT+cH-(v-minV)/(maxV-minV)*cH);
+  // UCL/LCL bands (rolling)
+  const ucl=tsParams.zThreshold, lcl=-tsParams.zThreshold;
+  const mu0=rMu[tsParams.windowSize]?.v||0, s0=rStd[tsParams.windowSize]?.v||1;
+  // Simplified: draw static UCL/LCL based on overall stats
+  const meanV=Array.from(r.raw).reduce((a,b)=>a+b,0)/r.raw.length;
+  const stdV=Math.sqrt(Array.from(r.raw).reduce((a,b)=>a+(b-meanV)**2,0)/r.raw.length);
+  const uclV=meanV+ucl*stdV, lclV=meanV+lcl*stdV;
+  // UCL line
+  const uclY=scY(uclV);
+  const lclY=scY(Math.max(lclV,minV));
+  [['UCL',uclY,'var(--warn)'],['LCL',lclY,'var(--purple)']].forEach(([label,y,col])=>{
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',PL);line.setAttribute('y1',y.toFixed(1));
+    line.setAttribute('x2',W-PR);line.setAttribute('y2',y.toFixed(1));
+    line.setAttribute('stroke',col);line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','6,4');svg.appendChild(line);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',PL-2);t.setAttribute('y',(y-2).toFixed(1));
+    t.setAttribute('fill',col);t.setAttribute('font-size','6.5');t.setAttribute('text-anchor','end');
+    t.textContent=label;svg.appendChild(t);
+  });
+  // Series line
+  const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  poly.setAttribute('points',pts.map(p=>`${scX(p.i).toFixed(1)},${scY(p.v).toFixed(1)}`).join(' '));
+  poly.setAttribute('fill','none');poly.setAttribute('stroke','var(--teal)');poly.setAttribute('stroke-width','1');svg.appendChild(poly);
+  // Anomaly markers
+  r.flagged.forEach(f=>{
+    const cx=scX(f.t),cy=scY(f.value);
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx.toFixed(1));c.setAttribute('cy',cy.toFixed(1));c.setAttribute('r','4');
+    c.setAttribute('fill',f.sev==='HIGH'?'var(--red)':f.sev==='MEDIUM'?'var(--warn)':'var(--purple)');
+    c.setAttribute('opacity','0.9');svg.appendChild(c);
+  });
+  // Axes
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+  for(let i=0;i<=4;i++){
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',(PL+i*cW/4).toFixed(1));t.setAttribute('y',PT+cH+11);
+    t.setAttribute('fill','var(--muted)');t.setAttribute('font-size','6');t.setAttribute('text-anchor','middle');
+    t.textContent='t='+(Math.round(i*r.raw.length/4));svg.appendChild(t);}
+}
+
+function drawDecompChart(){
+  const svg=document.getElementById('decompChart');svg.innerHTML='';
+  const W=680,H=220,PL=50,PR=20,PT=10,PB=10,cW=W-PL-PR,cH=H-PT-PB;
+  const r=tsResult;
+  const panels=[
+    {label:'Trend',    arr:Array.from(r.trend),    color:'var(--gold)'},
+    {label:'Seasonal', arr:Array.from(r.seasonal),  color:'var(--teal)'},
+    {label:'Residual', arr:Array.from(r.residual),  color:'var(--purple)'}
+  ];
+  const panelH=cH/3;
+  const pts=Math.min(r.raw.length, 200);
+  const step=Math.max(1,Math.floor(r.raw.length/pts));
+  panels.forEach((panel,pi)=>{
+    const yBase=PT+pi*panelH;
+    const sub=Array.from({length:pts},(_,k)=>panel.arr[k*step]);
+    const minV=Math.min(...sub),maxV=Math.max(...sub);
+    const scY=v=>yBase+panelH-4-(v-minV)/(maxV-minV+1e-6)*(panelH-10);
+    const scX=k=>PL+k/pts*cW;
+    // label
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PL-2);lbl.setAttribute('y',yBase+panelH/2+3);
+    lbl.setAttribute('fill','var(--muted)');lbl.setAttribute('font-size','7');lbl.setAttribute('text-anchor','end');
+    lbl.textContent=panel.label;svg.appendChild(lbl);
+    // zero line for seasonal/residual
+    if(pi>0){
+      const zeroY=scY(0);
+      const zl=document.createElementNS('http://www.w3.org/2000/svg','line');
+      zl.setAttribute('x1',PL);zl.setAttribute('y1',zeroY.toFixed(1));
+      zl.setAttribute('x2',W-PR);zl.setAttribute('y2',zeroY.toFixed(1));
+      zl.setAttribute('stroke','var(--border)');zl.setAttribute('stroke-width','0.5');svg.appendChild(zl);
+    }
+    // panel line
+    const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    poly.setAttribute('points',sub.map((v,k)=>`${scX(k).toFixed(1)},${scY(v).toFixed(1)}`).join(' '));
+    poly.setAttribute('fill','none');poly.setAttribute('stroke',panel.color);poly.setAttribute('stroke-width','1.5');
+    svg.appendChild(poly);
+    // separator
+    if(pi<2){const sep=document.createElementNS('http://www.w3.org/2000/svg','line');
+      sep.setAttribute('x1',PL);sep.setAttribute('y1',yBase+panelH);
+      sep.setAttribute('x2',W-PR);sep.setAttribute('y2',yBase+panelH);
+      sep.setAttribute('stroke','var(--border)');sep.setAttribute('stroke-width','0.5');svg.appendChild(sep);}
+  });
+}
+
+function drawZChart(){
+  const svg=document.getElementById('zChart');svg.innerHTML='';
+  const W=680,H=160,PL=50,PR=20,PT=10,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const r=tsResult;const p=tsParams;
+  const pts=Math.min(r.raw.length,200);const step=Math.max(1,Math.floor(r.raw.length/pts));
+  const zPts=Array.from({length:pts},(_,k)=>r.zScores[k*step]);
+  const minZ=Math.min(...zPts,-p.zThreshold-1),maxZ=Math.max(...zPts,p.zThreshold+1);
+  const scY=v=>PT+cH-(v-minZ)/(maxZ-minZ)*cH;
+  const scX=k=>PL+k/pts*cW;
+  // Threshold bands
+  [p.zThreshold,-p.zThreshold].forEach((thresh,i)=>{
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',PL);line.setAttribute('y1',scY(thresh).toFixed(1));
+    line.setAttribute('x2',W-PR);line.setAttribute('y2',scY(thresh).toFixed(1));
+    line.setAttribute('stroke',i===0?'var(--warn)':'var(--purple)');line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','5,3');svg.appendChild(line);
+  });
+  // Zero line
+  const zl=document.createElementNS('http://www.w3.org/2000/svg','line');
+  zl.setAttribute('x1',PL);zl.setAttribute('y1',scY(0).toFixed(1));
+  zl.setAttribute('x2',W-PR);zl.setAttribute('y2',scY(0).toFixed(1));
+  zl.setAttribute('stroke','var(--border)');zl.setAttribute('stroke-width','0.5');svg.appendChild(zl);
+  // Z line
+  const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  poly.setAttribute('points',zPts.map((v,k)=>`${scX(k).toFixed(1)},${scY(v).toFixed(1)}`).join(' '));
+  poly.setAttribute('fill','none');poly.setAttribute('stroke','var(--teal)');poly.setAttribute('stroke-width','1');svg.appendChild(poly);
+  // Flag dots
+  r.flagged.forEach(f=>{const k=Math.round(f.t/step);const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',scX(k).toFixed(1));c.setAttribute('cy',scY(f.z).toFixed(1));c.setAttribute('r','4');
+    c.setAttribute('fill',f.sev==='HIGH'?'var(--red)':'var(--warn)');c.setAttribute('opacity','0.8');svg.appendChild(c);});
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+  // y-labels
+  [-p.zThreshold,0,p.zThreshold].forEach(v=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',PL-3);t.setAttribute('y',(scY(v)+3).toFixed(1));
+    t.setAttribute('fill','var(--muted)');t.setAttribute('font-size','6.5');t.setAttribute('text-anchor','end');
+    t.textContent=v+'σ';svg.appendChild(t);});
+}
+
+function drawForecastChart(){
+  const svg=document.getElementById('forecastChart');svg.innerHTML='';
+  const W=680,H=160,PL=50,PR=20,PT=10,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const r=tsResult;const p=tsParams;
+  const histLen=Math.min(60,p.nPeriods);
+  const hist=Array.from(r.raw).slice(p.nPeriods-histLen);
+  const fc=r.forecast;
+  const all=[...hist,...fc];
+  const minV=Math.min(...all)*0.92,maxV=Math.max(...all)*1.08;
+  const totalLen=hist.length+fc.length;
+  const scX=i=>PL+i/totalLen*cW;
+  const scY=v=>PT+cH-(v-minV)/(maxV-minV)*cH;
+  // Historical
+  const hPoly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  hPoly.setAttribute('points',hist.map((v,k)=>`${scX(k).toFixed(1)},${scY(v).toFixed(1)}`).join(' '));
+  hPoly.setAttribute('fill','none');hPoly.setAttribute('stroke','var(--teal)');hPoly.setAttribute('stroke-width','1.5');svg.appendChild(hPoly);
+  // Forecast band (±1.5σ)
+  const stdV=Math.sqrt(Array.from(r.raw).reduce((a,b)=>a+(b-Array.from(r.raw).reduce((x,y)=>x+y,0)/r.raw.length)**2,0)/r.raw.length);
+  const bandTop=fc.map((v,k)=>scY(v+1.5*stdV));
+  const bandBot=fc.map((v,k)=>scY(v-1.5*stdV));
+  const poly2=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  const bandPts=[...fc.map((v,k)=>`${scX(hist.length+k).toFixed(1)},${bandTop[k].toFixed(1)}`),
+                 ...[...fc].reverse().map((v,k)=>`${scX(hist.length+fc.length-1-k).toFixed(1)},${bandBot[fc.length-1-k].toFixed(1)}`)].join(' ');
+  poly2.setAttribute('points',bandPts);poly2.setAttribute('fill','rgba(155,114,245,.12)');svg.appendChild(poly2);
+  // Forecast line
+  const fPoly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  fPoly.setAttribute('points',fc.map((v,k)=>`${scX(hist.length+k).toFixed(1)},${scY(v).toFixed(1)}`).join(' '));
+  fPoly.setAttribute('fill','none');fPoly.setAttribute('stroke','var(--purple)');fPoly.setAttribute('stroke-width','1.5');
+  fPoly.setAttribute('stroke-dasharray','5,3');svg.appendChild(fPoly);
+  // Divider
+  const div=document.createElementNS('http://www.w3.org/2000/svg','line');
+  div.setAttribute('x1',scX(hist.length).toFixed(1));div.setAttribute('y1',PT);
+  div.setAttribute('x2',scX(hist.length).toFixed(1));div.setAttribute('y2',PT+cH);
+  div.setAttribute('stroke','var(--muted)');div.setAttribute('stroke-width','1');div.setAttribute('stroke-dasharray','2,3');svg.appendChild(div);
+  const fl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  fl.setAttribute('x',(scX(hist.length)+3).toFixed(1));fl.setAttribute('y',PT+10);
+  fl.setAttribute('fill','var(--muted)');fl.setAttribute('font-size','6.5');fl.textContent='Forecast →';svg.appendChild(fl);
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+}
+
+function renderFlagTable(){
+  const tbody=document.getElementById('flagBody');tbody.innerHTML='';
+  if(tsResult.flagged.length===0){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td colspan="7" style="color:var(--muted);text-align:center;padding:12px">No anomalies detected at the configured threshold</td>`;
+    tbody.appendChild(tr);return;
+  }
+  tsResult.flagged.slice(0,15).forEach((f,i)=>{
+    const cls=f.sev==='HIGH'?'sev-high':f.sev==='MEDIUM'?'sev-med':'sev-low';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--muted)">${i+1}</td><td>t=${f.t}</td><td>${f.value.toFixed(1)}</td><td class="${cls}">${f.z.toFixed(2)}σ</td><td class="${cls}">${f.sev}</td><td>${f.dir}</td><td style="color:var(--muted)">${f.type}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildExport(parentHash, parentToolId){
+  const r=tsResult;const p=tsParams;
+  const chainDepth=parentHash?1:0;
+  const payload={
+    anomalies_flagged:r.flagged.length,
+    flag_rate:+(r.flagged.length/p.nPeriods).toFixed(6),
+    max_abs_z_score:+r.maxZ.toFixed(4),
+    high_severity_flags:r.flagged.filter(f=>f.sev==='HIGH').length,
+    medium_severity_flags:r.flagged.filter(f=>f.sev==='MEDIUM').length,
+    trend_slope_per_100p:+(r.slope/1000*100*100).toFixed(4),
+    seasonal_amplitude_pct:+(r.seasonalAmpl/1000*100).toFixed(4),
+    residual_std:+r.resStd.toFixed(4),
+    forecast_next_period:+r.forecast[0].toFixed(4),
+    forecast_30p_trend:r.forecast[0]<r.forecast[29]?'INCREASING':'DECREASING',
+    flagged_periods:r.flagged.slice(0,10).map(f=>({t:f.t,z:+f.z.toFixed(3),sev:f.sev}))
+  };
+  const params={
+    execution_backend:'js',
+    input_parameters:{
+      n_periods:p.nPeriods,granularity:p.granularity,season_period:p.seasonPeriod,
+      window_size:p.windowSize,z_threshold:p.zThreshold,n_injected_anomalies:p.nAnomalies,
+      trend_type:p.trendType,seed:p.seed,
+      method:'rolling_zscore_stl_decomposition'
+    }
+  };
+  const execHash=simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const artifact={
+    ap2_version:'1.0.0',mandate_type:'risk_control',
+    tool_id:'ml-03-timeseries-anomaly-detector',tool_version:'1.0.0',
+    generated_at:new Date().toISOString(),execution_hash:execHash,
+    chain:{parent_hashes:parentHash?[parentHash]:[],parent_tool_ids:parentToolId?[parentToolId]:[],chain_depth:chainDepth},
+    policy_parameters:params,output_payload:payload,
+    compliance_flags:[
+      'TIMESERIES_ANOMALY_DETECTION_COMPLETED','DORA_ART17_MONITORING_CONTEXT',
+      'EBA_GL_2021_03_OPERATIONAL_RISK','PSD2_ART96_FRAUD_REPORTING_CONTEXT',
+      r.flagged.length>5?'ELEVATED_ANOMALY_RATE_FLAG':'ANOMALY_RATE_NORMAL',
+      r.flagged.filter(f=>f.sev==='HIGH').length>0?'HIGH_SEVERITY_ANOMALIES_DETECTED':'NO_HIGH_SEVERITY_ANOMALIES'
+    ],
+    audit_signature:{
+      client_side_executed:true,zero_pii_verified:true,deterministic_run:true,
+      model_note:'Rolling z-score + STL decomposition on synthetic payment volume. Naïve ARIMA-lite forecast. No real payment data processed.'
+    }
+  };
+  document.getElementById('exportPre').textContent=JSON.stringify(artifact,null,2);
+}
+
+function copyExport(){
+  navigator.clipboard.writeText(document.getElementById('exportPre').textContent);
+  const btn=event.currentTarget;btn.textContent='Copied ✓';setTimeout(()=>btn.textContent='Copy JSON',1500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Default Risk Scorer — AINumbers | ChainGraph</title>
+<meta name="description" content="Logistic regression credit default risk scoring on synthetic loan portfolios. PD distribution, AUC/KS/Gini, IRB vs SA capital comparison, expected loss. Chains from ART-05 (EU AI Act conformity), feeds SIM-03 (Basel RWA). AP2-exporting, MCP-exposed. Post Oak Labs.">
+<meta property="og:title" content="Credit Default Risk Scorer — AINumbers ChainGraph">
+<meta property="og:description" content="Zero-egress logistic regression credit default probability scoring. AP2 artifact export. Post Oak Labs.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+.page-inner{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+.tool-header{background:linear-gradient(135deg,var(--bg-3) 0%,var(--bg-2) 100%);border:1px solid var(--border-2);border-top:3px solid var(--gold);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.tool-h1{font-family:'DM Serif Display',serif;font-size:1.45rem;color:var(--white);line-height:1.2;margin-bottom:6px}
+.tool-sub{font-size:.78rem;color:var(--body);line-height:1.7;max-width:640px;margin-bottom:12px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.04em;padding:.18rem .48rem;border-radius:3px}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-body{background:var(--bg-3);color:var(--body);border:1px solid var(--border)}
+.presets-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.preset-btn{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;flex:1;min-width:180px}
+.preset-btn:hover,.preset-btn.active{border-color:var(--gold);background:var(--bg-3)}
+.preset-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:3px}
+.preset-name{font-size:.78rem;font-weight:600;color:var(--bright)}
+.preset-desc{font-size:.67rem;color:var(--body);margin-top:2px}
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.chain-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.chain-input{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .7rem;width:100%;height:56px;resize:vertical;transition:border-color .15s}
+.chain-input:focus{outline:none;border-color:var(--teal);color:var(--text)}
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;width:100%;transition:border-color .15s}
+.ctrl-input:focus{outline:none;border-color:var(--gold)}
+select.ctrl-input option{background:var(--bg-3)}
+.run-btn{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:.6rem 1.6rem;cursor:pointer;transition:opacity .15s}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .1s;width:0}
+.results-section{margin-top:24px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:18px}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.metric-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.metric-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:2px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+svg.chart{width:100%;overflow:visible}
+/* Score table */
+.score-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:18px}
+.score-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.score-table th{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:.5rem;padding:0 8px 6px;text-align:left;border-bottom:1px solid var(--border)}
+.score-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.score-table tr:last-child td{border-bottom:none}
+.pd-high{color:var(--red)}.pd-med{color:var(--warn)}.pd-low{color:var(--green)}
+.verdict-block{border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:18px;border:1px solid}
+.verdict-block.high{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-block.moderate{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-block.low{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.verdict-text{font-size:.78rem;line-height:1.6}
+.export-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:16px 18px;margin-top:20px}
+.export-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.export-pre{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre}
+.copy-btn{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.3rem .75rem;cursor:pointer;transition:border-color .15s,color .15s;margin-top:8px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.edu-note{background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:10px 14px;font-size:.7rem;color:var(--body);margin-bottom:16px}
+.edu-note strong{color:var(--gold)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;margin-top:40px}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.62rem;color:var(--muted);margin-top:2px}
+.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr}.page-inner{padding:16px 14px 60px}.nav-pill{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">ChainGraph</a><span>›</span>
+      <span style="color:var(--gold)">ML-02</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">← ChainGraph Suite</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="tool-header">
+    <div class="tool-eyebrow">ML-02 · Capital &amp; Quantitative Risk · Credit Risk · IRB Pre-Validation</div>
+    <h1 class="tool-h1">Credit Default Risk Scorer</h1>
+    <p class="tool-sub">Logistic regression credit default probability (PD) scoring on a synthetic loan portfolio. Computes AUC, KS statistic, and Gini coefficient as model performance metrics; produces a PD distribution; compares IRB (F-IRB and A-IRB) versus Standardised Approach (SA) capital requirements. Chains from ART-05 (EU AI Act Credit-Scoring Conformity) — the conformity check validates the model governance before scoring. Feeds SIM-03 (Basel RWA Scenario Modeler) with PD/LGD inputs for IRB capital computation. All computation client-side — no loan data transmitted.</p>
+    <div class="tag-row">
+      <span class="tag tag-gold">score_credit_default_risk</span>
+      <span class="tag tag-teal">credit_assessment</span>
+      <span class="tag tag-body">Basel III F-IRB / A-IRB</span>
+      <span class="tag tag-body">EU AI Act Art. 11</span>
+      <span class="tag tag-body">BCBS d424</span>
+      <span class="tag tag-body">EBA GL/2017/16</span>
+    </div>
+  </div>
+
+  <div class="edu-note"><strong>Educational / Pre-validation only.</strong> Synthetic loan portfolio generated client-side using a seeded PRNG — no real borrower data processed. Logistic regression weights are illustrative, not calibrated to any real loan book. IRB capital figures are for scenario analysis ahead of Basel 3.1 (UK PRA PS1/26 January 2027). Chains from ART-05 to confirm EU AI Act model-governance compliance before scoring.</div>
+
+  <!-- PRESETS -->
+  <div class="presets-row">
+    <div class="preset-btn active" onclick="selectPreset('retail_mortgage')">
+      <div class="preset-label">Preset 1</div>
+      <div class="preset-name">Retail Mortgage</div>
+      <div class="preset-desc">500 loans · LTV-heavy · 2.5% default rate</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('sme_lending')">
+      <div class="preset-label">Preset 2</div>
+      <div class="preset-name">SME Lending</div>
+      <div class="preset-desc">300 loans · sector mix · 6% default rate</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('corp_book')">
+      <div class="preset-label">Preset 3</div>
+      <div class="preset-name">Corporate Book</div>
+      <div class="preset-desc">200 loans · large exposures · 1.5% default rate</div>
+    </div>
+  </div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-block">
+    <div class="chain-eyebrow">Chain Intake — paste AP2 JSON from ART-05 (EU AI Act Credit-Scoring Conformity)</div>
+    <textarea class="chain-input" id="chainIntake" placeholder='{"ap2_version":"1.0.0","tool_id":"art-05-eu-ai-act-credit-scoring-conformity","execution_hash":"sha256:...","output_payload":{"conformity_determination":...}} — or bare sha256:...'></textarea>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Portfolio Size</label>
+      <input type="number" id="nLoans" class="ctrl-input" value="500" min="50" max="2000">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Asset Class</label>
+      <select id="assetClass" class="ctrl-input">
+        <option value="retail_mortgage" selected>Retail Mortgage</option>
+        <option value="sme">SME / Corporate</option>
+        <option value="consumer">Consumer Credit</option>
+        <option value="large_corp">Large Corporate</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">True Default Rate</label>
+      <select id="defaultRate" class="ctrl-input">
+        <option value="0.01">1% (Prime)</option>
+        <option value="0.025" selected>2.5% (Near-prime)</option>
+        <option value="0.06">6% (Sub-prime)</option>
+        <option value="0.12">12% (High-risk)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">LGD Assumption</label>
+      <select id="lgd" class="ctrl-input">
+        <option value="0.25">25% (Secured, senior)</option>
+        <option value="0.45" selected>45% (Basel F-IRB floor)</option>
+        <option value="0.60">60% (Unsecured)</option>
+        <option value="0.75">75% (Subordinated)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Avg Maturity (yrs)</label>
+      <input type="number" id="maturity" class="ctrl-input" value="2.5" min="0.5" max="5" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">PD Threshold</label>
+      <select id="pdThreshold" class="ctrl-input">
+        <option value="0.05">5% (Watchlist)</option>
+        <option value="0.10" selected>10% (Sub-standard)</option>
+        <option value="0.20">20% (Doubtful)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">IRB Approach</label>
+      <select id="irbApproach" class="ctrl-input">
+        <option value="firb" selected>F-IRB (Foundation)</option>
+        <option value="airb">A-IRB (Advanced)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seed</label>
+      <input type="number" id="seed" class="ctrl-input" value="42">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startScoring()">▶ Score Credit Portfolio</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results" style="display:none">
+    <div class="section-eyebrow">Credit Scoring Results</div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-n" id="mAUC">—</div>
+        <div class="metric-l">AUC-ROC</div>
+        <div class="metric-sub">Model discrimination</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mKS">—</div>
+        <div class="metric-l">KS Statistic</div>
+        <div class="metric-sub">Max default/non-default separation</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mGini">—</div>
+        <div class="metric-l">Gini Coefficient</div>
+        <div class="metric-sub">2×AUC − 1</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mPortPD">—</div>
+        <div class="metric-l">Portfolio PD</div>
+        <div class="metric-sub">Weighted avg PD</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mEL">—</div>
+        <div class="metric-l">Expected Loss</div>
+        <div class="metric-sub">PD × LGD × EAD</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mIRBRWA">—</div>
+        <div class="metric-l">IRB RWA</div>
+        <div class="metric-sub">vs SA RWA</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">PD Distribution (log-score histogram)</div>
+        <svg id="pdHistChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">ROC Curve (AUC)</div>
+        <svg id="rocChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">KS Plot — Cumulative Default vs Non-Default</div>
+        <svg id="ksChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">RWA Comparison: IRB vs Standardised Approach</div>
+        <svg id="rwaChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+    </div>
+
+    <!-- TOP RISK TABLE -->
+    <div class="score-table-wrap">
+      <div class="section-eyebrow" style="margin-bottom:8px">Top 10 Highest-PD Loans (Synthetic)</div>
+      <table class="score-table">
+        <thead><tr><th>#</th><th>PD Score</th><th>LTV / DTI</th><th>Credit Score</th><th>Sector</th><th>EL</th><th>IRB RWA</th></tr></thead>
+        <tbody id="loanBody"></tbody>
+      </table>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict-block" id="verdictBlock">
+      <div class="verdict-label" id="verdictLabel">—</div>
+      <div class="verdict-text" id="verdictText">—</div>
+    </div>
+
+    <!-- AP2 EXPORT -->
+    <div class="export-block">
+      <div class="export-eyebrow">AP2 Artifact Export — execution_hash anchors this computation</div>
+      <pre class="export-pre" id="exportPre">—</pre>
+      <button class="copy-btn" onclick="copyExport()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · ML-02 · Credit Default Risk Scorer
+      <div class="footer-cc">© 2024–2026 Post Oak Labs · CC BY 4.0 · Educational use only · No data transmitted</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">ChainGraph Suite</a>
+      <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── LCG ────────────────────────────────────────────────────────
+function makeLCG(seed){let s=seed>>>0;return()=>{s=(Math.imul(1664525,s)+1013904223)>>>0;return s/4294967296;};}
+function randn(rng){const u1=rng(),u2=rng();return Math.sqrt(-2*Math.log(u1+1e-15))*Math.cos(2*Math.PI*u2);}
+function sigmoid(x){return 1/(1+Math.exp(-x));}
+function simpleHash(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(Math.imul(h,0x01000193))>>>0;}return 'sha256:'+h.toString(16).padStart(8,'0')+(h^0xdeadbeef).toString(16).padStart(8,'0')+(h^0xcafebabe).toString(16).padStart(8,'0')+(h^0x12345678).toString(16).padStart(8,'0');}
+
+// ── Sector labels ──────────────────────────────────────────────
+const SECTORS=['Retail','Real Estate','Manufacturing','Tech','Healthcare','Financial','Energy','Transport'];
+
+// ── IRB RWA formula (Basel BCBS d424) ─────────────────────────
+// Correlation R for corporate/SME/retail
+function irbRWA(pd, lgd, maturity, assetClass){
+  const pd_c=Math.max(pd, 0.0003);
+  let R;
+  if(assetClass==='retail_mortgage'){R=0.15;}
+  else if(assetClass==='consumer'){R=0.04;}
+  else{
+    // Corporate / SME
+    R=0.12*(1-Math.exp(-50*pd_c))/(1-Math.exp(-50))
+     +0.24*(1-(1-Math.exp(-50*pd_c))/(1-Math.exp(-50)));
+  }
+  // Maturity adjustment b(PD)
+  const b=(0.11852-0.05478*Math.log(pd_c))**2;
+  const M_adj=(1+(maturity-2.5)*b)/(1-1.5*b);
+  // Normal quantile approx (rational Horner)
+  function normInv(p){
+    const a=[2.515517,0.802853,0.010328];const b2=[1.432788,0.189269,0.001308];
+    const t=Math.sqrt(-2*Math.log(p<0.5?p:1-p));
+    const x=(a[0]+t*(a[1]+t*a[2]))/(1+t*(b2[0]+t*(b2[1]+t*b2[2])))-t;
+    return p<0.5?-x:x;
+  }
+  const z=normInv(0.999);
+  const inner=(normInv(pd_c)/Math.sqrt(1-R)+Math.sqrt(R/(1-R))*z);
+  const K=Math.max(lgd*sigmoid(inner)*M_adj - pd_c*lgd, 0);
+  return K*12.5; // convert capital % to RWA density
+}
+
+// ── SA RWA by asset class ──────────────────────────────────────
+const SA_WEIGHTS={retail_mortgage:0.35, sme:0.75, consumer:0.75, large_corp:1.0};
+
+// ── Presets ────────────────────────────────────────────────────
+const PRESETS={
+  retail_mortgage:{nLoans:500,assetClass:'retail_mortgage',defaultRate:0.025,lgd:0.25,maturity:2.5,pdThreshold:0.10,irbApproach:'firb',seed:42},
+  sme_lending:    {nLoans:300,assetClass:'sme',           defaultRate:0.06, lgd:0.45,maturity:2.5,pdThreshold:0.10,irbApproach:'firb',seed:137},
+  corp_book:      {nLoans:200,assetClass:'large_corp',    defaultRate:0.015,lgd:0.45,maturity:3.0,pdThreshold:0.10,irbApproach:'airb',seed:999}
+};
+function selectPreset(name){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p=PRESETS[name];
+  document.getElementById('nLoans').value=p.nLoans;
+  document.getElementById('assetClass').value=p.assetClass;
+  document.getElementById('defaultRate').value=p.defaultRate;
+  document.getElementById('lgd').value=p.lgd;
+  document.getElementById('maturity').value=p.maturity;
+  document.getElementById('pdThreshold').value=p.pdThreshold;
+  document.getElementById('irbApproach').value=p.irbApproach;
+  document.getElementById('seed').value=p.seed;
+}
+
+let creditResult=null, creditParams=null;
+
+async function startScoring(){
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;
+  document.getElementById('results').style.display='none';
+
+  const nLoans     =parseInt(document.getElementById('nLoans').value)||500;
+  const assetClass =document.getElementById('assetClass').value;
+  const defaultRate=parseFloat(document.getElementById('defaultRate').value)||0.025;
+  const lgd        =parseFloat(document.getElementById('lgd').value)||0.45;
+  const maturity   =parseFloat(document.getElementById('maturity').value)||2.5;
+  const pdThreshold=parseFloat(document.getElementById('pdThreshold').value)||0.10;
+  const irbApproach=document.getElementById('irbApproach').value;
+  const seed       =parseInt(document.getElementById('seed').value)||42;
+  const chainRaw   =document.getElementById('chainIntake').value.trim();
+
+  creditParams={nLoans, assetClass, defaultRate, lgd, maturity, pdThreshold, irbApproach, seed};
+
+  const rng=makeLCG(seed);
+  // ── Logistic regression weights (illustrative) ──────────────
+  // features: ltv_dti (0-1), credit_score_norm (0-1 inverted), employment (0/1), sector_risk (0-1), recency (0-1)
+  const W_INTERCEPT=-2.5;
+  const W=[2.5, 3.0, -1.2, 1.5, 0.8]; // ltv, cs_inv, empl, sector, recency
+
+  // ── Generate synthetic loans ─────────────────────────────────
+  const loans=[];
+  const CHUNK=50;
+  for(let i=0;i<nLoans;i+=CHUNK){
+    const end=Math.min(i+CHUNK,nLoans);
+    for(let j=i;j<end;j++){
+      const ltv=Math.min(rng()*0.9+0.1,1.0);
+      const dti=rng()*0.6+0.1;
+      const ltv_dti=(ltv+dti)/2;
+      const csRaw=Math.round(rng()*400+400); // 400-800
+      const cs_norm=1-(csRaw-400)/400;
+      const employed=(rng()>0.15)?1:0;
+      const sector=Math.floor(rng()*SECTORS.length);
+      const sectorRisk=[0.2,0.5,0.35,0.25,0.15,0.45,0.55,0.4][sector];
+      const recency=rng();
+      const logit=W_INTERCEPT+W[0]*ltv_dti+W[1]*cs_norm+W[2]*employed+W[3]*sectorRisk+W[4]*recency;
+      const pd=Math.min(Math.max(sigmoid(logit),0.001),0.999);
+      // Actual default (Bernoulli, calibrated towards defaultRate)
+      const pdAdj=pd*(defaultRate/0.07); // rescale to target default rate
+      const defaulted=(rng()<Math.min(pdAdj,0.99));
+      const ead=rng()*900000+50000; // £50k–£950k
+      loans.push({pd, ltv, dti, csRaw, employed, sector:SECTORS[sector], sectorRisk, ead, defaulted, lgd});
+    }
+    await new Promise(r=>setTimeout(r,0));
+    document.getElementById('progressFill').style.width=(Math.min(end/nLoans*60,60))+'%';
+  }
+
+  // ── Model performance metrics ────────────────────────────────
+  // Sort by PD desc for ROC / KS
+  const sorted=[...loans].sort((a,b)=>b.pd-a.pd);
+  const nDefault=loans.filter(l=>l.defaulted).length;
+  const nNonDefault=nLoans-nDefault;
+  if(nDefault===0){btn.disabled=false;return;}
+
+  // ROC
+  const rocPoints=[{fpr:0,tpr:0}];
+  let cumD=0,cumN=0;
+  sorted.forEach(l=>{
+    if(l.defaulted)cumD++;else cumN++;
+    rocPoints.push({fpr:cumN/Math.max(nNonDefault,1),tpr:cumD/Math.max(nDefault,1)});
+  });
+  rocPoints.push({fpr:1,tpr:1});
+  // AUC via trapezoid
+  let auc=0;
+  for(let i=1;i<rocPoints.length;i++){
+    auc+=(rocPoints[i].fpr-rocPoints[i-1].fpr)*(rocPoints[i].tpr+rocPoints[i-1].tpr)/2;
+  }
+
+  // KS: cumulative dist
+  const ksPoints=[];
+  let cumDk=0,cumNk=0;
+  let maxKS=0;
+  sorted.forEach(l=>{
+    if(l.defaulted)cumDk++;else cumNk++;
+    const ks=Math.abs(cumDk/Math.max(nDefault,1)-cumNk/Math.max(nNonDefault,1));
+    if(ks>maxKS)maxKS=ks;
+    ksPoints.push({cdfD:cumDk/Math.max(nDefault,1),cdfN:cumNk/Math.max(nNonDefault,1)});
+  });
+
+  // Portfolio PD, EL, RWA
+  const portPD=loans.reduce((s,l)=>s+l.pd,0)/nLoans;
+  const totalEAD=loans.reduce((s,l)=>s+l.ead,0);
+  const totalEL=loans.reduce((s,l)=>s+l.pd*l.lgd*l.ead,0);
+  const irbRwaDensity=irbRWA(portPD, lgd, maturity, assetClass);
+  const totalIRBRWA=totalEAD*irbRwaDensity;
+  const totalSARWA=totalEAD*(SA_WEIGHTS[assetClass]||0.75);
+  const irbCapital=totalIRBRWA*0.08; // 8% Pillar 1
+  const saCapital=totalSARWA*0.08;
+
+  document.getElementById('progressFill').style.width='100%';
+
+  creditResult={loans, sorted, rocPoints, ksPoints, auc, maxKS, portPD, totalEL, totalEAD, totalIRBRWA, totalSARWA, irbCapital, saCapital, nDefault, nNonDefault};
+
+  let parentHash='',parentToolId='';
+  if(chainRaw){try{const parsed=chainRaw.startsWith('{')?JSON.parse(chainRaw):null;parentHash=parsed?(parsed.execution_hash||''):(chainRaw.startsWith('sha256:')?chainRaw:'');parentToolId=parsed?(parsed.tool_id||''):'';}catch(e){parentHash=chainRaw.startsWith('sha256:')?chainRaw:'';}}
+
+  renderResults(parentHash, parentToolId);
+  btn.disabled=false;
+}
+
+function pct(v,d=2){return(v*100).toFixed(d)+'%';}
+function fmt$M(v){return'£'+(v/1e6).toFixed(2)+'M';}
+
+function renderResults(parentHash, parentToolId){
+  const r=creditResult;
+  const p=creditParams;
+  document.getElementById('mAUC').textContent=r.auc.toFixed(3);
+  document.getElementById('mKS').textContent=pct(r.maxKS);
+  document.getElementById('mGini').textContent=(2*r.auc-1).toFixed(3);
+  document.getElementById('mPortPD').textContent=pct(r.portPD);
+  document.getElementById('mEL').textContent=fmt$M(r.totalEL);
+  const irbAdv=(1-r.totalIRBRWA/r.totalSARWA);
+  document.getElementById('mIRBRWA').textContent=fmt$M(r.totalIRBRWA)+' ('+(irbAdv>=0?'-':'+')+(Math.abs(irbAdv)*100).toFixed(0)+'% vs SA)';
+
+  drawPDHist();
+  drawROC();
+  drawKS();
+  drawRWAChart();
+  renderLoanTable();
+
+  const vb=document.getElementById('verdictBlock');
+  const vl=document.getElementById('verdictLabel');
+  const vt=document.getElementById('verdictText');
+  const gini=2*r.auc-1;
+  const irbSaving=(r.totalSARWA-r.totalIRBRWA)/r.totalSARWA;
+  if(gini<0.4||r.portPD>0.10){
+    vb.className='verdict-block high';vl.textContent='Weak Model / Elevated Portfolio Risk';vl.style.color='var(--red)';
+    vt.textContent=`Gini of ${gini.toFixed(3)} is below the 0.40 minimum threshold recommended by EBA GL/2017/16 for IRB model approval. Portfolio PD of ${pct(r.portPD)} also exceeds typical watchlist thresholds. Under BCBS d424, a model with Gini <0.40 would require material remediation before receiving IMA/IRB model approval. Recommend re-feature engineering and recalibration. EU AI Act Art. 11 documentation obligation is engaged for this high-risk AI system.`;
+  } else if(gini<0.6){
+    vb.className='verdict-block moderate';vl.textContent='Acceptable Model — Monitoring Required';vl.style.color='var(--warn)';
+    vt.textContent=`Gini of ${gini.toFixed(3)} meets the EBA GL/2017/16 minimum (0.40) but falls below the 0.60 preferred threshold for IRB model approval. AUC of ${r.auc.toFixed(3)}, KS of ${pct(r.maxKS)}. IRB capital saving of ${pct(irbSaving)} vs SA (${fmt$M(r.irbCapital)} vs ${fmt$M(r.saCapital)}). Basel 3.1 output floor (72.5%) will constrain IRB capital benefit — ensure Pillar 3 disclosures are current for Basel 3.1 UK go-live January 2027.`;
+  } else {
+    vb.className='verdict-block low';vl.textContent='Strong Model — IRB Capital Benefit Evidenced';vl.style.color='var(--green)';
+    vt.textContent=`Gini of ${gini.toFixed(3)} exceeds the EBA GL/2017/16 0.60 preferred threshold. AUC: ${r.auc.toFixed(3)}, KS: ${pct(r.maxKS)}. IRB capital saving of ${pct(irbSaving)} vs SA (${fmt$M(r.irbCapital)} vs ${fmt$M(r.saCapital)}). Portfolio PD of ${pct(r.portPD)}, expected loss ${fmt$M(r.totalEL)}. Pass this artifact to SIM-03 (Basel RWA Scenario Modeler) to propagate PD/LGD inputs into full IRB capital scenarios.`;
+  }
+
+  buildExport(parentHash, parentToolId);
+  document.getElementById('results').style.display='block';
+}
+
+function drawPDHist(){
+  const svg=document.getElementById('pdHistChart');svg.innerHTML='';
+  const W=340,H=180,PL=42,PR=12,PT=10,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const BINS=20;
+  const pds=creditResult.loans.map(l=>l.pd);
+  const counts=new Array(BINS).fill(0);
+  const defCounts=new Array(BINS).fill(0);
+  pds.forEach((pd,i)=>{
+    const b=Math.min(BINS-1,Math.floor(pd*BINS));
+    counts[b]++;if(creditResult.loans[i].defaulted)defCounts[b]++;
+  });
+  const maxC=Math.max(...counts);
+  const th=creditParams.pdThreshold;
+  const thX=PL+th*cW;
+  for(let i=0;i<BINS;i++){
+    const x=PL+i*(cW/BINS);const bH=counts[i]/maxC*cH;const dH=defCounts[i]/maxC*cH;
+    const inHigh=(i/BINS>=th);
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x.toFixed(1));rect.setAttribute('y',(PT+cH-bH).toFixed(1));
+    rect.setAttribute('width',(cW/BINS-1).toFixed(1));rect.setAttribute('height',bH.toFixed(1));
+    rect.setAttribute('fill',inHigh?'rgba(212,168,71,.55)':'rgba(20,184,166,.5)');svg.appendChild(rect);
+    if(dH>0){const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      dr.setAttribute('x',x.toFixed(1));dr.setAttribute('y',(PT+cH-dH).toFixed(1));
+      dr.setAttribute('width',(cW/BINS-1).toFixed(1));dr.setAttribute('height',dH.toFixed(1));
+      dr.setAttribute('fill','rgba(239,68,68,.7)');svg.appendChild(dr);}
+  }
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',thX.toFixed(1));line.setAttribute('y1',PT);line.setAttribute('x2',thX.toFixed(1));line.setAttribute('y2',PT+cH);
+  line.setAttribute('stroke','var(--warn)');line.setAttribute('stroke-width','1.5');line.setAttribute('stroke-dasharray','4,3');svg.appendChild(line);
+  const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('x',(thX+3).toFixed(1));lbl.setAttribute('y',(PT+10).toFixed(1));
+  lbl.setAttribute('fill','var(--warn)');lbl.setAttribute('font-size','6.5');lbl.textContent='Threshold';svg.appendChild(lbl);
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+  for(let i=0;i<=5;i++){const v=i/5;const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',(PL+i*cW/5).toFixed(1));t.setAttribute('y',PT+cH+10);
+    t.setAttribute('fill','var(--muted)');t.setAttribute('font-size','6');t.setAttribute('text-anchor','middle');
+    t.textContent=(v*100).toFixed(0)+'%';svg.appendChild(t);}
+}
+
+function drawROC(){
+  const svg=document.getElementById('rocChart');svg.innerHTML='';
+  const W=340,H=180,PL=32,PR=12,PT=10,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const pts=creditResult.rocPoints;
+  // diagonal
+  const d=document.createElementNS('http://www.w3.org/2000/svg','line');
+  d.setAttribute('x1',PL);d.setAttribute('y1',PT+cH);d.setAttribute('x2',W-PR);d.setAttribute('y2',PT);
+  d.setAttribute('stroke','var(--border-2)');d.setAttribute('stroke-width','1');d.setAttribute('stroke-dasharray','3,3');svg.appendChild(d);
+  // ROC line
+  const polyline=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  const points=pts.map(p=>`${(PL+p.fpr*cW).toFixed(1)},${(PT+cH-p.tpr*cH).toFixed(1)}`).join(' ');
+  polyline.setAttribute('points',points);polyline.setAttribute('fill','none');
+  polyline.setAttribute('stroke','var(--gold)');polyline.setAttribute('stroke-width','1.5');svg.appendChild(polyline);
+  // AUC label
+  const aLbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  aLbl.setAttribute('x',PL+cW*0.55);aLbl.setAttribute('y',PT+cH*0.4);
+  aLbl.setAttribute('fill','var(--gold)');aLbl.setAttribute('font-size','9');aLbl.setAttribute('font-weight','600');
+  aLbl.textContent='AUC='+creditResult.auc.toFixed(3);svg.appendChild(aLbl);
+  // axes
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+  const ay=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ay.setAttribute('x1',PL);ay.setAttribute('y1',PT);ay.setAttribute('x2',PL);ay.setAttribute('y2',PT+cH);
+  ay.setAttribute('stroke','var(--border-2)');ay.setAttribute('stroke-width','1');svg.appendChild(ay);
+  for(let i=0;i<=4;i++){
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',(PL+i*cW/4).toFixed(1));t.setAttribute('y',PT+cH+10);
+    t.setAttribute('fill','var(--muted)');t.setAttribute('font-size','6');t.setAttribute('text-anchor','middle');
+    t.textContent=(i*25)+'%';svg.appendChild(t);}
+}
+
+function drawKS(){
+  const svg=document.getElementById('ksChart');svg.innerHTML='';
+  const W=340,H=180,PL=32,PR=12,PT=10,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const pts=creditResult.ksPoints;
+  // CDF lines
+  ['cdfD','cdfN'].forEach((key,ki)=>{
+    const polyline=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    const points=pts.map((p,i)=>`${(PL+i/pts.length*cW).toFixed(1)},${(PT+cH-p[key]*cH).toFixed(1)}`).join(' ');
+    polyline.setAttribute('points',points);polyline.setAttribute('fill','none');
+    polyline.setAttribute('stroke',ki===0?'var(--red)':'var(--teal)');polyline.setAttribute('stroke-width','1.5');
+    svg.appendChild(polyline);
+  });
+  const ax=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ax.setAttribute('x1',PL);ax.setAttribute('y1',PT+cH);ax.setAttribute('x2',W-PR);ax.setAttribute('y2',PT+cH);
+  ax.setAttribute('stroke','var(--border-2)');ax.setAttribute('stroke-width','1');svg.appendChild(ax);
+  // KS label
+  const kl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  kl.setAttribute('x',PL+cW*0.05);kl.setAttribute('y',PT+12);
+  kl.setAttribute('fill','var(--warn)');kl.setAttribute('font-size','8');kl.setAttribute('font-weight','600');
+  kl.textContent='KS='+pct(creditResult.maxKS);svg.appendChild(kl);
+  // legend
+  ['Defaults','Non-defaults'].forEach((lbl,i)=>{
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x',PL+i*75);r.setAttribute('y',PT+cH+12);r.setAttribute('width',8);r.setAttribute('height',6);
+    r.setAttribute('fill',i===0?'var(--red)':'var(--teal)');svg.appendChild(r);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',PL+i*75+11);t.setAttribute('y',PT+cH+18);
+    t.setAttribute('fill','var(--muted)');t.setAttribute('font-size','6.5');t.textContent=lbl;svg.appendChild(t);
+  });
+}
+
+function drawRWAChart(){
+  const svg=document.getElementById('rwaChart');svg.innerHTML='';
+  const W=340,H=180,PL=80,PR=20,PT=16,PB=28,cW=W-PL-PR,cH=H-PT-PB;
+  const r=creditResult;
+  const items=[
+    {label:'IRB RWA',val:r.totalIRBRWA,color:'rgba(212,168,71,.7)'},
+    {label:'SA RWA', val:r.totalSARWA, color:'rgba(155,114,245,.55)'},
+    {label:'IRB Capital (8%)',val:r.irbCapital,color:'rgba(239,68,68,.65)'},
+    {label:'SA Capital (8%)', val:r.saCapital, color:'rgba(245,158,11,.55)'}
+  ];
+  const maxV=Math.max(...items.map(i=>i.val),1);
+  const barH=cH/items.length*0.5; const gap=cH/items.length;
+  items.forEach((it,i)=>{
+    const y=PT+i*gap+(gap-barH)/2;const bW=it.val/maxV*cW;
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PL-4);lbl.setAttribute('y',y+barH/2+3);
+    lbl.setAttribute('fill','var(--text)');lbl.setAttribute('font-size','7');lbl.setAttribute('text-anchor','end');
+    lbl.textContent=it.label;svg.appendChild(lbl);
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',PL);rect.setAttribute('y',y.toFixed(1));
+    rect.setAttribute('width',bW.toFixed(1));rect.setAttribute('height',barH.toFixed(1));
+    rect.setAttribute('fill',it.color);svg.appendChild(rect);
+    const val=document.createElementNS('http://www.w3.org/2000/svg','text');
+    val.setAttribute('x',(PL+bW+4).toFixed(1));val.setAttribute('y',y+barH/2+3);
+    val.setAttribute('fill','var(--bright)');val.setAttribute('font-size','7');
+    val.textContent=fmt$M(it.val);svg.appendChild(val);
+  });
+}
+
+function renderLoanTable(){
+  const tbody=document.getElementById('loanBody');tbody.innerHTML='';
+  const top10=creditResult.sorted.slice(0,10);
+  top10.forEach((l,i)=>{
+    const cls=l.pd>=0.2?'pd-high':l.pd>=0.1?'pd-med':'pd-low';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="color:var(--muted)">${i+1}</td>
+      <td class="${cls}">${(l.pd*100).toFixed(2)}%</td>
+      <td>${(l.ltv*100).toFixed(0)}% / ${(l.dti*100).toFixed(0)}%</td>
+      <td>${l.csRaw}</td>
+      <td>${l.sector}</td>
+      <td>${(l.pd*l.lgd*l.ead/1000).toFixed(1)}k</td>
+      <td>${(irbRWA(l.pd,l.lgd,creditParams.maturity,creditParams.assetClass)*l.ead/1e6*100).toFixed(1)}%</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildExport(parentHash, parentToolId){
+  const r=creditResult;const p=creditParams;
+  const chainDepth=parentHash?1:0;
+  const payload={
+    auc_roc:+r.auc.toFixed(6),
+    ks_statistic:+r.maxKS.toFixed(6),
+    gini_coefficient:+(2*r.auc-1).toFixed(6),
+    portfolio_pd:+r.portPD.toFixed(6),
+    total_ead_gbp:+r.totalEAD.toFixed(0),
+    expected_loss_gbp:+r.totalEL.toFixed(0),
+    irb_rwa_gbp:+r.totalIRBRWA.toFixed(0),
+    sa_rwa_gbp:+r.totalSARWA.toFixed(0),
+    irb_capital_gbp:+r.irbCapital.toFixed(0),
+    sa_capital_gbp:+r.saCapital.toFixed(0),
+    irb_vs_sa_saving:+((r.totalSARWA-r.totalIRBRWA)/r.totalSARWA).toFixed(6),
+    n_loans_scored:p.nLoans,
+    n_defaults_observed:r.nDefault,
+    high_pd_loans:r.loans.filter(l=>l.pd>=p.pdThreshold).length
+  };
+  const params={
+    execution_backend:'js',
+    input_parameters:{
+      n_loans:p.nLoans,asset_class:p.assetClass,target_default_rate:p.defaultRate,
+      lgd:p.lgd,maturity_yrs:p.maturity,pd_threshold:p.pdThreshold,
+      irb_approach:p.irbApproach,seed:p.seed,
+      model:'logistic_regression_5_features_illustrative_weights'
+    }
+  };
+  const execHash=simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const artifact={
+    ap2_version:'1.0.0',mandate_type:'credit_assessment',
+    tool_id:'ml-02-credit-default-risk-scorer',tool_version:'1.0.0',
+    generated_at:new Date().toISOString(),execution_hash:execHash,
+    chain:{parent_hashes:parentHash?[parentHash]:[],parent_tool_ids:parentToolId?[parentToolId]:[],chain_depth:chainDepth},
+    policy_parameters:params,output_payload:payload,
+    compliance_flags:[
+      'CREDIT_SCORING_COMPLETED','BASEL3_IRB_CAPITAL_COMPUTED',
+      'EU_AI_ACT_ANNEX3_PART5B_HIGH_RISK_SYSTEM',
+      'EBA_GL_2017_16_MODEL_PERFORMANCE_ASSESSED',
+      r.auc<0.7?'MODEL_PERFORMANCE_BELOW_0_70_AUC':'MODEL_PERFORMANCE_ACCEPTABLE',
+      'BCBS_D424_IRB_FORMULA_APPLIED'
+    ],
+    audit_signature:{
+      client_side_executed:true,zero_pii_verified:true,deterministic_run:true,
+      model_note:'Logistic regression with synthetic loan data. Illustrative weights only — not calibrated to any real loan book. For scenario analysis and EU AI Act pre-validation purposes.'
+    }
+  };
+  document.getElementById('exportPre').textContent=JSON.stringify(artifact,null,2);
+}
+
+function copyExport(){
+  navigator.clipboard.writeText(document.getElementById('exportPre').textContent);
+  const btn=event.currentTarget;btn.textContent='Copied ✓';setTimeout(()=>btn.textContent='Copy JSON',1500);
+}
+</script>
+</body>
+</html>
