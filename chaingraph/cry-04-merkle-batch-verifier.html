@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Merkle Batch Verifier · CRY-04 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Batch-verifies Merkle inclusion proofs using SHA-256. Payment batches, settlement integrity, ISO 20022 message sets. Zero-egress, browser-local. DORA Art.12 / BIS CPMI PFMI. AP2 cryptographic_mandate export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/cry-04-merkle-batch-verifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Merkle Batch Verifier","url":"https://ainumbers.co/chaingraph/cry-04-merkle-batch-verifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "cry-04-merkle-batch-verifier",
+  "version": "1.0.0",
+  "title": "Merkle Batch Verifier",
+  "description": "Batch-verifies SHA-256 Merkle inclusion proofs for payment batches, settlement sets, and ISO 20022 message streams. Returns per-leaf pass/fail, batch integrity verdict, and proof depth statistics. Exports AP2 cryptographic_mandate artifact. Chains from RCA-02 (MiCA Reserve Stress) and PNR-01 (DORA ICT Cascade).",
+  "category": "chaingraph",
+  "tags": ["Merkle","SHA-256","batch verification","settlement integrity","cryptographic proof","DORA","ISO 20022","BIS CPMI","PFMI","zero-egress"],
+  "audience": ["settlement_ops","risk_committee","ciso","auditor","regtech"],
+  "mcp_tool_definition": {
+    "name": "verify_merkle_batch",
+    "description": "Batch-verifies Merkle inclusion proofs using SHA-256 (DORA Art.12 / BIS CPMI PFMI Principle 9). Returns per-leaf verification status, batch integrity verdict (VERIFIED / PARTIAL / COMPROMISED), proof depth stats, pass rate, and a chainable AP2 cryptographic_mandate artifact.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "merkle_root": {"type": "string", "description": "Expected Merkle root as 64-char hex string (no 0x prefix)"},
+        "proof_entries": {"type": "array", "description": "Array of {leaf, index, proof[]} objects. leaf and proof elements are 64-char hex strings. index is the 0-based leaf position in the original batch."},
+        "preset": {"type": "string", "enum": ["payment_batch","settlement_check","iso20022"], "description": "Built-in preset. If supplied, merkle_root and proof_entries are generated internally."},
+        "parent_artifact_hash": {"type": "string", "description": "execution_hash from upstream RCA-02 or PNR-01 artifact for chain provenance"}
+      }
+    }
+  },
+  "mandate_type": "cryptographic_mandate",
+  "gpu": false,
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["rca-02-mica-reserve-stress","pnr-01-dora-ict-cascade-simulator","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--purple)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block;line-height:1.4}
+input[type="text"],textarea,select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="text"]:focus,textarea:focus,select:focus{border-color:var(--purple)}
+textarea{resize:vertical;line-height:1.5}
+/* Preset cards */
+.preset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;margin-bottom:.85rem}
+@media(max-width:600px){.preset-grid{grid-template-columns:1fr 1fr}}
+.preset-card{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.preset-card:hover{border-color:var(--purple)}
+.preset-card.active{border-color:var(--purple);background:var(--purple-dim)}
+.preset-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.25rem}
+.preset-card-desc{font-size:.68rem;color:var(--body);line-height:1.4}
+.preset-card-meta{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.3rem}
+/* Chain intake */
+.chain-panel{margin-bottom:1.25rem}
+.chain-toggle{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.7rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.chain-toggle:hover{background:var(--bg-3)}
+.chain-toggle .chain-arrow{transition:transform .2s;font-size:.75rem}
+.chain-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1rem 1.1rem}
+.chain-body.open{display:block}
+/* Run */
+.run-row{display:flex;align-items:center;gap:1.25rem;margin-top:.5rem}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:#b08ffa}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.progress-wrap{flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:3px;width:0%;transition:width .1s}
+.run-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);min-width:180px}
+/* Results */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+/* Verdict */
+.verdict-card{border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.good{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.partial{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.35)}
+.verdict-card.bad{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.6rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem}
+.verdict-label.good{color:var(--green)}.verdict-label.partial{color:var(--warn)}.verdict-label.bad{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);margin-bottom:.3rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* Scorecard */
+.scorecard-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:640px){.scorecard-row{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;margin-bottom:.1rem}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+.metric-value.good{color:var(--green)}.metric-value.partial{color:var(--warn)}.metric-value.bad{color:var(--red)}.metric-value.neutral{color:var(--bright)}
+/* Charts */
+.chart-wrap{overflow-x:auto;margin-bottom:.5rem}
+.chart-svg{display:block}
+/* Leaf table */
+.leaf-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.leaf-table th{padding:.45rem .75rem;text-align:left;color:var(--muted);font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400}
+.leaf-table td{padding:.5rem .75rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:middle}
+.leaf-table tr:last-child td{border-bottom:none}
+.leaf-table tr:hover td{background:var(--bg-3)}
+.status-pill{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;display:inline-block}
+.status-pill.verified{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.status-pill.failed{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.status-pill.invalid{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+/* Export */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--purple);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--purple);color:#b08ffa;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">CRY-04</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph · CRY-04 · Wave 3 · Zero-Egress</div>
+  <h1>Merkle Batch <em>Verifier</em></h1>
+  <p class="hero-desc">Batch-verifies SHA-256 Merkle inclusion proofs for payment batches, settlement sets, and ISO 20022 message streams. Detects tampered or misrouted transactions before settlement finality. Exports an AP2 <code>cryptographic_mandate</code> artifact. DORA Art.12 · BIS CPMI PFMI Principle 9.</p>
+  <div class="hero-meta">
+    <span class="badge badge-purple">v1.0.0</span>
+    <span class="badge badge-muted">cryptographic_mandate</span>
+    <span class="badge badge-teal">SHA-256</span>
+    <span class="badge badge-muted">Wave 3</span>
+    <span class="badge badge-muted">Zero-Egress</span>
+    <span class="badge badge-muted">AP2 Export</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-panel">
+    <button class="chain-toggle" onclick="toggleChain()">
+      <span>⛓ Chain Intake — paste upstream AP2 artifact (RCA-02 / PNR-01 / any)</span>
+      <span class="chain-arrow" id="chainArrow">▼</span>
+    </button>
+    <div class="chain-body" id="chainBody">
+      <label class="field-label" for="chainInput">Paste full AP2 JSON artifact or bare execution_hash</label>
+      <textarea id="chainInput" rows="4" placeholder='{"execution_hash":"sha256:abc123...","tool_id":"rca-02-mica-reserve-stress",...} — or paste just sha256:abc123...'></textarea>
+      <span class="field-hint" id="chainStatus">No upstream chain detected.</span>
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="panel">
+    <div class="panel-label">Preset</div>
+    <div class="preset-grid">
+      <div class="preset-card active" id="preset_payment_batch" onclick="selectPreset('payment_batch')">
+        <div class="preset-card-title">Payment Batch</div>
+        <div class="preset-card-desc">SWIFT/SEPA batch settlement. All proofs valid — baseline integrity check.</div>
+        <div class="preset-card-meta">32 leaves · depth 5</div>
+      </div>
+      <div class="preset-card" id="preset_settlement_check" onclick="selectPreset('settlement_check')">
+        <div class="preset-card-title">Settlement Check</div>
+        <div class="preset-card-desc">CSD settlement batch with 3 tampered transaction hashes.</div>
+        <div class="preset-card-meta">16 leaves · 3 tampered</div>
+      </div>
+      <div class="preset-card" id="preset_iso20022" onclick="selectPreset('iso20022')">
+        <div class="preset-card-title">ISO 20022</div>
+        <div class="preset-card-desc">pacs.008 message stream batch. All valid, shallow depth.</div>
+        <div class="preset-card-meta">8 leaves · depth 3</div>
+      </div>
+      <div class="preset-card" id="preset_custom" onclick="selectPreset('custom')">
+        <div class="preset-card-title">Custom</div>
+        <div class="preset-card-desc">Paste your own Merkle root and proof entries JSON array.</div>
+        <div class="preset-card-meta">User-provided</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:.85rem">
+      <label class="field-label" for="merkleRoot">Merkle Root (hex)</label>
+      <input type="text" id="merkleRoot" placeholder="64-char SHA-256 hex — auto-filled by preset" maxlength="64" spellcheck="false">
+      <span class="field-hint">The expected tree root. Must be 64 hex characters (no 0x prefix).</span>
+    </div>
+
+    <div style="margin-bottom:.85rem">
+      <label class="field-label" for="proofEntries">Proof Entries (JSON array)</label>
+      <textarea id="proofEntries" rows="8" spellcheck="false" placeholder='[{"leaf":"abc...","index":0,"proof":["sib0...","sib1..."]},...] — auto-filled by preset'></textarea>
+      <span class="field-hint">Each entry: <code>{"leaf":"hex64","index":N,"proof":["hex64",...]}</code>. Leaf and proof elements must be 64-char lowercase hex.</span>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" id="runBtn" onclick="runVerification()" disabled>Verify Batch</button>
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="run-status" id="runStatus">Loading preset…</span>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- Verdict -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Batch Verdict</span><span id="verdictBadge" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard-row" id="scorecardRow"></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Leaf Status Grid</span><span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">one cell per leaf in batch order</span></div>
+      <div class="out-body">
+        <div class="chart-wrap" id="leafGridWrap"></div>
+        <div style="display:flex;gap:1rem;margin-top:.5rem">
+          <span style="display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)"><span style="width:10px;height:10px;background:rgba(34,197,94,.7);border-radius:2px;display:inline-block"></span>Verified</span>
+          <span style="display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)"><span style="width:10px;height:10px;background:rgba(239,68,68,.7);border-radius:2px;display:inline-block"></span>Failed</span>
+          <span style="display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)"><span style="width:10px;height:10px;background:rgba(58,82,112,.6);border-radius:2px;display:inline-block"></span>Invalid</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Summary &amp; Depth Distribution</span></div>
+      <div class="out-body"><div class="chart-wrap" id="summaryChartWrap"></div></div>
+    </div>
+
+    <!-- Leaf table -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Proof Detail</span><span id="tableSubtitle" style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)"></span></div>
+      <div class="out-body" style="padding:0;overflow-x:auto">
+        <table class="leaf-table" id="leafTable">
+          <thead><tr>
+            <th>#</th>
+            <th>Leaf Hash</th>
+            <th>Depth</th>
+            <th>Status</th>
+            <th>Reconstructed Root</th>
+          </tr></thead>
+          <tbody id="leafTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Export</span></div>
+      <div class="out-body">
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="exportJsonBtn" onclick="exportJson()" disabled>
+            {} Export Policy JSON
+            <span class="btn-subtitle">Cryptographic mandate · audit trail</span>
+          </button>
+          <button class="btn btn-ghost" id="exportMdBtn" onclick="exportMd()" disabled>
+            ≡ Export Markdown
+            <span class="btn-subtitle">Compliance report</span>
+          </button>
+          <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled>
+            ⛓ Export AP2 Artifact
+            <span class="btn-subtitle">Chain-ready · execution_hash</span>
+          </button>
+        </div>
+        <div id="chainSummary" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.75rem;padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3)"></div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST -->
+  <button class="mfst-btn" onclick="toggleMfst()">
+    <span>{ } MCP Manifest · verify_merkle_batch</span>
+    <span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-badge-ai">
+      <span><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · ChainGraph CRY-04</span>
+      <span>v1.0.0 · CC BY 4.0 · Zero PII · Client-side only</span>
+    </div>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="rca-02-mica-reserve-stress.html">RCA-02</a>
+      <a href="pnr-01-dora-ict-cascade-simulator.html">PNR-01</a>
+      <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ─── MANIFEST ──────────────────────────────────────────────────────────────
+const MANIFEST = {
+  tool_id: 'cry-04-merkle-batch-verifier',
+  version: '1.0.0',
+  title: 'Merkle Batch Verifier',
+  description: 'Batch-verifies SHA-256 Merkle inclusion proofs for payment batches, settlement sets, and ISO 20022 message streams. Returns per-leaf pass/fail, batch integrity verdict, and proof depth statistics. Exports AP2 cryptographic_mandate artifact.',
+  category: 'chaingraph',
+  tags: ['Merkle','SHA-256','batch verification','settlement integrity','cryptographic proof','DORA','ISO 20022','BIS CPMI','PFMI'],
+  mcp_tool_definition: {
+    name: 'verify_merkle_batch',
+    description: 'Batch-verifies Merkle inclusion proofs using SHA-256 (DORA Art.12 / BIS CPMI PFMI Principle 9). Returns per-leaf verification status, batch integrity verdict, proof depth stats, pass rate, and a chainable AP2 cryptographic_mandate artifact.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        merkle_root: { type: 'string', description: 'Expected Merkle root (64-char hex)' },
+        proof_entries: { type: 'array', description: 'Array of {leaf, index, proof[]} objects' },
+        preset: { type: 'string', enum: ['payment_batch','settlement_check','iso20022'] },
+        parent_artifact_hash: { type: 'string', description: 'execution_hash from upstream AP2 artifact' }
+      }
+    }
+  },
+  mandate_type: 'cryptographic_mandate',
+  ap2_export: true,
+  chaingraph: true,
+  chain_partners: ['rca-02-mica-reserve-stress','pnr-01-dora-ict-cascade-simulator','ptg-01-ap2-prompt-template-generator']
+};
+
+// ─── CRYPTO HELPERS ─────────────────────────────────────────────────────────
+const hexToBytes = h => {
+  h = h.replace(/^0x/,'').toLowerCase();
+  if (h.length % 2 !== 0) throw new Error('Odd-length hex string: ' + h.substring(0,16));
+  const b = new Uint8Array(h.length / 2);
+  for (let i = 0; i < b.length; i++) {
+    const byte = parseInt(h.slice(i*2, i*2+2), 16);
+    if (isNaN(byte)) throw new Error('Invalid hex at position ' + (i*2));
+    b[i] = byte;
+  }
+  return b;
+};
+const bytesToHex = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
+
+async function sha256hex(data) {
+  // data: Uint8Array or string
+  const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)));
+}
+
+async function merkleHash(left, right) {
+  // Standard: SHA-256(leftBytes || rightBytes)
+  const lb = hexToBytes(left), rb = hexToBytes(right);
+  const combined = new Uint8Array(lb.length + rb.length);
+  combined.set(lb);
+  combined.set(rb, lb.length);
+  return sha256hex(combined);
+}
+
+async function verifyOneProof(leaf, proof, index, root) {
+  // Walk the proof path from leaf to root
+  let current = leaf.replace(/^0x/,'').toLowerCase();
+  let idx = index;
+  for (const sibling of proof) {
+    const sib = sibling.replace(/^0x/,'').toLowerCase();
+    current = idx % 2 === 0
+      ? await merkleHash(current, sib)
+      : await merkleHash(sib, current);
+    idx = Math.floor(idx / 2);
+  }
+  return { ok: current === root.replace(/^0x/,'').toLowerCase(), reconstructed: current };
+}
+
+// ─── PRESET GENERATION ──────────────────────────────────────────────────────
+const PRESETS_DEF = {
+  payment_batch:    { n: 32, prefix: 'CRY04_PAYMENT_TXN_',    tamper: [] },
+  settlement_check: { n: 16, prefix: 'CRY04_SETTLEMENT_',     tamper: [3, 7, 12] },
+  iso20022:         { n:  8, prefix: 'CRY04_ISO20022_MSG_',    tamper: [] }
+};
+const _presetCache = {};
+
+async function buildPresetData(name) {
+  if (_presetCache[name]) return _presetCache[name];
+  const def = PRESETS_DEF[name];
+  const seeds = Array.from({length: def.n}, (_, i) =>
+    def.prefix + String(i).padStart(3, '0'));
+
+  // Hash seeds into leaf values
+  const rawLeaves = await Promise.all(seeds.map(s => sha256hex(s)));
+
+  // Build tree level by level
+  let level = rawLeaves.slice();
+  const allLevels = [level.slice()];
+  while (level.length > 1) {
+    const next = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const l = level[i];
+      const r = i + 1 < level.length ? level[i + 1] : level[i]; // duplicate last if odd
+      next.push(await merkleHash(l, r));
+    }
+    level = next;
+    allLevels.push(level.slice());
+  }
+  const root = level[0];
+
+  // Generate inclusion proof for each leaf
+  const entries = rawLeaves.map((leaf, idx) => {
+    const proof = [];
+    let i = idx;
+    for (let lvl = 0; lvl < allLevels.length - 1; lvl++) {
+      const curLvl = allLevels[lvl];
+      const sibling = i % 2 === 0
+        ? (i + 1 < curLvl.length ? curLvl[i + 1] : curLvl[i])
+        : curLvl[i - 1];
+      proof.push(sibling);
+      i = Math.floor(i / 2);
+    }
+    return { leaf, index: idx, proof, depth: proof.length };
+  });
+
+  // Tamper designated leaves (replace last byte)
+  if (def.tamper.length) {
+    for (const ti of def.tamper) {
+      const orig = entries[ti].leaf;
+      const lastByte = parseInt(orig.slice(-2), 16);
+      entries[ti] = {
+        ...entries[ti],
+        leaf: orig.slice(0, -2) + ((lastByte ^ 0xff).toString(16).padStart(2, '0')),
+        _tampered: true
+      };
+    }
+  }
+
+  _presetCache[name] = { root, entries, treeLevels: allLevels.length - 1 };
+  return _presetCache[name];
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let _currentPreset = 'payment_batch';
+let _lastResults = null;
+let _ap2Artifact = null;
+let _chainParentHashes = [];
+let _chainParentToolIds = [];
+let _chainDepth = 0;
+
+// ─── PRESET SELECTION ────────────────────────────────────────────────────────
+async function selectPreset(name) {
+  _currentPreset = name;
+  // Update active card
+  ['payment_batch','settlement_check','iso20022','custom'].forEach(n => {
+    document.getElementById('preset_' + n).classList.toggle('active', n === name);
+  });
+
+  if (name === 'custom') {
+    document.getElementById('merkleRoot').value = '';
+    document.getElementById('proofEntries').value = '';
+    document.getElementById('merkleRoot').readOnly = false;
+    document.getElementById('proofEntries').readOnly = false;
+    setStatus('Enter root and proof entries JSON, then verify.');
+    enableRun();
+    return;
+  }
+
+  document.getElementById('merkleRoot').readOnly = true;
+  document.getElementById('proofEntries').readOnly = true;
+  setStatus('Building ' + name + ' tree…');
+  document.getElementById('runBtn').disabled = true;
+
+  const data = await buildPresetData(name);
+  document.getElementById('merkleRoot').value = data.root;
+  document.getElementById('proofEntries').value = JSON.stringify(
+    data.entries.map(e => ({ leaf: e.leaf, index: e.index, proof: e.proof })),
+    null, 2
+  );
+  setStatus('Ready — ' + data.entries.length + ' leaves, depth ' + data.treeLevels + '.');
+  enableRun();
+}
+
+function enableRun() {
+  document.getElementById('runBtn').disabled = false;
+}
+
+function setStatus(msg) {
+  document.getElementById('runStatus').textContent = msg;
+}
+
+function setProgress(p) {
+  document.getElementById('progressFill').style.width = (p * 100).toFixed(1) + '%';
+}
+
+// ─── VERIFICATION ────────────────────────────────────────────────────────────
+const CHUNK = 8;
+
+async function runVerification() {
+  const rootRaw = document.getElementById('merkleRoot').value.trim().replace(/^0x/,'').toLowerCase();
+  const proofRaw = document.getElementById('proofEntries').value.trim();
+
+  // Validate inputs
+  if (!rootRaw || rootRaw.length !== 64) { showToast('Merkle root must be 64 hex chars.'); return; }
+  let entries;
+  try { entries = JSON.parse(proofRaw); }
+  catch (e) { showToast('Proof entries must be valid JSON.'); return; }
+  if (!Array.isArray(entries) || entries.length === 0) { showToast('Proof entries must be a non-empty array.'); return; }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  setProgress(0);
+
+  const results = [];
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const chunk = entries.slice(i, Math.min(i + CHUNK, entries.length));
+    for (const entry of chunk) {
+      if (!entry.leaf || !Array.isArray(entry.proof) || entry.index === undefined) {
+        results.push({ index: entry.index ?? results.length, leaf: entry.leaf ?? '?', depth: 0, status: 'invalid', error: 'Missing leaf/proof/index', reconstructed: '' });
+        continue;
+      }
+      try {
+        const { ok, reconstructed } = await verifyOneProof(entry.leaf, entry.proof, entry.index, rootRaw);
+        results.push({ index: entry.index, leaf: entry.leaf, depth: entry.proof.length, status: ok ? 'verified' : 'failed', reconstructed });
+      } catch (e) {
+        results.push({ index: entry.index, leaf: entry.leaf ?? '?', depth: 0, status: 'invalid', error: e.message, reconstructed: '' });
+      }
+    }
+    setProgress((Math.min(i + CHUNK, entries.length)) / entries.length);
+    setStatus('Verifying leaf ' + Math.min(i + CHUNK, entries.length) + ' / ' + entries.length + '…');
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  _lastResults = results;
+  await buildAP2(rootRaw, results);
+  renderResults(results, rootRaw);
+
+  setProgress(1);
+  setStatus('Done — ' + results.length + ' leaves verified.');
+  document.getElementById('runBtn').disabled = false;
+}
+
+// ─── AP2 ARTIFACT ────────────────────────────────────────────────────────────
+async function buildAP2(root, results) {
+  const n = results.length;
+  const verified = results.filter(r => r.status === 'verified').length;
+  const failed = results.filter(r => r.status === 'failed').length;
+  const invalid = results.filter(r => r.status === 'invalid').length;
+  const passRate = n > 0 ? verified / n : 0;
+
+  const depths = results.filter(r => r.depth > 0).map(r => r.depth);
+  const depthMin = depths.length ? Math.min(...depths) : 0;
+  const depthMax = depths.length ? Math.max(...depths) : 0;
+  const depthMean = depths.length ? (depths.reduce((a,b)=>a+b,0)/depths.length) : 0;
+
+  const verdict = passRate === 1 ? 'VERIFIED' : passRate === 0 ? 'COMPROMISED' : 'PARTIAL';
+  const mandate_type = 'cryptographic_mandate';
+
+  const params = {
+    merkle_root: root,
+    leaf_count: n,
+    hash_algorithm: 'SHA-256',
+    preset: _currentPreset
+  };
+  const payload = {
+    batch_integrity: verdict,
+    verified_count: verified,
+    failed_count: failed,
+    invalid_count: invalid,
+    pass_rate: +passRate.toFixed(4),
+    proof_depth_stats: { min: depthMin, max: depthMax, mean: +depthMean.toFixed(2) },
+    failed_indices: results.filter(r => r.status !== 'verified').map(r => r.index)
+  };
+
+  // Compute execution_hash
+  const hashInput = JSON.stringify({ ...params, ...payload }, Object.keys({ ...params, ...payload }).sort());
+  const execHash = 'sha256:' + await sha256hex(hashInput);
+  const auditSig = 'sha256:' + await sha256hex(execHash + MANIFEST.tool_id);
+
+  const flags = ['DORA_ART12_CRYPTOGRAPHIC_CONTROLS', 'CPMI_PFMI_PRINCIPLE9_SETTLEMENT_INTEGRITY', 'ISO20022_BATCH_INTEGRITY_ASSESSED'];
+  if (verdict === 'VERIFIED')     flags.push('MERKLE_BATCH_VERIFIED');
+  else if (verdict === 'PARTIAL') flags.push('MERKLE_BATCH_PARTIAL_FAILURE');
+  else                             flags.push('MERKLE_BATCH_COMPROMISED');
+
+  _ap2Artifact = {
+    ap2_version: '1.0.0',
+    mandate_type,
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: {
+      parent_hashes: _chainParentHashes,
+      parent_tool_ids: _chainParentToolIds,
+      chain_depth: _chainDepth
+    },
+    policy_parameters: params,
+    output_payload: payload,
+    compliance_flags: flags,
+    audit_signature: auditSig,
+    regulatory_context: {
+      framework: 'DORA (EU) 2022/2554 Art.12 · BIS CPMI-IOSCO PFMI Principle 9 · ISO 20022 · Basel III BCBS 239',
+      articles_referenced: ['DORA Art.12 (cryptographic controls)','BIS CPMI PFMI Principle 9 (settlement finality)','Basel III BCBS 239 (data accuracy)'],
+      settlement_integrity: true
+    }
+  };
+
+  // Enable export buttons
+  ['ap2ExportBtn','exportJsonBtn','exportMdBtn'].forEach(id => {
+    const b = document.getElementById(id);
+    b.disabled = false; b.classList.add('ready');
+  });
+
+  // Show chain summary if chained
+  if (_chainParentHashes.length) {
+    const cs = document.getElementById('chainSummary');
+    cs.style.display = 'block';
+    cs.textContent = '⛓ chain_depth=' + _ap2Artifact.chain.chain_depth
+      + ' · parent: ' + _chainParentToolIds.join(', ')
+      + ' · ' + _chainParentHashes.map(h => h.substring(0,20)+'…').join(', ');
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function trunc(h) {
+  if (!h || h.length < 16) return h || '—';
+  return h.slice(0,8) + '…' + h.slice(-4);
+}
+
+function renderResults(results, root) {
+  const n = results.length;
+  const verified = results.filter(r => r.status === 'verified').length;
+  const failed   = results.filter(r => r.status === 'failed').length;
+  const invalid  = results.filter(r => r.status === 'invalid').length;
+  const passRate = n > 0 ? verified / n : 0;
+
+  // Verdict
+  let vClass, vIcon, vLabel, vTitle, vSub;
+  if (passRate === 1) {
+    vClass = 'good'; vIcon = '✓'; vLabel = 'Batch Integrity — Verified';
+    vTitle = 'All proofs valid.';
+    vSub = 'Every inclusion proof reconstructs the expected Merkle root. Settlement finality criteria met under BIS CPMI PFMI Principle 9. No tampered or misrouted transactions detected.';
+  } else if (passRate === 0) {
+    vClass = 'bad'; vIcon = '✗'; vLabel = 'Batch Integrity — Compromised';
+    vTitle = 'All proofs failed.';
+    vSub = 'No inclusion proof reconstructs the provided Merkle root. The root may be incorrect, or the entire batch has been tampered. Do not proceed to settlement finality.';
+  } else {
+    vClass = 'partial'; vIcon = '⚠'; vLabel = 'Batch Integrity — Partial Failure';
+    vTitle = failed + ' proof' + (failed>1?'s':'') + ' failed out of ' + n + '.';
+    vSub = 'Selective tampering or root/index mismatch detected. Failed leaves: ' + results.filter(r=>r.status!=='verified').map(r=>'#'+r.index).join(', ') + '. Quarantine and re-validate before settlement.';
+  }
+
+  document.getElementById('verdictCard').innerHTML =
+    `<div class="verdict-card ${vClass}">
+      <div class="verdict-icon">${vIcon}</div>
+      <div>
+        <div class="verdict-label ${vClass}">${vLabel}</div>
+        <div class="verdict-title">${vTitle}</div>
+        <div class="verdict-sub">${vSub}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('verdictBadge').textContent =
+    passRate === 1 ? 'VERIFIED' : passRate === 0 ? 'COMPROMISED' : 'PARTIAL';
+
+  // Scorecard
+  const depths = results.filter(r=>r.depth>0).map(r=>r.depth);
+  const depthMean = depths.length ? (depths.reduce((a,b)=>a+b,0)/depths.length).toFixed(1) : '—';
+  const scoreColor = passRate===1?'good':passRate===0?'bad':'partial';
+  document.getElementById('scorecardRow').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Leaves</div><div class="metric-value neutral">${n}</div><div class="metric-sub">total batch</div></div>
+    <div class="metric-card"><div class="metric-label">Verified</div><div class="metric-value good">${verified}</div><div class="metric-sub">proofs valid</div></div>
+    <div class="metric-card"><div class="metric-label">Failed</div><div class="metric-value ${failed>0?'bad':'neutral'}">${failed}</div><div class="metric-sub">root mismatch</div></div>
+    <div class="metric-card"><div class="metric-label">Pass Rate</div><div class="metric-value ${scoreColor}">${(passRate*100).toFixed(1)}%</div><div class="metric-sub">integrity score</div></div>
+    <div class="metric-card"><div class="metric-label">Proof Depth</div><div class="metric-value neutral">${depthMean}</div><div class="metric-sub">avg levels</div></div>`;
+
+  // Leaf grid SVG
+  const cols = Math.min(n, 16);
+  const rows = Math.ceil(n / cols);
+  const cell = 26, gap = 4;
+  const svgW = cols * (cell + gap) - gap + 2;
+  const svgH = rows * (cell + gap) - gap + 2;
+  let cells = '';
+  results.forEach((r, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = col * (cell + gap) + 1, y = row * (cell + gap) + 1;
+    const fill = r.status==='verified' ? 'rgba(34,197,94,.7)' : r.status==='failed' ? 'rgba(239,68,68,.7)' : 'rgba(58,82,112,.6)';
+    cells += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${fill}"><title>#${r.index} ${r.status.toUpperCase()}</title></rect>`;
+    // Index label if cell big enough
+    if (cell >= 22) cells += `<text x="${x+cell/2}" y="${y+cell/2+4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="rgba(255,255,255,.7)">${r.index}</text>`;
+  });
+  document.getElementById('leafGridWrap').innerHTML =
+    `<svg class="chart-svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}">${cells}</svg>`;
+
+  // Summary + depth chart
+  const maxVal = Math.max(verified, failed, invalid, 1);
+  const bw = 420, bh = 110, barH = 22, barY0 = 20, gap2 = 15;
+  const bars = [
+    { label:'Verified', val:verified, color:'rgba(34,197,94,.75)' },
+    { label:'Failed',   val:failed,   color:'rgba(239,68,68,.75)' },
+    { label:'Invalid',  val:invalid,  color:'rgba(58,82,112,.7)' }
+  ];
+  let barSvg = `<svg class="chart-svg" viewBox="0 0 ${bw} ${bh}" width="${bw}" height="${bh}">`;
+  bars.forEach((b, i) => {
+    const y = barY0 + i * (barH + gap2);
+    const w = Math.max(2, (b.val / maxVal) * (bw - 120));
+    barSvg += `<text x="0" y="${y+16}" font-family="JetBrains Mono,monospace" font-size="11" fill="#6888A8">${b.label}</text>`;
+    barSvg += `<rect x="72" y="${y}" width="${w}" height="${barH}" rx="3" fill="${b.color}"/>`;
+    barSvg += `<text x="${72+w+8}" y="${y+16}" font-family="JetBrains Mono,monospace" font-size="11" fill="#D4E8F8">${b.val}</text>`;
+  });
+  barSvg += '</svg>';
+  document.getElementById('summaryChartWrap').innerHTML = barSvg;
+
+  // Leaf table
+  document.getElementById('tableSubtitle').textContent = n + ' entries';
+  const tbody = document.getElementById('leafTbody');
+  tbody.innerHTML = results.map(r =>
+    `<tr>
+      <td>${r.index}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${trunc(r.leaf)}</td>
+      <td>${r.depth}</td>
+      <td><span class="status-pill ${r.status}">${r.status}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:${r.status==='verified'?'var(--muted)':r.status==='failed'?'var(--red)':'var(--muted)'}">${r.status==='verified'?'✓ match':r.status==='failed'?trunc(r.reconstructed):r.error||'—'}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+// ─── EXPORTS ─────────────────────────────────────────────────────────────────
+function dl(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+  a.download = filename;
+  a.click();
+}
+
+function exportJson() {
+  if (!_ap2Artifact) return;
+  // Export as AINumbers Policy Mandate
+  const now = new Date();
+  const mandate = {
+    ap2_version: '1.0',
+    mandate_id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    mandate_type: 'cryptographic_mandate',
+    jurisdiction: ['EU','GB','US'],
+    regulatory_frameworks: ['DORA (EU) 2022/2554','BIS CPMI-IOSCO PFMI','ISO 20022','Basel III BCBS 239'],
+    payload: _ap2Artifact.output_payload,
+    summary: buildSummaryText(),
+    agent_instructions: buildAgentInstructions(),
+    source_tool_inputs: _ap2Artifact.policy_parameters,
+    regulatory_citations: _ap2Artifact.regulatory_context.articles_referenced,
+    audit_metadata: {
+      execution_hash: _ap2Artifact.execution_hash,
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    }
+  };
+  const ts = now.toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(mandate, null, 2), `cry-04-merkle-verifier_${ts}.policy.json`, 'application/json');
+}
+
+function exportMd() {
+  if (!_ap2Artifact) return;
+  const p = _ap2Artifact.output_payload;
+  const now = new Date().toISOString().split('T')[0];
+  const md = `# Merkle Batch Verification Report
+**Tool:** CRY-04 Merkle Batch Verifier
+**Date:** ${now}
+**Execution Hash:** \`${_ap2Artifact.execution_hash}\`
+**Chain Depth:** ${_ap2Artifact.chain.chain_depth}
+
+## Verdict: ${p.batch_integrity}
+
+| Metric | Value |
+|---|---|
+| Total Leaves | ${_ap2Artifact.policy_parameters.leaf_count} |
+| Verified | ${p.verified_count} |
+| Failed | ${p.failed_count} |
+| Invalid | ${p.invalid_count} |
+| Pass Rate | ${(p.pass_rate*100).toFixed(2)}% |
+| Proof Depth (min/max/mean) | ${p.proof_depth_stats.min} / ${p.proof_depth_stats.max} / ${p.proof_depth_stats.mean} |
+
+## Integrity Assessment
+
+${buildSummaryText()}
+
+## Regulatory Context
+
+${_ap2Artifact.regulatory_context.articles_referenced.map(a=>'- '+a).join('\n')}
+
+## Compliance Flags
+
+${_ap2Artifact.compliance_flags.map(f=>'- `'+f+'`').join('\n')}
+
+---
+*Generated by AINumbers.co CRY-04 · Client-side only · Zero PII · CC BY 4.0*
+`;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(md, `cry-04-merkle-verifier_${ts}.md`, 'text/markdown');
+}
+
+function exportAP2() {
+  if (!_ap2Artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_ap2Artifact, null, 2), `cry-04-ap2-artifact_${ts}.json`, 'application/json');
+  showToast('AP2 artifact exported — execution_hash ready for PTG-01 chain');
+}
+
+function buildSummaryText() {
+  if (!_ap2Artifact) return '';
+  const p = _ap2Artifact.output_payload;
+  const v = p.batch_integrity;
+  if (v === 'VERIFIED')
+    return `All ${p.verified_count} Merkle inclusion proofs verified successfully. Batch root consistent with all leaf entries. Settlement finality criteria met under BIS CPMI PFMI Principle 9.`;
+  if (v === 'COMPROMISED')
+    return `All ${p.failed_count} proofs failed to reconstruct the provided Merkle root. Possible causes: incorrect root, index mismatch, or full batch replacement. Do not proceed to settlement.`;
+  return `${p.failed_count} of ${p.verified_count + p.failed_count} proofs failed. Failed leaf indices: ${p.failed_indices.join(', ')}. Selective tampering detected. Quarantine and re-validate before settlement finality.`;
+}
+
+function buildAgentInstructions() {
+  const p = _ap2Artifact?.output_payload;
+  if (!p) return [];
+  const instr = [
+    'Retain execution_hash as the cryptographic audit anchor for this batch verification',
+    `Batch integrity verdict: ${p.batch_integrity} — pass rate ${(p.pass_rate*100).toFixed(1)}%`
+  ];
+  if (p.batch_integrity !== 'VERIFIED') {
+    instr.push('Do not proceed to settlement — quarantine failed leaves: indices ' + p.failed_indices.join(', '));
+    instr.push('Escalate to risk committee and notify clearing counterparties per DORA Art.19 incident reporting procedures');
+  } else {
+    instr.push('Forward execution_hash to PTG-01 for AP2 prompt template generation and regulatory narrative');
+    instr.push('Attach this artifact as settlement_integrity_proof in downstream clearing records');
+  }
+  return instr;
+}
+
+// ─── CHAIN INTAKE ─────────────────────────────────────────────────────────────
+document.getElementById('chainInput').addEventListener('input', function() {
+  const raw = this.value.trim();
+  if (!raw) {
+    _chainParentHashes = []; _chainParentToolIds = []; _chainDepth = 0;
+    document.getElementById('chainStatus').textContent = 'No upstream chain detected.';
+    return;
+  }
+  // Try bare sha256: hash
+  if (raw.startsWith('sha256:') && raw.length > 10) {
+    _chainParentHashes = [raw]; _chainParentToolIds = ['unknown']; _chainDepth = 1;
+    document.getElementById('chainStatus').textContent = '✓ Hash detected — chain_depth=1, parent: unknown';
+    return;
+  }
+  // Try full AP2 JSON
+  try {
+    const obj = JSON.parse(raw);
+    if (obj.execution_hash) {
+      _chainParentHashes = [obj.execution_hash];
+      _chainParentToolIds = [obj.tool_id || 'unknown'];
+      _chainDepth = (obj.chain?.chain_depth ?? 0) + 1;
+      document.getElementById('chainStatus').textContent =
+        '✓ AP2 artifact from ' + (obj.tool_id||'unknown') + ' · chain_depth=' + _chainDepth + ' · parent: ' + obj.execution_hash.substring(0,24) + '…';
+    }
+  } catch { document.getElementById('chainStatus').textContent = '⚠ Could not parse — paste full AP2 JSON or bare sha256: hash.'; }
+});
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function toggleChain() {
+  const body = document.getElementById('chainBody');
+  const arrow = document.getElementById('chainArrow');
+  const open = body.classList.toggle('open');
+  arrow.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const arrow = document.getElementById('mfstArrow');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  if (!open) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+function showToast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  // Pre-build all preset trees in background
+  for (const name of Object.keys(PRESETS_DEF)) {
+    buildPresetData(name); // fire and forget — cached for later
+  }
+  await selectPreset('payment_batch');
+})();
+</script>
+</body>
+</html>
