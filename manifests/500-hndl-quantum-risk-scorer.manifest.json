@@ -1,0 +1,88 @@
+{
+  "tool_id": "500-hndl-quantum-risk-scorer",
+  "version": "1.0.0",
+  "title": "HNDL Quantum Risk Scorer",
+  "description": "Score Harvest-Now-Decrypt-Later (HNDL) risk for each cryptographic system: sensitivity × algorithm weight × time_exposure × multiplier. Risk tiers CRITICAL/HIGH/MEDIUM/LOW/NEGLIGIBLE map to migration phases pre-2027 through 2035. Step 2 of the PQC Migration chain.",
+  "category": "cat-20",
+  "tags": ["PQC", "HNDL", "quantum risk", "NISTIR 8547", "CRQC", "post-quantum"],
+  "audience": ["security", "CISO", "compliance", "risk"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "systems": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "system_name": { "type": "string" },
+            "algorithm": { "type": "string" },
+            "sensitivity": { "type": "string", "enum": ["top_secret","confidential","restricted","internal","public"] },
+            "shelf_life_years": { "type": "number" },
+            "internet_exposed": { "type": "boolean" },
+            "high_value_target": { "type": "boolean" }
+          },
+          "required": ["system_name", "algorithm", "sensitivity", "shelf_life_years"]
+        }
+      },
+      "crqc_horizon_years": { "type": "number" }
+    },
+    "required": ["systems"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "scored_systems": { "type": "array" },
+      "compliance_flags": { "type": "object" },
+      "mandate_type": { "type": "string", "const": "risk_assessment" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "score_hndl_risk",
+    "description": "Score HNDL quantum risk per system. Scoring: sensitivity_base × algorithm_weight × min(shelf_life/crqc_horizon,1.5) × multiplier. Returns risk_tier (CRITICAL/HIGH/MEDIUM/LOW/NEGLIGIBLE) and hndl_priority (immediate/within_2_years/within_5_years/post_2030/monitor). Step 2 of PQC Migration chain.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "systems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "system_name": { "type": "string" },
+              "algorithm": { "type": "string" },
+              "sensitivity": { "type": "string", "enum": ["top_secret","confidential","restricted","internal","public"] },
+              "shelf_life_years": { "type": "number" },
+              "internet_exposed": { "type": "boolean" },
+              "high_value_target": { "type": "boolean" }
+            },
+            "required": ["system_name", "algorithm", "sensitivity", "shelf_life_years"]
+          }
+        },
+        "crqc_horizon_years": { "type": "number", "description": "CRQC arrival horizon in years from today. Default 10 (=2035)." }
+      },
+      "required": ["systems"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/500-hndl-quantum-risk-scorer.html",
+    "function_name": "scoreHNDL",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "mandate_type": "risk_assessment",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chain": {
+    "id": "pqc-migration",
+    "step": 2,
+    "prev": "499-crypto-asset-inventory-classifier",
+    "next": "501-pqc-migration-roadmap-builder"
+  },
+  "regulatory_refs": [
+    { "ref": "NISTIR 8547 (Initial Public Draft)", "url": "https://doi.org/10.6028/NIST.IR.8547.ipd" },
+    { "ref": "NIST FIPS 203 (ML-KEM)", "url": "https://doi.org/10.6028/NIST.FIPS.203" }
+  ]
+}

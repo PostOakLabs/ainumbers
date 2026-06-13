@@ -1,0 +1,95 @@
+{
+  "tool_id": "501-pqc-migration-roadmap-builder",
+  "version": "1.0.0",
+  "title": "PQC Migration Roadmap Builder",
+  "description": "Build a phased PQC migration roadmap per system. Maps current algorithm to FIPS 203/204/205 replacement by use case (key_exchange/TLS→ML-KEM, signature→ML-DSA+SLH-DSA, symmetric→AES-256, hash→SHA-384). Assigns Phase 1–4 windows by hndl_priority. Supports hybrid mode and target security category. Step 3 of the PQC Migration chain.",
+  "category": "cat-20",
+  "tags": ["PQC", "migration roadmap", "FIPS 203", "FIPS 204", "FIPS 205", "ML-KEM", "ML-DSA", "SLH-DSA", "hybrid mode", "NISTIR 8547"],
+  "audience": ["security", "CISO", "compliance", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "systems": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "system_name": { "type": "string" },
+            "algorithm": { "type": "string" },
+            "use_case": { "type": "string" },
+            "hndl_priority": { "type": "string", "enum": ["immediate","within_2_years","within_5_years","post_2030","monitor"] },
+            "vendor_controlled": { "type": "boolean" },
+            "library_support": { "type": "string", "enum": ["yes","no","roadmap","unknown"] }
+          },
+          "required": ["system_name", "algorithm", "use_case", "hndl_priority"]
+        }
+      },
+      "hybrid_mode": { "type": "boolean" },
+      "target_category": { "type": "integer", "enum": [1, 3, 5] },
+      "seed": { "type": "string" }
+    },
+    "required": ["systems"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "migration_phases": { "type": "array" },
+      "roadmap_items": { "type": "array" },
+      "compliance_flags": { "type": "object" },
+      "mandate_type": { "type": "string", "const": "migration_plan" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "build_pqc_roadmap",
+    "description": "Build a phased PQC migration roadmap per system. Maps current algorithm to ML-KEM/ML-DSA/SLH-DSA replacement by use case. Assigns Phase 1–4 by hndl_priority. Supports hybrid mode and security category targeting. Step 3 of PQC Migration chain.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "systems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "system_name": { "type": "string" },
+              "algorithm": { "type": "string" },
+              "use_case": { "type": "string" },
+              "hndl_priority": { "type": "string", "enum": ["immediate","within_2_years","within_5_years","post_2030","monitor"] },
+              "vendor_controlled": { "type": "boolean" },
+              "library_support": { "type": "string", "enum": ["yes","no","roadmap","unknown"] }
+            },
+            "required": ["system_name", "algorithm", "use_case", "hndl_priority"]
+          }
+        },
+        "hybrid_mode": { "type": "boolean", "description": "Enable classical+PQC hybrid mode (recommended for transition). Default true." },
+        "target_category": { "type": "integer", "enum": [1, 3, 5], "description": "NIST security category target. Default 3 (192-bit quantum security)." },
+        "seed": { "type": "string" }
+      },
+      "required": ["systems"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/501-pqc-migration-roadmap-builder.html",
+    "function_name": "buildRoadmap",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "mandate_type": "migration_plan",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chain": {
+    "id": "pqc-migration",
+    "step": 3,
+    "prev": "500-hndl-quantum-risk-scorer",
+    "next": "502-crypto-agility-readiness-scorer"
+  },
+  "regulatory_refs": [
+    { "ref": "NISTIR 8547 (Initial Public Draft)", "url": "https://doi.org/10.6028/NIST.IR.8547.ipd" },
+    { "ref": "NIST FIPS 203 (ML-KEM)", "url": "https://doi.org/10.6028/NIST.FIPS.203" },
+    { "ref": "NIST FIPS 204 (ML-DSA)", "url": "https://doi.org/10.6028/NIST.FIPS.204" },
+    { "ref": "NIST FIPS 205 (SLH-DSA)", "url": "https://doi.org/10.6028/NIST.FIPS.205" }
+  ]
+}

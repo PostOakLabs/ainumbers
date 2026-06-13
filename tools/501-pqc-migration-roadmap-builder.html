@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PQC Migration Roadmap Builder · AINumbers.co</title>
+<meta name="description" content="Build a phased Post-Quantum Cryptography migration roadmap. Maps each system's algorithm to its FIPS 203/204/205 replacement, assigns migration phases by HNDL priority, and outputs a Gantt-style plan. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/501-pqc-migration-roadmap-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PQC Migration Roadmap Builder","url":"https://ainumbers.co/tools/501-pqc-migration-roadmap-builder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "501-pqc-migration-roadmap-builder",
+  "version": "1.0.0",
+  "title": "PQC Migration Roadmap Builder",
+  "description": "Build a phased PQC migration roadmap: maps each system's current algorithm to its FIPS 203/204/205 replacement by use case, assigns migration phases by HNDL priority, supports hybrid mode and target security category.",
+  "category": "cat-20",
+  "tags": ["PQC","post-quantum","FIPS 203","FIPS 204","FIPS 205","migration roadmap","crypto agility","NISTIR 8547"],
+  "audience": ["security","CISO","compliance","engineer"],
+  "input_schema": {"type":"object","properties":{"systems":{"type":"array"},"hybrid_mode":{"type":"boolean"},"target_category":{"type":"integer"},"seed":{"type":"string"}},"required":["systems"]},
+  "output_schema": {"type":"object","properties":{"migration_phases":{"type":"array"},"roadmap_items":{"type":"array"},"compliance_flags":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"build_pqc_roadmap","description":"Build a phased PQC migration roadmap per system: maps current algorithm to FIPS 203/204/205 replacement by use case, assigns Phase 1–4 by hndl_priority, supports hybrid mode. Step 3 of PQC Migration chain.","inputSchema":{"type":"object","properties":{"systems":{"type":"array","items":{"type":"object","properties":{"system_name":{"type":"string"},"algorithm":{"type":"string"},"use_case":{"type":"string"},"hndl_priority":{"type":"string","enum":["immediate","within_2_years","within_5_years","post_2030","monitor"]},"vendor_controlled":{"type":"boolean"},"library_support":{"type":"string","enum":["yes","no","roadmap","unknown"]}},"required":["system_name","algorithm","use_case","hndl_priority"]}},"hybrid_mode":{"type":"boolean"},"target_category":{"type":"integer","enum":[1,3,5]},"seed":{"type":"string"}},"required":["systems"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/501-pqc-migration-roadmap-builder.html","function_name":"buildRoadmap","timeout_ms":3000},
+  "ap2_export": true,
+  "mandate_type": "migration_plan",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero-badge{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--purple);color:var(--purple)}
+.meta-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end}
+.meta-field{display:flex;flex-direction:column;gap:.35rem}
+.meta-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta-select,.meta-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s}
+.meta-select:focus,.meta-input:focus{border-color:var(--purple)}
+.toggle-row{display:flex;align-items:center;gap:.75rem}
+.toggle-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--text)}
+.toggle-desc{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.1rem}
+input[type=checkbox].big{width:17px;height:17px;accent-color:var(--purple);cursor:pointer}
+.sys-table-wrap{overflow-x:auto;margin-bottom:1rem}
+.sys-table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:860px}
+.sys-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .55rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.sys-table td{padding:.35rem .45rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.sys-table tr:last-child td{border-bottom:none}
+.sys-table input[type=text],.sys-table input[type=number],.sys-table select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.25rem .4rem;border-radius:3px;outline:none;width:100%}
+.sys-table input[type=text]:focus,.sys-table input[type=number]:focus,.sys-table select:focus{border-color:var(--purple)}
+.sys-table input[type=checkbox]{width:16px;height:16px;accent-color:var(--purple);cursor:pointer}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.1rem .3rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.add-row-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--white);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+/* PHASE LANES */
+.phase-lane{margin-bottom:1.5rem}
+.phase-header{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem}
+.phase-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .65rem;border-radius:3px}
+.ph1{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.ph2{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.ph3{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.ph4{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.phase-timeline{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.roadmap-item{background:var(--bg-3);border:1px solid var(--border);border-radius:5px;padding:.7rem .9rem;margin-bottom:.5rem;display:grid;grid-template-columns:180px 1fr auto;gap:.75rem;align-items:start}
+@media(max-width:700px){.roadmap-item{grid-template-columns:1fr}}
+.ri-system{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);font-weight:500}
+.ri-body{display:flex;flex-direction:column;gap:.25rem}
+.ri-from{font-size:.65rem;color:var(--body)}
+.ri-arrow{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--purple);margin:0 .3rem}
+.ri-to{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);font-weight:500}
+.ri-tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.3rem}
+.ri-tag{font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px;border:1px solid var(--border);color:var(--muted)}
+.ri-tag-hybrid{border-color:rgba(155,114,245,.3);color:var(--purple)}
+.ri-tag-vendor{border-color:rgba(245,158,11,.3);color:var(--warn)}
+.ri-tag-nolibrary{border-color:rgba(239,68,68,.3);color:var(--red)}
+.ri-actions{display:flex;flex-direction:column;gap:.25rem;min-width:90px}
+.ri-action-item{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--body)}
+/* stat row */
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:90px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:500;line-height:1}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+/* flags */
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+.chain-next{display:flex;align-items:center;gap:.75rem;background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--purple-lt)}
+.chain-next a{color:var(--purple-lt);text-decoration:underline}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--purple);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-501</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-20 · T501 · Post-Quantum Cryptography · ChainGraph Step 3 of 4</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>PQC Migration <em>Roadmap Builder</em></h1>
+  <p class="hero-desc">Build a phased Post-Quantum Cryptography migration roadmap. Maps each system's current algorithm to its NIST-standardised replacement (ML-KEM / ML-DSA / SLH-DSA) by use case, assigns migration phases by HNDL priority, and flags hybrid-mode requirements and vendor dependencies.</p>
+  <div class="hero-badges">
+    <span class="badge badge-purple">FIPS 203 ML-KEM</span>
+    <span class="badge badge-purple">FIPS 204 ML-DSA</span>
+    <span class="badge badge-purple">FIPS 205 SLH-DSA</span>
+    <span class="badge badge-teal">Hybrid Mode</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    Replacement algorithm recommendations are based on NISTIR 8547 / FIPS 203–205 as of June 2026. Library availability is indicative only — verify with your vendors and open-source maintainers. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- CONFIG -->
+  <div class="panel">
+    <div class="panel-header">Configuration</div>
+    <div class="meta-row">
+      <div class="meta-field">
+        <span class="meta-label">Security Category Target</span>
+        <select class="meta-select" id="targetCat" style="min-width:160px">
+          <option value="1">Cat 1 — 128-bit quantum security</option>
+          <option value="3" selected>Cat 3 — 192-bit quantum security (recommended)</option>
+          <option value="5">Cat 5 — 256-bit quantum security</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">Hybrid Mode</span>
+        <div class="toggle-row" style="padding:.4rem 0">
+          <input type="checkbox" class="big" id="hybridMode" checked>
+          <div>
+            <div class="toggle-label">Classical + PQC hybrid</div>
+            <div class="toggle-desc">Recommended for transition — classical alg provides fallback if PQC has unforeseen issues</div>
+          </div>
+        </div>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">Seed (optional)</span>
+        <input type="text" class="meta-input" id="seedInput" placeholder="e.g. PQC-2026-Q3" style="min-width:160px">
+      </div>
+    </div>
+    <div style="margin-bottom:.6rem"><span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Load Preset</span></div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('retail_bank_full')">Retail Bank Full Stack</button>
+      <button class="preset-btn" onclick="loadPreset('payment_fast_track')">Payment Processor Fast-Track</button>
+      <button class="preset-btn" onclick="loadPreset('long_lived_data')">Long-Lived Data First</button>
+    </div>
+  </div>
+
+  <!-- SYSTEMS TABLE -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem">
+      <span class="panel-header" style="margin-bottom:0">Systems to Migrate</span>
+      <button class="add-row-btn" onclick="addSysRow()">+ Add System</button>
+    </div>
+    <div class="sys-table-wrap">
+      <table class="sys-table" id="sysTable">
+        <thead>
+          <tr>
+            <th style="min-width:155px">System Name</th>
+            <th style="min-width:100px">Current Algorithm</th>
+            <th style="min-width:120px">Use Case</th>
+            <th style="min-width:120px">HNDL Priority</th>
+            <th style="min-width:75px">Vendor-Controlled</th>
+            <th style="min-width:100px">Library Support</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="sysBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="buildRoadmap()">▶ Build Roadmap</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Build a roadmap to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+    <a href="500-hndl-quantum-risk-scorer.html">← T500 HNDL Scorer</a>
+    <a href="502-crypto-agility-readiness-scorer.html">Next: T502 Agility →</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T501 PQC Migration Roadmap Builder v1.0
+   Algorithm → FIPS 203/204/205 replacement mapping
+   Phase assignment by hndl_priority + hybrid mode
+   All client-side. Zero network. Zero storage. ═══ */
+
+/* ── Algorithm → replacement mapping ── */
+function getReplacementAlg(alg, useCase, targetCat, hybridMode) {
+  /* Key exchange / TLS / key transport → ML-KEM */
+  var keUseCases = ['key_exchange','tls','key_wrap','identity'];
+  /* Signature / certificate / code signing → ML-DSA primary, SLH-DSA backup */
+  var sigUseCases = ['digital_signature','certificate','code_signing'];
+
+  if (alg === 'aes' || alg === 'sha3' || alg === 'ml_kem' || alg === 'ml_dsa' || alg === 'slh_dsa') {
+    if (alg === 'aes')    return { target:'AES-256', fips:'NIST SP 800-38x', note:'Increase key length to 256-bit; no algorithm change required', noMigration:true };
+    if (alg === 'sha3')   return { target:'SHA-3 (no change)', fips:'FIPS 202', note:'Already quantum-safe; no action required', noMigration:true };
+    return { target:alg.toUpperCase()+' (no change)', fips:'FIPS 203/204/205', note:'Already quantum-safe; validate security category meets Cat '+targetCat, noMigration:true };
+  }
+  if (alg === 'sha2')    return { target:'SHA-384 / SHA-512', fips:'FIPS 180-4', note:'Increase digest to 384+ bits for strong post-quantum security', noMigration:false, catNote:'' };
+  if (alg === 'hmac')    return { target:'HMAC-SHA-384 / HMAC-SHA3-256', fips:'FIPS 198-1', note:'Upgrade to HMAC with SHA-384 or SHA3-256 underlying hash', noMigration:false };
+
+  /* Classical public-key algorithms */
+  var kemVariant  = targetCat===5 ? 'ML-KEM-1024 (Cat 5)' : targetCat===1 ? 'ML-KEM-512 (Cat 1)' : 'ML-KEM-768 (Cat 3)';
+  var dsaVariant  = targetCat===5 ? 'ML-DSA-87 (Cat 5)'   : targetCat===1 ? 'ML-DSA-44 (Cat 1)'  : 'ML-DSA-65 (Cat 3)';
+  var slhVariant  = 'SLH-DSA-SHA2-'+( targetCat===5?'256f':'128f' )+' (FIPS 205 — backup sig)';
+  var hybridKEM   = hybridMode ? 'ECDH-P384 + ' + kemVariant : kemVariant;
+  var hybridDSA   = hybridMode ? 'ECDSA-P384 + ' + dsaVariant : dsaVariant;
+
+  /* RSA: dual-use — check use case */
+  if (alg === 'rsa') {
+    if (keUseCases.indexOf(useCase) !== -1) {
+      return { target:hybridKEM, fips:'FIPS 203'+(hybridMode?' (hybrid)':''), note:'RSA used for key transport → replace with ML-KEM'+( hybridMode?' in hybrid mode with ECDH fallback':'' )+'. Update TLS configuration and certificate chain.' };
+    }
+    return { target:hybridDSA, fips:'FIPS 204'+(hybridMode?' (hybrid)':''), note:'RSA used for signing → replace with ML-DSA'+( hybridMode?' in hybrid mode with ECDSA fallback':'' )+'. SLH-DSA (FIPS 205) as stateless backup.' };
+  }
+  if (alg === 'ecdh' || alg === 'dh') {
+    return { target:hybridKEM, fips:'FIPS 203'+(hybridMode?' (hybrid)':''), note:'Replace ECDH/DH key agreement with ML-KEM'+( hybridMode?' in hybrid with existing ECDH curve as fallback':'' ) };
+  }
+  if (alg === 'ecdsa') {
+    return { target:hybridDSA+' / '+slhVariant, fips:'FIPS 204/205'+(hybridMode?' (hybrid)':''), note:'Replace ECDSA with ML-DSA (primary) + SLH-DSA (backup)'+( hybridMode?' in hybrid mode':'' ) };
+  }
+  if (alg === 'dsa') {
+    return { target:dsaVariant+' / '+slhVariant, fips:'FIPS 204/205', note:'DSA already disallowed — emergency replacement with ML-DSA. SLH-DSA as hash-based backup.' };
+  }
+  return { target:'Manual review required', fips:'N/A', note:'Algorithm not in NISTIR 8547 scope. Perform manual cryptographic review before migration.' };
+}
+
+/* ── Phase assignment ── */
+var PHASES = {
+  immediate:      { num:1, label:'Phase 1', cls:'ph1', window:'Pre-2027 (immediate)', desc:'CRITICAL HNDL risk — emergency migration' },
+  within_2_years: { num:2, label:'Phase 2', cls:'ph2', window:'2027–2028', desc:'HIGH risk — prioritised migration track' },
+  within_5_years: { num:3, label:'Phase 3', cls:'ph3', window:'2029–2030', desc:'MEDIUM risk — planned migration' },
+  post_2030:      { num:4, label:'Phase 4', cls:'ph4', window:'2030–2035', desc:'LOW risk — standard lifecycle migration' },
+  monitor:        { num:4, label:'Phase 4', cls:'ph4', window:'2030–2035 (monitor)', desc:'NEGLIGIBLE risk — monitor and migrate during refresh cycles' }
+};
+
+/* ── Actions per replacement ── */
+function getActions(sys, replacement, hybrid) {
+  var acts = [];
+  if (replacement.noMigration) return ['Validate key length / digest size meets Cat '+document.getElementById('targetCat').value, 'Document in cryptographic inventory'];
+  acts.push('Procure / validate library support for ' + replacement.target.split('/')[0].trim());
+  if (hybrid) acts.push('Configure hybrid classical+PQC mode');
+  if (sys.vendor_controlled) acts.push('Engage vendor for PQC migration roadmap commitment');
+  if (sys.library_support === 'no') acts.push('⚠ No library support — prioritise vendor engagement / open-source evaluation');
+  if (sys.library_support === 'roadmap') acts.push('Library on roadmap — schedule PoC for H1 2027');
+  acts.push('Update key management and rotation procedures');
+  acts.push('Regression-test all dependent systems');
+  return acts;
+}
+
+/* ── Presets ── */
+var PRESETS = {
+  retail_bank_full: [
+    {system_name:'Online Banking TLS',        algorithm:'ecdh',  use_case:'tls',               hndl_priority:'within_2_years', vendor_controlled:false, library_support:'yes'},
+    {system_name:'Customer Auth Certificates',algorithm:'rsa',   use_case:'certificate',        hndl_priority:'within_2_years', vendor_controlled:false, library_support:'roadmap'},
+    {system_name:'Core Banking API Signing',  algorithm:'rsa',   use_case:'digital_signature',  hndl_priority:'within_5_years', vendor_controlled:false, library_support:'yes'},
+    {system_name:'Customer Data Vault AES',   algorithm:'aes',   use_case:'data_at_rest',       hndl_priority:'immediate',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'Payment HSM Key Wrap',      algorithm:'rsa',   use_case:'key_exchange',       hndl_priority:'immediate',      vendor_controlled:true,  library_support:'roadmap'},
+    {system_name:'Audit Log Integrity',       algorithm:'sha2',  use_case:'integrity',          hndl_priority:'post_2030',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'HMAC API Auth',             algorithm:'hmac',  use_case:'mac',                hndl_priority:'post_2030',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'Legacy DSA Module',         algorithm:'dsa',   use_case:'digital_signature',  hndl_priority:'immediate',      vendor_controlled:false, library_support:'yes'},
+  ],
+  payment_fast_track: [
+    {system_name:'PCI TLS Gateway',           algorithm:'ecdsa', use_case:'tls',                hndl_priority:'immediate',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'Card Tokenization Keys',    algorithm:'aes',   use_case:'data_at_rest',       hndl_priority:'within_2_years', vendor_controlled:true,  library_support:'unknown'},
+    {system_name:'Acquirer Certificates',     algorithm:'rsa',   use_case:'certificate',        hndl_priority:'within_2_years', vendor_controlled:true,  library_support:'roadmap'},
+    {system_name:'Dispute Record Signing',    algorithm:'ecdsa', use_case:'digital_signature',  hndl_priority:'within_5_years', vendor_controlled:false, library_support:'yes'},
+    {system_name:'Pilot ML-KEM Channel',      algorithm:'ml_kem',use_case:'key_exchange',       hndl_priority:'monitor',        vendor_controlled:false, library_support:'yes'},
+  ],
+  long_lived_data: [
+    {system_name:'30-Year Archive TLS',       algorithm:'ecdh',  use_case:'tls',                hndl_priority:'immediate',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'Custody Key Wrap RSA-4096', algorithm:'rsa',   use_case:'key_exchange',       hndl_priority:'immediate',      vendor_controlled:true,  library_support:'no'},
+    {system_name:'Regulatory Document Vault', algorithm:'aes',   use_case:'data_at_rest',       hndl_priority:'immediate',      vendor_controlled:false, library_support:'yes'},
+    {system_name:'Historical Record Hashing', algorithm:'sha2',  use_case:'integrity',          hndl_priority:'within_5_years', vendor_controlled:false, library_support:'yes'},
+    {system_name:'Code Signing (HSM)',        algorithm:'rsa',   use_case:'code_signing',       hndl_priority:'within_2_years', vendor_controlled:true,  library_support:'roadmap'},
+  ]
+};
+
+var ALG_OPTS = [
+  ['rsa','RSA'],['ecdsa','ECDSA'],['ecdh','ECDH'],['dh','DH'],['dsa','DSA'],
+  ['aes','AES'],['sha2','SHA-2'],['sha3','SHA-3'],['hmac','HMAC'],
+  ['ml_kem','ML-KEM'],['ml_dsa','ML-DSA'],['slh_dsa','SLH-DSA'],['other','Other']
+];
+var USE_OPTS = [
+  ['key_exchange','Key Exchange'],['tls','TLS/SSL'],['digital_signature','Digital Signature'],
+  ['certificate','PKI Certificate'],['code_signing','Code Signing'],['data_at_rest','Data at Rest'],
+  ['integrity','Integrity / Hash'],['mac','MAC / HMAC'],['identity','Identity / Auth'],['other','Other']
+];
+var PRI_OPTS = [
+  ['immediate','Immediate (CRITICAL)'],['within_2_years','Within 2 Years (HIGH)'],
+  ['within_5_years','Within 5 Years (MEDIUM)'],['post_2030','Post-2030 (LOW)'],['monitor','Monitor (NEGLIGIBLE)']
+];
+var LIB_OPTS = [
+  ['yes','Available'],['roadmap','On Roadmap'],['no','Not Available'],['unknown','Unknown']
+];
+
+function mkSelect(opts, val) {
+  return '<select>' + opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('') + '</select>';
+}
+
+function addSysRow(s) {
+  s = s || {};
+  var tb = document.getElementById('sysBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="text" value="'+(s.system_name||'New System')+'" style="min-width:130px"></td>' +
+    '<td>' + mkSelect(ALG_OPTS, s.algorithm||'rsa') + '</td>' +
+    '<td>' + mkSelect(USE_OPTS, s.use_case||'tls') + '</td>' +
+    '<td>' + mkSelect(PRI_OPTS, s.hndl_priority||'within_2_years') + '</td>' +
+    '<td style="text-align:center"><input type="checkbox"'+(s.vendor_controlled?' checked':'')+' title="Vendor-controlled system"></td>' +
+    '<td>' + mkSelect(LIB_OPTS, s.library_support||'unknown') + '</td>' +
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">✕</button></td>';
+  tb.appendChild(tr);
+}
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('sysBody').innerHTML = '';
+  p.forEach(function(s){ addSysRow(s); });
+}
+
+function getSystems() {
+  return Array.from(document.querySelectorAll('#sysBody tr')).map(function(tr) {
+    var cells = tr.querySelectorAll('td');
+    return {
+      system_name:      cells[0].querySelector('input').value.trim(),
+      algorithm:        cells[1].querySelector('select').value,
+      use_case:         cells[2].querySelector('select').value,
+      hndl_priority:    cells[3].querySelector('select').value,
+      vendor_controlled:cells[4].querySelector('input').checked,
+      library_support:  cells[5].querySelector('select').value
+    };
+  }).filter(function(s){ return s.system_name; });
+}
+
+var _lastResult = null;
+
+function buildRoadmap() {
+  var systems    = getSystems();
+  if (!systems.length) { alert('Add at least one system.'); return; }
+  var targetCat  = parseInt(document.getElementById('targetCat').value) || 3;
+  var hybridMode = document.getElementById('hybridMode').checked;
+  var seed       = document.getElementById('seedInput').value.trim() || 'default';
+  var ts         = new Date().toISOString().slice(0,10);
+
+  /* ── Build roadmap items ── */
+  var items = systems.map(function(s) {
+    var repl    = getReplacementAlg(s.algorithm, s.use_case, targetCat, hybridMode);
+    var phase   = PHASES[s.hndl_priority] || PHASES.post_2030;
+    var actions = getActions(s, repl, hybridMode);
+    return Object.assign({}, s, {
+      target_algorithm: repl.target,
+      fips_ref:         repl.fips,
+      migration_note:   repl.note,
+      no_migration:     !!repl.noMigration,
+      phase_num:        phase.num,
+      phase_label:      phase.label,
+      phase_window:     phase.window,
+      _phase:           phase,
+      actions:          actions
+    });
+  });
+
+  /* ── Group by phase ── */
+  var byPhase = {1:[],2:[],3:[],4:[]};
+  items.forEach(function(it){ (byPhase[it.phase_num]=byPhase[it.phase_num]||[]).push(it); });
+
+  /* ── Counts ── */
+  var phaseCounts = {1:byPhase[1].length, 2:byPhase[2].length, 3:byPhase[3].length, 4:byPhase[4].length};
+  var vendorCount = items.filter(function(i){ return i.vendor_controlled; }).length;
+  var noLibCount  = items.filter(function(i){ return i.library_support==='no'; }).length;
+
+  /* ── Compliance flags ── */
+  var flags = {
+    PQC_MIGRATION_ROADMAP_BUILT:          { pass:true,          label:'PQC Migration Roadmap Built',          desc:'Phase 1–4 migration roadmap produced per NISTIR 8547 timeline' },
+    FIPS_203_204_205_MAPPINGS_APPLIED:    { pass:true,          label:'FIPS 203/204/205 Mappings Applied',    desc:'Each system mapped to ML-KEM / ML-DSA / SLH-DSA replacement by use case' },
+    HYBRID_MODE_ENABLED:                  { pass:hybridMode,    label:hybridMode?'Hybrid Mode Enabled':'Hybrid Mode Disabled', desc:hybridMode?'Classical+PQC hybrid configured — transition safety net in place':'Hybrid mode off — pure PQC replacement; ensure library stability before deploying' },
+    VENDOR_DEPENDENCIES_REQUIRE_TRACKING: { pass:vendorCount===0, label:vendorCount>0?'Vendor Migration Dependencies':'No Vendor Dependencies', desc:vendorCount>0?vendorCount+' vendor-controlled system(s) — obtain vendor PQC roadmap commitments before scheduling migration':'No vendor-controlled systems in this migration plan' },
+    LIBRARY_GAPS_IDENTIFIED:              { pass:noLibCount===0,  label:noLibCount>0?'Library Gaps Identified':'No Library Gaps', desc:noLibCount>0?noLibCount+' system(s) have no available PQC library — escalate to engineering leadership for evaluation':'All systems have known library paths' },
+    PHASE_1_SYSTEMS_COUNT:                { pass:phaseCounts[1]<5, label:'Phase 1 Systems: '+phaseCounts[1], desc:phaseCounts[1]+' system(s) require immediate (pre-2027) migration. '+(phaseCounts[1]>=5?'High volume — consider dedicated PQC programme team.':'Manageable scope.') },
+    TARGET_ALGORITHM_LIST_GENERATED:      { pass:true,           label:'Target Algorithm List for T502',       desc:'migration_phases and target_algorithms ready to feed T502 Crypto-Agility Readiness Scorer' }
+  };
+
+  /* ── Markdown memo ── */
+  var memo = 'PQC MIGRATION ROADMAP\n' +
+    'Generated: ' + ts + ' · Security Category: ' + targetCat + ' · Hybrid Mode: ' + (hybridMode?'Yes':'No') + ' · Seed: ' + seed + '\n' +
+    'Standards: NISTIR 8547 · FIPS 203 (ML-KEM) · FIPS 204 (ML-DSA) · FIPS 205 (SLH-DSA)\n\n' +
+    'PHASE SUMMARY\n' +
+    '  Phase 1 (Pre-2027 — Immediate):   ' + phaseCounts[1] + ' systems\n' +
+    '  Phase 2 (2027–2028 — Prioritised):' + phaseCounts[2] + ' systems\n' +
+    '  Phase 3 (2029–2030 — Planned):    ' + phaseCounts[3] + ' systems\n' +
+    '  Phase 4 (2030–2035 — Lifecycle):  ' + phaseCounts[4] + ' systems\n' +
+    '  Vendor-controlled systems:         ' + vendorCount + '\n' +
+    '  Library gaps (no library):         ' + noLibCount + '\n\n' +
+    [1,2,3,4].filter(function(p){ return byPhase[p].length; }).map(function(p) {
+      var ph = byPhase[p][0]._phase;
+      return ph.label + ' · ' + ph.window + ' · ' + ph.desc + '\n' +
+        byPhase[p].map(function(it, i) {
+          return '  ' + (i+1) + '. ' + it.system_name + '\n' +
+            '     From:    ' + it.algorithm.toUpperCase() + ' (' + it.use_case + ')\n' +
+            '     To:      ' + it.target_algorithm + '\n' +
+            '     Ref:     ' + it.fips_ref + '\n' +
+            '     Note:    ' + it.migration_note + '\n' +
+            (it.vendor_controlled ? '     ⚠ Vendor-controlled — obtain roadmap commitment\n' : '') +
+            (it.library_support==='no' ? '     ❌ No library available — evaluate alternatives\n' : '') +
+            '     Actions: ' + it.actions.join(' | ');
+        }).join('\n\n');
+    }).join('\n\n') + '\n\n' +
+    'COMPLIANCE FLAGS\n' +
+    Object.keys(flags).map(function(k){ var f=flags[k]; return '  ['+(f.pass?'✓':'✗')+'] '+f.label+'\n      '+f.desc; }).join('\n') + '\n\n' +
+    'NEXT STEP: Feed migration_phases and target_algorithms into T502 Crypto-Agility Readiness Scorer\n' +
+    'Reference: https://ainumbers.co/tools/502-crypto-agility-readiness-scorer.html';
+
+  /* ── Store ── */
+  _lastResult = { items:items, byPhase:byPhase, phaseCounts:phaseCounts, compliance_flags:flags, target_cat:targetCat, hybrid_mode:hybridMode, seed:seed, generated:ts };
+  window._currentMandate = buildMandate();
+
+  /* ── Render ── */
+  var phaseColors = {1:'var(--red)',2:'var(--warn)',3:'var(--gold)',4:'var(--green)'};
+
+  var out = document.getElementById('outputSection');
+  out.innerHTML =
+    /* Summary */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Roadmap Summary</span></div>' +
+      '<div class="out-body">' +
+        '<div class="stat-row">' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--text)">' + items.length + '</span><span class="stat-lbl">Total Systems</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--red)">' + phaseCounts[1] + '</span><span class="stat-lbl">Phase 1</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--warn)">' + phaseCounts[2] + '</span><span class="stat-lbl">Phase 2</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--gold)">' + phaseCounts[3] + '</span><span class="stat-lbl">Phase 3</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--green)">' + phaseCounts[4] + '</span><span class="stat-lbl">Phase 4</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--warn)">' + vendorCount + '</span><span class="stat-lbl">Vendor Deps</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--red)">' + noLibCount + '</span><span class="stat-lbl">Lib Gaps</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    /* Phase lanes */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Migration Phases</span>' +
+        '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy Memo</button>' +
+      '</div>' +
+      '<div class="out-body">' +
+        [1,2,3,4].filter(function(p){ return byPhase[p].length; }).map(function(p) {
+          var ph = PHASES[Object.keys(PHASES).find(function(k){ return PHASES[k].num===p && PHASES[k].num===p; })];
+          /* find phase meta from first item */
+          var phMeta = byPhase[p][0]._phase;
+          return '<div class="phase-lane">' +
+            '<div class="phase-header">' +
+              '<span class="phase-label ' + phMeta.cls + '">' + phMeta.label + '</span>' +
+              '<span class="phase-timeline">⏱ ' + phMeta.window + ' · ' + phMeta.desc + '</span>' +
+            '</div>' +
+            byPhase[p].map(function(it) {
+              var tags = [];
+              if (hybridMode && !it.no_migration) tags.push('<span class="ri-tag ri-tag-hybrid">Hybrid</span>');
+              if (it.vendor_controlled) tags.push('<span class="ri-tag ri-tag-vendor">⚠ Vendor</span>');
+              if (it.library_support==='no') tags.push('<span class="ri-tag ri-tag-nolibrary">❌ No Lib</span>');
+              if (it.library_support==='roadmap') tags.push('<span class="ri-tag">Lib: Roadmap</span>');
+              return '<div class="roadmap-item">' +
+                '<div>' +
+                  '<div class="ri-system">' + esc(it.system_name) + '</div>' +
+                  '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem">' + it.algorithm.toUpperCase() + ' · ' + it.use_case.replace(/_/g,' ') + '</div>' +
+                '</div>' +
+                '<div class="ri-body">' +
+                  '<div><span class="ri-from" style="color:var(--muted)">' + esc(it.algorithm.toUpperCase()) + '</span><span class="ri-arrow">→</span><span class="ri-to">' + esc(it.target_algorithm) + '</span></div>' +
+                  '<div style="font-size:.62rem;color:var(--body);margin-top:.2rem">' + esc(it.migration_note) + '</div>' +
+                  '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem">' + esc(it.fips_ref) + '</div>' +
+                  (tags.length?'<div class="ri-tags">'+tags.join('')+'</div>':'') +
+                '</div>' +
+                '<div class="ri-actions">' + it.actions.map(function(a){ return '<div class="ri-action-item">• '+esc(a)+'</div>'; }).join('') + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+    /* Compliance flags */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' +
+        Object.keys(flags).map(function(k){ var f=flags[k]; return '<div class="flag-row"><span class="flag-icon">'+(f.pass?'✅':'❌')+'</span><div><div class="flag-name">'+k+'</div><div class="flag-desc">'+esc(f.desc)+'</div></div></div>'; }).join('') +
+      '</div></div>' +
+    '</div>' +
+    /* Chain next */
+    '<div class="chain-next">⛓ <strong>ChainGraph Step 3 of 4 complete.</strong>&nbsp; Next: feed <code>migration_phases</code> and <code>target_algorithms</code> into ' +
+      '<a href="502-crypto-agility-readiness-scorer.html">T502 Crypto-Agility Readiness Scorer →</a>' +
+    '</div>';
+
+  window._memo = memo;
+  window.enableAP2Btn && window.enableAP2Btn();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function(){ var b=document.getElementById('memoCopyBtn'); if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy Memo';},2000);} });
+}
+
+function buildMandate() {
+  if (!_lastResult) return null;
+  var ts = new Date().toISOString();
+  var phasesSummary = [1,2,3,4].map(function(p) {
+    return { phase:p, systems: (_lastResult.byPhase[p]||[]).map(function(it){ return { system_name:it.system_name, algorithm:it.algorithm, target_algorithm:it.target_algorithm, fips_ref:it.fips_ref }; }) };
+  }).filter(function(p){ return p.systems.length; });
+  return {
+    ap2_version:'1.0',
+    mandate_id:'501-pqc-migration-roadmap-builder-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'501-pqc-migration-roadmap-builder',
+    tool_version:'1.0.0',
+    mandate_type:'migration_plan',
+    jurisdiction:['INT'],
+    regulatory_frameworks:['NISTIR 8547','FIPS 203','FIPS 204','FIPS 205'],
+    payload:{ migration_phases:phasesSummary, target_category:_lastResult.target_cat, hybrid_mode:_lastResult.hybrid_mode, seed:_lastResult.seed },
+    compliance_flags:(function(){ var o={}; Object.keys(_lastResult.compliance_flags).forEach(function(k){ o[k]=_lastResult.compliance_flags[k].pass; }); return o; })(),
+    summary:'PQC roadmap: '+_lastResult.items.length+' systems across 4 phases · Cat '+_lastResult.target_cat+' · '+(hybridMode?'Hybrid':'PQC-only')+' · Generated '+_lastResult.generated,
+    agent_instructions:[
+      'Escalate Phase 1 systems immediately to CISO and engineering leadership.',
+      'Obtain vendor roadmap commitments for all vendor-controlled systems before Phase 1 start date.',
+      'Feed migration_phases and target_algorithms into T502 Crypto-Agility Readiness Scorer for programme maturity assessment.'
+    ],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    source_tool_inputs:{ target_category:_lastResult.target_cat, hybrid_mode:_lastResult.hybrid_mode, seed:_lastResult.seed },
+    regulatory_citations:[
+      { ref:'NISTIR 8547', url:'https://doi.org/10.6028/NIST.IR.8547.ipd' },
+      { ref:'FIPS 203 (ML-KEM)', url:'https://doi.org/10.6028/NIST.FIPS.203' },
+      { ref:'FIPS 204 (ML-DSA)', url:'https://doi.org/10.6028/NIST.FIPS.204' },
+      { ref:'FIPS 205 (SLH-DSA)', url:'https://doi.org/10.6028/NIST.FIPS.205' }
+    ],
+    audit_metadata:{ client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+}
+
+/* expose hybridMode for buildMandate closure */
+var hybridMode = false;
+document.addEventListener('DOMContentLoaded', function(){ var h=document.getElementById('hybridMode'); if(h)hybridMode=h.checked; h&&h.addEventListener('change',function(){hybridMode=h.checked;}); });
+
+window.AIN_BUILD_MANDATE = buildMandate;
+
+/* ── Default load ── */
+loadPreset('retail_bank_full');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"501-pqc-migration-roadmap-builder","version":"1.0.0","title":"PQC Migration Roadmap Builder","description":"Build a phased PQC migration roadmap per system: maps current algorithm to FIPS 203/204/205 replacement by use case, assigns Phase 1-4 by hndl_priority, supports hybrid mode and security category targeting.","category":"cat-20","tags":["PQC","post-quantum","FIPS 203","FIPS 204","FIPS 205","migration roadmap","crypto agility"],"mcp_tool_definition":{"name":"build_pqc_roadmap","description":"Build a phased PQC migration roadmap per system. Maps current algorithm to ML-KEM/ML-DSA/SLH-DSA replacement, assigns migration phases by HNDL priority, supports hybrid mode. Step 3 of PQC Migration chain.","inputSchema":{"type":"object","properties":{"systems":{"type":"array"},"hybrid_mode":{"type":"boolean"},"target_category":{"type":"integer","enum":[1,3,5]},"seed":{"type":"string"}},"required":["systems"]}},"execution":{"type":"browser-javascript","entry":"tools/501-pqc-migration-roadmap-builder.html","function_name":"buildRoadmap","timeout_ms":3000},"ap2_export":true,"mandate_type":"migration_plan","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('missing identity');if(!m.mandate_type)throw new Error('missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=buildMandate();if(!mandate){alert('Build a roadmap first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='501-pqc-migration-roadmap-builder_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'buildRoadmap',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName!=='INPUT'&&el.tagName!=='SELECT'&&el.tagName!=='TEXTAREA')return;if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=typeof v==='object'?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&o.payload.scored_systems&&Array.isArray(o.payload.scored_systems)){document.getElementById('sysBody').innerHTML='';o.payload.scored_systems.forEach(function(s){addSysRow({system_name:s.system_name,algorithm:s.algorithm||'rsa',use_case:'tls',hndl_priority:s.hndl_priority||'within_2_years',vendor_controlled:false,library_support:'unknown'});});n+=o.payload.scored_systems.length;}if(o.payload&&o.payload.classified_assets&&Array.isArray(o.payload.classified_assets)){document.getElementById('sysBody').innerHTML='';o.payload.classified_assets.forEach(function(a){addSysRow({system_name:a.system_name,algorithm:a.algorithm||'rsa',use_case:a.use_case||'tls',hndl_priority:'within_2_years',vendor_controlled:a.vendor_controlled||false,library_support:'unknown'});});n+=o.payload.classified_assets.length;}n+=applyFields(o.source_tool_inputs||{});notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{
+  "tool_id": "499-crypto-asset-inventory-classifier",
+  "version": "1.0.0",
+  "title": "Crypto Asset Inventory Classifier",
+  "description": "Classify each cryptographic asset in your environment against NISTIR 8547 / FIPS 203–205: QUANTUM_SAFE, DEPRECATED, DISALLOWED, UPGRADE_REC, COND_SAFE, or REVIEW_REQUIRED. Flags HNDL-risk assets and generates a PCI-DSS 12.3.3 compliant cryptographic inventory. Step 1 of the PQC Migration chain.",
+  "category": "cat-20",
+  "tags": ["PQC", "post-quantum", "crypto inventory", "NISTIR 8547", "FIPS 203", "FIPS 204", "FIPS 205", "HNDL", "PCI-DSS 12.3.3"],
+  "audience": ["security", "CISO", "compliance", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "assets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "system_name": { "type": "string" },
+            "algorithm": { "type": "string" },
+            "key_size_bits": { "type": "integer" },
+            "use_case": { "type": "string" },
+            "shelf_life_years": { "type": "number" },
+            "vendor_controlled": { "type": "boolean" }
+          },
+          "required": ["system_name", "algorithm", "use_case"]
+        }
+      }
+    },
+    "required": ["assets"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "classified_assets": { "type": "array" },
+      "compliance_flags": { "type": "object" },
+      "mandate_type": { "type": "string", "const": "crypto_inventory" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "classify_crypto_inventory",
+    "description": "Classify cryptographic assets against NISTIR 8547. Returns QUANTUM_SAFE/DEPRECATED/DISALLOWED/UPGRADE_REC/COND_SAFE/REVIEW_REQUIRED per asset, HNDL risk flags, and PCI-DSS 12.3.3 inventory flags. Step 1 of PQC Migration chain.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "system_name": { "type": "string" },
+              "algorithm": { "type": "string", "enum": ["rsa","ecdsa","ecdh","dh","dsa","aes","sha2","sha3","hmac","ml_kem","ml_dsa","slh_dsa","other"] },
+              "key_size_bits": { "type": "integer" },
+              "use_case": { "type": "string", "enum": ["key_exchange","tls","digital_signature","certificate","code_signing","data_at_rest","integrity","mac","identity","other"] },
+              "shelf_life_years": { "type": "number" },
+              "vendor_controlled": { "type": "boolean" }
+            },
+            "required": ["system_name", "algorithm", "use_case"]
+          }
+        }
+      },
+      "required": ["assets"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/499-crypto-asset-inventory-classifier.html",
+    "function_name": "runCryptoInventory",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "mandate_type": "crypto_inventory",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chain": {
+    "id": "pqc-migration",
+    "step": 1,
+    "next": "500-hndl-quantum-risk-scorer"
+  },
+  "regulatory_refs": [
+    { "ref": "NISTIR 8547 (Initial Public Draft)", "url": "https://doi.org/10.6028/NIST.IR.8547.ipd" },
+    { "ref": "NIST FIPS 203 (ML-KEM)", "url": "https://doi.org/10.6028/NIST.FIPS.203" },
+    { "ref": "NIST FIPS 204 (ML-DSA)", "url": "https://doi.org/10.6028/NIST.FIPS.204" },
+    { "ref": "NIST FIPS 205 (SLH-DSA)", "url": "https://doi.org/10.6028/NIST.FIPS.205" },
+    { "ref": "PCI-DSS v4.0.1 §12.3.3", "url": "https://www.pcisecuritystandards.org" }
+  ]
+}

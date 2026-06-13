@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Crypto Asset Inventory Classifier · AINumbers.co</title>
+<meta name="description" content="Classify cryptographic assets (algorithm + key size + use case) as Quantum-Safe, Deprecated, or Disallowed per NISTIR 8547. Identifies HNDL harvest-now-decrypt-later risk. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/499-crypto-asset-inventory-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Crypto Asset Inventory Classifier","url":"https://ainumbers.co/tools/499-crypto-asset-inventory-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "499-crypto-asset-inventory-classifier",
+  "version": "1.0.0",
+  "title": "Crypto Asset Inventory Classifier",
+  "description": "Classify each cryptographic asset in an organisation inventory as Quantum-Safe, Deprecated, or Disallowed per NISTIR 8547. Flags HNDL risk for long-lived encrypted data and PCI-DSS 12.3.3 inventory step.",
+  "category": "cat-20",
+  "tags": ["PQC","post-quantum","NISTIR 8547","FIPS 203","FIPS 204","FIPS 205","crypto inventory","HNDL","crypto agility"],
+  "audience": ["security","compliance","CISO","engineer"],
+  "input_schema": {"type":"object","properties":{"assets":{"type":"array"},"org_type":{"type":"string"},"seed":{"type":"string"}},"required":["assets"]},
+  "output_schema": {"type":"object","properties":{"classified_assets":{"type":"array"},"compliance_flags":{"type":"object"},"summary":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"classify_crypto_inventory","description":"Classify each cryptographic asset (algorithm, key size, use case) as Quantum-Safe, Deprecated, or Disallowed per NISTIR 8547. Flags HNDL harvest-now-decrypt-later risk for long-lived encrypted data. Step 1 of PQC Migration chain.","inputSchema":{"type":"object","properties":{"assets":{"type":"array","items":{"type":"object","properties":{"system_name":{"type":"string"},"algorithm":{"type":"string","enum":["rsa","ecdsa","ecdh","dh","dsa","aes","sha2","sha3","hmac","ml_kem","ml_dsa","slh_dsa","other"]},"key_size_bits":{"type":"integer"},"use_case":{"type":"string","enum":["key_exchange","tls","digital_signature","certificate","code_signing","data_at_rest","integrity","mac","identity","other"]},"data_shelf_life_years":{"type":"integer"},"vendor_controlled":{"type":"boolean"}},"required":["system_name","algorithm","key_size_bits","use_case","data_shelf_life_years"]}},"org_type":{"type":"string","enum":["retail_bank","payment_processor","asset_manager","fintech","central_bank","other"]},"seed":{"type":"string"}},"required":["assets"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/499-crypto-asset-inventory-classifier.html","function_name":"runCryptoInventory","timeout_ms":3000},
+  "ap2_export": true,
+  "mandate_type": "crypto_inventory",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* PANELS */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+/* PRESETS */
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* ORG + SEED ROW */
+.meta-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.meta-field{display:flex;flex-direction:column;gap:.35rem}
+.meta-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta-select,.meta-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s}
+.meta-select:focus,.meta-input:focus{border-color:var(--teal)}
+/* ASSET TABLE */
+.asset-table-wrap{overflow-x:auto;margin-bottom:1rem}
+.asset-table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:820px}
+.asset-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .55rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.asset-table td{padding:.35rem .45rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.asset-table tr:last-child td{border-bottom:none}
+.asset-table input[type=text],.asset-table input[type=number],.asset-table select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.25rem .4rem;border-radius:3px;outline:none;width:100%}
+.asset-table input[type=text]:focus,.asset-table input[type=number]:focus,.asset-table select:focus{border-color:var(--teal)}
+.asset-table input[type=checkbox]{width:16px;height:16px;accent-color:var(--teal);cursor:pointer}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.1rem .3rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.add-row-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* OUTPUT */
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* SUMMARY STATS */
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:90px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:500;line-height:1}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+/* CLASSIFICATION TABLE */
+.cls-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.cls-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.cls-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.cls-table tr:last-child td{border-bottom:none}
+.cls-table tr:hover td{background:rgba(20,184,166,.03)}
+/* STATUS BADGES */
+.qs-badge{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;white-space:nowrap}
+.qs-safe{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.qs-deprecated{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.qs-disallowed{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.qs-cond{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.qs-review{background:var(--purple-dim);color:var(--purple-lt);border:1px solid rgba(155,114,245,.25)}
+/* HNDL flag */
+.hndl-high{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;font-weight:500}
+.hndl-med{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.hndl-none{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.52rem}
+/* COMPLIANCE FLAGS */
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+/* MEMO */
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* CHAIN NEXT */
+.chain-next{display:flex;align-items:center;gap:.75rem;background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal-lt)}
+.chain-next a{color:var(--teal-lt);text-decoration:underline}
+/* SCOPE NOTE */
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* AP2 export */
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+/* footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-499</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-20 · T499 · Post-Quantum Cryptography · ChainGraph Step 1 of 4</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Crypto Asset Inventory <em>Classifier</em></h1>
+  <p class="hero-desc">Classify each cryptographic asset in your organisation's inventory as ✅ Quantum-Safe, ⚠ Deprecated, or 🔴 Disallowed — per the NISTIR 8547 transition timeline. Identifies Harvest-Now-Decrypt-Later (HNDL) risk for long-lived encrypted data and satisfies the PCI-DSS 12.3.3 cryptographic inventory step.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">NISTIR 8547</span>
+    <span class="badge badge-teal">FIPS 203/204/205</span>
+    <span class="badge badge-gold">PCI-DSS 12.3.3</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    NISTIR 8547 (Initial Public Draft, March 2024) deprecation timelines are reference values — verify against the finalised standard and your regulator before acting. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS + ORG -->
+  <div class="panel">
+    <div class="panel-header">Configuration</div>
+    <div class="meta-row" style="margin-bottom:.75rem">
+      <div class="meta-field">
+        <span class="meta-label">Organisation Type</span>
+        <select class="meta-select" id="orgType" style="min-width:200px">
+          <option value="retail_bank">Retail Bank</option>
+          <option value="payment_processor">Payment Processor</option>
+          <option value="asset_manager">Asset Manager</option>
+          <option value="fintech">Fintech</option>
+          <option value="central_bank">Central Bank</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">Seed (optional)</span>
+        <input type="text" class="meta-input" id="seedInput" placeholder="e.g. PQC-2026-Q3" style="min-width:180px">
+      </div>
+    </div>
+    <div style="margin-bottom:.6rem">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Load Preset</span>
+    </div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('retail_bank')">Retail Bank</button>
+      <button class="preset-btn" onclick="loadPreset('payment_processor')">Payment Processor</button>
+      <button class="preset-btn" onclick="loadPreset('asset_manager')">Asset Manager</button>
+    </div>
+  </div>
+
+  <!-- ASSET TABLE -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem">
+      <span class="panel-header" style="margin-bottom:0">Cryptographic Asset Inventory</span>
+      <button class="add-row-btn" onclick="addAssetRow()">+ Add Asset</button>
+    </div>
+    <div class="asset-table-wrap">
+      <table class="asset-table" id="assetTable">
+        <thead>
+          <tr>
+            <th style="min-width:160px">System / Asset Name</th>
+            <th style="min-width:120px">Algorithm</th>
+            <th style="min-width:100px">Key/Digest Size (bits)</th>
+            <th style="min-width:140px">Use Case</th>
+            <th style="min-width:90px">Data Shelf Life (yrs)</th>
+            <th style="min-width:70px">Vendor-Controlled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="assetBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runCryptoInventory()">▶ Classify Inventory</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the classifier to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+    <a href="500-hndl-quantum-risk-scorer.html">Next: T500 HNDL Scorer →</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T499 Crypto Asset Inventory Classifier v1.0
+   NISTIR 8547 classification · HNDL risk flagging · PCI-DSS 12.3.3
+   All client-side. Zero network. Zero storage. ═══ */
+
+/* ── Algorithm metadata ── */
+var ALGO_META = {
+  rsa:     { label:'RSA',        qs_class:'DEPRECATED',  hndl_eligible:true,
+             ref:'NISTIR 8547 §3 — deprecated 2030, disallowed 2035',
+             replace_ke:'ML-KEM (FIPS 203)', replace_sig:'ML-DSA (FIPS 204)' },
+  ecdsa:   { label:'ECDSA',      qs_class:'DEPRECATED',  hndl_eligible:false,
+             ref:'NISTIR 8547 §3 — deprecated 2030, disallowed 2035',
+             replace_ke:'ML-KEM (FIPS 203)', replace_sig:'ML-DSA (FIPS 204)' },
+  ecdh:    { label:'ECDH',       qs_class:'DEPRECATED',  hndl_eligible:true,
+             ref:'NISTIR 8547 §3 — deprecated 2030, disallowed 2035',
+             replace_ke:'ML-KEM (FIPS 203)', replace_sig:'ML-KEM (FIPS 203)' },
+  dh:      { label:'DH',         qs_class:'DEPRECATED',  hndl_eligible:true,
+             ref:'NISTIR 8547 §3 — deprecated 2030, disallowed 2035',
+             replace_ke:'ML-KEM (FIPS 203)', replace_sig:'ML-KEM (FIPS 203)' },
+  dsa:     { label:'DSA',        qs_class:'DISALLOWED',  hndl_eligible:false,
+             ref:'FIPS 186-5 (deprecated 2023) / NISTIR 8547 (disallowed)',
+             replace_ke:'ML-DSA (FIPS 204)', replace_sig:'ML-DSA (FIPS 204)' },
+  sha3:    { label:'SHA-3',      qs_class:'QUANTUM_SAFE', hndl_eligible:false,
+             ref:'FIPS 202 — quantum-resistant; no replacement needed',
+             replace_ke:null, replace_sig:null },
+  ml_kem:  { label:'ML-KEM',     qs_class:'QUANTUM_SAFE', hndl_eligible:false,
+             ref:'FIPS 203 — ML-KEM (Kyber); primary PQC KEM standard',
+             replace_ke:null, replace_sig:null },
+  ml_dsa:  { label:'ML-DSA',     qs_class:'QUANTUM_SAFE', hndl_eligible:false,
+             ref:'FIPS 204 — ML-DSA (Dilithium); primary PQC signature standard',
+             replace_ke:null, replace_sig:null },
+  slh_dsa: { label:'SLH-DSA',    qs_class:'QUANTUM_SAFE', hndl_eligible:false,
+             ref:'FIPS 205 — SLH-DSA (SPHINCS+); stateless hash-based signatures',
+             replace_ke:null, replace_sig:null },
+  other:   { label:'Other',      qs_class:'REVIEW_REQUIRED', hndl_eligible:false,
+             ref:'Not in NISTIR 8547 scope — manual review required',
+             replace_ke:null, replace_sig:null }
+};
+
+var KE_USE_CASES = ['key_exchange','tls','data_at_rest'];
+
+function classifyAsset(asset) {
+  var alg = asset.algorithm;
+  var bits = parseInt(asset.key_size_bits) || 0;
+  var shelf = parseInt(asset.data_shelf_life_years) || 0;
+  var use = asset.use_case;
+
+  /* Handle AES separately */
+  if (alg === 'aes') {
+    if (bits >= 256) {
+      return { qs_class:'QUANTUM_SAFE', ref:'AES-256 — 128-bit post-quantum security (NIST approved)', replace:null };
+    }
+    if (shelf > 10) {
+      return { qs_class:'UPGRADE_REC', ref:'AES-128 — 64-bit post-quantum security; data shelf life exceeds CRQC horizon. Upgrade to AES-256.', replace:'AES-256' };
+    }
+    return { qs_class:'COND_SAFE', ref:'AES-128 — 64-bit post-quantum security; adequate for short-lived data. Plan AES-256 migration.', replace:'AES-256 (planned)' };
+  }
+
+  /* Handle SHA-2 separately */
+  if (alg === 'sha2') {
+    if (bits >= 384) {
+      return { qs_class:'QUANTUM_SAFE', ref:'SHA-384/512 — strong post-quantum collision resistance (NIST approved)', replace:null };
+    }
+    return { qs_class:'COND_SAFE', ref:'SHA-256 — adequate for most uses; collision security reduced to ~128-bit quantum. SHA-384 recommended for new deployments.', replace:'SHA-384 or SHA3-256' };
+  }
+
+  /* Handle HMAC separately */
+  if (alg === 'hmac') {
+    if (bits >= 256) {
+      return { qs_class:'QUANTUM_SAFE', ref:'HMAC with ≥256-bit key — quantum-resistant MAC; verify underlying hash is SHA-384/512 or SHA3', replace:null };
+    }
+    return { qs_class:'COND_SAFE', ref:'HMAC — security depends on key length and underlying hash. Use HMAC-SHA-384 or HMAC-SHA3-256 for quantum safety.', replace:'HMAC-SHA-384 / HMAC-SHA3-256' };
+  }
+
+  /* All other algorithms */
+  var meta = ALGO_META[alg];
+  if (!meta) return { qs_class:'REVIEW_REQUIRED', ref:'Unknown algorithm — manual review required', replace:null };
+
+  var replaceStr = null;
+  if (meta.qs_class === 'DEPRECATED' || meta.qs_class === 'DISALLOWED') {
+    if (KE_USE_CASES.indexOf(use) !== -1 || use === 'identity') {
+      replaceStr = meta.replace_ke || 'ML-KEM (FIPS 203)';
+    } else {
+      replaceStr = meta.replace_sig || 'ML-DSA (FIPS 204)';
+    }
+    /* RSA used for key transport → ML-KEM; RSA signing → ML-DSA */
+    if (alg === 'rsa') {
+      replaceStr = (use === 'key_exchange' || use === 'tls') ? 'ML-KEM (FIPS 203)' : 'ML-DSA (FIPS 204)';
+    }
+  }
+
+  return { qs_class: meta.qs_class, ref: meta.ref, replace: replaceStr };
+}
+
+function getHNDL(asset, cls) {
+  if (cls.qs_class !== 'DEPRECATED' && cls.qs_class !== 'DISALLOWED') return 'NONE';
+  var meta = ALGO_META[asset.algorithm];
+  if (!meta || !meta.hndl_eligible) return 'NONE';
+  var shelf = parseInt(asset.data_shelf_life_years) || 0;
+  var use = asset.use_case;
+  var hndlUses = ['key_exchange','tls','data_at_rest'];
+  if (hndlUses.indexOf(use) === -1) return 'NONE';
+  if (shelf >= 10) return 'HIGH';
+  if (shelf >= 1) return 'MEDIUM';
+  return 'NONE';
+}
+
+function qsBadgeHtml(cls) {
+  var map = {
+    QUANTUM_SAFE:  ['qs-safe',       '✓ Quantum-Safe'],
+    DEPRECATED:    ['qs-deprecated', '⚠ Deprecated'],
+    DISALLOWED:    ['qs-disallowed', '✕ Disallowed'],
+    UPGRADE_REC:   ['qs-cond',       '⬆ Upgrade Rec.'],
+    COND_SAFE:     ['qs-cond',       '~ Cond. Safe'],
+    REVIEW_REQUIRED:['qs-review',    '? Review Req.']
+  };
+  var m = map[cls] || ['qs-review','? Unknown'];
+  return '<span class="qs-badge ' + m[0] + '">' + m[1] + '</span>';
+}
+
+function hndlHtml(level) {
+  if (level === 'HIGH')   return '<span class="hndl-high">⚡ HIGH</span>';
+  if (level === 'MEDIUM') return '<span class="hndl-med">◈ MED</span>';
+  return '<span class="hndl-none">—</span>';
+}
+
+/* ── Presets ── */
+var PRESETS = {
+  retail_bank: {
+    org: 'retail_bank',
+    assets: [
+      {system_name:'Online Banking TLS',      algorithm:'ecdh',    key_size_bits:256, use_case:'tls',               data_shelf_life_years:1,  vendor_controlled:false},
+      {system_name:'Customer Auth Certs',     algorithm:'rsa',     key_size_bits:2048,use_case:'certificate',       data_shelf_life_years:5,  vendor_controlled:false},
+      {system_name:'Core Banking API Signing',algorithm:'rsa',     key_size_bits:2048,use_case:'digital_signature', data_shelf_life_years:7,  vendor_controlled:false},
+      {system_name:'Customer Data Vault',     algorithm:'aes',     key_size_bits:128, use_case:'data_at_rest',      data_shelf_life_years:25, vendor_controlled:false},
+      {system_name:'Payment HSM Key Wrap',    algorithm:'rsa',     key_size_bits:2048,use_case:'key_exchange',      data_shelf_life_years:10, vendor_controlled:true },
+      {system_name:'Audit Log Integrity',     algorithm:'sha2',    key_size_bits:256, use_case:'integrity',         data_shelf_life_years:10, vendor_controlled:false},
+      {system_name:'HMAC Token Signing',      algorithm:'hmac',    key_size_bits:256, use_case:'mac',               data_shelf_life_years:1,  vendor_controlled:false},
+    ]
+  },
+  payment_processor: {
+    org: 'payment_processor',
+    assets: [
+      {system_name:'PCI TLS Channels',       algorithm:'ecdsa',   key_size_bits:256, use_case:'tls',               data_shelf_life_years:1,  vendor_controlled:false},
+      {system_name:'Card Tokenization Vault', algorithm:'aes',    key_size_bits:128, use_case:'data_at_rest',      data_shelf_life_years:5,  vendor_controlled:true },
+      {system_name:'Acquirer Certificates',  algorithm:'rsa',     key_size_bits:2048,use_case:'certificate',       data_shelf_life_years:3,  vendor_controlled:true },
+      {system_name:'Transaction Signing',    algorithm:'ecdsa',   key_size_bits:256, use_case:'digital_signature', data_shelf_life_years:7,  vendor_controlled:false},
+      {system_name:'Dispute Records AES',    algorithm:'aes',     key_size_bits:256, use_case:'data_at_rest',      data_shelf_life_years:10, vendor_controlled:false},
+      {system_name:'API HMAC Auth',          algorithm:'hmac',    key_size_bits:256, use_case:'mac',               data_shelf_life_years:1,  vendor_controlled:false},
+      {system_name:'Legacy DSA Signing',     algorithm:'dsa',     key_size_bits:1024,use_case:'digital_signature', data_shelf_life_years:3,  vendor_controlled:false},
+    ]
+  },
+  asset_manager: {
+    org: 'asset_manager',
+    assets: [
+      {system_name:'Custody Key Wrap RSA',   algorithm:'rsa',     key_size_bits:4096,use_case:'key_exchange',      data_shelf_life_years:30, vendor_controlled:true },
+      {system_name:'Trade Confirm Signing',  algorithm:'ecdsa',   key_size_bits:384, use_case:'digital_signature', data_shelf_life_years:15, vendor_controlled:false},
+      {system_name:'Portfolio Data Vault',   algorithm:'aes',     key_size_bits:256, use_case:'data_at_rest',      data_shelf_life_years:30, vendor_controlled:false},
+      {system_name:'Regulatory Report Hash', algorithm:'sha2',    key_size_bits:512, use_case:'integrity',         data_shelf_life_years:10, vendor_controlled:false},
+      {system_name:'Client Portal TLS',      algorithm:'ecdh',    key_size_bits:256, use_case:'tls',               data_shelf_life_years:1,  vendor_controlled:false},
+      {system_name:'API Gateway Certs',      algorithm:'rsa',     key_size_bits:2048,use_case:'certificate',       data_shelf_life_years:5,  vendor_controlled:true },
+      {system_name:'Pilot ML-KEM Channel',   algorithm:'ml_kem',  key_size_bits:256, use_case:'key_exchange',      data_shelf_life_years:10, vendor_controlled:false},
+    ]
+  }
+};
+
+var ALGO_OPTIONS = [
+  ['rsa','RSA'],['ecdsa','ECDSA'],['ecdh','ECDH'],['dh','DH'],['dsa','DSA'],
+  ['aes','AES'],['sha2','SHA-2'],['sha3','SHA-3'],['hmac','HMAC'],
+  ['ml_kem','ML-KEM (FIPS 203)'],['ml_dsa','ML-DSA (FIPS 204)'],['slh_dsa','SLH-DSA (FIPS 205)'],
+  ['other','Other']
+];
+
+var USE_OPTIONS = [
+  ['key_exchange','Key Exchange'],['tls','TLS/SSL'],['digital_signature','Digital Signature'],
+  ['certificate','PKI Certificate'],['code_signing','Code Signing'],['data_at_rest','Data at Rest'],
+  ['integrity','Integrity / Hash'],['mac','MAC / HMAC'],['identity','Identity / Auth'],['other','Other']
+];
+
+function algoSelect(val) {
+  return '<select style="min-width:120px">' +
+    ALGO_OPTIONS.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('') +
+  '</select>';
+}
+
+function useSelect(val) {
+  return '<select style="min-width:120px">' +
+    USE_OPTIONS.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('') +
+  '</select>';
+}
+
+function addAssetRow(a) {
+  a = a || {};
+  var tb = document.getElementById('assetBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="text" value="'+(a.system_name||'New System')+'" style="min-width:140px"></td>' +
+    '<td>' + algoSelect(a.algorithm||'rsa') + '</td>' +
+    '<td><input type="number" value="'+(a.key_size_bits||2048)+'" min="64" max="65536" style="min-width:70px"></td>' +
+    '<td>' + useSelect(a.use_case||'tls') + '</td>' +
+    '<td><input type="number" value="'+(a.data_shelf_life_years||5)+'" min="0" max="100" style="min-width:60px"></td>' +
+    '<td style="text-align:center"><input type="checkbox"'+(a.vendor_controlled?' checked':'')+' title="Vendor-controlled key/algorithm"></td>' +
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">✕</button></td>';
+  tb.appendChild(tr);
+}
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('assetBody').innerHTML = '';
+  document.getElementById('orgType').value = p.org;
+  p.assets.forEach(function(a){ addAssetRow(a); });
+}
+
+function getAssets() {
+  return Array.from(document.querySelectorAll('#assetBody tr')).map(function(tr) {
+    var cells = tr.querySelectorAll('td');
+    return {
+      system_name:          cells[0].querySelector('input').value.trim(),
+      algorithm:            cells[1].querySelector('select').value,
+      key_size_bits:        parseInt(cells[2].querySelector('input').value) || 0,
+      use_case:             cells[3].querySelector('select').value,
+      data_shelf_life_years:parseInt(cells[4].querySelector('input').value) || 0,
+      vendor_controlled:    cells[5].querySelector('input').checked
+    };
+  }).filter(function(a){ return a.system_name; });
+}
+
+var _lastResult = null;
+
+function runCryptoInventory() {
+  var assets = getAssets();
+  if (!assets.length) { alert('Add at least one asset to classify.'); return; }
+  var orgType = document.getElementById('orgType').value;
+  var seed    = document.getElementById('seedInput').value.trim() || 'default';
+
+  /* ── Classify ── */
+  var classified = assets.map(function(a) {
+    var cls  = classifyAsset(a);
+    var hndl = getHNDL(a, cls);
+    return {
+      system_name:          a.system_name,
+      algorithm:            a.algorithm,
+      key_size_bits:        a.key_size_bits,
+      use_case:             a.use_case,
+      data_shelf_life_years:a.data_shelf_life_years,
+      vendor_controlled:    a.vendor_controlled,
+      algorithm_status:     cls.qs_class,
+      nistir_ref:           cls.ref,
+      recommended_replacement: cls.replace,
+      hndl_risk:            hndl
+    };
+  });
+
+  /* ── Summary counts ── */
+  var counts = {QUANTUM_SAFE:0,DEPRECATED:0,DISALLOWED:0,UPGRADE_REC:0,COND_SAFE:0,REVIEW_REQUIRED:0};
+  classified.forEach(function(c){ counts[c.algorithm_status] = (counts[c.algorithm_status]||0)+1; });
+  var hndlHigh   = classified.filter(function(c){ return c.hndl_risk==='HIGH'; });
+  var hndlMed    = classified.filter(function(c){ return c.hndl_risk==='MEDIUM'; });
+  var vendorDeps = classified.filter(function(c){ return c.vendor_controlled; });
+
+  /* ── Compliance flags ── */
+  var depPresent  = (counts.DEPRECATED||0) > 0;
+  var disPresent  = (counts.DISALLOWED||0) > 0;
+  var hndlPresent = hndlHigh.length > 0 || hndlMed.length > 0;
+  var vendorFlag  = vendorDeps.length > 0;
+  var flags = {
+    CRYPTO_INVENTORY_COMPLETED:         { pass:true,  label:'Cryptographic Inventory Completed', desc:'NISTIR 8547 §2 / PCI-DSS 12.3.3 — inventory step complete' },
+    NISTIR_8547_CLASSIFICATION_APPLIED: { pass:true,  label:'NISTIR 8547 Classification Applied', desc:'All assets classified per NISTIR 8547 Quantum-Safe / Deprecated / Disallowed taxonomy' },
+    DEPRECATED_ALGORITHMS_PRESENT:      { pass:!depPresent,  label: depPresent ? 'Deprecated Algorithms Present' : 'No Deprecated Algorithms', desc: depPresent ? counts.DEPRECATED+' asset(s) using algorithms deprecated in NISTIR 8547. Migration required by 2030.' : 'No deprecated algorithms identified in this inventory' },
+    DISALLOWED_ALGORITHMS_PRESENT:      { pass:!disPresent,  label: disPresent ? 'Disallowed Algorithms Present' : 'No Disallowed Algorithms', desc: disPresent ? counts.DISALLOWED+' asset(s) using algorithms already disallowed. Immediate replacement required.' : 'No disallowed algorithms identified in this inventory' },
+    VENDOR_DEPENDENCIES_FLAGGED:        { pass:!vendorFlag,  label: vendorFlag ? 'Vendor-Controlled Keys Flagged' : 'No Vendor Key Dependencies', desc: vendorFlag ? vendorDeps.length+' system(s) with vendor-controlled cryptography — migration dependency on vendor roadmaps' : 'No vendor-controlled cryptographic dependencies identified' },
+    HNDL_RISK_ASSETS_PRESENT:           { pass:!hndlPresent, label: hndlPresent ? 'HNDL Risk Assets Present' : 'No HNDL Risk Identified', desc: hndlPresent ? hndlHigh.length+' HIGH and '+hndlMed.length+' MEDIUM HNDL risk assets. Long-lived encrypted data at quantum harvest risk.' : 'No harvest-now-decrypt-later risk identified in this inventory' },
+    PCI_DSS_12_3_3_INVENTORY_STEP_COMPLETE: { pass:true, label:'PCI-DSS 12.3.3 Inventory Step Complete', desc:'Cryptographic algorithm inventory produced and classified as required by PCI-DSS v4 §12.3.3' }
+  };
+
+  /* ── Markdown memo ── */
+  var ts = new Date().toISOString().slice(0,10);
+  var memo = 'CRYPTOGRAPHIC ASSET INVENTORY — NISTIR 8547 CLASSIFICATION\n' +
+    'Generated: ' + ts + ' · Organisation Type: ' + orgType + ' · Seed: ' + seed + '\n' +
+    'Standard: NISTIR 8547 (Initial Public Draft, March 2024) · FIPS 203/204/205\n\n' +
+    'SUMMARY\n' +
+    '  Total assets:     ' + classified.length + '\n' +
+    '  Quantum-Safe:     ' + (counts.QUANTUM_SAFE||0) + '\n' +
+    '  Cond. Safe:       ' + ((counts.COND_SAFE||0)+(counts.UPGRADE_REC||0)) + '\n' +
+    '  Deprecated:       ' + (counts.DEPRECATED||0) + ' (migration required by 2030)\n' +
+    '  Disallowed:       ' + (counts.DISALLOWED||0) + ' (immediate replacement required)\n' +
+    '  HNDL Risk (High): ' + hndlHigh.length + '\n' +
+    '  HNDL Risk (Med):  ' + hndlMed.length + '\n' +
+    '  Vendor-Controlled:' + vendorDeps.length + '\n\n' +
+    'CLASSIFIED ASSETS\n' +
+    classified.map(function(c,i) {
+      return (i+1)+'. ' + c.system_name + '\n' +
+        '   Algorithm:    ' + c.algorithm.toUpperCase() + ' (' + c.key_size_bits + ' bits)\n' +
+        '   Use Case:     ' + c.use_case + '\n' +
+        '   Shelf Life:   ' + c.data_shelf_life_years + ' years\n' +
+        '   Status:       ' + c.algorithm_status + '\n' +
+        '   HNDL Risk:    ' + c.hndl_risk + '\n' +
+        '   Replacement:  ' + (c.recommended_replacement||'None required') + '\n' +
+        '   Ref:          ' + c.nistir_ref + (c.vendor_controlled ? '\n   ⚠ Vendor-controlled cryptography' : '');
+    }).join('\n\n') + '\n\n' +
+    'COMPLIANCE FLAGS\n' +
+    Object.keys(flags).map(function(k){ var f=flags[k]; return '  ['+(f.pass?'✓':'✗')+'] '+f.label+'\n      '+f.desc; }).join('\n') + '\n\n' +
+    'NEXT STEP: Feed algorithm_status values into T500 HNDL Quantum Risk Scorer\n' +
+    'Reference: https://ainumbers.co/tools/500-hndl-quantum-risk-scorer.html';
+
+  /* ── Store result ── */
+  _lastResult = { classified_assets: classified, summary: counts, compliance_flags: flags, org_type: orgType, seed: seed, generated: ts };
+  window._currentMandate = buildMandate();
+
+  /* ── Render ── */
+  var out = document.getElementById('outputSection');
+  out.innerHTML =
+    /* Summary */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Classification Summary</span></div>' +
+      '<div class="out-body">' +
+        '<div class="stat-row">' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--text)">' + classified.length + '</span><span class="stat-lbl">Total</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--green)">' + (counts.QUANTUM_SAFE||0) + '</span><span class="stat-lbl">Quantum-Safe</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--gold)">' + ((counts.COND_SAFE||0)+(counts.UPGRADE_REC||0)) + '</span><span class="stat-lbl">Cond. Safe</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--warn)">' + (counts.DEPRECATED||0) + '</span><span class="stat-lbl">Deprecated</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--red)">' + (counts.DISALLOWED||0) + '</span><span class="stat-lbl">Disallowed</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--red)">' + hndlHigh.length + '</span><span class="stat-lbl">HNDL High</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--warn)">' + hndlMed.length + '</span><span class="stat-lbl">HNDL Med</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--body)">' + vendorDeps.length + '</span><span class="stat-lbl">Vendor Dep.</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    /* Classification table */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Asset Classification</span>' +
+        '<button class="copy-btn" onclick="downloadCSV()">↓ CSV</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:0;overflow-x:auto">' +
+        '<table class="cls-table">' +
+          '<thead><tr>' +
+            '<th>System / Asset</th><th>Algorithm</th><th>Size</th><th>Use Case</th><th>Shelf Life</th>' +
+            '<th>NISTIR 8547 Status</th><th>HNDL Risk</th><th>Recommended Action</th><th>Vendor</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+            classified.map(function(c) {
+              var algMeta = ALGO_META[c.algorithm] || {};
+              return '<tr>' +
+                '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--bright);white-space:nowrap">' + esc(c.system_name) + '</td>' +
+                '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">' + (algMeta.label||c.algorithm.toUpperCase()) + '</td>' +
+                '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:var(--body)">' + c.key_size_bits + '</td>' +
+                '<td style="font-size:.65rem;color:var(--body)">' + c.use_case.replace(/_/g,' ') + '</td>' +
+                '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:var(--body);text-align:center">' + c.data_shelf_life_years + 'y</td>' +
+                '<td>' + qsBadgeHtml(c.algorithm_status) + '</td>' +
+                '<td>' + hndlHtml(c.hndl_risk) + '</td>' +
+                '<td style="font-size:.62rem;color:var(--text)">' + (c.recommended_replacement ? esc(c.recommended_replacement) : '<span style="color:var(--muted)">None required</span>') + '</td>' +
+                '<td style="text-align:center">' + (c.vendor_controlled ? '<span style="color:var(--warn);font-size:.7rem" title="Vendor-controlled key/algorithm">⚠</span>' : '<span style="color:var(--muted);font-size:.7rem">—</span>') + '</td>' +
+              '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+    /* Compliance flags */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' +
+        Object.keys(flags).map(function(k) {
+          var f = flags[k];
+          return '<div class="flag-row">' +
+            '<span class="flag-icon">' + (f.pass?'✅':'❌') + '</span>' +
+            '<div><div class="flag-name">' + k + '</div><div class="flag-desc">' + esc(f.desc) + '</div></div>' +
+          '</div>';
+        }).join('') +
+      '</div></div>' +
+    '</div>' +
+    /* Markdown memo */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Markdown Assessment Memo</span>' +
+        '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">' + esc(memo) + '</div></div>' +
+    '</div>' +
+    /* Chain next */
+    '<div class="chain-next">⛓ <strong>ChainGraph Step 1 of 4 complete.</strong>&nbsp; Next: feed <code>algorithm_status</code> per system into ' +
+      '<a href="500-hndl-quantum-risk-scorer.html">T500 HNDL Quantum Risk Scorer →</a> &nbsp;or export the Policy Mandate above.' +
+    '</div>';
+
+  window._memo = memo;
+  window.enableAP2Btn && window.enableAP2Btn();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function(){ var b=document.getElementById('memoCopyBtn'); if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);} });
+}
+
+function downloadCSV() {
+  if (!_lastResult) return;
+  var rows = [['System','Algorithm','Key Size (bits)','Use Case','Shelf Life (yrs)','Vendor Controlled','NISTIR 8547 Status','HNDL Risk','Recommended Replacement','Standard Ref']];
+  _lastResult.classified_assets.forEach(function(c) {
+    rows.push([c.system_name, c.algorithm.toUpperCase(), c.key_size_bits, c.use_case, c.data_shelf_life_years, c.vendor_controlled?'Yes':'No', c.algorithm_status, c.hndl_risk, c.recommended_replacement||'', c.nistir_ref]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(v){ var s=String(v); return s.indexOf(',')!==-1||s.indexOf('"')!==-1?'"'+s.replace(/"/g,'""')+'"':s; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'crypto-inventory-' + (new Date().toISOString().slice(0,10)) + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function buildMandate() {
+  if (!_lastResult) return null;
+  var ts = new Date().toISOString();
+  var seed = _lastResult.seed || 'default';
+  return {
+    ap2_version: '1.0',
+    mandate_id: '499-crypto-asset-inventory-classifier-' + ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: ts, issued_by: 'ainumbers.co',
+    tool_id: '499-crypto-asset-inventory-classifier',
+    tool_version: '1.0.0',
+    mandate_type: 'crypto_inventory',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['NISTIR 8547','FIPS 203','FIPS 204','FIPS 205','PCI-DSS 12.3.3'],
+    payload: {
+      classified_assets: _lastResult.classified_assets,
+      summary: _lastResult.summary,
+      org_type: _lastResult.org_type,
+      seed: seed
+    },
+    compliance_flags: (function(){ var o={}; Object.keys(_lastResult.compliance_flags).forEach(function(k){ o[k]=_lastResult.compliance_flags[k].pass; }); return o; })(),
+    summary: 'Crypto inventory classified: ' + (_lastResult.classified_assets||[]).length + ' assets · Generated ' + _lastResult.generated,
+    agent_instructions: [
+      'Review DEPRECATED and DISALLOWED assets and initiate migration per NISTIR 8547 timeline.',
+      'Feed algorithm_status per system into T500 HNDL Quantum Risk Scorer for HNDL exposure scoring.',
+      'Assets with HNDL_RISK=HIGH require immediate migration planning — data may be harvested before CRQC arrival.'
+    ],
+    valid_from: ts.slice(0,10),
+    valid_until: new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts.slice(0,10),
+    source_tool_inputs: { org_type: _lastResult.org_type, seed: seed },
+    regulatory_citations: [
+      { ref:'NISTIR 8547', url:'https://doi.org/10.6028/NIST.IR.8547.ipd' },
+      { ref:'FIPS 203', url:'https://doi.org/10.6028/NIST.FIPS.203' },
+      { ref:'FIPS 204', url:'https://doi.org/10.6028/NIST.FIPS.204' },
+      { ref:'FIPS 205', url:'https://doi.org/10.6028/NIST.FIPS.205' },
+      { ref:'PCI-DSS v4 §12.3.3', url:'https://www.pcisecuritystandards.org/' }
+    ],
+    audit_metadata: { client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+}
+
+window.AIN_BUILD_MANDATE = buildMandate;
+
+/* ── Default load ── */
+loadPreset('retail_bank');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"499-crypto-asset-inventory-classifier","version":"1.0.0","title":"Crypto Asset Inventory Classifier","description":"Classify each cryptographic asset in an organisation inventory as Quantum-Safe, Deprecated, or Disallowed per NISTIR 8547. Flags HNDL risk for long-lived encrypted data and PCI-DSS 12.3.3 inventory step.","category":"cat-20","tags":["PQC","post-quantum","NISTIR 8547","FIPS 203","FIPS 204","FIPS 205","crypto inventory","HNDL"],"audience":["security","compliance","CISO","engineer"],"input_schema":{"type":"object","properties":{"assets":{"type":"array"},"org_type":{"type":"string"},"seed":{"type":"string"}},"required":["assets"]},"output_schema":{"type":"object","properties":{"classified_assets":{"type":"array"},"compliance_flags":{"type":"object"},"summary":{"type":"object"}}},"mcp_tool_definition":{"name":"classify_crypto_inventory","description":"Classify each cryptographic asset (algorithm, key size, use case) as Quantum-Safe, Deprecated, or Disallowed per NISTIR 8547. Flags HNDL harvest-now-decrypt-later risk for long-lived encrypted data. Step 1 of PQC Migration chain.","inputSchema":{"type":"object","properties":{"assets":{"type":"array","items":{"type":"object","properties":{"system_name":{"type":"string"},"algorithm":{"type":"string","enum":["rsa","ecdsa","ecdh","dh","dsa","aes","sha2","sha3","hmac","ml_kem","ml_dsa","slh_dsa","other"]},"key_size_bits":{"type":"integer"},"use_case":{"type":"string"},"data_shelf_life_years":{"type":"integer"},"vendor_controlled":{"type":"boolean"}}}},"org_type":{"type":"string"},"seed":{"type":"string"}},"required":["assets"]}},"execution":{"type":"browser-javascript","entry":"tools/499-crypto-asset-inventory-classifier.html","function_name":"runCryptoInventory","timeout_ms":3000},"ap2_export":true,"mandate_type":"crypto_inventory","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._currentMandate=window._currentMandate||null;
+window.exportAP2=function(){
+  var mandate=buildMandate();
+  if(!mandate){alert('Run the classifier first to generate a Policy Mandate.');return;}
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var ts=new Date().toISOString();
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='499-crypto-asset-inventory-classifier_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runCryptoInventory',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;var v=fields[id];if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.scope-note')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=document.getElementById('ainIntakeZone')||anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&o.payload.assets&&Array.isArray(o.payload.assets)){document.getElementById('assetBody').innerHTML='';o.payload.assets.forEach(function(a){addAssetRow(a);});if(o.payload.org_type)document.getElementById('orgType').value=o.payload.org_type;n+=o.payload.assets.length;}if(o.source_tool_inputs)n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
