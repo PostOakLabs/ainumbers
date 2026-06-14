@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>x402 Header Decoder, Payload Linter &amp; 402 Flow Simulator · ART-26 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Decode x402 PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers, lint an exact-scheme PaymentPayload, walk the HTTP-402 flow, and check the scheme×network matrix. ChainGraph node ART-26, Branch B of the Agentic Rail Chain. §4 hash-anchored artifact.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-26-x402-payload-decoder-flow-simulator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"x402 Header Decoder, Payload Linter & 402 Flow Simulator · ART-26 · ChainGraph","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://ainumbers.co/chaingraph/art-26-x402-payload-decoder-flow-simulator.html","description":"Decode x402 PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers, lint a PaymentPayload, walk the HTTP-402 flow, and show the scheme×network matrix. ChainGraph node ART-26, Branch B of the Agentic Rail Chain.","provider":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;min-height:100vh}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+.container{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+nav{border-bottom:1px solid var(--border);padding:.75rem 0;background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem;line-height:1.2}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem;border-radius:0 var(--radius) var(--radius) 0}
+.tool-body{padding:2rem 0 4rem}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem .85rem;border:1px solid var(--border);color:var(--muted);background:transparent;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.tab.on{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem;display:none}
+.panel.on{display:block}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.code-input{width:100%;min-height:140px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;padding:.85rem 1rem;border-radius:var(--radius);outline:none;resize:vertical}
+.code-input:focus{border-color:var(--teal)}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;cursor:pointer;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.code-out{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-info{color:var(--teal);border-color:rgba(20,184,166,.4)}
+.flow-step{display:flex;gap:.85rem;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.flow-step:last-child{border-bottom:none}
+.flow-n{width:26px;height:26px;border-radius:50%;border:1px solid var(--teal);color:var(--teal);background:var(--teal-dim);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;flex-shrink:0}
+.flow-b h4{font-family:'Sora',sans-serif;font-size:.8rem;font-weight:500;color:var(--bright);margin-bottom:.2rem}
+.flow-b p{font-size:.72rem;color:var(--body);line-height:1.55}
+.flow-b code{font-family:'JetBrains Mono',monospace;font-size:.66rem;background:var(--bg-3);padding:.08rem .35rem;border-radius:3px;color:var(--teal-lt)}
+.mtx{width:100%;border-collapse:collapse;font-size:.7rem}
+.mtx th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.mtx td{padding:.5rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+.mtx tr:last-child td{border-bottom:none}
+.yes{color:var(--green)}.plan{color:var(--warn)}.no{color:var(--muted)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.8}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+#exportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s}
+#exportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#exportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
+.foot-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body)}.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">AINumbers.co</span>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+      <a href="index.html">ChainGraph Hub</a><span class="nav-sep">/</span>
+      <span>ART-26</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">ART-26 · Branch B · Agentic Rail Chain · ChainGraph</div>
+    <h1>x402 <em>Header Decoder</em>, Payload Linter &amp; 402 Flow Simulator</h1>
+    <p class="hero-desc">x402 turns the dormant HTTP <code style="font-size:.72rem;color:var(--teal)">402 Payment Required</code> status into a stablecoin paywall settled by a facilitator. This workbench decodes the base64 <code style="font-size:.72rem;color:var(--teal)">PAYMENT-REQUIRED</code> / <code style="font-size:.72rem;color:var(--teal)">PAYMENT-SIGNATURE</code> / <code style="font-size:.72rem;color:var(--teal)">PAYMENT-RESPONSE</code> headers, lints an <code style="font-size:.72rem;color:var(--teal)">exact</code>-scheme <code style="font-size:.72rem;color:var(--teal)">PaymentPayload</code>, walks the request → <code style="font-size:.72rem;color:var(--teal)">/verify</code> → <code style="font-size:.72rem;color:var(--teal)">/settle</code> flow, and shows which scheme×network pairs are live. Produces a §4 <code style="font-size:.72rem;color:var(--teal)">compliance_control</code> ChainGraph artifact.</p>
+    <div class="disclaimer">⚠ x402 is an evolving Linux Foundation project. The <strong>exact-scheme sub-fields are illustrative (EIP-3009 style)</strong> — confirm field names against the x402 spec before building. Nothing here touches a chain or facilitator.</div>
+    <div class="hero-badges">
+      <span class="badge badge-teal">§4 ChainGraph · ART-26</span>
+      <span class="badge badge-gold">x402 · exact scheme</span>
+      <span class="badge badge-green">Zero PII</span>
+      <span class="badge badge-muted">Client-Side · No Network</span>
+    </div>
+  </div>
+</div>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div class="tabs">
+      <button class="tab on" data-tab="decode" onclick="showTab('decode')">Header Decoder</button>
+      <button class="tab" data-tab="lint" onclick="showTab('lint')">Payload Linter</button>
+      <button class="tab" data-tab="flow" onclick="showTab('flow')">402 Flow Simulator</button>
+      <button class="tab" data-tab="matrix" onclick="showTab('matrix')">Scheme × Network</button>
+    </div>
+
+    <div class="panel on" id="panel-decode">
+      <div class="panel-title">▸ Decode an x402 header value</div>
+      <div class="panel-hint">Paste a base64 header value (with or without the <code>PAYMENT-REQUIRED:</code> / <code>PAYMENT-SIGNATURE:</code> / <code>PAYMENT-RESPONSE:</code> prefix). Decoded and pretty-printed locally.</div>
+      <textarea id="hdrIn" class="code-input" spellcheck="false"></textarea>
+      <div class="btn-row">
+        <button class="run-btn" onclick="runDecoder()">▶ Decode</button>
+        <button class="ghost-btn" onclick="loadHdrExample()">↺ Example header</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-lint">
+      <div class="panel-title">▸ Lint an exact-scheme PaymentPayload</div>
+      <div class="panel-hint">Paste a decoded <code>PaymentPayload</code> JSON. Top-level shape is checked; exact-EVM <code>authorization</code> sub-fields are validated as illustrative (EIP-3009 style).</div>
+      <textarea id="payIn" class="code-input" spellcheck="false"></textarea>
+      <div class="btn-row">
+        <button class="run-btn" onclick="runLinter()">▶ Lint Payload</button>
+        <button class="ghost-btn" onclick="loadPayExample()">↺ Example payload</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-flow">
+      <div class="panel-title">▸ Walk the HTTP-402 flow</div>
+      <div class="panel-hint">A deterministic walkthrough of the request → 402 → sign → re-request → verify → settle → 200 sequence with example objects.</div>
+      <div class="btn-row"><button class="run-btn" onclick="runFlow()">▶ Simulate Flow</button></div>
+    </div>
+
+    <div class="panel" id="panel-matrix">
+      <div class="panel-title">▸ Scheme × Network support (Jun 2026 snapshot)</div>
+      <div class="panel-hint">Which (scheme, network) pairs the Coinbase-hosted facilitator supported as of mid-2026. Verify current support against x402.org.</div>
+      <div class="btn-row"><button class="run-btn" onclick="runMatrix()">▶ Show Matrix</button></div>
+    </div>
+
+    <div class="output-section" id="outputSection"></div>
+
+    <div class="export-row">
+      <button id="exportBtn" onclick="buildAndExport()" disabled title="Decode a header above to generate a §4 ChainGraph artifact">{} Export ChainGraph Artifact · §4 · compliance_control · hash-anchored</button>
+    </div>
+
+    <div style="margin-top:1rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;MANIFEST · MCP tool definition · ART-26</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0</span>
+    <span>
+      <a href="index.html">ChainGraph Hub</a> ·
+      <a href="chains/agentic-rail.html">Agentic Rail Chain</a> ·
+      <a href="art-25-a2a-agent-card-validator.html">ART-25 A2A Agent Card Validator</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+/* ChainGraph nodes do not write ain_lang to sessionStorage */
+
+async function sha256(obj){
+  var canonical=JSON.stringify(obj,Object.keys(obj).sort());
+  var buf=new TextEncoder().encode(canonical);
+  var hashBuf=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(hashBuf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+function ts14(){return new Date().toISOString().replace(/[:.TZ-]/g,'').slice(0,14);}
+function uuid4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+
+var _ap2Hash=null;
+var _policyParams=null;
+var _outputPayload=null;
+
+var KNOWN_SCHEMES = ['exact','upto'];
+var KNOWN_NETWORKS = ['base','base-sepolia','polygon','arbitrum','solana','world','avalanche'];
+
+function F(level,msg){ return {level:level,msg:msg}; }
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+function b64decode(s){
+  s = s.trim().replace(/^[A-Za-z0-9-]+:\s*/,'');
+  s = s.replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length % 4) s += '=';
+  return decodeURIComponent(escape(atob(s)));
+}
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('on', p.id==='panel-'+t); });
+}
+
+var EX_HDR = (function(){
+  var obj = {x402Version:1, accepts:[{scheme:'exact', network:'base', maxAmountRequired:'10000', resource:'https://api.example.com/quote', description:'One market quote', mimeType:'application/json', payTo:'0xMERCHANT0000000000000000000000000000beef', maxTimeoutSeconds:60, asset:'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'}], error:null};
+  return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+})();
+
+var EX_PAYLOAD = {
+  x402Version: 1,
+  scheme: 'exact',
+  network: 'base',
+  payload: {
+    signature: '0xILLUSTRATIVE_SIGNATURE',
+    authorization: {
+      from: '0xPAYER000000000000000000000000000000face',
+      to: '0xMERCHANT0000000000000000000000000000beef',
+      value: '10000',
+      validAfter: '0',
+      validBefore: '1999999999',
+      nonce: '0xNONCE'
+    }
+  }
+};
+
+async function runDecoder(){
+  var raw = document.getElementById('hdrIn').value;
+  if(!raw.trim()){ alert('Paste a header value first.'); return; }
+  var decoded, isJson=false, obj=null;
+  try { decoded = b64decode(raw); } catch(e){ decoded = '(base64 decode failed: '+e.message+')'; }
+  try { obj = JSON.parse(decoded); isJson=true; } catch(e){}
+  var kind = '(unrecognised)';
+  if(obj){
+    if(Array.isArray(obj.accepts) || obj.error!==undefined) kind='PaymentRequired (402 response → PAYMENT-REQUIRED)';
+    else if(obj.scheme && obj.payload) kind='PaymentPayload (request → PAYMENT-SIGNATURE)';
+    else if(obj.success!==undefined || obj.transaction!==undefined) kind='PaymentResponse (settlement → PAYMENT-RESPONSE)';
+  }
+  var pretty = isJson ? JSON.stringify(obj,null,2) : decoded;
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section"><div class="out-header"><span class="out-title">Decoded · '+esc(kind)+'</span><button class="copy-btn" onclick="copyM()">Copy</button></div><div class="out-body"><div class="code-out">'+esc(pretty)+'</div></div></div>'
+    + citeBlock();
+  window._memo = 'x402 DECODED HEADER ('+kind+')\n\n'+pretty;
+  _policyParams = {header_type: kind, scheme: (obj&&obj.scheme)||null, network: (obj&&obj.network)||null};
+  _outputPayload = {decoded_type: kind, is_json: isJson, has_accepts: !!(obj&&Array.isArray(obj.accepts))};
+  _ap2Hash = await sha256({policy_parameters:_policyParams,output_payload:_outputPayload});
+  var btn=document.getElementById('exportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');}
+}
+
+function lintPayload(obj){
+  var out=[];
+  if(typeof obj!=='object'||obj===null||Array.isArray(obj)){ out.push(F('error','PaymentPayload must be a JSON object.')); return out; }
+  if(!('x402Version' in obj)) out.push(F('warn','Missing "x402Version".'));
+  else if(typeof obj.x402Version!=='number') out.push(F('warn','"x402Version" is conventionally a number.'));
+  else out.push(F('pass','x402Version present.'));
+  if(!obj.scheme) out.push(F('error','Missing "scheme".'));
+  else if(KNOWN_SCHEMES.indexOf(obj.scheme)===-1) out.push(F('warn','scheme "'+obj.scheme+'" not recognised ('+KNOWN_SCHEMES.join(', ')+').'));
+  else out.push(F('pass','scheme "'+obj.scheme+'" recognised.'));
+  if(!obj.network) out.push(F('error','Missing "network".'));
+  else if(KNOWN_NETWORKS.indexOf(obj.network)===-1) out.push(F('warn','network "'+obj.network+'" not in known set ('+KNOWN_NETWORKS.join(', ')+') — verify facilitator support.'));
+  else out.push(F('pass','network "'+obj.network+'" recognised.'));
+  if(!obj.payload || typeof obj.payload!=='object') out.push(F('error','Missing "payload" object (scheme-specific).'));
+  else {
+    var p = obj.payload;
+    if(!p.signature) out.push(F('warn','payload.signature missing.'));
+    else out.push(F('pass','payload.signature present.'));
+    if(obj.scheme==='exact'){
+      out.push(F('info','exact-EVM authorization fields below are ILLUSTRATIVE (EIP-3009 style) — confirm names against the x402 exact scheme spec.'));
+      var a = p.authorization;
+      if(!a || typeof a!=='object') out.push(F('warn','payload.authorization missing.'));
+      else {
+        ['from','to','value','validAfter','validBefore','nonce'].forEach(function(k){
+          if(a[k]===undefined) out.push(F('warn','payload.authorization.'+k+' missing (illustrative EIP-3009 field).'));
+        });
+        if(a.validAfter!==undefined && a.validBefore!==undefined){
+          var va=Number(a.validAfter), vb=Number(a.validBefore);
+          if(!isNaN(va)&&!isNaN(vb)&&vb<=va) out.push(F('error','authorization.validBefore must be greater than validAfter.'));
+        }
+        if(a.value!==undefined && /^\d+$/.test(String(a.value))===false) out.push(F('warn','authorization.value should be an integer string.'));
+      }
+    }
+  }
+  return out;
+}
+
+function scoreOf(f){ var e=0,w=0,p=0; f.forEach(function(x){ if(x.level==='error')e++; else if(x.level==='warn')w++; else if(x.level==='pass')p++; }); var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100; return {score:sc,e:e,w:w,p:p}; }
+
+function renderFindings(findings){
+  var sc=scoreOf(findings);
+  var col=sc.score>=85?'var(--green)':sc.score>=60?'var(--warn)':'var(--red)';
+  var rows=findings.map(function(f){ var tag=f.level==='error'?'fi-error':f.level==='warn'?'fi-warn':f.level==='pass'?'fi-pass':'fi-info'; return '<div class="finding"><span class="fi-tag '+tag+'">'+f.level.toUpperCase()+'</span><span>'+esc(f.msg)+'</span></div>'; }).join('');
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Lint result · '+sc.score+'/100</span></div><div class="out-body"><div style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem;color:'+col+';margin-bottom:.5rem">'+sc.e+' error · '+sc.w+' warn · '+sc.p+' pass</div>'+rows+'</div></div>';
+}
+
+async function runLinter(){
+  var raw=document.getElementById('payIn').value, obj;
+  try{ obj=JSON.parse(raw); }catch(e){ document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-body"><div class="finding"><span class="fi-tag fi-error">ERROR</span><span>Invalid JSON: '+esc(e.message)+'</span></div></div></div>'; return; }
+  var findings=lintPayload(obj);
+  document.getElementById('outputSection').innerHTML=renderFindings(findings)+citeBlock();
+  var sc=scoreOf(findings);
+  _policyParams = {scheme: obj.scheme||null, network: obj.network||null, lint_mode:true};
+  _outputPayload = {score: sc.score, errors: sc.e, warnings: sc.w};
+  _ap2Hash = await sha256({policy_parameters:_policyParams,output_payload:_outputPayload});
+  var btn=document.getElementById('exportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');}
+}
+
+var FLOW = [
+  {h:'1 · Client requests the resource', p:'The agent sends a normal <code>GET</code>/<code>POST</code> to the protected endpoint with no payment.'},
+  {h:'2 · Server responds 402', p:'The resource returns <code>HTTP 402 Payment Required</code> with a <code>PAYMENT-REQUIRED</code> header carrying a base64 <code>PaymentRequired</code> object listing one or more <code>PaymentRequirements</code> (each a <code>(scheme, network)</code> pair, amount, payTo, asset).'},
+  {h:'3 · Client selects a requirement', p:'The agent picks a <code>(scheme, network)</code> it can satisfy — e.g. <code>exact</code> on <code>base</code>.'},
+  {h:'4 · Client builds & signs the PaymentPayload', p:'For exact-EVM, the client signs an EIP-3009-style authorization (illustrative) and assembles a <code>PaymentPayload</code>.'},
+  {h:'5 · Client re-requests with PAYMENT-SIGNATURE', p:'The same request is retried with the base64 <code>PaymentPayload</code> in the <code>PAYMENT-SIGNATURE</code> header.'},
+  {h:'6 · Server verifies via facilitator /verify', p:'The resource server calls the facilitator <code>/verify</code> endpoint to confirm the payload is valid and funds are available — no chain code on the server.'},
+  {h:'7 · Server settles via facilitator /settle', p:'On success the server (or facilitator) calls <code>/settle</code> to broadcast the transfer on-chain.'},
+  {h:'8 · Server returns 200 + PAYMENT-RESPONSE', p:'The resource is returned with <code>HTTP 200</code> and a <code>PAYMENT-RESPONSE</code> header carrying the base64 settlement receipt.'}
+];
+
+function runFlow(){
+  var steps=FLOW.map(function(s,i){ return '<div class="flow-step"><div class="flow-n">'+(i+1)+'</div><div class="flow-b"><h4>'+s.h+'</h4><p>'+s.p+'</p></div></div>'; }).join('');
+  document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-header"><span class="out-title">HTTP-402 Flow (exact scheme)</span></div><div class="out-body">'+steps+'</div></div>'+citeBlock();
+}
+
+var MATRIX = [
+  {net:'base', exact:'live', upto:'planned'},
+  {net:'base-sepolia (testnet)', exact:'live', upto:'planned'},
+  {net:'polygon', exact:'live', upto:'planned'},
+  {net:'arbitrum', exact:'live', upto:'planned'},
+  {net:'solana', exact:'live', upto:'planned'},
+  {net:'world', exact:'live', upto:'planned'}
+];
+function cell(v){ if(v==='live')return '<span class="yes">✓ live</span>'; if(v==='planned')return '<span class="plan">◷ planned</span>'; return '<span class="no">—</span>'; }
+function runMatrix(){
+  var rows=MATRIX.map(function(m){ return '<tr><td>'+esc(m.net)+'</td><td>'+cell(m.exact)+'</td><td>'+cell(m.upto)+'</td></tr>'; }).join('');
+  document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-header"><span class="out-title">Scheme × Network (Jun 2026 snapshot)</span></div><div class="out-body"><table class="mtx"><thead><tr><th>Network</th><th>exact</th><th>upto</th></tr></thead><tbody>'+rows+'</tbody></table><p style="font-size:.64rem;color:var(--muted);margin-top:.85rem">Snapshot of the Coinbase-hosted facilitator. The <code>upto</code> (metered) scheme was planned as of mid-2026. Verify current support at x402.org.</p></div></div>'+citeBlock();
+}
+
+function citeBlock(){
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Spec references</span></div><div class="out-body"><div class="cite-list">'
+    + '<b>[1]</b> x402 — headers, objects, facilitator /verify + /settle, exact scheme. <a href="https://x402.org/" target="_blank" rel="noopener">x402.org</a> · <a href="https://github.com/x402-foundation/x402" target="_blank" rel="noopener">github.com/x402-foundation/x402</a><br>'
+    + '<b>[2]</b> exact-EVM authorization sub-fields are illustrative (EIP-3009 transferWithAuthorization style) — confirm against <code>specs/schemes/exact</code> in the x402 repo.'
+    + '</div></div></div>';
+}
+
+function copyM(){ if(window._memo){ navigator.clipboard.writeText(window._memo).then(function(){ var b=document.querySelector('.copy-btn'); if(b){ b.textContent='Copied ✓'; setTimeout(function(){b.textContent='Copy';},2000);} }); } }
+function loadHdrExample(){ document.getElementById('hdrIn').value = EX_HDR; }
+function loadPayExample(){ document.getElementById('payIn').value = JSON.stringify(EX_PAYLOAD,null,2); }
+
+async function buildAndExport(){
+  if(!_ap2Hash){alert('Decode a header or lint a payload above first.');return;}
+  var ts=new Date().toISOString();
+  var MFST=typeof MANIFEST!=='undefined'?MANIFEST:{tool_id:'art-26-x402-payload-decoder-flow-simulator',version:'1.0.0'};
+  var mandate={
+    ap2_version:'1.0.0',
+    mandate_id:'art-26-'+uuid4(),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:MFST.tool_id,
+    tool_version:MFST.version||'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['x402','HTTP 402'],
+    policy_parameters:_policyParams,
+    output_payload:_outputPayload,
+    execution_hash:_ap2Hash,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+    summary:MFST.title+' — x402 header decode '+ts.slice(0,10),
+    agent_instructions:['Verify exact-EVM authorization sub-fields against the x402 spec (specs/schemes/exact in the repo). Do not paste a real signed payload that authorises a live transfer.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+180*24*3600*1000).toISOString().slice(0,10),
+    regulatory_citations:['x402.org'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));
+  a.download='art-26-x402-payload-decoder-flow-simulator_'+ts14()+'.chaingraph.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+
+<script>
+var MANIFEST={
+  "tool_id":"art-26-x402-payload-decoder-flow-simulator",
+  "version":"1.0.0",
+  "title":"x402 Header Decoder, Payload Linter & 402 Flow Simulator · ART-26 · ChainGraph",
+  "description":"Decode x402 PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers, lint a PaymentPayload, walk the HTTP-402 flow, and show the scheme×network matrix. ChainGraph node ART-26, Branch B of the Agentic Rail Chain.",
+  "category":"chaingraph",
+  "tags":["x402","HTTP 402","stablecoin","PaymentPayload","facilitator","agentic payments","ChainGraph"],
+  "audience":["engineer"],
+  "input_schema":{"type":"object","properties":{"header_or_payload":{"type":"string"}}},
+  "output_schema":{"type":"object","properties":{"decoded":{"type":"object"},"findings":{"type":"array"}}},
+  "mcp_tool_definition":{"name":"decode_x402_payment","description":"Decode an x402 payment header or lint an exact-scheme PaymentPayload, and describe the HTTP-402 verify/settle flow.","inputSchema":{"type":"object","properties":{"header_or_payload":{"type":"string","description":"A base64 x402 header value or a PaymentPayload JSON"}},"required":["header_or_payload"]}},
+  "execution":{"type":"browser-javascript","entry":"chaingraph/art-26-x402-payload-decoder-flow-simulator.html","function_name":"runDecoder","timeout_ms":3000},
+  "ap2_export":true,
+  "bridge_version":"1.0"
+};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if(!m.execution_hash)_f('missing execution_hash');
+  if(!m.chain||typeof m.chain!=='object')_f('missing chain block');
+  if(!Array.isArray(m.chain.parent_hashes))_f('chain.parent_hashes must be array');
+  if(!m.policy_parameters)_f('missing policy_parameters');
+  if(!m.output_payload)_f('missing output_payload');
+  var req=['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','policy_parameters','output_payload','execution_hash','chain','audit_metadata'];
+  req.forEach(function(k){if(!(k in m))_f('missing field: '+k);});
+  return true;
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runDecoder',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;el.value=fields[id];el.dispatchEvent(new Event('change'));n++;});return n;}
+function notice(msg,type){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';d.style.cssText='font-family:\'JetBrains Mono\',monospace;font-size:.6rem;padding:.4rem .85rem;margin:.5rem 0;border-radius:4px;border:1px solid';document.querySelector('.tool-body .container').prepend(d);}d.textContent=msg;d.style.background=type==='ok'?'rgba(34,197,94,.08)':'rgba(245,158,11,.08)';d.style.borderColor=type==='ok'?'rgba(34,197,94,.3)':'rgba(245,158,11,.3)';d.style.color=type==='ok'?'var(--green)':'var(--warn)';}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+try{var hash=location.hash;if(hash&&hash.indexOf('#in=')===0){var raw=hash.slice(4),runNow=false;if(raw.indexOf('&run=1')>-1){raw=raw.replace('&run=1','');runNow=true;}var fields=JSON.parse(b64uDec(raw));var n=applyFields(fields);if(runNow){runTool();notice('Inputs prefilled and executed · '+n+' fields','ok');}else{notice('Inputs prefilled from link — review, then Run · '+n+' fields','warn');}}}catch(e){}
+})();
+</script>
+</body>
+</html>
