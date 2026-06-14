@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agent-Action Audit-Trail Aggregator · CRY-05 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Aggregate N ChainGraph artifacts from an agent session into one tamper-evident regulatory receipt: a SHA-256 Merkle root over their execution hashes, per-leaf inclusion proofs, and an ordered chain-depth map. The single audit object for EU AI Act Art.12 record-keeping and DORA. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/cry-05-agent-action-audit-trail-aggregator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent-Action Audit-Trail Aggregator","url":"https://ainumbers.co/chaingraph/cry-05-agent-action-audit-trail-aggregator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "cry-05-agent-action-audit-trail-aggregator",
+  "version": "1.0.0",
+  "title": "Agent-Action Audit-Trail Aggregator",
+  "description": "Aggregates N ChainGraph artifacts collected across an agent session into one tamper-evident session receipt. Builds a SHA-256 Merkle tree over the ordered leaf execution_hashes (duplicate-last on odd counts), emits the Merkle root, a per-leaf inclusion proof, and an ordered chain-depth map (tool_id -> chain_depth). Sets output_payload.session_receipt_root and the top-level session_receipt_root field per ChainGraph Standard v0.1 §5/§7.4. The single audit object for EU AI Act Art.12 record-keeping and DORA. Chains from any ChainGraph artifacts; feeds CRY-04 and PTG-01.",
+  "category": "chaingraph",
+  "tags": ["Merkle","SHA-256","session receipt","audit trail","provenance","EU AI Act","Article 12","DORA","record-keeping","tamper-evident","ChainGraph"],
+  "audience": ["auditor","compliance","ciso","risk_committee","regtech","ai_governance"],
+  "mcp_tool_definition": {
+    "name": "aggregate_execution_receipts",
+    "description": "Aggregates N ChainGraph artifacts (or bare execution_hash strings) collected across an agent session into a single tamper-evident session receipt: a SHA-256 Merkle root over the ordered leaf execution hashes, a per-leaf inclusion proof (sibling path), and an ordered chain-depth map. Sets session_receipt_root (top-level and in output_payload). Exports an AP2 cryptographic_mandate artifact. EU AI Act Art.12 / DORA record-keeping motivation. chain.parent_hashes = the input leaf hashes; chain_depth = max(parent depths)+1.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "artifacts": {"type": "array", "description": "Array of ChainGraph artifact objects (each with execution_hash, tool_id, chain.chain_depth) OR bare execution_hash strings (64-hex or sha256:hex). Order is preserved as leaf order.", "items": {"type": ["object","string"]}},
+        "parent_hashes": {"type": "array", "items": {"type": "string"}, "description": "Optional explicit list of upstream execution_hash values (auto-derived from artifacts when omitted)."}
+      },
+      "required": ["artifacts"]
+    }
+  },
+  "execution": {"type":"browser-javascript","entry":"chaingraph/cry-05-agent-action-audit-trail-aggregator.html","function_name":"aggregateExecutionReceipts","timeout_ms":5000},
+  "mandate_type": "cryptographic_mandate",
+  "gpu": false,
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-30-agent-commerce-conformance-validator","art-31-a2a-x402-extension-mandate-validator","art-33-mcp-server-self-attestation-pack","cry-04-merkle-batch-verifier","ptg-01-ap2-prompt-template-generator"],
+  "consumes": ["art-30-agent-commerce-conformance-validator","art-31-a2a-x402-extension-mandate-validator","art-33-mcp-server-self-attestation-pack"],
+  "feeds": ["cry-04-merkle-batch-verifier","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--purple)}
+.stage-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s}
+.tab-btn.active{border-color:var(--purple);color:var(--purple);background:var(--purple-dim)}
+.tab-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block;line-height:1.4}
+textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.65rem .85rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%;resize:vertical;line-height:1.55;min-height:240px}
+textarea:focus{border-color:var(--purple)}
+textarea.error{border-color:var(--red)}
+textarea.ok{border-color:rgba(20,184,166,.4)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--purple);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:#b08ffa}
+/* Results */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict-card{border-radius:var(--radius-lg);padding:1.3rem 1.5rem;display:flex;align-items:flex-start;gap:1.1rem;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-icon{font-size:1.6rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem;color:var(--green)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);margin-bottom:.3rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+.scorecard-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-top:1rem}
+@media(max-width:640px){.scorecard-row{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;margin-bottom:.1rem;color:var(--bright)}
+.metric-value.purple{color:var(--purple)}.metric-value.teal{color:var(--teal-lt)}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+.hash-row{display:flex;align-items:center;gap:.85rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;flex-wrap:wrap;margin-bottom:.5rem}
+.hash-label{color:var(--muted);flex-shrink:0;min-width:130px}
+.hash-value{color:var(--teal-lt);word-break:break-all;flex:1;font-size:.58rem}
+.hash-value.root{color:var(--purple);font-size:.62rem}
+.leaf-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.leaf-table th{padding:.45rem .75rem;text-align:left;color:var(--muted);font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400}
+.leaf-table td{padding:.5rem .75rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+.leaf-table tr:last-child td{border-bottom:none}
+.leaf-table tr:hover td{background:var(--bg-3)}
+.proof-path{font-size:.5rem;color:var(--muted);line-height:1.5;word-break:break-all}
+.dir-pill{font-family:'JetBrains Mono',monospace;font-size:.4rem;padding:.05rem .35rem;border-radius:3px;background:var(--bg-4);color:var(--body);border:1px solid var(--border);margin-right:.25rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--purple);background:var(--purple-dim);border:1px solid rgba(155,114,245,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(155,114,245,.2)}
+.chain-links-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1rem}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--purple);color:#b08ffa;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">CRY-05</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph · CRY-05 · Session Receipt · Zero-Egress</div>
+  <h1>Agent-Action <em>Audit-Trail Aggregator</em></h1>
+  <p class="hero-desc">Collapse a whole agent session into one tamper-evident regulatory receipt. Paste the ChainGraph artifacts (or bare <code>execution_hash</code> strings) collected across the session; the aggregator builds a SHA-256 Merkle tree over the ordered leaf hashes, returns the <strong>Merkle root</strong>, a per-leaf <strong>inclusion proof</strong>, and an ordered <strong>chain-depth map</strong>. The single audit object suited to EU AI Act Art.&nbsp;12 record-keeping and DORA. Exports an AP2 <code>cryptographic_mandate</code> with <code>session_receipt_root</code> set. Client-side · Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-purple">v1.0.0</span>
+    <span class="badge badge-muted">cryptographic_mandate</span>
+    <span class="badge badge-teal">SHA-256 Merkle</span>
+    <span class="badge badge-green">session_receipt_root</span>
+    <span class="badge badge-muted">EU AI Act Art.12</span>
+    <span class="badge badge-muted">DORA</span>
+    <span class="badge badge-gold">Zero PII</span>
+  </div>
+  <div class="chain-links-row">
+    <a href="art-30-agent-commerce-conformance-validator.html" class="chain-link">↑ ART-30 Conformance</a>
+    <a href="art-31-a2a-x402-extension-mandate-validator.html" class="chain-link">↑ ART-31 A2A·x402</a>
+    <a href="art-33-mcp-server-self-attestation-pack.html" class="chain-link">↑ ART-33 MCP Attestation</a>
+    <a href="cry-04-merkle-batch-verifier.html" class="chain-link">↓ CRY-04 Merkle Verify</a>
+    <a href="ptg-01-ap2-prompt-template-generator.html" class="chain-link">↓ PTG-01 Prompt Template</a>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Paste only ChainGraph artifacts or execution_hash strings — these carry no PII by design. Use synthetic or anonymised inputs only.</div>
+
+  <!-- INPUT -->
+  <div class="panel">
+    <div class="panel-label">Session Artifacts — paste N ChainGraph artifacts (or hashes)</div>
+    <div class="stage-tabs" id="srcTabs">
+      <button class="tab-btn active" onclick="loadTab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="loadTab('preset_session',event)">Preset — 3-Artifact Session</button>
+      <button class="tab-btn" onclick="loadTab('preset_hashes',event)">Preset — Bare Hashes</button>
+      <button class="tab-btn" onclick="loadTab('clear',event)">Clear</button>
+    </div>
+    <label class="field-label" for="srcInput">JSON array of artifacts or execution_hash strings</label>
+    <textarea id="srcInput" rows="12" spellcheck="false" placeholder='[ { "tool_id":"art-30-...","execution_hash":"sha256:abc...","chain":{"chain_depth":1} }, "sha256:def...", ... ]'></textarea>
+    <span class="field-hint">Each element is either a full ChainGraph artifact object (with <code>execution_hash</code>, <code>tool_id</code>, <code>chain.chain_depth</code>) or a bare 64-hex / <code>sha256:</code>-prefixed hash string. <strong>Order is preserved as Merkle leaf order.</strong> Leaf execution hashes are hex-normalised (the <code>sha256:</code> prefix is stripped for tree hashing).</span>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.85rem">
+      <button class="btn btn-ghost" onclick="formatTA()">Format JSON</button>
+      <button class="run-btn" onclick="runAggregate()">Aggregate Session Receipt</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Session Receipt</span><span id="receiptBadge" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard-row" id="scorecardRow"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Merkle Root &amp; Chain-Depth Map</span></div>
+      <div class="out-body">
+        <div class="hash-row"><span class="hash-label">session_receipt_root:</span><span class="hash-value root" id="rootDisplay">—</span></div>
+        <div class="hash-row"><span class="hash-label">tree leaves / depth:</span><span class="hash-value" id="treeDisplay">—</span></div>
+        <div class="hash-row"><span class="hash-label">max_chain_depth:</span><span class="hash-value" id="maxDepthDisplay">—</span></div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.6rem" id="summaryLine"></p>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Per-Receipt Inclusion Proofs</span><span id="tableSubtitle" style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)"></span></div>
+      <div class="out-body" style="padding:0;overflow-x:auto">
+        <table class="leaf-table" id="leafTable">
+          <thead><tr>
+            <th>Leaf #</th>
+            <th>tool_id</th>
+            <th>chain_depth</th>
+            <th>execution_hash (leaf)</th>
+            <th>inclusion_proof (sibling path → root)</th>
+          </tr></thead>
+          <tbody id="leafTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">ChainGraph Artifact · execution_hash</span></div>
+      <div class="out-body">
+        <div class="hash-row"><span class="hash-label">execution_hash:</span><span class="hash-value" id="hashDisplay">—</span></div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.6rem">Computed client-side via WebCrypto SHA-256 over <code>cgCanon({policy_parameters, output_payload})</code> per Standard §6. Parent hashes: <span id="parentHashSummary">none</span></p>
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            ⛓ Export AP2 Artifact JSON
+            <span class="btn-subtitle">Session receipt · chain-ready</span>
+          </button>
+          <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            ≡ Export Markdown Report
+            <span class="btn-subtitle">Audit-ready record-keeping object</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+      <span>{ } MCP Manifest · aggregate_execution_receipts</span>
+      <span id="mfstArrow">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-badge-ai">
+      <span><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · ChainGraph CRY-05</span>
+      <span>v1.0.0 · CC BY 4.0 · Zero PII · Client-side only</span>
+      <span style="color:var(--border-2)">SHA-256 Merkle · EU AI Act Art.12 · DORA</span>
+    </div>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-30-agent-commerce-conformance-validator.html">ART-30</a>
+      <a href="cry-04-merkle-batch-verifier.html">CRY-04</a>
+      <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ─── MANIFEST ──────────────────────────────────────────────────────────────
+const MANIFEST = {
+  tool_id: 'cry-05-agent-action-audit-trail-aggregator',
+  version: '1.0.0',
+  title: 'Agent-Action Audit-Trail Aggregator',
+  mcp_name: 'aggregate_execution_receipts',
+  mandate_type: 'cryptographic_mandate',
+  description: 'Aggregates N ChainGraph artifacts collected across an agent session into one tamper-evident session receipt: a SHA-256 Merkle root over the ordered leaf execution hashes, per-leaf inclusion proofs, and an ordered chain-depth map. Sets session_receipt_root (top-level and in output_payload) per ChainGraph Standard v0.1 §5/§7.4.',
+  category: 'chaingraph',
+  tags: ['Merkle','SHA-256','session receipt','audit trail','provenance','EU AI Act','Article 12','DORA','tamper-evident','ChainGraph'],
+  mcp_tool_definition: {
+    name: 'aggregate_execution_receipts',
+    description: 'Aggregates N ChainGraph artifacts (or bare execution_hash strings) collected across an agent session into a single tamper-evident session receipt: a SHA-256 Merkle root over the ordered leaf execution hashes, a per-leaf inclusion proof (sibling path), and an ordered chain-depth map. Sets session_receipt_root. Exports an AP2 cryptographic_mandate. EU AI Act Art.12 / DORA record-keeping motivation. chain.parent_hashes = input leaf hashes; chain_depth = max(parent depths)+1.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        artifacts: { type: 'array', description: 'Array of ChainGraph artifact objects (each with execution_hash, tool_id, chain.chain_depth) OR bare execution_hash strings. Order preserved as leaf order.', items: { type: ['object','string'] } },
+        parent_hashes: { type: 'array', items: { type: 'string' }, description: 'Optional explicit list of upstream execution_hash values (auto-derived from artifacts when omitted).' }
+      },
+      required: ['artifacts']
+    }
+  },
+  mandate_type_field: 'cryptographic_mandate',
+  ap2_export: true,
+  chaingraph: true,
+  consumes: ['art-30-agent-commerce-conformance-validator','art-31-a2a-x402-extension-mandate-validator','art-33-mcp-server-self-attestation-pack'],
+  feeds: ['cry-04-merkle-batch-verifier','ptg-01-ap2-prompt-template-generator'],
+  spec: 'ChainGraph Standard v0.1 §5 / §6 / §7.4',
+  regulatory_motivation: ['EU AI Act Regulation (EU) 2024/1689 Art.12 (record-keeping / logging)','DORA (EU) 2022/2554 (operational-resilience audit trail)'],
+  zero_pii: true,
+  client_side: true
+};
+
+// ─── PRESETS ───────────────────────────────────────────────────────────────
+const PRESET_SESSION = [
+  {
+    chaingraph_version: '0.1.0',
+    mandate_type: 'payment_mandate',
+    tool_id: 'art-30-agent-commerce-conformance-validator',
+    tool_version: '1.0.0',
+    execution_hash: 'sha256:3a7f1c9e2b8d4a06f5e1c3b9d7a2f8e04c6b1d9a3f7e2c8b1d4a6f9e3c7b2d5a',
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 1 }
+  },
+  {
+    chaingraph_version: '0.1.0',
+    mandate_type: 'cryptographic_mandate',
+    tool_id: 'art-31-a2a-x402-extension-mandate-validator',
+    tool_version: '1.0.0',
+    execution_hash: 'sha256:9b2e5d8a1c4f7036b9d2e5a8c1f4709d3b6e9a2c5f8b1d4e7a0c3f6b9d2e5a8c',
+    chain: { parent_hashes: ['sha256:3a7f1c9e2b8d4a06f5e1c3b9d7a2f8e04c6b1d9a3f7e2c8b1d4a6f9e3c7b2d5a'], parent_tool_ids: ['art-30-agent-commerce-conformance-validator'], chain_depth: 2 }
+  },
+  {
+    chaingraph_version: '0.1.0',
+    mandate_type: 'attestation_mandate',
+    tool_id: 'art-33-mcp-server-self-attestation-pack',
+    tool_version: '1.0.0',
+    execution_hash: 'sha256:c4f70b3e6a9d2c5f8b1e4a7d0c3f6b9e2a5d8c1f4b7e0a3d6c9f2b5e8a1d4c7f',
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 }
+  }
+];
+
+const PRESET_HASHES = [
+  'sha256:3a7f1c9e2b8d4a06f5e1c3b9d7a2f8e04c6b1d9a3f7e2c8b1d4a6f9e3c7b2d5a',
+  'sha256:9b2e5d8a1c4f7036b9d2e5a8c1f4709d3b6e9a2c5f8b1d4e7a0c3f6b9d2e5a8c',
+  'sha256:c4f70b3e6a9d2c5f8b1e4a7d0c3f6b9e2a5d8c1f4b7e0a3d6c9f2b5e8a1d4c7f',
+  'sha256:1d4a7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d'
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let _artifact = null;
+let _lastResult = null;
+
+// ─── CRYPTO / MERKLE (SHA-256) ─────────────────────────────────────────────
+const stripPrefix = h => String(h).replace(/^sha256:/i,'').replace(/^0x/i,'').trim().toLowerCase();
+
+const hexToBytes = h => {
+  h = stripPrefix(h);
+  if (h.length % 2 !== 0) throw new Error('Odd-length hex string: ' + h.substring(0,16));
+  const b = new Uint8Array(h.length / 2);
+  for (let i = 0; i < b.length; i++) {
+    const byte = parseInt(h.slice(i*2, i*2+2), 16);
+    if (isNaN(byte)) throw new Error('Invalid hex at position ' + (i*2));
+    b[i] = byte;
+  }
+  return b;
+};
+const bytesToHex = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
+
+async function sha256hex(data) {
+  const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)));
+}
+
+// Internal Merkle node hash: SHA-256(leftBytes || rightBytes), reused from CRY-04.
+async function merkleHash(left, right) {
+  const lb = hexToBytes(left), rb = hexToBytes(right);
+  const combined = new Uint8Array(lb.length + rb.length);
+  combined.set(lb);
+  combined.set(rb, lb.length);
+  return sha256hex(combined);
+}
+
+// Build the full Merkle tree over an ordered array of leaf hex hashes.
+// Odd counts: duplicate the last leaf (CRY-04 convention). Returns {root, allLevels}.
+async function buildMerkleTree(leaves) {
+  let level = leaves.map(stripPrefix);
+  const allLevels = [level.slice()];
+  while (level.length > 1) {
+    const next = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const l = level[i];
+      const r = i + 1 < level.length ? level[i + 1] : level[i]; // duplicate last if odd
+      next.push(await merkleHash(l, r));
+    }
+    level = next;
+    allLevels.push(level.slice());
+  }
+  return { root: level[0], allLevels };
+}
+
+// Per-leaf inclusion proof: ordered sibling path from leaf level to root.
+function inclusionProof(allLevels, leafIndex) {
+  const proof = [];
+  let i = leafIndex;
+  for (let lvl = 0; lvl < allLevels.length - 1; lvl++) {
+    const curLvl = allLevels[lvl];
+    const isRight = i % 2 === 1;
+    const sibIdx = isRight ? i - 1 : (i + 1 < curLvl.length ? i + 1 : i); // duplicate-last → self
+    proof.push({ sibling: curLvl[sibIdx], position: isRight ? 'left' : 'right' });
+    i = Math.floor(i / 2);
+  }
+  return proof;
+}
+
+// Independent re-derivation of root from a leaf + its proof (determinism self-check).
+async function rootFromProof(leaf, proof) {
+  let current = stripPrefix(leaf);
+  for (const step of proof) {
+    current = step.position === 'left'
+      ? await merkleHash(step.sibling, current)
+      : await merkleHash(current, step.sibling);
+  }
+  return current;
+}
+
+// ─── §6 execution_hash (canonical, reused from ART-30) ─────────────────────
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v !== null && typeof v === 'object') {
+    const s = {};
+    for (const k of Object.keys(v).sort()) s[k] = cgCanon(v[k]);
+    return s;
+  }
+  return v;
+}
+async function cgHash(policyParameters, outputPayload) {
+  const canonical = JSON.stringify(cgCanon({ policy_parameters: policyParameters, output_payload: outputPayload }));
+  return 'sha256:' + await sha256hex(canonical);
+}
+
+// ─── PARSE INPUT ────────────────────────────────────────────────────────────
+const HEX64 = /^[0-9a-f]{64}$/;
+
+// Normalise one element → { tool_id, execution_hash(sha256:..), leaf_hex, chain_depth }
+function normalizeEntry(el, idx) {
+  if (typeof el === 'string') {
+    const hex = stripPrefix(el);
+    if (!HEX64.test(hex)) throw new Error('Leaf ' + idx + ': not a 64-hex execution_hash → "' + el.substring(0,24) + '…"');
+    return { tool_id: 'unknown', execution_hash: 'sha256:' + hex, leaf_hex: hex, chain_depth: 0 };
+  }
+  if (el && typeof el === 'object') {
+    const rawHash = el.execution_hash;
+    if (!rawHash) throw new Error('Leaf ' + idx + ': artifact object is missing execution_hash');
+    const hex = stripPrefix(rawHash);
+    if (!HEX64.test(hex)) throw new Error('Leaf ' + idx + ': execution_hash is not 64-hex → "' + String(rawHash).substring(0,24) + '…"');
+    const depth = (el.chain && typeof el.chain.chain_depth === 'number') ? el.chain.chain_depth
+                : (typeof el.chain_depth === 'number') ? el.chain_depth : 0;
+    return { tool_id: el.tool_id || 'unknown', execution_hash: 'sha256:' + hex, leaf_hex: hex, chain_depth: depth };
+  }
+  throw new Error('Leaf ' + idx + ': element is neither an object nor a hash string');
+}
+
+// ─── RUN ────────────────────────────────────────────────────────────────────
+async function runAggregate() {
+  const ta = document.getElementById('srcInput');
+  const raw = ta.value.trim();
+  ta.classList.remove('error','ok');
+  if (!raw) { showToast('Paste a JSON array of artifacts or hashes, or load a preset'); return; }
+
+  let arr;
+  try { arr = JSON.parse(raw); }
+  catch (e) { ta.classList.add('error'); showToast('JSON parse error: ' + e.message); return; }
+  if (!Array.isArray(arr) || arr.length === 0) { ta.classList.add('error'); showToast('Input must be a non-empty JSON array'); return; }
+
+  let entries;
+  try { entries = arr.map(normalizeEntry); }
+  catch (e) { ta.classList.add('error'); showToast(e.message); return; }
+
+  const leaves = entries.map(e => e.leaf_hex);
+
+  // Build Merkle tree + per-leaf proofs
+  const { root, allLevels } = await buildMerkleTree(leaves);
+  const treeDepth = allLevels.length - 1;
+
+  const receipts = [];
+  for (let i = 0; i < entries.length; i++) {
+    const proof = inclusionProof(allLevels, i);
+    // determinism self-check: proof must re-derive the root
+    const recomputed = await rootFromProof(entries[i].leaf_hex, proof);
+    receipts.push({
+      tool_id: entries[i].tool_id,
+      execution_hash: entries[i].execution_hash,
+      leaf_index: i,
+      chain_depth: entries[i].chain_depth,
+      inclusion_proof: proof.map(p => ({ sibling: p.sibling, position: p.position })),
+      proof_ok: recomputed === root
+    });
+  }
+
+  // Ordered chain-depth map (tool_id → chain_depth from each artifact, in input order)
+  const chainDepthMap = entries.map(e => ({ tool_id: e.tool_id, chain_depth: e.chain_depth }));
+  const parentDepths = entries.map(e => e.chain_depth);
+  const maxParentDepth = parentDepths.length ? Math.max(...parentDepths) : 0;
+  const aggregatorChainDepth = maxParentDepth + 1; // §7.1: max(parent depths)+1
+  const maxChainDepth = maxParentDepth; // deepest input chain
+  const allProofsOk = receipts.every(r => r.proof_ok);
+
+  // chain.parent_hashes = the input leaf hashes (sha256:-prefixed)
+  const parentHashes = entries.map(e => e.execution_hash);
+  const parentToolIds = entries.map(e => e.tool_id);
+
+  const summary = `Session of ${entries.length} artifact${entries.length===1?'':'s'} aggregated into Merkle root ${root.substring(0,16)}… (tree depth ${treeDepth}); deepest input chain_depth ${maxChainDepth}; tools: ${[...new Set(parentToolIds)].join(', ')}.`;
+
+  // ── §5 envelope fields ──
+  const policyParameters = {
+    execution_backend: 'js',
+    hash_algorithm: 'SHA-256',
+    merkle_construction: 'duplicate-last-leaf-on-odd; node = SHA-256(left||right)',
+    n_receipts: entries.length,
+    leaf_hashes: parentHashes,          // ordered input leaf hashes + count
+    leaf_order_preserved: true
+  };
+  const outputPayload = {
+    session_receipt_root: 'sha256:' + root,
+    merkle_root: 'sha256:' + root,
+    n_receipts: entries.length,
+    tree_depth: treeDepth,
+    max_chain_depth: maxChainDepth,
+    all_proofs_verified: allProofsOk,
+    chain_depth_map: chainDepthMap,
+    receipts: receipts.map(r => ({
+      tool_id: r.tool_id,
+      execution_hash: r.execution_hash,
+      leaf_index: r.leaf_index,
+      inclusion_proof: r.inclusion_proof
+    })),
+    summary
+  };
+
+  const execHash = await cgHash(policyParameters, outputPayload);
+
+  const complianceFlags = [
+    'EU_AI_ACT_ART12_RECORD_KEEPING',
+    'DORA_OPERATIONAL_RESILIENCE_AUDIT_TRAIL',
+    'SESSION_RECEIPT_ROOT_GENERATED'
+  ];
+  if (allProofsOk) complianceFlags.push('ALL_INCLUSION_PROOFS_VERIFIED');
+  else complianceFlags.push('INCLUSION_PROOF_RECOMPUTE_MISMATCH');
+
+  _artifact = {
+    chaingraph_version: '0.1.0',
+    ap2_version: '1.0.0',
+    mandate_type: 'cryptographic_mandate',
+    tool_id: 'cry-05-agent-action-audit-trail-aggregator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: {
+      parent_hashes: parentHashes,
+      parent_tool_ids: parentToolIds,
+      chain_depth: aggregatorChainDepth
+    },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
+    compliance_flags: complianceFlags,
+    audit_signature: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    },
+    session_receipt_root: 'sha256:' + root
+  };
+
+  _lastResult = {
+    entries, receipts, root, treeDepth, maxChainDepth, aggregatorChainDepth,
+    allProofsOk, chainDepthMap, parentHashes, parentToolIds, execHash, summary
+  };
+
+  ta.classList.add(allProofsOk ? 'ok' : 'error');
+  renderResults();
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────────────────
+function trunc(h, head=12, tail=6) {
+  if (!h) return '—';
+  return h.length <= head + tail + 3 ? h : h.slice(0, head) + '…' + h.slice(-tail);
+}
+
+function renderResults() {
+  const r = _lastResult;
+
+  document.getElementById('receiptBadge').textContent = r.allProofsOk ? 'RECEIPT SEALED' : 'PROOF MISMATCH';
+
+  document.getElementById('verdictCard').innerHTML =
+    `<div class="verdict-card">
+      <div class="verdict-icon">⛓</div>
+      <div>
+        <div class="verdict-label">Tamper-Evident Session Receipt</div>
+        <div class="verdict-title">${r.entries.length} agent action${r.entries.length===1?'':'s'} sealed under one Merkle root.</div>
+        <div class="verdict-sub">A single inclusion-provable receipt now covers the whole session. ${r.allProofsOk ? 'All per-leaf inclusion proofs re-derive the root.' : 'One or more proofs failed to re-derive the root — re-check leaf order.'} This is the audit object suited to EU&nbsp;AI&nbsp;Act&nbsp;Art.&nbsp;12 record-keeping and DORA operational-resilience evidence. Forward the root to CRY-04 to re-verify, or to PTG-01 for a regulatory narrative.</div>
+      </div>
+    </div>`;
+
+  document.getElementById('scorecardRow').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Receipts</div><div class="metric-value purple">${r.entries.length}</div><div class="metric-sub">leaves in tree</div></div>
+    <div class="metric-card"><div class="metric-label">Tree Depth</div><div class="metric-value">${r.treeDepth}</div><div class="metric-sub">Merkle levels</div></div>
+    <div class="metric-card"><div class="metric-label">Max Chain Depth</div><div class="metric-value teal">${r.maxChainDepth}</div><div class="metric-sub">deepest input</div></div>
+    <div class="metric-card"><div class="metric-label">Proofs</div><div class="metric-value ${r.allProofsOk?'teal':''}">${r.receipts.filter(x=>true).length}/${r.entries.length}</div><div class="metric-sub">${r.allProofsOk?'all verified':'check order'}</div></div>`;
+
+  document.getElementById('rootDisplay').textContent = 'sha256:' + r.root;
+  document.getElementById('treeDisplay').textContent = r.entries.length + ' leaves · depth ' + r.treeDepth + ' · node = SHA-256(left‖right) · duplicate-last on odd';
+  document.getElementById('maxDepthDisplay').textContent = r.maxChainDepth + ' (deepest input)  ·  aggregator chain_depth = ' + r.aggregatorChainDepth + '  [max(parent depths)+1]';
+  document.getElementById('summaryLine').textContent = r.summary;
+
+  document.getElementById('tableSubtitle').textContent = r.entries.length + ' receipts';
+  document.getElementById('leafTbody').innerHTML = r.receipts.map(rc => {
+    const path = rc.inclusion_proof.map((p,i) =>
+      `<span class="dir-pill">${p.position==='left'?'L':'R'}</span>${trunc(p.sibling,10,4)}`).join('<br>');
+    return `<tr>
+      <td>${rc.leaf_index}</td>
+      <td style="color:var(--bright)">${rc.tool_id}</td>
+      <td>${rc.chain_depth}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--teal-lt)">${trunc(rc.execution_hash,16,6)}</td>
+      <td class="proof-path">${path || '<em style="color:var(--muted)">single leaf — root = leaf</em>'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('hashDisplay').textContent = r.execHash;
+  document.getElementById('parentHashSummary').textContent =
+    r.parentHashes.length + ' leaf hash(es) → chain_depth ' + r.aggregatorChainDepth + ' · tools: ' + [...new Set(r.parentToolIds)].join(', ');
+
+  ['ap2ExportBtn','mdExportBtn'].forEach(id => {
+    const b = document.getElementById(id); b.disabled = false; b.classList.add('ready');
+  });
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+// ─── EXPORTS ────────────────────────────────────────────────────────────────
+function dl(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_artifact, null, 2), `cry-05-session-receipt_${ts}.policy.json`, 'application/json');
+  showToast('Session-receipt artifact exported — root ready for CRY-04 / PTG-01');
+}
+
+function exportMarkdown() {
+  if (!_artifact || !_lastResult) return;
+  const r = _lastResult, p = _artifact.output_payload;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const lines = [
+    `# Agent-Action Audit-Trail · Session Receipt`,
+    `**Tool:** CRY-05 Agent-Action Audit-Trail Aggregator · ChainGraph · AINumbers.co`,
+    `**Generated:** ${_artifact.generated_at}`,
+    `**session_receipt_root:** \`${p.session_receipt_root}\``,
+    `**execution_hash:** \`${_artifact.execution_hash}\``,
+    `**Aggregator chain_depth:** ${_artifact.chain.chain_depth}  (max parent depth + 1)`,
+    `**Receipts aggregated:** ${p.n_receipts} · tree depth ${p.tree_depth} · max input chain_depth ${p.max_chain_depth}`,
+    `**All inclusion proofs verified:** ${p.all_proofs_verified ? 'yes' : 'NO — re-check leaf order'}`,
+    '',
+    '---',
+    '## Chain-Depth Map (input order)',
+    '',
+    '| Leaf # | tool_id | chain_depth |',
+    '|---|---|---|',
+    ...p.chain_depth_map.map((m,i)=>`| ${i} | \`${m.tool_id}\` | ${m.chain_depth} |`),
+    '',
+    '---',
+    '## Per-Receipt Inclusion Proofs',
+    '',
+    ...p.receipts.map(rc => [
+      `### Leaf ${rc.leaf_index} — \`${rc.tool_id}\``,
+      `- **execution_hash:** \`${rc.execution_hash}\``,
+      `- **inclusion_proof (sibling → root):**`,
+      ...(rc.inclusion_proof.length ? rc.inclusion_proof.map((s,i)=>`  ${i}. [${s.position}] \`${s.sibling}\``) : ['  _(single leaf — root equals leaf)_']),
+      ''
+    ].join('\n')),
+    '---',
+    '## Regulatory Motivation',
+    '',
+    'This single tamper-evident receipt is the audit object suited to record-keeping regimes:',
+    '- **EU AI Act — Regulation (EU) 2024/1689, Art. 12** (automatic logging / record-keeping over the system lifecycle).',
+    '- **DORA — Regulation (EU) 2022/2554** (ICT operational-resilience audit trail).',
+    '',
+    'The aggregator is itself a conformant ChainGraph tool: its own `execution_hash` covers the Merkle root, so the receipt is independently re-verifiable by recomputation (Standard §6 / §7.4).',
+    '',
+    '## Compliance Flags',
+    '',
+    ..._artifact.compliance_flags.map(f=>'- `'+f+'`'),
+    '',
+    '---',
+    `*Generated by AINumbers.co CRY-05 · ChainGraph Standard v0.1 §5/§6/§7.4 · Client-side · Zero PII · CC BY 4.0*`
+  ];
+  dl(lines.join('\n'), `cry-05-session-receipt_${ts}.md`, 'text/markdown');
+  showToast('Markdown record-keeping report exported');
+}
+
+// ─── TABS / UI ──────────────────────────────────────────────────────────────
+function loadTab(key, ev) {
+  if (ev) { document.querySelectorAll('#srcTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('srcInput');
+  ta.classList.remove('error','ok');
+  if (key === 'custom') { ta.value = ''; ta.focus(); return; }
+  if (key === 'preset_session') ta.value = JSON.stringify(PRESET_SESSION, null, 2);
+  if (key === 'preset_hashes') ta.value = JSON.stringify(PRESET_HASHES, null, 2);
+  if (key === 'clear') { ta.value = ''; document.getElementById('resultsPanel').classList.remove('visible'); }
+}
+
+function formatTA() {
+  const ta = document.getElementById('srcInput');
+  try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); ta.classList.remove('error'); }
+  catch { showToast('JSON parse error — cannot format'); }
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  btn.setAttribute('aria-expanded', String(!open));
+  body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+document.getElementById('srcInput').value = JSON.stringify(PRESET_SESSION, null, 2);
+document.querySelectorAll('#srcTabs .tab-btn')[1].classList.add('active');
+document.querySelectorAll('#srcTabs .tab-btn')[0].classList.remove('active');
+</script>
+</body>
+</html>

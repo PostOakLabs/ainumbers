@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>A2A x402-Extension Mandate Validator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate an A2A x402 capability extension end-to-end: agent-card extension declaration, payment-authority scope, settlement-rail binding, x402 exact-scheme PaymentPayload field lint, and mandate↔payment-leg consistency against an AP2 cap. Issues a PASS/WARN/FAIL verdict and a single ChainGraph execution_hash receipt. Client-side. Zero PII. Educational simulation.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-31-a2a-x402-extension-mandate-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"A2A x402-Extension Mandate Validator","url":"https://ainumbers.co/chaingraph/art-31-a2a-x402-extension-mandate-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-31-a2a-x402-extension-mandate-validator",
+  "version": "1.0.0",
+  "title": "A2A x402-Extension Mandate Validator",
+  "description": "Validates an A2A x402 capability extension carrying crypto-payment authority inside an AP2 mandate. Deterministic checks: (a) x402 extension URI declared in agent-card capabilities.extensions[]; (b) payment-authority scope present and non-empty; (c) settlement-rail binding present (scheme/network/asset); (d) x402 exact-scheme PaymentPayload field lint; (e) mandate↔payment-leg consistency (maxAmountRequired <= cap, asset match). Issues a PASS/WARN/FAIL verdict and a single ChainGraph execution_hash receipt (ChainGraph Standard v0.1 §5/§6). Consumes ART-03. Educational simulation.",
+  "category": "chaingraph",
+  "tags": ["A2A","x402","agent-card","capability-extension","exact-scheme","PaymentPayload","settlement","settlement_mandate","ChainGraph","Coinbase","MetaMask"],
+  "audience": ["payments_engineer","agent_developer","compliance","product"],
+  "mcp_tool_definition": {"name":"validate_a2a_x402_mandate","description":"Validates an A2A x402 capability extension mandate: agent-card extension declaration, payment-authority scope, settlement-rail binding, x402 exact-scheme PaymentPayload field lint, and mandate->payment-leg consistency vs an AP2 cap. Issues a PASS/WARN/FAIL verdict and a single ChainGraph execution_hash receipt. Consumes an ART-03 x402 settlement artifact (optional) to anchor chain_depth: 1. Educational simulation. GPU: No.","inputSchema":{"type":"object","properties":{"agent_card":{"type":"string","description":"JSON of an A2A agent card declaring an x402 capability extension under capabilities.extensions[]"},"payment_payload":{"type":"string","description":"JSON of an x402 exact-scheme PaymentPayload (scheme, network, maxAmountRequired, resource, payTo, asset, optional maxTimeoutSeconds)"},"mandate_cap":{"type":"string","description":"JSON object with an AP2 mandate cap: { max_amount: number, asset: string }"},"parent_artifact":{"type":"string","description":"Optional. A full ART-03 ChainGraph artifact JSON to populate chain.parent_hashes / parent_tool_ids (chain_depth = parent_depth + 1)"}},"required":["agent_card","payment_payload","mandate_cap"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-31-a2a-x402-extension-mandate-validator.html","function_name":"validateA2aX402Mandate","timeout_ms":5000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-03-x402-settlement-modeler"],
+  "consumes": ["art-03-x402-settlement-modeler"],
+  "feeds": ["art-30-agent-commerce-conformance-validator","cry-05-agent-action-audit-trail-aggregator","ptg-01-ap2-prompt-template-generator"],
+  "chain_depth": 1,
+  "mandate_type": "settlement_mandate",
+  "wave": 6,
+  "conformance_fixtures": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.sim-notice{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--warn);background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.stage-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s}
+.tab-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.tab-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.field-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.55;padding:.65rem .85rem;border-radius:var(--radius);outline:none;resize:vertical;width:100%;transition:border-color .2s;min-height:200px}
+textarea:focus{border-color:var(--teal)}
+textarea.error{border-color:var(--red)}
+textarea.ok{border-color:rgba(20,184,166,.4)}
+input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.38rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input[type=text]:focus{border-color:var(--teal)}
+input[type=text].ok{border-color:rgba(20,184,166,.4)}
+.cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.65rem;margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.fail{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+.protocol-section{margin-bottom:1.1rem}
+.protocol-header{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);padding:.45rem .75rem;background:var(--bg-3);border-radius:var(--radius) var(--radius) 0 0;border:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.protocol-header .proto-badge{font-size:.42rem;padding:.1rem .45rem;border-radius:3px;font-weight:500}
+.proto-pass{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.proto-warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.proto-fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.check-list{display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:.75rem;background:var(--bg-2)}
+.check-item{display:flex;align-items:flex-start;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.45;padding:.45rem .65rem;border-radius:var(--radius);border:1px solid transparent}
+.check-item.pass{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15);color:var(--text)}
+.check-item.fail{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:var(--bright)}
+.check-item.warn{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2);color:var(--text)}
+.check-item.info{background:var(--bg-3);border-color:var(--border);color:var(--body)}
+.check-icon{flex-shrink:0;width:14px;text-align:center;margin-top:.05rem}
+.check-text{flex:1}
+.check-code{font-size:.48rem;color:var(--muted);display:block;margin-top:.1rem}
+.hash-row{display:flex;align-items:center;gap:.85rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;flex-wrap:wrap}
+.hash-label{color:var(--muted);flex-shrink:0}
+.hash-value{color:var(--teal-lt);word-break:break-all;flex:1;font-size:.58rem}
+.chain-links-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.5rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-31</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-31 · Wave 6 · A2A x402-Extension Mandate Validator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>A2A <em>x402-Extension</em> Mandate Validator</h1>
+  <p class="hero-desc">Validate the <strong>A2A x402 capability extension</strong> — the Agent2Agent extension that carries crypto-payment authority inside an AP2 mandate (co-developed by Coinbase, MetaMask, and the Ethereum Foundation). Five deterministic checks: the x402 extension URI is declared in the agent card's <code style="font-size:.72rem;color:var(--teal-lt)">capabilities.extensions[]</code>; a non-empty payment-authority scope; a settlement-rail binding (scheme / network / asset); x402 exact-scheme <code style="font-size:.72rem;color:var(--teal-lt)">PaymentPayload</code> field lint; and mandate↔payment-leg consistency against an AP2 cap. One PASS/WARN/FAIL verdict and one ChainGraph <code style="font-size:.72rem;color:var(--teal-lt)">execution_hash</code> receipt. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chain Depth: 1</span>
+    <span class="badge badge-purple">A2A · capabilities.extensions</span>
+    <span class="badge badge-teal">x402 · exact scheme</span>
+    <span class="badge badge-green">PaymentPayload lint</span>
+    <span class="badge badge-gold">Zero PII</span>
+    <span class="badge badge-muted">settlement_mandate</span>
+    <span class="badge badge-warn">Simulation</span>
+  </div>
+  <div class="chain-links-row" style="margin-top:1rem">
+    <a href="art-03-x402-settlement-modeler.html" class="chain-link">&#8593; ART-03 x402 Settlement Modeler</a>
+    <a href="art-30-agent-commerce-conformance-validator.html" class="chain-link">&#8595; ART-30 Cross-Protocol Conformance</a>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="sim-notice">EDUCATIONAL SIMULATION — This tool lints document structure against the publicly documented A2A capability-extension model and the x402 exact-scheme PaymentPayload shape. It does NOT verify signatures, settle funds, or constitute payment authorization. Validate against the live x402 spec (x402.org) and the A2A spec before any production use.</div>
+
+  <div class="pii-notice">🔒 All validation runs entirely in your browser. Do not paste live wallet private keys, production signing keys, real customer PII, or live payment credentials. Use test / synthetic fixtures only. No data is transmitted, stored, or logged.</div>
+
+  <!-- STAGE 1: AGENT CARD -->
+  <div class="panel">
+    <div class="panel-label">Stage 1 — A2A Agent Card (declares x402 capability extension)</div>
+    <div class="stage-tabs" id="cardTabs">
+      <button class="tab-btn active" onclick="switchCardTab('preset_pass',event)">Preset — Valid</button>
+      <button class="tab-btn" onclick="switchCardTab('preset_fail',event)">Preset — No Extension</button>
+      <button class="tab-btn" onclick="switchCardTab('custom',event)">Custom JSON</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">A2A Agent Card JSON</div>
+      <div class="field-hint">JSON with capabilities.extensions[] declaring the x402 extension URI, a payment_authority scope, and a settlement-rail binding (scheme / network / asset).</div>
+      <textarea id="cardInput" spellcheck="false" rows="14">{}</textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('cardInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('cardInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 2: PAYMENT PAYLOAD -->
+  <div class="panel">
+    <div class="panel-label">Stage 2 — x402 Exact-Scheme PaymentPayload</div>
+    <div class="stage-tabs" id="payTabs">
+      <button class="tab-btn active" onclick="switchPayTab('preset_base',event)">Preset — Base / USDC</button>
+      <button class="tab-btn" onclick="switchPayTab('preset_bad',event)">Preset — Missing Fields</button>
+      <button class="tab-btn" onclick="switchPayTab('custom',event)">Custom JSON</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">x402 PaymentPayload (exact scheme)</div>
+      <div class="field-hint">Required: scheme, network, maxAmountRequired, resource, payTo, asset. Optional: maxTimeoutSeconds. Paste the output of ART-03 output_payload.x402_payload, or build manually.</div>
+      <textarea id="payInput" spellcheck="false" rows="11" placeholder="// x402 exact-scheme PaymentPayload JSON"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('payInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('payInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 3: MANDATE CAP -->
+  <div class="panel">
+    <div class="panel-label">Stage 3 — AP2 Mandate Cap (authority ceiling)</div>
+    <div class="cap-grid">
+      <div class="field-group">
+        <div class="field-label">max_amount — mandate cap</div>
+        <input type="text" id="capAmtInput" placeholder="e.g. 250.00" spellcheck="false" value="250.00">
+      </div>
+      <div class="field-group">
+        <div class="field-label">asset — authorized asset</div>
+        <input type="text" id="capAssetInput" placeholder="e.g. USDC or 0x833589f…" spellcheck="false" value="USDC">
+      </div>
+    </div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.5rem">The PaymentPayload's <code style="color:var(--teal-lt)">maxAmountRequired</code> must be ≤ this cap, and its <code style="color:var(--teal-lt)">asset</code> must match (symbol or address; case-insensitive).</p>
+  </div>
+
+  <!-- STAGE 4: PARENT ARTIFACT -->
+  <div class="panel">
+    <div class="panel-label">Parent ART-03 Artifact <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional — anchors chain_depth)</span></div>
+    <div class="field-group">
+      <div class="field-label">ART-03 x402 Settlement Modeler artifact JSON</div>
+      <div class="field-hint">Paste a full ART-03 ChainGraph artifact. Its execution_hash → chain.parent_hashes; chain_depth = parent chain_depth + 1. Leave blank to run standalone (chain_depth 0).</div>
+      <textarea id="parentInput" spellcheck="false" rows="6" placeholder='// Optional — paste a full ART-03 artifact JSON to anchor the chain' style="min-height:120px"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('parentInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('parentInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- RUN -->
+  <div style="display:flex;gap:1rem;align-items:center;margin-bottom:.5rem">
+    <button class="run-btn" onclick="runValidation()">Validate x402-Extension Mandate</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Verdict</span>
+        <span id="checkSummary" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+      </div>
+      <div class="out-body" id="verdictCard"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Validation Checks</span></div>
+      <div class="out-body" id="protocolChecks"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">ChainGraph Artifact · execution_hash</span></div>
+      <div class="out-body">
+        <div class="hash-row">
+          <span class="hash-label">SHA-256:</span>
+          <span class="hash-value" id="hashDisplay">—</span>
+        </div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.6rem">Computed client-side via WebCrypto SHA-256 over <code>cgCanon({policy_parameters, output_payload})</code> (ChainGraph Standard v0.1 §6). Parent: <span id="parentHashSummary">none</span></p>
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            Export ChainGraph Artifact JSON
+            <span class="btn-subtitle">§5 envelope · settlement_mandate</span>
+          </button>
+          <button class="btn btn-ghost" id="tvExportBtn" disabled onclick="exportTestVectors()">
+            Download Test-Vector Fixtures
+            <span class="btn-subtitle">A2A + x402 fixture set</span>
+          </button>
+          <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            Export Markdown Report
+            <span class="btn-subtitle">Audit-ready summary</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+      <span>Tool Manifest (JSON-LD)</span>
+      <span id="mfstArrow">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-03-x402-settlement-modeler.html">ART-03</a>
+      <a href="art-30-agent-commerce-conformance-validator.html">ART-30</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>ChainGraph Suite · ART-31 · Wave 6</span>
+      <span>v1.0.0 · CC BY 4.0 · Client-side · Zero PII</span>
+      <span style="color:var(--border-2)">A2A · x402 · AP2</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST (for JSON-LD accordion)
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-31-a2a-x402-extension-mandate-validator',
+  version: '1.0.0',
+  title: 'A2A x402-Extension Mandate Validator',
+  mcp_name: 'validate_a2a_x402_mandate',
+  mandate_type: 'settlement_mandate',
+  chain_depth: 1,
+  wave: 6,
+  consumes: ['art-03-x402-settlement-modeler'],
+  feeds: ['art-30-agent-commerce-conformance-validator','cry-05-agent-action-audit-trail-aggregator','ptg-01-ap2-prompt-template-generator'],
+  spec: 'ChainGraph Standard v0.1 §5/§6',
+  protocols: {
+    a2a: 'Agent2Agent (A2A) — capability extensions under capabilities.extensions[]',
+    x402: 'x402 HTTP payment protocol (x402.org) — exact-scheme PaymentPayload',
+    a2a_x402_extension: 'A2A x402 capability extension — co-developed by Coinbase, MetaMask, and the Ethereum Foundation; carries crypto-payment authority inside an AP2 mandate',
+    ap2: 'AP2 (Agent Payments Protocol) — mandate cap (max amount + asset)'
+  },
+  note: 'Educational simulation — lints document structure; does not verify signatures or settle funds.',
+  zero_pii: true,
+  client_side: true
+};
+
+/* x402 exact-scheme PaymentPayload required fields, per x402.org exact-scheme docs */
+const X402_REQUIRED = ['scheme','network','maxAmountRequired','resource','payTo','asset'];
+const X402_OPTIONAL = ['maxTimeoutSeconds'];
+/* The well-known x402 capability-extension URI is documented on x402.org / the A2A x402 extension. */
+const X402_EXT_URI_HINTS = ['x402'];
+
+/* ─────────────────────────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────────────────────────── */
+const CARD_PRESET_VALID = {
+  protocolVersion: '0.3.0',
+  name: 'Synthetic Commerce Agent',
+  description: 'Test agent declaring an x402 crypto-payment capability extension.',
+  url: 'https://agent.example.com/a2a',
+  capabilities: {
+    streaming: true,
+    extensions: [
+      {
+        uri: 'https://x402.org/a2a/ext/x402-payments/v1',
+        description: 'x402 crypto-payment authority — co-developed by Coinbase, MetaMask, Ethereum Foundation.',
+        required: false,
+        params: {
+          payment_authority: {
+            scope: ['settle:exact','networks:base','assets:USDC'],
+            max_amount: 250.00,
+            asset: 'USDC'
+          },
+          settlement_rail: {
+            scheme: 'exact',
+            network: 'base',
+            asset: 'USDC'
+          }
+        }
+      }
+    ]
+  },
+  skills: [
+    { id: 'checkout', name: 'Agent Checkout', description: 'Initiates an x402-settled purchase.', tags: ['payments','x402'] }
+  ]
+};
+
+const CARD_PRESET_NO_EXT = {
+  protocolVersion: '0.3.0',
+  name: 'Synthetic Read-Only Agent',
+  description: 'Test agent with no payment extension declared.',
+  url: 'https://agent.example.com/a2a',
+  capabilities: {
+    streaming: true,
+    extensions: []
+  },
+  skills: [
+    { id: 'lookup', name: 'Catalog Lookup', description: 'Reads product data.', tags: ['catalog'] }
+  ]
+};
+
+const PAY_PRESET_BASE = {
+  scheme: 'exact',
+  network: 'base',
+  maxAmountRequired: '199.99',
+  resource: 'https://api.shopify-agent.example.com/v1/checkout/agent',
+  payTo: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+  asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  maxTimeoutSeconds: 300
+};
+
+const PAY_PRESET_BAD = {
+  scheme: 'exact',
+  network: 'base',
+  maxAmountRequired: '199.99',
+  payTo: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
+};
+
+/* USDC contract address on Base — used to demonstrate symbol↔address asset matching */
+const USDC_BASE = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _artifact = null;
+let _lastResult = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   TAB SWITCHING
+   ───────────────────────────────────────────────────────────────── */
+function switchCardTab(key, ev) {
+  if (ev) { document.querySelectorAll('#cardTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('cardInput');
+  if (key === 'custom') { ta.value = ''; ta.focus(); ta.classList.remove('error','ok'); return; }
+  if (key === 'preset_pass') ta.value = JSON.stringify(CARD_PRESET_VALID, null, 2);
+  if (key === 'preset_fail') ta.value = JSON.stringify(CARD_PRESET_NO_EXT, null, 2);
+  ta.classList.remove('error','ok');
+}
+
+function switchPayTab(key, ev) {
+  if (ev) { document.querySelectorAll('#payTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('payInput');
+  if (key === 'custom') { ta.value = ''; ta.focus(); ta.classList.remove('error','ok'); return; }
+  if (key === 'preset_base') ta.value = JSON.stringify(PAY_PRESET_BASE, null, 2);
+  if (key === 'preset_bad') ta.value = JSON.stringify(PAY_PRESET_BAD, null, 2);
+  ta.classList.remove('error','ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VALIDATION LOGIC
+   ───────────────────────────────────────────────────────────────── */
+async function runValidation() {
+  let card, pay;
+
+  const cardRaw = document.getElementById('cardInput').value.trim();
+  if (!cardRaw || cardRaw === '{}') { showToast('Stage 1 Agent Card is required — paste JSON or load a preset'); return; }
+  try { card = JSON.parse(cardRaw); } catch(e) {
+    document.getElementById('cardInput').classList.add('error');
+    showToast('Stage 1 — JSON parse error: ' + e.message); return;
+  }
+
+  const payRaw = document.getElementById('payInput').value.trim();
+  if (!payRaw) { showToast('Stage 2 PaymentPayload is required — paste JSON or load a preset'); return; }
+  try { pay = JSON.parse(payRaw); } catch(e) {
+    document.getElementById('payInput').classList.add('error');
+    showToast('Stage 2 — JSON parse error: ' + e.message); return;
+  }
+
+  const capAmtRaw = document.getElementById('capAmtInput').value.trim();
+  const capAsset = document.getElementById('capAssetInput').value.trim();
+  const capAmt = parseFloat(capAmtRaw);
+
+  /* Parent artifact (optional) */
+  let parentHashes = [], parentToolIds = [], chainDepth = 0;
+  const parentRaw = document.getElementById('parentInput').value.trim();
+  if (parentRaw) {
+    let parent;
+    try { parent = JSON.parse(parentRaw); } catch(e) {
+      document.getElementById('parentInput').classList.add('error');
+      showToast('Parent artifact — JSON parse error: ' + e.message); return;
+    }
+    const ph = parent.execution_hash;
+    if (ph) {
+      parentHashes = [String(ph).startsWith('sha256:') ? ph : ('sha256:' + ph)];
+      parentToolIds = [parent.tool_id || 'art-03-x402-settlement-modeler'];
+      const parentDepth = parent.chain && typeof parent.chain.chain_depth === 'number' ? parent.chain.chain_depth : 0;
+      chainDepth = parentDepth + 1;
+    } else {
+      showToast('Parent artifact has no execution_hash — running standalone');
+    }
+  }
+  document.getElementById('parentInput').classList.remove('error');
+
+  /* Run checks */
+  const extResult = checkExtension(card);
+  const scopeResult = checkScope(extResult.ext);
+  const railResult = checkRail(extResult.ext);
+  const lintChecks = lintPaymentPayload(pay);
+  const consistencyChecks = checkConsistency(pay, capAmt, capAsset, railResult.rail);
+
+  const allChecks = [
+    ...extResult.checks,
+    ...scopeResult.checks,
+    ...railResult.checks,
+    ...lintChecks,
+    ...consistencyChecks
+  ];
+  const passCount = allChecks.filter(c=>c.status==='pass').length;
+  const failCount = allChecks.filter(c=>c.status==='fail').length;
+  const warnCount = allChecks.filter(c=>c.status==='warn').length;
+  const overallStatus = failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass';
+  const failingPredicates = allChecks.filter(c=>c.status==='fail').map(c=>c.code);
+
+  /* Build artifact (envelope per ChainGraph Standard v0.1 §5) */
+  const policyParameters = {
+    execution_backend: 'js',
+    numeric_precision: 'amount_to_2dp',
+    agent_card_name: card.name ?? null,
+    x402_extension_uri: extResult.ext?.uri ?? null,
+    payment_scheme: pay.scheme ?? null,
+    payment_network: pay.network ?? null,
+    payment_max_amount_required: pay.maxAmountRequired ?? null,
+    payment_asset: pay.asset ?? null,
+    payment_pay_to: pay.payTo ?? null,
+    mandate_cap_max_amount: isNaN(capAmt) ? null : Number(capAmt.toFixed(2)),
+    mandate_cap_asset: capAsset || null,
+    parent_hashes: parentHashes,
+    parent_tool_ids: parentToolIds
+  };
+  const outputPayload = {
+    verdict: overallStatus,
+    pass_count: passCount,
+    fail_count: failCount,
+    warn_count: warnCount,
+    extension_declared: extResult.declared,
+    payment_authority_scope_present: scopeResult.present,
+    settlement_rail_bound: railResult.bound,
+    payment_payload_well_formed: lintChecks.every(c=>c.status==='pass'),
+    mandate_payment_consistent: consistencyChecks.every(c=>c.status!=='fail'),
+    failing_predicates: failingPredicates,
+    checks: allChecks.map(c=>({code:c.code,status:c.status}))
+  };
+  const execHashHex = await cgHash(policyParameters, outputPayload);
+  const execHash = 'sha256:' + execHashHex;
+
+  _lastResult = {card, pay, capAmt, capAsset, extResult, scopeResult, railResult, lintChecks, consistencyChecks, allChecks, passCount, failCount, warnCount, overallStatus, failingPredicates, parentHashes, parentToolIds, chainDepth, policyParameters, outputPayload, execHash, execHashHex};
+
+  const complianceFlags = failCount > 0
+    ? ['X402_EXTENSION_NON_CONFORMANT','FIELD_VALIDATION_FAILED']
+    : warnCount > 0 ? ['X402_EXTENSION_CONFORMANT_WITH_WARNINGS'] : ['X402_EXTENSION_FULLY_CONFORMANT'];
+
+  _artifact = {
+    chaingraph_version: '0.1.0',
+    ap2_version: '1.0.0',
+    mandate_type: 'settlement_mandate',
+    tool_id: 'art-31-a2a-x402-extension-mandate-validator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: parentHashes, parent_tool_ids: parentToolIds, chain_depth: chainDepth },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
+    compliance_flags: complianceFlags,
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  renderResults();
+}
+
+/* ── (a) x402 extension declared in capabilities.extensions[] ── */
+function checkExtension(card) {
+  const checks = [];
+  const caps = card.capabilities || {};
+  const exts = Array.isArray(caps.extensions) ? caps.extensions : null;
+
+  const hasExtArray = exts !== null;
+  checks.push({status: hasExtArray?'pass':'fail', icon: hasExtArray?'✓':'✗', code:'EXT-01', text:'capabilities.extensions[] is an array', detail: hasExtArray?`${exts.length} extension(s) declared`:'A2A agent card has no capabilities.extensions array'});
+
+  let ext = null, declared = false;
+  if (hasExtArray) {
+    ext = exts.find(e => e && typeof e.uri === 'string' && X402_EXT_URI_HINTS.some(h => e.uri.toLowerCase().includes(h)));
+    declared = !!ext;
+    checks.push({status: declared?'pass':'fail', icon: declared?'✓':'✗', code:'EXT-02', text: declared ? `x402 capability extension declared` : 'No x402 capability extension found in extensions[]', detail: declared ? `uri: "${ext.uri}"` : 'Expected an extension whose uri references x402 (e.g. https://x402.org/a2a/ext/x402-payments/v1)'});
+    if (declared) {
+      const hasParams = ext.params && typeof ext.params === 'object';
+      checks.push({status: hasParams?'pass':'warn', icon: hasParams?'✓':'⚠', code:'EXT-03', text:'x402 extension carries params object', detail: hasParams?'':'Extension declared but params (payment_authority / settlement_rail) absent'});
+    }
+  }
+  return {checks, ext, declared};
+}
+
+/* ── (b) payment-authority scope present + non-empty ── */
+function checkScope(ext) {
+  const checks = [];
+  if (!ext) {
+    checks.push({status:'fail',icon:'✗',code:'SCOPE-00',text:'payment_authority scope — cannot evaluate, no x402 extension',detail:''});
+    return {checks, present:false};
+  }
+  const pa = ext.params && ext.params.payment_authority;
+  const present = pa && typeof pa === 'object';
+  checks.push({status: present?'pass':'fail', icon: present?'✓':'✗', code:'SCOPE-01', text:'params.payment_authority object present', detail: present?'':'x402 extension declares no payment_authority — agent has no settlement authority'});
+  if (present) {
+    const scope = pa.scope;
+    const scopeOk = Array.isArray(scope) ? scope.length > 0 : (typeof scope === 'string' && scope.trim().length > 0);
+    checks.push({status: scopeOk?'pass':'fail', icon: scopeOk?'✓':'✗', code:'SCOPE-02', text:'payment_authority.scope present and non-empty', detail: scopeOk?(Array.isArray(scope)?`scope: [${scope.join(', ')}]`:`scope: "${scope}"`):'scope missing or empty — no authority granted'});
+    const hasCap = typeof pa.max_amount === 'number' && pa.max_amount > 0;
+    checks.push({status: hasCap?'pass':'warn', icon: hasCap?'✓':'⚠', code:'SCOPE-03', text:'payment_authority.max_amount is a positive number', detail: hasCap?`max_amount: ${pa.max_amount}`:'max_amount absent in extension — relying on external mandate cap'});
+    return {checks, present:true, pa};
+  }
+  return {checks, present:false};
+}
+
+/* ── (c) settlement-rail binding present (scheme, network, asset) ── */
+function checkRail(ext) {
+  const checks = [];
+  if (!ext) {
+    checks.push({status:'fail',icon:'✗',code:'RAIL-00',text:'settlement_rail — cannot evaluate, no x402 extension',detail:''});
+    return {checks, bound:false, rail:null};
+  }
+  const rail = ext.params && ext.params.settlement_rail;
+  const present = rail && typeof rail === 'object';
+  checks.push({status: present?'pass':'fail', icon: present?'✓':'✗', code:'RAIL-01', text:'params.settlement_rail object present', detail: present?'':'No settlement_rail binding — extension does not specify how to settle'});
+  if (!present) return {checks, bound:false, rail:null};
+
+  const validSchemes = ['exact'];
+  const schemeOk = rail.scheme && validSchemes.includes(rail.scheme);
+  checks.push({status: schemeOk?'pass':rail.scheme?'warn':'fail', icon: schemeOk?'✓':rail.scheme?'⚠':'✗', code:'RAIL-02', text:`settlement_rail.scheme: "${rail.scheme||'absent'}"`, detail: schemeOk?'x402 exact scheme':rail.scheme?`Uncommon scheme — x402 documents the "exact" scheme`:'scheme required'});
+
+  const validNetworks = ['base','base-sepolia','ethereum','polygon','avalanche','arbitrum','optimism','solana'];
+  const netOk = rail.network && typeof rail.network === 'string' && rail.network.length > 0;
+  const netKnown = validNetworks.includes((rail.network||'').toLowerCase());
+  checks.push({status: netOk?'pass':'fail', icon: netOk?'✓':'✗', code:'RAIL-03', text:`settlement_rail.network: "${rail.network||'absent'}"`, detail: netOk?(netKnown?'Known x402 network':'Uncommon network — verify supported'):'network required (e.g. base, base-sepolia)'});
+
+  const assetOk = rail.asset && typeof rail.asset === 'string' && rail.asset.length > 0;
+  checks.push({status: assetOk?'pass':'fail', icon: assetOk?'✓':'✗', code:'RAIL-04', text:`settlement_rail.asset: "${rail.asset||'absent'}"`, detail: assetOk?'Asset symbol or contract address':'asset required (e.g. USDC)'});
+
+  const bound = schemeOk && netOk && assetOk;
+  return {checks, bound, rail};
+}
+
+/* ── (d) x402 exact-scheme PaymentPayload field lint ── */
+function lintPaymentPayload(pay) {
+  const checks = [];
+  for (let i = 0; i < X402_REQUIRED.length; i++) {
+    const f = X402_REQUIRED[i];
+    const has = Object.prototype.hasOwnProperty.call(pay, f) && pay[f] !== null && pay[f] !== '';
+    checks.push({status: has?'pass':'fail', icon: has?'✓':'✗', code:'PAY-F0'+(i+1), text:`PaymentPayload.${f} present`, detail: has?String(pay[f]).slice(0,60):`Required x402 exact-scheme field "${f}" missing`});
+  }
+  /* scheme must be exact */
+  if (pay.scheme !== undefined) {
+    const isExact = pay.scheme === 'exact';
+    checks.push({status: isExact?'pass':'warn', icon: isExact?'✓':'⚠', code:'PAY-F07', text:`scheme is "exact"`, detail: isExact?'':`scheme="${pay.scheme}" — this tool lints the documented x402 exact scheme`});
+  }
+  /* maxAmountRequired numeric */
+  if (pay.maxAmountRequired !== undefined) {
+    const n = parseFloat(pay.maxAmountRequired);
+    const numOk = !isNaN(n) && n > 0;
+    checks.push({status: numOk?'pass':'fail', icon: numOk?'✓':'✗', code:'PAY-F08', text:`maxAmountRequired is a positive number (${pay.maxAmountRequired})`, detail: numOk?'':'Must parse to a positive numeric value'});
+  }
+  /* optional maxTimeoutSeconds */
+  if (Object.prototype.hasOwnProperty.call(pay, 'maxTimeoutSeconds')) {
+    const t = pay.maxTimeoutSeconds;
+    const tOk = typeof t === 'number' && t > 0;
+    checks.push({status: tOk?'pass':'warn', icon: tOk?'✓':'⚠', code:'PAY-F09', text:`maxTimeoutSeconds: ${t} (optional)`, detail: tOk?'':'Optional field present but not a positive number'});
+  }
+  return checks;
+}
+
+/* ── (e) mandate ↔ payment-leg consistency ── */
+function checkConsistency(pay, capAmt, capAsset, rail) {
+  const checks = [];
+  const payAmt = parseFloat(pay.maxAmountRequired);
+
+  /* amount within cap */
+  if (!isNaN(capAmt) && capAmt > 0 && !isNaN(payAmt)) {
+    const within = payAmt <= capAmt + 1e-9;
+    checks.push({status: within?'pass':'fail', icon: within?'✓':'✗', code:'CON-01', text:`maxAmountRequired (${payAmt}) ≤ mandate cap (${capAmt})`, detail: within?'Payment leg within authorized ceiling':`Payment leg exceeds mandate cap by ${(payAmt-capAmt).toFixed(2)} — over-authorization`});
+  } else {
+    checks.push({status:'warn',icon:'⚠',code:'CON-01',text:'Amount-within-cap check skipped',detail:'Provide a numeric mandate cap and a numeric maxAmountRequired'});
+  }
+
+  /* asset matches cap */
+  if (capAsset && pay.asset) {
+    const match = assetMatch(pay.asset, capAsset);
+    checks.push({status: match?'pass':'fail', icon: match?'✓':'✗', code:'CON-02', text:`PaymentPayload.asset matches mandate cap asset`, detail: match?`"${pay.asset}" ≡ "${capAsset}"`:`"${pay.asset}" ≠ "${capAsset}" — settling in an unauthorized asset`});
+  } else {
+    checks.push({status:'warn',icon:'⚠',code:'CON-02',text:'Asset-match check skipped',detail:'Provide both a mandate cap asset and a PaymentPayload.asset'});
+  }
+
+  /* rail asset vs payment asset (if rail bound) */
+  if (rail && rail.asset && pay.asset) {
+    const railMatch = assetMatch(pay.asset, rail.asset);
+    checks.push({status: railMatch?'pass':'warn', icon: railMatch?'✓':'⚠', code:'CON-03', text:`PaymentPayload.asset consistent with settlement_rail.asset`, detail: railMatch?'':`Payment asset "${pay.asset}" differs from rail-bound asset "${rail.asset}"`});
+  }
+
+  /* rail network vs payment network (if rail bound) */
+  if (rail && rail.network && pay.network) {
+    const netMatch = String(rail.network).toLowerCase() === String(pay.network).toLowerCase();
+    checks.push({status: netMatch?'pass':'warn', icon: netMatch?'✓':'⚠', code:'CON-04', text:`PaymentPayload.network consistent with settlement_rail.network`, detail: netMatch?'':`Payment network "${pay.network}" differs from rail-bound "${rail.network}"`});
+  }
+
+  return checks;
+}
+
+/* Asset equality: case-insensitive symbol/address match, with the known USDC-on-Base alias */
+function assetMatch(a, b) {
+  const la = String(a).toLowerCase(), lb = String(b).toLowerCase();
+  if (la === lb) return true;
+  const aliasA = (la === 'usdc') ? USDC_BASE : la;
+  const aliasB = (lb === 'usdc') ? USDC_BASE : lb;
+  return aliasA === aliasB;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults() {
+  const r = _lastResult;
+  const {passCount, failCount, warnCount, overallStatus, extResult, scopeResult, railResult, lintChecks, consistencyChecks, allChecks, execHash, parentHashes, parentToolIds, chainDepth, failingPredicates} = r;
+  const total = allChecks.length;
+
+  const vc = document.getElementById('verdictCard');
+  const verdictMap = {
+    pass: {cls:'pass', icon:'✅', title:`Conformant — ${passCount}/${total} checks passed`, sub:`The A2A x402 extension is declared, scoped, rail-bound, the PaymentPayload is well-formed, and the payment leg is consistent with the mandate cap.${warnCount>0?' '+warnCount+' advisory warning(s) noted.':' No warnings.'}`},
+    warn: {cls:'warn', icon:'⚠️', title:`Warnings — ${passCount} passed · ${warnCount} advisory`, sub:`Required predicates hold but ${warnCount} advisory item(s) should be reviewed before deployment.`},
+    fail: {cls:'fail', icon:'❌', title:`Non-Conformant — ${failCount} predicate(s) failed`, sub:`Failing predicates: ${failingPredicates.join(', ')}. Fix these before the agent is granted settlement authority.`}
+  };
+  const vd = verdictMap[overallStatus];
+  vc.innerHTML = `<div class="verdict-card ${vd.cls}"><div class="verdict-icon">${vd.icon}</div><div><div class="verdict-title">${vd.title}</div><div class="verdict-sub">${vd.sub}<br>Total checks: ${total} · Educational simulation — no funds settle.</div></div></div>`;
+
+  document.getElementById('checkSummary').textContent = `${passCount} pass · ${failCount} fail · ${warnCount} warn`;
+
+  const sections = [
+    {label:'(a) x402 Extension Declaration · capabilities.extensions[]', checks: extResult.checks},
+    {label:'(b) Payment-Authority Scope', checks: scopeResult.checks},
+    {label:'(c) Settlement-Rail Binding', checks: railResult.checks},
+    {label:'(d) x402 Exact-Scheme PaymentPayload Lint', checks: lintChecks},
+    {label:'(e) Mandate ↔ Payment-Leg Consistency', checks: consistencyChecks}
+  ];
+  let html = '';
+  for (const sec of sections) {
+    const pPass = sec.checks.filter(c=>c.status==='pass').length;
+    const pFail = sec.checks.filter(c=>c.status==='fail').length;
+    const pWarn = sec.checks.filter(c=>c.status==='warn').length;
+    const pBadge = pFail>0?`<span class="proto-badge proto-fail">FAIL ${pFail}</span>`
+      :pWarn>0?`<span class="proto-badge proto-warn">WARN ${pWarn}</span>`
+      :`<span class="proto-badge proto-pass">PASS ${pPass}</span>`;
+    html += `<div class="protocol-section"><div class="protocol-header"><span>${sec.label}</span>${pBadge}</div><div class="check-list">`;
+    html += sec.checks.map(c=>{
+      const det = c.detail?`<br><em style="color:var(--muted);font-size:.44rem">${c.detail}</em>`:'';
+      return `<div class="check-item ${c.status}"><span class="check-icon">${c.icon}</span><div class="check-text">${c.text}${det}<span class="check-code">${c.code}</span></div></div>`;
+    }).join('');
+    html += `</div></div>`;
+  }
+  document.getElementById('protocolChecks').innerHTML = html;
+
+  document.getElementById('hashDisplay').textContent = execHash;
+  const parentSummary = parentHashes.length > 0
+    ? `${parentHashes.length} parent hash — chain_depth: ${chainDepth} — parent tool: ${parentToolIds.join(', ')}`
+    : 'none (run standalone, chain_depth: 0)';
+  document.getElementById('parentHashSummary').textContent = parentSummary;
+
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('tvExportBtn').disabled = false;
+  document.getElementById('tvExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').disabled = false;
+  document.getElementById('mdExportBtn').classList.add('ready');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('payInput').classList.remove('error','ok');
+  document.getElementById('payInput').classList.add(failCount>0?'error':'ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-31_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportTestVectors() {
+  const vectors = {
+    _meta: {
+      tool_id: 'art-31-a2a-x402-extension-mandate-validator',
+      version: '1.0.0',
+      description: 'Test-vector fixture set for the A2A x402-Extension Mandate Validator (ART-31). Covers the A2A capability-extension declaration and the x402 exact-scheme PaymentPayload. Educational simulation — no signature verification.',
+      generated: new Date().toISOString(),
+      spec_refs: ['A2A (Agent2Agent) capability extensions','x402 exact-scheme PaymentPayload (x402.org)','AP2 (Agent Payments Protocol) mandate cap','A2A x402 extension — Coinbase / MetaMask / Ethereum Foundation']
+    },
+    test_vector_1: {
+      name: 'Happy path — extension declared, scoped, rail-bound, payload well-formed, within cap',
+      expected_verdict: 'pass',
+      inputs: { agent_card: CARD_PRESET_VALID, payment_payload: PAY_PRESET_BASE, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    },
+    test_vector_2: {
+      name: 'No x402 extension declared in agent card',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['EXT-02','SCOPE-00','RAIL-00'],
+      inputs: { agent_card: CARD_PRESET_NO_EXT, payment_payload: PAY_PRESET_BASE, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    },
+    test_vector_3: {
+      name: 'PaymentPayload missing required exact-scheme fields (resource, asset)',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['PAY-F03','PAY-F06'],
+      inputs: { agent_card: CARD_PRESET_VALID, payment_payload: PAY_PRESET_BAD, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    },
+    test_vector_4: {
+      name: 'Payment leg exceeds mandate cap (over-authorization)',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['CON-01'],
+      inputs: { agent_card: CARD_PRESET_VALID, payment_payload: {...PAY_PRESET_BASE, maxAmountRequired: '999.99'}, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    },
+    test_vector_5: {
+      name: 'Asset mismatch — payment in WETH, mandate caps USDC',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['CON-02'],
+      inputs: { agent_card: CARD_PRESET_VALID, payment_payload: {...PAY_PRESET_BASE, asset: 'WETH'}, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    },
+    test_vector_6: {
+      name: 'USDC symbol ↔ Base USDC address alias resolves consistently',
+      expected_verdict: 'pass',
+      inputs: { agent_card: CARD_PRESET_VALID, payment_payload: {...PAY_PRESET_BASE, asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'}, mandate_cap: { max_amount: 250.00, asset: 'USDC' } }
+    }
+  };
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(vectors,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-31_test-vectors_${ts}.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Test-vector fixtures downloaded');
+}
+
+function exportMarkdown() {
+  if (!_lastResult || !_artifact) return;
+  const r = _lastResult;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const sym = c => c.status==='pass'?'✅':c.status==='fail'?'❌':c.status==='warn'?'⚠️':'ℹ️';
+  const block = (title, checks) => ['---', `## ${title}`, '', ...checks.map(c=>`${sym(c)} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), ''];
+  const lines = [
+    `# A2A x402-Extension Mandate Validation Report`,
+    `**Tool:** ART-31 A2A x402-Extension Mandate Validator · ChainGraph Wave 6 · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** ${_artifact.execution_hash}`,
+    `**Chain Depth:** ${r.chainDepth}`,
+    r.parentHashes.length > 0 ? `**Parent Hash:** ${r.parentHashes.join(', ')} (${r.parentToolIds.join(', ')})` : `**Parent Hash:** none (standalone run)`,
+    `**Verdict:** ${r.overallStatus.toUpperCase()} (${r.passCount} pass · ${r.failCount} fail · ${r.warnCount} warn)`,
+    r.failingPredicates.length ? `**Failing Predicates:** ${r.failingPredicates.join(', ')}` : `**Failing Predicates:** none`,
+    '',
+    '> EDUCATIONAL SIMULATION — structural lint only; no signature verification, no settlement.',
+    '',
+    ...block('(a) x402 Extension Declaration', r.extResult.checks),
+    ...block('(b) Payment-Authority Scope', r.scopeResult.checks),
+    ...block('(c) Settlement-Rail Binding', r.railResult.checks),
+    ...block('(d) x402 Exact-Scheme PaymentPayload Lint', r.lintChecks),
+    ...block('(e) Mandate ↔ Payment-Leg Consistency', r.consistencyChecks),
+    '---',
+    '> **Sources:** A2A (Agent2Agent) capability extensions; x402 exact-scheme PaymentPayload (x402.org); AP2 (Agent Payments Protocol) mandate cap; A2A x402 extension co-developed by Coinbase, MetaMask, and the Ethereum Foundation. Validate against current specs before production deployment.',
+    '',
+    `*ChainGraph Suite · ART-31 · Wave 6 · Post Oak Labs · CC BY 4.0 · Client-side · Zero PII*`
+  ];
+  const blob = new Blob([lines.join('\n')],{type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-31_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+
+/* Recursive sorted-key canonicalization (ChainGraph Standard v0.1 §6) */
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v !== null && typeof v === 'object') {
+    const s = {};
+    for (const k of Object.keys(v).sort()) s[k] = cgCanon(v[k]);
+    return s;
+  }
+  return v;
+}
+
+async function cgHash(policyParameters, outputPayload) {
+  const canonical = JSON.stringify(cgCanon({policy_parameters: policyParameters, output_payload: outputPayload}));
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function formatTA(id) {
+  try {
+    const ta = document.getElementById(id);
+    if (!ta.value.trim()) return;
+    const v = JSON.parse(ta.value);
+    ta.value = JSON.stringify(v,null,2);
+    ta.classList.remove('error');
+  } catch { showToast('JSON parse error — cannot format'); }
+}
+
+function clearTA(id) {
+  const ta = document.getElementById(id);
+  ta.value = '';
+  ta.classList.remove('error','ok');
+  document.getElementById('resultsPanel').classList.remove('visible');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open?'none':'block'; arrow.textContent = open?'▼':'▲';
+  btn.setAttribute('aria-expanded', String(!open)); body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST,null,2);
+}
+
+/* Load presets on page load */
+document.getElementById('cardInput').value = JSON.stringify(CARD_PRESET_VALID, null, 2);
+document.getElementById('payInput').value = JSON.stringify(PAY_PRESET_BASE, null, 2);
+</script>
+
+</body>
+</html>

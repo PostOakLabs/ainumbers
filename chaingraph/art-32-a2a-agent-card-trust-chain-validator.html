@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>A2A Agent-Card Trust-Chain Validator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate an Agent2Agent (A2A) v1.0 agent-card.json, then assess the delegated-authority trust chain into KYA-OS attestation and spend policy. Checks card schema, signature block, extension URIs, no-scope-escalation across delegation hops, validity windows, and spend caps. Issues a PASS/WARN/FAIL trust determination and a single ChainGraph execution_hash receipt (chain_depth: 0, root). Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"A2A Agent-Card Trust-Chain Validator","url":"https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-32-a2a-agent-card-trust-chain-validator",
+  "version": "1.0.0",
+  "title": "A2A Agent-Card Trust-Chain Validator",
+  "description": "The horizontal (agent↔agent) trust complement to the vertical payments chain. Validates an A2A v1.0 agent-card.json then assesses the delegated-authority trust chain into KYA-OS attestation and spend policy. Deterministic checks: card schema (name/url/version/protocolVersion/capabilities/skills), signature/verification-method block, capabilities.extensions URIs, delegation chain (depth ≤ 4, no scope escalation, validity windows ≤ 90 days, no expired links), and spend-policy caps. Issues a PASS/WARN/FAIL trust determination and a single ChainGraph execution_hash receipt (chain_depth: 0, root). ChainGraph Standard v0.1 §5/§6.",
+  "category": "chaingraph",
+  "tags": ["A2A","Agent2Agent","agent card","trust chain","delegated authority","KYA-OS","spend policy","scope escalation","ChainGraph","compliance_mandate"],
+  "audience": ["agent_engineer","trust_and_safety","compliance","product"],
+  "mcp_tool_definition": {"name":"validate_a2a_trust_chain","description":"Validates an A2A v1.0 agent-card.json then assesses the delegated-authority trust chain into KYA-OS attestation and spend policy. Checks card schema, signature block, extension URIs, delegation depth ≤ 4, no scope escalation across hops, validity windows ≤ 90 days, no expired links, and spend-policy caps. Issues a unified PASS/WARN/FAIL trust determination and a single ChainGraph execution_hash receipt (chain_depth: 0, root). GPU: No.","inputSchema":{"type":"object","properties":{"agent_card":{"type":"string","description":"JSON of an A2A v1.0 agent-card.json (served at /.well-known/agent-card.json)"},"delegation_chain":{"type":"string","description":"JSON array of N delegation links, each {issuer, subject, scope:[...], valid_days}, ordered root→leaf"},"spend_policy":{"type":"string","description":"JSON object {per_tx_cap, daily_cap} — numeric positive caps"}},"required":["agent_card"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-32-a2a-agent-card-trust-chain-validator.html","function_name":"runValidation","timeout_ms":5000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "consumes": [],
+  "chain_partners": [],
+  "chain_depth": 0,
+  "mandate_type": "compliance_mandate",
+  "feeds": ["art-04-agent-identity-attestation-checker","art-02-agent-spend-policy-simulator","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.stage-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s}
+.tab-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.tab-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.field-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.55;padding:.65rem .85rem;border-radius:var(--radius);outline:none;resize:vertical;width:100%;transition:border-color .2s;min-height:200px}
+textarea:focus{border-color:var(--teal)}
+textarea.error{border-color:var(--red)}
+textarea.ok{border-color:rgba(20,184,166,.4)}
+.hash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.65rem;margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.fail{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+/* PROTOCOL SECTIONS */
+.protocol-section{margin-bottom:1.1rem}
+.protocol-header{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);padding:.45rem .75rem;background:var(--bg-3);border-radius:var(--radius) var(--radius) 0 0;border:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.protocol-header .proto-badge{font-size:.42rem;padding:.1rem .45rem;border-radius:3px;font-weight:500}
+.proto-pass{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.proto-warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.proto-fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.proto-skip{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+/* CHECK LIST */
+.check-list{display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:.75rem;background:var(--bg-2)}
+.check-item{display:flex;align-items:flex-start;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.45;padding:.45rem .65rem;border-radius:var(--radius);border:1px solid transparent}
+.check-item.pass{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15);color:var(--text)}
+.check-item.fail{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:var(--bright)}
+.check-item.warn{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2);color:var(--text)}
+.check-item.info{background:var(--bg-3);border-color:var(--border);color:var(--body)}
+.check-item.skip{background:var(--bg-3);border-color:var(--border);color:var(--muted);opacity:.65}
+.check-icon{flex-shrink:0;width:14px;text-align:center;margin-top:.05rem}
+.check-text{flex:1}
+.check-code{font-size:.48rem;color:var(--muted);display:block;margin-top:.1rem}
+/* CHAIN MAP */
+.chain-map{display:flex;flex-direction:column;gap:.5rem;margin-top:.25rem}
+.chain-hop{display:flex;align-items:center;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3)}
+.chain-hop.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.05)}
+.hop-idx{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);font-size:.52rem}
+.chain-hop.bad .hop-idx{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.hop-body{flex:1;line-height:1.5}
+.hop-scope{color:var(--muted);font-size:.5rem;display:block;margin-top:.1rem}
+.hop-arrow{color:var(--muted);font-size:.7rem}
+/* HASH SECTION */
+.hash-row{display:flex;align-items:center;gap:.85rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;flex-wrap:wrap}
+.hash-label{color:var(--muted);flex-shrink:0}
+.hash-value{color:var(--teal-lt);word-break:break-all;flex:1;font-size:.58rem}
+/* CHAIN LINKS */
+.chain-links-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.5rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.cite-list{font-size:.6rem;color:var(--muted);line-height:1.8;font-family:'JetBrains Mono',monospace}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body)}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-32</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-32 · A2A Agent-Card Trust-Chain Validator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>A2A Agent-Card <em>Trust-Chain</em> Validator</h1>
+  <p class="hero-desc">The horizontal (agent&#8596;agent) trust complement to the vertical payments chain. Validate an A2A v1.0 <code style="font-size:.72rem;color:var(--teal-lt)">agent-card.json</code> &mdash; discovered at <code style="font-size:.72rem;color:var(--teal-lt)">/.well-known/agent-card.json</code> &mdash; then walk the delegated-authority trust chain into KYA-OS attestation and a spend-policy summary. Checks card schema, signature / verification-method block, extension URIs, and every delegation hop for <em>no scope escalation</em>, validity windows, expiry, and spend caps. Issues one PASS / WARN / FAIL trust determination plus a single ChainGraph <code style="font-size:.72rem;color:var(--teal-lt)">execution_hash</code> receipt (chain_depth: 0 &mdash; this node is a chain root). Client-side. Zero PII. Educational / simulation.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">ChainGraph &sect;5/&sect;6</span>
+    <span class="badge badge-teal">Chain Root · Depth 0</span>
+    <span class="badge badge-gold">A2A v1.0 · Linux Foundation</span>
+    <span class="badge badge-purple">Delegated Authority</span>
+    <span class="badge badge-green">KYA-OS / Spend Policy</span>
+    <span class="badge badge-gold">Zero PII</span>
+    <span class="badge badge-muted">compliance_mandate</span>
+  </div>
+  <div class="chain-links-row" style="margin-top:1rem">
+    <a href="art-04-agent-identity-attestation-checker.html" class="chain-link">&#8595; ART-04 Identity Attestation</a>
+    <a href="art-02-agent-spend-policy-simulator.html" class="chain-link">&#8595; ART-02 Spend Policy</a>
+    <a href="ptg-01-ap2-prompt-template-generator.html" class="chain-link">&#8595; PTG-01 Prompt Template</a>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All validation runs entirely in your browser (connect-src 'none' &mdash; zero network calls). Do not paste live agent signing keys, production credentials, or customer PII. Use synthetic / test agent cards and delegation fixtures only. Structure checks only &mdash; no cryptographic signature verification (verify against the publishing domain's key out of band).</div>
+
+  <!-- STAGE 1: AGENT CARD (required) -->
+  <div class="panel">
+    <div class="panel-label">Stage 1 — A2A v1.0 Agent Card (required)</div>
+    <div class="stage-tabs" id="cardTabs">
+      <button class="tab-btn active" onclick="switchCardTab('preset_pass',event)">Preset — Valid Signed Card</button>
+      <button class="tab-btn" onclick="switchCardTab('preset_fail',event)">Preset — Broken Card</button>
+      <button class="tab-btn" onclick="switchCardTab('custom',event)">Custom JSON</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">agent-card.json</div>
+      <div class="field-hint">A2A v1.0 card served at /.well-known/agent-card.json. Required keys: name, url, version, protocolVersion, capabilities, skills[]. A signatures[] JWS array or verification method is recommended.</div>
+      <textarea id="cardInput" spellcheck="false" rows="12"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('cardInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('cardInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 2: DELEGATION CHAIN -->
+  <div class="panel">
+    <div class="panel-label">Stage 2 — Delegated-Authority Trust Chain <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="stage-tabs" id="chainTabs">
+      <button class="tab-btn active" onclick="switchChainTab('preset_ok',event)">Preset — Clean Chain</button>
+      <button class="tab-btn" onclick="switchChainTab('preset_escalate',event)">Preset — Scope Escalation</button>
+      <button class="tab-btn" onclick="switchChainTab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="switchChainTab('skip',event)">Skip</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Delegation links (ordered root → leaf)</div>
+      <div class="field-hint">JSON array. Each link: { issuer, subject, scope: ["..."], valid_days }. Trust rules: depth ≤ 4 hops · every child scope ⊆ parent scope (no escalation) · every valid_days ≤ 90 · no expired (valid_days ≤ 0) links.</div>
+      <textarea id="chainInput" spellcheck="false" rows="10" placeholder="// Optional — paste a delegation array, or select Skip above"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('chainInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('chainInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 3: SPEND POLICY -->
+  <div class="panel">
+    <div class="panel-label">Stage 3 — Spend-Policy Summary <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="stage-tabs" id="spendTabs">
+      <button class="tab-btn active" onclick="switchSpendTab('preset',event)">Preset — Caps Set</button>
+      <button class="tab-btn" onclick="switchSpendTab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="switchSpendTab('skip',event)">Skip</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Spend caps</div>
+      <div class="field-hint">JSON: { per_tx_cap, daily_cap } in a single currency. Both should be present, numeric, and positive. daily_cap should be ≥ per_tx_cap.</div>
+      <textarea id="spendInput" spellcheck="false" rows="5" placeholder='// Optional — { "per_tx_cap": 250, "daily_cap": 1000 }'></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('spendInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('spendInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- RUN -->
+  <div style="display:flex;gap:1rem;align-items:center;margin-bottom:.5rem">
+    <button class="run-btn" onclick="runValidation()">Validate Trust Chain</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Trust Determination</span>
+        <span id="checkSummary" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+      </div>
+      <div class="out-body" id="verdictCard"></div>
+    </div>
+
+    <!-- CHAIN MAP -->
+    <div class="out-section" id="chainMapSection" style="display:none">
+      <div class="out-header"><span class="out-title">Delegated-Authority Chain Map</span></div>
+      <div class="out-body" id="chainMap"></div>
+    </div>
+
+    <!-- CHECKS -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Trust Checks</span></div>
+      <div class="out-body" id="protocolChecks"></div>
+    </div>
+
+    <!-- EXECUTION HASH -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">ChainGraph Artifact · execution_hash</span></div>
+      <div class="out-body">
+        <div class="hash-row">
+          <span class="hash-label">SHA-256:</span>
+          <span class="hash-value" id="hashDisplay">—</span>
+        </div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.6rem">Computed client-side via WebCrypto SHA-256 over <code>cgCanon({policy_parameters, output_payload})</code>. Chain root — <span id="parentHashSummary">parent_hashes: none · chain_depth: 0</span>. Feeds ART-04, ART-02, PTG-01.</p>
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            Export ChainGraph Artifact JSON
+            <span class="btn-subtitle">ChainGraph §5 envelope — chain_depth: 0</span>
+          </button>
+          <button class="btn btn-ghost" id="tvExportBtn" disabled onclick="exportTestVectors()">
+            Download Test-Vector Fixtures
+            <span class="btn-subtitle">Card + delegation + spend fixture set</span>
+          </button>
+          <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            Export Markdown Report
+            <span class="btn-subtitle">Audit-ready summary</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPEC REFS -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Spec References</span></div>
+      <div class="out-body"><div class="cite-list">
+        <b>[1]</b> A2A protocol (Agent2Agent, Linux Foundation) — agent-card.json shape, Signed Agent Cards, capabilities.extensions. <a href="https://a2a-protocol.org/latest/" target="_blank" rel="noopener">a2a-protocol.org</a><br>
+        <b>[2]</b> Delegation-chain trust thresholds (depth ≤ 4, no scope escalation, validity ≤ 90 days) are this tool's <em>illustrative</em> defaults — tune to your KYA-OS / agent-governance policy.<br>
+        <b>[3]</b> Downstream: <a href="art-04-agent-identity-attestation-checker.html">ART-04 Identity Attestation</a> · <a href="art-02-agent-spend-policy-simulator.html">ART-02 Spend Policy</a> · <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01</a>.
+      </div></div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+      <span>📦 &nbsp;Tool Manifest · MCP tool definition · ART-32</span>
+      <span id="mfstArrow">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-25-a2a-agent-card-validator.html">ART-25</a>
+      <a href="art-04-agent-identity-attestation-checker.html">ART-04</a>
+      <a href="art-02-agent-spend-policy-simulator.html">ART-02</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>ChainGraph Suite · ART-32</span>
+      <span>v1.0.0 · CC BY 4.0 · Client-side · Zero PII</span>
+      <span style="color:var(--border-2)">A2A v1.0 · Delegated Authority · KYA-OS</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ChainGraph nodes do not write ain_lang to sessionStorage */
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST (for accordion + export)
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-32-a2a-agent-card-trust-chain-validator',
+  version: '1.0.0',
+  title: 'A2A Agent-Card Trust-Chain Validator',
+  category: 'chaingraph',
+  tags: ['A2A','Agent2Agent','agent card','trust chain','delegated authority','KYA-OS','spend policy','scope escalation','ChainGraph','compliance_mandate'],
+  audience: ['agent_engineer','trust_and_safety','compliance','product'],
+  mcp_tool_definition: {
+    name: 'validate_a2a_trust_chain',
+    description: "Validates an A2A v1.0 agent-card.json then assesses the delegated-authority trust chain into KYA-OS attestation and spend policy. Checks card schema, signature block, extension URIs, delegation depth ≤ 4, no scope escalation across hops, validity windows ≤ 90 days, no expired links, and spend-policy caps. Issues a unified PASS/WARN/FAIL trust determination and a single ChainGraph execution_hash receipt (chain_depth: 0, root). GPU: No.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent_card: { type: 'string', description: 'JSON of an A2A v1.0 agent-card.json (served at /.well-known/agent-card.json)' },
+        delegation_chain: { type: 'string', description: 'JSON array of N delegation links, each {issuer, subject, scope:[...], valid_days}, ordered root→leaf' },
+        spend_policy: { type: 'string', description: 'JSON object {per_tx_cap, daily_cap} — numeric positive caps' }
+      },
+      required: ['agent_card']
+    }
+  },
+  execution: { type: 'browser-javascript', entry: 'chaingraph/art-32-a2a-agent-card-trust-chain-validator.html', function_name: 'runValidation', timeout_ms: 5000 },
+  ap2_export: true,
+  chaingraph: true,
+  mandate_type: 'compliance_mandate',
+  chain_depth: 0,
+  consumes: [],
+  feeds: ['art-04-agent-identity-attestation-checker','art-02-agent-spend-policy-simulator','ptg-01-ap2-prompt-template-generator'],
+  spec: 'ChainGraph Standard v0.1 §5/§6',
+  zero_pii: true,
+  client_side: true
+};
+
+/* Trust-policy thresholds (illustrative defaults) */
+const MAX_DELEG_DEPTH = 4;
+const MAX_VALID_DAYS = 90;
+
+/* ─────────────────────────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────────────────────────── */
+const CARD_PRESET_VALID = {
+  protocolVersion: '1.0',
+  name: 'Acme Procurement Agent',
+  description: 'Autonomous procurement agent that places agent-to-agent orders via A2A.',
+  url: 'https://agents.acme.com/a2a',
+  version: '2.1.0',
+  preferredTransport: 'JSONRPC',
+  provider: { organization: 'Acme Inc', url: 'https://acme.com' },
+  capabilities: {
+    streaming: true,
+    pushNotifications: false,
+    extensions: [
+      { uri: 'https://ap2-protocol.org/extensions/payments/v1', required: false },
+      { uri: 'https://postoaklabs.github.io/chaingraph/ext/x-chaingraph/v0.1', required: false }
+    ]
+  },
+  defaultInputModes: ['text/plain'],
+  defaultOutputModes: ['text/plain','application/json'],
+  securitySchemes: { oauth2: { type: 'oauth2' } },
+  signatures: [{ protected: 'eyJhbGciOiJFZERTQSIsImtpZCI6ImFjbWUtMSJ9', signature: 'MEUCIQ...ILLUSTRATIVE-NOT-A-REAL-SIGNATURE' }],
+  skills: [
+    { id: 'place_order', name: 'Place Order', description: 'Submit a purchase order to a counterparty agent.', tags: ['commerce','procurement'] },
+    { id: 'request_quote', name: 'Request Quote', description: 'Request a price quote from a supplier agent.', tags: ['commerce'] }
+  ]
+};
+
+const CARD_PRESET_FAIL = {
+  name: 'Broken Agent',
+  url: 'http://insecure.example/a2a',
+  capabilities: { extensions: [{ required: true }] },
+  skills: []
+};
+
+const DELEG_PRESET_OK = [
+  { issuer: 'org-root.acme.com', subject: 'fleet-controller.acme.com', scope: ['commerce.read','commerce.order','payments.initiate'], valid_days: 90 },
+  { issuer: 'fleet-controller.acme.com', subject: 'procurement-agent.acme.com', scope: ['commerce.order','payments.initiate'], valid_days: 60 },
+  { issuer: 'procurement-agent.acme.com', subject: 'task-runner-7.acme.com', scope: ['commerce.order'], valid_days: 30 }
+];
+
+const DELEG_PRESET_ESCALATE = [
+  { issuer: 'org-root.acme.com', subject: 'fleet-controller.acme.com', scope: ['commerce.read','commerce.order'], valid_days: 90 },
+  { issuer: 'fleet-controller.acme.com', subject: 'procurement-agent.acme.com', scope: ['commerce.order','payments.initiate'], valid_days: 120 },
+  { issuer: 'procurement-agent.acme.com', subject: 'task-runner-7.acme.com', scope: ['commerce.order'], valid_days: -5 }
+];
+
+const SPEND_PRESET = { currency: 'USD', per_tx_cap: 250, daily_cap: 1000 };
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _artifact = null;
+let _lastResult = null;
+let _chainSkip = false;
+let _spendSkip = false;
+
+/* ─────────────────────────────────────────────────────────────────
+   TAB SWITCHING
+   ───────────────────────────────────────────────────────────────── */
+function switchCardTab(key, ev) {
+  if (ev) { document.querySelectorAll('#cardTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('cardInput');
+  if (key === 'custom') { ta.value = ''; ta.focus(); ta.classList.remove('error','ok'); return; }
+  if (key === 'preset_pass') ta.value = JSON.stringify(CARD_PRESET_VALID, null, 2);
+  if (key === 'preset_fail') ta.value = JSON.stringify(CARD_PRESET_FAIL, null, 2);
+  ta.classList.remove('error','ok');
+}
+
+function switchChainTab(key, ev) {
+  if (ev) { document.querySelectorAll('#chainTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('chainInput');
+  _chainSkip = false;
+  if (key === 'custom') { ta.value = ''; ta.focus(); ta.classList.remove('error','ok'); return; }
+  if (key === 'preset_ok') ta.value = JSON.stringify(DELEG_PRESET_OK, null, 2);
+  if (key === 'preset_escalate') ta.value = JSON.stringify(DELEG_PRESET_ESCALATE, null, 2);
+  if (key === 'skip') { _chainSkip = true; ta.value = ''; }
+  ta.classList.remove('error','ok');
+}
+
+function switchSpendTab(key, ev) {
+  if (ev) { document.querySelectorAll('#spendTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('spendInput');
+  _spendSkip = false;
+  if (key === 'custom') { ta.value = ''; ta.focus(); ta.classList.remove('error','ok'); return; }
+  if (key === 'preset') ta.value = JSON.stringify(SPEND_PRESET, null, 2);
+  if (key === 'skip') { _spendSkip = true; ta.value = ''; }
+  ta.classList.remove('error','ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+async function runValidation() {
+  let card, deleg = null, spend = null;
+
+  const cardRaw = document.getElementById('cardInput').value.trim();
+  if (!cardRaw || cardRaw === '{}') { showToast('Stage 1 Agent Card is required — paste JSON or load a preset'); return; }
+  try { card = JSON.parse(cardRaw); } catch(e) {
+    document.getElementById('cardInput').classList.add('error');
+    showToast('Stage 1 — JSON parse error: ' + e.message); return;
+  }
+
+  const delegRaw = document.getElementById('chainInput').value.trim();
+  if (!_chainSkip && delegRaw) {
+    try { deleg = JSON.parse(delegRaw); } catch(e) {
+      document.getElementById('chainInput').classList.add('error');
+      showToast('Stage 2 Delegation Chain — JSON parse error: ' + e.message); return;
+    }
+    if (!Array.isArray(deleg)) {
+      document.getElementById('chainInput').classList.add('error');
+      showToast('Stage 2 — delegation chain must be a JSON array of links'); return;
+    }
+  }
+
+  const spendRaw = document.getElementById('spendInput').value.trim();
+  if (!_spendSkip && spendRaw) {
+    try { spend = JSON.parse(spendRaw); } catch(e) {
+      document.getElementById('spendInput').classList.add('error');
+      showToast('Stage 3 Spend Policy — JSON parse error: ' + e.message); return;
+    }
+  }
+
+  /* Run checks */
+  const cardChecks = validateCard(card);
+  const delegResult = deleg ? validateDelegation(deleg) : null;
+  const delegChecks = delegResult ? delegResult.checks : null;
+  const spendChecks = spend ? validateSpend(spend) : null;
+
+  const allChecks = [
+    ...cardChecks,
+    ...(delegChecks || []),
+    ...(spendChecks || [])
+  ];
+  const passCount = allChecks.filter(c=>c.status==='pass').length;
+  const failCount = allChecks.filter(c=>c.status==='fail').length;
+  const warnCount = allChecks.filter(c=>c.status==='warn').length;
+  const overallStatus = failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass';
+
+  /* Chain map data */
+  const chainMap = delegResult ? delegResult.map : [];
+
+  /* Build artifact preimage halves */
+  const policyParameters = {
+    execution_backend: 'js',
+    quantization: 'none',
+    trust_policy: { max_delegation_depth: MAX_DELEG_DEPTH, max_validity_days: MAX_VALID_DAYS },
+    agent_card_name: typeof card.name === 'string' ? card.name : null,
+    agent_card_url: typeof card.url === 'string' ? card.url : null,
+    agent_card_version: typeof card.version === 'string' ? card.version : null,
+    protocol_version: typeof card.protocolVersion === 'string' ? card.protocolVersion : null,
+    skills_count: Array.isArray(card.skills) ? card.skills.length : 0,
+    delegation_provided: !!deleg,
+    delegation_depth: chainMap.length,
+    spend_policy_provided: !!spend,
+    per_tx_cap: spend && typeof spend.per_tx_cap === 'number' ? spend.per_tx_cap : null,
+    daily_cap: spend && typeof spend.daily_cap === 'number' ? spend.daily_cap : null
+  };
+  const outputPayload = {
+    trust_determination: overallStatus,
+    pass_count: passCount,
+    fail_count: failCount,
+    warn_count: warnCount,
+    card_schema_ok: cardChecks.filter(c=>c.layer==='card-schema').every(c=>c.status!=='fail'),
+    signature_block_present: cardChecks.some(c=>c.code==='CARD-S01' && c.status==='pass'),
+    extension_uris_well_formed: cardChecks.filter(c=>c.code==='CARD-X01'||c.code==='CARD-X02').every(c=>c.status!=='fail'),
+    delegation_depth_ok: !delegChecks || delegChecks.filter(c=>c.code==='DLG-D01').every(c=>c.status==='pass'),
+    no_scope_escalation: !delegChecks || delegChecks.filter(c=>c.code && c.code.indexOf('DLG-E')===0).every(c=>c.status!=='fail'),
+    validity_windows_ok: !delegChecks || delegChecks.filter(c=>c.code && c.code.indexOf('DLG-V')===0).every(c=>c.status!=='fail'),
+    no_expired_links: !delegChecks || delegChecks.filter(c=>c.code && c.code.indexOf('DLG-X')===0).every(c=>c.status!=='fail'),
+    spend_caps_ok: !spendChecks || spendChecks.every(c=>c.status!=='fail'),
+    chain_map: chainMap.map(h=>({issuer:h.issuer, subject:h.subject, scope:h.scope, valid_days:h.valid_days, escalated:h.escalated, expired:h.expired})),
+    checks: allChecks.map(c=>({code:c.code, status:c.status})),
+    layers_validated: ['A2A v1.0 agent card', deleg ? 'delegated-authority chain' : null, spend ? 'spend policy' : null].filter(Boolean)
+  };
+
+  const execHash = await cgHash(policyParameters, outputPayload);
+
+  _lastResult = {card, deleg, spend, cardChecks, delegChecks, spendChecks, chainMap, allChecks, passCount, failCount, warnCount, overallStatus, policyParameters, outputPayload, execHash};
+
+  const complianceFlags = failCount > 0
+    ? ['A2A_TRUST_CHAIN_FAILED','TRUST_CHECK_VALIDATION_FAILED']
+    : warnCount > 0 ? ['A2A_TRUST_CHAIN_CONFORMANT_WITH_WARNINGS'] : ['A2A_TRUST_CHAIN_CONFORMANT'];
+  if (outputPayload.no_scope_escalation === false) complianceFlags.push('SCOPE_ESCALATION_DETECTED');
+  if (outputPayload.no_expired_links === false) complianceFlags.push('EXPIRED_DELEGATION_LINK');
+
+  _artifact = {
+    chaingraph_version: '0.1.0',
+    ap2_version: '1.0.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-32-a2a-agent-card-trust-chain-validator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
+    compliance_flags: complianceFlags,
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true, standards: ['A2A v1.0','ChainGraph v0.1'] }
+  };
+
+  renderResults();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   A2A CARD VALIDATION (A2A v1.0 field shape; reuses ART-25 expectations)
+   ───────────────────────────────────────────────────────────────── */
+function validateCard(c) {
+  const checks = [];
+  if (typeof c !== 'object' || c === null || Array.isArray(c)) {
+    checks.push({status:'fail',icon:'✗',code:'CARD-00',layer:'card-schema',text:'Agent card must be a JSON object',detail:''});
+    return checks;
+  }
+  /* (a) required core fields */
+  for (const k of ['name','url','version','protocolVersion']) {
+    const ok = typeof c[k] === 'string' && c[k].length > 0;
+    checks.push({status: ok?'pass':'fail', icon: ok?'✓':'✗', code:'CARD-'+k.slice(0,3).toUpperCase(), layer:'card-schema', text:`${k} present (string)`, detail: ok?`"${String(c[k]).slice(0,48)}"`:`Required A2A v1.0 field "${k}" missing or not a string`});
+  }
+  const httpsOk = typeof c.url === 'string' && /^https:\/\//.test(c.url);
+  checks.push({status: httpsOk?'pass':'warn', icon: httpsOk?'✓':'⚠', code:'CARD-URL2', layer:'card-schema', text:'url uses https', detail: httpsOk?'':'Production agent endpoints should be https'});
+
+  /* capabilities */
+  const capsObj = c.capabilities && typeof c.capabilities === 'object' && !Array.isArray(c.capabilities);
+  checks.push({status: capsObj?'pass':'fail', icon: capsObj?'✓':'✗', code:'CARD-CAP', layer:'card-schema', text:'capabilities object present', detail: capsObj?`streaming=${!!c.capabilities.streaming}, pushNotifications=${!!c.capabilities.pushNotifications}`:'capabilities must be an object'});
+
+  /* (c) capabilities.extensions[] URIs well-formed */
+  if (capsObj && Array.isArray(c.capabilities.extensions)) {
+    const ext = c.capabilities.extensions;
+    if (ext.length === 0) {
+      checks.push({status:'info',icon:'ℹ',code:'CARD-X00',layer:'card-ext',text:'capabilities.extensions is empty — declare AP2/x402/x-chaingraph here if this agent transacts',detail:''});
+    } else {
+      const allHaveUri = ext.every(e=>e && typeof e.uri === 'string' && e.uri.length>0);
+      checks.push({status: allHaveUri?'pass':'fail', icon: allHaveUri?'✓':'✗', code:'CARD-X01', layer:'card-ext', text:`all ${ext.length} extension(s) declare a "uri"`, detail: allHaveUri?'':'An extension entry is missing a uri string'});
+      const allWellFormed = ext.filter(e=>e && typeof e.uri==='string').every(e=>/^https?:\/\/[^\s]+$/.test(e.uri));
+      checks.push({status: allWellFormed?'pass':'warn', icon: allWellFormed?'✓':'⚠', code:'CARD-X02', layer:'card-ext', text:'extension URIs are well-formed http(s) URIs', detail: allWellFormed?'':'One or more extension uri is not a well-formed http(s) URI'});
+      const ap2 = ext.some(e=>e && typeof e.uri==='string' && /ap2|payments/i.test(e.uri));
+      const x402 = ext.some(e=>e && typeof e.uri==='string' && /x402/i.test(e.uri));
+      const cg = ext.some(e=>e && typeof e.uri==='string' && /chaingraph/i.test(e.uri));
+      checks.push({status:'info',icon:'ℹ',code:'CARD-X03',layer:'card-ext',text:`payment/trust extensions: ${[ap2?'AP2':null,x402?'x402':null,cg?'x-chaingraph':null].filter(Boolean).join(', ')||'none recognised'}`,detail:''});
+    }
+  } else if (capsObj) {
+    checks.push({status:'info',icon:'ℹ',code:'CARD-X00',layer:'card-ext',text:'No capabilities.extensions array',detail:''});
+  }
+
+  /* (a) skills[] non-empty */
+  const skillsOk = Array.isArray(c.skills) && c.skills.length > 0;
+  checks.push({status: skillsOk?'pass':'fail', icon: skillsOk?'✓':'✗', code:'CARD-SKL', layer:'card-schema', text: skillsOk?`${c.skills.length} skill(s) advertised`:'skills[] must be a non-empty array', detail: skillsOk?'':'skills[] is the agent\'s advertised capability surface — required'});
+  if (skillsOk) {
+    let badSkill = false;
+    c.skills.forEach(s=>{ if(!s || !s.id || !s.name) badSkill = true; });
+    checks.push({status: badSkill?'warn':'pass', icon: badSkill?'⚠':'✓', code:'CARD-SK2', layer:'card-schema', text:'each skill has id + name', detail: badSkill?'A skill entry is missing id or name':''});
+  }
+
+  /* (b) signature block / verification method present */
+  const hasSig = Array.isArray(c.signatures) && c.signatures.length > 0;
+  const hasVerifMethod = !!(c.verificationMethod || (c.provider && c.provider.url) || c.securitySchemes);
+  if (hasSig) {
+    const sigOk = c.signatures.every(s=>s && s.protected && s.signature);
+    checks.push({status: sigOk?'pass':'fail', icon: sigOk?'✓':'✗', code:'CARD-S01', layer:'card-sig', text:`Signed Agent Card — ${c.signatures.length} JWS signature(s)`, detail: sigOk?'Cryptographic verification out of scope — verify against the domain\'s published key':'A signatures[] entry is missing "protected" or "signature"'});
+  } else {
+    checks.push({status: hasVerifMethod?'warn':'fail', icon: hasVerifMethod?'⚠':'✗', code:'CARD-S01', layer:'card-sig', text: hasVerifMethod ? 'Unsigned card — a verification method (securitySchemes/provider) is present' : 'No signatures[] and no verification method — trust cannot be anchored to the domain', detail: hasVerifMethod?'A2A v1.0 supports Signed Agent Cards; prefer a signatures[] JWS array':'Provide a Signed Agent Card or a securitySchemes block'});
+  }
+
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   DELEGATED-AUTHORITY CHAIN VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateDelegation(chain) {
+  const checks = [];
+  const map = [];
+
+  /* (d) depth ≤ MAX_DELEG_DEPTH */
+  const depth = chain.length;
+  const depthOk = depth <= MAX_DELEG_DEPTH;
+  checks.push({status: depthOk?'pass':'fail', icon: depthOk?'✓':'✗', code:'DLG-D01', text:`delegation depth ${depth} ≤ ${MAX_DELEG_DEPTH} hops`, detail: depthOk?'':`Chain exceeds the ${MAX_DELEG_DEPTH}-hop trust limit`});
+
+  if (depth === 0) {
+    checks.push({status:'warn',icon:'⚠',code:'DLG-D00',text:'delegation array is empty',detail:''});
+    return {checks, map};
+  }
+
+  /* per-link checks */
+  chain.forEach((link, i) => {
+    const idx = i + 1;
+    const issuer = link && typeof link.issuer === 'string' ? link.issuer : null;
+    const subject = link && typeof link.subject === 'string' ? link.subject : null;
+    const scope = link && Array.isArray(link.scope) ? link.scope : null;
+    const validDays = link && typeof link.valid_days === 'number' ? link.valid_days : null;
+
+    /* shape */
+    const shapeOk = issuer && subject && scope;
+    checks.push({status: shapeOk?'pass':'fail', icon: shapeOk?'✓':'✗', code:`DLG-L0${idx}`, text:`hop ${idx}: issuer→subject + scope[] present`, detail: shapeOk?`${issuer} → ${subject}`:'Link must have issuer (string), subject (string), and scope (array)'});
+
+    /* (e) issuer continuity: this hop's issuer === prior hop's subject */
+    if (i > 0) {
+      const prevSubject = chain[i-1] && chain[i-1].subject;
+      const linkOk = issuer && prevSubject && issuer === prevSubject;
+      checks.push({status: linkOk?'pass':'fail', icon: linkOk?'✓':'✗', code:`DLG-C0${idx}`, text:`hop ${idx}: issuer continues from hop ${idx-1} subject`, detail: linkOk?'':`hop ${idx} issuer "${issuer}" ≠ hop ${idx-1} subject "${prevSubject}"`});
+    }
+
+    /* (d) no scope escalation: child scope ⊆ parent scope */
+    let escalated = false;
+    if (i > 0 && scope) {
+      const parentScope = chain[i-1] && Array.isArray(chain[i-1].scope) ? chain[i-1].scope : [];
+      const escalatedScopes = scope.filter(s => !parentScope.includes(s));
+      escalated = escalatedScopes.length > 0;
+      checks.push({status: escalated?'fail':'pass', icon: escalated?'✗':'✓', code:`DLG-E0${idx}`, text:`hop ${idx}: scope ⊆ parent scope (no escalation)`, detail: escalated?`Escalated scope(s): ${escalatedScopes.join(', ')} — not held by issuer`:''});
+    }
+
+    /* (d) validity window ≤ MAX_VALID_DAYS */
+    if (validDays !== null) {
+      const windowOk = validDays <= MAX_VALID_DAYS;
+      checks.push({status: windowOk?'pass':'warn', icon: windowOk?'✓':'⚠', code:`DLG-V0${idx}`, text:`hop ${idx}: validity window ${validDays}d ≤ ${MAX_VALID_DAYS}d`, detail: windowOk?'':`Window exceeds the ${MAX_VALID_DAYS}-day policy maximum`});
+    } else {
+      checks.push({status:'warn',icon:'⚠',code:`DLG-V0${idx}`,text:`hop ${idx}: valid_days missing or non-numeric`,detail:'Provide a numeric validity window in days'});
+    }
+
+    /* (d) no expired links */
+    const expired = validDays !== null && validDays <= 0;
+    if (validDays !== null) {
+      checks.push({status: expired?'fail':'pass', icon: expired?'✗':'✓', code:`DLG-X0${idx}`, text:`hop ${idx}: link not expired`, detail: expired?`valid_days = ${validDays} — delegation has expired`:''});
+    }
+
+    map.push({issuer:issuer||'(missing)', subject:subject||'(missing)', scope:scope||[], valid_days:validDays, escalated, expired});
+  });
+
+  return {checks, map};
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SPEND-POLICY VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateSpend(p) {
+  const checks = [];
+  if (typeof p !== 'object' || p === null || Array.isArray(p)) {
+    checks.push({status:'fail',icon:'✗',code:'SPD-00',text:'spend policy must be a JSON object',detail:''});
+    return checks;
+  }
+  const perOk = typeof p.per_tx_cap === 'number' && p.per_tx_cap > 0;
+  checks.push({status: perOk?'pass':'fail', icon: perOk?'✓':'✗', code:'SPD-01', text:'per_tx_cap is a positive number', detail: perOk?`${p.per_tx_cap}${p.currency?' '+p.currency:''}`:'per_tx_cap missing or not a positive number'});
+
+  const dayOk = typeof p.daily_cap === 'number' && p.daily_cap > 0;
+  checks.push({status: dayOk?'pass':'fail', icon: dayOk?'✓':'✗', code:'SPD-02', text:'daily_cap is a positive number', detail: dayOk?`${p.daily_cap}${p.currency?' '+p.currency:''}`:'daily_cap missing or not a positive number'});
+
+  if (perOk && dayOk) {
+    const consistent = p.daily_cap >= p.per_tx_cap;
+    checks.push({status: consistent?'pass':'warn', icon: consistent?'✓':'⚠', code:'SPD-03', text:'daily_cap ≥ per_tx_cap', detail: consistent?'':`daily_cap (${p.daily_cap}) is below per_tx_cap (${p.per_tx_cap}) — a single transaction could exceed the daily budget`});
+  }
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults() {
+  const r = _lastResult;
+  const {passCount, failCount, warnCount, overallStatus, cardChecks, delegChecks, spendChecks, chainMap, allChecks, execHash} = r;
+  const total = allChecks.length;
+
+  /* Verdict */
+  const vc = document.getElementById('verdictCard');
+  const verdictMap = {
+    pass: {cls:'pass', icon:'✅', title:`Trust Chain PASS — ${passCount}/${total} checks passed`, sub:`The agent card and delegated-authority chain are conformant across ${r.outputPayload.layers_validated.join(' + ')}. ${warnCount>0?warnCount+' advisory warning(s) noted.':'No warnings.'}`},
+    warn: {cls:'warn', icon:'⚠️', title:`Trust Chain WARN — ${passCount} passed · ${warnCount} advisory`, sub:`Required structure is present but ${warnCount} advisory item(s) should be reviewed before granting delegated authority.`},
+    fail: {cls:'fail', icon:'❌', title:`Trust Chain FAIL — ${failCount} check(s) failed`, sub:`${failCount} trust-critical condition(s) failed (missing card fields, scope escalation, expired delegation, or invalid caps). Do not grant delegated authority until resolved.`}
+  };
+  const vd = verdictMap[overallStatus];
+  vc.innerHTML = `<div class="verdict-card ${vd.cls}"><div class="verdict-icon">${vd.icon}</div><div><div class="verdict-title">${vd.title}</div><div class="verdict-sub">${esc(vd.sub)}<br>Layers: ${esc(r.outputPayload.layers_validated.join(' · '))} · Total checks: ${total}</div></div></div>`;
+
+  document.getElementById('checkSummary').textContent = `${passCount} pass · ${failCount} fail · ${warnCount} warn`;
+
+  /* Chain map */
+  const cmSection = document.getElementById('chainMapSection');
+  if (chainMap.length > 0) {
+    cmSection.style.display = '';
+    let cm = '<div class="chain-map">';
+    chainMap.forEach((h, i) => {
+      const bad = h.escalated || h.expired;
+      const flags = [h.escalated?'SCOPE↑':null, h.expired?'EXPIRED':null].filter(Boolean).join(' · ');
+      cm += `<div class="chain-hop${bad?' bad':''}"><div class="hop-idx">${i+1}</div><div class="hop-body">${esc(h.issuer)} <span class="hop-arrow">→</span> ${esc(h.subject)}<span class="hop-scope">scope: [${esc(h.scope.join(', '))}] · valid ${h.valid_days===null?'?':h.valid_days}d${flags?' · <span style="color:var(--red)">'+esc(flags)+'</span>':''}</span></div></div>`;
+    });
+    cm += '</div>';
+    document.getElementById('chainMap').innerHTML = cm;
+  } else {
+    cmSection.style.display = 'none';
+  }
+
+  /* Check sections */
+  const sections = [
+    {label:'A2A v1.0 Agent Card', checks: cardChecks},
+    {label:'Delegated-Authority Trust Chain', checks: delegChecks, optional:true},
+    {label:'Spend-Policy Caps', checks: spendChecks, optional:true}
+  ];
+  let html = '';
+  for (const sec of sections) {
+    if (!sec.checks) {
+      html += `<div class="protocol-section"><div class="protocol-header"><span>${sec.label}</span><span class="proto-badge proto-skip">Skipped</span></div><div class="check-list"><div class="check-item skip"><span class="check-icon">—</span><div class="check-text">Stage not provided — <em>optional</em></div></div></div></div>`;
+      continue;
+    }
+    const pFail = sec.checks.filter(c=>c.status==='fail').length;
+    const pWarn = sec.checks.filter(c=>c.status==='warn').length;
+    const pPass = sec.checks.filter(c=>c.status==='pass').length;
+    const pBadge = pFail>0?`<span class="proto-badge proto-fail">FAIL ${pFail}</span>`
+      :pWarn>0?`<span class="proto-badge proto-warn">WARN ${pWarn}</span>`
+      :`<span class="proto-badge proto-pass">PASS ${pPass}</span>`;
+    html += `<div class="protocol-section"><div class="protocol-header"><span>${sec.label}</span>${pBadge}</div><div class="check-list">`;
+    html += sec.checks.map(c=>{
+      const det = c.detail?`<br><em style="color:var(--muted);font-size:.44rem">${esc(c.detail)}</em>`:'';
+      return `<div class="check-item ${c.status}"><span class="check-icon">${c.icon}</span><div class="check-text">${esc(c.text)}${det}<span class="check-code">${esc(c.code)}</span></div></div>`;
+    }).join('');
+    html += `</div></div>`;
+  }
+  document.getElementById('protocolChecks').innerHTML = html;
+
+  /* Hash */
+  document.getElementById('hashDisplay').textContent = 'sha256:' + execHash;
+
+  /* Enable export buttons */
+  ['ap2ExportBtn','tvExportBtn','mdExportBtn'].forEach(id=>{
+    const b = document.getElementById(id); b.disabled = false; b.classList.add('ready');
+  });
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('cardInput').classList.remove('error','ok');
+  document.getElementById('cardInput').classList.add(failCount>0?'error':'ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = ts14();
+  const blob = new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-32_${ts}.chaingraph.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportTestVectors() {
+  const vectors = {
+    _meta: {
+      tool_id: 'art-32-a2a-agent-card-trust-chain-validator',
+      version: '1.0.0',
+      description: 'Test-vector fixture set for the A2A Agent-Card Trust-Chain Validator (ART-32). Covers A2A v1.0 agent cards, delegated-authority chains (clean + scope-escalation + expired), and spend-policy caps. Use these to smoke-test agent trust-evaluation logic.',
+      generated: new Date().toISOString(),
+      trust_policy: { max_delegation_depth: MAX_DELEG_DEPTH, max_validity_days: MAX_VALID_DAYS },
+      spec_refs: ['A2A v1.0 (a2a-protocol.org)','ChainGraph Standard v0.1 §5/§6']
+    },
+    test_vector_1: {
+      name: 'Happy path — signed card, clean 3-hop chain, caps set',
+      expected_determination: 'pass',
+      inputs: { agent_card: CARD_PRESET_VALID, delegation_chain: DELEG_PRESET_OK, spend_policy: SPEND_PRESET }
+    },
+    test_vector_2: {
+      name: 'Scope escalation + expired link in delegation chain',
+      expected_determination: 'fail',
+      expected_failing_codes: ['DLG-E02','DLG-X03'],
+      inputs: { agent_card: CARD_PRESET_VALID, delegation_chain: DELEG_PRESET_ESCALATE }
+    },
+    test_vector_3: {
+      name: 'Broken agent card — missing required fields, empty skills, unsigned',
+      expected_determination: 'fail',
+      expected_failing_codes: ['CARD-VER','CARD-PRO','CARD-SKL','CARD-S01'],
+      inputs: { agent_card: CARD_PRESET_FAIL }
+    },
+    test_vector_4: {
+      name: 'Card OK, chain depth exceeds policy (5 hops)',
+      expected_determination: 'fail',
+      expected_failing_codes: ['DLG-D01'],
+      inputs: {
+        agent_card: CARD_PRESET_VALID,
+        delegation_chain: [
+          { issuer:'a', subject:'b', scope:['s'], valid_days:30 },
+          { issuer:'b', subject:'c', scope:['s'], valid_days:30 },
+          { issuer:'c', subject:'d', scope:['s'], valid_days:30 },
+          { issuer:'d', subject:'e', scope:['s'], valid_days:30 },
+          { issuer:'e', subject:'f', scope:['s'], valid_days:30 }
+        ]
+      }
+    },
+    test_vector_5: {
+      name: 'Spend caps inverted — daily_cap below per_tx_cap',
+      expected_determination: 'warn',
+      expected_warning_codes: ['SPD-03'],
+      inputs: { agent_card: CARD_PRESET_VALID, spend_policy: { currency:'USD', per_tx_cap: 500, daily_cap: 100 } }
+    }
+  };
+  const ts = ts14();
+  const blob = new Blob([JSON.stringify(vectors,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-32_test-vectors_${ts}.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Test-vector fixtures downloaded');
+}
+
+function exportMarkdown() {
+  if (!_lastResult || !_artifact) return;
+  const r = _lastResult;
+  const ts = ts14();
+  const ico = s => s==='pass'?'✅':s==='fail'?'❌':s==='warn'?'⚠️':'ℹ️';
+  const lines = [
+    `# A2A Agent-Card Trust-Chain Report`,
+    `**Tool:** ART-32 A2A Agent-Card Trust-Chain Validator · ChainGraph · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    `**Chain Depth:** 0 (chain root)`,
+    `**Trust Determination:** ${r.overallStatus.toUpperCase()} (${r.passCount} pass · ${r.failCount} fail · ${r.warnCount} warn)`,
+    `**Layers Validated:** ${r.outputPayload.layers_validated.join(' · ')}`,
+    `**Trust Policy:** depth ≤ ${MAX_DELEG_DEPTH} hops · validity ≤ ${MAX_VALID_DAYS} days · no scope escalation · no expired links`,
+    '',
+    '---',
+    `## A2A v1.0 Agent Card`,
+    '',
+    ...r.cardChecks.map(c=>`${ico(c.status)} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`),
+    ''
+  ];
+  if (r.chainMap.length > 0) {
+    lines.push('---', '## Delegated-Authority Chain Map', '');
+    r.chainMap.forEach((h,i)=>{
+      const flags = [h.escalated?'SCOPE-ESCALATION':null, h.expired?'EXPIRED':null].filter(Boolean).join(', ');
+      lines.push(`${i+1}. \`${h.issuer}\` → \`${h.subject}\` · scope [${h.scope.join(', ')}] · valid ${h.valid_days===null?'?':h.valid_days}d${flags?` · **${flags}**`:''}`);
+    });
+    lines.push('');
+  }
+  if (r.delegChecks) {
+    lines.push('---', '## Delegated-Authority Trust Chain', '', ...r.delegChecks.map(c=>`${ico(c.status)} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), '');
+  }
+  if (r.spendChecks) {
+    lines.push('---', '## Spend-Policy Caps', '', ...r.spendChecks.map(c=>`${ico(c.status)} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), '');
+  }
+  lines.push(
+    '---',
+    '> **Sources:** A2A protocol (Agent2Agent, Linux Foundation · a2a-protocol.org) — agent-card.json shape, Signed Agent Cards, capabilities.extensions. Delegation thresholds (depth ≤ 4, no scope escalation, validity ≤ 90 days) are illustrative defaults — tune to your KYA-OS / agent-governance policy. Structure checks only; no cryptographic signature verification.',
+    '',
+    `*ChainGraph Suite · ART-32 · Post Oak Labs · CC BY 4.0 · Client-side · Zero PII*`
+  );
+  const blob = new Blob([lines.join('\n')],{type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-32_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS — canonicalization + hashing (matches ChainGraph §6 / art-30)
+   ───────────────────────────────────────────────────────────────── */
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v !== null && typeof v === 'object') {
+    const s = {};
+    for (const k of Object.keys(v).sort()) s[k] = cgCanon(v[k]);
+    return s;
+  }
+  return v;
+}
+async function cgHash(policyParameters, outputPayload) {
+  const canonical = JSON.stringify(cgCanon({policy_parameters: policyParameters, output_payload: outputPayload}));
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function ts14(){ return new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14); }
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function formatTA(id) {
+  try {
+    const ta = document.getElementById(id);
+    if (!ta.value.trim()) return;
+    ta.value = JSON.stringify(JSON.parse(ta.value),null,2);
+    ta.classList.remove('error');
+  } catch { showToast('JSON parse error — cannot format'); }
+}
+function clearTA(id) {
+  const ta = document.getElementById(id);
+  ta.value = '';
+  ta.classList.remove('error','ok');
+  document.getElementById('resultsPanel').classList.remove('visible');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open?'none':'block'; arrow.textContent = open?'▼':'▲';
+  btn.setAttribute('aria-expanded', String(!open)); body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST,null,2);
+}
+
+/* Load presets on page load */
+document.getElementById('cardInput').value = JSON.stringify(CARD_PRESET_VALID, null, 2);
+document.getElementById('chainInput').value = JSON.stringify(DELEG_PRESET_OK, null, 2);
+document.getElementById('spendInput').value = JSON.stringify(SPEND_PRESET, null, 2);
+</script>
+
+</body>
+</html>
