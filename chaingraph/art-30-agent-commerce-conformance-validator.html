@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agent Commerce Cross-Protocol Conformance Validator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate a single agent purchase end-to-end: AP2 v0.2 mandate chain, ACP checkout conformance, Visa TAP RFC 9421 HTTP Message Signature, and x402 settlement leg. Issues a unified cross-protocol verdict and a single ChainGraph execution_hash receipt. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent Commerce Cross-Protocol Conformance Validator","url":"https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-30-agent-commerce-conformance-validator",
+  "version": "1.0.0",
+  "title": "Agent Commerce Cross-Protocol Conformance Validator",
+  "description": "Validates a single agent purchase end-to-end across four protocols: AP2 v0.2 mandate chain (Intent → Cart → Payment), ACP checkout conformance (OpenAI/Stripe), Visa TAP RFC 9421 HTTP Message Signature inspection, and x402 settlement leg. Issues a unified PASS/WARN/FAIL verdict and a single execution_hash receipt (ChainGraph Standard v0.1 §4, chain_depth: 1). The 'synergy flagship' of Wave 6. Consumes ART-01, ART-12, ART-03 artifacts.",
+  "category": "chaingraph",
+  "tags": ["AP2","agentic-commerce","ACP","Visa TAP","RFC 9421","x402","cross-protocol","conformance","payment_mandate","ChainGraph"],
+  "audience": ["payments_engineer","merchant_developer","compliance","product"],
+  "mcp_tool_definition": {"name":"validate_agent_commerce_conformance","description":"Validates a single agent purchase end-to-end: AP2 v0.2 mandate chain, ACP checkout conformance, Visa TAP RFC 9421 HTTP Message Signature, x402 settlement leg. Issues a unified cross-protocol conformance verdict and a single ChainGraph execution_hash receipt (chain_depth: 1). Consumes ART-01, ART-12, ART-03 parent artifacts. GPU: No.","inputSchema":{"type":"object","properties":{"ap2_mandate_trio":{"type":"string","description":"JSON object with keys intent (required), cart (optional), payment — full AP2 v0.2 mandate chain"},"acp_payload":{"type":"string","description":"Optional. JSON of an ACP CheckoutRequest or CheckoutResponse"},"tap_headers":{"type":"string","description":"Optional. JSON object with Signature-Input and Signature header values per RFC 9421"},"x402_payload":{"type":"string","description":"Optional. JSON of an x402 402-Payment-Required body (scheme, network, maxAmountRequired, asset, payTo, extra)"},"parent_hashes":{"type":"array","items":{"type":"string"},"description":"execution_hash values from parent ART-01, ART-12, ART-03 runs (in that order)"}},"required":["ap2_mandate_trio"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-30-agent-commerce-conformance-validator.html","function_name":"validateAgentCommerceConformance","timeout_ms":5000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-01-ap2-mandate-chain-validator","art-12-acp-checkout-conformance-validator","art-03-x402-settlement-modeler"],
+  "chain_depth": 1,
+  "mandate_type": "payment_mandate",
+  "wave": 6,
+  "conformance_fixtures": true,
+  "feeds": ["cry-05-zk-compliance-proof-generator","ptg-01-ap2-prompt-template-generator"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.stage-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s}
+.tab-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.tab-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+.tab-btn .opt-tag{font-size:.4rem;color:var(--muted);margin-left:.3rem}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.field-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.55;padding:.65rem .85rem;border-radius:var(--radius);outline:none;resize:vertical;width:100%;transition:border-color .2s;min-height:220px}
+textarea:focus{border-color:var(--teal)}
+textarea.error{border-color:var(--red)}
+textarea.ok{border-color:rgba(20,184,166,.4)}
+input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.38rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input[type=text]:focus{border-color:var(--teal)}
+input[type=text].ok{border-color:rgba(20,184,166,.4)}
+.hash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.65rem;margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.fail{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+/* PROTOCOL SECTIONS */
+.protocol-section{margin-bottom:1.1rem}
+.protocol-header{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);padding:.45rem .75rem;background:var(--bg-3);border-radius:var(--radius) var(--radius) 0 0;border:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.protocol-header .proto-badge{font-size:.42rem;padding:.1rem .45rem;border-radius:3px;font-weight:500}
+.proto-pass{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.proto-warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.proto-fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.proto-skip{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+/* CHECK LIST */
+.check-list{display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:.75rem;background:var(--bg-2)}
+.check-item{display:flex;align-items:flex-start;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.45;padding:.45rem .65rem;border-radius:var(--radius);border:1px solid transparent}
+.check-item.pass{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15);color:var(--text)}
+.check-item.fail{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:var(--bright)}
+.check-item.warn{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2);color:var(--text)}
+.check-item.info{background:var(--bg-3);border-color:var(--border);color:var(--body)}
+.check-item.skip{background:var(--bg-3);border-color:var(--border);color:var(--muted);opacity:.65}
+.check-icon{flex-shrink:0;width:14px;text-align:center;margin-top:.05rem}
+.check-text{flex:1}
+.check-code{font-size:.48rem;color:var(--muted);display:block;margin-top:.1rem}
+/* HASH SECTION */
+.hash-row{display:flex;align-items:center;gap:.85rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;flex-wrap:wrap}
+.hash-label{color:var(--muted);flex-shrink:0}
+.hash-value{color:var(--teal-lt);word-break:break-all;flex:1;font-size:.58rem}
+/* CHAIN LINKS */
+.chain-links-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.5rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-30</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-30 · Wave 6 · Agent Commerce Cross-Protocol Conformance Validator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>Agent Commerce <em>Cross-Protocol Conformance</em></h1>
+  <p class="hero-desc">The synergy flagship of Wave 6. Validate a single agent purchase end-to-end across all four layers: AP2 v0.2 mandate chain (Intent → Cart → Payment), ACP checkout conformance (OpenAI/Stripe), Visa TAP RFC 9421 HTTP Message Signature inspection, and x402 settlement leg. Issues one unified PASS/WARN/FAIL verdict and a single ChainGraph <code style="font-size:.72rem;color:var(--teal-lt)">execution_hash</code> receipt (chain_depth: 1, parent hashes from ART-01 + ART-12 + ART-03). Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chain Depth: 1</span>
+    <span class="badge badge-green">AP2 v0.2</span>
+    <span class="badge badge-purple">ACP · OpenAI / Stripe</span>
+    <span class="badge badge-warn">Visa TAP · RFC 9421</span>
+    <span class="badge badge-teal">x402</span>
+    <span class="badge badge-gold">Zero PII</span>
+    <span class="badge badge-muted">payment_mandate</span>
+  </div>
+  <div class="chain-links-row" style="margin-top:1rem">
+    <a href="art-01-ap2-mandate-chain-validator.html" class="chain-link">&#8593; ART-01 AP2 Mandate Chain</a>
+    <a href="art-12-acp-checkout-conformance-validator.html" class="chain-link">&#8593; ART-12 ACP Checkout</a>
+    <a href="art-03-x402-settlement-modeler.html" class="chain-link">&#8593; ART-03 x402 Settlement</a>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All validation runs entirely in your browser. Do not paste live payment credentials, wallet private keys, customer PII, or production signing keys. Use test / stub fixtures only. No data is transmitted.</div>
+
+  <!-- STAGE 1: AP2 MANDATE TRIO (required) -->
+  <div class="panel">
+    <div class="panel-label">Stage 1 — AP2 v0.2 Mandate Trio (required)</div>
+    <div class="stage-tabs" id="ap2Tabs">
+      <button class="tab-btn active" onclick="switchAp2Tab('trio',event)">Full Trio JSON</button>
+      <button class="tab-btn" onclick="switchAp2Tab('preset_pass',event)">Preset — Valid</button>
+      <button class="tab-btn" onclick="switchAp2Tab('preset_fail',event)">Preset — Broken Chain</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">AP2 Mandate Trio</div>
+      <div class="field-hint">JSON object: { intent: {...}, cart: {...} (optional), payment: {...} }. Paste the output of ART-01 policy_parameters.mandate_trio, or build manually.</div>
+      <textarea id="ap2Input" spellcheck="false" rows="10">{}</textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('ap2Input')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('ap2Input')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 2: ACP -->
+  <div class="panel">
+    <div class="panel-label">Stage 2 — ACP Checkout Payload <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="stage-tabs" id="acpTabs">
+      <button class="tab-btn active" onclick="switchAcpTab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="switchAcpTab('preset_req',event)">Preset — CheckoutRequest</button>
+      <button class="tab-btn" onclick="switchAcpTab('preset_res',event)">Preset — CheckoutResponse</button>
+      <button class="tab-btn" onclick="switchAcpTab('skip',event)">Skip</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">ACP CheckoutRequest or CheckoutResponse</div>
+      <div class="field-hint">Paste an ACP payload from ART-12, or select a preset. Leave blank / select Skip to omit this layer.</div>
+      <textarea id="acpInput" spellcheck="false" rows="8" placeholder="// Optional — paste ACP CheckoutRequest or CheckoutResponse JSON, or select Skip above"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('acpInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('acpInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 3: TAP -->
+  <div class="panel">
+    <div class="panel-label">Stage 3 — Visa TAP RFC 9421 HTTP Message Signature <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="stage-tabs" id="tapTabs">
+      <button class="tab-btn active" onclick="switchTapTab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="switchTapTab('preset_valid',event)">Preset — Valid ed25519</button>
+      <button class="tab-btn" onclick="switchTapTab('skip',event)">Skip</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Signature-Input + Signature headers (RFC 9421)</div>
+      <div class="field-hint">JSON: { "Signature-Input": "sig1=(...);alg=...", "Signature": "sig1=:base64value:" }. Inspects header structure — no cryptographic verification (keys not in browser).</div>
+      <textarea id="tapInput" spellcheck="false" rows="6" placeholder='// Optional — { "Signature-Input": "...", "Signature": "..." }'></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('tapInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('tapInput')">Clear</button>
+    </div>
+  </div>
+
+  <!-- STAGE 4: x402 -->
+  <div class="panel">
+    <div class="panel-label">Stage 4 — x402 Settlement Leg <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="stage-tabs" id="x402Tabs">
+      <button class="tab-btn active" onclick="switchX402Tab('custom',event)">Custom JSON</button>
+      <button class="tab-btn" onclick="switchX402Tab('preset_base',event)">Preset — Base/USDC</button>
+      <button class="tab-btn" onclick="switchX402Tab('skip',event)">Skip</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">x402 Payment Header Body</div>
+      <div class="field-hint">JSON from an HTTP 402 response body: { scheme, network, maxAmountRequired, asset, payTo, extra: { resource } }. Paste the output of ART-03 output_payload.x402_payload, or build manually.</div>
+      <textarea id="x402Input" spellcheck="false" rows="8" placeholder="// Optional — paste x402 payment header JSON, or select Skip above"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('x402Input')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('x402Input')">Clear</button>
+    </div>
+  </div>
+
+  <!-- PARENT HASHES -->
+  <div class="panel">
+    <div class="panel-label">Parent execution_hash values <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(recommended — anchors chain_depth: 1)</span></div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);margin-bottom:.85rem">Paste the <code style="color:var(--teal-lt)">execution_hash</code> from the upstream ART-01, ART-12, and ART-03 runs. Leave blank if running standalone (chain_depth stays 0).</p>
+    <div class="hash-grid">
+      <div class="field-group">
+        <div class="field-label">H1 — ART-01 AP2 Mandate Chain hash</div>
+        <input type="text" id="h1Input" placeholder="64-hex SHA-256 from ART-01 export" spellcheck="false">
+      </div>
+      <div class="field-group">
+        <div class="field-label">H2 — ART-12 ACP Checkout hash</div>
+        <input type="text" id="h2Input" placeholder="64-hex SHA-256 from ART-12 export" spellcheck="false">
+      </div>
+      <div class="field-group">
+        <div class="field-label">H3 — ART-03 x402 Settlement hash</div>
+        <input type="text" id="h3Input" placeholder="64-hex SHA-256 from ART-03 export" spellcheck="false">
+      </div>
+    </div>
+  </div>
+
+  <!-- RUN -->
+  <div style="display:flex;gap:1rem;align-items:center;margin-bottom:.5rem">
+    <button class="run-btn" onclick="runValidation()">Validate Cross-Protocol Conformance</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Unified Verdict</span>
+        <span id="checkSummary" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+      </div>
+      <div class="out-body" id="verdictCard"></div>
+    </div>
+
+    <!-- PROTOCOL CHECKS -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Protocol Checks</span></div>
+      <div class="out-body" id="protocolChecks"></div>
+    </div>
+
+    <!-- EXECUTION HASH -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">ChainGraph Artifact · execution_hash</span></div>
+      <div class="out-body">
+        <div class="hash-row">
+          <span class="hash-label">SHA-256:</span>
+          <span class="hash-value" id="hashDisplay">—</span>
+        </div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.6rem">Computed client-side via WebCrypto SHA-256 over <code>cgCanon({policy_parameters, output_payload})</code>. Parent hashes: <span id="parentHashSummary">none</span></p>
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            Export AP2 Artifact JSON
+            <span class="btn-subtitle">ChainGraph §4 artifact — chain_depth: 1</span>
+          </button>
+          <button class="btn btn-ghost" id="tvExportBtn" disabled onclick="exportTestVectors()">
+            Download Test-Vector Fixtures
+            <span class="btn-subtitle">L4 · full cross-protocol fixture set</span>
+          </button>
+          <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            Export Markdown Report
+            <span class="btn-subtitle">Audit-ready summary</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+      <span>Tool Manifest (JSON-LD)</span>
+      <span id="mfstArrow">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-01-ap2-mandate-chain-validator.html">ART-01</a>
+      <a href="art-12-acp-checkout-conformance-validator.html">ART-12</a>
+      <a href="art-03-x402-settlement-modeler.html">ART-03</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>ChainGraph Suite · ART-30 · Wave 6</span>
+      <span>v1.0.0 · CC BY 4.0 · Client-side · Zero PII</span>
+      <span style="color:var(--border-2)">AP2 v0.2 · ACP · RFC 9421 · x402</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST (for JSON-LD accordion)
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-30-agent-commerce-conformance-validator',
+  version: '1.0.0',
+  title: 'Agent Commerce Cross-Protocol Conformance Validator',
+  mcp_name: 'validate_agent_commerce_conformance',
+  mandate_type: 'payment_mandate',
+  chain_depth: 1,
+  wave: 6,
+  consumes: ['art-01-ap2-mandate-chain-validator','art-12-acp-checkout-conformance-validator','art-03-x402-settlement-modeler'],
+  feeds: ['cry-05-zk-compliance-proof-generator','ptg-01-ap2-prompt-template-generator'],
+  spec: 'ChainGraph Standard v0.1 §4',
+  protocols: {
+    ap2: 'AP2 v0.2 — FIDO Alliance Intent/Cart/Payment Mandate spec',
+    acp: 'Agentic Commerce Protocol — OpenAI/Stripe open standard (H1 2025)',
+    tap: 'Visa Trusted Agent Protocol — RFC 9421 HTTP Message Signatures',
+    x402: 'x402 HTTP payment protocol (x402.org, 2025 draft)'
+  },
+  zero_pii: true,
+  client_side: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────────────────────────── */
+const AP2_PRESET_VALID = {
+  intent: {
+    mandate_type: 'intent',
+    mandate_id: 'MINT-8A3F2C91-4D7E-4B1A-9C6D-2E8F5A0B3D7C',
+    version: '2.0',
+    issued_at: 1718000000,
+    expires_at: 1718003600,
+    issuer_id: 'agent-001.example.com',
+    scope: {
+      merchant_ids: ['merch-shopify-001','merch-etsy-002'],
+      category_codes: ['5945','5065'],
+      currency: 'USD',
+      max_amount: 250.00
+    },
+    human_not_present: true,
+    hnp_policy: 'agent_autonomous'
+  },
+  cart: {
+    mandate_type: 'cart',
+    mandate_id: 'MCRT-7B4E9D12-3C5F-4A2B-8E1D-6F0A3C9B2E4D',
+    version: '2.0',
+    issued_at: 1718000120,
+    expires_at: 1718003720,
+    parent_mandate_id: 'MINT-8A3F2C91-4D7E-4B1A-9C6D-2E8F5A0B3D7C',
+    parent_hash: 'a'.repeat(64),
+    items: [
+      { sku: 'SKU-WIDGET-PRO-42', description: 'Widget Pro (qty 1)', unit_price: 199.99, quantity: 1, merchant_id: 'merch-shopify-001', category_code: '5945' }
+    ],
+    cart_total: 199.99,
+    currency: 'USD',
+    merchant_id: 'merch-shopify-001'
+  },
+  payment: {
+    mandate_type: 'payment',
+    mandate_id: 'MPMT-1D3A7E56-8F2C-4B9A-7D0E-5C3A1B8F6D2E',
+    version: '2.0',
+    issued_at: 1718000240,
+    expires_at: 1718003840,
+    parent_mandate_id: 'MCRT-7B4E9D12-3C5F-4A2B-8E1D-6F0A3C9B2E4D',
+    parent_hash: 'b'.repeat(64),
+    amount: 199.99,
+    currency: 'USD',
+    merchant_id: 'merch-shopify-001',
+    payment_method: 'card_on_file',
+    human_not_present: true
+  }
+};
+
+const AP2_PRESET_FAIL = {
+  intent: {
+    mandate_type: 'intent',
+    mandate_id: 'MINT-BAD-001',
+    version: '2.0',
+    issued_at: 1718000000,
+    expires_at: 1718003600,
+    issuer_id: 'agent.example.com',
+    scope: { merchant_ids: [], category_codes: [], currency: 'USD', max_amount: 100.00 },
+    human_not_present: true
+  },
+  payment: {
+    mandate_type: 'payment',
+    mandate_id: 'MPMT-BAD-001',
+    version: '2.0',
+    issued_at: 1718000240,
+    expires_at: 1718003840,
+    parent_mandate_id: 'WRONG-PARENT-ID',
+    parent_hash: 'deadbeef',
+    amount: 250.00,
+    currency: 'EUR',
+    merchant_id: 'merch-unknown',
+    payment_method: 'card_on_file',
+    human_not_present: false
+  }
+};
+
+const ACP_PRESET_REQ = {
+  message_type: 'CheckoutRequest',
+  agent_id: 'agent-001.example.com',
+  merchant_id: 'merch-shopify-001',
+  currency: 'USD',
+  amount: 199.99,
+  items: [{ sku: 'SKU-WIDGET-PRO-42', quantity: 1, unit_price: 199.99 }],
+  idempotency_key: 'idem-7F3A2C91-4D7E-4B1A-9C6D',
+  agent_capabilities: ['payment_v1','mandate_v2'],
+  signature: 'ed25519:' + 'A'.repeat(86) + '=='
+};
+
+const ACP_PRESET_RES = {
+  message_type: 'CheckoutResponse',
+  checkout_id: 'co_1234567890abcdef',
+  status: 'success',
+  amount_charged: 199.99,
+  currency: 'USD',
+  merchant_id: 'merch-shopify-001',
+  shared_payment_token: {
+    payment_token_id: 'spt_9f3a2c91-4d7e-4b1a-9c6d-2e8f5a0b3d7c',
+    token_type: 'card_token',
+    masked_pan: '4242',
+    scope: 'single_use',
+    issued_at: 1718000240,
+    expires_at: 1718003840,
+    merchant_id: 'merch-shopify-001'
+  },
+  response_signature: 'ed25519:' + 'B'.repeat(86) + '=='
+};
+
+const TAP_PRESET_VALID = {
+  'Signature-Input': 'sig1=("@method" "@path" "authorization" "x-agent-id" "content-digest");created=1718000000;expires=1718003600;alg="ed25519";keyid="agent-001-key-2025"',
+  'Signature': 'sig1=:YWdlbnQtY29tbWVyY2UtY29uZm9ybWFuY2UtdGVzdC12ZWN0b3ItZWQyNTUxOS1zaWduYXR1cmUtcGxhY2Vob2xkZXI=:'
+};
+
+const X402_PRESET_BASE = {
+  scheme: 'exact',
+  network: 'base',
+  maxAmountRequired: '199.99',
+  asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  payTo: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+  extra: {
+    resource: 'https://api.shopify-agent.example.com/v1/checkout/agent',
+    mandate_id: 'MPMT-1D3A7E56-8F2C-4B9A-7D0E-5C3A1B8F6D2E'
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _artifact = null;
+let _lastResult = null;
+let _acpSkip = false;
+let _tapSkip = false;
+let _x402Skip = false;
+
+/* ─────────────────────────────────────────────────────────────────
+   TAB SWITCHING
+   ───────────────────────────────────────────────────────────────── */
+function switchAp2Tab(key, ev) {
+  if (ev) { document.querySelectorAll('#ap2Tabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('ap2Input');
+  if (key === 'trio') { ta.value = ''; ta.focus(); return; }
+  if (key === 'preset_pass') ta.value = JSON.stringify(AP2_PRESET_VALID, null, 2);
+  if (key === 'preset_fail') ta.value = JSON.stringify(AP2_PRESET_FAIL, null, 2);
+  ta.classList.remove('error','ok');
+}
+
+function switchAcpTab(key, ev) {
+  if (ev) { document.querySelectorAll('#acpTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('acpInput');
+  _acpSkip = false;
+  if (key === 'custom') { ta.value = ''; ta.focus(); return; }
+  if (key === 'preset_req') ta.value = JSON.stringify(ACP_PRESET_REQ, null, 2);
+  if (key === 'preset_res') ta.value = JSON.stringify(ACP_PRESET_RES, null, 2);
+  if (key === 'skip') { _acpSkip = true; ta.value = ''; }
+  ta.classList.remove('error','ok');
+}
+
+function switchTapTab(key, ev) {
+  if (ev) { document.querySelectorAll('#tapTabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('tapInput');
+  _tapSkip = false;
+  if (key === 'custom') { ta.value = ''; ta.focus(); return; }
+  if (key === 'preset_valid') ta.value = JSON.stringify(TAP_PRESET_VALID, null, 2);
+  if (key === 'skip') { _tapSkip = true; ta.value = ''; }
+  ta.classList.remove('error','ok');
+}
+
+function switchX402Tab(key, ev) {
+  if (ev) { document.querySelectorAll('#x402Tabs .tab-btn').forEach(b=>b.classList.remove('active')); ev.currentTarget.classList.add('active'); }
+  const ta = document.getElementById('x402Input');
+  _x402Skip = false;
+  if (key === 'custom') { ta.value = ''; ta.focus(); return; }
+  if (key === 'preset_base') ta.value = JSON.stringify(X402_PRESET_BASE, null, 2);
+  if (key === 'skip') { _x402Skip = true; ta.value = ''; }
+  ta.classList.remove('error','ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VALIDATION LOGIC
+   ───────────────────────────────────────────────────────────────── */
+async function runValidation() {
+  /* --- Parse inputs --- */
+  let ap2, acp = null, tap = null, x402 = null;
+
+  const ap2Raw = document.getElementById('ap2Input').value.trim();
+  if (!ap2Raw || ap2Raw === '{}') { showToast('Stage 1 AP2 Mandate Trio is required — paste JSON or load a preset'); return; }
+  try { ap2 = JSON.parse(ap2Raw); } catch(e) {
+    document.getElementById('ap2Input').classList.add('error');
+    showToast('Stage 1 — JSON parse error: ' + e.message); return;
+  }
+
+  const acpRaw = document.getElementById('acpInput').value.trim();
+  if (!_acpSkip && acpRaw) {
+    try { acp = JSON.parse(acpRaw); } catch(e) {
+      document.getElementById('acpInput').classList.add('error');
+      showToast('Stage 2 ACP — JSON parse error: ' + e.message); return;
+    }
+  }
+
+  const tapRaw = document.getElementById('tapInput').value.trim();
+  if (!_tapSkip && tapRaw) {
+    try { tap = JSON.parse(tapRaw); } catch(e) {
+      document.getElementById('tapInput').classList.add('error');
+      showToast('Stage 3 TAP — JSON parse error: ' + e.message); return;
+    }
+  }
+
+  const x402Raw = document.getElementById('x402Input').value.trim();
+  if (!_x402Skip && x402Raw) {
+    try { x402 = JSON.parse(x402Raw); } catch(e) {
+      document.getElementById('x402Input').classList.add('error');
+      showToast('Stage 4 x402 — JSON parse error: ' + e.message); return;
+    }
+  }
+
+  const h1 = document.getElementById('h1Input').value.trim();
+  const h2 = document.getElementById('h2Input').value.trim();
+  const h3 = document.getElementById('h3Input').value.trim();
+  const parentHashes = [h1,h2,h3].filter(Boolean);
+  const parentToolIds = [
+    h1 ? 'art-01-ap2-mandate-chain-validator' : null,
+    h2 ? 'art-12-acp-checkout-conformance-validator' : null,
+    h3 ? 'art-03-x402-settlement-modeler' : null
+  ].filter(Boolean);
+  const chainDepth = parentHashes.length > 0 ? 1 : 0;
+
+  /* --- Run checks --- */
+  const ap2Checks = validateAP2(ap2);
+  const acpChecks = acp ? validateACP(acp) : null;
+  const tapChecks = tap ? validateTAP(tap) : null;
+  const x402Checks = x402 ? validateX402(x402) : null;
+  const xpChecks = validateCrossProtocol(ap2, acp, x402);
+
+  /* --- Compute counts --- */
+  const allChecks = [
+    ...ap2Checks,
+    ...(acpChecks || []),
+    ...(tapChecks || []),
+    ...(x402Checks || []),
+    ...xpChecks
+  ];
+  const passCount = allChecks.filter(c=>c.status==='pass').length;
+  const failCount = allChecks.filter(c=>c.status==='fail').length;
+  const warnCount = allChecks.filter(c=>c.status==='warn').length;
+  const overallStatus = failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass';
+
+  /* --- Build artifact --- */
+  const policyParameters = {
+    ap2_intent_mandate_id: ap2.intent?.mandate_id ?? null,
+    ap2_payment_merchant_id: ap2.payment?.merchant_id ?? null,
+    ap2_payment_currency: ap2.payment?.currency ?? null,
+    ap2_payment_amount: ap2.payment?.amount ?? null,
+    acp_message_type: acp?.message_type ?? null,
+    acp_provided: !!acp,
+    tap_provided: !!tap,
+    x402_provided: !!x402,
+    x402_network: x402?.network ?? null,
+    parent_hashes: parentHashes,
+    parent_tool_ids: parentToolIds
+  };
+  const outputPayload = {
+    overall_status: overallStatus,
+    pass_count: passCount,
+    fail_count: failCount,
+    warn_count: warnCount,
+    checks: allChecks.map(c=>({code:c.code,status:c.status})),
+    protocols_validated: ['AP2 v0.2', acp?'ACP':null, tap?'Visa TAP RFC 9421':null, x402?'x402':null].filter(Boolean)
+  };
+  const execHash = await cgHash(policyParameters, outputPayload);
+
+  _lastResult = {ap2, acp, tap, x402, ap2Checks, acpChecks, tapChecks, x402Checks, xpChecks, allChecks, passCount, failCount, warnCount, overallStatus, parentHashes, parentToolIds, chainDepth, policyParameters, outputPayload, execHash};
+
+  const complianceFlags = failCount > 0
+    ? ['CROSS_PROTOCOL_NON_CONFORMANT','FIELD_VALIDATION_FAILED']
+    : warnCount > 0 ? ['CROSS_PROTOCOL_CONFORMANT_WITH_WARNINGS'] : ['CROSS_PROTOCOL_FULLY_CONFORMANT'];
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'payment_mandate',
+    tool_id: 'art-30-agent-commerce-conformance-validator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: parentHashes, parent_tool_ids: parentToolIds, chain_depth: chainDepth },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
+    compliance_flags: complianceFlags,
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, protocols: ['AP2 v0.2','ACP','Visa TAP RFC 9421','x402'] }
+  };
+
+  renderResults();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AP2 v0.2 VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateAP2(trio) {
+  const checks = [];
+  const intent = trio.intent;
+  const cart = trio.cart;
+  const payment = trio.payment;
+  const now = Math.floor(Date.now() / 1000);
+
+  /* Intent */
+  if (!intent) {
+    checks.push({status:'fail',icon:'✗',code:'AP2-I00',text:'intent mandate missing — required root of AP2 v0.2 chain',detail:''});
+    return checks;
+  }
+  checks.push({status: intent.mandate_type === 'intent' ? 'pass':'fail', icon: intent.mandate_type==='intent'?'✓':'✗', code:'AP2-I01', text:`intent.mandate_type: "${intent.mandate_type}"`,detail: intent.mandate_type==='intent'?'':'Must be "intent"'});
+  checks.push({status: intent.mandate_id ? 'pass':'fail', icon: intent.mandate_id?'✓':'✗', code:'AP2-I02', text:'intent.mandate_id present', detail: intent.mandate_id?`"${intent.mandate_id}"`:''});
+  const intentExpired = intent.expires_at && intent.expires_at < now;
+  checks.push({status: !intentExpired?'pass':'warn', icon: !intentExpired?'✓':'⚠', code:'AP2-I03', text: intentExpired ? 'intent.expires_at in the past (expired)' : 'intent.expires_at valid (not expired)', detail: intent.expires_at?`expires_at: ${intent.expires_at}`:''});
+  const scopeOk = intent.scope && (Array.isArray(intent.scope.merchant_ids)) && intent.scope.currency && typeof intent.scope.max_amount === 'number';
+  checks.push({status: scopeOk?'pass':'fail', icon: scopeOk?'✓':'✗', code:'AP2-I04', text:'intent.scope has merchant_ids, currency, max_amount', detail: scopeOk?`currency:${intent.scope.currency}, max:${intent.scope.max_amount}`:''});
+  checks.push({status: typeof intent.human_not_present === 'boolean'?'pass':'warn', icon: typeof intent.human_not_present==='boolean'?'✓':'⚠', code:'AP2-I05', text:'intent.human_not_present is boolean', detail: intent.human_not_present?'HNP: true — autonomous agent transaction':''});
+  checks.push({status: intent.issuer_id?'pass':'warn', icon: intent.issuer_id?'✓':'⚠', code:'AP2-I06', text:'intent.issuer_id present', detail: intent.issuer_id?`"${intent.issuer_id}"`:''});
+
+  /* Cart (optional) */
+  if (cart) {
+    checks.push({status: cart.mandate_type==='cart'?'pass':'fail', icon: cart.mandate_type==='cart'?'✓':'✗', code:'AP2-C01', text:`cart.mandate_type: "${cart.mandate_type}"`,detail:cart.mandate_type==='cart'?'':'Must be "cart"'});
+    const cartParentOk = cart.parent_mandate_id === intent.mandate_id;
+    checks.push({status: cartParentOk?'pass':'fail', icon: cartParentOk?'✓':'✗', code:'AP2-C02', text:'cart.parent_mandate_id matches intent.mandate_id', detail: cartParentOk?'':`cart.parent_mandate_id="${cart.parent_mandate_id}" ≠ intent.mandate_id="${intent.mandate_id}"`});
+    const hashFmt = /^[0-9a-f]{64}$/.test(cart.parent_hash||'');
+    checks.push({status: hashFmt?'pass':'warn', icon: hashFmt?'✓':'⚠', code:'AP2-C03', text:'cart.parent_hash is 64-hex SHA-256', detail: hashFmt?'':'Format mismatch — should be 64 lowercase hex characters'});
+    const itemsOk = Array.isArray(cart.items) && cart.items.length > 0;
+    checks.push({status: itemsOk?'pass':'fail', icon: itemsOk?'✓':'✗', code:'AP2-C04', text:`cart.items array (${(cart.items||[]).length} item${(cart.items||[]).length===1?'':'s'})`, detail: itemsOk?'':`cart.items missing or empty`});
+  }
+
+  /* Payment */
+  if (!payment) {
+    checks.push({status:'fail',icon:'✗',code:'AP2-P00',text:'payment mandate missing — required terminal node of AP2 v0.2 chain',detail:''});
+    return checks;
+  }
+  checks.push({status: payment.mandate_type==='payment'?'pass':'fail', icon: payment.mandate_type==='payment'?'✓':'✗', code:'AP2-P01', text:`payment.mandate_type: "${payment.mandate_type}"`,detail:payment.mandate_type==='payment'?'':'Must be "payment"'});
+  const payParentExpected = cart ? cart.mandate_id : intent.mandate_id;
+  const payParentOk = payment.parent_mandate_id === payParentExpected;
+  checks.push({status: payParentOk?'pass':'fail', icon: payParentOk?'✓':'✗', code:'AP2-P02', text:`payment.parent_mandate_id → ${cart?'cart':'intent'}`, detail: payParentOk?'':`Got "${payment.parent_mandate_id}", expected "${payParentExpected}"`});
+  const payHashFmt = /^[0-9a-f]{64}$/.test(payment.parent_hash||'');
+  checks.push({status: payHashFmt?'pass':'warn', icon: payHashFmt?'✓':'⚠', code:'AP2-P03', text:'payment.parent_hash is 64-hex SHA-256', detail: payHashFmt?'':'Format mismatch — should be 64 lowercase hex characters'});
+  const amtOk = typeof payment.amount === 'number' && payment.amount > 0;
+  checks.push({status: amtOk?'pass':'fail', icon: amtOk?'✓':'✗', code:'AP2-P04', text:'payment.amount is positive number', detail: amtOk?`${payment.amount} ${payment.currency||''}`:''});
+  const curConsistent = intent.scope?.currency && payment.currency && intent.scope.currency.toUpperCase() === payment.currency.toUpperCase();
+  checks.push({status: curConsistent?'pass':'warn', icon: curConsistent?'✓':'⚠', code:'AP2-P05', text:`Currency consistent across chain (${payment.currency})`, detail: curConsistent?'':`intent.scope.currency="${intent.scope?.currency}", payment.currency="${payment.currency}"`});
+  const amtWithin = typeof payment.amount === 'number' && typeof intent.scope?.max_amount === 'number' && payment.amount <= intent.scope.max_amount;
+  checks.push({status: amtWithin?'pass':'warn', icon: amtWithin?'✓':'⚠', code:'AP2-P06', text:`payment.amount (${payment.amount}) within intent.scope.max_amount (${intent.scope?.max_amount})`, detail: amtWithin?'':`Amount exceeds authorized scope maximum`});
+  const hnpConsistent = typeof payment.human_not_present === 'boolean' && payment.human_not_present === intent.human_not_present;
+  checks.push({status: hnpConsistent?'pass':'warn', icon: hnpConsistent?'✓':'⚠', code:'AP2-P07', text:`human_not_present consistent (payment: ${payment.human_not_present}, intent: ${intent.human_not_present})`, detail: hnpConsistent?'':`HNP flag mismatch between intent and payment`});
+  checks.push({status: payment.payment_method?'pass':'fail', icon: payment.payment_method?'✓':'✗', code:'AP2-P08', text:'payment.payment_method present', detail: payment.payment_method?`"${payment.payment_method}"`:''});
+
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ACP VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateACP(payload) {
+  const checks = [];
+  const msgType = payload.message_type || detectAcpType(payload);
+
+  checks.push({status: ['CheckoutRequest','CheckoutResponse'].includes(msgType)?'pass':'fail', icon: ['CheckoutRequest','CheckoutResponse'].includes(msgType)?'✓':'✗', code:'ACP-R00', text:`message_type: "${msgType}"`, detail: ['CheckoutRequest','CheckoutResponse'].includes(msgType)?'':'Must be CheckoutRequest or CheckoutResponse'});
+
+  if (msgType === 'CheckoutRequest') {
+    for (const f of ['agent_id','merchant_id','currency','amount']) {
+      const ok = Object.prototype.hasOwnProperty.call(payload,f) && payload[f] !== null && payload[f] !== '';
+      checks.push({status: ok?'pass':'fail', icon: ok?'✓':'✗', code:'ACP-R0'+(['agent_id','merchant_id','currency','amount'].indexOf(f)+1), text:`CheckoutRequest.${f} present`, detail: ok?JSON.stringify(payload[f]).slice(0,60):''});
+    }
+    if (payload.idempotency_key) {
+      checks.push({status:'pass',icon:'✓',code:'ACP-R05',text:'idempotency_key present (retry-safe)',detail:''});
+    } else {
+      checks.push({status:'warn',icon:'⚠',code:'ACP-R05',text:'idempotency_key absent — ACP best practice: include for retry safety',detail:''});
+    }
+    if (payload.signature && typeof payload.signature === 'string') {
+      const prefixOk = ['sha256-hmac:','rs256:','es256:','ed25519:'].some(p=>payload.signature.toLowerCase().startsWith(p));
+      checks.push({status: prefixOk?'pass':'warn', icon: prefixOk?'✓':'⚠', code:'ACP-SIG1', text:`signature prefix: "${payload.signature.split(':')[0]}"`, detail: prefixOk?'':'Expected sha256-hmac:, RS256:, ES256:, or Ed25519:'});
+    } else {
+      checks.push({status:'warn',icon:'⚠',code:'ACP-SIG1',text:'signature absent — recommended for merchant authentication',detail:''});
+    }
+  }
+
+  if (msgType === 'CheckoutResponse') {
+    for (const f of ['checkout_id','status','amount_charged','currency','merchant_id']) {
+      const ok = Object.prototype.hasOwnProperty.call(payload,f) && payload[f] !== null && payload[f] !== '';
+      checks.push({status: ok?'pass':'fail', icon: ok?'✓':'✗', code:'ACP-R0'+(['checkout_id','status','amount_charged','currency','merchant_id'].indexOf(f)+1), text:`CheckoutResponse.${f} present`, detail: ok?JSON.stringify(payload[f]).slice(0,60):''});
+    }
+    if (payload.shared_payment_token && typeof payload.shared_payment_token === 'object') {
+      const spt = payload.shared_payment_token;
+      const sptFields = ['payment_token_id','token_type','scope','issued_at','expires_at','merchant_id'];
+      const missing = sptFields.filter(f=>!Object.prototype.hasOwnProperty.call(spt,f));
+      if (missing.length === 0) {
+        checks.push({status:'pass',icon:'✓',code:'ACP-SPT0',text:`SPT: ${sptFields.length} required fields present`,detail:''});
+      } else {
+        checks.push({status:'fail',icon:'✗',code:'ACP-SPT0',text:`SPT missing: ${missing.join(', ')}`,detail:''});
+      }
+      if (spt.scope && !['single_use','multi_use'].includes(spt.scope)) {
+        checks.push({status:'warn',icon:'⚠',code:'ACP-SPT1',text:`SPT scope "${spt.scope}" — expected single_use or multi_use`,detail:''});
+      }
+      if (spt.issued_at && spt.expires_at && spt.expires_at > spt.issued_at) {
+        const ttl = spt.expires_at - spt.issued_at;
+        checks.push({status: ttl<=3600?'pass':'warn', icon: ttl<=3600?'✓':'⚠', code:'ACP-SPT2', text:`SPT TTL: ${ttl}s (${ttl<=3600?'within':'exceeds'} 3600s recommendation)`, detail:''});
+      }
+    } else {
+      checks.push({status:'warn',icon:'⚠',code:'ACP-SPT0',text:'CheckoutResponse missing shared_payment_token — expected for completed transactions',detail:''});
+    }
+  }
+
+  return checks;
+}
+
+function detectAcpType(p) {
+  if (p.message_type) return p.message_type;
+  if (p.agent_id || p.idempotency_key) return 'CheckoutRequest';
+  if (p.checkout_id || p.shared_payment_token) return 'CheckoutResponse';
+  return 'unknown';
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VISA TAP RFC 9421 VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateTAP(headers) {
+  const checks = [];
+  const sigInput = headers['Signature-Input'] || headers['signature-input'] || '';
+  const signature = headers['Signature'] || headers['signature'] || '';
+
+  checks.push({status: sigInput?'pass':'fail', icon: sigInput?'✓':'✗', code:'TAP-S01', text:'Signature-Input header present (RFC 9421 §2.4)', detail: sigInput?'':'Required by Visa TAP for HTTP Message Signatures'});
+  checks.push({status: signature?'pass':'fail', icon: signature?'✓':'✗', code:'TAP-S02', text:'Signature header present (RFC 9421 §2.1)', detail: signature?'':'Required alongside Signature-Input'});
+
+  if (sigInput) {
+    const validAlgs = ['ed25519','ecdsa-p256-sha256','rsa-pss-sha512','hmac-sha256'];
+    const algMatch = sigInput.match(/alg="([^"]+)"/i);
+    const alg = algMatch ? algMatch[1].toLowerCase() : null;
+    checks.push({status: alg && validAlgs.includes(alg)?'pass':'fail', icon: alg && validAlgs.includes(alg)?'✓':'✗', code:'TAP-S03', text:`alg: "${alg||'not found'}"`, detail: alg && validAlgs.includes(alg)?`RFC 9421 §3.3 — algorithm accepted`:`Expected one of: ${validAlgs.join(', ')}`});
+
+    const createdMatch = sigInput.match(/created=(\d+)/);
+    const created = createdMatch ? parseInt(createdMatch[1]) : null;
+    checks.push({status: created?'pass':'fail', icon: created?'✓':'✗', code:'TAP-S04', text:'created timestamp present', detail: created?`Unix: ${created} (${new Date(created*1000).toISOString()})`:'created parameter missing — RFC 9421 §2.2'});
+
+    const expiresMatch = sigInput.match(/expires=(\d+)/);
+    const expires = expiresMatch ? parseInt(expiresMatch[1]) : null;
+    if (expires && created) {
+      const ttl = expires - created;
+      const expired = expires < Math.floor(Date.now()/1000);
+      checks.push({status: expired?'warn': ttl > 86400?'warn':'pass', icon: expired?'⚠': ttl > 86400?'⚠':'✓', code:'TAP-S05', text: expired ? `Signature expired (expires=${expires})` : `Signature TTL: ${ttl}s`, detail: ttl > 86400 ? 'TTL exceeds 24h — Visa TAP recommends ≤ 3600s for agent transactions':''});
+    }
+
+    const keyidMatch = sigInput.match(/keyid="([^"]+)"/i);
+    checks.push({status: keyidMatch?'pass':'warn', icon: keyidMatch?'✓':'⚠', code:'TAP-S06', text:`keyid: "${keyidMatch?keyidMatch[1]:'not present'}"`, detail: keyidMatch?'Key identifier present for TAP key rotation':'keyid recommended for agent key management'});
+
+    const hasCoveredComponents = sigInput.includes('"@method"') || sigInput.includes('"@path"');
+    checks.push({status: hasCoveredComponents?'pass':'warn', icon: hasCoveredComponents?'✓':'⚠', code:'TAP-S07', text:'Covered components include @method and/or @path', detail: hasCoveredComponents?'':'Visa TAP expects request path and method in covered components'});
+  }
+
+  if (signature) {
+    const sigBodyMatch = signature.match(/:([A-Za-z0-9+/=]+):/);
+    checks.push({status: sigBodyMatch?'pass':'warn', icon: sigBodyMatch?'✓':'⚠', code:'TAP-S08', text:'Signature body is base64-encoded (RFC 9421 §2.1 byte-sequence format)', detail: sigBodyMatch?'':'"sig1=:base64value:" format expected'});
+  }
+
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   x402 VALIDATION
+   ───────────────────────────────────────────────────────────────── */
+function validateX402(payload) {
+  const checks = [];
+  const validSchemes = ['exact','open'];
+  const validNetworks = ['ethereum','base','polygon','solana','arbitrum','optimism','avalanche','bsc'];
+
+  const schemeOk = payload.scheme && validSchemes.includes(payload.scheme);
+  checks.push({status: schemeOk?'pass':'fail', icon: schemeOk?'✓':'✗', code:'X402-F01', text:`scheme: "${payload.scheme}"`, detail: schemeOk?'':` Must be one of: ${validSchemes.join(', ')}`});
+
+  const netOk = payload.network && typeof payload.network === 'string' && payload.network.length > 0;
+  const netKnown = validNetworks.includes((payload.network||'').toLowerCase());
+  checks.push({status: netOk?'pass':'fail', icon: netOk?'✓':'✗', code:'X402-F02', text:`network: "${payload.network}"`, detail: netKnown?'Known network':'Uncommon network — verify supported by receiving agent'});
+
+  const amtOk = payload.maxAmountRequired !== undefined && payload.maxAmountRequired !== null;
+  const amtNum = parseFloat(payload.maxAmountRequired);
+  checks.push({status: amtOk && !isNaN(amtNum) && amtNum > 0 ? 'pass':'fail', icon: amtOk && !isNaN(amtNum) && amtNum > 0 ? '✓':'✗', code:'X402-F03', text:`maxAmountRequired: ${payload.maxAmountRequired}`, detail: amtOk && !isNaN(amtNum) && amtNum > 0 ? '':'Must be a positive numeric value (string or number)'});
+
+  const assetOk = payload.asset && typeof payload.asset === 'string' && payload.asset.length > 0;
+  checks.push({status: assetOk?'pass':'fail', icon: assetOk?'✓':'✗', code:'X402-F04', text:`asset: "${payload.asset}"`, detail: assetOk?'Token address or symbol':''});
+
+  const payToOk = payload.payTo && typeof payload.payTo === 'string' && payload.payTo.length > 0;
+  checks.push({status: payToOk?'pass':'fail', icon: payToOk?'✓':'✗', code:'X402-F05', text:`payTo: "${payload.payTo}"`, detail: payToOk?'Recipient wallet address':''});
+
+  const resourceOk = payload.extra?.resource && typeof payload.extra.resource === 'string';
+  checks.push({status: resourceOk?'pass':'warn', icon: resourceOk?'✓':'⚠', code:'X402-F06', text:`extra.resource: "${payload.extra?.resource||'absent'}"`, detail: resourceOk?'Paywall resource identifier':'extra.resource recommended — identifies the resource being purchased'});
+
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CROSS-PROTOCOL CONSISTENCY
+   ───────────────────────────────────────────────────────────────── */
+function validateCrossProtocol(ap2, acp, x402) {
+  const checks = [];
+
+  /* AP2 ↔ ACP: amount and merchant_id consistency */
+  if (ap2?.payment && acp) {
+    const ap2Amt = ap2.payment.amount;
+    const acpAmt = acp.amount || acp.amount_charged;
+    if (typeof ap2Amt === 'number' && typeof acpAmt === 'number') {
+      const amtMatch = Math.abs(ap2Amt - acpAmt) < 0.005;
+      checks.push({status: amtMatch?'pass':'warn', icon: amtMatch?'✓':'⚠', code:'XP-A01', text:`AP2 amount (${ap2Amt}) vs ACP amount (${acpAmt})`, detail: amtMatch?'Amounts consistent across AP2 and ACP layers':`Mismatch of ${Math.abs(ap2Amt-acpAmt).toFixed(2)} — verify intent`});
+    }
+    const ap2Mid = ap2.payment.merchant_id;
+    const acpMid = acp.merchant_id;
+    if (ap2Mid && acpMid) {
+      const midMatch = ap2Mid === acpMid;
+      checks.push({status: midMatch?'pass':'warn', icon: midMatch?'✓':'⚠', code:'XP-A02', text:`AP2 merchant_id (${ap2Mid}) vs ACP merchant_id (${acpMid})`, detail: midMatch?'Merchant IDs consistent':'Merchant ID mismatch — verify both layers reference the same entity'});
+    }
+  }
+
+  /* AP2 ↔ x402: amount consistency */
+  if (ap2?.payment && x402) {
+    const ap2Amt = ap2.payment.amount;
+    const x402Amt = parseFloat(x402.maxAmountRequired);
+    if (typeof ap2Amt === 'number' && !isNaN(x402Amt)) {
+      const amtClose = Math.abs(ap2Amt - x402Amt) < 0.01;
+      checks.push({status: amtClose?'pass':'warn', icon: amtClose?'✓':'⚠', code:'XP-A03', text:`AP2 payment.amount (${ap2Amt}) vs x402 maxAmountRequired (${x402Amt})`, detail: amtClose?'On-chain settlement amount consistent with AP2 mandate':'Amount delta detected — ensure x402 max covers AP2 mandate'});
+    }
+  }
+
+  /* ACP ↔ x402: merchant_id vs payTo note */
+  if (acp && x402) {
+    checks.push({status:'info',icon:'ℹ',code:'XP-A04',text:`x402 payTo (${x402.payTo}) — wallet address for ACP-routed payment`, detail:`Network: ${x402.network||'?'}. Verify ACP merchant_id (${acp.merchant_id||'?'}) maps to this wallet in your merchant registry.`});
+  }
+
+  if (checks.length === 0) {
+    checks.push({status:'info',icon:'ℹ',code:'XP-A00',text:'Cross-protocol consistency — single-protocol input, no cross-layer checks applicable',detail:''});
+  }
+
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults() {
+  const r = _lastResult;
+  const {passCount, failCount, warnCount, overallStatus, ap2Checks, acpChecks, tapChecks, x402Checks, xpChecks, allChecks, execHash, parentHashes, parentToolIds, chainDepth} = r;
+  const total = allChecks.length;
+
+  /* Verdict */
+  const vc = document.getElementById('verdictCard');
+  const verdictMap = {
+    pass: {cls:'pass', icon:'✅', title:`Cross-Protocol Conformant — ${passCount}/${total} checks passed`, sub:`All required fields valid across ${r.outputPayload.protocols_validated.join(' + ')}. ${warnCount>0?warnCount+' advisory warning(s) noted.':'No warnings.'}`},
+    warn: {cls:'warn', icon:'⚠️', title:`Warnings — ${passCount} passed · ${warnCount} advisory`, sub:`Required fields are present but ${warnCount} advisory item(s) should be reviewed.`},
+    fail: {cls:'fail', icon:'❌', title:`Non-Conformant — ${failCount} check(s) failed`, sub:`${failCount} required field(s) missing or invalid across protocol layers. Fix these before agent deployment.`}
+  };
+  const vd = verdictMap[overallStatus];
+  vc.innerHTML = `<div class="verdict-card ${vd.cls}"><div class="verdict-icon">${vd.icon}</div><div><div class="verdict-title">${vd.title}</div><div class="verdict-sub">${vd.sub}<br>Protocols: ${r.outputPayload.protocols_validated.join(' · ')} · Total checks: ${total}</div></div></div>`;
+
+  document.getElementById('checkSummary').textContent = `${passCount} pass · ${failCount} fail · ${warnCount} warn`;
+
+  /* Protocol check sections */
+  const sections = [
+    {label:'AP2 v0.2 Mandate Chain', checks: ap2Checks, proto:'AP2 v0.2'},
+    {label:'ACP Checkout Conformance', checks: acpChecks, proto:'ACP', optional:true},
+    {label:'Visa TAP · RFC 9421 HTTP Message Signature', checks: tapChecks, proto:'TAP', optional:true},
+    {label:'x402 Settlement Leg', checks: x402Checks, proto:'x402', optional:true},
+    {label:'Cross-Protocol Consistency', checks: xpChecks, proto:'XP'}
+  ];
+  let html = '';
+  for (const sec of sections) {
+    if (!sec.checks) {
+      html += `<div class="protocol-section"><div class="protocol-header"><span>${sec.label}</span><span class="proto-badge proto-skip">Skipped</span></div><div class="check-list"><div class="check-item skip"><span class="check-icon">—</span><div class="check-text">Stage not provided — <em>optional</em></div></div></div></div>`;
+      continue;
+    }
+    const pPass = sec.checks.filter(c=>c.status==='pass').length;
+    const pFail = sec.checks.filter(c=>c.status==='fail').length;
+    const pWarn = sec.checks.filter(c=>c.status==='warn').length;
+    const pStatus = pFail>0?'fail':pWarn>0?'warn':'pass';
+    const pBadge = pFail>0?`<span class="proto-badge proto-fail">FAIL ${pFail}</span>`
+      :pWarn>0?`<span class="proto-badge proto-warn">WARN ${pWarn}</span>`
+      :`<span class="proto-badge proto-pass">PASS ${pPass}</span>`;
+    html += `<div class="protocol-section"><div class="protocol-header"><span>${sec.label}</span>${pBadge}</div><div class="check-list">`;
+    html += sec.checks.map(c=>{
+      const det = c.detail?`<br><em style="color:var(--muted);font-size:.44rem">${c.detail}</em>`:'';
+      return `<div class="check-item ${c.status}"><span class="check-icon">${c.icon}</span><div class="check-text">${c.text}${det}<span class="check-code">${c.code}</span></div></div>`;
+    }).join('');
+    html += `</div></div>`;
+  }
+  document.getElementById('protocolChecks').innerHTML = html;
+
+  /* Hash */
+  document.getElementById('hashDisplay').textContent = execHash;
+  const parentSummary = parentHashes.length > 0
+    ? `${parentHashes.length} parent hash(es) — chain_depth: ${chainDepth} — parent tools: ${parentToolIds.join(', ')}`
+    : 'none (run standalone, chain_depth: 0)';
+  document.getElementById('parentHashSummary').textContent = parentSummary;
+
+  /* Enable export buttons */
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('tvExportBtn').disabled = false;
+  document.getElementById('tvExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').disabled = false;
+  document.getElementById('mdExportBtn').classList.add('ready');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('ap2Input').classList.remove('error','ok');
+  document.getElementById('ap2Input').classList.add((_lastResult.allChecks.filter(c=>c.status==='fail').length>0)?'error':'ok');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-30_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportTestVectors() {
+  const vectors = {
+    _meta: {
+      tool_id: 'art-30-agent-commerce-conformance-validator',
+      version: '1.0.0',
+      description: 'Cross-protocol test-vector fixture set for the Agent Commerce Cross-Protocol Conformance Validator (ART-30). Covers AP2 v0.2, ACP (OpenAI/Stripe), Visa TAP RFC 9421, and x402. Use these to smoke-test agent implementations end-to-end.',
+      generated: new Date().toISOString(),
+      spec_refs: ['AP2 v0.2 (FIDO Alliance)','ACP (developers.openai.com/acp)','RFC 9421 (HTTP Message Signatures)','x402 (x402.org)']
+    },
+    test_vector_1: {
+      name: 'Happy path — all four protocols, full mandate chain',
+      expected_verdict: 'pass',
+      inputs: {
+        ap2_mandate_trio: AP2_PRESET_VALID,
+        acp_payload: ACP_PRESET_REQ,
+        tap_headers: TAP_PRESET_VALID,
+        x402_payload: X402_PRESET_BASE
+      }
+    },
+    test_vector_2: {
+      name: 'AP2 chain linkage break — payment parent_mandate_id mismatch',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['AP2-P02'],
+      inputs: { ap2_mandate_trio: AP2_PRESET_FAIL }
+    },
+    test_vector_3: {
+      name: 'ACP CheckoutResponse with SPT — all fields present',
+      expected_verdict: 'pass',
+      inputs: {
+        ap2_mandate_trio: AP2_PRESET_VALID,
+        acp_payload: ACP_PRESET_RES
+      }
+    },
+    test_vector_4: {
+      name: 'Visa TAP — missing alg parameter',
+      expected_verdict: 'warn',
+      expected_warning_codes: ['TAP-S03'],
+      inputs: {
+        ap2_mandate_trio: AP2_PRESET_VALID,
+        tap_headers: {'Signature-Input':'sig1=("@method" "@path");created=1718000000','Signature':'sig1=:abc123:'}
+      }
+    },
+    test_vector_5: {
+      name: 'x402 — invalid scheme',
+      expected_verdict: 'fail',
+      expected_failing_codes: ['X402-F01'],
+      inputs: {
+        ap2_mandate_trio: AP2_PRESET_VALID,
+        x402_payload: {...X402_PRESET_BASE, scheme: 'unknown'}
+      }
+    },
+    test_vector_6: {
+      name: 'Cross-protocol amount mismatch — AP2 vs ACP',
+      expected_verdict: 'warn',
+      expected_warning_codes: ['XP-A01'],
+      inputs: {
+        ap2_mandate_trio: AP2_PRESET_VALID,
+        acp_payload: {...ACP_PRESET_REQ, amount: 99.99}
+      }
+    }
+  };
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(vectors,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-30_test-vectors_${ts}.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Test-vector fixtures downloaded');
+}
+
+function exportMarkdown() {
+  if (!_lastResult || !_artifact) return;
+  const r = _lastResult;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const lines = [
+    `# Agent Commerce Cross-Protocol Conformance Report`,
+    `**Tool:** ART-30 Agent Commerce Cross-Protocol Conformance Validator · ChainGraph Wave 6 · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    `**Chain Depth:** ${r.chainDepth}`,
+    r.parentHashes.length > 0 ? `**Parent Hashes:** ${r.parentHashes.join(', ')}` : `**Parent Hashes:** none (standalone run)`,
+    `**Result:** ${r.overallStatus.toUpperCase()} (${r.passCount} pass · ${r.failCount} fail · ${r.warnCount} warn)`,
+    `**Protocols Validated:** ${r.outputPayload.protocols_validated.join(' · ')}`,
+    '',
+    '---',
+    `## AP2 v0.2 Mandate Chain`,
+    '',
+    ...r.ap2Checks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':'⚠️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`),
+    '',
+  ];
+  if (r.acpChecks) {
+    lines.push('---', '## ACP Checkout Conformance', '', ...r.acpChecks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':'⚠️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), '');
+  }
+  if (r.tapChecks) {
+    lines.push('---', '## Visa TAP · RFC 9421 HTTP Message Signature', '', ...r.tapChecks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':'⚠️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), '');
+  }
+  if (r.x402Checks) {
+    lines.push('---', '## x402 Settlement Leg', '', ...r.x402Checks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':'⚠️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`), '');
+  }
+  lines.push(
+    '---', '## Cross-Protocol Consistency', '',
+    ...r.xpChecks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':c.status==='warn'?'⚠️':'ℹ️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`),
+    '',
+    '---',
+    '> **Protocol Sources:** AP2 v0.2 (FIDO Alliance · fidoalliance.org/specs/fido-ap2/), ACP (developers.openai.com/acp · Stripe 2025), Visa TAP HTTP Message Signatures (RFC 9421 · ietf.org/rfc/rfc9421), x402 (x402.org). Validate against current specs before production deployment.',
+    '',
+    `*ChainGraph Suite · ART-30 · Wave 6 · Post Oak Labs · CC BY 4.0 · Client-side · Zero PII*`
+  );
+  const blob = new Blob([lines.join('\n')],{type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-30_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+
+/* Recursive sorted-key canonicalization matching server-side cgExecutionHash */
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v !== null && typeof v === 'object') {
+    const s = {};
+    for (const k of Object.keys(v).sort()) s[k] = cgCanon(v[k]);
+    return s;
+  }
+  return v;
+}
+
+async function cgHash(policyParameters, outputPayload) {
+  const canonical = JSON.stringify(cgCanon({policy_parameters: policyParameters, output_payload: outputPayload}));
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function formatTA(id) {
+  try {
+    const ta = document.getElementById(id);
+    const v = JSON.parse(ta.value);
+    ta.value = JSON.stringify(v,null,2);
+    ta.classList.remove('error');
+  } catch { showToast('JSON parse error — cannot format'); }
+}
+
+function clearTA(id) {
+  const ta = document.getElementById(id);
+  ta.value = '';
+  ta.classList.remove('error','ok');
+  document.getElementById('resultsPanel').classList.remove('visible');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open?'none':'block'; arrow.textContent = open?'▼':'▲';
+  btn.setAttribute('aria-expanded', String(!open)); body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST,null,2);
+}
+
+/* Load preset on page load */
+document.getElementById('ap2Input').value = JSON.stringify(AP2_PRESET_VALID, null, 2);
+document.querySelectorAll('#ap2Tabs .tab-btn')[1].classList.add('active');
+document.querySelectorAll('#ap2Tabs .tab-btn')[0].classList.remove('active');
+</script>
+
+</body>
+</html>
