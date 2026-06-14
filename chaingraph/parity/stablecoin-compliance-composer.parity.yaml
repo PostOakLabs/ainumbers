@@ -1,0 +1,117 @@
+schema_version: "1.0"
+parity_id: "stablecoin-compliance-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  file: "guides/stablecoin-compliance-composer.html"
+  type: "composer"
+  description: "4-stage AIN Bridge composer: T53 CBDC Architecture Comparator → T388 Stablecoin Reserve Stress Test Modeller → T386 GENIUS Act Payment Stablecoin Compliance Checker → T390 MiCA White Paper Builder"
+  stages:
+    - id: "stage-1"
+      tool_id: "T53"
+      label: "CBDC Architecture Comparator"
+    - id: "stage-2"
+      tool_id: "T388"
+      label: "Stablecoin Reserve Stress Test Modeller"
+    - id: "stage-3"
+      tool_id: "T386"
+      label: "GENIUS Act Payment Stablecoin Compliance Checker"
+    - id: "stage-4"
+      tool_id: "T390"
+      label: "MiCA White Paper Builder"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/stablecoin-compliance.html"
+  chain_id: "stablecoin-compliance"
+  topology: "linear"
+  wave: "B"
+  node_count: 5
+  promoted_nodes:
+    - tool_id: "art-06-genius-act-reserve-precheck"
+      label: "ART-06 GENIUS Act Reserve Attestation Pre-Check"
+      chain_depth: 1
+      section_4: true
+    - tool_id: "rca-02-mica-reserve-stress-simulator"
+      label: "RCA-02 MiCA Reserve Stress Simulator"
+      chain_depth: 2
+      section_4: true
+  nodes_ordered:
+    - "T53 — CBDC Architecture Comparator"
+    - "ART-06 — GENIUS Act Reserve Attestation Pre-Check (ChainGraph §4)"
+    - "RCA-02 — MiCA Reserve Stress Simulator (ChainGraph §4)"
+    - "T386 — GENIUS Act Payment Stablecoin Compliance Checker"
+    - "T390 — MiCA White Paper Builder (terminal)"
+
+parity_matrix:
+  - source_stage: "T53 CBDC Architecture Comparator"
+    chaingraph_node: "Step 1: T53 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T388 Stablecoin Reserve Stress Test Modeller"
+    chaingraph_node: "Step 2: ART-06 + Step 3: RCA-02 (both ChainGraph §4 promoted nodes)"
+    status: "IMPROVEMENT"
+    notes: |
+      T388 is split into two specialist ChainGraph nodes:
+      - ART-06: GENIUS Act-specific reserve attestation pre-check (US regime, Section 4 compliance)
+      - RCA-02: MiCA Article 36 Monte Carlo reserve stress simulation (EU regime, 10k scenarios)
+      This provides regime-separated reserve analysis vs. T388's unified but less granular approach.
+      T388 upgrade notice banner added pointing to both ART-06 and RCA-02.
+
+  - source_stage: "T386 GENIUS Act Payment Stablecoin Compliance Checker"
+    chaingraph_node: "Step 4: T386 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Enriched by ART-06 + RCA-02 §4 outputs at this stage."
+
+  - source_stage: "T390 MiCA White Paper Builder"
+    chaingraph_node: "Step 5: T390 (terminal, original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Terminal node. No sessionStorage."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page. ChainGraph uses standalone tool links rather than postMessage orchestration."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links."
+
+  - id: "gap-02"
+    description: "T388 unified reserve stress modeller not preserved as a discrete chain step. Covered by ART-06 + RCA-02, but users who want the T388 experience (GENIUS Act + MiCA in one tool) still link to T388 via upgrade notice on T388's page."
+    severity: "minor"
+    rationale: "ART-06 + RCA-02 together reproduce and exceed T388's scope. T388 remains accessible with upgrade notice."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "T388 split into ART-06 (GENIUS Act) and RCA-02 (MiCA) for regime-separated reserve analysis. ART-06 adds GENIUS Act Section 4 eligibility checks; RCA-02 adds Monte Carlo 10k scenario stress testing."
+    impact: "High — more granular reserve compliance evidence per regime."
+
+  - id: "imp-02"
+    description: "Two §4 execution_hash artifacts (ART-06 + RCA-02) generated — one per regulatory regime. Source composer produces no machine-verifiable artifact."
+    impact: "High — §4 artifacts attachable to both US and EU regulatory submissions."
+
+  - id: "imp-03"
+    description: "sessionStorage ain_lang write removed from chain page. Source composer may have written ain_lang context to sessionStorage."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+  - id: "imp-04"
+    description: "GENIUS Act enactment date (May 2025) and MiCA key deadline context added to chain page deadline banner."
+    impact: "Low — UX improvement."
+
+  - id: "imp-05"
+    description: "T388 upgrade notice banner added to original tool page pointing to both ART-06 and RCA-02 as dual ChainGraph equivalents."
+    impact: "Low — discoverability improvement for existing T388 users."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/stablecoin-compliance-composer.html
+    git add chaingraph/parity/stablecoin-compliance-composer.parity.yaml
+    git commit -m "chore: delete stablecoin-compliance-composer.html — fully reproduced in chains/stablecoin-compliance.html (parity SIGNED_OFF)"
+    git push
+
+  hubs_excluded:
+    - file: "guides/genius-act-stablecoin-hub.html"
+      reason: "Hub/directory page listing stablecoin and GENIUS Act tools. NOT in scope for deletion."

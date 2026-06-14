@@ -1,0 +1,108 @@
+schema_version: "1.0"
+parity_id: "einvoicing-vida-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  file: "guides/einvoicing-vida-composer.html"
+  type: "composer"
+  description: "4-stage AIN Bridge composer: T179 ViDA DRR Readiness Scorer → T180 B2B E-Invoice Compliance Scorer → T174 PEPPOL XML Auditor → T178 Invoice to ISO 20022 Bridge"
+  stages:
+    - id: "stage-1"
+      tool_id: "T179"
+      label: "ViDA DRR Readiness Scorer"
+    - id: "stage-2"
+      tool_id: "T180"
+      label: "B2B E-Invoice Compliance Scorer"
+    - id: "stage-3"
+      tool_id: "T174"
+      label: "PEPPOL XML Auditor"
+    - id: "stage-4"
+      tool_id: "T178"
+      label: "Invoice to ISO 20022 Bridge"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/einvoicing-vida.html"
+  chain_id: "einvoicing-vida"
+  topology: "linear"
+  wave: "B"
+  node_count: 5
+  promoted_nodes:
+    - tool_id: "art-08-en16931-einvoice-batch-validator"
+      label: "ART-08 EN 16931 / Factur-X Batch Validator"
+      chain_depth: 1
+      section_4: true
+  nodes_ordered:
+    - "T179 — ViDA DRR Readiness Scorer"
+    - "T180 — B2B E-Invoice Compliance Scorer"
+    - "ART-08 — EN 16931 / Factur-X Batch Validator (ChainGraph §4)"
+    - "T174 — PEPPOL XML Auditor"
+    - "T178 — Invoice to ISO 20022 Bridge (terminal)"
+
+parity_matrix:
+  - source_stage: "T179 ViDA DRR Readiness Scorer"
+    chaingraph_node: "Step 1: T179 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T180 B2B E-Invoice Compliance Scorer"
+    chaingraph_node: "Step 2: T180 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "(no equivalent in source)"
+    chaingraph_node: "Step 3: ART-08 EN 16931 / Factur-X Batch Validator (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: "ART-08 inserted between T180 and T174. Adds EN 16931 batch validation and Factur-X country profiles missing from the source composer. §4 execution_hash anchors the audit trail."
+
+  - source_stage: "T174 PEPPOL XML Auditor"
+    chaingraph_node: "Step 4: T174 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Upgrade notice banner added to T174 pointing to ART-08. Tool link preserved."
+
+  - source_stage: "T178 Invoice to ISO 20022 Bridge"
+    chaingraph_node: "Step 5: T178 (terminal, original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Terminal node. No sessionStorage."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page. ChainGraph uses standalone tool links rather than postMessage orchestration."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links. Users open each tool in sequence. Output copy-paste between tools is the intended pattern."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "ART-08 EN 16931 / Factur-X batch validation step added (step 3). The source composer jumps from T180 compliance scoring directly to T174 PEPPOL audit, missing EN 16931 structural validation."
+    impact: "High — catches EN 16931 field-level failures before PEPPOL network submission."
+
+  - id: "imp-02"
+    description: "ART-08 §4 execution_hash anchors the chain's compliance evidence. Source composer produces no machine-verifiable artifact."
+    impact: "High — §4 artifact is attachable to ViDA readiness regulatory file."
+
+  - id: "imp-03"
+    description: "sessionStorage ain_lang write removed. Source composer may have written ain_lang context to sessionStorage across stages."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+  - id: "imp-04"
+    description: "France deadline banner and key deadline summary added to chain page. Source composer had no deadline framing."
+    impact: "Low — UX improvement."
+
+  - id: "imp-05"
+    description: "T174 upgrade notice banner added to original tool page pointing to ART-08 ChainGraph node."
+    impact: "Low — discoverability improvement for existing T174 users."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/einvoicing-vida-composer.html
+    git add chaingraph/parity/einvoicing-vida-composer.parity.yaml
+    git commit -m "chore: delete einvoicing-vida-composer.html — fully reproduced in chains/einvoicing-vida.html (parity SIGNED_OFF)"
+    git push
+
+  hubs_excluded:
+    - file: "guides/einvoicing-vat-vida-hub.html"
+      reason: "Hub/directory page listing e-invoicing tools. NOT in scope for deletion."
