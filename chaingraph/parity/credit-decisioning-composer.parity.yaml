@@ -1,0 +1,118 @@
+schema_version: "1.0"
+parity_id: "credit-decisioning-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  file: "guides/credit-decisioning-composer.html"
+  type: "composer"
+  description: "5-stage AIN Bridge composer: T198 PD/LGD/EAD Modeller → T201 Basel RWA Calculator → T437 RAROC Loan Pricing → T199 Financial Covenant Compliance Checker → T435 Credit Facility Structuring"
+  stages:
+    - id: "stage-1"
+      tool_id: "T198"
+      label: "PD/LGD/EAD Modeller"
+    - id: "stage-2"
+      tool_id: "T201"
+      label: "Basel RWA Calculator"
+    - id: "stage-3"
+      tool_id: "T437"
+      label: "RAROC Loan Pricing"
+    - id: "stage-4"
+      tool_id: "T199"
+      label: "Financial Covenant Compliance Checker"
+    - id: "stage-5"
+      tool_id: "T435"
+      label: "Credit Facility Structuring"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/credit-decisioning.html"
+  chain_id: "credit-decisioning"
+  topology: "linear"
+  wave: "B"
+  node_count: 6
+  promoted_nodes:
+    - tool_id: "ml-02-credit-default-risk-scorer"
+      label: "ML-02 Credit Default Risk Scorer"
+      chain_depth: 1
+      section_4: true
+  nodes_ordered:
+    - "T198 — PD/LGD/EAD Modeller"
+    - "ML-02 — Credit Default Risk Scorer (ChainGraph §4, chain_depth:1)"
+    - "T201 — Basel RWA Calculator"
+    - "T437 — RAROC Loan Pricing"
+    - "T199 — Financial Covenant Compliance Checker"
+    - "T435 — Credit Facility Structuring (terminal)"
+
+parity_matrix:
+  - source_stage: "T198 PD/LGD/EAD Modeller"
+    chaingraph_node: "Step 1: T198 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "(no equivalent in source)"
+    chaingraph_node: "Step 2: ML-02 Credit Default Risk Scorer (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: |
+      ML-02 inserted between T198 and T201. Adds ML-augmented credit default risk scoring
+      (Isolation Forest + logistic regression ensemble) calibrated to T198 PD/LGD/EAD inputs.
+      §4 execution_hash anchors the AI model output as EU AI Act Art. 12/14 compliant logging.
+      T198 upgrade notice banner added pointing to ML-02 and credit-decisioning chain.
+
+  - source_stage: "T201 Basel RWA Calculator"
+    chaingraph_node: "Step 3: T201 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved. Enriched by ML-02 risk score as additional calibration input."
+
+  - source_stage: "T437 RAROC Loan Pricing"
+    chaingraph_node: "Step 4: T437 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T199 Financial Covenant Compliance Checker"
+    chaingraph_node: "Step 5: T199 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T435 Credit Facility Structuring"
+    chaingraph_node: "Step 6: T435 (terminal, original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Terminal node. No sessionStorage. ML-02 §4 artifact embedded in decisioning audit trail."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links."
+
+  - id: "gap-02"
+    description: "Multi-language support (ES, FR, AR, PT, ZH) present in source composer. Not replicated in chain page."
+    severity: "minor"
+    rationale: "Chain pages are English-only per CONTRACT §1.1. The ain_lang sessionStorage write removal is a net compliance improvement."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "ML-02 Credit Default Risk Scorer added (step 2). Source composer jumps from T198 directly to T201 RWA. ML-02 provides probabilistic default risk scoring with feature attribution and anomaly detection."
+    impact: "High — adds ML-augmented risk layer between parameter modelling and capital calculation."
+
+  - id: "imp-02"
+    description: "ML-02 §4 execution_hash provides machine-verifiable AI model output artifact. Satisfies EU AI Act Article 12 (logging) and Article 14 (human oversight) requirements for high-risk credit scoring systems."
+    impact: "High — regulatory AI governance documentation requirement for EU AI Act Art. 6 high-risk classification."
+
+  - id: "imp-03"
+    description: "sessionStorage ain_lang write removed. Source composer had ain_lang writes across stages."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+  - id: "imp-04"
+    description: "ART-05 EU AI Act Credit-Scoring Conformity Pack referenced in synthesis block for full Art. 40 conformity assessment of the ML-02 model."
+    impact: "Low — discoverability improvement."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/credit-decisioning-composer.html
+    git add chaingraph/parity/credit-decisioning-composer.parity.yaml
+    git commit -m "chore: delete credit-decisioning-composer.html — fully reproduced in chains/credit-decisioning.html (parity SIGNED_OFF)"
+    git push

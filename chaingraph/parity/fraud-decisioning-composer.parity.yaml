@@ -1,0 +1,168 @@
+schema_version: "1.0"
+parity_id: "fraud-decisioning-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  files:
+    - "guides/fraud-decisioning-composer.html"
+    - "guides/ach-fraud-monitoring-composer.html"
+  type: "consolidation"
+  description: |
+    Two source composers consolidated into one branching chain:
+    - guides/fraud-decisioning-composer.html: 4-stage AIN Bridge composer (T256 → T117 → T80 → T322)
+    - guides/ach-fraud-monitoring-composer.html: 3-stage AIN Bridge composer (T492 → T493 → T494)
+  source_a:
+    file: "guides/fraud-decisioning-composer.html"
+    stages:
+      - id: "stage-1"
+        tool_id: "T256"
+        label: "RTP Fraud Velocity Rule Builder"
+      - id: "stage-2"
+        tool_id: "T117"
+        label: "Structuring Pattern Detector"
+      - id: "stage-3"
+        tool_id: "T80"
+        label: "Fraud Investigation Lab"
+      - id: "stage-4"
+        tool_id: "T322"
+        label: "APP Scam Risk Assessor"
+  source_b:
+    file: "guides/ach-fraud-monitoring-composer.html"
+    stages:
+      - id: "stage-1"
+        tool_id: "T492"
+        label: "ACH Fraud Monitoring Procedure Builder"
+      - id: "stage-2"
+        tool_id: "T493"
+        label: "ACH False-Pretenses Credit-Entry Simulator"
+      - id: "stage-3"
+        tool_id: "T494"
+        label: "ACH Fraud Monitoring Audit Pack Generator"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/fraud-decisioning.html"
+  chain_id: "fraud-decisioning"
+  topology: "branching"
+  wave: "B"
+  branches:
+    branch_a:
+      label: "Payment Fraud & APP Scam"
+      node_count: 4
+      promoted_nodes:
+        - tool_id: "ml-01-isolation-forest"
+          label: "ML-01 Isolation Forest Transaction Anomaly Detector"
+          chain_depth: 0
+          section_4: true
+        - tool_id: "mms-03-app-fraud-graph"
+          label: "MMS-03 APP Fraud Graph Simulator"
+          chain_depth: 1
+          section_4: true
+      nodes_ordered:
+        - "ML-01 — Isolation Forest Anomaly Detector (ChainGraph §4, root)"
+        - "T117 — Structuring Pattern Detector"
+        - "MMS-03 — APP Fraud Graph Simulator (ChainGraph §4, chain_depth:1)"
+        - "T322 — APP Scam Risk Assessor (terminal-a)"
+    branch_b:
+      label: "ACH Fraud / Nacha Phase 2"
+      node_count: 3
+      promoted_nodes: []
+      nodes_ordered:
+        - "T492 — ACH Fraud Monitoring Procedure Builder"
+        - "T493 — ACH False-Pretenses Credit-Entry Simulator"
+        - "T494 — ACH Fraud Monitoring Audit Pack Generator (terminal-b)"
+
+parity_matrix:
+  branch_a:
+    - source_stage: "T256 RTP Fraud Velocity Rule Builder"
+      chaingraph_node: "Branch A Step 1: ML-01 Isolation Forest Anomaly Detector (ChainGraph §4)"
+      status: "IMPROVEMENT"
+      notes: |
+        T256 (rule-based velocity rules) replaced by ML-01 (probabilistic Isolation Forest anomaly
+        detection) as Branch A root. ML-01 provides a complementary ML layer to T256's rule-based
+        approach. §4 execution_hash anchors the ML model output.
+        T256 upgrade notice banner added pointing to ML-01 and fraud-decisioning chain.
+
+    - source_stage: "T117 Structuring Pattern Detector"
+      chaingraph_node: "Branch A Step 2: T117 (original tool link)"
+      status: "FULL_PARITY"
+      notes: "Direct equivalent. Consumes ML-01 anomaly flags as seed signals. No sessionStorage."
+
+    - source_stage: "T80 Fraud Investigation Lab"
+      chaingraph_node: "Branch A Step 3: MMS-03 APP Fraud Graph Simulator (ChainGraph §4)"
+      status: "IMPROVEMENT"
+      notes: |
+        T80 (fraud investigation lab — general investigation workspace) replaced by MMS-03
+        (APP fraud graph simulator — social-engineering attack graph + PSR reimbursement
+        liability assessment). More targeted than T80 for APP scam decisioning context.
+        §4 execution_hash anchors the APP fraud graph artifact.
+        T80 upgrade notice banner added pointing to MMS-03 and fraud-decisioning chain.
+
+    - source_stage: "T322 APP Scam Risk Assessor"
+      chaingraph_node: "Branch A Step 4: T322 (terminal-a, original tool link)"
+      status: "FULL_PARITY"
+      notes: "Direct equivalent. Terminal node. Consumes ML-01 + T117 + MMS-03 §4 outputs. No sessionStorage."
+
+  branch_b:
+    - source_stage: "T492 ACH Fraud Monitoring Procedure Builder"
+      chaingraph_node: "Branch B Step 1: T492 (original tool link)"
+      status: "FULL_PARITY"
+      notes: "Direct equivalent. No sessionStorage. Nacha Phase 2 effective 2026-06-22."
+
+    - source_stage: "T493 ACH False-Pretenses Credit-Entry Simulator"
+      chaingraph_node: "Branch B Step 2: T493 (original tool link)"
+      status: "FULL_PARITY"
+      notes: "Direct equivalent. No sessionStorage."
+
+    - source_stage: "T494 ACH Fraud Monitoring Audit Pack Generator"
+      chaingraph_node: "Branch B Step 3: T494 (terminal-b, original tool link)"
+      status: "FULL_PARITY"
+      notes: "Direct equivalent. Terminal node. No sessionStorage."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links."
+
+  - id: "gap-02"
+    description: "Multi-language support (ES, FR, AR, PT, ZH) present in both source composers. Not replicated in chain page."
+    severity: "minor"
+    rationale: "Chain pages are English-only per CONTRACT §1.1. ain_lang sessionStorage write removal is a net compliance improvement."
+
+  - id: "gap-03"
+    description: "T256 RTP Fraud Velocity Rule Builder not preserved as a discrete Branch A step — replaced by ML-01. T256 remains accessible via upgrade notice on its own page."
+    severity: "minor"
+    rationale: "ML-01 provides a more powerful probabilistic alternative. Users who need purely rule-based velocity rules can access T256 directly via upgrade notice link."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "T256 replaced by ML-01 Isolation Forest anomaly detector as Branch A root. ML model provides probabilistic default scoring alongside T256's rule-based approach."
+    impact: "High — ML-augmented fraud detection layer with §4 execution_hash."
+
+  - id: "imp-02"
+    description: "T80 replaced by MMS-03 APP Fraud Graph Simulator. MMS-03 provides social-engineering attack graph simulation with PSR reimbursement liability assessment per scenario."
+    impact: "High — direct PSR Consumer Reimbursement defence evidence vs. T80's general investigation workspace."
+
+  - id: "imp-03"
+    description: "Two source composers (fraud-decisioning + ach-fraud-monitoring) consolidated into one branching chain. Users can switch between Payment Fraud and ACH Fraud workflows without navigating to a different page."
+    impact: "Medium — workflow consolidation."
+
+  - id: "imp-04"
+    description: "sessionStorage ain_lang write removed from both source workflows."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+  - id: "imp-05"
+    description: "Nacha Phase 2 urgency banner (2026-06-22 deadline) added to Branch B to surface the immediate compliance deadline."
+    impact: "Low — UX improvement."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/fraud-decisioning-composer.html guides/ach-fraud-monitoring-composer.html
+    git add chaingraph/parity/fraud-decisioning-composer.parity.yaml
+    git commit -m "chore: delete fraud-decisioning-composer.html + ach-fraud-monitoring-composer.html — fully reproduced in chains/fraud-decisioning.html (parity SIGNED_OFF)"
+    git push

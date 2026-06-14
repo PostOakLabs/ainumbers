@@ -1,0 +1,131 @@
+schema_version: "1.0"
+parity_id: "bank-capital-liquidity-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  file: "guides/bank-capital-liquidity-composer.html"
+  type: "composer"
+  description: "5-stage AIN Bridge composer: T201 Basel RWA Calculator → T469 LCR Calculator → T470 NSFR Calculator → T471 Leverage Ratio Calculator → T472 Pillar 3 Disclosure Builder"
+  stages:
+    - id: "stage-1"
+      tool_id: "T201"
+      label: "Basel RWA Calculator"
+    - id: "stage-2"
+      tool_id: "T469"
+      label: "Liquidity Coverage Ratio Calculator"
+    - id: "stage-3"
+      tool_id: "T470"
+      label: "Net Stable Funding Ratio Calculator"
+    - id: "stage-4"
+      tool_id: "T471"
+      label: "Leverage Ratio Calculator"
+    - id: "stage-5"
+      tool_id: "T472"
+      label: "Pillar 3 Disclosure Builder"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/bank-capital-liquidity.html"
+  chain_id: "bank-capital-liquidity"
+  topology: "linear"
+  wave: "B"
+  node_count: 5
+  promoted_nodes:
+    - tool_id: "sim-03-basel-rwa-scenario-modeler"
+      label: "SIM-03 Basel RWA Scenario Modeler"
+      chain_depth: 0
+      section_4: true
+    - tool_id: "sim-01-lcr-nsfr-liquidity-stress-test"
+      label: "SIM-01 Liquidity Stress Test Simulator (LCR/NSFR)"
+      chain_depth: 1
+      section_4: true
+    - tool_id: "art-07-basel31-reporting-delta-calculator"
+      label: "ART-07 Basel 3.1 Reporting Delta Calculator"
+      chain_depth: 2
+      section_4: true
+  nodes_ordered:
+    - "SIM-03 — Basel RWA Scenario Modeler (ChainGraph §4, root)"
+    - "SIM-01 — LCR/NSFR Liquidity Stress Test (ChainGraph §4, chain_depth:1)"
+    - "T471 — Leverage Ratio Calculator"
+    - "ART-07 — Basel 3.1 Reporting Delta Calculator (ChainGraph §4, chain_depth:2)"
+    - "T472 — Pillar 3 Disclosure Builder (terminal)"
+
+parity_matrix:
+  - source_stage: "T201 Basel RWA Calculator"
+    chaingraph_node: "Step 1: SIM-03 Basel RWA Scenario Modeler (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: |
+      T201 replaced by SIM-03 — same RWA calculation core, enhanced with:
+      - Multi-scenario stress testing (correlation shock, PD migration, concentration)
+      - §4 execution_hash for verifiable, reproducible capital computation
+      T201 upgrade notice banner added pointing to SIM-03 and bank-capital-liquidity chain.
+
+  - source_stage: "T469 LCR Calculator + T470 NSFR Calculator"
+    chaingraph_node: "Step 2: SIM-01 LCR/NSFR Liquidity Stress Test (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: |
+      T469 + T470 consolidated into SIM-01 — combined LCR/NSFR with:
+      - Correlated stress scenarios (simultaneous LCR outflow + NSFR funding pressure)
+      - §4 execution_hash for verifiable liquidity stress artifact
+      T469 and T470 upgrade notice banners added pointing to SIM-01 and bank-capital-liquidity chain.
+
+  - source_stage: "T471 Leverage Ratio Calculator"
+    chaingraph_node: "Step 3: T471 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "(no equivalent in source)"
+    chaingraph_node: "Step 4: ART-07 Basel 3.1 Reporting Delta Calculator (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: |
+      ART-07 inserted between T471 and T472. Adds Basel 3.1 (BCBS 424/561) output floor delta,
+      BIC operational risk approach, and FRTB SA/IMA changes — not covered by source composer.
+      §4 execution_hash anchors the Basel 3.1 disclosure evidence. chain_depth: 2 (linked to SIM-03 root).
+
+  - source_stage: "T472 Pillar 3 Disclosure Builder"
+    chaingraph_node: "Step 5: T472 (terminal, original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Terminal node. Enriched by 3 upstream §4 artifacts (SIM-03, SIM-01, ART-07)."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links."
+
+  - id: "gap-02"
+    description: "T469 (standalone LCR) and T470 (standalone NSFR) not preserved as discrete chain steps. Covered by SIM-01. Users who want standalone LCR or NSFR tools link via upgrade notices."
+    severity: "minor"
+    rationale: "SIM-01 covers both LCR and NSFR simultaneously. T469 and T470 remain accessible with upgrade notices."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "T201 replaced by SIM-03 with scenario stress testing and §4 execution_hash."
+    impact: "High — hash-anchored RWA evidence for ICAAP/ILAAP submission."
+
+  - id: "imp-02"
+    description: "T469 + T470 consolidated into SIM-01 with correlated LCR/NSFR stress and §4 execution_hash."
+    impact: "High — combined liquidity stress evidence vs. two separate standalone tool outputs."
+
+  - id: "imp-03"
+    description: "ART-07 Basel 3.1 reporting delta added. Source composer had no Basel 3.1 / CRR3 output floor analysis."
+    impact: "High — essential for EU CRR3 disclosure from Jan 2025 reporting periods."
+
+  - id: "imp-04"
+    description: "Three §4 artifacts form a chain-linked evidence package (SIM-03 root → SIM-01 chain_depth:1 → ART-07 chain_depth:2)."
+    impact: "High — verifiable chain of execution hashes for regulatory submission."
+
+  - id: "imp-05"
+    description: "sessionStorage ain_lang write removed. Source composer may have written ain_lang context to sessionStorage."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/bank-capital-liquidity-composer.html
+    git add chaingraph/parity/bank-capital-liquidity-composer.parity.yaml
+    git commit -m "chore: delete bank-capital-liquidity-composer.html — fully reproduced in chains/bank-capital-liquidity.html (parity SIGNED_OFF)"
+    git push

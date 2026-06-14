@@ -1,0 +1,100 @@
+schema_version: "1.0"
+parity_id: "eudi-wallet-acceptance-composer"
+sign_off_status: PENDING_SIGNOFF
+
+source:
+  file: "guides/eudi-wallet-acceptance-composer.html"
+  type: "composer"
+  description: "4-stage AIN Bridge composer: T489 eudi-attribute-attestation-mapper → T490 eudi-kyc-flow-designer → T491 eudi-relying-party-registration-checker → T348 eidas2-eudi-wallet-relying-party-readiness-scorer"
+  stages:
+    - id: "stage-1"
+      tool_id: "T489"
+      label: "EUDI Attribute Attestation Mapper"
+    - id: "stage-2"
+      tool_id: "T490"
+      label: "EUDI KYC Flow Designer"
+    - id: "stage-3"
+      tool_id: "T491"
+      label: "EUDI Relying Party Registration Checker"
+    - id: "stage-4"
+      tool_id: "T348"
+      label: "eIDAS 2.0 EUDI Wallet Relying Party Readiness Scorer"
+
+chaingraph_equivalent:
+  file: "chaingraph/chains/eudi-wallet.html"
+  chain_id: "eudi-wallet"
+  topology: "linear"
+  wave: "B"
+  node_count: 5
+  promoted_nodes:
+    - tool_id: "art-13-eudi-wallet-credential-readiness-checker"
+      label: "ART-13 EUDI Wallet Credential-Acceptance Readiness Checker"
+      chain_depth: 1
+      section_4: true
+  nodes_ordered:
+    - "T489 — EUDI Attribute Attestation Mapper"
+    - "T490 — EUDI KYC Flow Designer"
+    - "T491 — EUDI Relying Party Registration Checker"
+    - "ART-13 — EUDI Wallet Credential-Acceptance Readiness Checker (ChainGraph §4)"
+    - "T348 — eIDAS 2.0 EUDI Wallet RP Readiness Scorer (terminal)"
+
+parity_matrix:
+  - source_stage: "T489 EUDI Attribute Attestation Mapper"
+    chaingraph_node: "Step 1: T489 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T490 EUDI KYC Flow Designer"
+    chaingraph_node: "Step 2: T490 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "T491 EUDI Relying Party Registration Checker"
+    chaingraph_node: "Step 3: T491 (original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. No sessionStorage. Tool link preserved."
+
+  - source_stage: "(no equivalent in source)"
+    chaingraph_node: "Step 4: ART-13 EUDI Wallet Credential-Acceptance Readiness Checker (ChainGraph §4)"
+    status: "IMPROVEMENT"
+    notes: "ART-13 inserted between T491 and T348. Adds technical credential-acceptance readiness check (OpenID4VP, mdoc/SD-JWT-VC, EUDIW Trusted Infrastructure certificate chain validation) missing from source composer. §4 execution_hash anchors the technical readiness evidence."
+
+  - source_stage: "T348 eIDAS 2.0 EUDI Wallet RP Readiness Scorer"
+    chaingraph_node: "Step 5: T348 (terminal, original tool link)"
+    status: "FULL_PARITY"
+    notes: "Direct equivalent. Terminal node. No sessionStorage. Consumes ART-13 §4 as upstream technical input."
+
+gaps_in_chaingraph:
+  - id: "gap-01"
+    description: "AIN Bridge postMessage prefill (ain:run events) between stages is not replicated in the chain page. ChainGraph uses standalone tool links rather than postMessage orchestration."
+    severity: "minor"
+    rationale: "ChainGraph architecture intentionally replaces composer postMessage prefill with explicit tool links."
+
+improvements_in_chaingraph:
+  - id: "imp-01"
+    description: "ART-13 credential-acceptance technical readiness check added (step 4). Source composer jumps from T491 RP registration directly to T348 overall readiness scoring, missing the credential-format and certificate-chain validation layer."
+    impact: "High — ART-13 catches OpenID4VP, mdoc, SD-JWT-VC integration failures before they surface in T348 scoring."
+
+  - id: "imp-02"
+    description: "ART-13 §4 execution_hash provides machine-verifiable technical readiness evidence."
+    impact: "High — §4 artifact is attachable to Art. 5f compliance file."
+
+  - id: "imp-03"
+    description: "sessionStorage ain_lang write removed. Source composer may have written ain_lang context to sessionStorage."
+    impact: "Medium — eliminates open violations flagged in 2026-06-13 audit."
+
+  - id: "imp-04"
+    description: "eIDAS 2.0 deadline context added (Art. 5a Dec 2026, Art. 5b early 2027, Art. 5f Dec 2027)."
+    impact: "Low — UX improvement."
+
+deletion_gate:
+  ready_to_delete: false
+  requires:
+    - "Tim sign-off on this parity YAML (sign_off_status: SIGNED_OFF)"
+  delete_command: |
+    # Run in PowerShell after Tim sign-off
+    cd C:\dev\Claude\Projects\AINumbers\repo
+    git rm guides/eudi-wallet-acceptance-composer.html
+    git add chaingraph/parity/eudi-wallet-acceptance-composer.parity.yaml
+    git commit -m "chore: delete eudi-wallet-acceptance-composer.html — fully reproduced in chains/eudi-wallet.html (parity SIGNED_OFF)"
+    git push
