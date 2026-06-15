@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with in-toto Envelopes — Integration Guide</title>
+<meta name="description" content="How to wrap OpenChainGraph v0.2 artifacts in DSSE in-toto envelopes, sign with Ed25519, verify independently, and compose with Sigstore, Cosign, and SLSA Level 2 attestation pipelines.">
+<meta property="og:title" content="OpenChainGraph + in-toto Envelope — Integration Guide">
+<meta property="og:description" content="Upgrade audit_signature from a bare hash to a self-describing DSSE in-toto envelope. payloadType, base64url payload, signatures[] — and how to verify it independently.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --radius:6px; --radius-lg:10px;
+  --accent:var(--purple); --accent-dim:var(--purple-dim); --accent-lt:#B899F7;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--purple-dim);color:var(--accent-lt);border:1px solid rgba(155,114,245,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--purple-dim);color:var(--accent-lt);border-color:rgba(155,114,245,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);background:var(--purple-dim);border:1px solid rgba(155,114,245,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}    /* key/keyword */
+.v{color:var(--gold)}        /* string value */
+.n{color:var(--green)}       /* number/URI */
+.c{color:var(--muted);font-style:italic}  /* comment */
+.p{color:var(--accent-lt)}  /* purple / in-toto specific */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-teal{border-left-color:var(--teal)}
+.callout-teal .lab{color:var(--teal)}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+
+/* ENVELOPE DIAGRAM */
+.envelope-diagram{border:1px solid var(--border-2);border-radius:var(--radius-lg);overflow:hidden;margin:1.4rem 0;max-width:800px}
+.env-field{display:flex;align-items:flex-start;gap:1rem;padding:.75rem 1.2rem;border-bottom:1px solid var(--border)}
+.env-field:last-child{border-bottom:none}
+.env-field-key{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:140px;flex-shrink:0;padding-top:.1rem}
+.env-field-val{font-size:.84rem;color:var(--body);line-height:1.6}
+.env-field-val code{font-size:.8em}
+.env-row-header{background:var(--bg-3);padding:.5rem 1.2rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--purple);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}.env-field{flex-direction:column;gap:.25rem}.env-field-key{width:auto}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.2</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">in-toto / DSSE</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.2 · Integration How-To</div>
+    <h1>Using OpenChainGraph with <em>in-toto Envelopes</em></h1>
+    <p class="hero-desc">In v0.1, <code>audit_signature</code> was a bare <code>"sha256:…"</code> string — a hash of the artifact with no metadata about what was signed, who signed it, or how to verify it. OCG v0.2 replaces this with a <strong>DSSE in-toto envelope</strong>: a self-describing structure that carries the <code>payloadType</code>, a base64url-encoded canonical payload, and a <code>signatures[]</code> array with named key IDs and Ed25519 signatures. This guide shows you exactly how the envelope is constructed, how to produce and verify it, and how it unlocks SLSA Level 2 attestation and Sigstore compatibility described in Guide #2.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <span class="guide-pill active">in-toto</span>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+    </div>
+  </div>
+</div>
+
+<!-- §1 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>Why a bare hash is insufficient for <code>audit_signature</code></h2>
+    <p>A bare string like <code>"sha256:a4c2f8e1b7d93…"</code> tells a verifier almost nothing useful. It confirms that some hash was computed at some point, but it cannot answer the fundamental questions that an auditor or counterparty must ask:</p>
+    <ul style="list-style:none;padding-left:0;margin-bottom:1rem">
+      <li style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;font-size:.88rem;color:var(--body)"><span style="color:var(--purple);flex-shrink:0;margin-top:.1rem">→</span><strong style="color:var(--text)">What exactly was signed?</strong> The hash of what input, serialized how?</li>
+      <li style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;font-size:.88rem;color:var(--body)"><span style="color:var(--purple);flex-shrink:0;margin-top:.1rem">→</span><strong style="color:var(--text)">Who signed it?</strong> Which key, from which vendor, with which algorithm?</li>
+      <li style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;font-size:.88rem;color:var(--body)"><span style="color:var(--purple);flex-shrink:0;margin-top:.1rem">→</span><strong style="color:var(--text)">Can I verify it independently?</strong> Without contacting the vendor?</li>
+      <li style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;font-size:.88rem;color:var(--body)"><span style="color:var(--purple);flex-shrink:0;margin-top:.1rem">→</span><strong style="color:var(--text)">Does it compose with standard tooling?</strong> Cosign, Sigstore, in-toto verifiers?</li>
+    </ul>
+    <p>The DSSE in-toto envelope answers all four questions in a single self-contained structure. It is the difference between a signature and an <em>attestation</em>: the envelope carries everything needed for independent verification, with no out-of-band information required.</p>
+
+    <div class="callout">
+      <div class="lab">What is DSSE?</div>
+      <p>Dead Simple Signing Envelope (DSSE) is the serialization format used by in-toto v1 attestations. It was designed as a minimal, unambiguous wrapper that avoids the pitfalls of earlier signing formats (JWS, PGP armored, etc.). The full spec is at <code>github.com/secure-systems-lab/dsse</code>. OCG v0.2 uses DSSE as the outer envelope and in-toto Statement as the inner structure — the same combination used by Sigstore's Cosign and the SLSA GitHub Generator.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §2 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>The OCG v0.2 <code>audit_signature</code> envelope structure</h2>
+    <p>The <code>audit_signature</code> field in an OCG v0.2 artifact is a DSSE in-toto envelope with three top-level keys. Here is the complete structure, annotated:</p>
+
+    <div class="envelope-diagram">
+      <div class="env-row-header">DSSE in-toto Envelope — audit_signature</div>
+      <div class="env-field">
+        <div class="env-field-key">payloadType</div>
+        <div class="env-field-val">A MIME-like string that identifies what <code>payload</code> contains. For OCG v0.2 artifacts the value is always <code>"application/vnd.openchain.graph+json"</code>. A verifier checks this first — if the <code>payloadType</code> is not recognized, it must reject the envelope rather than attempt to parse the payload blindly.</div>
+      </div>
+      <div class="env-field">
+        <div class="env-field-key">payload</div>
+        <div class="env-field-val">The canonical artifact body, base64url-encoded (RFC 4648 §5, no padding). This is the JSON object that contains all fields <em>except</em> <code>audit_signature</code> itself, with keys sorted recursively. The Ed25519 signature in <code>signatures[]</code> is computed over the DSSE Pre-Authentication Encoding (PAE) of this payload — not the raw artifact JSON. See §4 for the exact PAE construction.</div>
+      </div>
+      <div class="env-field">
+        <div class="env-field-key">signatures</div>
+        <div class="env-field-val">An array of signature objects. Each entry has two fields: <code>keyid</code> — a stable fingerprint identifying the signer's Ed25519 public key (SHA-256 of the raw 32-byte public key, hex-encoded) — and <code>sig</code> — the base64url-encoded 64-byte Ed25519 signature over the PAE. Multiple entries allow co-signing by multiple vendors or key rotation without invalidating prior signatures.</div>
+      </div>
+    </div>
+
+    <p>A complete OCG v0.2 artifact with a populated <code>audit_signature</code> envelope looks like this:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json</span>
+        <span class="code-note">OCG v0.2 artifact — full audit_signature envelope</span>
+      </div>
+      <pre>{
+  <span class="k">"@context"</span>: <span class="v">"https://openchain.graph/context/v0.2"</span>,
+  <span class="k">"tool_id"</span>: <span class="v">"var_frtb_ima_calculator_v1"</span>,
+  <span class="k">"mandate_type"</span>: <span class="v">"market_risk"</span>,
+  <span class="k">"policy_parameters"</span>: {
+    <span class="k">"confidence_level"</span>: <span class="n">0.99</span>,
+    <span class="k">"holding_period_days"</span>: <span class="n">10</span>,
+    <span class="k">"portfolio_id"</span>: <span class="v">"FX-DESK-Q3"</span>
+  },
+  <span class="k">"output_payload"</span>: {
+    <span class="k">"var_10d_99"</span>: <span class="n">2847300</span>,
+    <span class="k">"es_97_5"</span>: <span class="n">3190500</span>,
+    <span class="k">"breaches_250d"</span>: <span class="n">4</span>
+  },
+  <span class="k">"execution_hash"</span>: <span class="v">"sha256:f3a91e4b2c87d650..."</span>,
+  <span class="k">"buildType"</span>: <span class="v">"https://openchain.graph/spec/v0.2#WebCryptoSHA256"</span>,
+  <span class="k">"chain"</span>: {
+    <span class="k">"parent_hashes"</span>: [<span class="v">"sha256:a4c2f8e1b7d93..."</span>],
+    <span class="k">"depth"</span>: <span class="n">1</span>,
+    <span class="k">"chain_name"</span>: <span class="v">"q3_market_risk_review"</span>
+  },
+  <span class="k">"audit_signature"</span>: {
+    <span class="p">"payloadType"</span>: <span class="v">"application/vnd.openchain.graph+json"</span>,
+    <span class="p">"payload"</span>: <span class="v">"eyJAY29udGV4dCI6Imh0dHBzOi8vb3Bl..."</span>,  <span class="c">// base64url of canonical artifact body</span>
+    <span class="p">"signatures"</span>: [
+      {
+        <span class="p">"keyid"</span>: <span class="v">"sha256:8f3a2b1c94e7d60f5a8e..."</span>,  <span class="c">// fingerprint of signing Ed25519 pubkey</span>
+        <span class="p">"sig"</span>:   <span class="v">"ZXhhbXBsZXNpZ25hdHVyZWJ5dGVzNjQ..."</span>   <span class="c">// base64url Ed25519 sig over PAE(payloadType, payload)</span>
+      }
+    ]
+  }
+}</pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">audit_signature is excluded from the signed payload</div>
+      <p>When constructing the <code>payload</code> bytes that get signed, the <code>audit_signature</code> field itself is stripped from the artifact before serialization. This avoids a circular dependency: the signature cannot be part of what is signed. The signing procedure is: strip <code>audit_signature</code> → sort keys recursively → <code>JSON.stringify</code> → UTF-8 encode → base64url encode → PAE wrap → Ed25519 sign. The <code>execution_hash</code> field is retained in the signed payload, so the hash integrity and the signature authenticity are independently verifiable but cryptographically linked.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §3 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>What changed from v0.1</h2>
+    <p>In OCG v0.1, <code>audit_signature</code> held a bare SHA-256 hash string — identical in format to <code>execution_hash</code>. The v0.2 upgrade is a structural replacement, not a field rename. The table below shows exactly what moved and why:</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>OCG v0.1 (bare hash)</th>
+          <th>OCG v0.2 (DSSE envelope)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Type</td>
+          <td>String: <code>"sha256:…"</code></td>
+          <td>Object: <code>{ payloadType, payload, signatures[] }</code></td>
+        </tr>
+        <tr>
+          <td>What is signed?</td>
+          <td>Implicit — not declared. Verifiers had to guess.</td>
+          <td>Explicit: <code>payload</code> is the canonical artifact body, base64url-encoded</td>
+        </tr>
+        <tr>
+          <td>Signing algorithm</td>
+          <td>Not declared. Assumed SHA-256 hash, no asymmetric signature.</td>
+          <td>Ed25519 — declared via <code>keyid</code> fingerprint in <code>signatures[]</code></td>
+        </tr>
+        <tr>
+          <td>Multi-signer support</td>
+          <td>No — one hash, no key identity</td>
+          <td>Yes — <code>signatures[]</code> is an array; any entry verified by its <code>keyid</code></td>
+        </tr>
+        <tr>
+          <td>Standard compatibility</td>
+          <td>None — proprietary format</td>
+          <td>DSSE / in-toto v1 / Sigstore Cosign / SLSA Level 2</td>
+        </tr>
+        <tr>
+          <td>Independent verifiability</td>
+          <td>Requires contacting vendor to know what hash means</td>
+          <td>Self-describing: <code>payloadType</code> + <code>payload</code> + public key → verify offline</td>
+        </tr>
+        <tr>
+          <td>Key rotation</td>
+          <td>Breaks all prior signatures</td>
+          <td>Add new entry to <code>signatures[]</code>; old signatures remain valid</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-gold">
+      <div class="lab">Backwards compatibility note</div>
+      <p>OCG v0.1 artifacts with a bare string <code>audit_signature</code> remain valid OCG v0.1 artifacts. They do not satisfy OCG v0.2 conformance. Tools that must process both versions should inspect the <code>@context</code> field: <code>"https://openchain.graph/context/v0.2"</code> guarantees the envelope structure; <code>v0.1</code> does not. Do not attempt to parse a bare hash string as a DSSE envelope — treat it as an unverified legacy field.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §4 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>Pre-Authentication Encoding (PAE) — what gets signed</h2>
+    <p>Ed25519 signs a byte sequence, not a JSON object. DSSE specifies a deterministic encoding called <strong>Pre-Authentication Encoding (PAE)</strong> that constructs this byte sequence from <code>payloadType</code> and <code>payload</code>. Understanding PAE is necessary for independent verification — any verifier that re-constructs PAE incorrectly will reject valid signatures.</p>
+    <p>The PAE construction for an OCG envelope is:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">text</span>
+        <span class="code-note">PAE construction — DSSE spec (verbatim)</span>
+      </div>
+      <pre>PAE(type, body) =
+    "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(body) + SP + body
+
+Where:
+    SP     = 0x20 (ASCII space)
+    LEN(x) = ASCII decimal encoding of len(x) in bytes
+    type   = UTF-8 encoded payloadType string
+    body   = raw bytes of the base64url-decoded payload
+
+Example for an OCG artifact:
+    PAE("application/vnd.openchain.graph+json", &lt;canonical_bytes&gt;)
+    = "DSSEv1 38 application/vnd.openchain.graph+json &lt;N&gt; &lt;canonical_bytes&gt;"
+      where 38 = len("application/vnd.openchain.graph+json")
+      and N  = byte length of the canonical artifact JSON</pre>
+    </div>
+
+    <p>The Ed25519 signature in <code>signatures[].sig</code> is always over the PAE byte sequence, never over the raw JSON or the base64url-encoded string. This is a common source of implementation errors — implementations that sign the base64url string rather than the decoded bytes will produce signatures that fail DSSE-compliant verifiers.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">PAE construction in JavaScript — browser WebCrypto compatible</span>
+      </div>
+      <pre><span class="c">// Construct the PAE byte sequence from payloadType and canonical payload bytes</span>
+<span class="k">function</span> buildPae(payloadType, payloadBytes) {
+  <span class="k">const</span> enc = <span class="k">new</span> TextEncoder();
+  <span class="k">const</span> typeBytes  = enc.encode(payloadType);
+  <span class="k">const</span> typeLen    = enc.encode(String(typeBytes.length));
+  <span class="k">const</span> bodyLen    = enc.encode(String(payloadBytes.length));
+  <span class="k">const</span> prefix     = enc.encode(<span class="v">"DSSEv1 "</span>);
+  <span class="k">const</span> sp         = enc.encode(<span class="v">" "</span>);
+
+  <span class="c">// Concatenate: "DSSEv1 " + typeLen + " " + typeBytes + " " + bodyLen + " " + payloadBytes</span>
+  <span class="k">const</span> total = prefix.length + typeLen.length + 1 + typeBytes.length + 1 + bodyLen.length + 1 + payloadBytes.length;
+  <span class="k">const</span> pae = <span class="k">new</span> Uint8Array(total);
+  <span class="k">let</span> offset = <span class="n">0</span>;
+  <span class="k">for</span> (<span class="k">const</span> chunk <span class="k">of</span> [prefix, typeLen, sp, typeBytes, sp, bodyLen, sp, payloadBytes]) {
+    pae.set(chunk, offset);
+    offset += chunk.length;
+  }
+  <span class="k">return</span> pae;
+}
+
+<span class="c">// Canonical payload: artifact minus audit_signature, keys sorted, UTF-8</span>
+<span class="k">function</span> canonicalize(artifact) {
+  <span class="k">const</span> body = { ...artifact };
+  <span class="k">delete</span> body.audit_signature;
+  <span class="k">return new</span> TextEncoder().encode(sortedStringify(body));
+}
+
+<span class="k">function</span> sortedStringify(obj) {
+  <span class="k">if</span> (obj === <span class="k">null</span> || <span class="k">typeof</span> obj !== <span class="v">'object'</span> || Array.isArray(obj)) {
+    <span class="k">return</span> JSON.stringify(obj);
+  }
+  <span class="k">const</span> sorted = {};
+  <span class="k">for</span> (<span class="k">const</span> key <span class="k">of</span> Object.keys(obj).sort()) {
+    sorted[key] = JSON.parse(sortedStringify(obj[key]));
+  }
+  <span class="k">return</span> JSON.stringify(sorted);
+}</pre>
+    </div>
+
+    <div class="callout">
+      <div class="lab">Why PAE instead of signing the JSON directly?</div>
+      <p>Signing raw JSON directly is ambiguous: two JSON strings can be semantically identical but byte-different (whitespace, key order, Unicode escaping). PAE + canonical JSON removes that ambiguity: the exact byte sequence is deterministic regardless of which JSON library produced it. This is what allows any third party to independently verify an OCG signature without access to the tool that produced it.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §5 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>Producing an <code>audit_signature</code> envelope</h2>
+    <p>The following function takes a conformant OCG v0.2 artifact (without <code>audit_signature</code>) and an Ed25519 <code>CryptoKeyPair</code>, and returns the complete envelope ready to attach as <code>artifact.audit_signature</code>. This runs entirely in the browser via the WebCrypto API — no server, no dependencies.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Produce a DSSE in-toto envelope — browser WebCrypto</span>
+      </div>
+      <pre><span class="c">/**
+ * Produce a DSSE in-toto audit_signature envelope for an OCG v0.2 artifact.
+ *
+ * @param {object}    artifact  - OCG artifact object (must NOT already have audit_signature)
+ * @param {CryptoKey} privateKey - Ed25519 private key (WebCrypto CryptoKey, "sign" usage)
+ * @param {CryptoKey} publicKey  - Ed25519 public key (for keyid derivation)
+ * @returns {Promise&lt;object&gt;}   - The envelope object to assign to artifact.audit_signature
+ */</span>
+<span class="k">async function</span> produceEnvelope(artifact, privateKey, publicKey) {
+  <span class="k">const</span> PAYLOAD_TYPE = <span class="v">"application/vnd.openchain.graph+json"</span>;
+
+  <span class="c">// 1. Canonical payload bytes (artifact without audit_signature, keys sorted)</span>
+  <span class="k">const</span> payloadBytes = canonicalize(artifact);
+
+  <span class="c">// 2. base64url-encode the payload (no padding)</span>
+  <span class="k">const</span> payloadB64 = base64urlEncode(payloadBytes);
+
+  <span class="c">// 3. Construct PAE byte sequence</span>
+  <span class="k">const</span> pae = buildPae(PAYLOAD_TYPE, payloadBytes);
+
+  <span class="c">// 4. Sign PAE with Ed25519 private key</span>
+  <span class="k">const</span> sigBytes = <span class="k">new</span> Uint8Array(
+    <span class="k">await</span> crypto.subtle.sign(<span class="v">"Ed25519"</span>, privateKey, pae)
+  );
+
+  <span class="c">// 5. Derive keyid: SHA-256 of raw 32-byte public key, hex-encoded</span>
+  <span class="k">const</span> pubKeyRaw = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.exportKey(<span class="v">"raw"</span>, publicKey));
+  <span class="k">const</span> keyidHash  = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.digest(<span class="v">"SHA-256"</span>, pubKeyRaw));
+  <span class="k">const</span> keyid = <span class="v">"sha256:"</span> + Array.from(keyidHash).map(b => b.toString(<span class="n">16</span>).padStart(<span class="n">2</span>, <span class="v">"0"</span>)).join(<span class="v">""</span>);
+
+  <span class="c">// 6. Return the complete envelope</span>
+  <span class="k">return</span> {
+    payloadType: PAYLOAD_TYPE,
+    payload:    payloadB64,
+    signatures: [{
+      keyid: keyid,
+      sig:   base64urlEncode(sigBytes)
+    }]
+  };
+}
+
+<span class="c">// Utility: base64url encode (RFC 4648 §5, no padding)</span>
+<span class="k">function</span> base64urlEncode(bytes) {
+  <span class="k">return</span> btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, <span class="v">"-"</span>)
+    .replace(/\//g, <span class="v">"_"</span>)
+    .replace(/=/g, <span class="v">""</span>);
+}
+
+<span class="c">// Usage</span>
+<span class="k">const</span> keyPair = <span class="k">await</span> crypto.subtle.generateKey(
+  { name: <span class="v">"Ed25519"</span> }, <span class="k">true</span>, [<span class="v">"sign"</span>, <span class="v">"verify"</span>]
+);
+<span class="k">const</span> envelope = <span class="k">await</span> produceEnvelope(artifact, keyPair.privateKey, keyPair.publicKey);
+artifact.audit_signature = envelope;</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §6 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Verifying an <code>audit_signature</code> envelope</h2>
+    <p>Independent verification requires only the artifact and the signer's Ed25519 public key. No contact with the vendor, no network call, no server. The verification procedure is the inverse of §5: decode the payload, re-construct PAE, verify the Ed25519 signature, and confirm the decoded payload matches the artifact body.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Verify a DSSE in-toto envelope — browser WebCrypto</span>
+      </div>
+      <pre><span class="c">/**
+ * Verify the audit_signature envelope of an OCG v0.2 artifact.
+ *
+ * @param {object}    artifact  - Complete OCG artifact including audit_signature
+ * @param {CryptoKey} publicKey - Ed25519 public key of the expected signer
+ * @returns {Promise&lt;{valid: boolean, keyid: string, payloadMatch: boolean, details: object}&gt;}
+ */</span>
+<span class="k">async function</span> verifyEnvelope(artifact, publicKey) {
+  <span class="k">const</span> env = artifact.audit_signature;
+  <span class="k">if</span> (!env || !env.payloadType || !env.payload || !env.signatures?.length) {
+    <span class="k">return</span> { valid: <span class="k">false</span>, details: { error: <span class="v">"Missing or malformed envelope"</span> } };
+  }
+
+  <span class="c">// 1. Check payloadType</span>
+  <span class="k">if</span> (env.payloadType !== <span class="v">"application/vnd.openchain.graph+json"</span>) {
+    <span class="k">return</span> { valid: <span class="k">false</span>, details: { error: <span class="v">"Unexpected payloadType: "</span> + env.payloadType } };
+  }
+
+  <span class="c">// 2. Decode payload bytes from base64url</span>
+  <span class="k">const</span> payloadBytes = base64urlDecode(env.payload);
+
+  <span class="c">// 3. Reconstruct PAE</span>
+  <span class="k">const</span> pae = buildPae(env.payloadType, payloadBytes);
+
+  <span class="c">// 4. Derive expected keyid from supplied public key</span>
+  <span class="k">const</span> pubKeyRaw  = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.exportKey(<span class="v">"raw"</span>, publicKey));
+  <span class="k">const</span> keyidHash  = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.digest(<span class="v">"SHA-256"</span>, pubKeyRaw));
+  <span class="k">const</span> expectedKeyid = <span class="v">"sha256:"</span> + Array.from(keyidHash).map(b => b.toString(<span class="n">16</span>).padStart(<span class="n">2</span>, <span class="v">"0"</span>)).join(<span class="v">""</span>);
+
+  <span class="c">// 5. Find matching signature entry</span>
+  <span class="k">const</span> sigEntry = env.signatures.find(s => s.keyid === expectedKeyid);
+  <span class="k">if</span> (!sigEntry) {
+    <span class="k">return</span> { valid: <span class="k">false</span>, keyid: expectedKeyid, details: { error: <span class="v">"No signature entry matches supplied public key"</span> } };
+  }
+
+  <span class="c">// 6. Verify Ed25519 signature over PAE</span>
+  <span class="k">const</span> sigBytes = base64urlDecode(sigEntry.sig);
+  <span class="k">const</span> sigValid = <span class="k">await</span> crypto.subtle.verify(<span class="v">"Ed25519"</span>, publicKey, sigBytes, pae);
+
+  <span class="c">// 7. Confirm decoded payload matches artifact body (without audit_signature)</span>
+  <span class="k">const</span> expectedBytes  = canonicalize(artifact);
+  <span class="k">const</span> payloadMatch   = bytesEqual(payloadBytes, expectedBytes);
+
+  <span class="k">return</span> {
+    valid:        sigValid && payloadMatch,
+    keyid:        expectedKeyid,
+    payloadMatch: payloadMatch,
+    sigValid:     sigValid,
+    details: {
+      payloadLengthBytes: payloadBytes.length,
+      sigLengthBytes:     sigBytes.length
+    }
+  };
+}
+
+<span class="c">// Utility: base64url decode</span>
+<span class="k">function</span> base64urlDecode(str) {
+  <span class="k">const</span> b64 = str.replace(/-/g, <span class="v">"+"</span>).replace(/_/g, <span class="v">"/"</span>).padEnd(str.length + ((<span class="n">4</span> - str.length % <span class="n">4</span>) % <span class="n">4</span>), <span class="v">"="</span>);
+  <span class="k">return</span> Uint8Array.from(atob(b64), c => c.charCodeAt(<span class="n">0</span>));
+}
+
+<span class="k">function</span> bytesEqual(a, b) {
+  <span class="k">if</span> (a.length !== b.length) <span class="k">return false</span>;
+  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; a.length; i++) <span class="k">if</span> (a[i] !== b[i]) <span class="k">return false</span>;
+  <span class="k">return true</span>;
+}
+
+<span class="c">// Usage</span>
+<span class="k">const</span> result = <span class="k">await</span> verifyEnvelope(artifact, vendorPublicKey);
+console.log(result.valid ? <span class="v">"✓ Valid signature"</span> : <span class="v">"✗ Invalid: "</span> + JSON.stringify(result.details));</pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Two independent checks — both must pass</div>
+      <p><code>sigValid</code> and <code>payloadMatch</code> are checked separately and both must be <code>true</code> for <code>valid</code> to be <code>true</code>. A valid signature over a payload that doesn't match the artifact body indicates the envelope was produced from a different version of the artifact — a tampered or substituted artifact. A payload match with an invalid signature indicates the envelope's signing key is wrong or the artifact was re-signed after the payload was set. Both failures are significant and should be surfaced to the auditor with separate error codes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §7 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§7</div>
+    <h2>Python verification — server-side and CI pipeline use</h2>
+    <p>For server-side audit systems, compliance platforms, and CI pipelines that ingest OCG artifacts, a Python implementation of the verification procedure is provided. This uses only the standard library's <code>hashlib</code> and <code>base64</code> modules, plus <code>cryptography</code> (PyCA) for Ed25519.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">python</span>
+        <span class="code-note">DSSE envelope verification — Python (cryptography >= 41.0)</span>
+      </div>
+      <pre><span class="k">import</span> json, hashlib, base64
+<span class="k">from</span> cryptography.hazmat.primitives.asymmetric.ed25519 <span class="k">import</span> Ed25519PublicKey
+
+<span class="k">def</span> sorted_stringify(obj):
+    <span class="v">"""Deterministic canonical JSON — sort keys recursively."""</span>
+    <span class="k">if</span> <span class="k">not</span> isinstance(obj, dict):
+        <span class="k">return</span> json.dumps(obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
+    sorted_obj = {k: json.loads(sorted_stringify(obj[k])) <span class="k">for</span> k <span class="k">in</span> sorted(obj)}
+    <span class="k">return</span> json.dumps(sorted_obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
+
+<span class="k">def</span> build_pae(payload_type: str, payload_bytes: bytes) -> bytes:
+    <span class="v">"""Construct PAE(type, body) per DSSE spec."""</span>
+    t = payload_type.encode()
+    <span class="k">return</span> (
+        <span class="v">b"DSSEv1 "</span>
+        + str(len(t)).encode() + <span class="v">b" "</span> + t
+        + <span class="v">b" "</span> + str(len(payload_bytes)).encode() + <span class="v">b" "</span>
+        + payload_bytes
+    )
+
+<span class="k">def</span> verify_ocg_envelope(artifact: dict, public_key: Ed25519PublicKey) -> dict:
+    <span class="v">"""
+    Verify the audit_signature DSSE envelope of an OCG v0.2 artifact.
+    Returns dict with keys: valid, sig_valid, payload_match, keyid, error (if any).
+    """</span>
+    env = artifact.get(<span class="v">"audit_signature"</span>, {})
+    <span class="k">if not</span> env <span class="k">or</span> env.get(<span class="v">"payloadType"</span>) != <span class="v">"application/vnd.openchain.graph+json"</span>:
+        <span class="k">return</span> {<span class="v">"valid"</span>: <span class="k">False</span>, <span class="v">"error"</span>: <span class="v">"Missing or wrong payloadType"</span>}
+
+    <span class="c"># 1. Decode payload</span>
+    payload_bytes = base64.urlsafe_b64decode(env[<span class="v">"payload"</span>] + <span class="v">"=="</span>)
+
+    <span class="c"># 2. Build PAE</span>
+    pae = build_pae(env[<span class="v">"payloadType"</span>], payload_bytes)
+
+    <span class="c"># 3. Derive expected keyid from public key</span>
+    pub_raw   = public_key.public_bytes_raw()
+    keyid     = <span class="v">"sha256:"</span> + hashlib.sha256(pub_raw).hexdigest()
+
+    <span class="c"># 4. Find matching signature entry</span>
+    sig_entry = next((s <span class="k">for</span> s <span class="k">in</span> env.get(<span class="v">"signatures"</span>, []) <span class="k">if</span> s[<span class="v">"keyid"</span>] == keyid), <span class="k">None</span>)
+    <span class="k">if not</span> sig_entry:
+        <span class="k">return</span> {<span class="v">"valid"</span>: <span class="k">False</span>, <span class="v">"keyid"</span>: keyid, <span class="v">"error"</span>: <span class="v">"No matching keyid in signatures[]"</span>}
+
+    <span class="c"># 5. Verify Ed25519 signature</span>
+    sig_bytes = base64.urlsafe_b64decode(sig_entry[<span class="v">"sig"</span>] + <span class="v">"=="</span>)
+    sig_valid = <span class="k">False</span>
+    <span class="k">try</span>:
+        public_key.verify(sig_bytes, pae)
+        sig_valid = <span class="k">True</span>
+    <span class="k">except Exception</span>:
+        <span class="k">pass</span>
+
+    <span class="c"># 6. Confirm payload matches artifact body (without audit_signature)</span>
+    body = {k: v <span class="k">for</span> k, v <span class="k">in</span> artifact.items() <span class="k">if</span> k != <span class="v">"audit_signature"</span>}
+    expected_bytes = sorted_stringify(body).encode()
+    payload_match  = (payload_bytes == expected_bytes)
+
+    <span class="k">return</span> {
+        <span class="v">"valid"</span>:         sig_valid <span class="k">and</span> payload_match,
+        <span class="v">"sig_valid"</span>:     sig_valid,
+        <span class="v">"payload_match"</span>: payload_match,
+        <span class="v">"keyid"</span>:         keyid,
+    }
+
+<span class="c"># Example usage</span>
+<span class="k">import</span> json
+artifact = json.load(open(<span class="v">"artifact.json"</span>))
+<span class="c"># public_key loaded from PEM or raw bytes via cryptography library</span>
+result = verify_ocg_envelope(artifact, public_key)
+<span class="k">print</span>(<span class="v">"✓ Valid"</span> <span class="k">if</span> result[<span class="v">"valid"</span>] <span class="k">else</span> <span class="v">f"✗ Invalid: {result}"</span>)</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §8 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§8</div>
+    <h2>Multi-signer and key rotation patterns</h2>
+    <p>Because <code>signatures[]</code> is an array, the envelope natively supports two important operational patterns: <strong>co-signing</strong> and <strong>key rotation</strong>. Both are common in regulated environments where dual-control signatures or periodic key replacement are compliance requirements.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Pattern</th>
+          <th>How it works</th>
+          <th>Verification behavior</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Co-signing</td>
+          <td>Two or more signers (e.g., vendor and auditor) each produce an Ed25519 signature over the same PAE. Both entries are added to <code>signatures[]</code>, each with their own <code>keyid</code>.</td>
+          <td>Verifier checks each entry independently. A dual-control policy can require both to be valid. A threshold policy can require any N of M.</td>
+        </tr>
+        <tr>
+          <td>Key rotation</td>
+          <td>Old key is retired; new key re-signs the same payload. Both <code>signatures[]</code> entries can coexist — old keyid (for historical audit trail) and new keyid (for current trust anchor).</td>
+          <td>Verifiers holding the new public key verify the new entry. Verifiers holding the old key can still verify the old entry. No information is lost.</td>
+        </tr>
+        <tr>
+          <td>Additive signing</td>
+          <td>A downstream processor (e.g., a clearing system) adds its own signature to an artifact it has validated and is forwarding. It appends to <code>signatures[]</code> without modifying existing entries.</td>
+          <td>Each entry is independently verifiable. The original vendor signature remains valid alongside the downstream co-signature.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Adding a co-signer entry to an existing envelope</span>
+      </div>
+      <pre><span class="c">/**
+ * Add a co-signer's signature to an existing audit_signature envelope.
+ * The original signatures[] entries are preserved unchanged.
+ */</span>
+<span class="k">async function</span> coSign(artifact, coSignerPrivateKey, coSignerPublicKey) {
+  <span class="k">const</span> env = artifact.audit_signature;
+  <span class="k">if</span> (!env) <span class="k">throw new</span> Error(<span class="v">"No envelope to co-sign"</span>);
+
+  <span class="c">// Payload bytes are already encoded in the envelope — decode and re-sign</span>
+  <span class="k">const</span> payloadBytes = base64urlDecode(env.payload);
+  <span class="k">const</span> pae          = buildPae(env.payloadType, payloadBytes);
+
+  <span class="k">const</span> sigBytes = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.sign(<span class="v">"Ed25519"</span>, coSignerPrivateKey, pae));
+
+  <span class="k">const</span> pubKeyRaw = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.exportKey(<span class="v">"raw"</span>, coSignerPublicKey));
+  <span class="k">const</span> keyidHash = <span class="k">new</span> Uint8Array(<span class="k">await</span> crypto.subtle.digest(<span class="v">"SHA-256"</span>, pubKeyRaw));
+  <span class="k">const</span> keyid     = <span class="v">"sha256:"</span> + Array.from(keyidHash).map(b => b.toString(<span class="n">16</span>).padStart(<span class="n">2</span>, <span class="v">"0"</span>)).join(<span class="v">""</span>);
+
+  <span class="c">// Append — do not replace existing signatures</span>
+  env.signatures.push({ keyid, sig: base64urlEncode(sigBytes) });
+  <span class="k">return</span> artifact;
+}</pre>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">Never modify the payload when adding a co-signature</div>
+      <p>When co-signing, always re-use the <code>payload</code> already in the envelope. Do not re-canonicalize the artifact body and replace <code>payload</code>. If the payload bytes change — even by a single bit — all prior <code>signatures[]</code> entries will become invalid. The co-signer is attesting to the same artifact the original signer attested to; the shared <code>payload</code> makes that binding explicit.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §9 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§9</div>
+    <h2>Composing with Sigstore and Cosign</h2>
+    <p>The in-toto envelope format used by OCG v0.2 is identical to the format consumed by <strong>Cosign</strong> (Sigstore's signing tool) and <strong>Rekor</strong> (Sigstore's transparency log). An OCG artifact's <code>audit_signature</code> envelope can be submitted to Rekor directly — making the artifact's provenance tamper-evident and timestamped in an append-only public log.</p>
+    <p>The full end-to-end flow from artifact to Rekor entry is described in Guide #2 (buildType / SLSA, §7). What is specific to this guide is the extraction step: extracting the <code>audit_signature</code> envelope into a standalone in-toto bundle file that Cosign can consume.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Extract audit_signature as a standalone in-toto bundle (cosign-compatible)</span>
+      </div>
+      <pre><span class="c">/**
+ * Extract the audit_signature envelope as a cosign-compatible in-toto bundle.
+ * The resulting file can be passed to `cosign attest --predicate` or
+ * submitted to Rekor as a `hashedrekord` entry.
+ */</span>
+<span class="k">function</span> extractIntotoBundle(artifact) {
+  <span class="k">const</span> env = artifact.audit_signature;
+  <span class="k">if</span> (!env) <span class="k">throw new</span> Error(<span class="v">"No audit_signature envelope present"</span>);
+
+  <span class="c">// in-toto v1 Statement wrapped around the envelope</span>
+  <span class="k">return</span> {
+    <span class="p">"_type"</span>:         <span class="v">"https://in-toto.io/Statement/v1"</span>,
+    <span class="p">"predicateType"</span>: <span class="v">"application/vnd.openchain.graph+json"</span>,
+    <span class="p">"subject"</span>: [{
+      <span class="p">"name"</span>:   artifact.tool_id,
+      <span class="p">"digest"</span>: {
+        <span class="p">"sha256"</span>: artifact.execution_hash.replace(<span class="v">/^sha256:/</span>, <span class="v">""</span>)
+      }
+    }],
+    <span class="p">"predicate"</span>: {
+      <span class="k">"envelope"</span>:   env,
+      <span class="k">"buildType"</span>:  artifact.buildType,
+      <span class="k">"toolId"</span>:     artifact.tool_id,
+      <span class="k">"mandateType"</span>: artifact.mandate_type,
+      <span class="k">"chainDepth"</span>: artifact.chain?.depth ?? <span class="n">0</span>
+    }
+  };
+}
+
+<span class="c">// Write to file for cosign / Rekor submission</span>
+<span class="k">const</span> bundle  = extractIntotoBundle(artifact);
+<span class="k">const</span> bundleJSON = JSON.stringify(bundle, <span class="k">null</span>, <span class="n">2</span>);
+<span class="c">// Node: fs.writeFileSync("bundle.intoto.json", bundleJSON)
+// Browser: trigger download via Blob/createObjectURL</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">shell</span>
+        <span class="code-note">Submit OCG in-toto bundle to Rekor transparency log</span>
+      </div>
+      <pre><span class="c"># Submit the extracted bundle as a Rekor hashedrekord entry</span>
+rekor-cli upload \
+  --type intoto \
+  --artifact bundle.intoto.json \
+  --pki-format x509 \
+  --public-key cosign.pub
+
+<span class="c"># Verify via cosign</span>
+cosign verify-attestation \
+  --type intoto \
+  --certificate-identity-regexp <span class="v">".*ainumbers.co.*"</span> \
+  --rekor-url https://rekor.sigstore.dev \
+  <span class="n">"${ARTIFACT_URI}"</span>
+
+<span class="c"># Or: verify the local file directly against a known public key</span>
+cosign verify-blob \
+  --key cosign.pub \
+  --signature &lt;(jq -r '.predicate.envelope.signatures[0].sig' bundle.intoto.json | base64 -d) \
+  bundle.intoto.json</pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">SLSA Level 2 via this path</div>
+      <p>Once an OCG artifact's <code>audit_signature</code> envelope has been submitted to Rekor and the Rekor entry UUID has been recorded, the artifact satisfies SLSA Level 2: the provenance is both present (Level 1, satisfied by <code>buildType</code> + <code>execution_hash</code>) and <em>authenticated</em> — the Ed25519 signature in the envelope, verified by a third-party transparency log, constitutes authenticated provenance not controlled solely by the vendor. See Guide #2 for the full SLSA level mapping.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §10 Checklist -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§10</div>
+    <h2>Integration checklist</h2>
+    <p>Seven steps to integrate OCG v0.2 in-toto envelopes into your audit and attestation pipeline. Each is independently verifiable.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Verified by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Confirm the artifact has <code>@context</code> set to <code>"https://openchain.graph/context/v0.2"</code> — the envelope structure is only guaranteed in v0.2</td>
+          <td><code>artifact["@context"].endsWith("v0.2")</code> returns <code>true</code></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Check that <code>audit_signature</code> is an object, not a string. A string indicates a v0.1 artifact — see §3 for migration notes</td>
+          <td><code>typeof artifact.audit_signature === "object"</code></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Confirm <code>payloadType</code> is exactly <code>"application/vnd.openchain.graph+json"</code> — reject unknown types rather than attempting to parse them</td>
+          <td><code>audit_signature.payloadType === "application/vnd.openchain.graph+json"</code></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Run the verification function from §6 (JS) or §7 (Python) with the vendor's published Ed25519 public key. Both <code>sigValid</code> and <code>payloadMatch</code> must be <code>true</code></td>
+          <td><code>result.valid === true</code></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Cross-check <code>execution_hash</code> independently using the buildType procedure from Guide #2 §6. The hash must match the <code>subject[].digest.sha256</code> in your extracted in-toto bundle</td>
+          <td><code>verifyOcgArtifact(artifact).valid === true</code></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>If submitting to Rekor: extract the in-toto bundle using <code>extractIntotoBundle()</code> from §9, sign with Cosign, and record the Rekor UUID alongside the artifact in your audit log</td>
+          <td><code>rekor-cli get --uuid &lt;uuid&gt;</code> returns the entry; body matches the submitted bundle</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>For multi-signer flows (co-signing, key rotation): verify each <code>signatures[]</code> entry independently against its <code>keyid</code>. Apply your organization's threshold or dual-control policy on top of the individual signature results</td>
+          <td>Each entry with a known <code>keyid</code> returns <code>sigValid: true</code> when verified against the matching public key</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">What you don't need for verification</div>
+      <p>Independent verification of an OCG v0.2 in-toto envelope requires exactly: the artifact JSON, and the signer's Ed25519 public key. You do not need the OCG specification document, the vendor's server, a network connection, the original tool, or any OCG-specific library. The PAE construction, base64url decoding, and Ed25519 verification are all implemented in browser WebCrypto, Python's <code>cryptography</code> library, and every other major cryptographic toolkit. The envelope was designed to be verifiable by anyone, with no proprietary dependency.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="guide-buildtype.html">← Guide #2: buildType / SLSA</a>
+      <span>·</span> <a href="guide-ed25519.html">Guide #4: Ed25519 →</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer →</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec →</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

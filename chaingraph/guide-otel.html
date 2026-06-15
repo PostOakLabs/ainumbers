@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with OpenTelemetry — Integration Guide</title>
+<meta name="description" content="Map OpenChainGraph v0.2 decision chains to OpenTelemetry distributed traces. execution_hash → spanId, parent_hashes[0] → parentSpanId, root → traceId. Adapter function, Datadog/Jaeger/Grafana Tempo integration, and OTLP export — zero new infrastructure required.">
+<meta property="og:title" content="OpenChainGraph + OpenTelemetry — Integration Guide">
+<meta property="og:description" content="Map OCG v0.2 decision chains to distributed traces. One adapter function. Works with any OTel-compatible backend — Datadog, Jaeger, Grafana Tempo — via your existing collector.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+  /* Guide #5 accent: red — distinct from teal (G1), gold (G2), purple (G3), green (G4) */
+  --accent:var(--red); --accent-dim:var(--red-dim); --accent-lt:var(--red-lt);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--red-dim);color:var(--accent-lt);border:1px solid rgba(239,68,68,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--accent-lt)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--red-dim);color:var(--accent-lt);border-color:rgba(239,68,68,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);background:var(--red-dim);border:1px solid rgba(239,68,68,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}    /* key/keyword */
+.v{color:var(--gold)}        /* string value */
+.n{color:var(--green)}       /* number/boolean/value */
+.c{color:var(--muted);font-style:italic}  /* comment */
+.r{color:var(--red-lt)}      /* red / OTel-specific */
+.p{color:var(--purple)}      /* purple / resource/attribute names */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-teal{border-left-color:var(--teal)}
+.callout-teal .lab{color:var(--teal)}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+.callout-purple{border-left-color:var(--purple)}
+.callout-purple .lab{color:var(--purple)}
+.callout-green{border-left-color:var(--green)}
+.callout-green .lab{color:var(--green)}
+
+/* MAPPING DIAGRAM */
+.mapping-diagram{border:1px solid var(--border-2);border-radius:var(--radius-lg);overflow:hidden;margin:1.4rem 0;max-width:800px}
+.map-row{display:flex;align-items:flex-start;gap:0;border-bottom:1px solid var(--border)}
+.map-row:last-child{border-bottom:none}
+.map-ocg{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);width:220px;flex-shrink:0;padding:.8rem 1.2rem;border-right:1px solid var(--border);background:rgba(20,184,166,.04)}
+.map-arrow{width:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;padding:.8rem 0}
+.map-otel{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:200px;flex-shrink:0;padding:.8rem .9rem;border-right:1px solid var(--border)}
+.map-desc{font-size:.83rem;color:var(--body);line-height:1.6;padding:.8rem 1.1rem}
+.map-row-header{background:var(--bg-3);padding:.5rem 1.2rem;display:flex;gap:0;border-bottom:1px solid var(--border)}
+.map-header-col{font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.map-header-col.ocg{width:220px;flex-shrink:0}
+.map-header-col.arr{width:36px;flex-shrink:0}
+.map-header-col.otel{width:200px;flex-shrink:0}
+.map-header-col.desc{flex:1}
+
+/* TRACE DIAGRAM */
+.trace-diagram{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin:1.4rem 0;max-width:800px;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.trace-title{font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.trace-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem}
+.trace-indent-1{margin-left:1.5rem}
+.trace-indent-2{margin-left:3rem}
+.trace-indent-3{margin-left:4.5rem}
+.trace-bar{height:20px;border-radius:3px;display:flex;align-items:center;padding:0 .6rem;font-size:.65rem;white-space:nowrap;overflow:hidden}
+.trace-bar-root{background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.35);color:var(--red-lt);width:100%}
+.trace-bar-mid{background:rgba(212,168,71,.14);border:1px solid rgba(212,168,71,.3);color:var(--gold);width:75%}
+.trace-bar-mid2{background:rgba(155,114,245,.14);border:1px solid rgba(155,114,245,.3);color:#B899F7;width:60%}
+.trace-bar-leaf{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt);width:42%}
+.trace-bar-leaf2{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#4ADE80;width:36%}
+.trace-label{font-size:.65rem;color:var(--muted);white-space:nowrap;flex-shrink:0;width:160px;text-align:right}
+
+/* BACKEND GRID */
+.backend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.4rem 0;max-width:800px}
+.backend-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem}
+.backend-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--bright);margin-bottom:.35rem}
+.backend-url{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--accent-lt);margin-bottom:.55rem;word-break:break-all}
+.backend-desc{font-size:.8rem;color:var(--body);line-height:1.55}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}.mapping-diagram{overflow-x:auto}.map-row{flex-wrap:wrap}.map-ocg{width:auto;border-right:none;border-bottom:1px solid var(--border)}.map-otel{width:auto;border-right:none}.map-arrow{display:none}.backend-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.2</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">OpenTelemetry</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.2 · Integration How-To</div>
+    <h1>Using OpenChainGraph with <em>OpenTelemetry</em></h1>
+    <p class="hero-desc">Every OCG v0.2 decision chain is already a distributed trace waiting to be emitted. The <code>execution_hash</code> maps to a <code>spanId</code>, <code>parent_hashes[0]</code> maps to a <code>parentSpanId</code>, and the root artifact's hash anchors the <code>traceId</code>. This guide covers the canonical field mapping, the <code>artifactToOtelSpan()</code> adapter function, OTLP export, and how to surface full decision chains — credit scoring, risk evaluation, compliance gating, capital adequacy — as end-to-end distributed traces in Datadog, Jaeger, or Grafana Tempo. No new infrastructure required if you already run an OTel collector.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <span class="guide-pill active">OpenTelemetry</span>
+    </div>
+  </div>
+</div>
+
+<!-- §1 Why decision chains are traces -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>Why OCG decision chains are already distributed traces</h2>
+    <p>OpenTelemetry's distributed tracing model describes a <code>trace</code> as a tree of <code>spans</code>, where each span has a unique 8-byte <code>spanId</code>, an optional 8-byte <code>parentSpanId</code>, and both share a common 16-byte <code>traceId</code>. A span also carries a name, a start and end timestamp, and a set of key-value attributes describing what happened.</p>
+    <p>An OCG v0.2 decision chain has the same shape. A root artifact (say, an AP2 mandate validator) runs and produces an <code>execution_hash</code>. A downstream artifact (say, a capital adequacy assessor) declares that root hash in its <code>parent_hashes[]</code> field, establishing the parent-child relationship. A full decision chain — mandate → risk → compliance → capital — is a depth-4 span tree with a shared root hash as the trace anchor.</p>
+    <p>The mapping is not an approximation. It is structurally exact: OCG's hash-based chaining mechanism and OTel's ID-based parent linking describe identical DAGs. The <code>artifactToOtelSpan()</code> adapter (§4) is a pure conversion — no information is added or lost.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>OTel concept</th>
+          <th>OCG v0.2 equivalent</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>traceId (16 bytes)</td>
+          <td><code>execution_hash</code> of the root artifact, first 16 bytes</td>
+          <td>Same value for every span in the chain. Identifies the originating decision event.</td>
+        </tr>
+        <tr>
+          <td>spanId (8 bytes)</td>
+          <td><code>execution_hash</code> of this artifact, first 8 bytes</td>
+          <td>Unique within the trace by construction — SHA-256 collisions are not a practical concern at this key space.</td>
+        </tr>
+        <tr>
+          <td>parentSpanId (8 bytes)</td>
+          <td><code>parent_hashes[0]</code>, first 8 bytes</td>
+          <td>Omitted on root spans. If an artifact has multiple <code>parent_hashes[]</code>, <code>[0]</code> is the primary parent; siblings are carried in span attributes.</td>
+        </tr>
+        <tr>
+          <td>name</td>
+          <td><code>mandate_type</code> + <code>tool_id</code></td>
+          <td>Example: <code>"liquidity_mandate/liquidity-coverage-ratio-monitor"</code></td>
+        </tr>
+        <tr>
+          <td>startTimeUnixNano</td>
+          <td><code>generated_at</code> (ISO 8601 → nanoseconds)</td>
+          <td>OCG records generation time, not wall-clock execution start. For single-turn tools, these are equivalent.</td>
+        </tr>
+        <tr>
+          <td>endTimeUnixNano</td>
+          <td><code>generated_at</code> + estimated duration</td>
+          <td>OCG does not record execution duration. Default to <code>startTime + 1ms</code> or pass <code>duration_ms</code> as an optional attribute.</td>
+        </tr>
+        <tr>
+          <td>status</td>
+          <td>Derived from <code>compliance_flags[]</code></td>
+          <td><code>PASS</code> → <code>OK</code>; any <code>FAIL</code> → <code>ERROR</code>; all <code>PARTIAL</code> → <code>UNSET</code>.</td>
+        </tr>
+        <tr>
+          <td>attributes</td>
+          <td>All remaining OCG fields</td>
+          <td><code>tool_version</code>, <code>ap2_version</code>, <code>mandate_type</code>, <code>execution_hash</code> (full), <code>audit_signature.signatures[0].keyid</code>, etc.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-teal">
+      <div class="lab">Why first N bytes?</div>
+      <p>OTel <code>traceId</code> is exactly 16 bytes (128 bits) and <code>spanId</code> is exactly 8 bytes (64 bits), expressed as lowercase hex strings. <code>execution_hash</code> is a full SHA-256 hex string (64 hex chars = 32 bytes). Taking the first 32 hex chars (16 bytes) for <code>traceId</code> and the first 16 hex chars (8 bytes) for <code>spanId</code> is the canonical truncation — it preserves the uniqueness properties of SHA-256 at the required bit widths. The full 64-char hash is preserved in the <code>ocg.execution_hash</code> span attribute for verification purposes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §2 Canonical field mapping -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>Canonical field mapping: OCG v0.2 → OTel span</h2>
+    <p>The complete field-level mapping, used by the <code>artifactToOtelSpan()</code> function in §4. Fields in the left column are the OCG source; fields in the center are the OTel destination. Every OCG field not mapped to a standard OTel field is carried as a prefixed span attribute (<code>ocg.*</code>).</p>
+
+    <div class="mapping-diagram">
+      <div class="map-row-header">
+        <div class="map-header-col ocg">OCG v0.2 field</div>
+        <div class="map-header-col arr"></div>
+        <div class="map-header-col otel">OTel field</div>
+        <div class="map-header-col desc">Transformation</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">root.execution_hash</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">traceId</div>
+        <div class="map-desc">First 32 hex chars of the root artifact's <code>execution_hash</code>. Must be propagated from the chain root; not derivable from a single artifact in isolation.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">execution_hash</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">spanId</div>
+        <div class="map-desc">First 16 hex chars of this artifact's <code>execution_hash</code>.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">parent_hashes[0]</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">parentSpanId</div>
+        <div class="map-desc">First 16 hex chars of <code>parent_hashes[0]</code>. Omitted (root span) when <code>parent_hashes</code> is absent or empty.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">mandate_type + tool_id</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">name</div>
+        <div class="map-desc"><code>`${mandate_type}/${tool_id}`</code> — e.g. <code>"liquidity_mandate/lcr-monitor"</code>.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">generated_at</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">startTimeUnixNano</div>
+        <div class="map-desc"><code>new Date(generated_at).getTime() * 1_000_000</code> — ISO 8601 to Unix nanoseconds.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">generated_at (+ 1 ms)</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">endTimeUnixNano</div>
+        <div class="map-desc">Default offset of 1 ms. Pass optional <code>duration_ms</code> attribute to override.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">compliance_flags[]</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">status</div>
+        <div class="map-desc">Any <code>FAIL</code> → <code>{ code: 2, message: "FAIL" }</code> (ERROR). All <code>PASS</code> → <code>{ code: 1 }</code> (OK). Mixed/PARTIAL → <code>{ code: 0 }</code> (UNSET).</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">tool_id, tool_version, ap2_version, mandate_type, execution_hash (full), audit_signature.signatures[0].keyid, parent_hashes[1+]</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">attributes (ocg.*)</div>
+        <div class="map-desc">All prefixed <code>ocg.</code> — e.g. <code>ocg.tool_id</code>, <code>ocg.execution_hash</code>, <code>ocg.signer_keyid</code>, <code>ocg.secondary_parent_hashes</code>.</div>
+      </div>
+      <div class="map-row">
+        <div class="map-ocg">audit_signature.signatures[0].sig</div>
+        <div class="map-arrow">→</div>
+        <div class="map-otel">ocg.audit_sig (attribute)</div>
+        <div class="map-desc">Base64url Ed25519 signature — carried as an attribute for downstream audit. Not included in OTel security model.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §3 What a decision-chain trace looks like -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>What a decision-chain trace looks like in a backend</h2>
+    <p>A four-tool payment authorization chain — AP2 mandate validation, risk scoring, compliance gating, and capital adequacy — produces four OCG artifacts. Converted to OTel spans and emitted to a backend, they appear as a single end-to-end trace with the mandate validator at the root. This is what Datadog's trace view, Jaeger, and Grafana Tempo all render from the same span data.</p>
+
+    <div class="trace-diagram">
+      <div class="trace-title">Decision-chain trace — four OCG artifacts as OTel spans</div>
+      <div class="trace-row">
+        <div class="trace-label">root · traceId anchor</div>
+        <div class="trace-bar trace-bar-root">liquidity_mandate / ap2-mandate-chain-validator · 12ms</div>
+      </div>
+      <div class="trace-row trace-indent-1">
+        <div class="trace-label">child span</div>
+        <div class="trace-bar trace-bar-mid">risk_control / counterparty-risk-engine · 8ms</div>
+      </div>
+      <div class="trace-row trace-indent-2">
+        <div class="trace-label">grandchild</div>
+        <div class="trace-bar trace-bar-mid2">compliance_control / sanction-screen-engine · 5ms</div>
+      </div>
+      <div class="trace-row trace-indent-3">
+        <div class="trace-label">leaf</div>
+        <div class="trace-bar trace-bar-leaf">capital_assessment / capital-adequacy-ratio · 3ms</div>
+      </div>
+      <div class="trace-row trace-indent-2" style="margin-top:.2rem">
+        <div class="trace-label">grandchild (sibling)</div>
+        <div class="trace-bar trace-bar-leaf2">settlement_mandate / fx-settlement-risk-engine · 4ms</div>
+      </div>
+    </div>
+
+    <p>Each bar is a single OCG artifact. The parent-child relationships are established by matching each span's <code>parentSpanId</code> (derived from the parent artifact's <code>execution_hash</code>) to the corresponding <code>spanId</code>. The tracing backend assembles the tree — OCG provides the hash wiring; OTel provides the rendering.</p>
+
+    <div class="callout callout-gold">
+      <div class="lab">Root artifact identification</div>
+      <p>The adapter needs to know which artifact in the chain is the root in order to compute the shared <code>traceId</code>. Three approaches: (1) pass <code>rootHash</code> explicitly to <code>artifactToOtelSpan()</code>; (2) resolve it by walking <code>parent_hashes[]</code> back to an artifact with no parent; (3) use the <code>chain.root_hash</code> field if your chain serialization includes it. If <code>rootHash</code> is omitted and no parent exists, the adapter defaults to treating the current artifact as root and using its own <code>execution_hash</code> as both <code>traceId</code> and <code>spanId</code> prefix.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §4 artifactToOtelSpan() -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>The <code>artifactToOtelSpan()</code> adapter function</h2>
+    <p>The canonical JavaScript implementation. It converts a single OCG v0.2 artifact to an OTel span object in the OTLP JSON format used by the OTel Collector's HTTP receiver. The output is directly serializable to the <code>/v1/traces</code> endpoint.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">artifactToOtelSpan() — canonical OCG → OTel adapter</span>
+      </div>
+      <pre><span class="c">/**
+ * artifactToOtelSpan(artifact, options)
+ *   artifact       — a completed OCG v0.2 artifact object
+ *   options.rootHash — hex string: execution_hash of the chain root artifact
+ *                     (if omitted, this artifact is treated as root)
+ *   options.durationMs — number: override the default 1ms span duration
+ *
+ * Returns an OTLP-compatible span object for use in a ResourceSpans payload.
+ */</span>
+<span class="k">function</span> artifactToOtelSpan(artifact, options = {}) {
+  <span class="k">const</span> rootHash   = options.rootHash ?? artifact.execution_hash;
+  <span class="k">const</span> durationMs = options.durationMs ?? <span class="n">1</span>;
+  <span class="k">const</span> isRoot     = rootHash === artifact.execution_hash;
+
+  <span class="c">// Derive OTel IDs from execution hashes (hex substring truncation)</span>
+  <span class="k">const</span> traceId    = rootHash.slice(<span class="n">0</span>, <span class="n">32</span>);   <span class="c">// 16 bytes = 32 hex chars</span>
+  <span class="k">const</span> spanId     = artifact.execution_hash.slice(<span class="n">0</span>, <span class="n">16</span>);  <span class="c">// 8 bytes = 16 hex chars</span>
+  <span class="k">const</span> parentSpanId = (!isRoot && artifact.parent_hashes?.length)
+    ? artifact.parent_hashes[<span class="n">0</span>].slice(<span class="n">0</span>, <span class="n">16</span>)
+    : <span class="n">undefined</span>;
+
+  <span class="c">// Derive OTel status from compliance_flags[]</span>
+  <span class="k">const</span> flags = artifact.compliance_flags ?? [];
+  <span class="k">let</span> statusCode = <span class="n">0</span>;  <span class="c">// UNSET</span>
+  <span class="k">if</span> (flags.every(f => f.status === <span class="v">"PASS"</span>))       statusCode = <span class="n">1</span>;  <span class="c">// OK</span>
+  <span class="k">else if</span> (flags.some(f => f.status === <span class="v">"FAIL"</span>))   statusCode = <span class="n">2</span>;  <span class="c">// ERROR</span>
+
+  <span class="c">// Timestamps: nanosecond precision</span>
+  <span class="k">const</span> startNs = BigInt(new Date(artifact.generated_at).getTime()) * <span class="n">1_000_000n</span>;
+  <span class="k">const</span> endNs   = startNs + BigInt(durationMs) * <span class="n">1_000_000n</span>;
+
+  <span class="c">// Build span name from mandate_type + tool_id</span>
+  <span class="k">const</span> spanName = `${artifact.mandate_type ?? <span class="v">"unknown"</span>}/${artifact.tool_id ?? <span class="v">"unknown"</span>}`;
+
+  <span class="c">// Collect all secondary parent hashes as an attribute</span>
+  <span class="k">const</span> secondaryParents = (artifact.parent_hashes ?? []).slice(<span class="n">1</span>);
+
+  <span class="c">// Build the span object (OTLP JSON schema)</span>
+  <span class="k">const</span> span = {
+    <span class="r">traceId</span>,
+    <span class="r">spanId</span>,
+    <span class="r">name</span>: spanName,
+    <span class="r">kind</span>: <span class="n">3</span>,  <span class="c">// SPAN_KIND_CLIENT — deterministic tool invocation</span>
+    <span class="r">startTimeUnixNano</span>: startNs.toString(),
+    <span class="r">endTimeUnixNano</span>:   endNs.toString(),
+    <span class="r">status</span>: {
+      code: statusCode,
+      ...(statusCode === <span class="n">2</span> && {
+        message: flags.filter(f => f.status === <span class="v">"FAIL"</span>).map(f => f.framework).join(<span class="v">", "</span>)
+      })
+    },
+    <span class="r">attributes</span>: [
+      { key: <span class="v">"ocg.tool_id"</span>,          value: { stringValue: artifact.tool_id ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.tool_version"</span>,      value: { stringValue: artifact.tool_version ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.ap2_version"</span>,       value: { stringValue: artifact.ap2_version ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.mandate_type"</span>,      value: { stringValue: artifact.mandate_type ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.execution_hash"</span>,    value: { stringValue: artifact.execution_hash ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.generated_at"</span>,      value: { stringValue: artifact.generated_at ?? <span class="v">""</span> } },
+      { key: <span class="v">"ocg.zero_pii_verified"</span>, value: { boolValue: artifact.audit_signature?.audit_signature?.zero_pii_verified ?? <span class="n">true</span> } },
+      ...(artifact.audit_signature?.signatures?.[<span class="n">0</span>]?.keyid
+        ? [{ key: <span class="v">"ocg.signer_keyid"</span>, value: { stringValue: artifact.audit_signature.signatures[<span class="n">0</span>].keyid } }]
+        : []),
+      ...(artifact.audit_signature?.signatures?.[<span class="n">0</span>]?.sig
+        ? [{ key: <span class="v">"ocg.audit_sig"</span>,    value: { stringValue: artifact.audit_signature.signatures[<span class="n">0</span>].sig } }]
+        : []),
+      ...(secondaryParents.length
+        ? [{ key: <span class="v">"ocg.secondary_parent_hashes"</span>, value: { stringValue: secondaryParents.join(<span class="v">","</span>) } }]
+        : []),
+      ...(flags.length
+        ? [{ key: <span class="v">"ocg.compliance_flags"</span>, value: { stringValue: JSON.stringify(flags) } }]
+        : []),
+    ]
+  };
+
+  <span class="c">// Attach parentSpanId only on non-root spans</span>
+  <span class="k">if</span> (parentSpanId) span.parentSpanId = parentSpanId;
+
+  <span class="k">return</span> span;
+}
+
+<span class="c">/**
+ * chainToOtlpPayload(artifacts, options)
+ *   artifacts — array of OCG artifacts in any order; root is auto-detected
+ *   options.serviceName — string for the OTel Resource (default: "ocg-chain")
+ *   options.durationMs  — optional per-span duration override
+ *
+ * Returns a complete OTLP ResourceSpans payload, ready for POST to /v1/traces.
+ */</span>
+<span class="k">function</span> chainToOtlpPayload(artifacts, options = {}) {
+  <span class="k">const</span> serviceName = options.serviceName ?? <span class="v">"ocg-chain"</span>;
+
+  <span class="c">// Auto-detect root: artifact whose execution_hash doesn't appear in any parent_hashes[]</span>
+  <span class="k">const</span> allParentHashes = new Set(
+    artifacts.flatMap(a => a.parent_hashes ?? [])
+  );
+  <span class="k">const</span> rootArtifact = artifacts.find(a => !allParentHashes.has(a.execution_hash));
+  <span class="k">const</span> rootHash = rootArtifact?.execution_hash ?? artifacts[<span class="n">0</span>].execution_hash;
+
+  <span class="k">const</span> spans = artifacts.map(a => artifactToOtelSpan(a, { ...options, rootHash }));
+
+  <span class="k">return</span> {
+    resourceSpans: [{
+      resource: {
+        attributes: [
+          { key: <span class="v">"service.name"</span>, value: { stringValue: serviceName } },
+          { key: <span class="v">"ocg.root_hash"</span>, value: { stringValue: rootHash } },
+          { key: <span class="v">"ocg.chain_length"</span>, value: { intValue: artifacts.length } }
+        ]
+      },
+      scopeSpans: [{
+        scope: { name: <span class="v">"ocg-otel-adapter"</span>, version: <span class="v">"0.2.0"</span> },
+        spans
+      }]
+    }]
+  };
+}</pre>
+    </div>
+
+    <div class="callout">
+      <div class="lab">Span kind: CLIENT</div>
+      <p>OTel defines five span kinds: SERVER, CLIENT, PRODUCER, CONSUMER, and INTERNAL. OCG tools are modeled as CLIENT spans (kind 3) because they initiate a deterministic operation and wait for a result — analogous to an RPC call in a microservices trace. This makes OCG decision spans visually distinct from your application's server spans in Datadog and Jaeger while keeping them correctly positioned in the trace hierarchy.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §5 OTLP export -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>Exporting to an OTel Collector via OTLP/HTTP</h2>
+    <p>The OTLP/HTTP endpoint (<code>/v1/traces</code>) is the lowest-friction export path: a single <code>fetch()</code> call, no SDK required. If your environment already runs an OTel Collector — even just the default agent that forwards to Datadog, Jaeger, or Grafana Tempo — OCG spans flow through it with zero additional infrastructure.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Send a decision chain to any OTel Collector via OTLP/HTTP — no SDK required</span>
+      </div>
+      <pre><span class="c">/**
+ * exportChainToOtel(artifacts, collectorUrl, options)
+ *   artifacts    — array of completed OCG v0.2 artifact objects
+ *   collectorUrl — base URL of the OTel Collector HTTP receiver
+ *                  e.g. "http://localhost:4318" or "https://otlp.nr-data.net"
+ *   options      — passed through to chainToOtlpPayload()
+ *
+ * Returns { ok: bool, status: number, message: string }
+ */</span>
+<span class="k">async function</span> exportChainToOtel(artifacts, collectorUrl, options = {}) {
+  <span class="k">const</span> payload = chainToOtlpPayload(artifacts, options);
+  <span class="k">const</span> url     = collectorUrl.replace(<span class="v">/\/+$/</span>, <span class="v">""</span>) + <span class="v">"/v1/traces"</span>;
+
+  <span class="k">try</span> {
+    <span class="k">const</span> res = <span class="k">await</span> fetch(url, {
+      method:  <span class="v">"POST"</span>,
+      headers: {
+        <span class="v">"Content-Type"</span>: <span class="v">"application/json"</span>,
+        ...(options.headers ?? {})  <span class="c">// pass API keys / auth headers here</span>
+      },
+      body: JSON.stringify(payload)
+    });
+
+    <span class="k">if</span> (!res.ok) {
+      <span class="k">const</span> text = <span class="k">await</span> res.text().catch(() => <span class="v">""</span>);
+      <span class="k">return</span> { ok: <span class="n">false</span>, status: res.status, message: text };
+    }
+
+    <span class="k">return</span> { ok: <span class="n">true</span>, status: res.status, message: <span class="v">"Spans accepted"</span> };
+
+  } <span class="k">catch</span> (err) {
+    <span class="k">return</span> { ok: <span class="n">false</span>, status: <span class="n">0</span>, message: err.message };
+  }
+}
+
+<span class="c">// Usage — emit a 4-tool decision chain to a local collector:</span>
+<span class="k">const</span> result = <span class="k">await</span> exportChainToOtel(
+  [mandateArtifact, riskArtifact, complianceArtifact, capitalArtifact],
+  <span class="v">"http://localhost:4318"</span>,
+  { serviceName: <span class="v">"ainumbers-payment-auth"</span> }
+);
+console.log(result);  <span class="c">// { ok: true, status: 200, message: "Spans accepted" }</span></pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">OCG is zero-egress — OTel export is opt-in</div>
+      <p>OCG tools run entirely in-browser with no network calls during execution. The OTLP export call above happens <em>after</em> execution completes, triggered explicitly by the application layer — not by the tool itself. The artifacts are already computed and signed; the OTel call is an optional downstream delivery step. This means OTel export can be conditionally enabled, batched, or omitted entirely without affecting the integrity of the artifact or its <code>execution_hash</code>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §6 Backend configuration -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Backend-specific configuration: Datadog, Jaeger, Grafana Tempo</h2>
+    <p>The OTLP payload format is identical for all three backends. The only differences are the collector URL, the authentication header, and minor backend-specific attribute conventions. In each case, the existing OTel Collector in your environment handles translation — you do not need a separate OCG integration per backend.</p>
+
+    <div class="backend-grid">
+      <div class="backend-card">
+        <div class="backend-name">Datadog</div>
+        <div class="backend-url">https://http-intake.logs.datadoghq.com/api/v2/traces (via agent)</div>
+        <div class="backend-desc">Point <code>exportChainToOtel()</code> at your local Datadog Agent's OTLP receiver (<code>localhost:4318</code> by default when <code>otlp_config.receiver.protocols.http</code> is enabled in <code>datadog.yaml</code>). The agent translates OTLP to Datadog's native trace format. Decision chains appear in APM → Traces with full waterfall view. The <code>service.name</code> resource attribute sets the Datadog service. No API key needed in the <code>fetch()</code> call — authentication is the agent's responsibility.</div>
+      </div>
+      <div class="backend-card">
+        <div class="backend-name">Jaeger</div>
+        <div class="backend-url">http://jaeger-host:4318/v1/traces</div>
+        <div class="backend-desc">Jaeger 1.35+ accepts OTLP/HTTP natively. Set <code>collectorUrl</code> to your Jaeger instance's OTLP receiver port (default 4318). No authentication headers required for local/internal deployments. In Jaeger UI, filter by <code>service: ainumbers-payment-auth</code> to find the chain, then click into the root span to expand the full decision-chain waterfall. <code>ocg.*</code> attributes are searchable in the Tags panel.</div>
+      </div>
+      <div class="backend-card">
+        <div class="backend-name">Grafana Tempo</div>
+        <div class="backend-url">http://tempo-host:4318/v1/traces</div>
+        <div class="backend-desc">Tempo accepts OTLP/HTTP on port 4318. For Grafana Cloud, use the OTLP endpoint shown in your stack configuration with a Basic Auth header: <code>Authorization: Basic base64(instanceId:apiKey)</code>. Pass this via <code>options.headers</code>. In Grafana, use TraceQL to query by <code>span.ocg.mandate_type = "liquidity_mandate"</code> or filter by <code>ocg.execution_hash</code> to jump directly to a specific artifact's span.</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">yaml</span>
+        <span class="code-note">OTel Collector config — receive OCG spans and forward to multiple backends</span>
+      </div>
+      <pre><span class="c"># otel-collector-config.yaml</span>
+<span class="k">receivers</span>:
+  <span class="r">otlp</span>:
+    protocols:
+      http:
+        endpoint: <span class="v">"0.0.0.0:4318"</span>
+        cors:
+          allowed_origins: [<span class="v">"*"</span>]  <span class="c"># restrict to your domain in production</span>
+
+<span class="k">processors</span>:
+  <span class="r">batch</span>:
+    timeout: <span class="v">"5s"</span>
+    send_batch_size: <span class="n">100</span>
+  <span class="r">attributes</span>:
+    actions:
+      - key: <span class="v">"deployment.environment"</span>
+        value: <span class="v">"production"</span>
+        action: insert
+
+<span class="k">exporters</span>:
+  <span class="r">datadog</span>:
+    api:
+      key: <span class="v">"${DD_API_KEY}"</span>
+  <span class="r">jaeger</span>:
+    endpoint: <span class="v">"jaeger-collector:14250"</span>
+    tls:
+      insecure: <span class="n">true</span>
+  <span class="r">otlp/tempo</span>:
+    endpoint: <span class="v">"tempo:4317"</span>
+    tls:
+      insecure: <span class="n">true</span>
+
+<span class="k">service</span>:
+  <span class="r">pipelines</span>:
+    traces:
+      receivers:  [<span class="v">otlp</span>]
+      processors: [<span class="v">batch</span>, <span class="v">attributes</span>]
+      exporters:  [<span class="v">datadog</span>, <span class="v">jaeger</span>, <span class="v">otlp/tempo</span>]</pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="lab">CORS on the Collector receiver</div>
+      <p>Because OCG tools run in-browser, <code>exportChainToOtel()</code> is a cross-origin <code>fetch()</code> if the Collector is on a different host or port. The OTel Collector's HTTP receiver supports CORS via the <code>cors.allowed_origins</code> configuration key. In development, <code>"*"</code> is fine. In production, restrict to your application's origin. Alternatively, route through your own backend proxy to avoid CORS entirely — the proxy forwards the OTLP payload to the Collector server-side.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §7 Python verification -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§7</div>
+    <h2>Python adapter: batch export for server-side pipelines</h2>
+    <p>When OCG artifacts are generated or aggregated server-side — in a compliance pipeline, an MCP orchestrator, or a batch audit job — the Python adapter below converts an entire artifact chain to OTLP and submits it directly. Compatible with the same Collector configuration from §6.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">python</span>
+        <span class="code-note">Python OTLP export — no OTel SDK required, uses requests</span>
+      </div>
+      <pre><span class="k">import</span> json, requests
+<span class="k">from</span> datetime <span class="k">import</span> datetime, timezone
+
+<span class="k">def</span> iso_to_unix_ns(iso_str: str) -> int:
+    <span class="v">"""ISO 8601 string → Unix nanoseconds (integer)."""</span>
+    dt = datetime.fromisoformat(iso_str.replace(<span class="v">"Z"</span>, <span class="v">"+00:00"</span>))
+    <span class="k">return</span> int(dt.timestamp() * <span class="n">1e9</span>)
+
+<span class="k">def</span> artifact_to_otel_span(artifact: dict, root_hash: str, duration_ms: int = <span class="n">1</span>) -> dict:
+    <span class="v">"""Convert a single OCG v0.2 artifact to an OTLP span dict."""</span>
+    execution_hash = artifact[<span class="v">"execution_hash"</span>]
+    parent_hashes  = artifact.get(<span class="v">"parent_hashes"</span>, [])
+    is_root = (execution_hash == root_hash)
+
+    trace_id   = root_hash[:<span class="n">32</span>]
+    span_id    = execution_hash[:<span class="n">16</span>]
+    parent_id  = parent_hashes[<span class="n">0</span>][:<span class="n">16</span>] <span class="k">if</span> (not is_root <span class="k">and</span> parent_hashes) <span class="k">else</span> None
+
+    <span class="c"># Status from compliance_flags</span>
+    flags = artifact.get(<span class="v">"compliance_flags"</span>, [])
+    statuses = {f[<span class="v">"status"</span>] <span class="k">for</span> f <span class="k">in</span> flags}
+    <span class="k">if</span> <span class="v">"FAIL"</span> <span class="k">in</span> statuses:   status_code = <span class="n">2</span>
+    <span class="k">elif</span> statuses == {<span class="v">"PASS"</span>}: status_code = <span class="n">1</span>
+    <span class="k">else</span>:                      status_code = <span class="n">0</span>
+
+    start_ns = iso_to_unix_ns(artifact[<span class="v">"generated_at"</span>])
+    end_ns   = start_ns + duration_ms * <span class="n">1_000_000</span>
+
+    mandate = artifact.get(<span class="v">"mandate_type"</span>, <span class="v">"unknown"</span>)
+    tool_id = artifact.get(<span class="v">"tool_id"</span>, <span class="v">"unknown"</span>)
+
+    attrs = [
+        {<span class="v">"key"</span>: <span class="v">"ocg.tool_id"</span>,       <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: tool_id}},
+        {<span class="v">"key"</span>: <span class="v">"ocg.tool_version"</span>,   <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: artifact.get(<span class="v">"tool_version"</span>, <span class="v">""</span>)}},
+        {<span class="v">"key"</span>: <span class="v">"ocg.mandate_type"</span>,   <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: mandate}},
+        {<span class="v">"key"</span>: <span class="v">"ocg.execution_hash"</span>, <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: execution_hash}},
+        {<span class="v">"key"</span>: <span class="v">"ocg.generated_at"</span>,   <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: artifact.get(<span class="v">"generated_at"</span>, <span class="v">""</span>)}},
+    ]
+    sig_block = (artifact.get(<span class="v">"audit_signature"</span>) or {}).get(<span class="v">"signatures"</span>, [])
+    <span class="k">if</span> sig_block:
+        attrs.append({<span class="v">"key"</span>: <span class="v">"ocg.signer_keyid"</span>, <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: sig_block[<span class="n">0</span>].get(<span class="v">"keyid"</span>, <span class="v">""</span>)}})
+    <span class="k">if</span> flags:
+        attrs.append({<span class="v">"key"</span>: <span class="v">"ocg.compliance_flags"</span>, <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: json.dumps(flags)}})
+
+    span = {
+        <span class="v">"traceId"</span>:           trace_id,
+        <span class="v">"spanId"</span>:            span_id,
+        <span class="v">"name"</span>:              f<span class="v">"{mandate}/{tool_id}"</span>,
+        <span class="v">"kind"</span>:              <span class="n">3</span>,
+        <span class="v">"startTimeUnixNano"</span>: str(start_ns),
+        <span class="v">"endTimeUnixNano"</span>:   str(end_ns),
+        <span class="v">"status"</span>:            {<span class="v">"code"</span>: status_code},
+        <span class="v">"attributes"</span>:        attrs,
+    }
+    <span class="k">if</span> parent_id:
+        span[<span class="v">"parentSpanId"</span>] = parent_id
+    <span class="k">return</span> span
+
+<span class="k">def</span> export_chain_to_otel(artifacts: list, collector_url: str,
+                          service_name: str = <span class="v">"ocg-chain"</span>,
+                          duration_ms: int = <span class="n">1</span>,
+                          headers: dict = None) -> dict:
+    <span class="v">"""Convert a list of OCG artifacts and POST to an OTel Collector."""</span>
+    <span class="c"># Auto-detect root</span>
+    all_parents = {h <span class="k">for</span> a <span class="k">in</span> artifacts <span class="k">for</span> h <span class="k">in</span> a.get(<span class="v">"parent_hashes"</span>, [])}
+    root = next((a <span class="k">for</span> a <span class="k">in</span> artifacts <span class="k">if</span> a[<span class="v">"execution_hash"</span>] not <span class="k">in</span> all_parents), artifacts[<span class="n">0</span>])
+    root_hash = root[<span class="v">"execution_hash"</span>]
+
+    spans = [artifact_to_otel_span(a, root_hash, duration_ms) <span class="k">for</span> a <span class="k">in</span> artifacts]
+    payload = {
+        <span class="v">"resourceSpans"</span>: [{
+            <span class="v">"resource"</span>: {<span class="v">"attributes"</span>: [
+                {<span class="v">"key"</span>: <span class="v">"service.name"</span>,     <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: service_name}},
+                {<span class="v">"key"</span>: <span class="v">"ocg.root_hash"</span>,    <span class="v">"value"</span>: {<span class="v">"stringValue"</span>: root_hash}},
+                {<span class="v">"key"</span>: <span class="v">"ocg.chain_length"</span>, <span class="v">"value"</span>: {<span class="v">"intValue"</span>: len(artifacts)}},
+            ]},
+            <span class="v">"scopeSpans"</span>: [{
+                <span class="v">"scope"</span>: {<span class="v">"name"</span>: <span class="v">"ocg-otel-adapter"</span>, <span class="v">"version"</span>: <span class="v">"0.2.0"</span>},
+                <span class="v">"spans"</span>: spans
+            }]
+        }]
+    }
+    url = collector_url.rstrip(<span class="v">"/"</span>) + <span class="v">"/v1/traces"</span>
+    resp = requests.post(url, json=payload, headers=headers or {}, timeout=<span class="n">10</span>)
+    <span class="k">return</span> {<span class="v">"ok"</span>: resp.ok, <span class="v">"status"</span>: resp.status_code, <span class="v">"body"</span>: resp.text}
+
+<span class="c"># Usage:</span>
+<span class="c"># result = export_chain_to_otel(artifacts, "http://localhost:4318", service_name="payment-auth")</span>
+<span class="c"># assert result["ok"], result["body"]</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- §8 MCP tool exposure -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§8</div>
+    <h2>Exposing OTel export via the MCP <code>tools/call</code> endpoint</h2>
+    <p>For agentic orchestration scenarios — where an MCP agent coordinates a decision chain and wants to emit a trace automatically after the chain completes — the OTel export function can be exposed as a named MCP tool. This allows an agent to request trace emission without knowing the collector URL or payload format.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json</span>
+        <span class="code-note">MCP manifest definition for the OTel export tool</span>
+      </div>
+      <pre>{
+  <span class="k">"mcp_tool_definition"</span>: {
+    <span class="k">"name"</span>: <span class="v">"emit_ocg_otel_trace"</span>,
+    <span class="k">"description"</span>: <span class="v">"Convert a completed OCG v0.2 decision chain (array of artifacts) to OpenTelemetry spans and emit them to the configured OTel Collector. Returns the traceId and spanIds for downstream reference. Call this after a multi-tool OCG chain completes to make the full decision flow visible in Datadog, Jaeger, or Grafana Tempo."</span>,
+    <span class="k">"inputSchema"</span>: {
+      <span class="k">"type"</span>: <span class="v">"object"</span>,
+      <span class="k">"required"</span>: [<span class="v">"artifacts"</span>],
+      <span class="k">"properties"</span>: {
+        <span class="k">"artifacts"</span>: {
+          <span class="k">"type"</span>: <span class="v">"array"</span>,
+          <span class="k">"description"</span>: <span class="v">"Array of completed OCG v0.2 artifact objects. Order does not matter — root is auto-detected."</span>,
+          <span class="k">"items"</span>: { <span class="k">"type"</span>: <span class="v">"object"</span> },
+          <span class="k">"minItems"</span>: <span class="n">1</span>
+        },
+        <span class="k">"service_name"</span>: {
+          <span class="k">"type"</span>: <span class="v">"string"</span>,
+          <span class="k">"description"</span>: <span class="v">"OTel service.name resource attribute. Defaults to 'ocg-chain'."</span>,
+          <span class="k">"default"</span>: <span class="v">"ocg-chain"</span>
+        },
+        <span class="k">"duration_ms"</span>: {
+          <span class="k">"type"</span>: <span class="v">"integer"</span>,
+          <span class="k">"description"</span>: <span class="v">"Per-span duration in milliseconds. Defaults to 1."</span>,
+          <span class="k">"default"</span>: <span class="n">1</span>
+        }
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <p>When <code>tools/call</code> receives a request for <code>emit_ocg_otel_trace</code>, the MCP server invokes <code>chainToOtlpPayload()</code> with the provided artifacts, POSTs to the configured Collector URL (injected as an environment variable, not from the agent), and returns the resulting <code>traceId</code> and span count. The agent can then include the <code>traceId</code> in its own output for correlation.</p>
+
+    <div class="callout callout-green">
+      <div class="lab">Why the Collector URL is not an agent input</div>
+      <p>The OTel Collector endpoint is infrastructure configuration, not agent input. Exposing it as an agent-controllable parameter would allow an agent to redirect trace traffic to an arbitrary URL — a data-exfiltration path. The MCP server resolves the Collector URL from its own configuration (environment variable, secrets manager) and never exposes it in the <code>tools/list</code> response or the tool's <code>inputSchema</code>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §9 Sampling and filtering -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§9</div>
+    <h2>Sampling, filtering, and compliance-aware trace retention</h2>
+    <p>Not every OCG decision chain needs to be exported as a trace. High-volume environments — batch sanction screening, automated settlement validation — may generate thousands of artifacts per minute. The OTel Collector's tail sampling and attribute filtering processors let you selectively retain traces based on OCG-specific attributes without changing the adapter code.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">yaml</span>
+        <span class="code-note">Collector tail-sampling policy — retain FAIL chains and all capital assessments</span>
+      </div>
+      <pre><span class="c"># Add to the processors section of otel-collector-config.yaml</span>
+<span class="k">processors</span>:
+  <span class="r">tail_sampling</span>:
+    decision_wait: <span class="v">"10s"</span>
+    num_traces:    <span class="n">50000</span>
+    policies:
+      <span class="c"># Always retain chains with any FAIL compliance flag</span>
+      - name: <span class="v">retain-fail-chains</span>
+        type: <span class="v">string_attribute</span>
+        string_attribute:
+          key:    <span class="v">"ocg.compliance_flags"</span>
+          values: [<span class="v">"*FAIL*"</span>]
+
+      <span class="c"># Always retain capital adequacy assessment chains</span>
+      - name: <span class="v">retain-capital-chains</span>
+        type: <span class="v">string_attribute</span>
+        string_attribute:
+          key:    <span class="v">"ocg.mandate_type"</span>
+          values: [<span class="v">"capital_assessment"</span>]
+
+      <span class="c"># Sample 10% of routine liquidity_mandate chains</span>
+      - name: <span class="v">sample-liquidity-chains</span>
+        type: <span class="v">probabilistic</span>
+        probabilistic:
+          sampling_percentage: <span class="n">10</span>
+
+      <span class="c"># Drop all remaining traces (adjust as needed)</span>
+      - name: <span class="v">drop-rest</span>
+        type: <span class="v">always_off</span></pre>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">Regulatory retention vs. trace retention</div>
+      <p>OTel trace retention is for operational observability — debugging, latency profiling, alerting. It is separate from regulatory artifact retention. OCG artifacts (the signed AP2 JSON with <code>execution_hash</code> and <code>audit_signature</code>) must be retained per your compliance obligations regardless of whether a corresponding OTel trace exists. Dropping a trace from Datadog does not affect the artifact's integrity or audit trail. Keep artifact retention and trace retention policies independent.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §10 Checklist -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§10</div>
+    <h2>Integration checklist</h2>
+    <p>Seven steps to verify that your OCG-to-OTel integration is working end-to-end. Each step is independently testable against a local OTel Collector or directly against a backend.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Verified by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Run any OCG v0.2 tool and confirm the artifact has a 64-char lowercase hex <code>execution_hash</code>. This is the raw material for all OTel IDs.</td>
+          <td><code>artifact.execution_hash.length === 64 &amp;&amp; /^[0-9a-f]+$/.test(artifact.execution_hash)</code></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Call <code>artifactToOtelSpan(artifact, { rootHash: artifact.execution_hash })</code> on a single artifact. Inspect the result: <code>traceId</code> must be 32 chars, <code>spanId</code> 16 chars, no <code>parentSpanId</code> on a root.</td>
+          <td><code>span.traceId.length === 32</code>, <code>span.spanId.length === 16</code>, <code>!("parentSpanId" in span)</code></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Assemble a two-artifact chain: artifact B declares artifact A's <code>execution_hash</code> in its <code>parent_hashes[]</code>. Call <code>chainToOtlpPayload([A, B])</code>. Verify that B's <code>parentSpanId</code> equals A's <code>spanId</code>.</td>
+          <td><code>spans[1].parentSpanId === spans[0].spanId</code></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Start a local OTel Collector with the config from §6 (OTLP/HTTP on port 4318). Call <code>exportChainToOtel([A, B], "http://localhost:4318")</code>. Result must be <code>{ ok: true, status: 200 }</code>.</td>
+          <td><code>result.ok === true</code> and Collector logs show "Traces exporter: pushing spans to the queue, count=2"</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Open your backend UI (Datadog APM, Jaeger, Grafana Tempo). Search for traces with <code>service.name</code> equal to the value you passed as <code>serviceName</code>. Find the root span and confirm the child span is nested under it.</td>
+          <td>Visual: two spans visible in a parent-child waterfall with matching <code>traceId</code></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Click into the root span. Confirm that <code>ocg.execution_hash</code>, <code>ocg.mandate_type</code>, <code>ocg.tool_id</code>, and <code>ocg.signer_keyid</code> (if signed) are all present in the span attributes.</td>
+          <td>All four <code>ocg.*</code> attributes visible in the backend's span detail panel</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Introduce a FAIL into a <code>compliance_flags[]</code> entry in a test artifact. Verify that the span <code>status.code</code> is <code>2</code> (ERROR) and that the backend renders the span in error state (red in Datadog, orange in Jaeger).</td>
+          <td>Span renders as ERROR in backend UI; <code>status.message</code> contains the failing framework name</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">What you don't need for OCG trace emission</div>
+      <p>The OTel adapter described in this guide requires no OTel SDK, no auto-instrumentation agent, no OpenTelemetry API package, and no modifications to the OCG tool itself. It is a pure JSON construction and a single <code>fetch()</code> call. If you already run an OTel Collector — which most teams with Datadog, Grafana Cloud, or a managed observability platform do — OCG decision-chain tracing requires zero new infrastructure. The only new code is <code>artifactToOtelSpan()</code> and <code>chainToOtlpPayload()</code>, both of which fit in a single file under 100 lines.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="guide-ed25519.html">← Guide #4: Ed25519</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer →</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec →</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
