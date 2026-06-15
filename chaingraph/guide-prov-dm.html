@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with W3C PROV-DM — Integration Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --radius:6px; --radius-lg:10px;
+  --accent:var(--teal); --accent-dim:var(--teal-dim); --accent-lt:var(--teal-lt);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}   /* key/keyword */
+.v{color:var(--gold)}       /* string value */
+.n{color:var(--green)}      /* number/URI */
+.c{color:var(--muted);font-style:italic}  /* comment */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.2</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">W3C PROV-DM</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.2 · Integration How-To</div>
+    <h1>Using OpenChainGraph with <em>W3C PROV-DM</em></h1>
+    <p class="hero-desc">If you're already working with W3C PROV-DM — building provenance graphs, querying triple stores, or running ProvToolbox pipelines — this guide shows you exactly how OpenChainGraph artifacts fit into your existing workflow. No rearchitecting required: OCG artifacts are PROV entities by construction, and the <code>@context</code> URL makes them natively readable by any JSON-LD/PROV-aware processor.</p>
+    <div class="guide-pills">
+      <span class="guide-pill active">W3C PROV-DM</span>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+    </div>
+  </div>
+</div>
+
+<!-- §1 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>The <code>@context</code> field is the bridge</h2>
+    <p>Every OpenChainGraph v0.2 artifact includes a <code>"@context"</code> field set to <code>"https://openchain.graph/context/v0.2"</code>. This is a JSON-LD context document that maps OCG field names to their W3C PROV-DM equivalents. The implication is direct: you don't need to transform OCG artifacts before feeding them to PROV-aware tools. They are already PROV entities.</p>
+    <p>The mapping is one-to-one at the semantic level. Each OCG field corresponds to a well-defined PROV-DM term:</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>OCG Field</th>
+          <th>PROV-DM Term</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>artifact itself</td>
+          <td>prov:Entity</td>
+          <td>The artifact is a provenance entity — a thing with identity that can be derived from other things</td>
+        </tr>
+        <tr>
+          <td>tool_id</td>
+          <td>prov:wasAttributedTo</td>
+          <td>The tool that produced this artifact is the attributed agent</td>
+        </tr>
+        <tr>
+          <td>policy_parameters</td>
+          <td>prov:used</td>
+          <td>The inputs consumed during computation</td>
+        </tr>
+        <tr>
+          <td>output_payload</td>
+          <td>prov:wasGeneratedBy</td>
+          <td>The outputs produced by the computation</td>
+        </tr>
+        <tr>
+          <td>parent_hashes[]</td>
+          <td>prov:wasDerivedFrom</td>
+          <td>Each parent hash is a derivation edge — this artifact was derived from those prior artifacts</td>
+        </tr>
+        <tr>
+          <td>execution_hash</td>
+          <td>prov:hadPrimarySource</td>
+          <td>The canonical, cryptographically verifiable identifier for this entity</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Below is an annotated OCG artifact showing the PROV-DM mapping inline. The <code>@context</code> field is what enables a JSON-LD processor to resolve these mappings automatically.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json</span>
+        <span class="code-note">Annotated OCG v0.2 artifact with PROV-DM field mapping</span>
+      </div>
+      <pre>{
+  <span class="k">"@context"</span>: <span class="v">"https://openchain.graph/context/v0.2"</span>,    <span class="c">// makes this a PROV entity</span>
+  <span class="k">"tool_id"</span>: <span class="v">"detect_anomalies_v3"</span>,                       <span class="c">// prov:wasAttributedTo</span>
+  <span class="k">"mandate_type"</span>: <span class="v">"risk_control"</span>,
+  <span class="k">"policy_parameters"</span>: {                                   <span class="c">// prov:used</span>
+    <span class="k">"threshold"</span>: <span class="n">0.05</span>,
+    <span class="k">"window"</span>: <span class="v">"30d"</span>
+  },
+  <span class="k">"output_payload"</span>: {                                      <span class="c">// prov:wasGeneratedBy</span>
+    <span class="k">"anomaly_score"</span>: <span class="n">0.82</span>,
+    <span class="k">"flag"</span>: <span class="n">true</span>
+  },
+  <span class="k">"execution_hash"</span>: <span class="v">"sha256:3f9a1b2c8d7e4f0a..."</span>,          <span class="c">// prov:hadPrimarySource</span>
+  <span class="k">"chain"</span>: {
+    <span class="k">"parent_hashes"</span>: [<span class="v">"sha256:7c2e4d8f..."</span>],               <span class="c">// prov:wasDerivedFrom (one per parent)</span>
+    <span class="k">"depth"</span>: <span class="n">1</span>,
+    <span class="k">"chain_name"</span>: <span class="v">"fraud_detection_chain"</span>
+  },
+  <span class="k">"buildType"</span>: <span class="v">"https://openchain.graph/spec/v0.2#WebCryptoSHA256"</span>
+}</pre>
+    </div>
+
+    <div class="callout">
+      <div class="lab">Key point</div>
+      <p>A root artifact (depth 0) has an empty <code>parent_hashes</code> array and maps to <code>prov:Entity</code> with no <code>prov:wasDerivedFrom</code> edges — it is the provenance root. Every downstream artifact in the chain adds one or more derivation edges.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §2 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>Processing OCG artifacts as PROV entities</h2>
+    <p>Because OCG artifacts carry a JSON-LD <code>@context</code>, any JSON-LD processor can expand them into full PROV-DM triples with no custom mapping code. The <code>jsonld</code> npm package and <code>pyld</code> Python library both handle this in a single function call.</p>
+    <p>Once expanded, the output can be serialized to N-Quads and loaded directly into any RDF triple store — GraphDB, Virtuoso, Apache Jena, or an in-memory store like <code>rdflib</code>. From there, SPARQL queries traverse the chain natively.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Expand OCG artifact to PROV triples using jsonld npm package</span>
+      </div>
+      <pre><span class="k">import</span> jsonld <span class="k">from</span> <span class="v">'jsonld'</span>;
+
+<span class="k">const</span> artifact = { <span class="c">/* OCG artifact object from tool output */</span> };
+
+<span class="c">// Expand: resolves @context and returns full PROV-DM URI form</span>
+<span class="k">const</span> expanded = <span class="k">await</span> jsonld.expand(artifact);
+<span class="c">// expanded[0]['http://www.w3.org/ns/prov#wasDerivedFrom'] → parent_hashes</span>
+<span class="c">// expanded[0]['http://www.w3.org/ns/prov#hadPrimarySource'] → execution_hash</span>
+<span class="c">// expanded[0]['http://www.w3.org/ns/prov#wasAttributedTo'] → tool_id agent</span>
+
+<span class="c">// Serialize to N-Quads for import into any RDF triple store</span>
+<span class="k">const</span> nquads = <span class="k">await</span> jsonld.toRDF(artifact, { <span class="k">format</span>: <span class="v">'application/n-quads'</span> });
+<span class="c">// Now importable into GraphDB, Virtuoso, Apache Jena, or rdflib</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">python</span>
+        <span class="code-note">Expand OCG artifact to PROV triples using pyld</span>
+      </div>
+      <pre><span class="k">from</span> pyld <span class="k">import</span> jsonld
+
+artifact = { <span class="c"># OCG artifact dict loaded from JSON</span>
+    <span class="v">"@context"</span>: <span class="v">"https://openchain.graph/context/v0.2"</span>,
+    <span class="v">"tool_id"</span>: <span class="v">"detect_anomalies_v3"</span>,
+    <span class="c"># ... remaining fields</span>
+}
+
+<span class="c"># Expand to full PROV-DM URI form</span>
+expanded = jsonld.expand(artifact)
+
+<span class="c"># Serialize to N-Quads</span>
+nquads = jsonld.to_rdf(artifact, {<span class="v">'format'</span>: <span class="v">'application/nquads'</span>})
+
+<span class="c"># Load into rdflib for local querying</span>
+<span class="k">import</span> rdflib
+g = rdflib.ConjunctiveGraph()
+g.parse(data=nquads, format=<span class="v">'nquads'</span>)
+
+<span class="c"># Or POST to an Apache Jena Fuseki endpoint</span>
+<span class="k">import</span> requests
+requests.post(
+    <span class="v">'http://localhost:3030/ocg/data'</span>,
+    data=nquads,
+    headers={<span class="v">'Content-Type'</span>: <span class="v">'application/n-quads'</span>}
+)</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §3 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>SPARQL: querying the chain</h2>
+    <p>Once OCG artifacts are loaded into a triple store as PROV entities, SPARQL property paths can traverse the <code>prov:wasDerivedFrom</code> links to reconstruct the entire provenance chain from any artifact back to the root. This works because each <code>parent_hashes</code> entry becomes a separate <code>prov:wasDerivedFrom</code> triple — which SPARQL's <code>*</code> path operator traverses recursively.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">sparql</span>
+        <span class="code-note">Reconstruct full chain from a given artifact hash to root</span>
+      </div>
+      <pre><span class="k">PREFIX</span> prov: <span class="n">&lt;http://www.w3.org/ns/prov#&gt;</span>
+<span class="k">PREFIX</span> ocg:  <span class="n">&lt;https://openchain.graph/vocab/&gt;</span>
+
+<span class="k">SELECT</span> ?artifact ?parent ?depth <span class="k">WHERE</span> {
+  ?artifact prov:wasDerivedFrom* ?parent .
+  ?artifact ocg:execution_hash ?hash .
+  ?artifact ocg:chain_depth ?depth .
+  <span class="k">FILTER</span>(?hash = <span class="v">"sha256:3f9a1b2c8d7e4f0a..."</span>)
+}
+<span class="k">ORDER BY ASC</span>(?depth)</pre>
+    </div>
+
+    <div class="callout">
+      <div class="lab">Note on multi-parent artifacts</div>
+      <p>The <code>parent_hashes</code> array becomes <strong>multiple</strong> <code>prov:wasDerivedFrom</code> triples — one per parent. SPARQL traverses these naturally with property paths (<code>*</code>), so diamond-shaped provenance graphs (where two chains converge) are handled without special-casing.</p>
+    </div>
+
+    <p>A second useful query pattern is finding all artifacts produced by a specific tool — useful for auditing a tool's complete decision history across all chains:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">sparql</span>
+        <span class="code-note">Find all artifacts attributed to a specific tool</span>
+      </div>
+      <pre><span class="k">PREFIX</span> prov: <span class="n">&lt;http://www.w3.org/ns/prov#&gt;</span>
+<span class="k">PREFIX</span> ocg:  <span class="n">&lt;https://openchain.graph/vocab/&gt;</span>
+
+<span class="k">SELECT</span> ?artifact ?hash ?chain_name <span class="k">WHERE</span> {
+  ?artifact prov:wasAttributedTo ?agent .
+  ?agent ocg:tool_id <span class="v">"detect_anomalies_v3"</span> .
+  ?artifact ocg:execution_hash ?hash .
+  ?artifact ocg:chain_name ?chain_name .
+}
+<span class="k">ORDER BY DESC</span>(?chain_name)</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §4 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>Using ProvToolbox and PROV-N</h2>
+    <p>PROV-DM has a human-readable textual notation called PROV-N. If your team uses ProvToolbox (the W3C reference implementation in Java) for validation, visualization, or format conversion, OCG artifacts translate directly into PROV-N representation. Below is how a single artifact link in a chain would appear:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">prov-n</span>
+        <span class="code-note">PROV-N representation of one OCG artifact and its chain link</span>
+      </div>
+      <pre><span class="c">// Two entities: the artifact (depth 1) and its parent (depth 0)</span>
+entity(ocg:<span class="n">3f9a1b2c</span>, [prov:hadPrimarySource=<span class="v">"sha256:3f9a1b2c8d7e4f0a..."</span>])
+entity(ocg:<span class="n">7c2e4d8f</span>, [])
+
+<span class="c">// Attribution: produced by detect_anomalies_v3</span>
+wasAttributedTo(ocg:<span class="n">3f9a1b2c</span>, agent:<span class="n">detect_anomalies_v3</span>)
+
+<span class="c">// Derivation: child was derived from parent</span>
+wasDerivedFrom(ocg:<span class="n">3f9a1b2c</span>, ocg:<span class="n">7c2e4d8f</span>)
+
+<span class="c">// Activity: the computation run that consumed the parent and generated the child</span>
+used(run:<span class="n">r1</span>, ocg:<span class="n">7c2e4d8f</span>)
+wasGeneratedBy(ocg:<span class="n">3f9a1b2c</span>, run:<span class="n">r1</span>)</pre>
+    </div>
+
+    <p>ProvToolbox's Java library (<code>org.openprovenance.prov</code>) supports round-tripping between PROV-N, PROV-JSON, PROV-XML, and RDF. Use it to validate your OCG artifact graphs against PROV constraints before storing them in a compliance archive.</p>
+
+    <div class="callout callout-gold">
+      <div class="lab">Activity nodes</div>
+      <p>OCG does not require <code>prov:Activity</code> records — the tool itself acts as both Activity and Agent in the simplified model. If your PROV schema requires explicit Activity nodes, add synthetic <code>run:r1</code> activity nodes keyed on <code>(tool_id, execution_hash)</code> — these are stable, deterministic identifiers that won't conflict across runs.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §5 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>Verifying the chain using PROV constraints</h2>
+    <p>W3C PROV-CONSTRAINTS (a W3C Recommendation) defines formal validity rules for provenance graphs. OCG's directed acyclic graph (DAG) structure is always a valid PROV derivation graph by construction — the spec enforces this through the depth rule.</p>
+    <p>The key OCG invariant that maps to PROV's acyclicity requirement is:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">text</span>
+        <span class="code-note">OCG depth invariant (enforced by all conformant tools)</span>
+      </div>
+      <pre>depth(artifact) = max(depth(parent) for parent in parent_hashes) + 1
+
+Root artifact:  depth = 0,  parent_hashes = []
+Child artifact: depth = 1,  parent_hashes = [root.execution_hash]
+Grandchild:     depth = 2,  parent_hashes = [child.execution_hash]
+
+Consequence: no artifact can reference a descendant as a parent.
+This is structurally equivalent to PROV's acyclicity constraint.</pre>
+    </div>
+
+    <p>When validating OCG artifact graphs with a PROV-CONSTRAINTS validator (e.g., via ProvToolbox or the W3C online validator), the following constraints are automatically satisfied:</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>PROV Constraint</th>
+          <th>OCG Guarantee</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Acyclicity</td>
+          <td>Depth monotonicity: child depth always strictly exceeds parent depth</td>
+        </tr>
+        <tr>
+          <td>Entity identity</td>
+          <td><code>execution_hash</code> is a globally unique, content-addressed identifier — no two different computations can produce the same hash</td>
+        </tr>
+        <tr>
+          <td>Attribution completeness</td>
+          <td><code>tool_id</code> is always present; every entity has exactly one attributed agent</td>
+        </tr>
+        <tr>
+          <td>Generation uniqueness</td>
+          <td>Each artifact is generated by exactly one computation (its own tool execution); the hash encodes both inputs and outputs</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">Verification procedure</div>
+      <p>Any party can independently verify an OCG artifact's integrity: re-sort the <code>policy_parameters</code> and <code>output_payload</code> keys recursively, serialize with <code>JSON.stringify</code>, compute SHA-256 via <code>crypto.subtle.digest</code>, and compare to <code>execution_hash</code>. This is the same check ProvToolbox's validator would run against <code>prov:hadPrimarySource</code>. No trusted third party is required.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §6 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Integration checklist</h2>
+    <p>Five steps to integrate OpenChainGraph artifacts into an existing W3C PROV-DM toolchain. Each step can be verified independently before proceeding.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Verified by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Confirm tool emits v0.2 artifacts with <code>@context</code> field set to <code>https://openchain.graph/context/v0.2</code></td>
+          <td>JSON schema validation — check <code>@context</code> key presence and exact URI value</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Load artifacts into a JSON-LD processor (<code>jsonld.expand()</code> or <code>pyld.expand()</code>)</td>
+          <td><code>jsonld.expand()</code> returns objects with <code>prov:</code> URIs as keys — confirm <code>wasDerivedFrom</code> and <code>hadPrimarySource</code> appear</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Import N-Quads into your triple store (GraphDB, Virtuoso, Jena, rdflib)</td>
+          <td>SPARQL <code>SELECT COUNT(*) WHERE { ?s ?p ?o }</code> returns expected artifact count</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Run <code>prov:wasDerivedFrom*</code> property path query to traverse chain</td>
+          <td>Chain reconstruction query (§3) returns all ancestors down to depth 0 root</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Optional: export PROV-N via ProvToolbox for human-readable audit trail</td>
+          <td>ProvToolbox <code>provconvert</code> validate command exits cleanly with no constraint violations</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-gold">
+      <div class="lab">What you don't need to do</div>
+      <p>You do <strong>not</strong> need to build a custom OCG-to-PROV mapper, define new SPARQL ontology predicates, or restructure your existing provenance graph. OCG artifacts drop in as additional PROV entities alongside whatever your existing tools already emit. The <code>@context</code> handles semantic alignment automatically.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec →</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer →</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
