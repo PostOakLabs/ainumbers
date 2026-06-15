@@ -186,7 +186,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       <div class="env-row-header">DSSE in-toto Envelope — audit_signature</div>
       <div class="env-field">
         <div class="env-field-key">payloadType</div>
-        <div class="env-field-val">A MIME-like string that identifies what <code>payload</code> contains. For OCG v0.2 artifacts the value is always <code>"application/vnd.openchain.graph+json"</code>. A verifier checks this first — if the <code>payloadType</code> is not recognized, it must reject the envelope rather than attempt to parse the payload blindly.</div>
+        <div class="env-field-val">A MIME-like string that identifies what <code>payload</code> contains. For OCG v0.2 artifacts the value is always <code>"application/vnd.openchain.graph+json;version=0.2"</code>. A verifier checks this first — if the <code>payloadType</code> is not recognized, it must reject the envelope rather than attempt to parse the payload blindly.</div>
       </div>
       <div class="env-field">
         <div class="env-field-key">payload</div>
@@ -227,7 +227,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
     <span class="k">"chain_name"</span>: <span class="v">"q3_market_risk_review"</span>
   },
   <span class="k">"audit_signature"</span>: {
-    <span class="p">"payloadType"</span>: <span class="v">"application/vnd.openchain.graph+json"</span>,
+    <span class="p">"payloadType"</span>: <span class="v">"application/vnd.openchain.graph+json;version=0.2"</span>,
     <span class="p">"payload"</span>: <span class="v">"eyJAY29udGV4dCI6Imh0dHBzOi8vb3Bl..."</span>,  <span class="c">// base64url of canonical artifact body</span>
     <span class="p">"signatures"</span>: [
       {
@@ -330,9 +330,9 @@ Where:
     body   = raw bytes of the base64url-decoded payload
 
 Example for an OCG artifact:
-    PAE("application/vnd.openchain.graph+json", &lt;canonical_bytes&gt;)
-    = "DSSEv1 38 application/vnd.openchain.graph+json &lt;N&gt; &lt;canonical_bytes&gt;"
-      where 38 = len("application/vnd.openchain.graph+json")
+    PAE("application/vnd.openchain.graph+json;version=0.2", &lt;canonical_bytes&gt;)
+    = "DSSEv1 46 application/vnd.openchain.graph+json;version=0.2 &lt;N&gt; &lt;canonical_bytes&gt;"
+      where 46 = len("application/vnd.openchain.graph+json;version=0.2")
       and N  = byte length of the canonical artifact JSON</pre>
     </div>
 
@@ -410,7 +410,7 @@ Example for an OCG artifact:
  * @returns {Promise&lt;object&gt;}   - The envelope object to assign to artifact.audit_signature
  */</span>
 <span class="k">async function</span> produceEnvelope(artifact, privateKey, publicKey) {
-  <span class="k">const</span> PAYLOAD_TYPE = <span class="v">"application/vnd.openchain.graph+json"</span>;
+  <span class="k">const</span> PAYLOAD_TYPE = <span class="v">"application/vnd.openchain.graph+json;version=0.2"</span>;
 
   <span class="c">// 1. Canonical payload bytes (artifact without audit_signature, keys sorted)</span>
   <span class="k">const</span> payloadBytes = canonicalize(artifact);
@@ -486,7 +486,7 @@ artifact.audit_signature = envelope;</pre>
   }
 
   <span class="c">// 1. Check payloadType</span>
-  <span class="k">if</span> (env.payloadType !== <span class="v">"application/vnd.openchain.graph+json"</span>) {
+  <span class="k">if</span> (env.payloadType !== <span class="v">"application/vnd.openchain.graph+json;version=0.2"</span>) {
     <span class="k">return</span> { valid: <span class="k">false</span>, details: { error: <span class="v">"Unexpected payloadType: "</span> + env.payloadType } };
   }
 
@@ -589,7 +589,7 @@ console.log(result.valid ? <span class="v">"✓ Valid signature"</span> : <span 
     Returns dict with keys: valid, sig_valid, payload_match, keyid, error (if any).
     """</span>
     env = artifact.get(<span class="v">"audit_signature"</span>, {})
-    <span class="k">if not</span> env <span class="k">or</span> env.get(<span class="v">"payloadType"</span>) != <span class="v">"application/vnd.openchain.graph+json"</span>:
+    <span class="k">if not</span> env <span class="k">or</span> env.get(<span class="v">"payloadType"</span>) != <span class="v">"application/vnd.openchain.graph+json;version=0.2"</span>:
         <span class="k">return</span> {<span class="v">"valid"</span>: <span class="k">False</span>, <span class="v">"error"</span>: <span class="v">"Missing or wrong payloadType"</span>}
 
     <span class="c"># 1. Decode payload</span>
@@ -733,7 +733,7 @@ result = verify_ocg_envelope(artifact, public_key)
   <span class="c">// in-toto v1 Statement wrapped around the envelope</span>
   <span class="k">return</span> {
     <span class="p">"_type"</span>:         <span class="v">"https://in-toto.io/Statement/v1"</span>,
-    <span class="p">"predicateType"</span>: <span class="v">"application/vnd.openchain.graph+json"</span>,
+    <span class="p">"predicateType"</span>: <span class="v">"application/vnd.openchain.graph+json;version=0.2"</span>,
     <span class="p">"subject"</span>: [{
       <span class="p">"name"</span>:   artifact.tool_id,
       <span class="p">"digest"</span>: {
@@ -818,8 +818,8 @@ cosign verify-blob \
         </tr>
         <tr>
           <td>3</td>
-          <td>Confirm <code>payloadType</code> is exactly <code>"application/vnd.openchain.graph+json"</code> — reject unknown types rather than attempting to parse them</td>
-          <td><code>audit_signature.payloadType === "application/vnd.openchain.graph+json"</code></td>
+          <td>Confirm <code>payloadType</code> is exactly <code>"application/vnd.openchain.graph+json;version=0.2"</code> — reject unknown types rather than attempting to parse them</td>
+          <td><code>audit_signature.payloadType === "application/vnd.openchain.graph+json;version=0.2"</code></td>
         </tr>
         <tr>
           <td>4</td>
