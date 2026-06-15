@@ -1003,6 +1003,9 @@ Any downstream LLM narrative citing this hash is traceable to this computation.`
     // Build the PTG-01 OpenChainGraph artifact
     const now = new Date().toISOString();
     _state.artifact = {
+      '@context': 'https://openchain.graph/spec/v0.2/context.jsonld',
+      chaingraph_version: '0.2.0',
+      buildType: 'https://openchain.graph/spec/v0.2#WebCryptoSHA256',
       ap2_version: '1.0.0',
       mandate_type: 'prompt_template',
       tool_id: 'ptg-01-ap2-prompt-template-generator',
@@ -1030,9 +1033,9 @@ Any downstream LLM narrative citing this hash is traceable to this computation.`
       },
       compliance_flags: [],
       audit_signature: {
-        client_side_executed: true,
-        zero_pii_verified: true,
-        deterministic_run: true
+        payloadType: 'application/vnd.openchain.graph+json;version=0.2',
+        payload: '',
+        signatures: []
       }
     };
 
@@ -1106,7 +1109,8 @@ function validateAP2(artifact) {
   const required = ['ap2_version','mandate_type','tool_id','tool_version','generated_at','execution_hash','chain','policy_parameters','output_payload','audit_signature'];
   const missing = required.filter(k => !(k in artifact));
   if (missing.length) return {ok:false, errors:[`Missing fields: ${missing.join(', ')}`]};
-  if (!artifact.audit_signature?.client_side_executed) return {ok:false, errors:['audit_signature.client_side_executed must be true']};
+  // v0.2: accept legacy client_side_executed flag OR new in-toto envelope
+  if (!artifact.audit_signature?.client_side_executed && !artifact.audit_signature?.payloadType) return {ok:false, errors:['audit_signature must be set (v0.1 flag or v0.2 in-toto envelope)']};
   return {ok:true, errors:[]};
 }
 
