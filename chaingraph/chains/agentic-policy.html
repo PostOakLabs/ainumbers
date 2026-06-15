@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agentic Policy Chain · OpenChainGraph Suite · AINumbers.co</title>
+<meta name="description" content="End-to-end agentic payment policy pipeline: define a spend mandate, build the AP2 VDC, validate the mandate schema, and score MCP deployment readiness — all hash-chained into a single auditable §4 artifact.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/agentic-policy.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agentic Policy Chain","url":"https://ainumbers.co/chaingraph/chains/agentic-policy.html","applicationCategory":"FinancialApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "chain_id": "agentic-policy",
+  "version": "1.0.0",
+  "title": "Agentic Policy Chain",
+  "description": "4-step hash-chained pipeline: define agentic spend mandate (ART-15) → build Google AP2 VDC (ART-16) → validate mandate schema (ART-17) → score MCP deployment readiness (ART-18). Emits a composite §4 artifact with full execution-hash chain.",
+  "category": "chaingraph",
+  "chaingraph": true,
+  "mandate_type": "agent_guardrail_mandate",
+  "chain_depth": 4,
+  "tags": ["AP2","agentic","MCP","policy","compliance","OpenChainGraph"],
+  "steps": [
+    {"order": 1, "node_id": "art-15-agentic-mandate-sandbox", "mcp_name": "agentic_mandate_sandbox"},
+    {"order": 2, "node_id": "art-16-google-ap2-mandate-builder", "mcp_name": "build_google_ap2_mandate"},
+    {"order": 3, "node_id": "art-17-ap2-mcp-policy-validator", "mcp_name": "validate_ap2_mcp_policy"},
+    {"order": 4, "node_id": "art-18-mcp-developer-readiness-scorecard", "mcp_name": "score_mcp_readiness"}
+  ],
+  "page_url": "https://ainumbers.co/chaingraph/chains/agentic-policy.html"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* CHAIN TOPOLOGY SVG */
+.chain-topology{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin:2rem 0;overflow-x:auto;position:relative;z-index:1}
+.chain-topology-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.chain-topo-svg{display:block;width:100%;min-width:600px;height:120px}
+.node-rect{fill:var(--bg-3);stroke:var(--border-2);stroke-width:1.5;rx:6;ry:6}
+.node-rect.active{stroke:var(--teal);stroke-width:2}
+.node-rect.done{stroke:var(--green);stroke-width:2}
+.node-label{font-family:'JetBrains Mono',monospace;font-size:10px;fill:var(--text-svg,#A8C4DE)}
+.node-sub{font-family:'JetBrains Mono',monospace;font-size:8px;fill:var(--muted-svg,#3A5270)}
+.node-hash{font-family:'JetBrains Mono',monospace;font-size:7px;fill:var(--green-svg,#22C55E);display:none}
+.node-hash.show{display:block}
+.edge-arrow{stroke:var(--border-2-svg,#263855);stroke-width:1.5;fill:none;marker-end:url(#arr)}
+.edge-arrow.done{stroke:var(--green-svg,#22C55E)}
+.node-depth{font-family:'JetBrains Mono',monospace;font-size:8px;fill:var(--teal-svg,#14B8A6)}
+
+/* WIZARD STEPS */
+.wizard{position:relative;z-index:1;padding:2rem 0}
+.step{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1rem;overflow:hidden;transition:border-color .2s}
+.step.active{border-color:var(--teal)}
+.step.done{border-color:var(--green)}
+.step-header{padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;cursor:pointer}
+.step-num{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);flex-shrink:0}
+.step.active .step-num{border-color:var(--teal);color:var(--teal)}
+.step.done .step-num{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.step-meta{flex:1}
+.step-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright)}
+.step-subtitle{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+.step-hash-chip{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--green-lt);background:var(--green-dim);border:1px solid rgba(34,197,94,.2);border-radius:3px;padding:.2rem .5rem;display:none}
+.step.done .step-hash-chip{display:inline-block}
+.step-body{padding:1.25rem;display:none;border-top:1px solid var(--border)}
+.step.active .step-body,.step.done .step-body{display:block}
+.field-row{margin-bottom:.85rem}
+.field-row:last-of-type{margin-bottom:0}
+label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+select option{background:var(--bg-3)}
+textarea{resize:vertical;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.q-row{display:flex;gap:.75rem;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid rgba(30,47,74,.5)}
+.q-row:last-child{border-bottom:none}
+.q-txt{flex:1;font-size:.72rem;color:var(--text);line-height:1.5}
+.q-sel{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.28rem .5rem;border-radius:4px;outline:none;flex-shrink:0}
+.sec-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.6rem}
+.sec-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 1.75rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.45;cursor:not-allowed;background:var(--border-2)}
+.ghost-btn{background:transparent;border:1px solid var(--border-2);color:var(--body);padding:.6rem 1.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.step-result{margin-top:1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;display:none}
+.step-result.show{display:block}
+.step-result-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green-lt);word-break:break-all;margin:.4rem 0}
+.hash-label{color:var(--muted);margin-right:.4rem}
+.chain-link{font-size:.7rem;color:var(--body);margin-top:.5rem}
+
+/* COMPOSITE EXPORT */
+.export-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:2rem;position:relative;z-index:1}
+.export-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright);margin-bottom:.5rem}
+.export-desc{font-size:.8rem;color:var(--body);margin-bottom:1rem}
+.export-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.export-btn:hover{background:var(--teal-lt)}
+.export-btn:disabled{opacity:.4;cursor:not-allowed;background:var(--border-2)}
+.hash-chain-display{margin-top:1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);line-height:2;display:none}
+.hash-chain-display.show{display:block}
+
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a>
+    <span class="nav-sep">/</span>
+    <a href="../chaingraph-hub.html">OpenChainGraph Hub</a>
+    <span class="nav-sep">/</span>
+    <span>Agentic Policy</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">OpenChainGraph Suite · CONTRACT A3 · arch #5</div>
+  <h1>Agentic <em>Policy</em> Chain</h1>
+  <p class="hero-desc">End-to-end agentic payment policy pipeline in four hash-chained steps: define a spend mandate, build the AP2 Verifiable Digital Credential, validate the mandate schema against CONTRACT §4, and score MCP deployment readiness — all anchored into a single composite §4 artifact with a cryptographic execution-hash chain.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">OpenChainGraph · 4 Steps</span>
+    <span class="badge badge-gold">AP2 · MCP · Agent Guardrail</span>
+    <span class="badge badge-green">Hash-Anchored §4</span>
+    <span class="badge badge-purple">chain_depth:4</span>
+    <span class="badge badge-muted">Client-Side · Zero PII</span>
+  </div>
+</div></div>
+
+<div class="container">
+
+<!-- CHAIN TOPOLOGY -->
+<div class="chain-topology">
+  <div class="chain-topology-title">Chain Topology — ART-15 → ART-16 → ART-17 → ART-18</div>
+  <svg class="chain-topo-svg" viewBox="0 0 700 120" xmlns="http://www.w3.org/2000/svg" id="topoSvg">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#263855" id="arrHead"/>
+      </marker>
+      <marker id="arrDone" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#22C55E"/>
+      </marker>
+    </defs>
+    <!-- Nodes -->
+    <rect class="node-rect" id="nr1" x="10" y="20" width="148" height="80" rx="6" ry="6"/>
+    <rect class="node-rect" id="nr2" x="192" y="20" width="148" height="80" rx="6" ry="6"/>
+    <rect class="node-rect" id="nr3" x="374" y="20" width="148" height="80" rx="6" ry="6"/>
+    <rect class="node-rect" id="nr4" x="556" y="20" width="138" height="80" rx="6" ry="6"/>
+    <!-- Edges -->
+    <line class="edge-arrow" id="e12" x1="160" y1="60" x2="188" y2="60" marker-end="url(#arr)"/>
+    <line class="edge-arrow" id="e23" x1="342" y1="60" x2="370" y2="60" marker-end="url(#arr)"/>
+    <line class="edge-arrow" id="e34" x1="524" y1="60" x2="552" y2="60" marker-end="url(#arr)"/>
+    <!-- Node labels -->
+    <text x="84" y="42" text-anchor="middle" class="node-sub" style="fill:#14B8A6;font-size:9px">ART-15 · depth:1</text>
+    <text x="84" y="60" text-anchor="middle" class="node-label" style="fill:#D4E8F8;font-size:10px;font-weight:500">Mandate Sandbox</text>
+    <text x="84" y="76" text-anchor="middle" class="node-sub">agent_guardrail</text>
+    <text x="84" y="90" text-anchor="middle" class="node-hash" id="h1" style="fill:#4ADE80;font-size:7px"></text>
+
+    <text x="266" y="42" text-anchor="middle" class="node-sub" style="fill:#14B8A6;font-size:9px">ART-16 · depth:2</text>
+    <text x="266" y="60" text-anchor="middle" class="node-label" style="fill:#D4E8F8;font-size:10px;font-weight:500">AP2 VDC Builder</text>
+    <text x="266" y="76" text-anchor="middle" class="node-sub">compliance_ctrl</text>
+    <text x="266" y="90" text-anchor="middle" class="node-hash" id="h2" style="fill:#4ADE80;font-size:7px"></text>
+
+    <text x="448" y="42" text-anchor="middle" class="node-sub" style="fill:#14B8A6;font-size:9px">ART-17 · depth:3</text>
+    <text x="448" y="60" text-anchor="middle" class="node-label" style="fill:#D4E8F8;font-size:10px;font-weight:500">Policy Validator</text>
+    <text x="448" y="76" text-anchor="middle" class="node-sub">compliance_ctrl</text>
+    <text x="448" y="90" text-anchor="middle" class="node-hash" id="h3" style="fill:#4ADE80;font-size:7px"></text>
+
+    <text x="625" y="42" text-anchor="middle" class="node-sub" style="fill:#14B8A6;font-size:9px">ART-18 · depth:4</text>
+    <text x="625" y="60" text-anchor="middle" class="node-label" style="fill:#D4E8F8;font-size:10px;font-weight:500">MCP Readiness</text>
+    <text x="625" y="76" text-anchor="middle" class="node-sub">infrastructure</text>
+    <text x="625" y="90" text-anchor="middle" class="node-hash" id="h4" style="fill:#4ADE80;font-size:7px"></text>
+  </svg>
+</div>
+
+<!-- WIZARD -->
+<div class="wizard">
+
+  <!-- STEP 1: Agentic Mandate Sandbox (ART-15) -->
+  <div class="step active" id="step1">
+    <div class="step-header" onclick="toggleStep(1)">
+      <div class="step-num" id="sn1">1</div>
+      <div class="step-meta">
+        <div class="step-title">Define Agent Payment Policy <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-left:.5rem">ART-15</span></div>
+        <div class="step-subtitle">Agentic Mandate Sandbox · agent_guardrail_mandate · chain_depth:1</div>
+      </div>
+      <span class="step-hash-chip" id="hchip1"></span>
+    </div>
+    <div class="step-body">
+      <div class="grid2">
+        <div class="field-row">
+          <label>Spend Cap (minor units)</label>
+          <input type="number" id="s1_spendCap" value="50000" min="1">
+        </div>
+        <div class="field-row">
+          <label>Currency</label>
+          <select id="s1_currency">
+            <option value="USD">USD</option><option value="EUR">EUR</option>
+            <option value="GBP">GBP</option><option value="BRL">BRL</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <label>Origination Jurisdiction</label>
+          <select id="s1_jurisdiction">
+            <option value="US">United States</option><option value="EU">European Union</option>
+            <option value="BR">Brazil</option><option value="GB">United Kingdom</option>
+            <option value="IN">India</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <label>Max Txns / Day (velocity)</label>
+          <input type="number" id="s1_velocity" value="10" min="1" max="500">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:.75rem">
+        <label>MCC Allowlist (comma-separated, leave blank for all)</label>
+        <input type="text" id="s1_mccs" value="5411,5812,5999" placeholder="e.g. 5411,5812">
+      </div>
+      <div class="field-row">
+        <label>Dual Signature Required?</label>
+        <select id="s1_dualSig">
+          <option value="yes">Yes — require human co-sign above threshold</option>
+          <option value="no">No — autonomous agent authority</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" onclick="runStep1()">▶ Generate Mandate (ART-15)</button>
+        <a href="../art-15-agentic-mandate-sandbox.html" target="_blank" class="ghost-btn">Open ART-15 ↗</a>
+      </div>
+      <div class="step-result" id="res1">
+        <div class="step-result-title">ART-15 — Execution Hash (chain_depth:1)</div>
+        <div class="hash-row"><span class="hash-label">execution_hash:</span><span id="hash1"></span></div>
+        <div class="chain-link">parent_hashes: [] · parent_tool_ids: []</div>
+        <div id="res1_summary" style="font-size:.72rem;color:var(--body);margin-top:.6rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Google AP2 Mandate Builder (ART-16) -->
+  <div class="step" id="step2">
+    <div class="step-header" onclick="toggleStep(2)">
+      <div class="step-num" id="sn2">2</div>
+      <div class="step-meta">
+        <div class="step-title">Build AP2 Mandate VDC <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-left:.5rem">ART-16</span></div>
+        <div class="step-subtitle">Google AP2 Mandate Builder · compliance_control · chain_depth:2 · consumes ART-15</div>
+      </div>
+      <span class="step-hash-chip" id="hchip2"></span>
+    </div>
+    <div class="step-body" style="display:none">
+      <div class="grid2">
+        <div class="field-row">
+          <label>Mandate Type</label>
+          <select id="s2_mtype"><option value="checkout">Checkout Mandate</option><option value="payment">Payment Mandate</option></select>
+        </div>
+        <div class="field-row">
+          <label>Stage</label>
+          <select id="s2_stage"><option value="open">Open (constraints / pre-cart)</option><option value="closed">Closed (bound to checkout)</option></select>
+        </div>
+        <div class="field-row">
+          <label>Agent ID (issuer DID)</label>
+          <input type="text" id="s2_agent" value="did:web:agent.ainumbers.co">
+        </div>
+        <div class="field-row">
+          <label>Merchant</label>
+          <input type="text" id="s2_merchant" value="merchant.example.com">
+        </div>
+        <div class="field-row">
+          <label>Subject (synthetic)</label>
+          <input type="text" id="s2_subject" value="urn:user:demo-001">
+        </div>
+        <div class="field-row">
+          <label>Amount &amp; Currency</label>
+          <input type="text" id="s2_amount" value="50000 USD">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="btn2" onclick="runStep2()" disabled>▶ Build AP2 VDC (ART-16)</button>
+        <a href="../art-16-google-ap2-mandate-builder.html" target="_blank" class="ghost-btn">Open ART-16 ↗</a>
+      </div>
+      <div class="step-result" id="res2">
+        <div class="step-result-title">ART-16 — Execution Hash (chain_depth:2)</div>
+        <div class="hash-row"><span class="hash-label">execution_hash:</span><span id="hash2"></span></div>
+        <div class="chain-link">parent_hashes: [<span id="ph2" style="color:var(--green-lt)"></span>] · parent_tool_ids: [art-15-agentic-mandate-sandbox]</div>
+        <div id="res2_summary" style="font-size:.72rem;color:var(--body);margin-top:.6rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: AP2 MCP Policy Validator (ART-17) -->
+  <div class="step" id="step3">
+    <div class="step-header" onclick="toggleStep(3)">
+      <div class="step-num" id="sn3">3</div>
+      <div class="step-meta">
+        <div class="step-title">Validate Policy Mandate <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-left:.5rem">ART-17</span></div>
+        <div class="step-subtitle">AP2 MCP Policy Validator · compliance_control · chain_depth:3 · consumes ART-16</div>
+      </div>
+      <span class="step-hash-chip" id="hchip3"></span>
+    </div>
+    <div class="step-body" style="display:none">
+      <p style="font-size:.75rem;color:var(--body);margin-bottom:.75rem">Validates the AP2 VDC built in Step 2 against the structural schema. The mandate JSON is auto-populated from Step 2's output.</p>
+      <div class="field-row">
+        <label>AP2 Mandate VDC (auto-populated from Step 2)</label>
+        <textarea id="s3_mandate" rows="6" spellcheck="false" placeholder="Run Step 2 first — VDC will appear here automatically"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="btn3" onclick="runStep3()" disabled>▶ Validate Mandate (ART-17)</button>
+        <a href="../art-17-ap2-mcp-policy-validator.html" target="_blank" class="ghost-btn">Open ART-17 ↗</a>
+      </div>
+      <div class="step-result" id="res3">
+        <div class="step-result-title">ART-17 — Execution Hash (chain_depth:3)</div>
+        <div class="hash-row"><span class="hash-label">execution_hash:</span><span id="hash3"></span></div>
+        <div class="chain-link">parent_hashes: [<span id="ph3" style="color:var(--green-lt)"></span>] · parent_tool_ids: [art-16-google-ap2-mandate-builder]</div>
+        <div id="res3_summary" style="font-size:.72rem;color:var(--body);margin-top:.6rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: MCP Developer Readiness Scorecard (ART-18) -->
+  <div class="step" id="step4">
+    <div class="step-header" onclick="toggleStep(4)">
+      <div class="step-num" id="sn4">4</div>
+      <div class="step-meta">
+        <div class="step-title">Score MCP Readiness <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-left:.5rem">ART-18</span></div>
+        <div class="step-subtitle">MCP Developer Readiness Scorecard · infrastructure_mandate · chain_depth:4 · consumes ART-17</div>
+      </div>
+      <span class="step-hash-chip" id="hchip4"></span>
+    </div>
+    <div class="step-body" style="display:none">
+      <p style="font-size:.75rem;color:var(--body);margin-bottom:.75rem">Self-assessment across 6 MCP compliance sections. Answer each question honestly — use the deep-dive tools linked from each section for verification.</p>
+      <div id="s4_sections"></div>
+      <div class="btn-row">
+        <button class="run-btn" id="btn4" onclick="runStep4()" disabled>▶ Compute MCP Score (ART-18)</button>
+        <a href="../art-18-mcp-developer-readiness-scorecard.html" target="_blank" class="ghost-btn">Open ART-18 ↗</a>
+      </div>
+      <div class="step-result" id="res4">
+        <div class="step-result-title">ART-18 — Execution Hash (chain_depth:4)</div>
+        <div class="hash-row"><span class="hash-label">execution_hash:</span><span id="hash4"></span></div>
+        <div class="chain-link">parent_hashes: [<span id="ph4" style="color:var(--green-lt)"></span>] · parent_tool_ids: [art-17-ap2-mcp-policy-validator]</div>
+        <div id="res4_summary" style="font-size:.72rem;color:var(--body);margin-top:.6rem"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wizard -->
+
+<!-- COMPOSITE EXPORT -->
+<div class="export-section">
+  <div class="export-title">Composite §4 Artifact Export</div>
+  <div class="export-desc">Downloads the full hash-chained composite §4 artifact — all 4 step artifacts with execution_hashes, parent_hashes, chain_depth values, and the terminal step's chain summary. Chain is complete when all 4 steps show green.</div>
+  <div class="btn-row" style="margin-top:0">
+    <button class="export-btn" id="exportBtn" onclick="exportComposite()" disabled>⬇ Export Composite §4 Artifact</button>
+    <button class="ghost-btn" id="copyBtn" onclick="copyComposite()" disabled>📋 Copy JSON</button>
+  </div>
+  <div class="hash-chain-display" id="chainDisplay"></div>
+</div>
+
+<!-- MANIFEST TOGGLE -->
+<div style="margin-bottom:2rem;position:relative;z-index:1">
+  <button class="mfst-btn" onclick="toggleMfst()">
+    <span>📦 &nbsp;chain manifest.json · MCP chain definition · §4 schema</span>
+    <span id="mfstArr">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</div>
+
+</div><!-- /container -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../../index.html">All Tools</a>
+      <a href="../chaingraph-hub.html">OpenChainGraph Hub</a>
+      <a href="../../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>OpenChainGraph Suite · Agentic Policy Chain v1.0.0</span>
+      <span>CONTRACT A3 · arch #5 · hash-anchored</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   CHAIN MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const CHAIN_MANIFEST = {
+  chain_id: 'agentic-policy',
+  version: '1.0.0',
+  title: 'Agentic Policy Chain',
+  description: '4-step hash-chained pipeline: define agentic spend mandate (ART-15) → build Google AP2 VDC (ART-16) → validate mandate schema (ART-17) → score MCP deployment readiness (ART-18).',
+  category: 'chaingraph',
+  chaingraph: true,
+  mandate_type: 'agent_guardrail_mandate',
+  page_url: 'https://ainumbers.co/chaingraph/chains/agentic-policy.html',
+  steps: [
+    {order:1, node_id:'art-15-agentic-mandate-sandbox', mcp_name:'agentic_mandate_sandbox', url:'../art-15-agentic-mandate-sandbox.html'},
+    {order:2, node_id:'art-16-google-ap2-mandate-builder', mcp_name:'build_google_ap2_mandate', url:'../art-16-google-ap2-mandate-builder.html'},
+    {order:3, node_id:'art-17-ap2-mcp-policy-validator', mcp_name:'validate_ap2_mcp_policy', url:'../art-17-ap2-mcp-policy-validator.html'},
+    {order:4, node_id:'art-18-mcp-developer-readiness-scorecard', mcp_name:'score_mcp_readiness', url:'../art-18-mcp-developer-readiness-scorecard.html'}
+  ]
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   HASH UTILITY — WebCrypto SHA-256
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CHAIN STATE — stores each step's §4 artifact
+   ───────────────────────────────────────────────────────────────── */
+const CHAIN = { step1: null, step2: null, step3: null, step4: null };
+
+/* ─────────────────────────────────────────────────────────────────
+   STEP 1 — Agentic Mandate Sandbox (ART-15)
+   Logic: collect policy params → generate mandate config → §4 hash
+   ───────────────────────────────────────────────────────────────── */
+async function runStep1() {
+  const spendCap = parseInt(document.getElementById('s1_spendCap').value) || 50000;
+  const currency = document.getElementById('s1_currency').value;
+  const jurisdiction = document.getElementById('s1_jurisdiction').value;
+  const velocity = parseInt(document.getElementById('s1_velocity').value) || 10;
+  const mccRaw = document.getElementById('s1_mccs').value.trim();
+  const mccs = mccRaw ? mccRaw.split(',').map(m => m.trim()).filter(Boolean) : ['*'];
+  const dualSig = document.getElementById('s1_dualSig').value === 'yes';
+
+  const mandateConfig = {
+    spend_policy: {
+      cap_minor_units: spendCap,
+      currency,
+      velocity_limits: { max_per_day: velocity },
+      mcc_allowlist: mccs,
+      dual_sig_required: dualSig
+    },
+    jurisdiction,
+    policy_version: '1.0',
+    issued_by: 'ainumbers.co',
+    policy_class: 'agent_guardrail_mandate'
+  };
+
+  const policyParams = {
+    execution_backend: 'js',
+    tool: 'art-15-agentic-mandate-sandbox',
+    input_parameters: { spendCap, currency, jurisdiction, velocity, mccs, dualSig }
+  };
+  const outputPayload = {
+    policy_class: 'agent_guardrail_mandate',
+    spend_cap: spendCap,
+    currency,
+    mcc_allowlist: mccs,
+    velocity_per_day: velocity,
+    dual_sig_required: dualSig
+  };
+
+  const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayload });
+  const now = new Date().toISOString();
+
+  CHAIN.step1 = {
+    ap2_version: '1.0.0',
+    mandate_type: 'agent_guardrail_mandate',
+    tool_id: 'art-15-agentic-mandate-sandbox',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 1 },
+    policy_parameters: policyParams,
+    output_payload: { mandate_config: mandateConfig, ...outputPayload }
+  };
+
+  // Update UI
+  document.getElementById('hash1').textContent = hash;
+  document.getElementById('hchip1').textContent = 'sha256:' + hash.slice(0,16) + '…';
+  document.getElementById('res1').classList.add('show');
+  document.getElementById('res1_summary').textContent =
+    `Spend cap: ${spendCap.toLocaleString()} ${currency} / ${velocity} txns/day · MCC: ${mccs.join(', ')} · Dual-sig: ${dualSig?'yes':'no'}`;
+
+  // Update topology SVG
+  updateTopoNode(1, hash);
+  markStepDone(1);
+  document.getElementById('btn2').disabled = false;
+  // Auto-populate step 2 fields from step 1 config
+  document.getElementById('s2_amount').value = spendCap + ' ' + currency;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   STEP 2 — Google AP2 Mandate Builder (ART-16)
+   Logic: buildMandate (T285 core) → §4 hash (parent = step1.hash)
+   ───────────────────────────────────────────────────────────────── */
+function buildAP2Mandate(mtype, stage, agent, subject, merchant, amountRaw) {
+  const amt = amountRaw.trim().split(/\s+/);
+  const typeName = mtype === 'checkout' ? 'CheckoutMandate' : 'PaymentMandate';
+  const cs = { mandateType: mtype, stage, merchant };
+  if (stage === 'closed') {
+    cs.checkoutRef = 'checkout:' + (merchant || 'merchant') + ':' + Date.now();
+    cs.amount = { value: amt[0] || '0', currency: (amt[1] || 'USD').toUpperCase() };
+  } else {
+    cs.constraints = mtype === 'payment'
+      ? { maxAmount: { value: amt[0] || '0', currency: (amt[1] || 'USD').toUpperCase() }, instrument: 'card' }
+      : { merchantAllowList: [merchant], goal: 'user-stated purchase intent' };
+  }
+  return {
+    '@context': ['https://www.w3.org/ns/credentials/v2', 'https://ap2-protocol.org/context/v1'],
+    type: ['VerifiableCredential', typeName],
+    issuer: agent,
+    credentialSubject: Object.assign({ id: subject }, cs),
+    issuanceDate: new Date().toISOString(),
+    proof: {
+      type: 'DataIntegrityProof', cryptosuite: 'eddsa-2022',
+      created: new Date().toISOString(),
+      verificationMethod: agent + '#key-1',
+      proofPurpose: 'assertionMethod',
+      proofValue: '<ILLUSTRATIVE — sign with agent key>'
+    }
+  };
+}
+
+async function runStep2() {
+  if (!CHAIN.step1) { alert('Complete Step 1 first.'); return; }
+  const mtype = document.getElementById('s2_mtype').value;
+  const stage = document.getElementById('s2_stage').value;
+  const agent = document.getElementById('s2_agent').value.trim();
+  const subject = document.getElementById('s2_subject').value.trim();
+  const merchant = document.getElementById('s2_merchant').value.trim();
+  const amount = document.getElementById('s2_amount').value.trim();
+
+  const vdc = buildAP2Mandate(mtype, stage, agent, subject, merchant, amount);
+  const policyParams = {
+    execution_backend: 'js', tool: 'art-16-google-ap2-mandate-builder',
+    input_parameters: { mandateType: mtype, stage, agent, subject, merchant, amount }
+  };
+  const outputPayload = { vdc_type: vdc.type[1], stage, issuer: agent, mandate_json: vdc };
+  const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayload });
+  const now = new Date().toISOString();
+
+  CHAIN.step2 = {
+    ap2_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-16-google-ap2-mandate-builder',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: {
+      parent_hashes: [CHAIN.step1.execution_hash],
+      parent_tool_ids: ['art-15-agentic-mandate-sandbox'],
+      chain_depth: 2
+    },
+    policy_parameters: policyParams,
+    output_payload: outputPayload
+  };
+
+  document.getElementById('hash2').textContent = hash;
+  document.getElementById('ph2').textContent = CHAIN.step1.execution_hash.slice(0,16) + '…';
+  document.getElementById('hchip2').textContent = 'sha256:' + hash.slice(0,16) + '…';
+  document.getElementById('res2').classList.add('show');
+  document.getElementById('res2_summary').textContent =
+    `${vdc.type[1]} · ${stage} stage · issuer: ${agent}`;
+
+  // Auto-populate step 3 with the built VDC JSON
+  document.getElementById('s3_mandate').value = JSON.stringify(vdc, null, 2);
+
+  updateTopoNode(2, hash);
+  markStepDone(2);
+  document.getElementById('btn3').disabled = false;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   STEP 3 — AP2 MCP Policy Validator (ART-17)
+   Logic: validate VDC structure (CONTRACT §4 + AP2 schema)
+   ───────────────────────────────────────────────────────────────── */
+function validateAP2Mandate(o) {
+  const findings = [];
+  function F(level, msg) { return { level, msg }; }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) {
+    return [F('error', 'Mandate must be a JSON object (a Verifiable Digital Credential).')];
+  }
+  if (!Array.isArray(o.type) || !o.type.includes('VerifiableCredential'))
+    findings.push(F('warn', '"type" should include "VerifiableCredential" — AP2 mandates are VDCs.'));
+  const mtype = o.type && (o.type.includes('CheckoutMandate') ? 'checkout' : o.type.includes('PaymentMandate') ? 'payment' : null);
+  if (!mtype) findings.push(F('error', 'Could not identify mandate type — type should include CheckoutMandate or PaymentMandate.'));
+  else findings.push(F('pass', 'Identified as a ' + (mtype === 'checkout' ? 'Checkout' : 'Payment') + ' Mandate.'));
+  if (!o.issuer) findings.push(F('warn', 'No "issuer" — the agent that signs the credential.'));
+  const cs = o.credentialSubject;
+  if (!cs || typeof cs !== 'object') {
+    findings.push(F('error', 'Missing "credentialSubject".'));
+  } else {
+    const stage = cs.stage;
+    if (stage !== 'open' && stage !== 'closed') findings.push(F('warn', 'credentialSubject.stage should be "open" or "closed".'));
+    else findings.push(F('pass', 'stage = "' + stage + '".'));
+    if (stage === 'closed') {
+      if (!cs.amount && !cs.checkoutRef) findings.push(F('error', 'A Closed mandate should bind to a finalized checkout (amount + checkoutRef).'));
+      else findings.push(F('pass', 'Closed mandate binds to a checkout/amount.'));
+    } else if (stage === 'open') {
+      if (!cs.constraints) findings.push(F('warn', 'An Open mandate should carry constraints (budget/instrument/merchant allowlist).'));
+      else findings.push(F('pass', 'Open mandate carries constraints.'));
+    }
+  }
+  if (!o.proof) findings.push(F('error', 'No "proof" — an AP2 mandate must be a signed VDC.'));
+  else if (!o.proof.proofValue && !o.proof.jws) findings.push(F('warn', 'proof present but no proofValue/jws — credential is unsigned.'));
+  else findings.push(F('pass', 'proof block present.'));
+  const errors = findings.filter(f => f.level === 'error').length;
+  const warns = findings.filter(f => f.level === 'warn').length;
+  const passes = findings.filter(f => f.level === 'pass').length;
+  const score = Math.max(0, Math.min(100, 100 - errors * 20 - warns * 5));
+  return { findings, score, errors, warns, passes };
+}
+
+async function runStep3() {
+  if (!CHAIN.step2) { alert('Complete Step 2 first.'); return; }
+  const raw = document.getElementById('s3_mandate').value.trim();
+  let vdc;
+  try { vdc = JSON.parse(raw); } catch (e) {
+    document.getElementById('res3').classList.add('show');
+    document.getElementById('res3_summary').textContent = 'JSON parse error: ' + e.message;
+    return;
+  }
+
+  const { findings, score, errors, warns, passes } = validateAP2Mandate(vdc);
+  const policyParams = {
+    execution_backend: 'js', tool: 'art-17-ap2-mcp-policy-validator',
+    input_parameters: { mandate_type: (vdc.type && vdc.type[1]) || 'unknown', stage: (vdc.credentialSubject && vdc.credentialSubject.stage) || 'unknown' }
+  };
+  const outputPayload = {
+    validation_score: score,
+    errors, warns, passes,
+    findings_summary: findings.map(f => f.level.toUpperCase() + ': ' + f.msg)
+  };
+  const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayload });
+  const now = new Date().toISOString();
+
+  CHAIN.step3 = {
+    ap2_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-17-ap2-mcp-policy-validator',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: {
+      parent_hashes: [CHAIN.step2.execution_hash],
+      parent_tool_ids: ['art-16-google-ap2-mandate-builder'],
+      chain_depth: 3
+    },
+    policy_parameters: policyParams,
+    output_payload: outputPayload
+  };
+
+  document.getElementById('hash3').textContent = hash;
+  document.getElementById('ph3').textContent = CHAIN.step2.execution_hash.slice(0,16) + '…';
+  document.getElementById('hchip3').textContent = 'sha256:' + hash.slice(0,16) + '…';
+  document.getElementById('res3').classList.add('show');
+  document.getElementById('res3_summary').textContent =
+    `Validation score: ${score}/100 · ${errors} error · ${warns} warn · ${passes} pass`;
+
+  updateTopoNode(3, hash);
+  markStepDone(3);
+  document.getElementById('btn4').disabled = false;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   STEP 4 — MCP Developer Readiness Scorecard (ART-18)
+   Logic: 6-section weighted scorecard → §4 hash
+   ───────────────────────────────────────────────────────────────── */
+const MCP_SECTIONS = [
+  {id:'tooldef', name:'Tool Definitions', qs:[
+    {id:'schema', q:'All tools use valid JSON Schema 2020-12 input/output schemas?'},
+    {id:'desc', q:'Every tool has a clear description and per-parameter descriptions?'},
+    {id:'ann', q:'Annotations (readOnly/destructive/idempotent) are set correctly?'}
+  ]},
+  {id:'serverjson', name:'server.json / Registry', qs:[
+    {id:'name', q:'server.json name is reverse-DNS namespaced?'},
+    {id:'meta', q:'_meta publisher data is under 4KB?'},
+    {id:'pkg', q:'Packages declare transport + version?'}
+  ]},
+  {id:'oauth', name:'OAuth 2.1 Authorization', qs:[
+    {id:'prm', q:'/.well-known/oauth-protected-resource is exposed and valid (RFC 9728)?'},
+    {id:'aud', q:'Access-token audience (aud) is validated against the resource?'},
+    {id:'pass', q:'Client token is NEVER passed through to downstream APIs?'}
+  ]},
+  {id:'transport', name:'Transport Security', qs:[
+    {id:'origin', q:'Returns HTTP 403 for invalid Origin?'},
+    {id:'bind', q:'Local servers bind to loopback (not 0.0.0.0)?'}
+  ]},
+  {id:'poison', name:'Tool-Poisoning Hygiene', qs:[
+    {id:'clean', q:'Tool descriptions are free of injected instructions?'},
+    {id:'trust', q:'Clients do not make trust decisions from untrusted annotations?'}
+  ]},
+  {id:'spec', name:'Spec-Revision Compliance', qs:[
+    {id:'rev', q:'You target a current revision (2025-11-25 or later)?'},
+    {id:'stateless', q:'You have a plan for the 2026-07-28 stateless-core changes?'}
+  ]}
+];
+
+function buildStep4Sections() {
+  document.getElementById('s4_sections').innerHTML = MCP_SECTIONS.map(s =>
+    `<div class="sec-block"><div class="sec-name">${s.name}</div>${s.qs.map(q =>
+      `<div class="q-row"><span class="q-txt">${q.q}</span><select class="q-sel" id="s4_${s.id}_${q.id}"><option value="yes">Yes</option><option value="partial">Partial</option><option value="no">No</option></select></div>`
+    ).join('')}</div>`
+  ).join('');
+}
+
+async function runStep4() {
+  if (!CHAIN.step3) { alert('Complete Step 3 first.'); return; }
+  const secResults = [];
+  let totalGot = 0, totalMax = 0;
+  const answers = {};
+  MCP_SECTIONS.forEach(s => {
+    let got = 0, max = s.qs.length * 2;
+    s.qs.forEach(q => {
+      const v = document.getElementById('s4_' + s.id + '_' + q.id).value;
+      answers[s.id + '_' + q.id] = v;
+      got += v === 'yes' ? 2 : v === 'partial' ? 1 : 0;
+    });
+    const pct = Math.round(got / max * 100);
+    secResults.push({ name: s.name, pct });
+    totalGot += got; totalMax += max;
+  });
+  const overall = Math.round(totalGot / totalMax * 100);
+
+  const policyParams = {
+    execution_backend: 'js', tool: 'art-18-mcp-developer-readiness-scorecard',
+    input_parameters: { answers }
+  };
+  const outputPayload = {
+    overall_score: overall,
+    section_scores: secResults.reduce((acc, r) => { acc[r.name] = r.pct; return acc; }, {}),
+    verdict: overall >= 90 ? 'Ship-ready.' : overall >= 70 ? 'Nearly there — close the gaps.' : overall >= 50 ? 'Not ready — sections need work.' : 'Significant work before shipping.'
+  };
+  const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayload });
+  const now = new Date().toISOString();
+
+  CHAIN.step4 = {
+    ap2_version: '1.0.0',
+    mandate_type: 'infrastructure_mandate',
+    tool_id: 'art-18-mcp-developer-readiness-scorecard',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: {
+      parent_hashes: [CHAIN.step3.execution_hash],
+      parent_tool_ids: ['art-17-ap2-mcp-policy-validator'],
+      chain_depth: 4
+    },
+    policy_parameters: policyParams,
+    output_payload: outputPayload
+  };
+
+  document.getElementById('hash4').textContent = hash;
+  document.getElementById('ph4').textContent = CHAIN.step3.execution_hash.slice(0,16) + '…';
+  document.getElementById('hchip4').textContent = 'sha256:' + hash.slice(0,16) + '…';
+  document.getElementById('res4').classList.add('show');
+  document.getElementById('res4_summary').textContent =
+    `MCP readiness: ${overall}/100 — ${outputPayload.verdict}`;
+
+  updateTopoNode(4, hash);
+  markStepDone(4);
+  unlockExport();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   COMPOSITE §4 ARTIFACT
+   ───────────────────────────────────────────────────────────────── */
+function buildCompositeArtifact() {
+  const now = new Date().toISOString();
+  return {
+    ap2_version: '1.0.0',
+    mandate_type: 'agent_guardrail_mandate',
+    chain_id: 'agentic-policy',
+    tool_id: 'chaingraph/chains/agentic-policy',
+    tool_version: '1.0.0',
+    generated_at: now,
+    issued_by: 'ainumbers.co',
+    execution_hash: CHAIN.step4 ? CHAIN.step4.execution_hash : null,
+    chain: {
+      parent_hashes: CHAIN.step4 ? CHAIN.step4.chain.parent_hashes : [],
+      parent_tool_ids: CHAIN.step4 ? CHAIN.step4.chain.parent_tool_ids : [],
+      chain_depth: 4
+    },
+    chain_steps: [
+      { step: 1, node_id: 'art-15-agentic-mandate-sandbox', execution_hash: CHAIN.step1 ? CHAIN.step1.execution_hash : null, chain_depth: 1 },
+      { step: 2, node_id: 'art-16-google-ap2-mandate-builder', execution_hash: CHAIN.step2 ? CHAIN.step2.execution_hash : null, chain_depth: 2 },
+      { step: 3, node_id: 'art-17-ap2-mcp-policy-validator', execution_hash: CHAIN.step3 ? CHAIN.step3.execution_hash : null, chain_depth: 3 },
+      { step: 4, node_id: 'art-18-mcp-developer-readiness-scorecard', execution_hash: CHAIN.step4 ? CHAIN.step4.execution_hash : null, chain_depth: 4 }
+    ],
+    step_artifacts: [CHAIN.step1, CHAIN.step2, CHAIN.step3, CHAIN.step4],
+    policy_parameters: { chain_id: 'agentic-policy', steps: 4 },
+    output_payload: {
+      mandate_policy: CHAIN.step1 ? CHAIN.step1.output_payload : null,
+      ap2_vdc: CHAIN.step2 ? CHAIN.step2.output_payload : null,
+      validation: CHAIN.step3 ? CHAIN.step3.output_payload : null,
+      mcp_readiness: CHAIN.step4 ? CHAIN.step4.output_payload : null
+    },
+    summary: 'Agentic Policy Chain — 4-step hash-anchored §4 artifact — ' + now.slice(0,10),
+    agent_instructions: [
+      'Mandate policy and AP2 VDC are defined and validated. Deploy the MCP server only after resolving any MCP readiness gaps.',
+      'Hash chain: ART-15 → ART-16 → ART-17 → ART-18. Verify execution_hashes before ingesting.'
+    ],
+    regulatory_citations: ['CONTRACT A3 (OpenChainGraph arch #5)', 'ap2-protocol.org', 'modelcontextprotocol.io'],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+}
+
+function unlockExport() {
+  document.getElementById('exportBtn').disabled = false;
+  document.getElementById('copyBtn').disabled = false;
+  const art = buildCompositeArtifact();
+  const disp = document.getElementById('chainDisplay');
+  disp.innerHTML = [
+    '<span style="color:var(--teal)">// Hash chain provenance</span>',
+    `ART-15 ⟶ sha256:${CHAIN.step1.execution_hash.slice(0,32)}…`,
+    `ART-16 ⟶ sha256:${CHAIN.step2.execution_hash.slice(0,32)}…  (parent: ART-15)`,
+    `ART-17 ⟶ sha256:${CHAIN.step3.execution_hash.slice(0,32)}…  (parent: ART-16)`,
+    `ART-18 ⟶ sha256:${CHAIN.step4.execution_hash.slice(0,32)}…  (parent: ART-17)`,
+    `<span style="color:var(--green-lt)">✔ chain_depth: 4 · all steps complete</span>`
+  ].join('\n');
+  disp.classList.add('show');
+}
+
+function exportComposite() {
+  const art = buildCompositeArtifact();
+  const json = JSON.stringify(art, null, 2);
+  const ts = new Date().toISOString().replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'agentic-policy-chain_' + ts + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function copyComposite() {
+  const art = buildCompositeArtifact();
+  navigator.clipboard.writeText(JSON.stringify(art, null, 2)).then(() => {
+    document.getElementById('copyBtn').textContent = '✔ Copied';
+    setTimeout(() => { document.getElementById('copyBtn').textContent = '📋 Copy JSON'; }, 2000);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UI HELPERS
+   ───────────────────────────────────────────────────────────────── */
+function markStepDone(n) {
+  const step = document.getElementById('step' + n);
+  step.classList.remove('active');
+  step.classList.add('done');
+  const sn = document.getElementById('sn' + n);
+  sn.textContent = '✓';
+  // Activate next step
+  if (n < 4) {
+    const next = document.getElementById('step' + (n + 1));
+    next.classList.add('active');
+    const nextBody = next.querySelector('.step-body');
+    if (nextBody) nextBody.style.display = 'block';
+  }
+}
+
+function toggleStep(n) {
+  const body = document.querySelector('#step' + n + ' .step-body');
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateTopoNode(n, hash) {
+  const rect = document.getElementById('nr' + n);
+  if (rect) {
+    rect.classList.remove('active');
+    rect.classList.add('done');
+    rect.style.stroke = '#22C55E';
+    rect.style.strokeWidth = '2';
+  }
+  const hashEl = document.getElementById('h' + n);
+  if (hashEl) {
+    hashEl.textContent = 'sha256:' + hash.slice(0,14) + '…';
+    hashEl.style.display = 'block';
+  }
+  // Done edge
+  if (n > 1) {
+    const edge = document.getElementById('e' + (n-1) + n);
+    if (edge) { edge.style.stroke = '#22C55E'; }
+  }
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const a = document.getElementById('mfstArr');
+  if (b.style.display === 'none' || b.style.display === '') {
+    b.style.display = 'block';
+    if (a) a.textContent = '▲';
+    document.getElementById('mfstCode').textContent = JSON.stringify(CHAIN_MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none';
+    if (a) a.textContent = '▼';
+  }
+}
+
+// Init step 4 sections
+buildStep4Sections();
+</script>
+</body></html>

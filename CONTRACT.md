@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.2
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.3
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026  
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
 **Target Audience:** AI Build Instances (Claude/LLMs), Frontend Engineers, Compliance QA  
 
@@ -214,7 +214,7 @@ Prevents client-side bloat & enforces deterministic guarantees.
 | **Cat-2 Upgrade** | T311–T318 | 8 live | Follows DORA; T269–T299 unassigned |
 | **RBE Suite** | RBE·01–RBE·13 | 13 live | Lives under `ai` category |
 
-### 5.3 Orchestrated Workflow Runner pages (page architecture #4) — Amendment A1.4
+### 5.3 Orchestrated Workflow Runner pages (page architecture #4) — Amendment A1.4 **[DEPRECATED — see Amendment A3 / arch #5]**
 A fourth valid page architecture (rubric-scored with its own profile): a guide-level **Runner** (`guides/*-composer.html`) that loads bridge-enabled tools in **same-origin iframes** and orchestrates them via the bridge messaging API (`ain:prefill` / `ain:run` / `ain:getMandate`). Permitted deviations, valid ONLY for this class:
 - CSP `frame-src 'self'` (standard guides remain `frame-src 'none'`).
 - Same-origin iframes count as page-load resources, not post-load network calls.
@@ -330,5 +330,87 @@ function exportAP2() {
 ```
 
 ---
+
+## 🔗 Amendment A3 — ChainGraph as the sole orchestration surface (v1.2 → v1.3)
+
+**Date:** June 2026 · **Companion docs:** `WebGPU/CHAINGRAPH-V1_2026-06-12.md` (§4 artifact), `chaingraph-chains-schema_2026-06-13.md`, `CHAINGRAPH-CONVERSION-BUILD-SPEC_2026-06-13.md`
+
+**Context:** AINumbers shipped two multi-tool orchestration surfaces (Scenario Guides + Live Workflows; and Composer Runners, arch #4) alongside the hash-anchored `chaingraph/` suite. A dual surface confuses market participants and dilutes the M&A thesis. **Decision: collapse to one surface — ChainGraph — and make verifiable hash-chaining a contract-level MUST.**
+
+### A3.1 · Page architecture #5 — ChainGraph chain page (RFC 2119: MUST)
+
+A fifth valid page architecture, **superseding architecture #4** (Composer Runner, now DEPRECATED). A ChainGraph chain page (`/chaingraph/chains/<chain-id>.html`) MUST:
+
+1. Load its ChainGraph node tools in **same-origin iframes** and orchestrate them via the AIN Bridge messaging API (`ain:prefill` / `ain:run` / `ain:getMandate`); reuse `scripts/ain-bridge-v1.snippet.html`. CSP `frame-src 'self'` (the only permitted relaxation, inherited from #4).
+2. **Hash-chain every handoff:** at each stage, capture the node's §4 artifact, read its `execution_hash`, and inject it into the next stage's `chain.parent_hashes` + `parent_tool_ids`, setting `chain_depth = max(parent depths) + 1`. The edge MUST be a hash citation, never editorial prose.
+3. Emit a **composite §4 artifact** (schema A3.2) whose `output_payload` carries the ordered stage artifacts; Tier-1 export (artifact JSON + Markdown transcript); MUST `validate()` against A3.2 before download. `mandate_id` MAY use `crypto.getRandomValues` UUIDv4 (the sole determinism exception, ID-only).
+4. Render the chain as an **interactive node/edge graph** (nodes = tools, edges = consumes/feeds read from `chaingraph.json`), highlighting completed stages and the carried hash. Inline Mermaid or raw SVG only — no new external libraries.
+5. **Branching chains** (former Scenario Guides) MUST declare each path in `chaingraph.json` `chains[].branches` and swap nodes by branch key, mirroring the existing branching Runner pattern.
+6. Obey **all §0 hard constraints**: single self-contained HTML, zero PII, **zero forbidden storage (no `sessionStorage`/`setLang` stub)**, zero post-load network beyond the same-origin iframes, every regulatory claim real and citable.
+
+The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in any shipped surface copy. The only orchestration namespace is `/chaingraph/`.
+
+### A3.2 · Mandatory chain block + execution_hash (RFC 2119: MUST)
+
+The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1):
+
+```json
+{
+  "ap2_version": "1.0.0",
+  "mandate_type": "<§4 taxonomy — see A3.5>",
+  "tool_id": "<kebab-case>",
+  "tool_version": "1.0.0",
+  "generated_at": "<ISO 8601>",
+  "execution_hash": "<SHA-256 over canonicalized policy_parameters + output_payload>",
+  "chain": {
+    "parent_hashes": ["sha256:<upstream execution_hash>"],
+    "parent_tool_ids": ["<tool_id of each parent>"],
+    "chain_depth": 0
+  },
+  "policy_parameters": { "execution_backend": "webgpu|cpu-fallback|js", "input_parameters": {} },
+  "output_payload": {},
+  "compliance_flags": [],
+  "audit_signature": { "client_side_executed": true, "zero_pii_verified": true, "deterministic_run": true }
+}
+```
+
+**Rules (MUST):** `execution_hash` = WebCrypto `crypto.subtle.digest('SHA-256', …)` over **canonicalized** (sorted-key, whitespace-stripped) JSON of `policy_parameters` + `output_payload`; no library. Root artifacts use `parent_hashes: []`, `chain_depth: 0`. A consuming tool MUST copy each parent's `execution_hash` into `parent_hashes` and set `chain_depth = max(parent depths)+1`. Any chain MUST be independently re-verifiable: re-run the parent with the same inputs, recompute the hash, confirm the citation.
+
+### A3.3 · Single surface; deprecations (RFC 2119: MUST)
+
+- `/chaingraph/` is the **sole** orchestration namespace. Chain pages at `/chaingraph/chains/<id>.html`; nodes at `/chaingraph/<code>-<slug>.html`; hub at `/chaingraph/chaingraph-hub.html`.
+- **DEPRECATED and removed** on conversion: page architecture #4 (Composer Runner), the Scenario Guide type, the Live Workflow type, and the 3 Diagnostic pages (rebuilt as single-node ChainGraphs). **Hubs are retained** as category navigation.
+- Deprecated pages are **hard-removed** (no 301 redirects). The `guides/` directory retains only hubs + explicitly-kept utility/demo pages (`regression-replayer.html`, `mcp-agent-demo.html`).
+
+### A3.4 · No duplication (RFC 2119: MUST)
+
+A capability MUST exist in exactly one place. When a chain step is already served by a catalog tool, that tool is **promoted** (moved to `/chaingraph/`, given the §4 artifact, removed from `repo/tools/` + catalog). Any catalog tool whose function is **fully covered** by a ChainGraph node MUST be retired once that coverage is live and parity-checked — there is **no catalog/node twin**. A catalog tool remains in `/tools/` only if no node covers its function.
+
+### A3.5 · mandate_type taxonomy + crosswalk (RFC 2119: MUST)
+
+ChainGraph artifacts use the **§4 internal taxonomy** (`prompt_template`, `payment_mandate`, `payment_policy`, `compliance_mandate`, `liquidity_mandate`, `capital_assessment`, `risk_control`, `settlement_mandate`, `infrastructure_mandate`, `credit_assessment`, `treasury_mandate`, `account_mandate`, `model_governance`, `attestation_mandate`, `cryptographic_mandate`, `aml_rule`, `risk_parameter`). This is an **internal AINumbers taxonomy, not AP2 v0.2 spec vocabulary** — state that on the hub and in any tool whose name includes "AP2."
+
+Promoted tools switch from the §3.1 Policy Mandate set to the §4 set. A documented **Policy-Mandate ↔ §4 crosswalk** MUST live in `data/ap2-templates.json` (with changelog + semver). The §3.1 Policy Mandate v1.0 schema **remains valid for un-promoted catalog tools** only.
+
+### A3.6 · Removal mechanics & gates (RFC 2119: MUST)
+
+- **Per-chain parity checklist + Tim sign-off** before any guide/tool is deleted; never delete before the replacement is live.
+- **Zero-dangling-reference gate:** a build-time scan greps all hrefs (hubs, `index.html`, nav, sitemap) against the delete+promote manifest and MUST return zero references to removed paths before deploy. Each hub link to a removed file is rewritten to its `/chaingraph/...` target (single chain → `/chaingraph/chains/<id>.html`; multi-chain → `/chaingraph/?cat=<category>`).
+- **Deletions run via Tim's PowerShell**, one pasteable `git` block per parity-approved chain (full absolute paths; `git mv` for promotions). No `wrangler deploy` in the commit block — push to master triggers GitHub Actions.
+
+### A3.7 · Validation & discoverability (RFC 2119: MUST)
+
+- `mcp-apps-poc/scripts/validate-chains.mjs` is **extended** to validate the new `chaingraph.json` `chains[]` array: every `steps[].node_id` resolves to a `nodes[]` entry; `chain_id` matches its `NAMED_CHAINS` key; `page_url` resolves to a real file; ordered steps are contiguous. Non-zero exit blocks deploy. The worker's `NAMED_CHAINS` becomes a **generated projection** of `chains[]`, never hand-edited.
+- **Agentic discoverability:** every chain and node MUST appear in `sitemap`, `llms.txt`, and `chaingraph.json`, each with a one-line summary + canonical deep-link; `robots.txt` allows the major AI crawlers; ping sitemap/IndexNow on publish. A page absent from these is undiscoverable to agents — treat as a build failure.
+
+### A3 · Recorded trade-offs
+
+- Inbound external links to removed guide URLs break (accepted — A3.3). The MCP `composer_url` fields are repointed to chain pages.
+- Two export schemas coexist transitionally: §4 (ChainGraph) and §3.1 Policy Mandate (un-promoted catalog tools). The crosswalk (A3.5) keeps them reconcilable; the long-term direction is §4 only.
+- The catalog tool count **drops** as tools are promoted/retired — update the "counts drift" verification and any hardcoded totals.
+- This amendment supersedes the optional-`execution_hash` language in §3.1 for ChainGraph artifacts, deprecates architecture #4 in §5.3, and updates the §1.2 disclosure rules to the `/chaingraph/` surface.
+
+---
+
 **END OF CONTRACT**  
 *This document is version-controlled. All deviations require a formal spec amendment and consensus from Post Oak Labs Engineering & Compliance leads.*

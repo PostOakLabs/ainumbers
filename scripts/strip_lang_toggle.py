@@ -50,10 +50,10 @@ TRANSFORMS = [
     (re.compile(r'<div class="lang-bar">.*?</div>\s*</div>\n?', re.S),
      "<!-- lang toggle removed — CONTRACT §1.1 -->\n", "html"),
 
-    # 3. TRANSLATIONS const + setLang() + auto-apply IIFE (anchored on the stable IIFE line)
-    (re.compile(r"const TRANSLATIONS = \{.*?\r?\n"
-                r"\(function\(\)\{try\{var s=sessionStorage\.getItem\('ain_lang'\);"
-                r"if\(s\)setLang\(s\);\}catch\(e\)\{\}\}\)\(\);\n?", re.S),
+    # 3. TRANSLATIONS const + setLang() + auto-apply IIFE
+    #    Anchored: const TRANSLATIONS = { … } through the closing })(); of the IIFE.
+    #    Handles both old minified anonymous IIFE and newer named formatted initLang IIFE.
+    (re.compile(r"const TRANSLATIONS = \{.*?\}\)\(\);\n?", re.S),
      "/* lang toggle (TRANSLATIONS/setLang) removed — CONTRACT §1.1 */\n", "translations"),
 
     # 4. universal-chrome-i18n injector block (stamped marker -> its closing </script>)
