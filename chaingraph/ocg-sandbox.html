@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenChainGraph Sandbox — Live Artifact Editor & Tamper Lab</title>
+<meta name="description" content="Edit an OCG v0.2 artifact live and watch the execution_hash recompute in your browser. Tamper with fields and see exactly why the fingerprint breaks. No server. Zero PII. WebCrypto SHA-256.">
+<meta property="og:title" content="OpenChainGraph Live Sandbox — Edit, Tamper, Verify">
+<meta property="og:type" content="website">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt)}
+button{font-family:'Sora',sans-serif;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:1120px;margin:0 auto;width:100%;display:flex;align-items:center;gap:14px;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-r{display:flex;align-items:center;gap:10px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.22rem .6rem;border-radius:20px;transition:all .15s;text-decoration:none}
+.nav-link:hover{color:var(--body);border-color:var(--border-2)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.28);padding:.22rem .6rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:'';width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.85rem,3.8vw,2.8rem);color:var(--white);margin-bottom:.7rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.94rem;color:var(--body);max-width:660px;line-height:1.9;margin-bottom:1.5rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.hbadge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border-2);border-radius:20px;color:var(--muted)}
+
+/* MODE SWITCHER */
+.mode-bar{padding:1.5rem 0;border-bottom:1px solid var(--border)}
+.mode-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+.mode-tab{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1.1rem;border-radius:20px;border:1px solid var(--border-2);background:transparent;color:var(--body);transition:all .15s}
+.mode-tab:hover{border-color:var(--teal);color:var(--teal-lt)}
+.mode-tab.active{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.35)}
+.mode-desc{font-size:.82rem;color:var(--muted);margin-top:.7rem;max-width:680px}
+
+/* MAIN LAYOUT */
+.sandbox-layout{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:2rem 0 3rem;align-items:start}
+.pane{padding:0}
+.pane-left{padding-right:1.5rem;border-right:1px solid var(--border)}
+.pane-right{padding-left:1.5rem}
+
+/* PANE HEADERS */
+.pane-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.pane-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.pane-status{display:flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.status-dot.valid{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.invalid{background:var(--red);box-shadow:0 0 6px var(--red)}
+.status-dot.computing{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:blink .6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.status-text.valid{color:var(--green)}
+.status-text.invalid{color:var(--red)}
+.status-text.computing{color:var(--gold)}
+
+/* FIELD EDITOR */
+.field-group{margin-bottom:1.1rem}
+.field-group-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
+.field-row{display:grid;grid-template-columns:140px 1fr;gap:.6rem;align-items:center;margin-bottom:.45rem}
+.field-key{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt)}
+.field-input{background:var(--bg-2);border:1px solid var(--border-2);color:var(--white);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .6rem;width:100%;outline:none;transition:border-color .15s}
+.field-input:focus{border-color:var(--teal)}
+.field-input.tampered{border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.04)}
+.field-input[type=number]{-moz-appearance:textfield}
+.field-input[type=number]::-webkit-inner-spin-button,.field-input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+
+/* HASH DISPLAY */
+.hash-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem;margin-top:1rem}
+.hash-section-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.hash-value{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);word-break:break-all;line-height:1.7;transition:color .3s}
+.hash-value.invalid{color:var(--red)}
+.hash-value.computing{color:var(--gold)}
+.hash-diff{margin-top:.65rem;padding:.55rem .8rem;border-radius:var(--radius);background:var(--red-dim);border:1px solid rgba(239,68,68,.2);display:none}
+.hash-diff.visible{display:block}
+.hash-diff-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:.4rem}
+.hash-char-compare{font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.9;word-break:break-all}
+.hc-same{color:var(--muted)}
+.hc-diff{color:var(--red);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+
+/* PREIMAGE */
+.preimage-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1rem}
+.preimage-header{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.preimage-header-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.preimage-toggle{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.18rem .5rem;border-radius:3px;transition:all .15s}
+.preimage-toggle:hover{border-color:var(--teal);color:var(--teal-lt)}
+.preimage-body{padding:.8rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);line-height:1.7;max-height:220px;overflow-y:auto;display:none}
+.preimage-body.open{display:block}
+
+/* STEP TRACE */
+.step-trace{margin-top:1rem}
+.step{display:flex;align-items:flex-start;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);width:20px;flex-shrink:0;padding-top:.15rem}
+.step-content{}
+.step-title{font-size:.82rem;color:var(--bright);font-weight:500;margin-bottom:.18rem}
+.step-detail{font-size:.75rem;color:var(--body);font-family:'JetBrains Mono',monospace}
+
+/* RESULT VERDICT */
+.verdict{padding:1rem 1.2rem;border-radius:var(--radius-lg);margin-top:1rem;display:flex;align-items:flex-start;gap:.8rem;transition:all .3s}
+.verdict.valid{background:var(--green-dim);border:1px solid rgba(34,197,94,.2)}
+.verdict.invalid{background:var(--red-dim);border:1px solid rgba(239,68,68,.2)}
+.verdict-icon{font-size:1.2rem;flex-shrink:0;margin-top:.05rem}
+.verdict-title{font-size:.9rem;font-weight:600;margin-bottom:.2rem}
+.verdict.valid .verdict-title{color:var(--green)}
+.verdict.invalid .verdict-title{color:var(--red)}
+.verdict-detail{font-size:.78rem;color:var(--body)}
+
+/* TAMPER CONTROLS */
+.tamper-panel{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--red);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:1rem 1.2rem;margin-top:1.5rem}
+.tamper-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:.6rem}
+.tamper-btns{display:flex;flex-wrap:wrap;gap:.4rem}
+.tamper-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.35rem .8rem;border-radius:var(--radius);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);color:var(--red);transition:all .15s}
+.tamper-btn:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.5)}
+.reset-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .85rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--body);transition:all .15s;margin-top:.5rem}
+.reset-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.copy-json-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;padding:.28rem .75rem;border-radius:var(--radius);border:1px solid rgba(20,184,166,.3);background:rgba(20,184,166,.07);color:var(--teal);transition:all .15s;cursor:pointer}
+.copy-json-btn:hover{border-color:rgba(20,184,166,.6);background:rgba(20,184,166,.14);color:var(--teal-lt)}
+.copy-json-btn.copied{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.1);color:#22C55E}
+
+/* DEBUGGER MODE */
+.debugger{padding:2rem 0 3rem}
+.debug-intro{font-size:.88rem;color:var(--body);max-width:680px;margin-bottom:1.5rem;line-height:1.9}
+.case-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:2rem}
+.case-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem;cursor:pointer;transition:all .15s}
+.case-card:hover{border-color:var(--border-2);transform:translateY(-2px)}
+.case-card.active{border-color:var(--gold)}
+.case-num{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem}
+.case-title{font-size:.88rem;color:var(--bright);font-weight:500;margin-bottom:.25rem}
+.case-desc{font-size:.75rem;color:var(--body)}
+.case-hint{display:inline-block;margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.18)}
+.debug-workspace{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.debug-ws-header{padding:.7rem 1.2rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.debug-ws-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.debug-ws-body{padding:1.2rem}
+.debug-artifact{font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.75;color:var(--text);white-space:pre;overflow-x:auto}
+.dbk{color:var(--teal-lt)}
+.dbv{color:var(--gold)}
+.dbn{color:var(--green)}
+.dberr{color:var(--red);text-decoration:underline;text-underline-offset:2px}
+.debug-diagnose{margin-top:1rem}
+.diagnose-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.diagnose-options{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.75rem}
+.diagnose-opt{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;cursor:pointer;display:flex;align-items:center;gap:.7rem;transition:border-color .15s}
+.diagnose-opt:hover{border-color:var(--border-2)}
+.diagnose-opt.correct{border-color:var(--green);background:var(--green-dim)}
+.diagnose-opt.wrong{border-color:var(--red);background:var(--red-dim)}
+.diagnose-letter{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);flex-shrink:0}
+.diagnose-text{font-size:.82rem;color:var(--text)}
+.diagnose-feedback{font-size:.8rem;color:var(--body);padding:.7rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:var(--bg-3);display:none;margin-top:.5rem;line-height:1.7}
+.diagnose-feedback.visible{display:block}
+.diagnose-feedback strong{color:var(--bright)}
+.next-case-btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border-2);color:var(--body);padding:.38rem .85rem;border-radius:var(--radius);transition:all .15s;display:none;margin-top:.5rem}
+.next-case-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.next-case-btn.visible{display:inline-block}
+
+/* PLAYGROUND MODE */
+.playground{padding:2rem 0 3rem}
+.playground-desc{font-size:.88rem;color:var(--body);max-width:680px;margin-bottom:1.5rem;line-height:1.9}
+.hash-live-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.hash-live-header{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.hash-live-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hash-live-body{padding:1rem 1.1rem}
+.hash-textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--white);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.65rem .85rem;resize:vertical;min-height:80px;outline:none;transition:border-color .15s;line-height:1.65}
+.hash-textarea:focus{border-color:var(--teal)}
+.hash-live-out{margin-top:.75rem;padding:.75rem 1rem;background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius)}
+.hash-live-out-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.hash-live-out-val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);word-break:break-all;line-height:1.7;min-height:1.4em}
+.avalanche-box{margin-top:1.2rem}
+.avalanche-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:.75rem}
+.av-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem}
+.av-card-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.av-input{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--bright);margin-bottom:.45rem}
+.av-hash{font-family:'JetBrains Mono',monospace;font-size:.6rem;word-break:break-all;line-height:1.65}
+.av-same{color:var(--muted)}
+.av-diff{color:var(--red)}
+.av-stat{margin-top:.5rem;font-size:.72rem;color:var(--body)}
+.ocg-preimage-box{margin-top:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.ocg-pre-header{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.ocg-pre-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.ocg-pre-body{padding:.85rem 1rem;font-size:.82rem;color:var(--body);line-height:1.8}
+.ocg-pre-body ol{padding-left:1.2rem;display:flex;flex-direction:column;gap:.35rem}
+.ocg-pre-body li{color:var(--body);font-size:.8rem}
+.ocg-pre-body li strong{color:var(--text)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;padding:.8rem 1.1rem;margin:1rem 0;max-width:760px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem}
+.callout p{font-size:.82rem;color:var(--body);line-height:1.75}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+
+/* FOOTER */
+footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.72rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .35rem}
+
+/* QUIZ TRIGGER */
+.quiz-trigger-btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);padding:.38rem .9rem;border-radius:20px;transition:all .15s;display:inline-block}
+.quiz-trigger-btn:hover{background:rgba(20,184,166,.18);border-color:rgba(20,184,166,.5)}
+
+/* QUIZ MODAL */
+.quiz-overlay{position:fixed;inset:0;background:rgba(5,9,18,.75);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity .2s}
+.quiz-overlay.open{opacity:1;pointer-events:all}
+.quiz-modal{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);max-width:540px;width:100%;padding:1.8rem;position:relative;transform:translateY(14px);transition:transform .22s}
+.quiz-overlay.open .quiz-modal{transform:translateY(0)}
+.quiz-modal-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.55rem}
+.quiz-modal-q{font-size:.97rem;color:var(--white);line-height:1.55;margin-bottom:1rem;font-weight:500}
+.quiz-modal-opts{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem}
+.quiz-opt{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;cursor:pointer;display:flex;align-items:flex-start;gap:.65rem;transition:border-color .12s;text-align:left}
+.quiz-opt:hover:not(.answered){border-color:var(--border-2)}
+.quiz-opt.correct{border-color:var(--green);background:var(--green-dim);pointer-events:none}
+.quiz-opt.wrong{border-color:var(--red);background:var(--red-dim);pointer-events:none}
+.quiz-opt.revealed{pointer-events:none}
+.quiz-opt-letter{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);flex-shrink:0;margin-top:.05rem}
+.quiz-opt-text{font-size:.84rem;color:var(--text);line-height:1.5}
+.quiz-modal-fb{font-size:.82rem;color:var(--body);line-height:1.75;border-top:1px solid var(--border);padding-top:.75rem;display:none}
+.quiz-modal-fb.show{display:block}
+.quiz-modal-fb strong{color:var(--bright)}
+.quiz-modal-close{width:100%;margin-top:.75rem;background:none;border:1px solid var(--border-2);color:var(--body);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.42rem;cursor:pointer;display:none;transition:all .15s}
+.quiz-modal-close:hover{border-color:var(--teal);color:var(--teal-lt)}
+.quiz-modal-close.show{display:block}
+.quiz-x{position:absolute;top:.9rem;right:1rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.2rem}
+.quiz-x:hover{color:var(--body)}
+.quiz-counter{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+
+@media(max-width:768px){
+  .sandbox-layout{grid-template-columns:1fr}
+  .pane-left{padding-right:0;border-right:none;border-bottom:1px solid var(--border);padding-bottom:1.5rem;margin-bottom:1.5rem}
+  .pane-right{padding-left:0}
+  .avalanche-row,.case-grid{grid-template-columns:1fr}
+  .field-row{grid-template-columns:120px 1fr}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-r">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-explainer.html">Explainer</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.2</a>
+      <span class="nav-pill">Live Sandbox</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Post Oak Labs · Interactive Tool</div>
+    <h1><em>Touch</em> the hash. Watch it break.</h1>
+    <p class="hero-desc">The explainer shows you how OpenChainGraph works. This sandbox lets you feel it. Edit any field in a live OCG v0.2 artifact and the <code>execution_hash</code> recomputes in your browser — using the real WebCrypto SHA-256 algorithm, the same way a conformant tool does it. Then deliberately tamper with data and see exactly how the fingerprint fails.</p>
+    <div class="hero-badges">
+      <span class="hbadge">WebCrypto SHA-256</span>
+      <span class="hbadge">Zero server — fully client-side</span>
+      <span class="hbadge">Real OCG v0.2 preimage construction</span>
+      <span class="hbadge">No PII</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODE BAR -->
+<div class="mode-bar">
+  <div class="wrap">
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('sandbox')">🔧 Artifact Editor</button>
+      <button class="mode-tab" onclick="setMode('debugger')">🔍 What Went Wrong?</button>
+      <button class="mode-tab" onclick="setMode('playground')">⚡ Hash Playground</button>
+    </div>
+    <div class="mode-desc" id="modeDesc">Edit any field in a live OCG artifact. The execution_hash recomputes after every keystroke using the real preimage construction — sorted-key JSON → UTF-8 → WebCrypto SHA-256. The Tamper buttons introduce deliberate corruption so you can see exactly what fails.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ ONBOARDING BANNER ══════════════════════════ -->
+<div id="onboardingBanner" class="wrap" style="padding-top:1.5rem;padding-bottom:0">
+  <div style="background:var(--bg-3);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:220px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.45rem">New here? Start in 30 seconds</div>
+      <div style="font-size:.88rem;color:var(--bright);font-weight:500;margin-bottom:.35rem">Three things to try in this sandbox</div>
+      <ol style="padding-left:1.1rem;display:flex;flex-direction:column;gap:.3rem;margin-top:.5rem">
+        <li style="font-size:.8rem;color:var(--body);line-height:1.6"><strong style="color:var(--text)">Artifact Editor</strong> — change any field on the left and watch the hash on the right recompute live. Start with <code>var_10d_99</code>.</li>
+        <li style="font-size:.8rem;color:var(--body);line-height:1.6"><strong style="color:var(--text)">Tamper controls</strong> — hit "Flip an output digit" to corrupt the artifact. The red verdict tells you exactly which characters broke.</li>
+        <li style="font-size:.8rem;color:var(--body);line-height:1.6"><strong style="color:var(--text)">Hash Playground</strong> (top tab) — type your own text and see SHA-256 recompute in real time. Change one character to trigger the avalanche effect.</li>
+      </ol>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;flex-shrink:0">
+      <button onclick="document.getElementById('onboardingBanner').style.display='none'" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);padding:.4rem 1rem;border-radius:20px;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='rgba(20,184,166,.18)'" onmouseout="this.style.background='var(--teal-dim)'">Got it — hide this</button>
+      <a href="openchain-graph-explainer.html" style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.35rem .85rem;border-radius:20px;text-decoration:none;white-space:nowrap;transition:all .15s" onmouseover="this.style.color='var(--body)'" onmouseout="this.style.color='var(--muted)'">Need more context? → Explainer</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ MODE: SANDBOX ══════════════════════════ -->
+<div id="modeSandbox" class="wrap">
+  <div class="sandbox-layout">
+
+    <!-- LEFT: Field editor -->
+    <div class="pane pane-left">
+      <div class="pane-head">
+        <span class="pane-label">Artifact fields — edit any value</span>
+        <button class="reset-btn" onclick="resetArtifact()">↺ Reset</button>
+      </div>
+
+      <div class="field-group">
+        <div class="field-group-label">Identity</div>
+        <div class="field-row">
+          <span class="field-key">tool_id</span>
+          <input class="field-input" id="f_tool_id" value="var_frtb_ima_v1" oninput="onFieldChange()">
+        </div>
+        <div class="field-row">
+          <span class="field-key">mandate_type</span>
+          <input class="field-input" id="f_mandate_type" value="market_risk" oninput="onFieldChange()">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-group-label">policy_parameters (inputs — these get hashed)</div>
+        <div class="field-row">
+          <span class="field-key">confidence_level</span>
+          <input class="field-input" id="f_confidence_level" type="number" step="0.01" value="0.99" oninput="onFieldChange()">
+        </div>
+        <div class="field-row">
+          <span class="field-key">holding_period_days</span>
+          <input class="field-input" id="f_holding_period_days" type="number" value="10" oninput="onFieldChange()">
+        </div>
+        <div class="field-row">
+          <span class="field-key">portfolio_id</span>
+          <input class="field-input" id="f_portfolio_id" value="FX-DESK-Q3" oninput="onFieldChange()">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-group-label">output_payload (results — these get hashed too)</div>
+        <div class="field-row">
+          <span class="field-key">var_10d_99</span>
+          <input class="field-input" id="f_var_10d_99" type="number" value="2847300" oninput="onFieldChange()">
+        </div>
+        <div class="field-row">
+          <span class="field-key">es_97_5</span>
+          <input class="field-input" id="f_es_97_5" type="number" value="3190500" oninput="onFieldChange()">
+        </div>
+        <div class="field-row">
+          <span class="field-key">breaches_250d</span>
+          <input class="field-input" id="f_breaches_250d" type="number" value="4" oninput="onFieldChange()">
+        </div>
+      </div>
+
+      <!-- Tamper buttons -->
+      <div class="tamper-panel">
+        <div class="tamper-label">⚠ Tamper controls — introduce deliberate corruption</div>
+        <div class="tamper-btns">
+          <button class="tamper-btn" onclick="tamper('flip_output')">Flip an output digit</button>
+          <button class="tamper-btn" onclick="tamper('corrupt_hash')">Edit stored hash directly</button>
+          <button class="tamper-btn" onclick="tamper('change_input')">Nudge a parameter +1</button>
+          <button class="tamper-btn" onclick="tamper('add_field')">Add a secret field</button>
+          <button class="tamper-btn" onclick="tamper('swap_keys')">Swap two output values</button>
+        </div>
+        <button class="quiz-trigger-btn" onclick="openQuiz('sandbox')" style="margin-top:.75rem">Test your understanding →</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Hash display + step trace -->
+    <div class="pane pane-right">
+      <div class="pane-head">
+        <span class="pane-label">Verification result</span>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <button class="copy-json-btn" id="copyJsonBtn" onclick="copyArtifactJson()">⎘ Copy JSON</button>
+          <div class="pane-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verdict -->
+      <div class="verdict valid" id="verdict">
+        <div class="verdict-icon">✓</div>
+        <div>
+          <div class="verdict-title">Hash verified</div>
+          <div class="verdict-detail" id="verdictDetail">The stored execution_hash matches the freshly computed SHA-256 of the canonical preimage. This artifact has not been tampered with.</div>
+        </div>
+      </div>
+
+      <!-- Hash display -->
+      <div class="hash-panel" style="margin-top:1rem">
+        <div class="hash-section-label">Stored execution_hash</div>
+        <div class="hash-value" id="storedHash" style="margin-bottom:.65rem">—</div>
+
+        <div class="hash-section-label">Freshly computed hash (live)</div>
+        <div class="hash-value" id="liveHash">—</div>
+
+        <div class="hash-diff" id="hashDiff">
+          <div class="hash-diff-label">Character-level diff — stored vs live</div>
+          <div class="hash-char-compare" id="hashCharDiff"></div>
+        </div>
+      </div>
+
+      <!-- Step trace -->
+      <div class="step-trace" id="stepTrace">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Extract fields for hashing</div>
+            <div class="step-detail" id="st1">policy_parameters + output_payload selected</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Sort keys recursively</div>
+            <div class="step-detail" id="st2">Keys sorted: breaches_250d, confidence_level, es_97_5, holding_period_days, portfolio_id, var_10d_99</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">JSON.stringify + UTF-8 encode</div>
+            <div class="step-detail" id="st3">— bytes</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">WebCrypto SHA-256</div>
+            <div class="step-detail" id="st4">crypto.subtle.digest("SHA-256", bytes)</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-title">Compare to stored hash</div>
+            <div class="step-detail" id="st5">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preimage viewer -->
+      <div class="preimage-panel">
+        <div class="preimage-header">
+          <span class="preimage-header-label">Hash preimage (canonical JSON)</span>
+          <button class="preimage-toggle" onclick="togglePreimage()">Show →</button>
+        </div>
+        <div class="preimage-body" id="preimageBody"></div>
+      </div>
+
+      <div class="callout callout-gold" style="margin-top:1rem">
+        <div class="lab">Why tool_id and mandate_type aren't hashed</div>
+        <p>Only <code>policy_parameters</code> and <code>output_payload</code> enter the preimage. Metadata like <code>tool_id</code> and <code>chain</code> describe the artifact but don't affect the decision's mathematical content — hashing them would make the hash change when you rename a tool without changing any computed values. The hash is a fingerprint of the <em>decision</em>, not the packaging.</p>
+      </div>
+    </div>
+
+  </div><!-- /sandbox-layout -->
+</div><!-- /modeSandbox -->
+
+<!-- ══════════════════════════ MODE: DEBUGGER ══════════════════════════ -->
+<div id="modeDebugger" class="wrap debugger" style="display:none">
+  <p class="debug-intro">Each case below presents a broken OCG artifact. One or more things are wrong. Read the artifact carefully, then diagnose what went wrong. This is how a real auditor encounters OCG failure modes — not in a tutorial, but in a field report.</p>
+
+  <div class="case-grid" id="caseGrid">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="debug-workspace" id="debugWorkspace" style="display:none">
+    <div class="debug-ws-header">
+      <span class="debug-ws-label" id="debugCaseTitle">Case 1 of 4</span>
+      <button class="reset-btn" onclick="clearDebugCase()">← All cases</button>
+    </div>
+    <div class="debug-ws-body">
+      <div class="debug-artifact" id="debugArtifact"></div>
+      <div class="debug-diagnose">
+        <div class="diagnose-label">What is wrong with this artifact?</div>
+        <div class="diagnose-options" id="diagnoseOptions"></div>
+        <div class="diagnose-feedback" id="diagnoseFeedback"></div>
+        <button class="next-case-btn" id="nextCaseBtn" onclick="nextDebugCase()">Next case →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ MODE: PLAYGROUND ══════════════════════════ -->
+<div id="modePlayground" class="wrap playground" style="display:none">
+  <p class="playground-desc">Type anything and get a live SHA-256 hash. Then see the <strong>avalanche effect</strong> — how one character change scrambles the entire output. Finally, understand exactly what OCG puts through the hash function and why the preimage is constructed the way it is.</p>
+
+  <div class="hash-live-box">
+    <div class="hash-live-header">
+      <span class="hash-live-label">Type anything → live SHA-256</span>
+    </div>
+    <div class="hash-live-body">
+      <textarea class="hash-textarea" id="playInput" placeholder="Type anything here — your name, a number, a JSON snippet…" oninput="updatePlayground()">The VaR for this portfolio is $2,847,300</textarea>
+      <div class="hash-live-out">
+        <div class="hash-live-out-label">SHA-256</div>
+        <div class="hash-live-out-val" id="playHash">computing…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Avalanche demo -->
+  <div class="avalanche-box" style="margin-top:1.5rem">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem">Avalanche Effect</div>
+    <p style="font-size:.85rem;color:var(--body);margin-bottom:.75rem">Two inputs that differ by a single character. Watch how much of the hash changes — every character is affected.</p>
+    <div class="avalanche-row">
+      <div class="av-card">
+        <div class="av-card-label">Input A</div>
+        <div class="av-input" id="avInputA">$2,847,300</div>
+        <div class="av-hash" id="avHashA">—</div>
+      </div>
+      <div class="av-card">
+        <div class="av-card-label">Input B — one digit changed</div>
+        <div class="av-input" id="avInputB">$2,847,<span style="color:var(--red)">4</span>00</div>
+        <div class="av-hash" id="avHashB">—</div>
+      </div>
+    </div>
+    <div class="av-stat" id="avStat"></div>
+    <button class="quiz-trigger-btn" onclick="openQuiz('playground')" style="margin-top:.9rem">Test your understanding →</button>
+  </div>
+
+  <!-- OCG preimage explainer -->
+  <div class="ocg-preimage-box" style="margin-top:1.5rem">
+    <div class="ocg-pre-header">
+      <span class="ocg-pre-label">How OCG builds its preimage — why it's not just hash(inputs)</span>
+    </div>
+    <div class="ocg-pre-body">
+      <p style="font-size:.82rem;color:var(--body);margin-bottom:.75rem">A naive implementation might just hash the raw JSON string. OCG specifies a 4-step canonical construction so that the hash is identical regardless of which JSON library, programming language, or runtime produced the artifact:</p>
+      <ol>
+        <li><strong>Select only decision content:</strong> extract <code>policy_parameters</code> and <code>output_payload</code> into a new object — nothing else enters the hash</li>
+        <li><strong>Sort all keys recursively:</strong> traverse the object tree and sort every key at every level alphabetically — this removes ambiguity from JSON libraries that don't guarantee key order</li>
+        <li><strong>Stringify without whitespace:</strong> call <code>JSON.stringify(sorted, null)</code> — compact, no newlines, no trailing spaces — then encode to UTF-8 bytes</li>
+        <li><strong>SHA-256 via WebCrypto:</strong> call <code>crypto.subtle.digest("SHA-256", bytes)</code> — the browser's built-in implementation, no library dependency — and hex-encode the 32-byte result with the prefix <code>sha256:</code></li>
+      </ol>
+      <div style="margin-top:1rem;padding:.75rem 1rem;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem">Live OCG preimage for your playground input (if valid JSON)</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--text);word-break:break-all;line-height:1.7" id="playOcgPreimage">—</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.5rem;margin-bottom:.25rem">OCG execution_hash</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);word-break:break-all;line-height:1.7" id="playOcgHash">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="quiz-overlay" id="quizOverlay" onclick="overlayClickClose(event)">
+  <div class="quiz-modal" id="quizModal">
+    <button class="quiz-x" onclick="closeQuiz()">✕</button>
+    <div class="quiz-modal-eyebrow" id="qEyebrow">Quick Check</div>
+    <div class="quiz-counter" id="qCounter"></div>
+    <div class="quiz-modal-q" id="qQuestion"></div>
+    <div class="quiz-modal-opts" id="qOpts"></div>
+    <div class="quiz-modal-fb" id="qFeedback"></div>
+    <button class="quiz-modal-close" id="qClose" onclick="quizNext()">Next question →</button>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Explainer</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec</a>
+      <span>·</span> Integration Guides:
+      <a href="guide-prov-dm.html">PROV-DM</a> ·
+      <a href="guide-buildtype.html">SLSA</a> ·
+      <a href="guide-intoto.html">in-toto</a> ·
+      <a href="guide-ed25519.html">Ed25519</a> ·
+      <a href="guide-otel.html">OpenTelemetry</a>
+      <span>·</span> CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CORE: OCG preimage construction + SHA-256
+// ══════════════════════════════════════════════════════
+
+function sortedStringify(obj) {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return JSON.stringify(obj);
+  const sorted = {};
+  for (const k of Object.keys(obj).sort()) sorted[k] = JSON.parse(sortedStringify(obj[k]));
+  return JSON.stringify(sorted);
+}
+
+async function sha256hex(str) {
+  const buf = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return 'sha256:' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function computeOcgHash(policyParams, outputPayload) {
+  const preimage = sortedStringify({ output_payload: outputPayload, policy_parameters: policyParams });
+  return { hash: await sha256hex(preimage), preimage };
+}
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+
+const DEFAULTS = {
+  tool_id: 'var_frtb_ima_v1',
+  mandate_type: 'market_risk',
+  confidence_level: 0.99,
+  holding_period_days: 10,
+  portfolio_id: 'FX-DESK-Q3',
+  var_10d_99: 2847300,
+  es_97_5: 3190500,
+  breaches_250d: 4
+};
+
+let storedHash = '';
+let tamperActive = false;
+let computeTimer = null;
+let preimageOpen = false;
+
+// ══════════════════════════════════════════════════════
+// SANDBOX
+// ══════════════════════════════════════════════════════
+
+function getArtifactFromFields() {
+  return {
+    policy_parameters: {
+      confidence_level: parseFloat(document.getElementById('f_confidence_level').value) || 0,
+      holding_period_days: parseInt(document.getElementById('f_holding_period_days').value) || 0,
+      portfolio_id: document.getElementById('f_portfolio_id').value || ''
+    },
+    output_payload: {
+      var_10d_99: parseInt(document.getElementById('f_var_10d_99').value) || 0,
+      es_97_5: parseInt(document.getElementById('f_es_97_5').value) || 0,
+      breaches_250d: parseInt(document.getElementById('f_breaches_250d').value) || 0
+    }
+  };
+}
+
+async function copyArtifactJson() {
+  const { policy_parameters, output_payload } = getArtifactFromFields();
+  const tool_id = document.getElementById('f_tool_id').value || DEFAULTS.tool_id;
+  const mandate_type = document.getElementById('f_mandate_type').value || DEFAULTS.mandate_type;
+  const { hash } = await computeOcgHash(policy_parameters, output_payload);
+  const artifact = {
+    tool_id,
+    mandate_type,
+    execution_hash: hash,
+    policy_parameters,
+    output_payload,
+    spec_version: '0.2'
+  };
+  const json = JSON.stringify(artifact, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    const btn = document.getElementById('copyJsonBtn');
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '⎘ Copy JSON'; btn.classList.remove('copied'); }, 1800);
+  } catch(e) {
+    alert('Copy failed — clipboard access blocked. Open DevTools console and copy manually.');
+  }
+}
+
+async function resetArtifact() {
+  tamperActive = false;
+  document.getElementById('f_tool_id').value = DEFAULTS.tool_id;
+  document.getElementById('f_mandate_type').value = DEFAULTS.mandate_type;
+  document.getElementById('f_confidence_level').value = DEFAULTS.confidence_level;
+  document.getElementById('f_holding_period_days').value = DEFAULTS.holding_period_days;
+  document.getElementById('f_portfolio_id').value = DEFAULTS.portfolio_id;
+  document.getElementById('f_var_10d_99').value = DEFAULTS.var_10d_99;
+  document.getElementById('f_es_97_5').value = DEFAULTS.es_97_5;
+  document.getElementById('f_breaches_250d').value = DEFAULTS.breaches_250d;
+  document.querySelectorAll('.field-input').forEach(el => el.classList.remove('tampered'));
+  // Re-establish the "honest" stored hash
+  const { policy_parameters, output_payload } = getArtifactFromFields();
+  const { hash } = await computeOcgHash(policy_parameters, output_payload);
+  storedHash = hash;
+  await updateVerification();
+}
+
+function setStatus(state) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + state;
+  txt.className = 'status-text ' + state;
+  txt.textContent = state === 'valid' ? 'Hash valid' : state === 'invalid' ? 'Tamper detected' : 'Computing…';
+}
+
+function renderCharDiff(a, b) {
+  let html = '';
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const ca = a[i] || '', cb = b[i] || '';
+    if (ca === cb) html += `<span class="hc-same">${ca}</span>`;
+    else html += `<span class="hc-diff">${cb || '?'}</span>`;
+  }
+  return html;
+}
+
+async function updateVerification() {
+  setStatus('computing');
+  const { policy_parameters, output_payload } = getArtifactFromFields();
+  const { hash: liveHash, preimage } = await computeOcgHash(policy_parameters, output_payload);
+
+  const isValid = liveHash === storedHash;
+
+  // Hash display
+  document.getElementById('storedHash').textContent = storedHash || '—';
+  document.getElementById('liveHash').textContent = liveHash;
+
+  const liveEl = document.getElementById('liveHash');
+  liveEl.className = 'hash-value ' + (isValid ? '' : 'invalid');
+
+  // Char diff
+  const diffEl = document.getElementById('hashDiff');
+  if (!isValid && storedHash) {
+    diffEl.classList.add('visible');
+    document.getElementById('hashCharDiff').innerHTML =
+      '<div style="margin-bottom:.25rem;font-size:.56rem;color:var(--muted)">stored:&nbsp;</div>' +
+      renderCharDiff(liveHash, storedHash) +
+      '<div style="margin-top:.4rem;margin-bottom:.25rem;font-size:.56rem;color:var(--muted)">live:&nbsp;&nbsp;&nbsp;</div>' +
+      renderCharDiff(storedHash, liveHash);
+  } else {
+    diffEl.classList.remove('visible');
+  }
+
+  // Verdict
+  const vEl = document.getElementById('verdict');
+  vEl.className = 'verdict ' + (isValid ? 'valid' : 'invalid');
+  const vIcon = vEl.querySelector('.verdict-icon');
+  const vTitle = vEl.querySelector('.verdict-title');
+  const vDetail = document.getElementById('verdictDetail');
+  if (isValid) {
+    vIcon.textContent = '✓';
+    vTitle.textContent = 'Hash verified';
+    vDetail.textContent = 'The stored execution_hash matches the freshly computed SHA-256 of the canonical preimage. This artifact has not been tampered with.';
+  } else {
+    vIcon.textContent = '✗';
+    vTitle.textContent = 'Tamper detected';
+    vDetail.textContent = 'The stored execution_hash does not match the computed hash of the current fields. Either the artifact was modified after the hash was set, or the stored hash was edited directly. Any OCG verifier would reject this artifact.';
+  }
+
+  // Status dot
+  setStatus(isValid ? 'valid' : 'invalid');
+
+  // Step trace
+  const allKeys = [...Object.keys(policy_parameters), ...Object.keys(output_payload)].sort();
+  document.getElementById('st1').textContent = `policy_parameters (${Object.keys(policy_parameters).length} keys) + output_payload (${Object.keys(output_payload).length} keys)`;
+  document.getElementById('st2').textContent = `Keys sorted: ${allKeys.join(', ')}`;
+  const byteLen = new TextEncoder().encode(preimage).length;
+  document.getElementById('st3').textContent = `${byteLen} bytes: ${preimage.slice(0,60)}${preimage.length>60?'…':''}`;
+  document.getElementById('st4').textContent = `crypto.subtle.digest("SHA-256", ${byteLen}-byte buffer)`;
+  document.getElementById('st5').textContent = isValid ? '✓ Match — artifact is authentic' : `✗ Mismatch — ${countDiffChars(storedHash, liveHash)} of 71 characters differ`;
+
+  // Preimage
+  if (preimageOpen) document.getElementById('preimageBody').textContent = JSON.stringify(JSON.parse(preimage), null, 2);
+}
+
+function countDiffChars(a, b) {
+  let n = 0;
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) if ((a[i]||'') !== (b[i]||'')) n++;
+  return n;
+}
+
+function onFieldChange() {
+  clearTimeout(computeTimer);
+  setStatus('computing');
+  computeTimer = setTimeout(updateVerification, 80);
+}
+
+function togglePreimage() {
+  preimageOpen = !preimageOpen;
+  const body = document.getElementById('preimageBody');
+  const btn = document.querySelector('.preimage-toggle');
+  body.classList.toggle('open', preimageOpen);
+  btn.textContent = preimageOpen ? 'Hide ↑' : 'Show →';
+  if (preimageOpen) updateVerification();
+}
+
+// Tamper functions — each introduces a specific type of corruption
+async function tamper(type) {
+  tamperActive = true;
+
+  // First, re-anchor the stored hash to the current (good) values
+  const { policy_parameters, output_payload } = getArtifactFromFields();
+  const { hash: goodHash } = await computeOcgHash(policy_parameters, output_payload);
+  storedHash = goodHash;
+
+  // Now corrupt something
+  if (type === 'flip_output') {
+    const el = document.getElementById('f_var_10d_99');
+    const orig = parseInt(el.value);
+    el.value = orig + 1;
+    el.classList.add('tampered');
+  } else if (type === 'corrupt_hash') {
+    // Corrupt the stored hash directly (don't touch fields)
+    const chars = storedHash.split('');
+    chars[10] = chars[10] === 'a' ? 'b' : 'a';
+    chars[11] = chars[11] === '1' ? '2' : '1';
+    storedHash = chars.join('');
+    // Update display immediately since fields haven't changed
+  } else if (type === 'change_input') {
+    const el = document.getElementById('f_holding_period_days');
+    el.value = parseInt(el.value) + 1;
+    el.classList.add('tampered');
+  } else if (type === 'add_field') {
+    // Simulate an extra hidden key (we can't actually add it to fields, so we add a key to the preimage directly by corrupting the stored hash)
+    // More illustrative: we manually alter the stored hash to what the artifact would hash to WITH an extra field
+    const corruptedPreimage = sortedStringify({
+      output_payload: { ...output_payload, hidden_adjustment: -50000 },
+      policy_parameters
+    });
+    storedHash = await sha256hex(corruptedPreimage);
+    // (Now the displayed fields don't match this hash — as if someone snuck in a field)
+  } else if (type === 'swap_keys') {
+    const var_el = document.getElementById('f_var_10d_99');
+    const es_el = document.getElementById('f_es_97_5');
+    const tmp = var_el.value;
+    var_el.value = es_el.value;
+    es_el.value = tmp;
+    var_el.classList.add('tampered');
+    es_el.classList.add('tampered');
+  }
+
+  updateVerification();
+}
+
+// ══════════════════════════════════════════════════════
+// DEBUGGER MODE
+// ══════════════════════════════════════════════════════
+
+const DEBUG_CASES = [
+  {
+    title: 'The Off-By-One Output',
+    desc: 'A market risk report looks fine at first glance. But the execution_hash doesn\'t match.',
+    hint: '1 wrong digit',
+    artifact: {
+      '@context': 'https://openchain.graph/context/v0.2',
+      tool_id: 'var_frtb_ima_v1',
+      mandate_type: 'market_risk',
+      policy_parameters: { confidence_level: 0.99, holding_period_days: 10, portfolio_id: 'FX-DESK-Q3' },
+      output_payload: { var_10d_99: 2847300, es_97_5: 3190500, breaches_250d: 4 },
+      execution_hash: 'sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
+      buildType: 'https://openchain.graph/spec/v0.2#WebCryptoSHA256'
+    },
+    // The real hash of those fields, injected at load time
+    realHash: null,
+    errorField: 'execution_hash',
+    options: [
+      'The policy_parameters are missing required fields',
+      'The execution_hash was computed from different field values than those shown — the artifact was modified after hashing',
+      'The buildType URI is wrong for this version',
+      'The output_payload keys are in the wrong order'
+    ],
+    correct: 1,
+    feedback: '<strong>Correct.</strong> The execution_hash shown is a fabricated placeholder — it doesn\'t match the SHA-256 of the canonical preimage for the visible fields. An auditor running <code>verifyOcgArtifact()</code> would catch this immediately. The most likely explanation: someone edited an output value after the artifact was emitted, but forgot (or chose not) to recompute the hash. This is exactly the scenario OCG\'s integrity check is designed to detect.'
+  },
+  {
+    title: 'The Missing Parent',
+    desc: 'An artifact claims chain depth 2 but only has one parent hash. The chain is broken.',
+    hint: 'chain field inconsistency',
+    artifact: {
+      '@context': 'https://openchain.graph/context/v0.2',
+      tool_id: 'capital_charge_calc_v1',
+      mandate_type: 'capital_requirement',
+      policy_parameters: { exposure_class: 'corporate', risk_weight: 0.75, ead: 1000000 },
+      output_payload: { rwa: 750000, capital_charge: 60000 },
+      execution_hash: 'sha256:real_hash_placeholder',
+      buildType: 'https://openchain.graph/spec/v0.2#WebCryptoSHA256',
+      chain: {
+        parent_hashes: ['sha256:a4c2f8e1b7d93f6c2a8e5b1d4f7c9e3a2b8f5e1c'],
+        depth: 2,
+        chain_name: 'q3_capital_review'
+      }
+    },
+    realHash: 'real',
+    errorField: 'chain.depth',
+    options: [
+      'The execution_hash format is wrong — it should not have a sha256: prefix',
+      'The chain.depth claims 2 but only one parent_hash is listed; depth 2 requires at minimum one parent that itself has a parent',
+      'The exposure_class value is not a valid ISO parameter',
+      'The mandate_type should be "market_risk" not "capital_requirement"'
+    ],
+    correct: 1,
+    feedback: '<strong>Correct.</strong> <code>chain.depth</code> of 2 means this artifact\'s longest provenance path goes back two steps to a root artifact. But with only one <code>parent_hash</code> listed, you can only trace back one step. Either the <code>depth</code> is wrong (should be 1), or a second parent hash is missing. An agent building a provenance graph from this artifact would incorrectly represent the chain ancestry.'
+  },
+  {
+    title: 'The Wrong Context Version',
+    desc: 'This artifact uses v0.1 context but claims v0.2 features. Something doesn\'t add up.',
+    hint: '@context mismatch',
+    artifact: {
+      '@context': 'https://openchain.graph/context/v0.1',
+      tool_id: 'liquidity_lcr_v2',
+      mandate_type: 'liquidity',
+      policy_parameters: { hqla_tier1: 5000000, net_outflows_30d: 4200000 },
+      output_payload: { lcr_ratio: 1.19, surplus_hqla: 800000 },
+      execution_hash: 'sha256:real_hash_placeholder',
+      buildType: 'https://openchain.graph/spec/v0.2#WebCryptoSHA256',
+      audit_signature: {
+        payloadType: 'application/vnd.openchain.graph+json',
+        payload: 'eyJAY29udGV4dCI6...',
+        signatures: [{ keyid: 'sha256:8f3a2b1c94e7d60f', sig: 'ZXhhbXBsZXNpZ25hdHVyZQ==' }]
+      }
+    },
+    realHash: 'real',
+    errorField: '@context',
+    options: [
+      'The audit_signature envelope is the wrong format for v0.2',
+      'The @context declares v0.1, but the audit_signature envelope structure and buildType URI are v0.2 features — the artifact is claiming v0.1 provenance while using v0.2 fields',
+      'The LCR ratio cannot exceed 1.0 — the output_payload is factually wrong',
+      'The keyid in signatures[] is not a valid fingerprint format'
+    ],
+    correct: 1,
+    feedback: '<strong>Correct.</strong> The <code>@context</code> URL is the authoritative version declaration. A v0.1 context guarantees no in-toto envelope and no <code>buildType</code> URI — those are v0.2 features. A verifier reading this artifact would look at <code>@context</code>, see v0.1, and not expect the envelope — potentially ignoring the signature entirely. The fix: upgrade <code>@context</code> to <code>https://openchain.graph/context/v0.2</code>.'
+  },
+  {
+    title: 'The Stale Parent',
+    desc: 'Tool B cites Tool A\'s output as a parent. But Tool A was re-run with updated parameters. The citation points to an artifact that no longer represents current data.',
+    hint: 'provenance staleness',
+    artifact: {
+      '@context': 'https://openchain.graph/context/v0.2',
+      tool_id: 'credit_rwa_aggregator_v1',
+      mandate_type: 'capital_requirement',
+      policy_parameters: { portfolio_date: '2025-Q3', include_off_balance: true },
+      output_payload: { total_rwa: 18750000, tier1_ratio: 0.142 },
+      execution_hash: 'sha256:real_hash_placeholder',
+      buildType: 'https://openchain.graph/spec/v0.2#WebCryptoSHA256',
+      chain: {
+        parent_hashes: ['sha256:a4c2f8e1b7d93f6c_THIS_IS_THE_Q2_HASH_NOT_Q3'],
+        depth: 1,
+        chain_name: 'q3_capital_review'
+      }
+    },
+    realHash: 'real',
+    errorField: 'chain.parent_hashes',
+    options: [
+      'The tier1_ratio cannot be expressed as a decimal — it must be a percentage integer',
+      'The chain.depth should be 0 because this tool produced a root calculation',
+      'The parent_hash points to a Q2 artifact but this is a Q3 calculation — the provenance chain cites stale upstream data that no longer matches the current inputs',
+      'The chain_name and mandate_type must always match exactly'
+    ],
+    correct: 2,
+    feedback: '<strong>Correct.</strong> Hash chaining only proves integrity, not currency. If Tool A was re-run with Q3 data and produced a new artifact with a new hash, but Tool B still cites the Q2 hash in <code>parent_hashes</code>, then Tool B\'s output is built on stale provenance — even though every hash in the chain verifies correctly. An auditor tracing back the Q3 capital report would arrive at a Q2 credit assessment. This is why chain management (keeping parent citations current) is a process discipline, not just a cryptographic one.'
+  }
+];
+
+let currentDebugCase = null;
+let debugAnswered = false;
+
+async function initDebugCases() {
+  // Compute real hashes for cases that need them
+  for (const c of DEBUG_CASES) {
+    if (c.realHash === 'real') {
+      const { hash } = await computeOcgHash(c.artifact.policy_parameters, c.artifact.output_payload);
+      c.artifact.execution_hash = hash;
+    }
+    // For case 0, keep fake hash (that's the point)
+  }
+
+  const grid = document.getElementById('caseGrid');
+  grid.innerHTML = DEBUG_CASES.map((c, i) => `
+    <div class="case-card" id="cc${i}" onclick="openDebugCase(${i})">
+      <div class="case-num">Case ${i+1} of ${DEBUG_CASES.length}</div>
+      <div class="case-title">${c.title}</div>
+      <div class="case-desc">${c.desc}</div>
+      <span class="case-hint">${c.hint}</span>
+    </div>
+  `).join('');
+}
+
+function artifactToHtml(artifact, errorField) {
+  const lines = JSON.stringify(artifact, null, 2).split('\n');
+  return lines.map(line => {
+    // Highlight the error-related field
+    const isError = errorField && line.includes(`"${errorField.split('.').pop()}"`);
+    return isError ? `<span class="dberr">${escHtml(line)}</span>` : escHtml(line)
+      .replace(/"([^"]+)":/g, '<span class="dbk">"$1"</span>:')
+      .replace(/: "([^"]+)"/g, ': <span class="dbv">"$1"</span>')
+      .replace(/: ([\d.]+)/g, ': <span class="dbn">$1</span>')
+      .replace(/: (true|false)/g, ': <span class="dbn">$1</span>');
+  }).join('\n');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openDebugCase(i) {
+  currentDebugCase = i;
+  debugAnswered = false;
+  const c = DEBUG_CASES[i];
+
+  document.getElementById('caseGrid').style.display = 'none';
+  const ws = document.getElementById('debugWorkspace');
+  ws.style.display = 'block';
+  document.getElementById('debugCaseTitle').textContent = `Case ${i+1} of ${DEBUG_CASES.length}: ${c.title}`;
+  document.getElementById('debugArtifact').innerHTML = artifactToHtml(c.artifact, c.errorField);
+
+  const letters = ['A','B','C','D'];
+  document.getElementById('diagnoseOptions').innerHTML = c.options.map((o, j) => `
+    <div class="diagnose-opt" onclick="answerDebug(${j})" data-idx="${j}" data-correct="${j===c.correct}">
+      <span class="diagnose-letter">${letters[j]}</span>
+      <span class="diagnose-text">${o}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('diagnoseFeedback').className = 'diagnose-feedback';
+  document.getElementById('diagnoseFeedback').innerHTML = '';
+  document.getElementById('nextCaseBtn').className = 'next-case-btn';
+}
+
+function clearDebugCase() {
+  document.getElementById('caseGrid').style.display = 'grid';
+  document.getElementById('debugWorkspace').style.display = 'none';
+}
+
+function answerDebug(j) {
+  if (debugAnswered) return;
+  debugAnswered = true;
+  const c = DEBUG_CASES[currentDebugCase];
+  const opts = document.querySelectorAll('.diagnose-opt');
+  opts.forEach(o => o.style.pointerEvents = 'none');
+  opts[j].className = 'diagnose-opt ' + (j === c.correct ? 'correct' : 'wrong');
+  if (j !== c.correct) opts[c.correct].className = 'diagnose-opt correct';
+  const fb = document.getElementById('diagnoseFeedback');
+  fb.innerHTML = c.feedback;
+  fb.className = 'diagnose-feedback visible';
+  const nb = document.getElementById('nextCaseBtn');
+  nb.textContent = currentDebugCase < DEBUG_CASES.length - 1 ? 'Next case →' : 'All cases';
+  nb.className = 'next-case-btn visible';
+}
+
+function nextDebugCase() {
+  if (currentDebugCase < DEBUG_CASES.length - 1) {
+    openDebugCase(currentDebugCase + 1);
+  } else {
+    clearDebugCase();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PLAYGROUND
+// ══════════════════════════════════════════════════════
+
+async function updatePlayground() {
+  const input = document.getElementById('playInput').value;
+  const hash = await sha256hex(input);
+  document.getElementById('playHash').textContent = hash;
+
+  // Avalanche
+  const avA = '$2,847,300';
+  const avB = '$2,847,400';
+  const hA = await sha256hex(avA);
+  const hB = await sha256hex(avB);
+  document.getElementById('avHashA').innerHTML = renderAvHash(hA, hB);
+  document.getElementById('avHashB').innerHTML = renderAvHash(hB, hA);
+  const diffCount = countDiffChars(hA, hB);
+  document.getElementById('avStat').textContent = `${diffCount} of ${hA.length} characters differ (${Math.round(diffCount/hA.length*100)}% of the hash changed from a single digit change in the input)`;
+
+  // OCG preimage — try to parse playground input as JSON
+  try {
+    const parsed = JSON.parse(input);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const pp = parsed.policy_parameters || parsed;
+      const op = parsed.output_payload || {};
+      const preimage = sortedStringify({ output_payload: op, policy_parameters: pp });
+      const ocgHash = await sha256hex(preimage);
+      document.getElementById('playOcgPreimage').textContent = preimage;
+      document.getElementById('playOcgHash').textContent = ocgHash;
+    } else {
+      document.getElementById('playOcgPreimage').textContent = '(Input must be a JSON object with policy_parameters and output_payload to generate an OCG hash)';
+      document.getElementById('playOcgHash').textContent = '—';
+    }
+  } catch(e) {
+    document.getElementById('playOcgPreimage').textContent = '(Input is not valid JSON — type or paste a JSON object to see the OCG preimage)';
+    document.getElementById('playOcgHash').textContent = '—';
+  }
+}
+
+function renderAvHash(a, b) {
+  return Array.from(a).map((ch, i) => b[i] === ch ? `<span class="av-same">${ch}</span>` : `<span class="av-diff">${ch}</span>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// MODE SWITCHING
+// ══════════════════════════════════════════════════════
+
+const MODE_DESCS = {
+  sandbox: 'Edit any field in a live OCG artifact. The execution_hash recomputes after every keystroke using the real preimage construction — sorted-key JSON → UTF-8 → WebCrypto SHA-256. The Tamper buttons introduce deliberate corruption so you can see exactly what fails.',
+  debugger: 'Four broken artifacts. Each has a different type of defect: a tampered output, a chain inconsistency, a context version mismatch, or stale provenance. Read the artifact and diagnose what went wrong — the way a real auditor would.',
+  playground: 'Type anything and get a live SHA-256 hash. Explore the avalanche effect. Then paste a JSON object to see exactly how OCG builds its canonical preimage before hashing.'
+};
+
+function setMode(m) {
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.mode-tab[onclick="setMode('${m}')"]`).classList.add('active');
+  document.getElementById('modeSandbox').style.display = m === 'sandbox' ? '' : 'none';
+  document.getElementById('modeDebugger').style.display = m === 'debugger' ? '' : 'none';
+  document.getElementById('modePlayground').style.display = m === 'playground' ? '' : 'none';
+  document.getElementById('modeDesc').textContent = MODE_DESCS[m];
+  if (m === 'playground') updatePlayground();
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+
+(async function init() {
+  await resetArtifact();
+  await initDebugCases();
+  updatePlayground();
+})();
+
+// ══════════════════════════════════════════════════════
+// QUIZ
+// ══════════════════════════════════════════════════════
+
+const QUIZ_SETS = {
+  sandbox: {
+    eyebrow: 'Artifact Editor · Quick Check',
+    questions: [
+      {
+        q: 'You change <code>breaches_250d</code> from 4 to 5. Which part of the OCG artifact changes?',
+        opts: [
+          'Only the output_payload object — execution_hash stays the same',
+          'Both output_payload and execution_hash — the hash is a fingerprint of the decision content',
+          'Only execution_hash — the field values themselves are not stored in the artifact',
+          'Nothing changes until the artifact is re-exported'
+        ],
+        correct: 1,
+        fb: '<strong>Correct.</strong> Both change. The field value changes in <code>output_payload</code>, and because <code>output_payload</code> is part of the preimage, the <code>execution_hash</code> must be recomputed. An artifact with a stale hash — where someone edited a field but didn\'t rehash — is exactly what the tamper detection catches.'
+      },
+      {
+        q: 'A counterparty sends you an OCG artifact. You recompute the hash yourself and get a different value than <code>execution_hash</code>. What are the two possible explanations?',
+        opts: [
+          'The artifact was tampered with after the hash was set, OR the hash was set from a different version of the fields than what you received',
+          'Your JSON library uses a different floating-point precision, which always produces different hashes',
+          'The hash is meant to match only on the sending system — it is not designed for independent verification',
+          'The artifact needs to be decoded from base64 before the hash is computed'
+        ],
+        correct: 0,
+        fb: '<strong>Correct.</strong> A mismatch has exactly two root causes: either the <em>fields changed</em> after hashing (tampering, editing, truncation in transit), or the hash was computed from <em>different inputs</em> than the ones you see (a bug in the emitting tool, or an intentional substitution). OCG\'s canonical preimage construction — sorted keys, no whitespace, deterministic JSON — eliminates floating-point and serialization differences as a cause, so a mismatch is always meaningful.'
+      },
+      {
+        q: 'Why does OCG sort JSON keys recursively before hashing rather than hashing the raw JSON string it receives?',
+        opts: [
+          'To make the hash shorter and easier to display',
+          'Because different JSON libraries may serialize the same object with keys in different orders, which would produce different hashes for identical data',
+          'To comply with ISO 4217 currency formatting requirements',
+          'Recursive sorting is required by the Ed25519 signing algorithm'
+        ],
+        correct: 1,
+        fb: '<strong>Correct.</strong> JSON objects are unordered by specification — <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> are semantically identical but byte-different. A Python tool, a JavaScript tool, and a Java tool might all serialize the same artifact with keys in different orders. Recursive key sorting before hashing ensures all of them produce the same preimage — and therefore the same hash — for the same artifact content.'
+      }
+    ]
+  },
+  playground: {
+    eyebrow: 'Hash Playground · Quick Check',
+    questions: [
+      {
+        q: 'The avalanche effect demo shows that changing <code>$2,847,300</code> to <code>$2,847,400</code> changes roughly half the hash characters. Why is this property important for OCG?',
+        opts: [
+          'It makes hashes more compact and easier to store in databases',
+          'It means even a tiny change to any output value produces a completely different fingerprint — making it impossible to "nudge" a result without detection',
+          'It ensures the hash is always the same length regardless of input size',
+          'It is required for compatibility with SEPA payment message formats'
+        ],
+        correct: 1,
+        fb: '<strong>Correct.</strong> The avalanche effect is what makes hash-based integrity checking meaningful in financial contexts. Without it, an attacker could potentially change a number slightly and hope the hash barely changes. SHA-256\'s near-total output change from any single-bit input change means there is no such thing as a "small" undetected modification — every change, no matter how minor, produces a completely different and unpredictable fingerprint.'
+      },
+      {
+        q: 'If you paste a JSON object into the playground, OCG extracts <code>policy_parameters</code> and <code>output_payload</code> to build the preimage. What happens to fields like <code>tool_id</code> and <code>chain</code>?',
+        opts: [
+          'They are hashed separately and their hashes are appended to execution_hash',
+          'They are excluded from the preimage entirely — execution_hash only fingerprints the decision content, not the packaging metadata',
+          'They cause the hash computation to fail with a validation error',
+          'They are included if they contain numeric values, excluded if they contain strings'
+        ],
+        correct: 1,
+        fb: '<strong>Correct.</strong> Fields like <code>tool_id</code>, <code>mandate_type</code>, and <code>chain</code> are packaging metadata — they identify and connect the artifact but don\'t constitute the decision itself. Excluding them means renaming a tool or updating a chain reference doesn\'t invalidate the hash of an unchanged calculation. The <code>execution_hash</code> is a fingerprint of the <em>answer</em>, not the envelope it arrived in.'
+      }
+    ]
+  }
+};
+
+let quizState = { set: null, idx: 0, answered: false };
+
+function openQuiz(setKey) {
+  quizState = { set: setKey, idx: 0, answered: false };
+  renderQuizQuestion();
+  document.getElementById('quizOverlay').classList.add('open');
+}
+
+function closeQuiz() {
+  document.getElementById('quizOverlay').classList.remove('open');
+}
+
+function overlayClickClose(e) {
+  if (e.target === document.getElementById('quizOverlay')) closeQuiz();
+}
+
+function renderQuizQuestion() {
+  const qs = QUIZ_SETS[quizState.set];
+  const q  = qs.questions[quizState.idx];
+  const total = qs.questions.length;
+
+  document.getElementById('qEyebrow').textContent  = qs.eyebrow;
+  document.getElementById('qCounter').textContent  = `Question ${quizState.idx + 1} of ${total}`;
+  document.getElementById('qQuestion').innerHTML   = q.q;
+  document.getElementById('qFeedback').className   = 'quiz-modal-fb';
+  document.getElementById('qFeedback').innerHTML   = '';
+  document.getElementById('qClose').className      = 'quiz-modal-close';
+  document.getElementById('qClose').textContent    = quizState.idx < total - 1 ? 'Next question →' : 'Done';
+  quizState.answered = false;
+
+  const letters = ['A','B','C','D'];
+  document.getElementById('qOpts').innerHTML = q.opts.map((o, i) =>
+    `<button class="quiz-opt" data-idx="${i}" onclick="answerQuiz(${i})">
+      <span class="quiz-opt-letter">${letters[i]}</span>
+      <span class="quiz-opt-text">${o}</span>
+    </button>`
+  ).join('');
+}
+
+function answerQuiz(i) {
+  if (quizState.answered) return;
+  quizState.answered = true;
+  const q = QUIZ_SETS[quizState.set].questions[quizState.idx];
+  const opts = document.querySelectorAll('.quiz-opt');
+  opts.forEach(o => o.classList.add('revealed'));
+  opts[i].classList.add(i === q.correct ? 'correct' : 'wrong');
+  if (i !== q.correct) opts[q.correct].classList.add('correct');
+  const fb = document.getElementById('qFeedback');
+  fb.innerHTML = q.fb;
+  fb.classList.add('show');
+  document.getElementById('qClose').classList.add('show');
+}
+
+function quizNext() {
+  const qs = QUIZ_SETS[quizState.set];
+  if (quizState.idx < qs.questions.length - 1) {
+    quizState.idx++;
+    renderQuizQuestion();
+  } else {
+    closeQuiz();
+  }
+}
+</script>
+</body>
+</html>

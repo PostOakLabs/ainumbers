@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Compliance Audit — Two Worlds · OpenChainGraph</title>
+<meta name="description" content="Side-by-side: how compliance decisions are proved today (email chains, PDFs, version drift) versus with OpenChainGraph (hash-linked artifacts, instant verification). For CFOs, auditors, and regulators.">
+<meta property="og:title" content="The Compliance Audit: Two Worlds — OpenChainGraph Narrative Comparison">
+<meta property="og:description" content="Same regulatory requirement. Radically different audit trail. A non-technical walkthrough of three real scenarios: ICAAP, fraud investigation, and trade finance.">
+<meta property="og:type" content="website">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-lt:#E8C46A; --gold-glow:rgba(212,168,71,.35);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10); --green-lt:#4ADE80;
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.015) 1px,transparent 1px);background-size:52px 52px;pointer-events:none;z-index:0}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+.wrap-wide{max-width:1280px;margin:0 auto;padding:0 2.5rem;position:relative;z-index:1}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:1080px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-r{display:flex;align-items:center;gap:10px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.22rem .6rem;border-radius:20px;transition:all .15s;text-decoration:none}
+.nav-link:hover{color:var(--body);border-color:var(--border-2)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;background:var(--gold-dim);color:var(--gold-lt);border:1px solid rgba(212,168,71,.28);padding:.22rem .6rem;border-radius:20px}
+
+/* ── HERO ── */
+.hero{padding:5rem 0 4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,168,71,.4),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-lt);margin-bottom:1.2rem;display:flex;align-items:center;gap:.8rem}
+.hero-eyebrow::before{content:'';width:32px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(2.4rem,5.5vw,4rem);color:var(--white);margin-bottom:1.1rem;max-width:820px;line-height:1.15}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero h1 strong{color:var(--teal-lt);font-weight:400}
+.hero-lede{font-size:1.05rem;color:var(--body);max-width:640px;line-height:1.95;margin-bottom:2rem}
+.hero-audience{display:flex;gap:.5rem;flex-wrap:wrap}
+.aud-pill{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;padding:.28rem .7rem;border:1px solid var(--border-2);border-radius:20px;color:var(--muted)}
+
+/* ── SECTION TITLES ── */
+.section{padding:4rem 0 3.5rem;border-bottom:1px solid var(--border)}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;display:flex;align-items:center;gap:.65rem}
+.section-eyebrow::before{content:'';width:22px;height:1px;background:var(--gold)}
+.section h2{font-size:clamp(1.6rem,3vw,2.4rem);color:var(--white);margin-bottom:.75rem}
+.section-desc{font-size:.95rem;color:var(--body);max-width:660px;line-height:1.9;margin-bottom:2rem}
+
+/* ── FINGERPRINT PRIMER ── */
+.primer{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);background:rgba(13,22,39,.5)}
+.primer-inner{max-width:820px}
+.primer h2{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.7rem}
+.primer p{font-size:.94rem;color:var(--body);line-height:1.9;margin-bottom:1rem;max-width:680px}
+.primer p strong{color:var(--text)}
+.primer p em{color:var(--gold-lt);font-style:normal;border-bottom:1px dashed rgba(212,168,71,.4)}
+.fingerprint-compare{display:grid;grid-template-columns:1fr auto 1fr;gap:1.5rem;align-items:center;margin:1.8rem 0;max-width:740px}
+.fp-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.fp-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.fp-doc{font-size:.88rem;color:var(--bright);margin-bottom:.65rem;font-weight:500}
+.fp-hash{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);word-break:break-all;line-height:1.6}
+.fp-hash.changed{color:var(--red-lt)}
+.fp-arrow{text-align:center;color:var(--muted);font-size:1.4rem}
+.fp-verdict{padding:.8rem 1.1rem;border-radius:var(--radius);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);font-size:.84rem;color:var(--body);line-height:1.75;max-width:740px}
+.fp-verdict strong{color:var(--red-lt)}
+
+/* ── SCENARIO CARDS ── */
+.scenario-section{padding:3.5rem 0;border-bottom:1px solid var(--border)}
+.scenario-tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-lt);display:inline-block;background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);padding:.25rem .7rem;border-radius:20px;margin-bottom:.8rem}
+.scenario-h2{font-size:clamp(1.4rem,2.8vw,2rem);color:var(--white);margin-bottom:.5rem}
+.scenario-h2 em{font-style:italic;color:var(--gold-lt)}
+.scenario-intro{font-size:.9rem;color:var(--body);max-width:680px;line-height:1.9;margin-bottom:2rem}
+
+/* ── SPLIT TIMELINE ── */
+.split-timeline{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.tl-col{display:flex;flex-direction:column}
+.tl-header{padding:.85rem 1.4rem;display:flex;align-items:center;gap:.8rem;border-bottom:1px solid var(--border)}
+.tl-header.legacy{background:rgba(239,68,68,.06);border-right:1px solid var(--border)}
+.tl-header.ocg{background:rgba(20,184,166,.06)}
+.tl-header-icon{font-size:1.2rem;flex-shrink:0}
+.tl-header-title{font-size:.9rem;color:var(--bright);font-weight:500;line-height:1.3}
+.tl-header-sub{font-size:.7rem;color:var(--body)}
+.tl-body{padding:0;flex:1}
+.tl-body.legacy{border-right:1px solid var(--border)}
+
+.tl-step{display:flex;gap:.9rem;padding:.9rem 1.3rem;border-bottom:1px solid var(--border);opacity:0;transform:translateY(8px);transition:opacity .38s ease, transform .38s ease}
+.tl-step:last-child{border-bottom:none}
+.tl-step.revealed{opacity:1;transform:translateY(0)}
+.tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:600;margin-top:.15rem}
+.tl-dot.legacy{background:rgba(239,68,68,.12);color:var(--red-lt);border:1px solid rgba(239,68,68,.25)}
+.tl-dot.ocg{background:rgba(20,184,166,.12);color:var(--teal);border:1px solid rgba(20,184,166,.25)}
+.tl-content{}
+.tl-title{font-size:.86rem;color:var(--bright);font-weight:500;margin-bottom:.22rem;line-height:1.35}
+.tl-detail{font-size:.76rem;color:var(--body);line-height:1.65}
+.tl-tag{display:inline-flex;align-items:center;gap:.3rem;margin-top:.4rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px}
+.tl-tag.bad{background:rgba(239,68,68,.08);color:var(--red-lt);border:1px solid rgba(239,68,68,.18)}
+.tl-tag.good{background:rgba(34,197,94,.08);color:var(--green-lt);border:1px solid rgba(34,197,94,.18)}
+.tl-tag::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.tl-tag.bad::before{background:var(--red-lt)}
+.tl-tag.good::before{background:var(--green-lt)}
+
+/* ── VERDICT SPLIT ── */
+.verdict-split{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--border-2);overflow:hidden;border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.verdict-half{padding:1.1rem 1.4rem}
+.verdict-half.legacy{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.verdict-half.ocg{background:rgba(20,184,166,.04)}
+.verdict-hl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.45rem}
+.verdict-half.legacy .verdict-hl{color:var(--red-lt)}
+.verdict-half.ocg .verdict-hl{color:var(--teal)}
+.verdict-txt{font-size:.8rem;color:var(--body);line-height:1.75}
+
+/* ── METRIC COUNTERS ── */
+.metrics-section{padding:4rem 0;border-bottom:1px solid var(--border);background:rgba(13,22,39,.35)}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2rem}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.3rem 1.2rem;text-align:center;position:relative;overflow:hidden}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity .4s}
+.metric-card.lit::before{opacity:1}
+.metric-num{font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--white);line-height:1;margin-bottom:.25rem}
+.metric-num.legacy-num{color:var(--red-lt)}
+.metric-num.ocg-num{color:var(--green-lt)}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.metric-desc{font-size:.75rem;color:var(--body);line-height:1.55}
+.metric-vs{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin:.2rem 0;color:var(--muted)}
+
+/* ── ROLE CARDS ── */
+.roles-section{padding:4rem 0;border-bottom:1px solid var(--border)}
+.roles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.1rem;margin-top:2rem}
+.role-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.3rem;transition:border-color .2s}
+.role-card:hover{border-color:var(--border-2)}
+.role-icon{font-size:1.6rem;margin-bottom:.7rem}
+.role-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.role-name{font-size:.95rem;color:var(--bright);font-weight:500;margin-bottom:.5rem}
+.role-before{font-size:.78rem;color:var(--body);line-height:1.65;margin-bottom:.75rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.role-before-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red-lt);margin-bottom:.25rem}
+.role-after-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.12em;text-transform:uppercase;color:var(--green-lt);margin-bottom:.25rem}
+.role-after{font-size:.78rem;color:var(--body);line-height:1.65}
+
+/* ── WHAT DOESN'T CHANGE ── */
+.unchanged-section{padding:3.5rem 0;border-bottom:1px solid var(--border)}
+.unchanged-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:1.5rem}
+.uc-card{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:.9rem 1.1rem}
+.uc-title{font-size:.88rem;color:var(--bright);font-weight:500;margin-bottom:.3rem}
+.uc-desc{font-size:.78rem;color:var(--body);line-height:1.65}
+
+/* ── CTA ── */
+.cta-section{padding:4rem 0}
+.cta-inner{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:2.5rem 2.5rem;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center}
+.cta-title{font-size:1.4rem;color:var(--white);margin-bottom:.4rem}
+.cta-sub{font-size:.88rem;color:var(--body);line-height:1.75}
+.cta-links{display:flex;flex-direction:column;gap:.6rem;flex-shrink:0}
+.cta-btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);border:1px solid;text-align:center;white-space:nowrap;transition:all .15s;text-decoration:none;display:block}
+.cta-btn.primary{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.35)}
+.cta-btn.primary:hover{background:rgba(20,184,166,.18);text-decoration:none;color:var(--teal-lt)}
+.cta-btn.secondary{background:transparent;color:var(--body);border-color:var(--border-2)}
+.cta-btn.secondary:hover{border-color:var(--gold);color:var(--gold-lt);text-decoration:none}
+
+/* ── CALLOUT ── */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;max-width:820px;margin:1.5rem 0}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem}
+.callout p{font-size:.85rem;color:var(--body);line-height:1.8}
+
+/* ── FOOTER ── */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border)}
+.foot{font-size:.72rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .38rem}
+
+/* ── ANIMATIONS ── */
+.fade-up{opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease}
+.fade-up.in{opacity:1;transform:translateY(0)}
+.fade-in{opacity:0;transition:opacity .6s ease}
+.fade-in.in{opacity:1}
+
+@media(max-width:768px){
+  .fingerprint-compare{grid-template-columns:1fr;gap:.8rem}
+  .fp-arrow{transform:rotate(90deg)}
+  .split-timeline,.verdict-split{grid-template-columns:1fr}
+  .tl-body.legacy,.tl-header.legacy,.verdict-half.legacy{border-right:none;border-bottom:1px solid var(--border)}
+  .metrics-grid{grid-template-columns:1fr 1fr}
+  .cta-inner{grid-template-columns:1fr}
+  .cta-links{flex-direction:row;flex-wrap:wrap}
+  .roles-grid,.unchanged-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){.metrics-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.tl-step,.fade-up,.fade-in{transition:none!important;opacity:1!important;transform:none!important}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-r">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-explainer.html">Technical Explainer</a>
+      <a class="nav-link" href="ocg-sandbox.html">Live Sandbox</a>
+      <span class="nav-pill">For Stakeholders</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow">OpenChainGraph v0.2 · Narrative Comparison</div>
+    <h1>Two worlds.<br><em>Same compliance requirement.</em><br><strong>Radically different audit trail.</strong></h1>
+    <p class="hero-lede">Every regulatory decision your organisation makes — VaR calculations, liquidity checks, credit assessments — leaves a trail. Today that trail is email chains, PDFs, and shared drives. OpenChainGraph replaces it with something a regulator can verify in their own browser in seconds, with no document requests and no version confusion. This page shows exactly what changes, and what doesn't, across three real scenarios.</p>
+    <div class="hero-audience">
+      <span class="aud-pill">Chief Risk Officer</span>
+      <span class="aud-pill">Head of Compliance</span>
+      <span class="aud-pill">Regulator / Supervisor</span>
+      <span class="aud-pill">CFO</span>
+      <span class="aud-pill">Internal Audit</span>
+      <span class="aud-pill">Treasury</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRIMER ══ -->
+<div class="primer">
+  <div class="wrap">
+    <div class="primer-inner">
+      <div class="section-eyebrow" style="margin-bottom:.6rem">Foundation — one idea</div>
+      <h2>The fingerprint you can't fake</h2>
+      <p>OpenChainGraph is built on one idea borrowed from cryptography: a <em>hash function</em>. Feed any document, number, or decision into a hash function and it produces a unique 64-character string — a digital fingerprint. The critical property: change <strong>anything</strong> about the input, even a single digit, and the entire fingerprint changes beyond recognition. There is no such thing as a "close" fingerprint — two inputs are either identical or completely different.</p>
+      <p>In the legacy world, one person sends another person a spreadsheet. There is no way to prove the spreadsheet hasn't been modified, or that it's the same version used for a different calculation. With OpenChainGraph, every decision tool stamps its inputs and outputs with a fingerprint before publishing. Any downstream tool, regulator, or auditor can independently recompute the fingerprint and confirm it matches — in seconds, in their own browser, with no access to your systems.</p>
+
+      <div class="fingerprint-compare">
+        <div class="fp-card">
+          <div class="fp-label">Original decision</div>
+          <div class="fp-doc">VaR: $2,847,300 · confidence: 99%</div>
+          <div class="fp-hash">sha256: 3f9a1b2c8d7e4f0a5c6b2e1d9f3a7c4b</div>
+        </div>
+        <div class="fp-arrow">→</div>
+        <div class="fp-card">
+          <div class="fp-label">One digit changed</div>
+          <div class="fp-doc">VaR: $2,847,<span style="color:var(--red-lt);text-decoration:underline">4</span>00 · confidence: 99%</div>
+          <div class="fp-hash changed">sha256: e7c2a91f4d830b2e1a957c6f38d4b0e2</div>
+        </div>
+      </div>
+      <div class="fp-verdict"><strong>Zero characters in common.</strong> The same hash function on nearly identical inputs produces a completely unrelated output. This means there is no way to "nudge" a decision result by a small amount without the fingerprint changing completely — making any alteration immediately detectable by anyone who checks.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCENARIO 1: ICAAP ══ -->
+<div class="scenario-section">
+  <div class="wrap">
+    <div class="fade-up">
+      <span class="scenario-tag">Scenario 1 of 3 · Basel ICAAP</span>
+      <h2 class="scenario-h2">Six weeks of email. <em>Or three days.</em></h2>
+      <p class="scenario-intro">The Internal Capital Adequacy Assessment Process (ICAAP) is one of banking's most intensive annual regulatory exercises. It requires proving that five or more interdependent calculations — risk, stress, liquidity, credit, capital — are consistent, current, and tamper-free. Today, that proof is a 142-page PDF assembled from seven separate email attachments.</p>
+    </div>
+
+    <div class="split-timeline">
+      <div class="tl-col">
+        <div class="tl-header legacy">
+          <div class="tl-header-icon">📂</div>
+          <div>
+            <div class="tl-header-title">Today — legacy process</div>
+            <div class="tl-header-sub">Email, Excel, shared drives, PDF</div>
+          </div>
+        </div>
+        <div class="tl-body legacy" id="icaap-legacy">
+          <div class="tl-step">
+            <div class="tl-dot legacy">1</div>
+            <div class="tl-content">
+              <div class="tl-title">Risk team runs VaR model in Excel</div>
+              <div class="tl-detail">Output emailed to risk manager as <code style="font-size:.72rem;color:var(--muted)">VaR_FXDESK_Q4_FINAL_v3.xlsx</code>. No version control. The file name is the only record of which version this is.</div>
+              <span class="tl-tag bad">No version control</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">2</div>
+            <div class="tl-content">
+              <div class="tl-title">Stress test team requests the numbers</div>
+              <div class="tl-detail">Email: "Can you send the VaR figures you used?" Risk manager replies with a copy-pasted table. This is now a new document — not the original model output.</div>
+              <span class="tl-tag bad">Copy-paste chain begins</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">3</div>
+            <div class="tl-content">
+              <div class="tl-title">LCR team uses "the numbers from the email"</div>
+              <div class="tl-detail">Unknown to the LCR team, the stress test email used VaR v2, not v3 — the version actually submitted. No one catches this until the audit, four weeks later.</div>
+              <span class="tl-tag bad">Silent version drift</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Compliance assembles the ICAAP document</div>
+              <div class="tl-detail">Seven email attachments. Two files are named identically but contain different data. Compliance picks the larger file, which turns out to be the wrong version.</div>
+              <span class="tl-tag bad">No integrity check possible</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">5</div>
+            <div class="tl-content">
+              <div class="tl-title">ECB reviewer finds the inconsistency</div>
+              <div class="tl-detail">Stress test inputs don't match the VaR submission. The bank issues a formal response — 10 business days to assemble supporting evidence. The regulator notes a control weakness.</div>
+              <span class="tl-tag bad">10-day document request</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">6</div>
+            <div class="tl-content">
+              <div class="tl-title">Audit concludes after 6–8 weeks</div>
+              <div class="tl-detail">Total elapsed time: 6 weeks from submission to clearance. Three information requests. One formally noted version inconsistency. Management representation letter required.</div>
+              <span class="tl-tag bad">Formal finding issued</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-col">
+        <div class="tl-header ocg">
+          <div class="tl-header-icon">⛓</div>
+          <div>
+            <div class="tl-header-title">With OpenChainGraph</div>
+            <div class="tl-header-sub">Hash-linked artifacts, instant verification</div>
+          </div>
+        </div>
+        <div class="tl-body" id="icaap-ocg">
+          <div class="tl-step">
+            <div class="tl-dot ocg">1</div>
+            <div class="tl-content">
+              <div class="tl-title">VaR tool emits a fingerprinted artifact</div>
+              <div class="tl-detail">The tool computes its result and immediately stamps the inputs and outputs with a SHA-256 fingerprint. The fingerprint is <em>inseparable</em> from the exact data used to compute it.</div>
+              <span class="tl-tag good">Fingerprinted at origin</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">2</div>
+            <div class="tl-content">
+              <div class="tl-title">Stress test tool cites the VaR fingerprint</div>
+              <div class="tl-detail">No email. No copy-paste. The stress test tool records the VaR fingerprint as a parent reference. If the VaR data changes, the stress test's own fingerprint breaks — automatically.</div>
+              <span class="tl-tag good">Cryptographic reference</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">3</div>
+            <div class="tl-content">
+              <div class="tl-title">LCR tool cites the same VaR fingerprint</div>
+              <div class="tl-detail">The LCR tool independently refers to the same VaR result. Any version drift — any difference at all — would produce a mismatched fingerprint, caught immediately at submission.</div>
+              <span class="tl-tag good">Drift detected instantly</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Capital and ICAAP artifacts close the chain</div>
+              <div class="tl-detail">Each tool's fingerprint references all the tools it consumed. Compliance receives a machine-readable chain: VaR → Stress → LCR → Credit → Capital → ICAAP. Every link verifiable.</div>
+              <span class="tl-tag good">Full lineage embedded</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">5</div>
+            <div class="tl-content">
+              <div class="tl-title">ECB reviewer verifies the chain in their browser</div>
+              <div class="tl-detail">The reviewer runs the same fingerprint check — in their own browser, on their own machine — on each artifact in the chain. All six fingerprints match. No inconsistency exists to find.</div>
+              <span class="tl-tag good">Zero information requests</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">6</div>
+            <div class="tl-content">
+              <div class="tl-title">Audit concludes in 3 working days</div>
+              <div class="tl-detail">Total elapsed time: 3 days. Zero information requests. Zero findings. The fingerprint chain is the evidence — no document assembly, no version reconciliation, no management letter.</div>
+              <span class="tl-tag good">Clean clearance</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict-split">
+      <div class="verdict-half legacy">
+        <div class="verdict-hl">Outcome — legacy</div>
+        <div class="verdict-txt">6–8 weeks to clearance. Three document requests. One formally noted version inconsistency between the stress test and VaR submission. Management representation letter required. Control weakness noted in the supervisory review.</div>
+      </div>
+      <div class="verdict-half ocg">
+        <div class="verdict-hl">Outcome — OpenChainGraph</div>
+        <div class="verdict-txt">3 working days to clearance. Zero document requests. Zero findings. The ECB reviewer independently verified the entire chain using the artifact fingerprints. No email, no version confusion, no management letter.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCENARIO 2: FRAUD ══ -->
+<div class="scenario-section">
+  <div class="wrap">
+    <div class="fade-up">
+      <span class="scenario-tag">Scenario 2 of 3 · Payment Fraud Investigation</span>
+      <h2 class="scenario-h2">A chargeback you can't win. <em>Or a case you can prove.</em></h2>
+      <p class="scenario-intro">A high-value payment is flagged as fraudulent three months after authorisation. The card scheme requests proof that your fraud scoring system flagged it correctly at the moment the payment was released. In the legacy world, you can retrieve the log entry — but you cannot prove that the log reflects the exact model and inputs active at that instant.</p>
+    </div>
+
+    <div class="split-timeline">
+      <div class="tl-col">
+        <div class="tl-header legacy">
+          <div class="tl-header-icon">🗂</div>
+          <div>
+            <div class="tl-header-title">Today — legacy process</div>
+            <div class="tl-header-sub">Siloed systems, reconstructed evidence</div>
+          </div>
+        </div>
+        <div class="tl-body legacy" id="fraud-legacy">
+          <div class="tl-step">
+            <div class="tl-dot legacy">1</div>
+            <div class="tl-content">
+              <div class="tl-title">Payment authorised by real-time risk model</div>
+              <div class="tl-detail">Fraud score: 0.73 (above threshold 0.70). Payment released. The score exists in a log entry in System A. The inputs that produced it exist in System B. The model version is tracked in System C.</div>
+              <span class="tl-tag bad">Three siloed systems</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">2</div>
+            <div class="tl-content">
+              <div class="tl-title">Fraud dispute filed 90 days later</div>
+              <div class="tl-detail">Card scheme requests: "Prove the fraud score was above 0.70 at the moment of authorisation." Your investigation team begins retrieving data from three separate systems.</div>
+              <span class="tl-tag bad">14-day evidence assembly</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">3</div>
+            <div class="tl-content">
+              <div class="tl-title">Log retrieval: score confirmed, model uncertain</div>
+              <div class="tl-detail">The log shows score 0.73. But the model was updated 30 days after the transaction. You cannot prove which model version produced this exact score — the version tracking system was patched during that window.</div>
+              <span class="tl-tag bad">Model version unverifiable</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Evidence package assembled from multiple sources</div>
+              <div class="tl-detail">Screenshots, CSV exports, log extracts, a narrative statement from the risk team. The card scheme reviewer notes: "This is a reconstruction, not a contemporaneous record."</div>
+              <span class="tl-tag bad">Reconstruction ≠ original</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">5</div>
+            <div class="tl-content">
+              <div class="tl-title">Chargeback decided against the bank</div>
+              <div class="tl-detail">The card scheme cannot verify the score was produced by a compliant model with the claimed inputs at the claimed time. Chargeback upheld. Loss: £14,200. Regulatory note on evidence quality.</div>
+              <span class="tl-tag bad">Chargeback lost · £14,200</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-col">
+        <div class="tl-header ocg">
+          <div class="tl-header-icon">🔐</div>
+          <div>
+            <div class="tl-header-title">With OpenChainGraph</div>
+            <div class="tl-header-sub">Contemporaneous, fingerprinted proof</div>
+          </div>
+        </div>
+        <div class="tl-body" id="fraud-ocg">
+          <div class="tl-step">
+            <div class="tl-dot ocg">1</div>
+            <div class="tl-content">
+              <div class="tl-title">Risk model emits a fingerprinted decision artifact</div>
+              <div class="tl-detail">At the moment of authorisation, the fraud model produces an OCG artifact: inputs (velocity, amount, device fingerprint), output (score: 0.73), and a SHA-256 fingerprint of the exact combination. Stored immutably alongside the transaction record.</div>
+              <span class="tl-tag good">Contemporaneous proof at origin</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">2</div>
+            <div class="tl-content">
+              <div class="tl-title">Authorisation artifact links to the fraud score</div>
+              <div class="tl-detail">The payment authorisation record carries the fraud score artifact's fingerprint as a direct reference. The two are inseparably linked: you cannot change the score without breaking the link to the authorisation.</div>
+              <span class="tl-tag good">Score linked to payment</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">3</div>
+            <div class="tl-content">
+              <div class="tl-title">Fraud dispute filed 90 days later</div>
+              <div class="tl-detail">Your team retrieves the fraud score artifact — one JSON file. The fingerprint is the evidence. The card scheme reviewer needs no reconstruction, no narrative statement, no version history lookup.</div>
+              <span class="tl-tag good">Evidence ready in 4 minutes</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Card scheme runs the fingerprint check independently</div>
+              <div class="tl-detail">The reviewer recomputes the SHA-256 fingerprint from the artifact's inputs and output — in their own environment. The result matches the stored fingerprint exactly. The score, inputs, and model cannot have been altered.</div>
+              <span class="tl-tag good">Independent verification</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">5</div>
+            <div class="tl-content">
+              <div class="tl-title">Chargeback immediately won</div>
+              <div class="tl-detail">Score 0.73 is mathematically proven: these exact inputs, this exact model output, at that exact moment. Not reconstructed — contemporaneous. Chargeback overturned. Zero evidence cost. No regulatory note.</div>
+              <span class="tl-tag good">Chargeback won · £14,200 recovered</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict-split">
+      <div class="verdict-half legacy">
+        <div class="verdict-hl">Outcome — legacy</div>
+        <div class="verdict-txt">Chargeback upheld. The bank can retrieve a log entry showing score 0.73 but cannot prove the score came from a compliant model with those exact inputs — the evidence is a reconstruction. Loss: £14,200. Regulatory comment on evidence quality.</div>
+      </div>
+      <div class="verdict-half ocg">
+        <div class="verdict-hl">Outcome — OpenChainGraph</div>
+        <div class="verdict-txt">Chargeback overturned in 4 minutes. The OCG artifact proves — mathematically, independently verifiable — that those exact inputs produced that exact score at that exact moment. No reconstruction. No narrative. Pure proof.</div>
+      </div>
+    </div>
+
+    <div class="callout fade-up" style="margin-top:1.5rem">
+      <div class="lab">Why "reconstruction" fails and fingerprints don't</div>
+      <p>A log entry can be altered. A spreadsheet can be edited and re-saved. A system can be updated and backdated. All of these are reconstructions — human-assembled chains of assertion. A SHA-256 fingerprint is different in kind: it is a mathematical function of the exact byte sequence of the data at the moment it was computed. You cannot produce the same fingerprint from different data. You cannot alter the data and keep the fingerprint. Independent parties can verify it themselves. That's the difference between an assertion and a proof.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCENARIO 3: TRADE FINANCE ══ -->
+<div class="scenario-section">
+  <div class="wrap">
+    <div class="fade-up">
+      <span class="scenario-tag">Scenario 3 of 3 · Cross-Border Trade Finance</span>
+      <h2 class="scenario-h2">A paper trail that takes weeks. <em>Or a chain that takes seconds.</em></h2>
+      <p class="scenario-intro">A letter of credit covers a €4.2M shipment of semiconductor equipment. Compliance requires AML screening, sanctions checks, and document verification — and a regulator must be able to prove, 18 months later, that all three were completed before the payment was released. Today, those checks live in three separate systems with no cryptographic link to the payment instruction.</p>
+    </div>
+
+    <div class="split-timeline">
+      <div class="tl-col">
+        <div class="tl-header legacy">
+          <div class="tl-header-icon">📬</div>
+          <div>
+            <div class="tl-header-title">Today — legacy process</div>
+            <div class="tl-header-sub">Siloed compliance checks, manual assembly</div>
+          </div>
+        </div>
+        <div class="tl-body legacy" id="trade-legacy">
+          <div class="tl-step">
+            <div class="tl-dot legacy">1</div>
+            <div class="tl-content">
+              <div class="tl-title">Exporter presents documents — 5-day review</div>
+              <div class="tl-detail">Bill of Lading, Invoice, Certificate of Origin sent by courier. Bank staff review originals manually. Results logged in the document management system, not linked to the documents themselves.</div>
+              <span class="tl-tag bad">5-day manual review</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">2</div>
+            <div class="tl-content">
+              <div class="tl-title">AML and sanctions run in separate systems</div>
+              <div class="tl-detail">Sanctions in System A. AML in System B. Results stored in each system with reference to the LC number — not to the documents reviewed. No link proves these checks covered the same document set.</div>
+              <span class="tl-tag bad">No cross-system link</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">3</div>
+            <div class="tl-content">
+              <div class="tl-title">Payment released via SWIFT MT103</div>
+              <div class="tl-detail">The payment instruction carries the LC reference number. There is no field linking to the compliance check records. The MT103 and the AML record exist in separate systems with no cryptographic connection.</div>
+              <span class="tl-tag bad">No link to compliance</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Regulatory audit 18 months later</div>
+              <div class="tl-detail">Regulator requests proof that AML screening was completed before payment release. System B logs are archived. IT ticket raised. Database restore required. Evidence package assembled from three systems, two of which have been partially migrated.</div>
+              <span class="tl-tag bad">3-week reconstruction</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot legacy">5</div>
+            <div class="tl-content">
+              <div class="tl-title">One AML record cannot be located</div>
+              <div class="tl-detail">The archive restore is incomplete. One of six AML records for this LC is missing. The bank issues a management representation letter stating the check was completed. Regulator issues a finding.</div>
+              <span class="tl-tag bad">Missing record · formal finding</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-col">
+        <div class="tl-header ocg">
+          <div class="tl-header-icon">🔗</div>
+          <div>
+            <div class="tl-header-title">With OpenChainGraph</div>
+            <div class="tl-header-sub">Fingerprint-linked compliance chain</div>
+          </div>
+        </div>
+        <div class="tl-body" id="trade-ocg">
+          <div class="tl-step">
+            <div class="tl-dot ocg">1</div>
+            <div class="tl-content">
+              <div class="tl-title">Document verification tool fingerprints the documents</div>
+              <div class="tl-detail">The Bill of Lading, Invoice, and Certificate of Origin are each hashed. The verification artifact records those document fingerprints as inputs — proving exactly which document versions were reviewed.</div>
+              <span class="tl-tag good">Document fingerprints embedded</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">2</div>
+            <div class="tl-content">
+              <div class="tl-title">Sanctions artifact cites the document fingerprint</div>
+              <div class="tl-detail">The sanctions screening tool records the document verification fingerprint as a parent reference. The check is now inseparably linked to the exact documents it screened — not just the LC number.</div>
+              <span class="tl-tag good">Check linked to exact documents</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">3</div>
+            <div class="tl-content">
+              <div class="tl-title">AML artifact cites sanctions + documents</div>
+              <div class="tl-detail">The AML artifact records both the sanctions fingerprint and the document fingerprint as parents. It proves: these documents, this sanctions check, this AML check — all linked, all verifiable.</div>
+              <span class="tl-tag good">Full compliance chain</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">4</div>
+            <div class="tl-content">
+              <div class="tl-title">Payment gated on the AML artifact fingerprint</div>
+              <div class="tl-detail">The payment system requires a valid AML artifact fingerprint before releasing the MT103. The AML fingerprint is embedded directly in the payment instruction. The compliance check and the payment are one inseparable record.</div>
+              <span class="tl-tag good">Fingerprint gated release</span>
+            </div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-dot ocg">5</div>
+            <div class="tl-content">
+              <div class="tl-title">18-month audit: 8 seconds to reconstruct</div>
+              <div class="tl-detail">Regulator queries the fingerprint from the MT103. The entire compliance chain — document verification, sanctions, AML — is reconstructed from the artifact chain in 8 seconds. Every link independently verifiable. Zero findings.</div>
+              <span class="tl-tag good">8-second reconstruction</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict-split">
+      <div class="verdict-half legacy">
+        <div class="verdict-hl">Outcome — legacy</div>
+        <div class="verdict-txt">3-week reconstruction. One AML record missing from partial archive restore. Management representation letter issued. Formal regulatory finding: inadequate evidence retention. Remediation programme required.</div>
+      </div>
+      <div class="verdict-half ocg">
+        <div class="verdict-hl">Outcome — OpenChainGraph</div>
+        <div class="verdict-txt">8-second reconstruction from the fingerprint in the MT103. Document verification, sanctions, and AML all independently verified by the regulator. Full compliance chain intact. Zero findings, zero cost.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ METRICS ══ -->
+<div class="metrics-section">
+  <div class="wrap">
+    <div class="section-eyebrow fade-up">The numbers</div>
+    <h2 class="fade-up" style="font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.5rem">Across the three scenarios</h2>
+    <p class="fade-up" style="font-size:.9rem;color:var(--body);max-width:600px;line-height:1.85;margin-bottom:0">These figures represent the aggregated difference across ICAAP, fraud, and trade finance workflows — the three scenarios above, combined. <em>Figures are illustrative, based on representative legacy audit patterns; outcomes vary by institution and jurisdiction.</em></p>
+
+    <div class="metrics-grid">
+      <div class="metric-card fade-up">
+        <div class="metric-num legacy-num">6–8 wks</div>
+        <div class="metric-vs">↓</div>
+        <div class="metric-num ocg-num">3 days</div>
+        <div class="metric-label">Audit clearance time</div>
+        <div class="metric-desc">ICAAP audit: 6–8 weeks of document collection, reconciliation, and information requests versus 3 working days with fingerprint chain verification.</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-num legacy-num">0%</div>
+        <div class="metric-vs">↓</div>
+        <div class="metric-num ocg-num">100%</div>
+        <div class="metric-label">Independent verifiability</div>
+        <div class="metric-desc">Legacy audit evidence requires trusting the sender's assertions. OCG fingerprints are independently verifiable by any party in any environment — no access to your systems required.</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-num legacy-num">3 wks</div>
+        <div class="metric-vs">↓</div>
+        <div class="metric-num ocg-num">8 sec</div>
+        <div class="metric-label">Compliance chain reconstruction</div>
+        <div class="metric-desc">Trade finance compliance trail: 3-week IT retrieval from archived systems versus 8-second chain traversal from the fingerprint embedded in the payment instruction.</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-num legacy-num">~12%</div>
+        <div class="metric-vs">↓</div>
+        <div class="metric-num ocg-num">~89%</div>
+        <div class="metric-label">Fraud chargeback win rate</div>
+        <div class="metric-desc">Without cryptographic proof of the real-time decision, chargebacks are difficult to win. With an OCG artifact proving the exact score and inputs at authorisation, the success rate inverts. <em>(Illustrative — directional figures based on fraud decisioning audit patterns.)</em></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ROLES ══ -->
+<div class="roles-section">
+  <div class="wrap">
+    <div class="section-eyebrow fade-up">What changes for your team</div>
+    <h2 class="fade-up" style="font-size:clamp(1.4rem,2.8vw,2rem);color:var(--white);margin-bottom:.5rem">By role</h2>
+    <p class="fade-up" style="font-size:.9rem;color:var(--body);max-width:600px;line-height:1.85">The change is not in how decisions are made — it's in how they're recorded and proved. Here is the concrete change for each role.</p>
+
+    <div class="roles-grid">
+      <div class="role-card fade-up">
+        <div class="role-icon">👔</div>
+        <div class="role-title">Chief Risk Officer</div>
+        <div class="role-name">The audit conversation changes completely</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Regulatory audits require assembling evidence from multiple teams over days or weeks. Version inconsistencies surface only at audit time. Information requests create disruption across departments.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">Every decision tool in your suite produces a fingerprinted artifact that any regulator can verify independently. Version inconsistencies surface immediately — before submission, not during audit. Information requests become rare.</div>
+      </div>
+
+      <div class="role-card fade-up">
+        <div class="role-icon">🔍</div>
+        <div class="role-title">Head of Compliance</div>
+        <div class="role-name">Assembly becomes verification</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Compliance assembles evidence packages from email attachments, spreadsheets, and system exports. Files with identical names but different content create submission risk. Version reconciliation is manual and error-prone.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">Compliance receives a machine-readable chain of fingerprinted artifacts. Version consistency is guaranteed by the chain structure — two tools using different versions produce detectably mismatched fingerprints before any document is assembled.</div>
+      </div>
+
+      <div class="role-card fade-up">
+        <div class="role-icon">🏛</div>
+        <div class="role-title">Regulator / Supervisor</div>
+        <div class="role-name">Trust through mathematics, not assertion</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Regulatory review relies on management assertions: "This is the model we used." "These are the inputs." Verification requires deep technical investigation or trust in the institution's own attestation.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">Each artifact's fingerprint is independently verifiable — the regulator runs the same SHA-256 function in their own browser using the artifact's recorded inputs. The fingerprint either matches or it doesn't. No assertion required.</div>
+      </div>
+
+      <div class="role-card fade-up">
+        <div class="role-icon">💼</div>
+        <div class="role-title">Treasurer / Treasury Ops</div>
+        <div class="role-name">Payment instructions carry their own proof</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Payment instructions and the compliance checks that authorised them live in separate systems. Linking them at audit time requires manual reconstruction across IT systems, often years after the event.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">The compliance artifact fingerprint is embedded directly in the payment instruction at release. The link between authorisation and compliance evidence is permanent, automatic, and cryptographically unbreakable — no reconstruction ever needed.</div>
+      </div>
+
+      <div class="role-card fade-up">
+        <div class="role-icon">🔬</div>
+        <div class="role-title">Internal Audit</div>
+        <div class="role-name">Continuous verification replaces periodic sampling</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Internal audit samples a subset of decisions periodically and traces evidence backward. Coverage is incomplete by design. Evidence quality varies by team and system. Findings often relate to documentation gaps, not decision quality.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">Any artifact in any chain can be fingerprint-verified independently at any time. Internal audit can automate continuous verification across all decision chains, shifting time from evidence retrieval to actual risk analysis.</div>
+      </div>
+
+      <div class="role-card fade-up">
+        <div class="role-icon">⚖</div>
+        <div class="role-title">Legal / Dispute Resolution</div>
+        <div class="role-name">From assertion to mathematical proof</div>
+        <div class="role-before">
+          <div class="role-before-label">Before</div>
+          Dispute evidence is a narrative: "Our system recorded score X at time Y using model Z." Opposing parties or card schemes can challenge whether the record reflects what actually happened — and often succeed.
+        </div>
+        <div class="role-after-label">With OCG</div>
+        <div class="role-after">Dispute evidence is a fingerprint: the artifact proves which exact inputs produced which exact output, without relying on system logs or retrospective attestation. Chargebacks and regulatory disputes resolve in minutes, not months.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WHAT DOESN'T CHANGE ══ -->
+<div class="unchanged-section">
+  <div class="wrap">
+    <div class="section-eyebrow fade-up">Continuity</div>
+    <h2 class="fade-up" style="font-size:clamp(1.3rem,2.5vw,1.85rem);color:var(--white);margin-bottom:.5rem">What doesn't change</h2>
+    <p class="fade-up" style="font-size:.9rem;color:var(--body);max-width:660px;line-height:1.9;margin-bottom:0">OpenChainGraph is a standard for recording and linking decision outputs — not a replacement for the decisions themselves, the models that produce them, or the people who make them.</p>
+
+    <div class="unchanged-grid">
+      <div class="uc-card fade-up">
+        <div class="uc-title">Your existing risk models</div>
+        <div class="uc-desc">OpenChainGraph does not change how your VaR, credit, or liquidity models work. It changes how their outputs are recorded and linked. The model logic, parameters, and governance remain yours.</div>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-title">Your regulatory obligations</div>
+        <div class="uc-desc">ICAAP, DORA, BCBS 239, FRTB — none of these regulations change. OpenChainGraph makes compliance with their evidence and auditability requirements easier to demonstrate, not different.</div>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-title">Who makes the decisions</div>
+        <div class="uc-desc">Every decision in the chain is still made by your team and your models. OCG adds a fingerprint to the output — it does not add a step to the decision, introduce a third party, or require approval from any authority.</div>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-title">Your data governance</div>
+        <div class="uc-desc">OCG artifacts contain no personal data by design. The fingerprint is computed from decision inputs and outputs only — model parameters, calculations, results. No PII enters or exits the chain.</div>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-title">Your infrastructure</div>
+        <div class="uc-desc">The fingerprint computation runs entirely in-browser using your device's built-in cryptography — no external servers, no cloud calls, no third-party dependencies. Your infrastructure remains yours.</div>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-title">The human audit relationship</div>
+        <div class="uc-desc">OCG does not replace the conversation between your institution and a regulator. It removes the weeks of document retrieval that precede it — so the conversation can be about substance, not about finding files.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CTA ══ -->
+<div class="cta-section">
+  <div class="wrap">
+    <div class="cta-inner fade-up">
+      <div>
+        <h2 class="cta-title">Ready to go deeper?</h2>
+        <p class="cta-sub">This page tells the story at the business level. The technical explainer walks through how the fingerprinting actually works — the same SHA-256 function, step by step, in seven animated stages. The live sandbox lets you edit a real artifact and watch the fingerprint break in your browser. No setup, no account, no server.</p>
+      </div>
+      <div class="cta-links">
+        <a class="cta-btn primary" href="openchain-graph-explainer.html">Interactive Explainer →</a>
+        <a class="cta-btn secondary" href="ocg-sandbox.html">Live Sandbox</a>
+        <a class="cta-btn secondary" href="ocg-chain-builder.html">Chain Builder</a>
+        <a class="cta-btn secondary" href="chaingraph-hub.html">← Hub</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer</a>
+      <span>·</span> <a href="ocg-sandbox.html">Live Sandbox</a>
+      <span>·</span> <a href="ocg-chain-builder.html">Chain Builder</a>
+      <span>·</span> Integration Guides:
+      <a href="guide-prov-dm.html">W3C PROV-DM</a> ·
+      <a href="guide-buildtype.html">buildType / SLSA</a> ·
+      <a href="guide-intoto.html">in-toto</a> ·
+      <a href="guide-ed25519.html">Ed25519</a> ·
+      <a href="guide-otel.html">OpenTelemetry</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+<script>
+// ── Scroll-triggered reveals ──────────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in');
+      // If it's a scenario section, cascade the timeline steps
+      observer.unobserve(entry.target);
+    }
+  }
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.fade-up, .fade-in').forEach(el => observer.observe(el));
+
+// ── Staggered timeline step reveals ──────────────────────────────
+const stepObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) {
+      const container = entry.target;
+      const steps = container.querySelectorAll('.tl-step');
+      steps.forEach((step, i) => {
+        setTimeout(() => step.classList.add('revealed'), i * 110);
+      });
+      stepObserver.unobserve(container);
+    }
+  }
+}, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' });
+
+// Observe all tl-body elements (both columns of each scenario)
+document.querySelectorAll('.tl-body').forEach(el => stepObserver.observe(el));
+
+// ── Metric card illuminate on scroll ─────────────────────────────
+const metricObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) {
+      // Light up all metric cards with a stagger
+      const cards = document.querySelectorAll('.metric-card');
+      cards.forEach((card, i) => {
+        setTimeout(() => card.classList.add('lit'), i * 140);
+      });
+      metricObserver.disconnect();
+    }
+  }
+}, { threshold: 0.3 });
+const metricsGrid = document.querySelector('.metrics-grid');
+if (metricsGrid) metricObserver.observe(metricsGrid);
+
+// ── Lazy-reveal fade-up elements that are already in view on load ─
+setTimeout(() => {
+  document.querySelectorAll('.fade-up, .fade-in').forEach(el => {
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.95) {
+      el.classList.add('in');
+    }
+  });
+  // Also trigger timeline steps already in view
+  document.querySelectorAll('.tl-body').forEach(container => {
+    const rect = container.getBoundingClientRect();
+    if (rect.top < window.innerHeight) {
+      const steps = container.querySelectorAll('.tl-step');
+      steps.forEach((step, i) => {
+        setTimeout(() => step.classList.add('revealed'), i * 90);
+      });
+    }
+  });
+}, 120);
+</script>
+</body>
+</html>

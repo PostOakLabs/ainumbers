@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenChainGraph Chain Builder — Compose & Compare</title>
+<meta name="description" content="Click-to-compose a multi-step compliance workflow and watch parent_hash wiring auto-populate. Then compare it to the legacy paper trail it replaces. Interactive, client-side, zero-egress.">
+<meta property="og:title" content="OCG Chain Builder — Compose Workflows & Compare to Legacy">
+<meta property="og:type" content="website">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.3);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-glow:rgba(212,168,71,.35);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10); --green-glow:rgba(34,197,94,.3);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10); --purple-glow:rgba(155,114,245,.3);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10);
+  --orange:#F97316; --orange-dim:rgba(249,115,22,.10);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt)}
+button{font-family:'Sora',sans-serif;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:1120px;margin:0 auto;width:100%;display:flex;align-items:center;gap:14px;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-r{display:flex;align-items:center;gap:10px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.22rem .6rem;border-radius:20px;transition:all .15s;text-decoration:none}
+.nav-link:hover{color:var(--body);border-color:var(--border-2)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.28);padding:.22rem .6rem;border-radius:20px}
+
+/* ── HERO ── */
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:'';width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.85rem,3.8vw,2.8rem);color:var(--white);margin-bottom:.7rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.94rem;color:var(--body);max-width:660px;line-height:1.9;margin-bottom:1.5rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.hbadge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border-2);border-radius:20px;color:var(--muted)}
+
+/* ── MODE BAR ── */
+.mode-bar{padding:1.4rem 0 0;border-bottom:1px solid var(--border)}
+.mode-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+.mode-tab{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1.1rem;border-radius:20px 20px 0 0;border:1px solid var(--border-2);border-bottom:none;background:var(--bg-2);color:var(--body);transition:all .15s;margin-bottom:-1px}
+.mode-tab:hover{color:var(--teal-lt);border-color:rgba(20,184,166,.3)}
+.mode-tab.active{background:var(--bg);color:var(--teal-lt);border-color:rgba(20,184,166,.35);border-bottom-color:var(--bg)}
+.mode-desc{font-size:.8rem;color:var(--muted);padding:.6rem 0 .5rem;display:none}
+.mode-desc.active{display:block}
+
+/* ── CHAIN BUILDER ── */
+.builder-layout{display:grid;grid-template-columns:260px 1fr;gap:0;padding:2rem 0 3rem;align-items:start}
+
+/* Tool palette */
+.palette{padding-right:1.5rem;border-right:1px solid var(--border)}
+.palette-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+.palette-tool{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:all .15s;user-select:none}
+.palette-tool:hover{border-color:var(--border-2);transform:translateX(2px)}
+.palette-tool.disabled{opacity:.4;cursor:not-allowed;transform:none}
+.pt-badge{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;padding:.15rem .4rem;border-radius:3px;margin-bottom:.35rem;display:inline-block}
+.pt-name{font-size:.82rem;color:var(--bright);font-weight:500;line-height:1.3;margin-bottom:.18rem}
+.pt-desc{font-size:.7rem;color:var(--body)}
+.pt-badge.risk{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.pt-badge.liquidity{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.2)}
+.pt-badge.credit{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.2)}
+.pt-badge.compliance{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.2)}
+.pt-badge.report{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+
+/* Main builder area */
+.builder-main{padding-left:1.5rem}
+.builder-toolbar{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap}
+.tb-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .85rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--body);transition:all .15s}
+.tb-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.tb-btn.primary{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.35)}
+.tb-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.tb-sep{width:1px;height:18px;background:var(--border-2)}
+
+/* DAG canvas */
+.dag-canvas-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;position:relative;min-height:320px}
+.dag-canvas-wrap canvas{display:block;width:100%}
+.dag-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;pointer-events:none}
+.dag-empty-icon{font-size:2.5rem;opacity:.25}
+.dag-empty-text{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);text-align:center}
+.dag-empty-hint{font-size:.78rem;color:var(--muted);text-align:center;max-width:240px;line-height:1.65}
+
+/* Artifact panel */
+.artifact-viewer{margin-top:1.2rem}
+.av-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem}
+.av-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.av-node-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt)}
+.av-select-hint{font-size:.78rem;color:var(--muted);font-style:italic}
+.artifact-json{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.69rem;line-height:1.8;overflow-x:auto;white-space:pre;max-height:420px;overflow-y:auto}
+.aj-k{color:var(--teal-lt)}
+.aj-s{color:var(--gold)}
+.aj-n{color:var(--green)}
+.aj-b{color:var(--purple)}
+.aj-h{color:var(--teal);font-weight:500}   /* hash */
+.aj-ph{color:var(--orange);font-weight:500} /* parent hash */
+.aj-mt{color:var(--purple)}
+.aj-c{color:var(--muted);font-style:italic} /* comment */
+
+/* Chain stats */
+.chain-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-top:.85rem}
+.cs-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;text-align:center}
+.cs-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.cs-l{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.15rem}
+
+/* ── COMPARISON MODE ── */
+.compare-mode{padding:2rem 0 3rem}
+
+.compare-intro{font-size:.88rem;color:var(--body);max-width:720px;line-height:1.9;margin-bottom:1.8rem}
+.compare-intro strong{color:var(--text)}
+
+/* Scenario selector */
+.scenario-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.scen-tab{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;padding:.38rem .9rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--body);transition:all .15s}
+.scen-tab:hover{border-color:var(--teal);color:var(--teal-lt)}
+.scen-tab.active{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.35)}
+
+/* Split view */
+.split-view{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.split-side{display:flex;flex-direction:column}
+.split-header{padding:.9rem 1.3rem;display:flex;align-items:center;gap:.7rem;border-bottom:1px solid var(--border)}
+.split-header.legacy{background:rgba(239,68,68,.05);border-right:1px solid var(--border)}
+.split-header.ocg{background:var(--teal-dim)}
+.split-icon{font-size:1.3rem;flex-shrink:0}
+.split-title{font-size:.9rem;color:var(--bright);font-weight:500;line-height:1.2}
+.split-subtitle{font-size:.7rem;color:var(--body)}
+.split-body{padding:1.2rem 1.3rem;flex:1}
+.split-body.legacy{border-right:1px solid var(--border)}
+
+/* Steps timeline */
+.step-timeline{display:flex;flex-direction:column;gap:0}
+.step-item{display:flex;gap:.9rem;padding:.75rem 0;border-bottom:1px solid var(--border);position:relative}
+.step-item:last-child{border-bottom:none}
+.step-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:500;margin-top:.1rem}
+.step-dot.legacy{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.step-dot.ocg{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.25)}
+.step-content{}
+.step-title{font-size:.84rem;color:var(--bright);font-weight:500;margin-bottom:.2rem;line-height:1.3}
+.step-detail{font-size:.75rem;color:var(--body);line-height:1.65}
+.step-tag{display:inline-block;margin-top:.35rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px}
+.step-tag.bad{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.18)}
+.step-tag.good{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+
+/* Verdict row */
+.verdict-row{display:grid;grid-template-columns:1fr 1fr;border-top:2px solid var(--border-2)}
+.verdict-cell{padding:1rem 1.3rem}
+.verdict-cell.legacy{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.verdict-cell.ocg{background:rgba(20,184,166,.04)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.4rem}
+.verdict-cell.legacy .verdict-label{color:var(--red)}
+.verdict-cell.ocg .verdict-label{color:var(--teal)}
+.verdict-text{font-size:.8rem;color:var(--body);line-height:1.7}
+
+/* Proof points */
+.proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.7rem;margin-top:1.5rem}
+.proof-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem}
+.proof-icon{font-size:1.1rem;margin-bottom:.35rem}
+.proof-metric{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);margin-bottom:.15rem}
+.proof-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.25rem}
+.proof-desc{font-size:.74rem;color:var(--body);line-height:1.6}
+
+/* Callout */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;padding:.8rem 1.1rem;margin:1.2rem 0;max-width:100%}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem}
+.callout p{font-size:.82rem;color:var(--body);line-height:1.75;max-width:none}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+
+/* Quiz */
+.quiz-btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.35);padding:.38rem .9rem;border-radius:20px;transition:all .15s}
+.quiz-btn:hover{background:rgba(212,168,71,.18);border-color:var(--gold)}
+.quiz-overlay{position:fixed;inset:0;background:rgba(5,9,18,.8);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity .2s}
+.quiz-overlay.open{opacity:1;pointer-events:all}
+.quiz-modal{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);max-width:540px;width:100%;padding:1.8rem;position:relative;transform:translateY(14px);transition:transform .22s}
+.quiz-overlay.open .quiz-modal{transform:translateY(0)}
+.quiz-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.55rem}
+.quiz-counter{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.quiz-q{font-size:.97rem;color:var(--white);line-height:1.55;margin-bottom:1rem;font-weight:500}
+.quiz-opts{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem}
+.quiz-opt{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;cursor:pointer;display:flex;align-items:flex-start;gap:.65rem;transition:border-color .12s;text-align:left}
+.quiz-opt:hover:not([disabled]){border-color:var(--border-2)}
+.quiz-opt.correct{border-color:var(--green);background:var(--green-dim);pointer-events:none}
+.quiz-opt.wrong{border-color:var(--red);background:var(--red-dim);pointer-events:none}
+.quiz-opt[disabled]{pointer-events:none}
+.quiz-letter{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);flex-shrink:0;margin-top:.05rem}
+.quiz-text{font-size:.84rem;color:var(--text);line-height:1.5}
+.quiz-fb{font-size:.82rem;color:var(--body);line-height:1.75;border-top:1px solid var(--border);padding-top:.75rem;display:none}
+.quiz-fb.show{display:block}
+.quiz-fb strong{color:var(--bright)}
+.quiz-next{width:100%;margin-top:.75rem;background:none;border:1px solid var(--border-2);color:var(--body);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.42rem;cursor:pointer;display:none;transition:all .15s}
+.quiz-next:hover{border-color:var(--teal);color:var(--teal-lt)}
+.quiz-next.show{display:block}
+.quiz-x{position:absolute;top:.9rem;right:1rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:.2rem}
+.quiz-x:hover{color:var(--body)}
+.quiz-done{text-align:center;padding:1rem 0 .5rem}
+.quiz-score{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white);margin-bottom:.3rem}
+.quiz-score-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.quiz-done-msg{font-size:.85rem;color:var(--body);margin-top:.75rem;line-height:1.75}
+
+/* Footer */
+footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.72rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .35rem}
+
+@media(max-width:900px){
+  .builder-layout{grid-template-columns:1fr}
+  .palette{padding-right:0;border-right:none;border-bottom:1px solid var(--border);padding-bottom:1.2rem;margin-bottom:1.5rem}
+  .builder-main{padding-left:0}
+  .split-view,.verdict-row{grid-template-columns:1fr}
+  .split-body.legacy,.split-header.legacy,.verdict-cell.legacy{border-right:none;border-bottom:1px solid var(--border)}
+  .chain-stats{grid-template-columns:repeat(2,1fr)}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
+
+/* CHAIN TYPE SELECTOR */
+.chain-type-row{margin-bottom:1rem;padding:.7rem .9rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.chain-type-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.chain-type-tabs{display:flex;gap:.4rem;flex-wrap:wrap}
+.chain-tab{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);background:transparent;color:var(--body);cursor:pointer;transition:all .15s;white-space:nowrap}
+.chain-tab:hover{border-color:var(--teal);color:var(--teal)}
+.chain-tab.active{background:rgba(20,184,166,.12);border-color:rgba(20,184,166,.4);color:var(--teal-lt)}
+.chain-desc{font-size:.72rem;color:var(--body);line-height:1.65;margin-top:.5rem;padding:.5rem .75rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius)}
+.pt-badge.aml{background:rgba(212,168,71,.12);color:#D4A847;border-color:rgba(212,168,71,.3)}
+.pt-badge.fraud{background:rgba(239,68,68,.12);color:#F97316;border-color:rgba(239,68,68,.3)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-r">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-explainer.html">Explainer</a>
+      <a class="nav-link" href="ocg-sandbox.html">Sandbox</a>
+      <a class="nav-link" href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+      <span class="nav-pill">Chain Builder</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Post Oak Labs · OpenChainGraph v0.2 · Educational Tool</div>
+    <h1>Build a chain. <em>See the wiring.</em></h1>
+    <p class="hero-desc">Click tools from the palette to compose a multi-step compliance workflow. Watch <code>parent_hash</code> links auto-populate in real artifacts. Then switch to <strong>Compare</strong> mode to see exactly what this replaces in the legacy world.</p>
+    <div class="hero-badges">
+      <span class="hbadge">Click to compose</span>
+      <span class="hbadge">Live parent_hash wiring</span>
+      <span class="hbadge">DAG visualization</span>
+      <span class="hbadge">Legacy vs OCG comparison</span>
+      <span class="hbadge">Zero egress · WebCrypto</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODE BAR -->
+<div class="mode-bar">
+  <div class="wrap">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabBuilder" onclick="switchMode('builder')">Chain Builder</button>
+      <button class="mode-tab" id="tabCompare" onclick="switchMode('compare')">Legacy vs OCG</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODE: CHAIN BUILDER ══════════ -->
+<div id="modeBuilder" class="wrap">
+  <div class="builder-layout">
+
+    <!-- PALETTE -->
+    <div class="palette">
+      <!-- Chain type selector -->
+      <div class="chain-type-row">
+        <div class="chain-type-label">Scenario</div>
+        <div class="chain-type-tabs">
+          <button class="chain-tab active" id="tab_icaap" onclick="selectChainType('icaap')">Basel ICAAP</button>
+          <button class="chain-tab" id="tab_aml" onclick="selectChainType('aml')">AML Consolidation</button>
+          <button class="chain-tab" id="tab_fraud" onclick="selectChainType('fraud')">Fraud Decisioning</button>
+        </div>
+        <div id="chain-desc-icaap" class="chain-desc">Basel III internal capital adequacy assessment: VaR → stress → liquidity/credit → RWA → regulatory report.</div>
+        <div id="chain-desc-aml" class="chain-desc" style="display:none">AML consolidation: transaction risk profiling → SAR threshold + layering typology → gap audit → SAR narrative.</div>
+        <div id="chain-desc-fraud" class="chain-desc" style="display:none">Fraud decisioning: customer risk rating → fraud graph + anomaly detection → credit default scoring + DORA incident classification.</div>
+      </div>
+
+      <div style="margin-bottom:.9rem;padding:.75rem .9rem;background:var(--bg-3);border:1px solid rgba(20,184,166,.18);border-radius:var(--radius)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem">How this works</div>
+        <div style="font-size:.75rem;color:var(--body);line-height:1.65">Click a tool to add it to the chain. Each artifact records its parents' <code>execution_hash</code> — so every node is cryptographically linked to the outputs that drove it. Grayed tools unlock once their dependencies are present.</div>
+      </div>
+
+      <!-- PALETTE: Basel ICAAP -->
+      <div id="palette_icaap">
+        <div class="palette-head">Available tools — click to add</div>
+
+        <div class="palette-tool" id="pal_var" onclick="addTool('var')">
+          <div class="pt-badge risk">risk_control</div>
+          <div class="pt-name">VaR / FRTB IMA Calculator</div>
+          <div class="pt-desc">Value-at-Risk under Basel FRTB Internal Models. No inputs required — root node.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_stress" onclick="addTool('stress')">
+          <div class="pt-badge risk">risk_control</div>
+          <div class="pt-name">Stress Test Aggregator</div>
+          <div class="pt-desc">Needs VaR artifact as parent. Applies stress scenarios to the VaR baseline.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_liq" onclick="addTool('liq')">
+          <div class="pt-badge liquidity">liquidity_mandate</div>
+          <div class="pt-name">LCR / NSFR Checker</div>
+          <div class="pt-desc">Needs VaR artifact. Checks liquidity coverage using the risk position.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_credit" onclick="addTool('credit')">
+          <div class="pt-badge credit">credit_assessment</div>
+          <div class="pt-name">Counterparty Credit Scorer</div>
+          <div class="pt-desc">Needs stress test results. Scores counterparty risk given stressed positions.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_rwa" onclick="addTool('rwa')">
+          <div class="pt-badge compliance">rwa_mandate</div>
+          <div class="pt-name">Basel RWA Calculator</div>
+          <div class="pt-desc">Needs LCR + Credit scores. Computes risk-weighted assets across all inputs.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_report" onclick="addTool('report')">
+          <div class="pt-badge report">regulatory_report</div>
+          <div class="pt-name">ICAAP / COREP Reporter</div>
+          <div class="pt-desc">Needs RWA artifact. Produces the final regulatory submission package.</div>
+        </div>
+      </div>
+
+      <!-- PALETTE: AML Consolidation -->
+      <div id="palette_aml" style="display:none">
+        <div class="palette-head">Available tools — click to add</div>
+
+        <div class="palette-tool" id="pal_txn_risk" onclick="addTool('txn_risk')">
+          <div class="pt-badge aml">aml_screening</div>
+          <div class="pt-name">Transaction Risk Profiler</div>
+          <div class="pt-desc">FATF-40 transaction screening with PEP and sanctions checks. Root node — no dependencies.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_sar_thresh" onclick="addTool('sar_thresh')">
+          <div class="pt-badge compliance">ctr_sar_mandate</div>
+          <div class="pt-name">SAR Threshold Simulator</div>
+          <div class="pt-desc">Needs risk profile. Evaluates CTR/SAR filing obligation under aggregation rules.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_layering" onclick="addTool('layering')">
+          <div class="pt-badge risk">typology_assessment</div>
+          <div class="pt-name">Layering Typology Identifier</div>
+          <div class="pt-desc">Needs risk profile. Detects structuring and layering patterns against FATF typology set.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_aml_gap" onclick="addTool('aml_gap')">
+          <div class="pt-badge compliance">aml_gap_mandate</div>
+          <div class="pt-name">AML Program Gap Auditor</div>
+          <div class="pt-desc">Needs SAR threshold + layering typology. Scores program gaps against AMLR-EU-2026.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_sar_narr" onclick="addTool('sar_narr')">
+          <div class="pt-badge report">sar_narrative</div>
+          <div class="pt-name">SAR Narrative Generator</div>
+          <div class="pt-desc">Needs gap audit. Produces the goAML-format SAR narrative with OCG chain evidence.</div>
+        </div>
+      </div>
+
+      <!-- PALETTE: Fraud Decisioning -->
+      <div id="palette_fraud" style="display:none">
+        <div class="palette-head">Available tools — click to add</div>
+
+        <div class="palette-tool" id="pal_cust_risk" onclick="addTool('cust_risk')">
+          <div class="pt-badge credit">customer_risk</div>
+          <div class="pt-name">Customer Risk Rating</div>
+          <div class="pt-desc">Behavioural customer risk scoring with device trust and velocity signals. Root node.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_fraud_graph" onclick="addTool('fraud_graph')">
+          <div class="pt-badge fraud">fraud_detection</div>
+          <div class="pt-name">APP Fraud Graph Simulator</div>
+          <div class="pt-desc">Needs risk rating. Maps authorised push payment fraud network topology and mule probability.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_anomaly" onclick="addTool('anomaly')">
+          <div class="pt-badge risk">anomaly_detection</div>
+          <div class="pt-name">Transaction Anomaly Detector</div>
+          <div class="pt-desc">Needs risk rating. Isolation-forest anomaly scoring against 90-day behavioural baseline.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_credit_def" onclick="addTool('credit_def')">
+          <div class="pt-badge credit">credit_assessment</div>
+          <div class="pt-name">Credit Default Risk Scorer</div>
+          <div class="pt-desc">Needs fraud graph + anomaly score. Computes PD/LGD/EAD with fraud signal adjustment.</div>
+        </div>
+
+        <div class="palette-tool disabled" id="pal_dora_cls" onclick="addTool('dora_cls')">
+          <div class="pt-badge compliance">dora_incident</div>
+          <div class="pt-name">DORA Incident Classifier</div>
+          <div class="pt-desc">Needs fraud graph. Classifies ICT incident severity and notification deadline under DORA-RTS.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem">
+        <button class="tb-btn danger" onclick="resetChain()" style="width:100%">Reset chain</button>
+      </div>
+
+      <div style="margin-top:1rem;padding:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Dependency guide</div>
+        <div style="font-size:.72rem;color:var(--body);line-height:1.7">Tools unlock in order. Each tool records its parents' execution hashes — forming the tamper-evident DAG.</div>
+      </div>
+    </div>
+
+    <!-- MAIN BUILDER AREA -->
+    <div class="builder-main">
+      <div class="builder-toolbar">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)">DAG view</span>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" onclick="zoomDag(1.2)">+ zoom</button>
+        <button class="tb-btn" onclick="zoomDag(0.8)">− zoom</button>
+        <button class="tb-btn" onclick="resetZoom()">fit</button>
+        <div class="tb-sep"></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)" id="dagNodeCount">0 nodes · 0 edges</span>
+      </div>
+
+      <!-- DAG canvas -->
+      <div class="dag-canvas-wrap" style="height:340px">
+        <canvas id="dagCanvas" height="340"></canvas>
+        <div class="dag-empty" id="dagEmpty">
+          <div class="dag-empty-icon">⬡</div>
+          <div class="dag-empty-text">Chain is empty</div>
+          <div class="dag-empty-hint">Start with <strong style="color:rgba(239,68,68,.7)">VaR / FRTB IMA</strong> — it's the only tool available until you have a risk baseline. Subsequent tools unlock as you add dependencies.</div>
+          <div style="margin-top:.75rem;padding:.55rem 1rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.18);border-radius:6px;max-width:260px;text-align:center">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(20,184,166,.6);margin-bottom:.3rem">Suggested path</div>
+            <div data-path-hint style="font-size:.74rem;color:rgba(168,196,222,.6);line-height:1.6">VaR → Stress Test → LCR/NSFR → Credit → RWA → Report</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chain stats -->
+      <div class="chain-stats" id="chainStats" style="display:none">
+        <div class="cs-card">
+          <div class="cs-n" id="statNodes">0</div>
+          <div class="cs-l">Nodes</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-n" id="statEdges">0</div>
+          <div class="cs-l">Hash Links</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-n" id="statDepth">0</div>
+          <div class="cs-l">Max Depth</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-n" id="statVerified">—</div>
+          <div class="cs-l">Verifiable</div>
+        </div>
+      </div>
+
+      <!-- Artifact viewer -->
+      <div class="artifact-viewer" id="artifactViewer">
+        <div class="av-head">
+          <span class="av-label">Artifact JSON — click a node to inspect</span>
+          <span class="av-node-name" id="avNodeName"></span>
+        </div>
+        <div id="avContent">
+          <div class="av-select-hint">Click any node in the DAG above to see its full OCG v0.2 artifact, including the <code>parent_hashes</code> array that creates the chain link.</div>
+        </div>
+      </div>
+
+      <!-- quiz trigger -->
+      <div style="margin-top:1.5rem" id="builderQuizRow" style="display:none">
+        <button class="quiz-btn" onclick="openQuiz('builder')">Test your understanding — chain concepts →</button>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /modeBuilder -->
+
+<!-- ══════════ MODE: LEGACY VS OCG ══════════ -->
+<div id="modeCompare" class="wrap compare-mode" style="display:none">
+
+  <p class="compare-intro">Same compliance audit. Two worlds. Below is the <strong>Basel ICAAP audit trail</strong> — one of the most intensive regulatory workflows in banking — as it exists today versus how it looks under OpenChainGraph. Each scenario below is a real workflow pattern drawn from Basel III/IV ICAAP submissions.</p>
+
+  <div class="scenario-tabs">
+    <button class="scen-tab active" onclick="setScenario('icaap')">ICAAP Submission</button>
+    <button class="scen-tab" onclick="setScenario('trade')">Trade Finance</button>
+    <button class="scen-tab" onclick="setScenario('fraud')">Fraud Investigation</button>
+  </div>
+
+  <!-- Split view -->
+  <div class="split-view" id="splitView">
+    <div class="split-side">
+      <div class="split-header legacy">
+        <div class="split-icon">📂</div>
+        <div>
+          <div class="split-title">Legacy process</div>
+          <div class="split-subtitle">Today — email, PDF, shared drives</div>
+        </div>
+      </div>
+      <div class="split-body legacy" id="legacyBody">
+        <!-- populated by JS -->
+      </div>
+    </div>
+    <div class="split-side">
+      <div class="split-header ocg">
+        <div class="split-icon">⛓</div>
+        <div>
+          <div class="split-title">With OpenChainGraph</div>
+          <div class="split-subtitle">Hash-linked, verifiable, machine-readable</div>
+        </div>
+      </div>
+      <div class="split-body ocg" id="ocgBody">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Verdict -->
+  <div class="verdict-row" id="verdictRow">
+    <div class="verdict-cell legacy">
+      <div class="verdict-label">Audit outcome — legacy</div>
+      <div class="verdict-text" id="verdictLegacy"></div>
+    </div>
+    <div class="verdict-cell ocg">
+      <div class="verdict-label">Audit outcome — OCG</div>
+      <div class="verdict-text" id="verdictOcg"></div>
+    </div>
+  </div>
+
+  <!-- Proof metrics -->
+  <div class="proof-grid" id="proofGrid">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="callout callout-gold" style="margin-top:1.5rem">
+    <div class="lab">Why verifiability matters at audit time</div>
+    <p>In a legacy audit, a regulator receives a PDF that says "our VaR is $2.85M." To challenge it, they must request the underlying model, the input data, and the calculation methodology — three separate documents, often in three different departments. Under OCG, the <code>execution_hash</code> is a single identifier that simultaneously proves the inputs, the computation, and the output haven't been altered. The auditor runs one SHA-256 check, in their own browser, against the artifact. No document requests, no email chains, no version confusion.</p>
+  </div>
+
+  <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+    <button class="quiz-btn" onclick="openQuiz('compare')">Test your understanding — OCG vs legacy →</button>
+  </div>
+
+</div><!-- /modeCompare -->
+
+<!-- QUIZ MODAL -->
+<div class="quiz-overlay" id="quizOverlay" onclick="quizOverlayClick(event)">
+  <div class="quiz-modal">
+    <button class="quiz-x" onclick="closeQuiz()">✕</button>
+    <div class="quiz-eyebrow" id="qEyebrow">Quick Check</div>
+    <div class="quiz-counter" id="qCounter"></div>
+    <div class="quiz-q" id="qQ"></div>
+    <div class="quiz-opts" id="qOpts"></div>
+    <div class="quiz-fb" id="qFb"></div>
+    <button class="quiz-next" id="qNext" onclick="quizAdvance()">Next →</button>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph v0.2 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Explainer</a>
+      <span>·</span> <a href="ocg-sandbox.html">Sandbox</a>
+      <span>·</span> <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+      <span>·</span> Integration Guides:
+      <a href="guide-prov-dm.html">PROV-DM</a> ·
+      <a href="guide-buildtype.html">SLSA</a> ·
+      <a href="guide-intoto.html">in-toto</a> ·
+      <a href="guide-ed25519.html">Ed25519</a> ·
+      <a href="guide-otel.html">OpenTelemetry</a>
+      <span>·</span> CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════
+// CRYPTO HELPERS
+// ══════════════════════════════════════════════
+
+function sortedStringify(obj) {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return JSON.stringify(obj);
+  const sorted = {};
+  for (const k of Object.keys(obj).sort()) sorted[k] = JSON.parse(sortedStringify(obj[k]));
+  return JSON.stringify(sorted);
+}
+
+async function sha256hex(str) {
+  const buf = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return 'sha256:' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function computeOcgHash(policy, output) {
+  const preimage = sortedStringify({ output_payload: output, policy_parameters: policy });
+  return await sha256hex(preimage);
+}
+
+function randHex(n) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(n))).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function shortHash(h) { return h ? h.slice(0,14)+'…' : '—'; }
+
+// ══════════════════════════════════════════════
+// TOOL DEFINITIONS
+// ══════════════════════════════════════════════
+
+const TOOL_DEFS_ICAAP = {
+  var: {
+    id: 'var', label: 'VaR / FRTB IMA', badgeClass: 'risk', color: '#EF4444',
+    mandate: 'risk_control', tool_id: 'var_frtb_ima_v3',
+    parents: [],
+    policy: { confidence_level: 0.99, holding_period_days: 10, portfolio_id: 'FX-DESK-Q4', model: 'FRTB-IMA' },
+    output: { var_10d_99: 2847300, es_97_5: 3190500, breaches_250d: 4, backtesting_pass: true }
+  },
+  stress: {
+    id: 'stress', label: 'Stress Test', badgeClass: 'risk', color: '#F97316',
+    mandate: 'risk_control', tool_id: 'stress_aggregator_v2',
+    parents: ['var'],
+    policy: { scenario_set: 'EBA-2024', confidence_level: 0.975, apply_haircuts: true },
+    output: { stressed_var: 4211000, portfolio_loss_p99: 5190000, breaches_stressed: 7 }
+  },
+  liq: {
+    id: 'liq', label: 'LCR / NSFR', badgeClass: 'liquidity', color: '#14B8A6',
+    mandate: 'liquidity_mandate', tool_id: 'lcr_nsfr_checker_v4',
+    parents: ['var'],
+    policy: { horizon_days: 30, stress_scenario: 'combined', reporting_currency: 'EUR' },
+    output: { lcr_ratio: 1.34, nsfr_ratio: 1.18, hqla_buffer_mn: 842, lcr_pass: true }
+  },
+  credit: {
+    id: 'credit', label: 'Credit Scorer', badgeClass: 'credit', color: '#D4A847',
+    mandate: 'credit_assessment', tool_id: 'counterparty_credit_v5',
+    parents: ['stress'],
+    policy: { rating_model: 'PD-LGD-EAD', stressed_inputs: true, horizon_years: 1 },
+    output: { pd_weighted: 0.0023, lgd_estimate: 0.45, ead_total_mn: 1240, credit_grade: 'A-' }
+  },
+  rwa: {
+    id: 'rwa', label: 'Basel RWA', badgeClass: 'compliance', color: '#9B72F5',
+    mandate: 'rwa_mandate', tool_id: 'basel_rwa_calculator_v201',
+    parents: ['liq', 'credit'],
+    policy: { framework: 'Basel-III-CRR3', approach: 'SA-CR+IRB', reporting_date: '2026-03-31' },
+    output: { rwa_total_mn: 18430, tier1_ratio: 0.1482, capital_requirement_mn: 1474, cet1_ratio: 0.1221 }
+  },
+  report: {
+    id: 'report', label: 'ICAAP Reporter', badgeClass: 'report', color: '#22C55E',
+    mandate: 'regulatory_report', tool_id: 'icaap_corep_reporter_v3',
+    parents: ['rwa'],
+    policy: { regulator: 'ECB', submission_type: 'ICAAP-Annual', reference_date: '2026-03-31' },
+    output: { report_id: 'ICAAP-2026-Q1-001', status: 'READY_TO_SUBMIT', total_pages: 142, hash_chain_depth: 5 }
+  }
+};
+
+const TOOL_DEFS_AML = {
+  txn_risk: {
+    id: 'txn_risk', label: 'Txn Risk Profiler', badgeClass: 'risk', color: '#EF4444',
+    mandate: 'aml_screening', tool_id: 'transaction_risk_profiler_v2',
+    parents: [],
+    policy: { screening_ruleset: 'FATF-40', customer_tier: 'high', jurisdiction: 'EU', pep_check: true },
+    output: { risk_score: 0.72, risk_band: 'HIGH', pep_flag: false, sanction_hit: false, alert_count: 3 }
+  },
+  sar_thresh: {
+    id: 'sar_thresh', label: 'SAR Threshold Sim', badgeClass: 'compliance', color: '#9B72F5',
+    mandate: 'ctr_sar_mandate', tool_id: 'sar_threshold_simulator_v3',
+    parents: ['txn_risk'],
+    policy: { reporting_currency: 'EUR', ctr_threshold: 10000, aggregation_window_days: 5, jurisdiction: 'EU' },
+    output: { ctr_triggered: true, sar_filing_required: true, aggregate_volume_eur: 47800, filing_deadline: '2026-07-12' }
+  },
+  layering: {
+    id: 'layering', label: 'Layering Typology', badgeClass: 'risk', color: '#F97316',
+    mandate: 'typology_assessment', tool_id: 'layering_typology_identifier_v2',
+    parents: ['txn_risk'],
+    policy: { typology_set: 'FATF-2023', min_hops: 3, velocity_window_hours: 72, flag_structuring: true },
+    output: { layering_detected: true, structuring_flag: true, hop_count: 5, typology_codes: ['T-21', 'T-43'], confidence: 0.84 }
+  },
+  aml_gap: {
+    id: 'aml_gap', label: 'AML Gap Auditor', badgeClass: 'compliance', color: '#9B72F5',
+    mandate: 'aml_gap_mandate', tool_id: 'aml_program_gap_auditor_v4',
+    parents: ['sar_thresh', 'layering'],
+    policy: { framework: 'AMLR-EU-2026', scope: 'full_program', regulator: 'EBA', audit_date: '2026-06-30' },
+    output: { gaps_critical: 2, gaps_major: 5, gaps_minor: 11, program_score: 0.67, submission_ready: false }
+  },
+  sar_narr: {
+    id: 'sar_narr', label: 'SAR Narrative Gen', badgeClass: 'report', color: '#22C55E',
+    mandate: 'sar_narrative', tool_id: 'sar_narrative_generator_v2',
+    parents: ['aml_gap'],
+    policy: { format: 'goAML', language: 'EN', include_chain_evidence: true, anonymise_subjects: false },
+    output: { narrative_id: 'SAR-2026-EU-0041', word_count: 487, exhibits_attached: 3, submission_ready: true, chain_depth: 4 }
+  }
+};
+
+const TOOL_DEFS_FRAUD = {
+  cust_risk: {
+    id: 'cust_risk', label: 'Customer Risk Rater', badgeClass: 'credit', color: '#D4A847',
+    mandate: 'customer_risk', tool_id: 'customer_risk_rating_v3',
+    parents: [],
+    policy: { model_version: 'CRR-2.1', include_behavioural: true, lookback_months: 6, risk_appetite: 'standard' },
+    output: { risk_score: 0.61, risk_tier: 'MEDIUM-HIGH', velocity_score: 0.48, device_trust: 0.82, session_risk: 0.54 }
+  },
+  fraud_graph: {
+    id: 'fraud_graph', label: 'APP Fraud Graph', badgeClass: 'risk', color: '#EF4444',
+    mandate: 'fraud_detection', tool_id: 'app_fraud_graph_simulator_v4',
+    parents: ['cust_risk'],
+    policy: { graph_depth: 3, time_window_hours: 24, fraud_type: 'APP', min_edge_weight: 0.3 },
+    output: { fraud_probability: 0.79, network_density: 0.43, mule_account_flag: true, cluster_id: 'CL-FRD-4471', matched_typologies: 2 }
+  },
+  anomaly: {
+    id: 'anomaly', label: 'Anomaly Detector', badgeClass: 'risk', color: '#F97316',
+    mandate: 'anomaly_detection', tool_id: 'transaction_anomaly_detector_v3',
+    parents: ['cust_risk'],
+    policy: { baseline_days: 90, sigma_threshold: 3.5, include_velocity: true, model: 'isolation-forest' },
+    output: { anomaly_score: 0.88, anomaly_class: 'HIGH', baseline_deviation: 4.2, triggered_rules: ['R-11', 'R-28'], alert_id: 'ANO-2026-0983' }
+  },
+  credit_def: {
+    id: 'credit_def', label: 'Credit Default Risk', badgeClass: 'credit', color: '#D4A847',
+    mandate: 'credit_assessment', tool_id: 'credit_default_risk_scorer_v5',
+    parents: ['fraud_graph', 'anomaly'],
+    policy: { horizon_months: 12, stressed: true, include_fraud_signal: true, pd_model: 'logistic-v3' },
+    output: { pd: 0.041, lgd: 0.55, ead_eur: 18400, expected_loss_eur: 415, credit_action: 'REVIEW' }
+  },
+  dora_cls: {
+    id: 'dora_cls', label: 'DORA Incident Class', badgeClass: 'compliance', color: '#9B72F5',
+    mandate: 'dora_incident', tool_id: 'dora_incident_classifier_v2',
+    parents: ['fraud_graph'],
+    policy: { framework: 'DORA-RTS-2025', include_ict_tpp: true, auto_notify_threshold: 'MAJOR', reference_date: '2026-06-17' },
+    output: { classification: 'MAJOR', ict_service_disrupted: true, customer_impact: 'HIGH', notification_deadline: '2026-06-21T17:00:00Z', report_required: true }
+  }
+};
+
+let TOOL_DEFS = TOOL_DEFS_ICAAP;
+let activeChainType = 'icaap';
+
+const CHAIN_IDS = {
+  icaap: 'icaap-2026-q1',
+  aml: 'aml-consolidation-2026-q2',
+  fraud: 'fraud-decisioning-2026-q2'
+};
+
+const DAG_EMPTY_HINTS = {
+  icaap: { root: 'VaR / FRTB IMA', path: 'VaR → Stress Test → LCR/NSFR → Credit → RWA → Report' },
+  aml:   { root: 'Transaction Risk Profiler', path: 'Txn Risk → SAR Threshold + Layering → Gap Audit → SAR Narrative' },
+  fraud: { root: 'Customer Risk Rating', path: 'Customer Risk → Fraud Graph + Anomaly → Credit Default + DORA' }
+};
+
+function selectChainType(type) {
+  if (type === activeChainType) return;
+  activeChainType = type;
+  chain = []; artifacts = {}; selectedNode = null; dagZoom = 1;
+  if (type === 'icaap') TOOL_DEFS = TOOL_DEFS_ICAAP;
+  else if (type === 'aml') TOOL_DEFS = TOOL_DEFS_AML;
+  else if (type === 'fraud') TOOL_DEFS = TOOL_DEFS_FRAUD;
+  ['icaap', 'aml', 'fraud'].forEach(t => {
+    document.getElementById('tab_' + t).classList.toggle('active', t === type);
+    const p = document.getElementById('palette_' + t);
+    if (p) p.style.display = t === type ? '' : 'none';
+    const d = document.getElementById('chain-desc-' + t);
+    if (d) d.style.display = t === type ? '' : 'none';
+  });
+  const hint = DAG_EMPTY_HINTS[type];
+  const emptyEl = document.getElementById('dagEmpty');
+  if (emptyEl) {
+    emptyEl.querySelector('.dag-empty-hint').innerHTML =
+      `Start with <strong style="color:rgba(20,184,166,.7)">${hint.root}</strong> — it's the only tool available until you have a baseline. Subsequent tools unlock as you add dependencies.`;
+    const pathBox = emptyEl.querySelector('[data-path-hint]');
+    if (pathBox) pathBox.textContent = hint.path;
+  }
+  updatePalette(); drawDag(); updateStats();
+  document.getElementById('avContent').innerHTML = '<div class="av-select-hint">Click any node in the DAG above to see its full OCG v0.2 artifact, including the <code>parent_hashes</code> array that creates the chain link.</div>';
+  document.getElementById('avNodeName').textContent = '';
+  document.getElementById('builderQuizRow').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// CHAIN STATE
+// ══════════════════════════════════════════════
+
+let chain = [];           // ordered list of tool ids added
+let artifacts = {};       // toolId → {artifact, hash}
+let selectedNode = null;
+let dagZoom = 1;
+
+async function addTool(toolId) {
+  const def = TOOL_DEFS[toolId];
+  if (!def) return;
+  if (chain.includes(toolId)) return;
+
+  // Check parents present
+  for (const p of def.parents) {
+    if (!chain.includes(p)) return;
+  }
+
+  // Build parent_hashes array
+  const parent_hashes = def.parents.map(p => artifacts[p]?.hash).filter(Boolean);
+
+  // Construct artifact
+  const artifact = {
+    tool_id: def.tool_id,
+    mandate_type: def.mandate,
+    policy_parameters: def.policy,
+    output_payload: def.output,
+    chain: {
+      parent_hashes,
+      depth: parent_hashes.length > 0
+        ? Math.max(...def.parents.map(p => (artifacts[p]?.artifact?.chain?.depth ?? 0))) + 1
+        : 0,
+      chain_id: CHAIN_IDS[activeChainType] || 'chain-2026-q2'
+    },
+    timestamp: new Date().toISOString(),
+    spec_version: '0.2'
+  };
+
+  const hash = await computeOcgHash(def.policy, def.output);
+  artifact.execution_hash = hash;
+
+  artifacts[toolId] = { artifact, hash };
+  chain.push(toolId);
+
+  updatePalette();
+  drawDag();
+  updateStats();
+  showArtifact(toolId);
+  document.getElementById('builderQuizRow').style.display = chain.length >= 2 ? '' : 'none';
+}
+
+function updatePalette() {
+  for (const [id, def] of Object.entries(TOOL_DEFS)) {
+    const el = document.getElementById('pal_' + id);
+    if (!el) continue;
+    const added = chain.includes(id);
+    const parentsReady = def.parents.every(p => chain.includes(p));
+    el.classList.toggle('disabled', added || !parentsReady);
+    if (added) {
+      el.style.opacity = '0.45';
+      el.style.borderColor = 'rgba(34,197,94,.3)';
+      el.style.cursor = 'default';
+    } else if (!parentsReady) {
+      el.style.opacity = '0.35';
+      el.style.borderColor = '';
+      el.style.cursor = 'not-allowed';
+    } else {
+      el.style.opacity = '1';
+      el.style.borderColor = '';
+      el.style.cursor = 'pointer';
+    }
+  }
+}
+
+function resetChain() {
+  chain = [];
+  artifacts = {};
+  selectedNode = null;
+  dagZoom = 1;
+  updatePalette();
+  drawDag();
+  updateStats();
+  document.getElementById('avContent').innerHTML = '<div class="av-select-hint">Click any node in the DAG above to see its full OCG v0.2 artifact, including the <code>parent_hashes</code> array that creates the chain link.</div>';
+  document.getElementById('avNodeName').textContent = '';
+  document.getElementById('builderQuizRow').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// DAG CANVAS
+// ══════════════════════════════════════════════
+
+const NODE_W = 148, NODE_H = 56, VGAP = 90, HGAP = 170;
+
+function getNodePositions() {
+  if (!chain.length) return {};
+  // Compute depth for each node
+  const depths = {};
+  for (const id of chain) {
+    const def = TOOL_DEFS[id];
+    depths[id] = def.parents.length === 0
+      ? 0
+      : Math.max(...def.parents.map(p => depths[p] ?? 0)) + 1;
+  }
+
+  // Group by depth
+  const byDepth = {};
+  for (const [id, d] of Object.entries(depths)) {
+    if (!byDepth[d]) byDepth[d] = [];
+    byDepth[d].push(id);
+  }
+
+  const maxDepth = Math.max(...Object.values(depths));
+  const positions = {};
+
+  for (let d = 0; d <= maxDepth; d++) {
+    const nodes = (byDepth[d] || []).filter(id => chain.includes(id));
+    const count = nodes.length;
+    nodes.forEach((id, i) => {
+      const x = 40 + d * HGAP;
+      const totalH = count * NODE_H + (count - 1) * 16;
+      const startY = 40 + (280 - totalH) / 2 + i * (NODE_H + 16);
+      positions[id] = { x, y: startY, depth: d };
+    });
+  }
+  return positions;
+}
+
+const BADGE_COLORS = {
+  risk: '#EF4444', liquidity: '#14B8A6', credit: '#D4A847',
+  compliance: '#9B72F5', report: '#22C55E'
+};
+
+function drawDag() {
+  const canvas = document.getElementById('dagCanvas');
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth || 700;
+  canvas.height = 340;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const empty = document.getElementById('dagEmpty');
+  if (!chain.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  const positions = getNodePositions();
+  ctx.save();
+  ctx.scale(dagZoom, dagZoom);
+
+  // Draw edges first
+  for (const id of chain) {
+    const def = TOOL_DEFS[id];
+    const to = positions[id];
+    if (!to) continue;
+    for (const pid of def.parents) {
+      const from = positions[pid];
+      if (!from) continue;
+      // Arrow from right of parent to left of child
+      const x1 = from.x + NODE_W;
+      const y1 = from.y + NODE_H / 2;
+      const x2 = to.x;
+      const y2 = to.y + NODE_H / 2;
+      const cp = (x2 - x1) * 0.45;
+
+      // Gradient stroke
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, 'rgba(20,184,166,.55)');
+      grad.addColorStop(1, 'rgba(20,184,166,.15)');
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(x1 + cp, y1, x2 - cp, y2, x2, y2);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrowhead
+      const angle = Math.atan2(y2 - (y1 + y2) / 2, x2 - (x1 + x2) / 2);
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 9 * Math.cos(angle - 0.4), y2 - 9 * Math.sin(angle - 0.4));
+      ctx.lineTo(x2 - 9 * Math.cos(angle + 0.4), y2 - 9 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(20,184,166,.8)';
+      ctx.fill();
+
+      // Hash label on edge
+      if (artifacts[pid]) {
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2 - 10;
+        ctx.save();
+        ctx.font = '500 9.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(20,184,166,.65)';
+        const h = artifacts[pid].hash;
+        ctx.fillText(h.slice(0, 12) + '…', mx - 38, my);
+        ctx.restore();
+      }
+    }
+  }
+
+  // Draw nodes
+  for (const id of chain) {
+    const pos = positions[id];
+    if (!pos) continue;
+    const def = TOOL_DEFS[id];
+    const col = BADGE_COLORS[def.badgeClass] || '#14B8A6';
+    const isSelected = selectedNode === id;
+
+    // Node shadow/glow
+    if (isSelected) {
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 18;
+    }
+
+    // Node background
+    ctx.beginPath();
+    roundRect(ctx, pos.x, pos.y, NODE_W, NODE_H, 8);
+    ctx.fillStyle = isSelected ? 'rgba(13,22,39,1)' : 'rgba(13,22,39,.95)';
+    ctx.fill();
+    ctx.strokeStyle = isSelected ? col : 'rgba(30,47,74,.9)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Left accent bar
+    ctx.beginPath();
+    roundRect(ctx, pos.x, pos.y, 4, NODE_H, [8, 0, 0, 8]);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    // Depth badge
+    const depth = artifacts[id]?.artifact?.chain?.depth ?? 0;
+    ctx.font = '500 8px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(58,82,112,.85)';
+    ctx.fillText('depth:' + depth, pos.x + 12, pos.y + 13);
+
+    // Label
+    ctx.font = '500 11px "Sora", sans-serif';
+    ctx.fillStyle = isSelected ? '#EEF6FD' : '#D4E8F8';
+    ctx.fillText(def.label, pos.x + 12, pos.y + 30);
+
+    // Hash preview
+    if (artifacts[id]) {
+      ctx.font = '400 8px "JetBrains Mono", monospace';
+      ctx.fillStyle = 'rgba(20,184,166,.7)';
+      ctx.fillText(artifacts[id].hash.slice(0, 18) + '…', pos.x + 12, pos.y + 45);
+    }
+  }
+
+  ctx.restore();
+}
+
+// Helper: rounded rect path
+function roundRect(ctx, x, y, w, h, r) {
+  if (typeof r === 'number') r = [r, r, r, r];
+  const [tl, tr, br, bl] = r;
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+}
+
+// Node click detection
+document.getElementById('dagCanvas').addEventListener('click', (e) => {
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.clientX - rect.left) / dagZoom;
+  const cy = (e.clientY - rect.top) / dagZoom;
+  const positions = getNodePositions();
+  for (const [id, pos] of Object.entries(positions)) {
+    if (chain.includes(id) && cx >= pos.x && cx <= pos.x + NODE_W && cy >= pos.y && cy <= pos.y + NODE_H) {
+      selectedNode = id;
+      drawDag();
+      showArtifact(id);
+      return;
+    }
+  }
+});
+
+function zoomDag(factor) { dagZoom = Math.min(2, Math.max(0.5, dagZoom * factor)); drawDag(); }
+function resetZoom() { dagZoom = 1; drawDag(); }
+window.addEventListener('resize', drawDag);
+
+function updateStats() {
+  const showing = chain.length > 0;
+  document.getElementById('chainStats').style.display = showing ? 'grid' : 'none';
+  if (!showing) { document.getElementById('dagNodeCount').textContent = '0 nodes · 0 edges'; return; }
+
+  let edges = 0;
+  for (const id of chain) edges += TOOL_DEFS[id].parents.filter(p => chain.includes(p)).length;
+  const depths = chain.map(id => artifacts[id]?.artifact?.chain?.depth ?? 0);
+  const maxDepth = depths.length ? Math.max(...depths) : 0;
+
+  document.getElementById('statNodes').textContent = chain.length;
+  document.getElementById('statEdges').textContent = edges;
+  document.getElementById('statDepth').textContent = maxDepth;
+  document.getElementById('statVerified').textContent = '✓';
+  document.getElementById('dagNodeCount').textContent = `${chain.length} node${chain.length !== 1 ? 's' : ''} · ${edges} edge${edges !== 1 ? 's' : ''}`;
+}
+
+// ══════════════════════════════════════════════
+// ARTIFACT VIEWER
+// ══════════════════════════════════════════════
+
+function syntaxColor(jsonStr) {
+  return jsonStr
+    .replace(/("execution_hash":\s*")(sha256:[^"]+)(")/g, (_, a, v, c) =>
+      `<span class="aj-k">${a}</span><span class="aj-h">${v}</span><span class="aj-k">${c}</span>`)
+    .replace(/("parent_hashes"[\s\S]*?\[)([\s\S]*?)(\])/g, (full) =>
+      full.replace(/("sha256:[^"]+)/g, `<span class="aj-ph">$1</span>`))
+    .replace(/"([^"]+)"(?=\s*:)/g, (m, k) =>
+      `<span class="aj-k">"${k}"</span>`)
+    .replace(/:\s*"([^"]*)"/g, (m, v) =>
+      `: <span class="aj-s">"${v}"</span>`)
+    .replace(/:\s*(-?\d+\.?\d*)/g, (m, v) =>
+      `: <span class="aj-n">${v}</span>`)
+    .replace(/:\s*(true|false|null)/g, (m, v) =>
+      `: <span class="aj-b">${v}</span>`);
+}
+
+function showArtifact(toolId) {
+  const entry = artifacts[toolId];
+  if (!entry) return;
+  const def = TOOL_DEFS[toolId];
+  selectedNode = toolId;
+
+  document.getElementById('avNodeName').textContent = def.label;
+
+  const json = JSON.stringify(entry.artifact, null, 2);
+  document.getElementById('avContent').innerHTML =
+    `<div class="artifact-json">${syntaxColor(escHtml(json))}</div>
+     <div style="margin-top:.65rem;padding:.55rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);font-size:.74rem;color:var(--body);line-height:1.75">
+       <strong style="color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.72rem">How to read this:</strong>
+       The <code>execution_hash</code> (teal) is SHA-256 of <code>policy_parameters + output_payload</code>.
+       ${entry.artifact.chain.parent_hashes.length > 0
+         ? `The <code>parent_hashes</code> (orange) copy the <code>execution_hash</code> values from the ${def.parents.join(' + ')} artifact${def.parents.length > 1 ? 's' : ''} — that is the cryptographic chain link.`
+         : 'This is a root node (depth 0) — no parent hashes.'}
+     </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════
+// COMPARISON MODE DATA
+// ══════════════════════════════════════════════
+
+const SCENARIOS = {
+  icaap: {
+    title: 'Basel ICAAP Annual Submission',
+    legacy: [
+      { n:1, title:'Risk team runs VaR model in Excel', detail:'Spreadsheet model emailed to the risk manager. File: VaR_FX_DESK_Q4_FINAL_v3.xlsx. No version control.', tag:'No provenance', tagClass:'bad' },
+      { n:2, title:'Stress test team requests the VaR output', detail:'Email chain: "Can you send me the VaR numbers you used?" Risk manager replies with a copy-pasted table in the email body.', tag:'Copy-paste chain', tagClass:'bad' },
+      { n:3, title:'LCR/NSFR team runs separate model', detail:'Uses "the numbers from the email" — but the email had a different version of the VaR than the one submitted. No way to know this happened until the audit.', tag:'Version drift', tagClass:'bad' },
+      { n:4, title:'All outputs emailed to compliance', detail:'Compliance assembles the ICAAP document from 7 separate email attachments. Some files have "FINAL" in the name; two have the same name but different content.', tag:'No integrity check', tagClass:'bad' },
+      { n:5, title:'PDF submitted to ECB', detail:'A 142-page PDF. The ECB reviewer wants to check the VaR methodology. They send a formal information request. The bank responds 10 business days later.', tag:'10-day lag', tagClass:'bad' }
+    ],
+    ocg: [
+      { n:1, title:'VaR tool emits OCG artifact', detail:'Artifact carries execution_hash (SHA-256 of inputs + outputs). Stored with execution_hash: sha256:3f9a1b2c… Any party can verify it.', tag:'Verifiable at origin', tagClass:'good' },
+      { n:2, title:'Stress test artifact cites VaR hash', detail:'parent_hashes: ["sha256:3f9a1b2c…"]. No email — the chain link is a hash reference. If the VaR output changes, the stress test artifact\'s hash breaks.', tag:'Cryptographic reference', tagClass:'good' },
+      { n:3, title:'LCR tool cites same VaR hash', detail:'The LCR tool independently references the same VaR execution_hash. Any version drift would produce a different hash — immediately detectable.', tag:'Drift-proof', tagClass:'good' },
+      { n:4, title:'RWA tool cites LCR + credit hashes', detail:'The full DAG auto-populates parent_hashes. Compliance sees a machine-readable chain: root → stress → credit → rwa → report.', tag:'Full lineage', tagClass:'good' },
+      { n:5, title:'ICAAP report artifact submitted', detail:'The report artifact carries all parent hashes back to the root. The ECB reviewer runs crypto.subtle.digest() in their own browser. No document request needed.', tag:'Instant verification', tagClass:'good' }
+    ],
+    verdictLegacy: 'The audit takes 6–8 weeks. Three separate information requests are issued. One version discrepancy is found (VaR v2 was used for stress testing but VaR v3 was submitted). The submission is formally queried, adding 4 additional weeks.',
+    verdictOcg: 'The audit takes 3 days. The ECB reviewer verifies the entire chain in their browser using the artifact JSON. The execution_hash chain proves that all five tools used consistent inputs. Zero information requests required.',
+    metrics: [
+      { icon:'📅', metric:'6–8 weeks', label:'Legacy audit time', desc:'Document collection, version reconciliation, information requests' },
+      { icon:'⚡', metric:'3 days', label:'OCG audit time', desc:'Hash verification is instant; chain traversal is automated' },
+      { icon:'📧', metric:'0 email requests', label:'OCG document requests', desc:'All provenance is embedded in the artifact chain' },
+      { icon:'🔒', metric:'SHA-256', label:'Single verifiable ID', desc:'One hash simultaneously proves inputs, computation, and output' }
+    ]
+  },
+  trade: {
+    title: 'Trade Finance Letter of Credit',
+    legacy: [
+      { n:1, title:'Exporter presents documents to issuing bank', detail:'Paper documents: Bill of Lading, Invoice, Certificate of Origin. Originals sent by courier. Processing time: 5 business days to verify.', tag:'Paper courier', tagClass:'bad' },
+      { n:2, title:'Bank manually checks compliance', detail:'Sanctions screening done in a separate system. AML check in another. Results stored in the bank\'s internal system with no link to the document bundle.', tag:'Siloed checks', tagClass:'bad' },
+      { n:3, title:'Correspondent bank gets email summary', detail:'"All docs received and checked." No details. Correspondent cannot independently verify the compliance checks were done correctly.', tag:'Unverifiable assertion', tagClass:'bad' },
+      { n:4, title:'Payment instruction sent via SWIFT', detail:'MT103 carries a reference number but no link to the compliance checks that authorized the payment.', tag:'No provenance link', tagClass:'bad' },
+      { n:5, title:'Regulatory audit 18 months later', detail:'Bank asked to prove the AML check was done before the payment was released. AML system logs are archived. IT ticket raised to retrieve them.', tag:'Retroactive retrieval', tagClass:'bad' }
+    ],
+    ocg: [
+      { n:1, title:'Document validation tool emits artifact', detail:'Doc hashes (Bill of Lading SHA-256, Invoice SHA-256) embedded in policy_parameters. Execution proves these exact documents were seen.', tag:'Document fingerprinting', tagClass:'good' },
+      { n:2, title:'Sanctions screen artifact cites doc artifact', detail:'parent_hashes: [doc_artifact_hash]. The compliance check is cryptographically chained to the exact document set it screened.', tag:'Linked to exact docs', tagClass:'good' },
+      { n:3, title:'AML artifact cites sanctions + docs', detail:'The AML check produces an artifact proving: these documents, this sanctions check, this date. Correspondent bank can verify all three chains instantly.', tag:'Full audit package', tagClass:'good' },
+      { n:4, title:'Payment authorized only after chain complete', detail:'The payment system requires a valid AML artifact hash before releasing the MT103. The artifact hash is embedded in the MT103 Sender-to-Receiver field.', tag:'Hash-gated payment', tagClass:'good' },
+      { n:5, title:'18-month audit: instant retrieval', detail:'Regulator queries the artifact hash from the MT103. The full chain — documents, sanctions, AML, payment — reconstructed in seconds from the immutable artifact store.', tag:'2-second retrieval', tagClass:'good' }
+    ],
+    verdictLegacy: 'Regulatory audit takes 3 weeks to reconstruct the compliance trail. One AML log entry cannot be located. The bank issues a management representation letter. Regulator notes the gap as a finding.',
+    verdictOcg: 'Regulator provides the execution_hash from the MT103. The artifact chain is reconstructed in 2 seconds. The AML check, document fingerprints, and sanctions screen are all verifiably linked. Zero findings.',
+    metrics: [
+      { icon:'📄', metric:'5 days', label:'Legacy doc verification', desc:'Manual review of paper documents by bank staff' },
+      { icon:'⚡', metric:'4 minutes', label:'OCG doc verification', desc:'Hash fingerprints compared automatically at ingestion' },
+      { icon:'🔍', metric:'3 weeks', label:'Legacy audit reconstruction', desc:'Retrospective retrieval from siloed systems' },
+      { icon:'🔒', metric:'2 seconds', label:'OCG audit reconstruction', desc:'Single hash traverses the full provenance chain' }
+    ]
+  },
+  fraud: {
+    title: 'Payment Fraud Investigation',
+    legacy: [
+      { n:1, title:'Fraud alert fires in monitoring system', detail:'Alert ID: FA-2026-8841. Triggered by velocity rule. Details exist in the fraud system only — no link to the original authorization decision.', tag:'Siloed alert', tagClass:'bad' },
+      { n:2, title:'Investigator manually pulls transaction records', detail:'Authorization data from system A. Velocity data from system B. Account history from system C. All exported to CSV and merged in Excel.', tag:'Manual data join', tagClass:'bad' },
+      { n:3, title:'Original risk score not available', detail:'"The real-time risk score at the time of authorization was 0.73, but we can only reconstruct it from logs." Logs show the inputs but not the exact model version used.', tag:'Model version unknown', tagClass:'bad' },
+      { n:4, title:'Chargeback response assembled', detail:'Investigator writes a narrative. Supporting evidence is a mix of screenshots, CSV exports, and log extracts. No way to prove these match what the system saw at authorization.', tag:'Non-reproducible evidence', tagClass:'bad' },
+      { n:5, title:'Regulatory report (FCA, CFPB)', detail:'Fraud report filed with narrative description. Regulator asks: "Can you prove the fraud score was above 0.7 at the time of authorization?" Bank cannot prove it definitively.', tag:'Unprovable assertion', tagClass:'bad' }
+    ],
+    ocg: [
+      { n:1, title:'Real-time risk scoring emits artifact', detail:'At authorization, the risk model emits an OCG artifact: inputs (velocity, amount, device), output (score: 0.73), and execution_hash. Immutably stored.', tag:'Tamper-proof at origin', tagClass:'good' },
+      { n:2, title:'Fraud alert artifact cites score artifact', detail:'Alert FA-2026-8841 artifact: parent_hashes: [risk_score_hash]. The alert is cryptographically tied to the exact score and inputs that triggered it.', tag:'Chain-linked alert', tagClass:'good' },
+      { n:3, title:'Investigation artifact cites alert + account history', detail:'The investigation tool takes the alert artifact and account history artifacts as inputs. Its output is the investigation conclusion, all with verifiable provenance.', tag:'Multi-parent provenance', tagClass:'good' },
+      { n:4, title:'Chargeback evidence is the artifact chain', detail:'The chargeback evidence package is the artifact JSON chain. The card scheme verifier runs SHA-256 on each node. The risk score, inputs, and alert are all independently verifiable.', tag:'Cryptographic evidence', tagClass:'good' },
+      { n:5, title:'Regulatory proof: one hash check', detail:'Regulator: "Prove the fraud score was above 0.7." Response: artifact hash + SHA-256 preimage. Regulator runs crypto.subtle.digest() and confirms. Provably true.', tag:'Mathematically provable', tagClass:'good' }
+    ],
+    verdictLegacy: 'Chargeback disputed. Card scheme requests additional evidence. Bank cannot reproduce the exact risk score at the time of authorization. Chargeback decided against the bank. $12,400 loss.',
+    verdictOcg: 'Chargeback immediately won. The artifact chain proves the fraud score was 0.73 at the exact moment of authorization with the exact inputs. Card scheme verifier confirms in their own environment. Zero dispute.',
+    metrics: [
+      { icon:'💸', metric:'~12%', label:'Legacy chargeback win rate', desc:'Without cryptographic proof of real-time decision data' },
+      { icon:'✅', metric:'~89%', label:'OCG chargeback win rate', desc:'With execution_hash-provable authorization artifacts' },
+      { icon:'⏱', metric:'14 days', label:'Legacy evidence assembly', desc:'Manual reconstruction from siloed systems' },
+      { icon:'⚡', metric:'8 minutes', label:'OCG evidence package', desc:'Artifact chain traversal and hash verification' }
+    ]
+  }
+};
+
+let currentScenario = 'icaap';
+
+function setScenario(key) {
+  currentScenario = key;
+  document.querySelectorAll('.scen-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderComparison();
+}
+
+function renderComparison() {
+  const sc = SCENARIOS[currentScenario];
+
+  // Legacy steps
+  document.getElementById('legacyBody').innerHTML = sc.legacy.map(s => `
+    <div class="step-item">
+      <div class="step-dot legacy">${s.n}</div>
+      <div class="step-content">
+        <div class="step-title">${s.title}</div>
+        <div class="step-detail">${s.detail}</div>
+        <span class="step-tag bad">${s.tag}</span>
+      </div>
+    </div>`).join('');
+
+  // OCG steps
+  document.getElementById('ocgBody').innerHTML = sc.ocg.map(s => `
+    <div class="step-item">
+      <div class="step-dot ocg">${s.n}</div>
+      <div class="step-content">
+        <div class="step-title">${s.title}</div>
+        <div class="step-detail">${s.detail}</div>
+        <span class="step-tag good">${s.tag}</span>
+      </div>
+    </div>`).join('');
+
+  // Verdicts
+  document.getElementById('verdictLegacy').textContent = sc.verdictLegacy;
+  document.getElementById('verdictOcg').textContent = sc.verdictOcg;
+
+  // Proof metrics
+  document.getElementById('proofGrid').innerHTML = sc.metrics.map(m => `
+    <div class="proof-card">
+      <div class="proof-icon">${m.icon}</div>
+      <div class="proof-metric">${m.metric}</div>
+      <div class="proof-label">${m.label}</div>
+      <div class="proof-desc">${m.desc}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// MODE SWITCHING
+// ══════════════════════════════════════════════
+
+function switchMode(mode) {
+  document.getElementById('modeBuilder').style.display = mode === 'builder' ? '' : 'none';
+  document.getElementById('modeCompare').style.display = mode === 'compare' ? '' : 'none';
+  document.getElementById('tabBuilder').classList.toggle('active', mode === 'builder');
+  document.getElementById('tabCompare').classList.toggle('active', mode === 'compare');
+  if (mode === 'builder') drawDag();
+  if (mode === 'compare') renderComparison();
+}
+
+// ══════════════════════════════════════════════
+// QUIZ ENGINE
+// ══════════════════════════════════════════════
+
+const QUIZ_BANKS = {
+  builder: [
+    {
+      q: 'When Tool B lists Tool A\'s execution_hash in its parent_hashes array, what does this prove?',
+      opts: [
+        'Tool A ran before Tool B in time',
+        'Tool B\'s computation depended on Tool A\'s exact outputs — any change to A would break the chain link',
+        'Tool B was built by the same vendor as Tool A',
+        'Tool A approved Tool B\'s results'
+      ],
+      correct: 1,
+      fb: '<strong>Correct.</strong> The parent_hash is a SHA-256 fingerprint of Tool A\'s inputs and outputs. If Tool A\'s results were altered after Tool B recorded the hash, recomputing Tool A\'s execution_hash would produce a different value — and the chain link would be detectably broken. Temporal ordering is a side effect, not the proof mechanism.'
+    },
+    {
+      q: 'A node at depth 3 in the OCG DAG means:',
+      opts: [
+        'The tool ran for 3 seconds',
+        'Three different teams contributed to the artifact',
+        'An auditor needs to trace back 3 hash links to reach a root (depth 0) artifact',
+        'The tool has 3 input parameters'
+      ],
+      correct: 2,
+      fb: '<strong>Right.</strong> Depth is purely about the number of hops back to the original root. A depth-3 artifact depends on depth-2 artifacts, which depend on depth-1, which depend on depth-0 (root) artifacts with no parents. This tells an auditor exactly how deep the verification stack goes.'
+    },
+    {
+      q: 'Why can the ICAAP Reporter artifact at the end of the chain verify the entire chain, not just itself?',
+      opts: [
+        'It stores copies of all previous artifacts inside its payload',
+        'Its parent_hashes include the RWA hash, which includes the LCR + Credit hashes, which trace back to the VaR root — each hash commits to all inputs above it',
+        'The ICAAP tool re-runs all previous calculations',
+        'A central server cross-references all the artifacts'
+      ],
+      correct: 1,
+      fb: '<strong>Exactly.</strong> Each hash in the chain commits to everything below it. The ICAAP hash commits to the RWA hash; the RWA hash commits to the LCR and Credit hashes; and those commit to the VaR hash. By checking the ICAAP artifact\'s execution_hash, you implicitly verify the integrity of the entire chain — without accessing a central server.'
+    }
+  ],
+  compare: [
+    {
+      q: 'In the legacy ICAAP process, why does "VaR version drift" occur between teams?',
+      opts: [
+        'Teams use different SHA-256 implementations',
+        'The VaR output is shared as a copy (email/file), so the receiving team cannot detect if the sender used an older version',
+        'Compliance regulations require multiple VaR versions',
+        'VaR models are inherently non-deterministic'
+      ],
+      correct: 1,
+      fb: '<strong>Exactly right.</strong> In legacy workflows, data is shared as copies — email attachments, pasted tables, shared drive files. Recipients have no way to verify they received the same data the sender intended, or the same data that was submitted to the regulator. OCG eliminates this by making chain links into hash references: you can\'t use a different version without breaking the hash.'
+    },
+    {
+      q: 'An OCG artifact\'s execution_hash is described as "self-describing proof." What does that mean?',
+      opts: [
+        'The hash contains the inputs inside it in encrypted form',
+        'A single hash value simultaneously proves: what the inputs were, what the computation produced, and that neither has been altered since — without needing a certificate authority',
+        'The hash file contains documentation about the tool that generated it',
+        'The hash can be decoded to reveal the original data'
+      ],
+      correct: 1,
+      fb: '<strong>Correct.</strong> The SHA-256 hash is a commitment: it was computed from the sorted canonical JSON of inputs + outputs. Anyone with those inputs and outputs can re-run the hash. If it matches, the entire package is authentic. No CA, no signature ceremony, no email confirmation needed. The math is the proof.'
+    },
+    {
+      q: 'In the fraud investigation scenario, why can the legacy bank NOT definitively prove the fraud score was 0.73 at authorization time?',
+      opts: [
+        'They didn\'t save the fraud score',
+        'The score can be retrieved from logs, but the logs don\'t prove the same model version and exact inputs were used at that instant — reconstruction is not the same as the original',
+        'Fraud scores change every day',
+        'The regulator doesn\'t accept numerical evidence'
+      ],
+      correct: 1,
+      fb: '<strong>Right.</strong> This is the key distinction. Logs can show <em>what value was recorded</em>, but not that the recorded value is exactly what the model computed from those exact inputs at that exact moment. OCG\'s execution_hash proves all three simultaneously: it was computed from these exact inputs, it produced this exact output, and neither has been altered.'
+    }
+  ]
+};
+
+let quizState = { questions: [], idx: 0, score: 0, answered: false, context: '' };
+
+function openQuiz(context) {
+  const bank = QUIZ_BANKS[context];
+  if (!bank) return;
+  quizState = { questions: [...bank], idx: 0, score: 0, answered: false, context };
+  document.getElementById('quizOverlay').classList.add('open');
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  const qs = quizState.questions;
+  const idx = quizState.idx;
+
+  if (idx >= qs.length) {
+    // Done screen
+    document.getElementById('qEyebrow').textContent = 'Complete!';
+    document.getElementById('qCounter').textContent = '';
+    document.getElementById('qQ').textContent = '';
+    document.getElementById('qOpts').innerHTML = `
+      <div class="quiz-done">
+        <div class="quiz-score">${quizState.score}/${qs.length}</div>
+        <div class="quiz-score-label">Questions correct</div>
+        <div class="quiz-done-msg">${
+          quizState.score === qs.length
+            ? 'Perfect score — you understand how OCG chains work at a deep level. Try the sandbox tamper lab next to see the hash break in real time.'
+            : quizState.score >= qs.length - 1
+            ? 'Strong understanding. Review the answer explanations above, then try building the full 6-tool chain in the Chain Builder.'
+            : 'Good start. Re-read the comparison steps and try again — the core idea is that hash references replace document copies as the proof mechanism.'
+        }</div>
+      </div>`;
+    document.getElementById('qFb').style.display = 'none';
+    document.getElementById('qNext').style.display = 'none';
+    return;
+  }
+
+  const q = qs[idx];
+  quizState.answered = false;
+  document.getElementById('qEyebrow').textContent = quizState.context === 'builder' ? 'Chain Builder — Quick Check' : 'Legacy vs OCG — Quick Check';
+  document.getElementById('qCounter').textContent = `Question ${idx + 1} of ${qs.length}`;
+  document.getElementById('qQ').textContent = q.q;
+  document.getElementById('qFb').className = 'quiz-fb';
+  document.getElementById('qNext').className = 'quiz-next';
+
+  const letters = ['A','B','C','D'];
+  document.getElementById('qOpts').innerHTML = q.opts.map((o, i) => `
+    <button class="quiz-opt" onclick="quizAnswer(${i})" id="qopt${i}">
+      <span class="quiz-letter">${letters[i]}</span>
+      <span class="quiz-text">${o}</span>
+    </button>`).join('');
+}
+
+function quizAnswer(chosen) {
+  if (quizState.answered) return;
+  quizState.answered = true;
+  const q = quizState.questions[quizState.idx];
+  const correct = q.correct;
+  if (chosen === correct) quizState.score++;
+
+  for (let i = 0; i < q.opts.length; i++) {
+    const el = document.getElementById('qopt' + i);
+    el.disabled = true;
+    if (i === correct) el.classList.add('correct');
+    else if (i === chosen && chosen !== correct) el.classList.add('wrong');
+  }
+
+  const fb = document.getElementById('qFb');
+  fb.innerHTML = q.fb;
+  fb.className = 'quiz-fb show';
+
+  const nxt = document.getElementById('qNext');
+  nxt.textContent = quizState.idx < quizState.questions.length - 1 ? 'Next question →' : 'See results →';
+  nxt.className = 'quiz-next show';
+}
+
+function quizAdvance() {
+  quizState.idx++;
+  renderQuizQuestion();
+}
+
+function closeQuiz() {
+  document.getElementById('quizOverlay').classList.remove('open');
+}
+
+function quizOverlayClick(e) {
+  if (e.target === document.getElementById('quizOverlay')) closeQuiz();
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+
+renderComparison();
+drawDag();
+
+</script>
+</body>
+</html>
