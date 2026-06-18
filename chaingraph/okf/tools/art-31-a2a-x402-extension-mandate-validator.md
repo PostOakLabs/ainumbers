@@ -4,7 +4,7 @@ title: "A2A x402-Extension Mandate Validator"
 description: "Validates the A2A x402 extension (Coinbase/MetaMask/Ethereum Foundation) that carries crypto-payment authority inside an AP2 mandate: extension declaration in the A2A agent card, payment-authority scope, settlement-rail binding, exact-scheme x402 PaymentPayload lint, and mandate-to-payment-leg consistency. PASS/WARN/FAIL verdict + execution_hash. Educational/simulation."
 resource: https://ainumbers.co/chaingraph/art-31-a2a-x402-extension-mandate-validator.html
 tags: ["settlement_mandate", "wave-6", "mcp:validate_a2a_x402_mandate"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # A2A x402-Extension Mandate Validator

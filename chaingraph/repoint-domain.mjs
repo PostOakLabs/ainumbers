@@ -38,7 +38,7 @@ const APPLY = process.argv.includes('--apply');
 // The two profile rules also append .jsonld so the canonical URI dereferences to the
 // served PROF document on static hosting (same convention as context.jsonld).
 const RULES = [
-  ['https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld',     'https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld'],
+  ['https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld',     'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld'],
   ['https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld','https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld'],
   ['https://ainumbers.co/chaingraph/context/',     'https://ainumbers.co/chaingraph/context/'],
   ['https://ainumbers.co/chaingraph/profiles/', 'https://ainumbers.co/chaingraph/profiles/'],

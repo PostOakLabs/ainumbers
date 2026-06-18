@@ -4,7 +4,7 @@ title: "Agent-Traffic Acceptance Policy Builder"
 description: "Builds a policy mandate governing accepted AI agent types, identity verification level, velocity and value caps, payment rails, refund posture, retry policy, and blocking rules. Exports an agent-readable instructions block and a §4 hash-anchored artifact. Node 3 of 3 in the Agentic Checkout Chain."
 resource: https://ainumbers.co/chaingraph/art-21-agent-traffic-acceptance-policy-builder.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:build_google_ap2_mandate"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # Agent-Traffic Acceptance Policy Builder

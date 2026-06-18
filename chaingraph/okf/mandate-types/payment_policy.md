@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "payment_policy"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"payment_policy\"."
 tags: ["payment_policy", "count-1"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # payment_policy

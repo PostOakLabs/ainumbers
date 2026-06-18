@@ -4,7 +4,7 @@ title: "Agent Spend-Policy Simulator"
 description: "Simulates thousands of synthetic agent transactions against a user-authored spend policy (per-merchant caps, category allow/deny, velocity limits, cumulative ceilings). Flags scope creep and AP2 v0.2 Human-Not-Present policy-bypass paths."
 resource: https://ainumbers.co/chaingraph/art-02-agent-spend-policy-simulator.html
 tags: ["payment_policy", "wave-1", "mcp:simulate_spend_policy"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # Agent Spend-Policy Simulator

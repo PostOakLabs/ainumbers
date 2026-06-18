@@ -44,7 +44,7 @@ const ISO_PACS_TOOLS = new Map([
   ['art-11-vop-batch-match-rate-analyser', 'iso20022:pacs.008-subset'],
   ['rca-03-iso20022-address-migration-verifier', 'iso20022:pacs.008-subset'],
 ]);
-const PROFILE_URI = { 'iso20022:pacs.008-subset': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld' };
+const PROFILE_URI = { 'iso20022:pacs.008-subset': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld' };
 
 // Tools that genuinely validate/relate to AP2 v0.2 structures -> AP2 conformsTo. EDIT to taste; conservative default.
 const AP2_TOOLS = new Set([

@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "settlement_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"settlement_mandate\"."
 tags: ["settlement_mandate", "count-2"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # settlement_mandate

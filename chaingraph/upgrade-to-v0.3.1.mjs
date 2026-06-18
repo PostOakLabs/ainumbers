@@ -34,7 +34,7 @@ const NEW_VERSION = '1.11.0';
 const NEW_SPEC = '0.3.1';
 const TODAY = '2026-06-18';
 const TOKEN = 'iso20022:pacs.008-subset';
-const PROFILE_URI = 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld';
+const PROFILE_URI = 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld';
 
 // Truthful payment/settlement nodes (amount + parties). art-11 + rca-03 already carry the token.
 const PAYMENT_NODES = new Set([

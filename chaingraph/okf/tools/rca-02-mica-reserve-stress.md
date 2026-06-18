@@ -4,7 +4,7 @@ title: "MiCA Stablecoin Reserve Stress Simulator"
 description: "Monte Carlo simulation of stablecoin reserve portfolios under MiCA Article 36 redemption stress and asset price shocks. 1,000 paths × 90-day horizon. Coverage ratio fan chart (P5–P95), breach probability curve, Article 36 liquid buffer analysis, fire-sale contagion estimate. Complements ART-06 (static attestation) with full stochastic dimension."
 resource: https://ainumbers.co/chaingraph/rca-02-mica-reserve-stress.html
 tags: ["liquidity_mandate", "wave-3", "mcp:simulate_stablecoin_reserve"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # MiCA Stablecoin Reserve Stress Simulator

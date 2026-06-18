@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "model_governance"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"model_governance\"."
 tags: ["model_governance", "count-1"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # model_governance

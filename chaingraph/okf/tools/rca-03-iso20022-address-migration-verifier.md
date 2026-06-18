@@ -4,7 +4,7 @@ title: "ISO 20022 Structured-Address Migration Batch Verifier"
 description: "GPU-parallel validation of PostalAddress24 fields across pacs.008 messages (up to 500k). Country-specific rules (UK postcode, DE Postleitzahl, US ZIP+4), MT103 :50K: truncation-risk flagging, November-2026 readiness score."
 resource: https://ainumbers.co/chaingraph/rca-03-iso20022-address-migration-verifier.html
 tags: ["compliance_mandate", "wave-1", "mcp:verify_address_migration_batch", "iso20022:pacs.008-subset"]
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # ISO 20022 Structured-Address Migration Batch Verifier
@@ -15,7 +15,7 @@ timestamp: 2026-06-18T15:09:48.675Z
 
 **Semantic profile:** `iso20022:pacs.008-subset` (ISO 20022-aligned)
 
-**Conforms to (`dct:conformsTo`):** <https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld>
+**Conforms to (`dct:conformsTo`):** <https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld>
 
 ## Inputs
 

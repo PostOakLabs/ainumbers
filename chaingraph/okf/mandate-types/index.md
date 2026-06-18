@@ -1,7 +1,7 @@
 ---
 type: Index
 title: "Mandate types"
-timestamp: 2026-06-18T15:09:48.675Z
+timestamp: 2026-06-18T15:15:44.978Z
 ---
 
 # Mandate types
