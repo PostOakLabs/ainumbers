@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenChainGraph Standard v0.2 — Technical Specification</title>
+<title>OpenChainGraph Standard v0.3 — Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -115,7 +115,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="nav-meta">
       <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.2</span>
+      <span class="nav-pill">v0.3</span>
     </div>
   </div>
 </nav>
@@ -123,8 +123,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.2</h1>
-    <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. v0.2 adds W3C PROV-DM alignment via JSON-LD, an in-toto-compatible signature envelope, optional Ed25519 signing, an OpenTelemetry span mapping, and a DCAT 3.0 Graph Index format. Internal protocol identifiers are unchanged for backwards compatibility.</p>
+    <h1>OpenChainGraph Standard v0.3</h1>
+    <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. Every v0.3 addition is optional and additive — all v0.1 and v0.2 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved.</p>
   </div>
 </div>
 
@@ -133,14 +133,17 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="toc">
       <div class="toc-title">Contents</div>
       <ol>
-        <li><a href="#s1">Artifact Schema v0.2</a></li>
+        <li><a href="#s1">Artifact Schema (v0.3)</a></li>
         <li><a href="#s2">Hash Preimage Construction (unchanged)</a></li>
         <li><a href="#s3">JSON-LD @context — W3C PROV-DM Alignment</a></li>
         <li><a href="#s4">Signature Envelope — in-toto Format</a></li>
         <li><a href="#s5">Ed25519 Signing Algorithm</a></li>
         <li><a href="#s6">OpenTelemetry Span Mapping</a></li>
         <li><a href="#s7">DCAT 3.0 Graph Index</a></li>
-        <li><a href="#s8">Changelog v0.1 → v0.2</a></li>
+        <li><a href="#s8">ISO 20022 Semantic Profile <span style="color:var(--green)">(new in v0.3)</span></a></li>
+        <li><a href="#s9">Party Identity — LEI &amp; did:key <span style="color:var(--green)">(new in v0.3)</span></a></li>
+        <li><a href="#s10">OKF Companion Bundle <span style="color:var(--green)">(new in v0.3)</span></a></li>
+        <li><a href="#s11">Changelog</a></li>
       </ol>
     </div>
   </div>
@@ -546,12 +549,170 @@ const is_valid = await crypto.subtle.verify(
   </div>
 </div>
 
-<!-- ═══ §8 Changelog ═══ -->
+<!-- ═══ §8 ISO 20022 Semantic Profile ═══ -->
 <div class="section" id="s8">
   <div class="wrap">
-    <div class="sec-num">Section 8</div>
-    <h2>Changelog v0.1 → v0.2</h2>
+    <div class="sec-num">Section 8 — New in v0.3</div>
+    <h2>ISO 20022 Semantic Profile</h2>
+    <p>v0.2 gave the provenance <em>envelope</em> a semantic standard (W3C PROV-DM). v0.3 gives the financial <em>payload</em> one. The ISO 20022 semantic profile is an <strong>optional, additive overlay</strong> that maps a curated subset of payload fields to ISO 20022 business elements and adopts the ISO external code lists by reference. It is <strong>minimal by design</strong> — amount, party, and agent fields only — and it never enters the <code>execution_hash</code> preimage (§2 is unchanged).</p>
 
+    <div class="callout gold">
+      <div class="lab">Aligned, not registered</div>
+      <p>OpenChainGraph is <strong>ISO 20022-aligned</strong>, not a registered ISO 20022 message. ISO 20022 is governed by the ISO Registration Authority / SWIFT. The <code>iso20022:</code> terms below are a crosswalk <em>named after</em> ISO 20022 business elements (ISO 20022 publishes no official JSON-LD vocabulary). Tools do not generate or transmit live ISO 20022 messages — they emit decision artifacts whose financial fields are interpretable by ISO 20022-native systems.</p>
+    </div>
+
+    <h4>Published context URL: <code>https://openchain.graph/spec/v0.3/iso20022-context.jsonld</code></h4>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JSON — artifact with the profile applied</span><span class="code-note">▲ @context is an array; payload fields carry ISO 20022-aligned names</span></div>
+      <pre>{
+  <span class="k">"@context"</span>: [
+    <span class="v">"https://openchain.graph/spec/v0.3/context.jsonld"</span>,
+    <span class="v new">"https://openchain.graph/spec/v0.3/iso20022-context.jsonld"</span>
+  ],
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.3.0"</span>,
+  <span class="k">"tool_id"</span>: <span class="v">"ain:rca-03"</span>,
+  <span class="k">"mandate_type"</span>: <span class="v">"compliance_mandate"</span>,
+  <span class="k">"output_payload"</span>: {
+    <span class="k">"instructed_amount"</span>: { <span class="k">"amount"</span>: <span class="v">"15000.00"</span>, <span class="k">"currency"</span>: <span class="v">"EUR"</span> },  <span class="c">// ActiveCurrencyAndAmount · Ccy=ISO 4217</span>
+    <span class="k">"debtor"</span>:    { <span class="k">"party_name"</span>: <span class="v">"ACME SA"</span>,  <span class="k">"lei"</span>: <span class="v">"529900T8BM49AURSDO55"</span> },  <span class="c">// ISO 17442</span>
+    <span class="k">"creditor"</span>:  { <span class="k">"party_name"</span>: <span class="v">"Beta GmbH"</span>, <span class="k">"lei"</span>: <span class="v">"391200X3K8N4WLB9AB12"</span> },
+    <span class="k">"debtor_agent"</span>:   { <span class="k">"bicfi"</span>: <span class="v">"DEUTDEFFXXX"</span> },  <span class="c">// BICFI · ISO 9362</span>
+    <span class="k">"creditor_agent"</span>: { <span class="k">"bicfi"</span>: <span class="v">"BNPAFRPPXXX"</span> },
+    <span class="k">"settlement_date"</span>: <span class="v">"2026-11-23"</span>,  <span class="c">// IntrBkSttlmDt · ISO 8601</span>
+    <span class="k">"remittance_information"</span>: <span class="v">"INV-2026-0042"</span>  <span class="c">// RmtInf</span>
+  }
+}</pre>
+    </div>
+
+    <h3>Field mapping</h3>
+    <table class="spec-table">
+      <thead><tr><th>OCG payload field</th><th>ISO 20022 business element</th><th>External code set</th></tr></thead>
+      <tbody>
+        <tr><td><code>amount</code></td><td>ActiveCurrencyAndAmount</td><td>—</td></tr>
+        <tr><td><code>currency</code></td><td>Ccy / CurrencyCode</td><td>ISO 4217</td></tr>
+        <tr><td><code>country</code></td><td>CountryCode</td><td>ISO 3166-1 alpha-2</td></tr>
+        <tr><td><code>debtor</code> / <code>creditor</code></td><td>Debtor / Creditor (PartyIdentification)</td><td>—</td></tr>
+        <tr><td><code>lei</code></td><td>OrganisationIdentification / LEI</td><td>ISO 17442</td></tr>
+        <tr><td><code>debtor_agent</code> / <code>creditor_agent</code></td><td>DebtorAgent / CreditorAgent (FinInstnId)</td><td>—</td></tr>
+        <tr><td><code>bicfi</code></td><td>BICFI</td><td>ISO 9362</td></tr>
+        <tr><td><code>iban</code></td><td>IBAN (CashAccount)</td><td>ISO 13616</td></tr>
+        <tr><td><code>settlement_date</code></td><td>IntrBkSttlmDt</td><td>ISO 8601</td></tr>
+        <tr><td><code>remittance_information</code></td><td>RmtInf</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">Already in the suite</div>
+      <p>RCA-03 (<code>verify_address_migration_batch</code>) already validates ISO 20022 pacs.008 PostalAddress24 structured addresses for the SWIFT CBPR+ structured-address mandate (Nov 2026). The profile formalizes that usage into a declared crosswalk. A full practitioner walkthrough — code-list validators (ISO 4217/3166/9362/13616/17442) and a pacs.008 crosswalk — is in the <a href="guide-iso20022.html">ISO 20022 integration guide</a>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ §9 Party Identity ═══ -->
+<div class="section" id="s9">
+  <div class="wrap">
+    <div class="sec-num">Section 9 — New in v0.3</div>
+    <h2>Party Identity — LEI &amp; did:key</h2>
+    <p>v0.3 formalizes two optional identity anchors that already appeared informally in the v0.2 guides. Both are optional; neither changes the hash preimage.</p>
+
+    <h3>did:key as the recommended keyid</h3>
+    <p>The in-toto signature envelope's <code>keyid</code> (§4) SHOULD be a <code>did:key</code> identifier — a multicodec-prefixed, base58btc encoding of the raw Ed25519 public key (the <code>z6Mk…</code> form). This makes the signer self-describing and resolvable without a separate key registry, while remaining compatible with the Graph Index <code>signing_keys</code> lookup (§7).</p>
+
+    <h3>LEI for regulated party identity</h3>
+    <p>A publisher or tool MAY carry an ISO 17442 Legal Entity Identifier. This binds an OpenChainGraph vendor — and, where relevant, the signing key — to a regulator-grade legal-entity anchor that banks, PSPs, and supervisors already consume. The LEI is the natural identity bridge between the §8 ISO 20022 profile (where debtor/creditor parties carry LEIs) and the §4/§5 signing identity.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JSON — optional identity fields</span></div>
+      <pre>{
+  <span class="k">"publisher"</span>: {
+    <span class="k">"name"</span>: <span class="v">"Post Oak Labs"</span>,
+    <span class="k">"lei"</span>:  <span class="v new">"&lt;ISO 17442 LEI, if registered&gt;"</span>       <span class="c">// optional</span>
+  },
+  <span class="k">"audit_signature"</span>: {
+    <span class="k">"signatures"</span>: [
+      { <span class="k">"keyid"</span>: <span class="v new">"did:key:z6MkrJVnaZkeFzdQyMZu1cgjaeW7MoFaNKg4tLCf4g3kEhWh"</span>, <span class="k">"sig"</span>: <span class="v">"…"</span> }
+    ]
+  }
+}</pre>
+    </div>
+
+    <div class="callout purple">
+      <div class="lab">Pairs with the agentic-identity tools</div>
+      <p>This aligns the provenance layer with the suite's KYA-OS / EUDI-wallet tools and the W3C Verifiable Credentials / DID ecosystem. See the <a href="guide-ed25519.html">Ed25519</a> and <a href="guide-intoto.html">in-toto</a> guides for key lifecycle and envelope details.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ §10 OKF Companion Bundle ═══ -->
+<div class="section" id="s10">
+  <div class="wrap">
+    <div class="sec-num">Section 10 — New in v0.3</div>
+    <h2>OKF Companion Bundle</h2>
+    <p>v0.3 publishes an <strong>Open Knowledge Format</strong> (OKF) companion bundle — a directory of markdown concept files, one per Graph Index node — <strong>auto-generated from <code>chaingraph.json</code></strong>. It is the narrative knowledge layer that complements the machine-readable DCAT catalog (§7): DCAT is the catalog an agent <em>plans</em> a chain from; OKF is the curated context an agent or human <em>reads</em> to learn what a tool means and when to use it.</p>
+
+    <div class="callout">
+      <div class="lab">Two layers, not two formats for one thing</div>
+      <p><strong>OKF = context-in</strong> (knowledge read before acting). <strong>OpenChainGraph = provenance-out</strong> (the decision artifact produced and proven after acting). An OKF concept document is <em>knowledge, never a decision artifact</em> — it MUST NOT carry an <code>execution_hash</code> or <code>audit_signature</code>. The two are kept strictly separate.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">Bundle layout — generated, never hand-edited</span></div>
+      <pre>okf/
+├── index.md                 <span class="c"># root · progressive disclosure</span>
+├── log.md                   <span class="c"># generation history</span>
+├── mandate-types/
+│   ├── index.md
+│   └── &lt;mandate_type&gt;.md
+└── tools/
+    ├── index.md
+    └── &lt;tool_id&gt;.md         <span class="c"># one concept per live node; consumes/feeds → markdown links</span></pre>
+    </div>
+
+    <p>Each concept carries OKF YAML frontmatter (<code>type</code>, <code>title</code>, <code>description</code>, <code>resource</code>, <code>tags</code>, <code>timestamp</code>); the node's <code>consumes</code>/<code>feeds</code> edges become markdown links between concepts, reproducing the graph. The bundle is regenerated on every Graph Index change and is fully reversible — nothing in OpenChainGraph's verification path depends on it. The generator and consumer walkthrough are in the <a href="guide-okf.html">OKF integration guide</a>.</p>
+
+    <div class="callout gold">
+      <div class="lab">Maturity note</div>
+      <p>OKF is a v0.1 specification (published June 2026). It is adopted here as a <strong>companion artifact only</strong>. Tie nothing in artifact verification to it; treat the bundle as a generated, swappable discovery surface.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ §11 Changelog ═══ -->
+<div class="section" id="s11">
+  <div class="wrap">
+    <div class="sec-num">Section 11</div>
+    <h2>Changelog</h2>
+
+    <h3 style="margin-top:.4rem">v0.2 → v0.3</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§8</span>
+        <span class="change-desc">Added the optional <strong>ISO 20022 semantic profile</strong> — a published JSON-LD overlay (<code>iso20022-context.jsonld</code>) mapping amount/party/agent payload fields to ISO 20022 business elements, with external code lists (ISO 4217/3166/9362/13616/17442) adopted by reference. Minimal, optional, additive. <strong>Hash preimage unchanged.</strong></span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§9</span>
+        <span class="change-desc">Formalized optional party identity: <code>did:key</code> as the recommended <code>keyid</code> form, and ISO 17442 <strong>LEI</strong> on publisher/tool identity, optionally bound to the Ed25519 signing key.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§7 + §8</span>
+        <span class="change-desc">Added the optional <code>ocg:semantic_profile</code> marker on Graph Index nodes so crawlers and agents can discover ISO 20022-aligned tools.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§10</span>
+        <span class="change-desc">Published an <strong>OKF companion bundle</strong> auto-generated from <code>chaingraph.json</code> — the narrative knowledge layer beside the DCAT catalog. OKF concepts are knowledge, never decision artifacts.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Guides</span>
+        <span class="change-desc">Added <code>guide-iso20022.html</code> and <code>guide-okf.html</code> to the integration-guide series (now seven: PROV-DM, buildType, in-toto, Ed25519, OTel, ISO 20022, OKF).</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Compat</span>
+        <span class="change-desc">All v0.1 and v0.2 artifacts remain valid. Every v0.3 field is optional. Internal <code>chaingraph_version</code> and folder paths are unchanged.</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">v0.1 → v0.2</h3>
     <div style="margin-top:1rem">
       <div class="change-row">
         <span class="change-ref">§1 + §3</span>

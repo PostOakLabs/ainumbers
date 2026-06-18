@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with the Open Knowledge Format — Integration Guide</title>
+<meta name="description" content="Complement OpenChainGraph v0.3 provenance artifacts with an OKF companion bundle: auto-generated concept documents that map graph edges to markdown links. Context-in vs provenance-out — two layers, one pipeline.">
+<meta property="og:title" content="OpenChainGraph + Open Knowledge Format — Integration Guide">
+<meta property="og:description" content="OKF = context-in (curated knowledge an agent reads before acting). OpenChainGraph = provenance-out (the decision artifact an agent produces after acting). Two layers, complementary, never competing.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+  /* Guide #7 accent: Knowledge Amber — distinct from teal (G1), gold (G2), purple (G3), green (G4), red (G5), iso20022 blue (G6) */
+  --accent:#E8833A; --accent-lt:#F0A062; --accent-dim:rgba(232,131,58,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent-lt);border:1px solid rgba(232,131,58,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--accent-lt)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--accent-dim);color:var(--accent-lt);border-color:rgba(232,131,58,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);background:var(--accent-dim);border:1px solid rgba(232,131,58,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}    /* key/keyword */
+.v{color:var(--gold)}        /* string value */
+.n{color:var(--green)}       /* number/boolean/value */
+.c{color:var(--muted);font-style:italic}  /* comment */
+.a{color:var(--accent-lt)}   /* amber / OKF-specific */
+.p{color:var(--purple)}      /* purple / resource/attribute names */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-teal{border-left-color:var(--teal)}
+.callout-teal .lab{color:var(--teal)}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+.callout-purple{border-left-color:var(--purple)}
+.callout-purple .lab{color:var(--purple)}
+.callout-green{border-left-color:var(--green)}
+.callout-green .lab{color:var(--green)}
+.callout-red{border-left-color:var(--red-lt)}
+.callout-red .lab{color:var(--red-lt)}
+
+/* LAYER DIAGRAM */
+.layer-diagram{border:1px solid var(--border-2);border-radius:var(--radius-lg);overflow:hidden;margin:1.4rem 0;max-width:800px}
+.layer-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border)}
+.layer-row:last-child{border-bottom:none}
+.layer-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:500;width:180px;flex-shrink:0;padding:.9rem 1.1rem;display:flex;align-items:center;border-right:1px solid var(--border)}
+.layer-label.okf{color:var(--accent-lt);background:var(--accent-dim)}
+.layer-label.ocg{color:var(--teal-lt);background:var(--teal-dim)}
+.layer-body{font-size:.83rem;color:var(--body);padding:.9rem 1.1rem;line-height:1.65;flex:1}
+.layer-header{background:var(--bg-3);padding:.5rem 1.1rem;display:flex;gap:0;border-bottom:1px solid var(--border)}
+.layer-header-col{font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.layer-header-col.lbl{width:180px;flex-shrink:0}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}.layer-diagram{overflow-x:auto}.layer-row{flex-wrap:wrap}.layer-label{width:auto;border-right:none;border-bottom:1px solid var(--border)}.checklist-table{font-size:.75rem}.checklist-table td,.checklist-table th{padding:.5rem .6rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.3</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">OKF</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.3 · Integration How-To</div>
+    <h1>Using OpenChainGraph with the <em>Open Knowledge Format</em></h1>
+    <p class="hero-desc">Google's Open Knowledge Format (OKF, v0.1, June 2026) is a directory of markdown concept files that agents and humans read <em>before</em> acting. OpenChainGraph v0.3 produces cryptographically verifiable decision artifacts <em>after</em> acting. They are complementary layers, not competing formats. This guide covers the OKF companion bundle that OCG auto-generates from <code>chaingraph.json</code> in CI — one concept file per live tool, graph edges as markdown links, zero hand-maintenance.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+      <a class="guide-pill" href="guide-iso20022.html">ISO 20022</a>
+      <span class="guide-pill active">OKF</span>
+    </div>
+  </div>
+</div>
+
+<!-- §1 Two layers -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>Two layers: context-in vs provenance-out</h2>
+    <p>OKF and OpenChainGraph address different stages of an agent's lifecycle. Understanding which layer does what — and why they cannot be collapsed — is the foundation of a correct integration.</p>
+
+    <div class="layer-diagram">
+      <div class="layer-header">
+        <div class="layer-header-col lbl">Layer</div>
+        <div class="layer-header-col">What it is · When it is used · What it produces</div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label okf">OKF<br>context-in</div>
+        <div class="layer-body"><strong style="color:var(--accent-lt)">Open Knowledge Format (Google, v0.1, 2026-06-12)</strong> — a directory of markdown concept files with YAML frontmatter. An agent or human reads these files <em>before</em> deciding which tools to invoke and in what order. Concepts cross-link with ordinary markdown links; those links mirror the graph's <code>consumes</code>/<code>feeds</code> edges, letting a reader follow the chain narrative. OKF is "just files, just markdown, just YAML" — a format, not a platform; minimally opinionated; producer/consumer independent. It answers: <em>what does this tool mean and when should I use it?</em></div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label ocg">OCG<br>provenance-out</div>
+        <div class="layer-body"><strong style="color:var(--teal-lt)">OpenChainGraph v0.3</strong> — a signed, hash-chained decision artifact that a tool produces <em>after</em> execution. Each artifact carries an <code>execution_hash</code> (SHA-256 over the sorted-key JSON of its inputs and outputs), a <code>chain</code> block referencing parent hashes, a <code>compliance_flags[]</code> array, and an <code>audit_signature</code> (Ed25519). The hash chain is cryptographically verifiable: re-run the tool with the same inputs, recompute the hash, and confirm the cited value. It answers: <em>what decision was made, on what inputs, by which tool, in which chain?</em></div>
+      </div>
+    </div>
+
+    <p>The two layers interlock cleanly: an agent consults the OKF bundle to plan which chain of MCP tools to invoke, then executes the chain and receives OCG artifacts that prove what was decided. The planning surface (OKF) and the proof surface (OCG) never overlap.</p>
+
+    <div class="callout callout-gold">
+      <div class="lab">Hard boundary — OKF concepts are knowledge, not artifacts</div>
+      <p>An OKF concept document describes a tool. It is <strong style="color:var(--text)">not</strong> a decision artifact. A concept <code>.md</code> file must <strong style="color:var(--text)">never</strong> carry an <code>execution_hash</code>, an <code>audit_signature</code>, or any field from the OCG artifact schema. Putting those fields on a concept document would conflate the knowledge layer with the proof layer — making it impossible for a consumer to distinguish "what this tool does" from "what this tool decided." Keep them strictly, permanently separate. The OKF bundle belongs in a <code>okf/</code> directory committed alongside the graph index; OCG artifacts are ephemeral runtime outputs, never committed to the knowledge repository.</p>
+    </div>
+
+    <p>This separation is also why OKF is currently a <strong>companion</strong> to OCG, not a dependency. Nothing in OCG's verification path reads or depends on the OKF bundle. The bundle is an informational layer for humans and agent planners; removing it would not affect the cryptographic integrity of any artifact.</p>
+  </div>
+</div>
+
+<!-- §2 Bundle layout -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>The companion bundle layout</h2>
+    <p>In OpenChainGraph v0.3, every CI run that changes <code>chaingraph.json</code> automatically regenerates an <code>okf/</code> directory alongside the graph index. The directory follows OKF's convention: the <strong>path is the concept's identity</strong>. Rename a file and you break every link pointing at it — so the filenames are derived deterministically from <code>tool_id</code> values in the index and must not be hand-edited.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">tree</span>
+        <span class="code-note">Generated okf/ bundle structure (excerpt — one file per live node)</span>
+      </div>
+      <pre><span class="a">okf/</span>
+<span class="a">├── index.md</span>                      <span class="c"># root — progressive disclosure entry point (OKF reserved)</span>
+<span class="a">├── log.md</span>                         <span class="c"># generation history — one line per CI run (OKF reserved)</span>
+<span class="a">├── mandate-types/</span>
+<span class="a">│   ├── index.md</span>                   <span class="c"># mandate-type group index</span>
+<span class="a">│   ├── payment_mandate.md</span>
+<span class="a">│   ├── payment_policy.md</span>
+<span class="a">│   ├── settlement_mandate.md</span>
+<span class="a">│   ├── compliance_mandate.md</span>
+<span class="a">│   ├── prompt_template.md</span>
+<span class="a">│   └── …one file per distinct mandate_type</span>
+<span class="a">└── tools/</span>
+<span class="a">    ├── index.md</span>                   <span class="c"># tool list — links to every concept below</span>
+<span class="a">    ├── art-01-ap2-mandate-chain-validator.md</span>
+<span class="a">    ├── art-02-agent-spend-policy-simulator.md</span>
+<span class="a">    ├── art-03-x402-settlement-modeler.md</span>
+<span class="a">    ├── art-04-agent-identity-attestation-checker.md</span>
+<span class="a">    ├── ptg-01-ap2-prompt-template-generator.md</span>
+<span class="a">    └── …one concept per node where status === "live"</span></pre>
+    </div>
+
+    <p>The <code>mandate-types/</code> subdirectory groups tools by domain for human readers. The <code>tools/</code> subdirectory is the primary machine-readable surface — each concept file corresponds 1:1 to a node in <code>chaingraph.json</code>, and the filename is the node's <code>tool_id</code> value with a <code>.md</code> extension. The root <code>index.md</code> and <code>log.md</code> are OKF reserved filenames: every compliant OKF bundle may include them, and OKF consumers know to look for them as the entry point and change history respectively.</p>
+
+    <div class="callout callout-teal">
+      <div class="lab">Never hand-edit generated files</div>
+      <p>Every file under <code>okf/tools/</code> is regenerated on every CI run that touches <code>chaingraph.json</code>. Hand edits will be silently overwritten on the next run. To change a concept's title, description, or chain edges, change the corresponding node in <code>chaingraph.json</code> and let CI regenerate the bundle. The only files safe to hand-edit are <code>okf/index.md</code> (if you add a custom preamble) and <code>okf/mandate-types/*.md</code> (narrative prose not derived from the index). Even these should be treated with care — the generator will not touch them, but a future schema change may invalidate their content.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §3 A generated concept document -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>A generated concept document</h2>
+    <p>Each file under <code>okf/tools/</code> is a complete OKF concept document derived directly from the corresponding node in <code>chaingraph.json</code>. The only required OKF frontmatter field is <code>type</code>; all other fields shown here are standard OKF conventions. The body uses ordinary markdown — the chain edges (<code>consumes</code> and <code>feeds</code>) become markdown links pointing at the sibling concept files, which is the crux of the integration: the graph's edge structure becomes a navigable document graph.</p>
+    <p>Below is the complete generated concept for the <strong>art-01</strong> node (<em>AP2 Mandate-Chain Validator</em>), using real data from <code>chaingraph.json</code>.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">markdown</span>
+        <span class="code-note">okf/tools/art-01-ap2-mandate-chain-validator.md — generated, do not hand-edit</span>
+      </div>
+      <pre><span class="a">---
+type: DecisionTool
+title: AP2 Mandate-Chain Validator
+description: >
+  Validates AP2 v0.2 Intent→Cart→Payment mandate trio: signature-chain
+  integrity, scope/limit consistency, TTL/expiry, over-spend detection,
+  Human-Not-Present autonomous-agent flows. Publishes conformance
+  test-vector fixtures.
+resource: https://ainumbers.co/chaingraph/art-01-ap2-mandate-chain-validator.html
+tags:
+  - payment_mandate
+  - wave-1
+  - mcp:validate_ap2_mandate_chain
+timestamp: 2026-06-18T00:00:00Z
+---</span>
+
+<span class="c"># AP2 Mandate-Chain Validator</span>
+
+<span class="k">Exports a decision</span>: a conformance verdict over an AP2 v0.2 Intent→Cart→Payment
+mandate chain, including signature integrity, scope limits, TTL, and
+Human-Not-Present flow checks. Call this tool via MCP and receive a signed
+OCG artifact — not an advisory.
+
+<span class="c">## Inputs</span>
+
+- <span class="k">intent_mandate</span> — AP2 v0.2 Intent Mandate object (JSON)
+- <span class="k">cart_mandate</span> — AP2 v0.2 Cart Mandate object (JSON)
+- <span class="k">payment_mandate</span> — AP2 v0.2 Payment Mandate object (JSON)
+- <span class="k">agent_context</span> — optional: HNP flag, agent DID, delegation depth
+
+<span class="c">## Outputs</span>
+
+- <span class="k">conformance_verdict</span> — PASS / FAIL / PARTIAL per check category
+- <span class="k">signature_chain_valid</span> — boolean
+- <span class="k">scope_violations</span> — array of detected scope or limit breaches
+- <span class="k">compliance_flags[]</span> — per-framework flags (AP2 v0.2, HNP-001)
+- <span class="k">execution_hash</span> — SHA-256 over sorted-key JSON of inputs + outputs
+
+<span class="c">## Chains</span>
+
+**Consumes:** _(root tool — no upstream dependencies)_
+
+**Feeds:**
+- [Agent Spend-Policy Simulator](art-02-agent-spend-policy-simulator.md)
+- [x402 Settlement Cost &amp; Finality Modeler](art-03-x402-settlement-modeler.md)
+- [Agent Identity &amp; Authorization Attestation Checker](art-04-agent-identity-attestation-checker.md)
+- [ACP Checkout Conformance Validator](art-12-acp-checkout-conformance-validator.md)
+- [AP2 Prompt Template Generator](../tools/ptg-01-ap2-prompt-template-generator.md)</pre>
+    </div>
+
+    <p>The <strong>Chains</strong> section is the structural heart of the integration. The markdown links in "Feeds" are exactly the edges from the node's <code>feeds[]</code> array in <code>chaingraph.json</code>, resolved to relative paths within <code>okf/tools/</code>. An agent or static site following these links traverses the same graph that OCG's execution engine traverses at runtime. The two graphs are synchronized by the generator — they cannot drift as long as CI runs on every index change.</p>
+
+    <div class="callout callout-gold">
+      <div class="lab">Contrast with the ptg-01 node</div>
+      <p>The <strong>ptg-01</strong> (<em>AP2 Prompt Template Generator</em>) node has <code>"consumes": []</code> and <code>"feeds": ["ALL"]</code> — it is a downstream sink that can receive any artifact. Its generated concept document's Chains section reflects this: "Consumes: (standalone — accepts any upstream artifact)" and "Feeds: all tools in the suite." The <code>"ALL"</code> sentinel is the one edge value the generator resolves specially, expanding it to a prose statement rather than a list of links, because enumerating every node would make the concept file noisy and brittle to index changes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §4 Generator -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>From graph index to bundle: the generator</h2>
+    <p>The OKF bundle is produced by a single Node.js script (<code>generate-okf.mjs</code>) that reads <code>chaingraph.json</code>, iterates every node where <code>status === "live"</code>, and writes one <code>.md</code> file per node. The script runs in CI on every push that modifies the index, so the bundle is always in sync and never hand-maintained.</p>
+
+    <p>The field mapping from graph index to OKF concept element:</p>
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>chaingraph.json field</th>
+          <th>OKF concept element</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>tool_id</td>
+          <td>File path (<code>okf/tools/{tool_id}.md</code>) + concept identity</td>
+          <td>OKF convention: path is identity. Changing <code>tool_id</code> renames the file and breaks inbound links.</td>
+        </tr>
+        <tr>
+          <td>display_name</td>
+          <td>Frontmatter <code>title:</code> + h1 heading in body</td>
+          <td>Human-readable name. Safe to change without breaking links (only the frontmatter title changes, not the file path).</td>
+        </tr>
+        <tr>
+          <td>description</td>
+          <td>Frontmatter <code>description:</code></td>
+          <td>Verbatim from index. Folded YAML scalar — no markdown.</td>
+        </tr>
+        <tr>
+          <td>url</td>
+          <td>Frontmatter <code>resource:</code></td>
+          <td>OKF standard field: the canonical URL of the resource being described.</td>
+        </tr>
+        <tr>
+          <td>mandate_type + wave + mcp_name</td>
+          <td>Frontmatter <code>tags:</code> array</td>
+          <td>E.g. <code>["payment_mandate", "wave-1", "mcp:validate_ap2_mandate_chain"]</code>. Enables filtering by domain, generation cohort, or MCP tool name.</td>
+        </tr>
+        <tr>
+          <td>consumes[] / feeds[]</td>
+          <td>Markdown links in the body <strong>Chains</strong> section</td>
+          <td>Each entry resolved to a relative path: <code>{tool_id}.md</code>. The <code>"ALL"</code> sentinel renders as prose. This is the graph edge → document link transformation.</td>
+        </tr>
+        <tr>
+          <td>status: "live"</td>
+          <td>Included in bundle</td>
+          <td>Nodes with <code>status !== "live"</code> are excluded. The bundle always reflects the live production graph.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The complete generator script:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">generate-okf.mjs — run in CI on every chaingraph.json change</span>
+      </div>
+      <pre><span class="c">#!/usr/bin/env node
+// generate-okf.mjs
+// Reads chaingraph.json → writes okf/tools/{tool_id}.md for every live node.
+// Run: node generate-okf.mjs
+// Requires Node 18+ (fs/promises, no external deps)</span>
+
+<span class="k">import</span> { readFile, writeFile, mkdir } <span class="k">from</span> <span class="v">"fs/promises"</span>;
+<span class="k">import</span> { join, dirname } <span class="k">from</span> <span class="v">"path"</span>;
+<span class="k">import</span> { fileURLToPath } <span class="k">from</span> <span class="v">"url"</span>;
+
+<span class="k">const</span> __dir    = dirname(fileURLToPath(<span class="k">import</span>.meta.url));
+<span class="k">const</span> INDEX    = join(__dir, <span class="v">"chaingraph.json"</span>);
+<span class="k">const</span> OUT_DIR  = join(__dir, <span class="v">"okf"</span>, <span class="v">"tools"</span>);
+<span class="k">const</span> NOW_ISO  = new Date().toISOString().replace(<span class="v">/\.\d{3}Z$/</span>, <span class="v">"Z"</span>);
+
+<span class="c">// Build a lookup: tool_id → display_name (for resolving consumes/feeds labels)</span>
+<span class="k">function</span> buildLookup(nodes) {
+  <span class="k">const</span> map = {};
+  <span class="k">for</span> (<span class="k">const</span> n <span class="k">of</span> nodes) map[n.tool_id] = n.display_name;
+  <span class="k">return</span> map;
+}
+
+<span class="c">// Render YAML frontmatter for a node</span>
+<span class="k">function</span> frontmatter(node) {
+  <span class="k">const</span> desc = node.description.replace(<span class="v">/\n/g</span>, <span class="v">"\n  "</span>); <span class="c">// indent for YAML block scalar</span>
+  <span class="k">const</span> tags = [
+    node.mandate_type,
+    `wave-${node.wave}`,
+    `mcp:${node.mcp_name}`,
+  ].map(t => <span class="v">`  - ${t}`</span>).join(<span class="v">"\n"</span>);
+  <span class="k">return</span> [
+    <span class="v">"---"</span>,
+    <span class="v">`type: DecisionTool`</span>,
+    <span class="v">`title: ${node.display_name}`</span>,
+    <span class="v">`description: >`</span>,
+    <span class="v">`  ${desc}`</span>,
+    <span class="v">`resource: ${node.url}`</span>,
+    <span class="v">`tags:`</span>,
+    tags,
+    <span class="v">`timestamp: ${NOW_ISO}`</span>,
+    <span class="v">"---"</span>,
+  ].join(<span class="v">"\n"</span>);
+}
+
+<span class="c">// Resolve an edge array to markdown links or prose</span>
+<span class="k">function</span> edgeLinks(ids, lookup, label) {
+  <span class="k">if</span> (!ids || ids.length === <span class="n">0</span>) {
+    <span class="k">return</span> <span class="v">`**${label}:** _(root tool — no upstream dependencies)_`</span>;
+  }
+  <span class="k">if</span> (ids[<span class="n">0</span>] === <span class="v">"ALL"</span>) {
+    <span class="k">return</span> <span class="v">`**${label}:** _(standalone — accepts any upstream OCG artifact)_`</span>;
+  }
+  <span class="k">const</span> links = ids.map(id => {
+    <span class="k">const</span> name = lookup[id] ?? id;
+    <span class="k">return</span> <span class="v">`- [${name}](${id}.md)`</span>;
+  }).join(<span class="v">"\n"</span>);
+  <span class="k">return</span> <span class="v">`**${label}:**\n${links}`</span>;
+}
+
+<span class="c">// Render full concept markdown for a node</span>
+<span class="k">function</span> renderConcept(node, lookup) {
+  <span class="k">return</span> [
+    frontmatter(node),
+    <span class="v">""</span>,
+    <span class="v">`# ${node.display_name}`</span>,
+    <span class="v">""</span>,
+    <span class="v">`Exports a decision via [\`${node.mcp_name}\`](${node.url}). `</span> +
+    <span class="v">`Call this tool through the OpenChainGraph MCP server and receive a `</span> +
+    <span class="v">`signed OCG artifact with an \`execution_hash\` — not an advisory.`</span>,
+    <span class="v">""</span>,
+    <span class="v">"## Inputs"</span>,
+    <span class="v">""</span>,
+    <span class="v">`See the tool's input schema: <${node.url}#manifest>`</span>,
+    <span class="v">""</span>,
+    <span class="v">"## Outputs"</span>,
+    <span class="v">""</span>,
+    <span class="v">"- `execution_hash` — SHA-256 over sorted-key JSON of inputs + outputs"</span>,
+    <span class="v">"- `compliance_flags[]` — per-framework PASS / FAIL / PARTIAL verdicts"</span>,
+    <span class="v">"- `audit_signature` — Ed25519 signature over the execution hash"</span>,
+    <span class="v">"- `chain` — parent_hashes[], parent_tool_ids[], chain_depth"</span>,
+    <span class="v">""</span>,
+    <span class="v">"## Chains"</span>,
+    <span class="v">""</span>,
+    edgeLinks(node.consumes, lookup, <span class="v">"Consumes"</span>),
+    <span class="v">""</span>,
+    edgeLinks(node.feeds, lookup, <span class="v">"Feeds"</span>),
+  ].join(<span class="v">"\n"</span>);
+}
+
+<span class="c">// Main</span>
+<span class="k">async function</span> main() {
+  <span class="k">const</span> raw   = <span class="k">await</span> readFile(INDEX, <span class="v">"utf8"</span>);
+  <span class="k">const</span> index = JSON.parse(raw);
+  <span class="k">const</span> live  = index.nodes.filter(n => n.status === <span class="v">"live"</span>);
+  <span class="k">const</span> lookup = buildLookup(live);
+
+  <span class="k">await</span> mkdir(OUT_DIR, { recursive: <span class="n">true</span> });
+
+  <span class="k">let</span> count = <span class="n">0</span>;
+  <span class="k">for</span> (<span class="k">const</span> node <span class="k">of</span> live) {
+    <span class="k">const</span> filename = join(OUT_DIR, <span class="v">`${node.tool_id}.md`</span>);
+    <span class="k">const</span> content  = renderConcept(node, lookup);
+    <span class="k">await</span> writeFile(filename, content, <span class="v">"utf8"</span>);
+    count++;
+  }
+
+  console.log(<span class="v">`[generate-okf] wrote ${count} concept files → ${OUT_DIR}`</span>);
+  console.log(<span class="v">`[generate-okf] index version: ${index.version}, updated: ${index.updated}`</span>);
+}
+
+main().catch(err => { console.error(err); process.exit(<span class="n">1</span>); });</pre>
+    </div>
+
+    <p>Add this to your CI pipeline as a step that runs after any change to <code>chaingraph.json</code>. The generated files can be committed back to the repository or published as a static bundle — either approach keeps the knowledge layer in sync with the live graph.</p>
+
+    <div class="callout callout-green">
+      <div class="lab">CI integration pattern</div>
+      <p>In GitHub Actions: add a job step <code>run: node generate-okf.mjs</code> after checkout, then <code>git add okf/ &amp;&amp; git commit -m "chore: regenerate OKF bundle" --allow-empty || true</code> to commit any changes. The <code>--allow-empty || true</code> guard prevents the step from failing if nothing changed. Trigger the workflow on <code>paths: ['chaingraph.json']</code> to limit runs to index changes only. The bundle is fully reversible — deleting <code>okf/</code> and rerunning the script produces an identical result from the same index version.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §5 index.md and log.md -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>index.md and log.md</h2>
+    <p>OKF reserves two filenames at the bundle root: <code>index.md</code> (progressive-disclosure entry point) and <code>log.md</code> (chronological generation history). A compliant OKF consumer knows to look for these files first. The generator writes them automatically; they may be lightly customized but must not be deleted.</p>
+
+    <p>The root <code>index.md</code>:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">markdown</span>
+        <span class="code-note">okf/index.md — progressive disclosure entry point</span>
+      </div>
+      <pre><span class="a">---
+type: KnowledgeIndex
+title: OpenChainGraph Tool Concepts
+description: >
+  OKF companion bundle for the AINumbers ChainGraph suite.
+  One concept file per live tool — auto-generated from chaingraph.json.
+  Graph edges (consumes/feeds) are markdown links: follow them to plan
+  a decision chain before calling any MCP endpoint.
+resource: https://ainumbers.co/chaingraph/chaingraph-hub.html
+tags:
+  - openchain-graph
+  - v0.3
+  - okf-companion
+timestamp: 2026-06-18T00:00:00Z
+---</span>
+
+<span class="c"># OpenChainGraph Tool Concepts</span>
+
+This bundle maps every live tool in the AINumbers ChainGraph suite to an
+OKF concept document. Use it to understand what each tool does, what it
+consumes, and what it feeds — then invoke the real MCP endpoint at
+`https://mcp.ainumbers.co/mcp`.
+
+<span class="c">## By mandate type</span>
+
+- [Payment Mandate tools](mandate-types/payment_mandate.md) — AP2 v0.2 mandate validation and related
+- [Payment Policy tools](mandate-types/payment_policy.md) — spend policy simulation
+- [Settlement Mandate tools](mandate-types/settlement_mandate.md) — x402 and FX settlement
+- [Compliance Mandate tools](mandate-types/compliance_mandate.md) — KYA, EU AI Act, sanctions
+- [Prompt Template tools](mandate-types/prompt_template.md) — artifact-to-LLM prompt generation
+
+<span class="c">## All tools (alphabetical)</span>
+
+See [tools/index.md](tools/index.md) for the full list.
+
+<span class="c">## What this bundle is not</span>
+
+These concept documents describe tools. They are not OCG decision artifacts.
+They carry no `execution_hash`, no `audit_signature`, and no compliance verdict.
+OCG artifacts are produced at runtime by the tools themselves — they are never
+stored in this knowledge bundle.</pre>
+    </div>
+
+    <p>The <code>log.md</code> — one chronological line per CI run:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">markdown</span>
+        <span class="code-note">okf/log.md — generation history (appended by CI, newest last)</span>
+      </div>
+      <pre><span class="c"># OKF Bundle Generation Log</span>
+
+Each line records a bundle regeneration. Format:
+`- {ISO date} — generated {N} concepts from chaingraph.json v{version}`
+
+<span class="a">- 2026-06-18 — generated 37 concepts from chaingraph.json v1.9.0</span></pre>
+    </div>
+
+    <p>The <code>log.md</code> gives any consumer a quick audit trail: how many concepts exist, what index version they were generated from, and when. The generator appends a new line on each run rather than overwriting, so the full history accumulates. If the bundle is ever regenerated from scratch (e.g. after a <code>tool_id</code> rename), the log records the regeneration date and the new concept count.</p>
+  </div>
+</div>
+
+<!-- §6 Consuming the bundle -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Consuming the bundle</h2>
+    <p>An OKF consumer — an agent planner, a static site generator, a search index crawler — reads the bundle to build a route through the tool graph <em>before</em> calling any MCP endpoint. The reading process is: start at <code>okf/index.md</code>, follow the mandate-type link to narrow the domain, then follow concept file links (which mirror <code>consumes</code>/<code>feeds</code> edges) to assemble a chain. Once the chain is planned, execute it via the MCP server at <code>https://mcp.ainumbers.co/mcp</code>.</p>
+
+    <p>There are two discovery surfaces in OCG v0.3 and they serve different audiences:</p>
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Surface</th>
+          <th>Format</th>
+          <th>Primary audience</th>
+          <th>Use case</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DCAT 3.0 graph index</td>
+          <td><code>chaingraph.json</code> — machine-readable JSON with typed edges</td>
+          <td>Crawlers, automated agent planners, tooling that ingests the full schema</td>
+          <td>Programmatic chain assembly — parse <code>nodes[]</code>, resolve <code>consumes</code>/<code>feeds</code>, build a graph object in memory, traverse it</td>
+        </tr>
+        <tr>
+          <td>OKF companion bundle</td>
+          <td><code>okf/tools/*.md</code> — markdown with YAML frontmatter</td>
+          <td>Humans learning the suite; agents with a markdown-first knowledge interface; static sites and search engines</td>
+          <td>Narrative planning — follow concept links to understand tool semantics, read descriptions, then invoke MCP tools with confidence</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>A JavaScript snippet illustrating how an agent planner walks OKF links from a start concept to discover the downstream chain:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Walk OKF markdown links to discover a chain — plan before calling MCP</span>
+      </div>
+      <pre><span class="c">/**
+ * walkOkfChain(startConceptMd, fetchFn)
+ *   startConceptMd — the markdown text of the starting concept file
+ *   fetchFn        — async (relativePath: string) => markdown text
+ *
+ * Resolves the "Feeds" links from the start concept,
+ * fetches each linked concept, and returns a flat ordered list
+ * of { toolId, displayName, mcpTag, resourceUrl } for chain planning.
+ *
+ * This mirrors walking chaingraph.json's feeds[] edges — the OKF links
+ * are the same graph, expressed as navigable markdown.
+ */</span>
+<span class="k">async function</span> walkOkfChain(startConceptMd, fetchFn) {
+  <span class="k">const</span> visited = new Set();
+  <span class="k">const</span> chain   = [];
+
+  <span class="k">async function</span> visit(md, depth) {
+    <span class="k">if</span> (depth > <span class="n">6</span>) <span class="k">return</span>;  <span class="c">// guard against deep cycles</span>
+
+    <span class="c">// Extract title and mcp tag from frontmatter</span>
+    <span class="k">const</span> titleMatch = md.match(<span class="v">/^title:\s*(.+)$/m</span>);
+    <span class="k">const</span> mcpMatch   = md.match(<span class="v">/^\s*-\s*mcp:(\S+)/m</span>);
+    <span class="k">const</span> resMatch   = md.match(<span class="v">/^resource:\s*(.+)$/m</span>);
+
+    <span class="k">const</span> displayName = titleMatch?.[<span class="n">1</span>]?.trim() ?? <span class="v">"Unknown"</span>;
+    <span class="k">const</span> mcpTag      = mcpMatch?.[<span class="n">1</span>] ?? <span class="v">""</span>;
+    <span class="k">const</span> resourceUrl = resMatch?.[<span class="n">1</span>]?.trim() ?? <span class="v">""</span>;
+
+    chain.push({ displayName, mcpTag, resourceUrl });
+
+    <span class="c">// Find all markdown links in the ## Feeds section</span>
+    <span class="k">const</span> feedsSection = md.match(<span class="v">/## Chains[\s\S]*?\*\*Feeds:\*\*([\s\S]*?)(?=\n##|\n---|\Z)/</span>)?.[<span class="n">1</span>] ?? <span class="v">""</span>;
+    <span class="k">const</span> linkRe       = <span class="v">/\[([^\]]+)\]\(([^)]+\.md)\)/g</span>;
+    <span class="k">let</span> match;
+
+    <span class="k">while</span> ((match = linkRe.exec(feedsSection)) !== <span class="n">null</span>) {
+      <span class="k">const</span> relativePath = match[<span class="n">2</span>];
+      <span class="k">if</span> (visited.has(relativePath)) <span class="k">continue</span>;
+      visited.add(relativePath);
+      <span class="k">try</span> {
+        <span class="k">const</span> nextMd = <span class="k">await</span> fetchFn(relativePath);
+        <span class="k">await</span> visit(nextMd, depth + <span class="n">1</span>);
+      } <span class="k">catch</span> { <span class="c">/* skip missing concepts */</span> }
+    }
+  }
+
+  <span class="k">await</span> visit(startConceptMd, <span class="n">0</span>);
+  <span class="k">return</span> chain;
+}
+
+<span class="c">// Usage — plan a chain starting from AP2 Mandate-Chain Validator:</span>
+<span class="k">const</span> chain = <span class="k">await</span> walkOkfChain(
+  <span class="k">await</span> fetch(<span class="v">"https://ainumbers.co/chaingraph/okf/tools/art-01-ap2-mandate-chain-validator.md"</span>).then(r => r.text()),
+  path => fetch(<span class="v">`https://ainumbers.co/chaingraph/okf/tools/${path}`</span>).then(r => r.text())
+);
+<span class="c">// → [{ displayName: "AP2 Mandate-Chain Validator", mcpTag: "validate_ap2_mandate_chain", ... }, ...]</span>
+<span class="c">// Now call each mcp_name tool in order via https://mcp.ainumbers.co/mcp</span></pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">OKF for planning, DCAT for execution</div>
+      <p>The OKF bundle is the narrative planning surface — it is slower to traverse than the JSON index (one HTTP fetch per concept) but richer in human-readable context. For programmatic chain assembly in a tight loop, parse <code>chaingraph.json</code> directly and use its <code>consumes</code>/<code>feeds</code> arrays. Use the OKF bundle for onboarding, documentation, static site generation, and agent planners that benefit from reading concept prose before deciding on a chain. The two surfaces describe the same graph; choose the one that fits the consumer's interface.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §7 Boundary, maturity, and regeneration -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§7</div>
+    <h2>Boundary, maturity, and regeneration</h2>
+    <p>Several properties of the OKF integration are non-negotiable constraints, not configuration options. They are stated here as callouts because violating any of them produces a broken or misleading integration.</p>
+
+    <div class="callout callout-red">
+      <div class="lab">Hard boundary — never put execution artifacts in the OKF bundle</div>
+      <p>OCG decision artifacts (the signed JSON objects with <code>execution_hash</code>, <code>audit_signature</code>, and <code>compliance_flags[]</code>) must never appear in, reference, or be embedded in the OKF bundle. Concepts describe tools; artifacts record decisions. If a concept file starts carrying execution hashes or compliance verdicts, the knowledge layer has collapsed into the proof layer — consumers can no longer distinguish "what this tool can do" from "what it decided on a specific run." Keep the <code>okf/</code> directory strictly for concept documents.</p>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">Maturity caveat — OKF is v0.1 (Google, 2026-06-12)</div>
+      <p>The Open Knowledge Format was published by Google on 2026-06-12 (GoogleCloudPlatform/knowledge-catalog repository, Google Cloud blog). It is an early-stage open specification at v0.1. The OCG companion bundle adopts OKF as an optional informational layer only — nothing in OCG's verification path depends on OKF, and the companion bundle is off the verification critical path entirely. If OKF evolves in ways that break the current frontmatter schema, the generator script is the only thing that needs updating; no OCG artifact is affected.</p>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">The bundle is generated, never hand-maintained</div>
+      <p>Every file under <code>okf/tools/</code> is regenerated from <code>chaingraph.json</code> on every qualifying CI run. The bundle is fully reversible: delete <code>okf/tools/</code> and rerun <code>generate-okf.mjs</code> to restore it identically from the same index version. This means the OKF bundle has zero maintenance burden — tool descriptions, chain edges, and MCP names stay current automatically. The only maintenance touch points are the generator script itself and the hand-editable narrative files (<code>okf/index.md</code>, <code>okf/mandate-types/*.md</code>).</p>
+    </div>
+
+    <div class="callout callout-green">
+      <div class="lab">Regenerate on every chaingraph.json change</div>
+      <p>The bundle and the index must never drift. If a tool is added, renamed, or retired in <code>chaingraph.json</code> but the OKF bundle is not regenerated, concept files will reference non-existent tools or miss new ones — broken links and stale narratives. The CI step (§4) guards against this by triggering on <code>paths: ['chaingraph.json']</code>. If you publish the bundle outside CI (e.g. a local preview), run <code>node generate-okf.mjs</code> immediately after any index edit.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §8 Integration checklist -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§8</div>
+    <h2>Integration checklist</h2>
+    <p>Six steps to wire up the OKF companion bundle end-to-end, from generator to consumer. Each step is independently verifiable.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Tool / verification</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Point <code>generate-okf.mjs</code> at <code>chaingraph.json</code> and run it locally. Confirm that <code>okf/tools/</code> contains one <code>.md</code> file per live node and that <code>okf/index.md</code> and <code>okf/log.md</code> exist.</td>
+          <td><code>node generate-okf.mjs</code> → <code>ls okf/tools/*.md | wc -l</code> should equal the count of live nodes in the index</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Add the generator as a CI step triggered on changes to <code>chaingraph.json</code>. Commit the generated <code>okf/</code> directory back to the repository so it is versioned alongside the index.</td>
+          <td>GitHub Actions: <code>on: push: paths: ['chaingraph.json']</code>; confirm the workflow creates a <code>chore: regenerate OKF bundle</code> commit on the next index change</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Publish <code>okf/</code> at a stable URL alongside the DCAT graph index. The bundle should be reachable at the same base path as <code>chaingraph.json</code> so relative links between concept files resolve correctly in browsers and agents.</td>
+          <td>Fetch <code>https://ainumbers.co/chaingraph/okf/tools/art-01-ap2-mandate-chain-validator.md</code> — expect HTTP 200 with correct frontmatter</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Wire your OKF consumer (agent planner, static site, search index) to the bundle. For agents: start at <code>okf/index.md</code>; for search indexers: crawl <code>okf/tools/</code>; for static sites: render the markdown with frontmatter as structured pages.</td>
+          <td>Consumer successfully reads <code>okf/index.md</code>, follows a mandate-type link, and arrives at a tool concept file with correct <code>Chains</code> links</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Follow <code>consumes</code>/<code>feeds</code> markdown links in concept files to plan a decision chain. Verify that the linked filenames match the <code>tool_id</code> values in <code>chaingraph.json</code> for every live node — no broken links, no missing concepts.</td>
+          <td>Run a link-checker against <code>okf/tools/</code>: every <code>[...](*.md)</code> link must resolve to a file that exists in the same directory</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Execute the planned chain by calling each MCP tool in <code>consumes</code>/<code>feeds</code> order via <code>https://mcp.ainumbers.co/mcp</code>. Keep the OKF concepts and the resulting OCG artifacts strictly separate — concepts in <code>okf/</code>, artifacts as ephemeral runtime output only.</td>
+          <td>Confirm no <code>execution_hash</code> or <code>audit_signature</code> fields appear in any file under <code>okf/</code>; confirm OCG artifacts are never written to <code>okf/</code> by any pipeline step</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">What you do not need</div>
+      <p>The OKF integration requires no OKF SDK, no Google Cloud dependency, no special runtime, and no changes to the OCG tool implementations. The generator is a single Node.js script with no external npm dependencies (uses only built-in <code>fs/promises</code> and <code>path</code>). OKF consumers need only the ability to read markdown files — any HTTP client, any static site generator, any agent that can fetch text will work. The companion bundle is an additive informational layer: the entire OCG suite functions identically whether the OKF bundle exists or not.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.3 (DRAFT) · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

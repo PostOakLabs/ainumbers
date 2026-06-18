@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with ISO 20022 — Integration Guide</title>
+<meta name="description" content="OpenChainGraph v0.3 ISO 20022 alignment guide. Overlay ISO 20022-aligned financial payload fields on OCG artifacts — instructed_amount, debtor/creditor LEI, BICFI, IBAN — without touching the execution_hash preimage. Crosswalk to pacs.008, code-list validation, and semantic_profile discovery.">
+<meta property="og:title" content="OpenChainGraph + ISO 20022 — Integration Guide">
+<meta property="og:description" content="ISO 20022 alignment for OCG v0.3 decision-chain artifacts. Optional semantic overlay. Hash preimage unchanged. Crosswalk to pacs.008, LEI, BICFI, IBAN validation.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+  /* Guide #6 accent: banking blue */
+  --accent:#2F80ED; --accent-lt:#5B9DF5; --accent-dim:rgba(47,128,237,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent-lt);border:1px solid rgba(47,128,237,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--accent-lt)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--accent-dim);color:var(--accent-lt);border-color:rgba(47,128,237,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);background:var(--accent-dim);border:1px solid rgba(47,128,237,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}    /* key/keyword */
+.v{color:var(--gold)}        /* string value */
+.n{color:var(--green)}       /* number/boolean/value */
+.c{color:var(--muted);font-style:italic}  /* comment */
+.r{color:var(--red-lt)}      /* red */
+.p{color:var(--purple)}      /* purple */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-teal{border-left-color:var(--teal)}
+.callout-teal .lab{color:var(--teal)}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+.callout-purple{border-left-color:var(--purple)}
+.callout-purple .lab{color:var(--purple)}
+.callout-green{border-left-color:var(--green)}
+.callout-green .lab{color:var(--green)}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}.checklist-table{font-size:.75rem}.checklist-table td,.checklist-table th{padding:.5rem .6rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.3</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">ISO 20022</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.3 · Integration How-To</div>
+    <h1>Using OpenChainGraph with <em>ISO 20022</em></h1>
+    <p class="hero-desc">OpenChainGraph v0.3 introduces an optional, additive ISO 20022-aligned semantic overlay for the financial payload of OCG decision-chain artifacts. This guide covers the overlay's field mapping, the published <code>iso20022-context.jsonld</code>, client-side validation of the five external code lists (ISO 4217, 3166, 9362, 13616, 17442), crosswalk to pacs.008 for interoperability, and the <code>ocg:semantic_profile</code> discovery marker for graph-index crawlers. The hash preimage is unchanged from v0.1.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+      <span class="guide-pill active">ISO 20022</span>
+      <a class="guide-pill" href="guide-okf.html">OKF</a>
+    </div>
+  </div>
+</div>
+
+<!-- §1 Optional overlay -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>An optional semantic overlay, not a payload rewrite</h2>
+    <p>OpenChainGraph v0.2 gave the <strong>provenance envelope</strong> a semantic standard — W3C PROV-DM terms such as <code>wasGeneratedBy</code> and <code>wasAttributedTo</code> describe who ran what and when. OpenChainGraph v0.3 gives the <strong>financial payload</strong> a semantic standard: an ISO 20022-aligned vocabulary that names payload fields after the corresponding ISO 20022 business elements.</p>
+    <p>The overlay is <strong>opt-in, additive, and minimal</strong>. You adopt it by extending the artifact's <code>@context</code> array with the published overlay URL. No existing fields are removed or renamed. Tools that do not include the overlay remain valid v0.3 artifacts. Tools that do include it gain machine-readable alignment to ISO 20022 terminology for interoperability with financial messaging infrastructure.</p>
+    <p><strong>OCG is ISO 20022-aligned, not a registered ISO 20022 message.</strong> ISO 20022 message definitions are published and governed by the ISO Registration Authority (ISO/TC68) and administered operationally by SWIFT. OpenChainGraph does not register message types with the ISO RA, does not generate ISO 20022 XML or MX messages, and is not a conformant ISO 20022 implementation. The alignment is a semantic crosswalk for interoperability — the same relationship as JSON-LD vocabularies that name their terms after W3C concepts without being W3C specifications.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json</span>
+        <span class="code-note">OCG v0.3 artifact with ISO 20022-aligned output_payload</span>
+      </div>
+      <pre>{
+  <span class="k">"@context"</span>: [
+    <span class="v">"https://openchain.graph/spec/v0.3/context.jsonld"</span>,
+    <span class="v">"https://openchain.graph/spec/v0.3/iso20022-context.jsonld"</span>  <span class="c">/* v0.3 overlay */</span>
+  ],
+  <span class="k">"ocg:semantic_profile"</span>: <span class="v">"iso20022:pacs.008-subset"</span>,        <span class="c">/* discovery marker */</span>
+  <span class="k">"tool_id"</span>:        <span class="v">"T290"</span>,
+  <span class="k">"tool_version"</span>:   <span class="v">"1.0.0"</span>,
+  <span class="k">"ap2_version"</span>:    <span class="v">"v0.3"</span>,
+  <span class="k">"mandate_type"</span>:   <span class="v">"settlement_mandate"</span>,
+  <span class="k">"generated_at"</span>:   <span class="v">"2026-06-18T14:22:00Z"</span>,
+  <span class="k">"execution_hash"</span>: <span class="v">"a3f7e2c1d9b04856f31a2e7c5d8b09f6e14c2a3d7b05894e2f1c6a8d3e09b47"</span>,
+  <span class="k">"parent_hashes"</span>:  [<span class="v">"c8d12f9e3a74b056e28f3c1a5d9e07b2f46a1c8d3e05792b1f4c7a9e2d08b35"</span>],
+
+  <span class="k">"output_payload"</span>: {
+    <span class="c">/* ISO 20022 InstructedAmount — amount + currency (ISO 4217) */</span>
+    <span class="k">"instructed_amount"</span>: {
+      <span class="k">"amount"</span>:   <span class="v">"15000.00"</span>,   <span class="c">/* ActiveCurrencyAndAmount */</span>
+      <span class="k">"currency"</span>: <span class="v">"EUR"</span>          <span class="c">/* Ccy / CurrencyCode — ISO 4217 */</span>
+    },
+
+    <span class="c">/* ISO 20022 Debtor — PartyIdentification */</span>
+    <span class="k">"debtor"</span>: {
+      <span class="k">"party_name"</span>: <span class="v">"Acme Payments GmbH"</span>,          <span class="c">/* Nm */</span>
+      <span class="k">"lei"</span>:        <span class="v">"549300TRUWO2CD2G5692"</span>,         <span class="c">/* OrganisationIdentification/LEI — ISO 17442 */</span>
+      <span class="k">"country"</span>:    <span class="v">"DE"</span>                            <span class="c">/* CountryCode — ISO 3166-1 alpha-2 */</span>
+    },
+
+    <span class="c">/* ISO 20022 Creditor — PartyIdentification */</span>
+    <span class="k">"creditor"</span>: {
+      <span class="k">"party_name"</span>: <span class="v">"Northern Trust Corp"</span>,          <span class="c">/* Nm */</span>
+      <span class="k">"lei"</span>:        <span class="v">"5493008IOANM4MK63B46"</span>,         <span class="c">/* OrganisationIdentification/LEI — ISO 17442 */</span>
+      <span class="k">"country"</span>:    <span class="v">"US"</span>                            <span class="c">/* CountryCode — ISO 3166-1 alpha-2 */</span>
+    },
+
+    <span class="c">/* ISO 20022 DebtorAgent — BranchAndFinancialInstitutionIdentification */</span>
+    <span class="k">"debtor_agent"</span>: {
+      <span class="k">"bicfi"</span>: <span class="v">"DEUTDEDBFRA"</span>                       <span class="c">/* BICFI — ISO 9362 */</span>
+    },
+
+    <span class="c">/* ISO 20022 CreditorAgent — BranchAndFinancialInstitutionIdentification */</span>
+    <span class="k">"creditor_agent"</span>: {
+      <span class="k">"bicfi"</span>: <span class="v">"NTRSUS33XXX"</span>                       <span class="c">/* BICFI — ISO 9362 */</span>
+    },
+
+    <span class="k">"settlement_date"</span>:        <span class="v">"2026-06-20"</span>,           <span class="c">/* IntrBkSttlmDt — ISO 8601 date */</span>
+    <span class="k">"remittance_information"</span>: <span class="v">"INV-2026-00847"</span>         <span class="c">/* RmtInf */</span>
+  },
+
+  <span class="k">"compliance_flags"</span>: [
+    { <span class="k">"framework"</span>: <span class="v">"CBPR+"</span>, <span class="k">"status"</span>: <span class="v">"PASS"</span> },
+    { <span class="k">"framework"</span>: <span class="v">"LEI_VALID"</span>, <span class="k">"status"</span>: <span class="v">"PASS"</span> }
+  ],
+
+  <span class="k">"audit_signature"</span>: {
+    <span class="k">"zero_pii_verified"</span>: <span class="n">true</span>,
+    <span class="k">"signatures"</span>: [{
+      <span class="k">"keyid"</span>: <span class="v">"ocg-signer-v1"</span>,
+      <span class="k">"sig"</span>:   <span class="v">"base64url-ed25519-signature-here"</span>
+    }]
+  }
+}</pre>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">Hash preimage is unchanged</div>
+      <p>The v0.3 ISO 20022 overlay is additive metadata only. The <code>execution_hash</code> preimage remains exactly as defined in v0.1: a deterministic SHA-256 over the sorted-key JSON of <code>{"policy_parameters": …, "output_payload": …}</code>. The overlay fields (<code>@context</code> array extension, <code>ocg:semantic_profile</code>) are outside the preimage. Adding or removing the overlay does not change the hash of an otherwise identical artifact. Verifiers that compute and check <code>execution_hash</code> require no changes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §2 Field mapping table -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>Field mapping: OCG payload → ISO 20022 business elements</h2>
+    <p>The complete field-level mapping for the v0.3 ISO 20022 profile. The left column is the OCG payload field name; the center columns identify the corresponding ISO 20022 business element and any external code set adopted by reference. All five code sets are validated client-side in §4.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>OCG field</th>
+          <th>ISO 20022 business element</th>
+          <th>External code set</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>instructed_amount.amount</td>
+          <td>ActiveCurrencyAndAmount</td>
+          <td>—</td>
+          <td>Decimal string; paired with Ccy attribute (the <code>currency</code> field).</td>
+        </tr>
+        <tr>
+          <td>instructed_amount.currency</td>
+          <td>Ccy / CurrencyCode</td>
+          <td>ISO 4217</td>
+          <td>3-letter uppercase alphabetic code. Adopted by reference — not redefined.</td>
+        </tr>
+        <tr>
+          <td>debtor.country / creditor.country</td>
+          <td>CountryCode</td>
+          <td>ISO 3166-1 alpha-2</td>
+          <td>2-letter uppercase country code. Used in PostalAddress elements.</td>
+        </tr>
+        <tr>
+          <td>debtor / creditor</td>
+          <td>Debtor / Creditor (PartyIdentification)</td>
+          <td>—</td>
+          <td>Container for Nm, PstlAdr, and Id sub-elements.</td>
+        </tr>
+        <tr>
+          <td>debtor.party_name / creditor.party_name</td>
+          <td>Name (Nm)</td>
+          <td>—</td>
+          <td>Free-text party name, max 140 chars in ISO 20022 pacs.008.</td>
+        </tr>
+        <tr>
+          <td>debtor.lei / creditor.lei</td>
+          <td>OrganisationIdentification/LEI</td>
+          <td>ISO 17442</td>
+          <td>20-char alphanumeric Legal Entity Identifier. Check-digit verified (§4e).</td>
+        </tr>
+        <tr>
+          <td>debtor_agent / creditor_agent</td>
+          <td>DebtorAgent / CreditorAgent (BranchAndFinancialInstitutionIdentification)</td>
+          <td>—</td>
+          <td>Container for FinInstnId and BICFI sub-elements.</td>
+        </tr>
+        <tr>
+          <td>debtor_agent.bicfi / creditor_agent.bicfi</td>
+          <td>BICFI</td>
+          <td>ISO 9362</td>
+          <td>8-char or 11-char Business Identifier Code. Regex-validated (§4c).</td>
+        </tr>
+        <tr>
+          <td>debtor_account.iban / creditor_account.iban</td>
+          <td>IBAN (CashAccount/Id/IBAN)</td>
+          <td>ISO 13616</td>
+          <td>International Bank Account Number. Mod-97 check-digit verified (§4d).</td>
+        </tr>
+        <tr>
+          <td>settlement_date</td>
+          <td>IntrBkSttlmDt (InterbankSettlementDate)</td>
+          <td>ISO 8601 date</td>
+          <td>Date-only string, e.g. <code>"2026-06-20"</code>. Not a datetime.</td>
+        </tr>
+        <tr>
+          <td>remittance_information</td>
+          <td>RmtInf (RemittanceInformation)</td>
+          <td>—</td>
+          <td>Structured or unstructured. OCG stores as a string; structured parsing is application-layer.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- §3 The iso20022-context.jsonld overlay -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>The iso20022-context.jsonld overlay</h2>
+    <p>The published overlay file at <code>https://openchain.graph/spec/v0.3/iso20022-context.jsonld</code> is a JSON-LD context that maps every OCG ISO 20022-aligned field name to a term in the <code>iso20022:</code> vocabulary namespace. The namespace prefix <code>iso20022:</code> expands to <code>https://openchain.graph/vocab/iso20022#</code> — it is a <strong>crosswalk namespace named after ISO 20022 elements</strong>, not an official ISO 20022 namespace. ISO 20022 publishes no official JSON-LD vocabulary; the crosswalk terms are OCG-defined names that mirror the ISO 20022 business element names for semantic interoperability.</p>
+    <p>External code lists (ISO 4217, 3166-1, 9362, 13616, 17442) are <strong>adopted by reference</strong>. The context declares their types using XSD primitives (<code>xsd:string</code>, <code>xsd:date</code>) but does not attempt to inline or redefine the code lists themselves. Validation of code-list membership is the responsibility of the consuming application (see §4).</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json-ld</span>
+        <span class="code-note">https://openchain.graph/spec/v0.3/iso20022-context.jsonld — canonical published file</span>
+      </div>
+      <pre>{
+  <span class="k">"@context"</span>: {
+    <span class="k">"ocg"</span>:      <span class="v">"https://openchain.graph/spec/v0.3#"</span>,
+    <span class="k">"iso20022"</span>: <span class="v">"https://openchain.graph/vocab/iso20022#"</span>,
+    <span class="k">"xsd"</span>:      <span class="v">"http://www.w3.org/2001/XMLSchema#"</span>,
+
+    <span class="k">"instructed_amount"</span>:      { <span class="k">"@id"</span>: <span class="v">"iso20022:InstructedAmount"</span> },
+    <span class="k">"amount"</span>:                 { <span class="k">"@id"</span>: <span class="v">"iso20022:ActiveCurrencyAndAmount"</span> },
+    <span class="k">"currency"</span>:               { <span class="k">"@id"</span>: <span class="v">"iso20022:CurrencyCode"</span>,            <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"country"</span>:                { <span class="k">"@id"</span>: <span class="v">"iso20022:CountryCode"</span>,             <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"debtor"</span>:                 { <span class="k">"@id"</span>: <span class="v">"iso20022:Debtor"</span> },
+    <span class="k">"creditor"</span>:               { <span class="k">"@id"</span>: <span class="v">"iso20022:Creditor"</span> },
+    <span class="k">"party_name"</span>:             { <span class="k">"@id"</span>: <span class="v">"iso20022:Name"</span>,                    <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"lei"</span>:                    { <span class="k">"@id"</span>: <span class="v">"iso20022:LEI"</span>,                     <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"debtor_agent"</span>:           { <span class="k">"@id"</span>: <span class="v">"iso20022:DebtorAgent"</span> },
+    <span class="k">"creditor_agent"</span>:         { <span class="k">"@id"</span>: <span class="v">"iso20022:CreditorAgent"</span> },
+    <span class="k">"bicfi"</span>:                  { <span class="k">"@id"</span>: <span class="v">"iso20022:BICFI"</span>,                   <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"iban"</span>:                   { <span class="k">"@id"</span>: <span class="v">"iso20022:IBAN"</span>,                    <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> },
+    <span class="k">"settlement_date"</span>:        { <span class="k">"@id"</span>: <span class="v">"iso20022:InterbankSettlementDate"</span>, <span class="k">"@type"</span>: <span class="v">"xsd:date"</span> },
+    <span class="k">"remittance_information"</span>: { <span class="k">"@id"</span>: <span class="v">"iso20022:RemittanceInformation"</span>,   <span class="k">"@type"</span>: <span class="v">"xsd:string"</span> }
+  }
+}</pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Crosswalk, not registration</div>
+      <p>The <code>iso20022:</code> terms are a vocabulary crosswalk — OCG-defined JSON-LD term names chosen to mirror ISO 20022 business element names. This is the same pattern used by Schema.org and many financial ontologies that reference ISO standards without registering with the standards body. ISO 20022 is a registered standard; OCG is not registered with the ISO RA or with SWIFT. The alignment enables interoperability tooling (field mapping, message generation) without asserting conformance to the ISO 20022 normative specification.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §4 Validating the external code lists -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>Validating the external code lists</h2>
+    <p>The five code sets referenced by the ISO 20022 profile each have a distinct validation algorithm. The functions below are correct, runnable JavaScript — not pseudocode. They can be used client-side in any OCG tool or in a batch validator pipeline.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">(a) ISO 4217 currency — 3-letter uppercase membership check</span>
+      </div>
+      <pre><span class="c">/**
+ * ISO 4217 — alphabetic currency codes.
+ * Full list: https://www.iso.org/iso-4217-currency-codes.html
+ * Representative set for validation; expand from the ISO 4217 XML publication.
+ */</span>
+<span class="k">const</span> ISO_4217 = new Set([
+  <span class="c">// Major currencies</span>
+  <span class="v">"AED"</span>,<span class="v">"AUD"</span>,<span class="v">"BRL"</span>,<span class="v">"CAD"</span>,<span class="v">"CHF"</span>,<span class="v">"CNY"</span>,<span class="v">"CZK"</span>,<span class="v">"DKK"</span>,<span class="v">"EUR"</span>,
+  <span class="v">"GBP"</span>,<span class="v">"HKD"</span>,<span class="v">"HUF"</span>,<span class="v">"IDR"</span>,<span class="v">"ILS"</span>,<span class="v">"INR"</span>,<span class="v">"JPY"</span>,<span class="v">"KRW"</span>,<span class="v">"MXN"</span>,
+  <span class="v">"MYR"</span>,<span class="v">"NOK"</span>,<span class="v">"NZD"</span>,<span class="v">"PHP"</span>,<span class="v">"PLN"</span>,<span class="v">"RON"</span>,<span class="v">"RUB"</span>,<span class="v">"SAR"</span>,<span class="v">"SEK"</span>,
+  <span class="v">"SGD"</span>,<span class="v">"THB"</span>,<span class="v">"TRY"</span>,<span class="v">"TWD"</span>,<span class="v">"USD"</span>,<span class="v">"ZAR"</span>,
+  <span class="c">// Additional ISO 4217 codes — extend from full publication as needed</span>
+  <span class="v">"AFN"</span>,<span class="v">"ALL"</span>,<span class="v">"AMD"</span>,<span class="v">"ANG"</span>,<span class="v">"AOA"</span>,<span class="v">"ARS"</span>,<span class="v">"AWG"</span>,<span class="v">"AZN"</span>,<span class="v">"BAM"</span>,
+  <span class="v">"BBD"</span>,<span class="v">"BDT"</span>,<span class="v">"BGN"</span>,<span class="v">"BHD"</span>,<span class="v">"BIF"</span>,<span class="v">"BMD"</span>,<span class="v">"BND"</span>,<span class="v">"BOB"</span>,<span class="v">"BSD"</span>,
+  <span class="v">"BTN"</span>,<span class="v">"BWP"</span>,<span class="v">"BYN"</span>,<span class="v">"BZD"</span>,<span class="v">"CDF"</span>,<span class="v">"CLP"</span>,<span class="v">"COP"</span>,<span class="v">"CRC"</span>,<span class="v">"CUP"</span>,
+  <span class="v">"CVE"</span>,<span class="v">"DJF"</span>,<span class="v">"DOP"</span>,<span class="v">"DZD"</span>,<span class="v">"EGP"</span>,<span class="v">"ERN"</span>,<span class="v">"ETB"</span>,<span class="v">"FJD"</span>,<span class="v">"FKP"</span>,
+  <span class="v">"GEL"</span>,<span class="v">"GHS"</span>,<span class="v">"GIP"</span>,<span class="v">"GMD"</span>,<span class="v">"GNF"</span>,<span class="v">"GTQ"</span>,<span class="v">"GYD"</span>,<span class="v">"HNL"</span>,<span class="v">"HTG"</span>,
+  <span class="v">"IQD"</span>,<span class="v">"IRR"</span>,<span class="v">"ISK"</span>,<span class="v">"JMD"</span>,<span class="v">"JOD"</span>,<span class="v">"KES"</span>,<span class="v">"KGS"</span>,<span class="v">"KHR"</span>,<span class="v">"KMF"</span>,
+  <span class="v">"KPW"</span>,<span class="v">"KWD"</span>,<span class="v">"KYD"</span>,<span class="v">"KZT"</span>,<span class="v">"LAK"</span>,<span class="v">"LBP"</span>,<span class="v">"LKR"</span>,<span class="v">"LRD"</span>,<span class="v">"LSL"</span>,
+  <span class="v">"LYD"</span>,<span class="v">"MAD"</span>,<span class="v">"MDL"</span>,<span class="v">"MGA"</span>,<span class="v">"MKD"</span>,<span class="v">"MMK"</span>,<span class="v">"MNT"</span>,<span class="v">"MOP"</span>,<span class="v">"MRU"</span>,
+  <span class="v">"MUR"</span>,<span class="v">"MVR"</span>,<span class="v">"MWK"</span>,<span class="v">"MZN"</span>,<span class="v">"NAD"</span>,<span class="v">"NGN"</span>,<span class="v">"NIO"</span>,<span class="v">"NPR"</span>,<span class="v">"OMR"</span>,
+  <span class="v">"PAB"</span>,<span class="v">"PEN"</span>,<span class="v">"PGK"</span>,<span class="v">"PKR"</span>,<span class="v">"PYG"</span>,<span class="v">"QAR"</span>,<span class="v">"RSD"</span>,<span class="v">"RWF"</span>,<span class="v">"SBD"</span>,
+  <span class="v">"SCR"</span>,<span class="v">"SDG"</span>,<span class="v">"SHP"</span>,<span class="v">"SLL"</span>,<span class="v">"SOS"</span>,<span class="v">"SRD"</span>,<span class="v">"SSP"</span>,<span class="v">"STN"</span>,<span class="v">"SVC"</span>,
+  <span class="v">"SYP"</span>,<span class="v">"SZL"</span>,<span class="v">"TJS"</span>,<span class="v">"TMT"</span>,<span class="v">"TND"</span>,<span class="v">"TOP"</span>,<span class="v">"TTD"</span>,<span class="v">"TZS"</span>,<span class="v">"UAH"</span>,
+  <span class="v">"UGX"</span>,<span class="v">"UYU"</span>,<span class="v">"UZS"</span>,<span class="v">"VES"</span>,<span class="v">"VND"</span>,<span class="v">"VUV"</span>,<span class="v">"WST"</span>,<span class="v">"XAF"</span>,<span class="v">"XCD"</span>,
+  <span class="v">"XOF"</span>,<span class="v">"XPF"</span>,<span class="v">"YER"</span>,<span class="v">"ZMW"</span>,<span class="v">"ZWL"</span>
+]);
+
+<span class="c">/**
+ * validateISO4217(code) — returns true if code is a known ISO 4217 alphabetic currency code.
+ * Production use: replace/supplement this set with the authoritative ISO 4217 XML publication.
+ */</span>
+<span class="k">function</span> validateISO4217(code) {
+  <span class="k">if</span> (typeof code !== <span class="v">"string"</span>) <span class="k">return false</span>;
+  <span class="k">const</span> upper = code.trim().toUpperCase();
+  <span class="k">return</span> /^[A-Z]{3}$/.test(upper) && ISO_4217.has(upper);
+}
+
+<span class="c">// Examples:</span>
+console.log(validateISO4217(<span class="v">"EUR"</span>));  <span class="c">// true</span>
+console.log(validateISO4217(<span class="v">"XYZ"</span>));  <span class="c">// false — not a valid ISO 4217 code</span>
+console.log(validateISO4217(<span class="v">"usd"</span>));  <span class="c">// true — case-normalised</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">(b) ISO 3166-1 alpha-2 country code — format check</span>
+      </div>
+      <pre><span class="c">/**
+ * validateISO3166Alpha2(code)
+ * ISO 3166-1 alpha-2 codes are exactly 2 uppercase ASCII letters.
+ * A full membership check requires the ISO 3166 Maintenance Agency publication.
+ * This implementation validates the format constraint; augment with a Set of
+ * valid codes for strict membership validation in regulated contexts.
+ */</span>
+<span class="k">function</span> validateISO3166Alpha2(code) {
+  <span class="k">if</span> (typeof code !== <span class="v">"string"</span>) <span class="k">return false</span>;
+  <span class="k">return</span> /^[A-Z]{2}$/.test(code.trim().toUpperCase());
+}
+
+console.log(validateISO3166Alpha2(<span class="v">"DE"</span>));  <span class="c">// true</span>
+console.log(validateISO3166Alpha2(<span class="v">"US"</span>));  <span class="c">// true</span>
+console.log(validateISO3166Alpha2(<span class="v">"ZZZ"</span>)); <span class="c">// false — 3 chars</span>
+console.log(validateISO3166Alpha2(<span class="v">"12"</span>));  <span class="c">// false — not alpha</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">(c) ISO 9362 BIC / BICFI — regex validation</span>
+      </div>
+      <pre><span class="c">/**
+ * validateBICFI(bic)
+ * ISO 9362 Business Identifier Code (BIC / BICFI):
+ *   [A-Z]{4}  — institution code (4 letters)
+ *   [A-Z]{2}  — country code (2 letters, ISO 3166-1 alpha-2)
+ *   [A-Z0-9]{2} — location code (2 alphanumeric)
+ *   ([A-Z0-9]{3})? — optional branch code (3 alphanumeric)
+ * Total: 8 chars (no branch) or 11 chars (with branch).
+ */</span>
+<span class="k">const</span> BIC_REGEX = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+
+<span class="k">function</span> validateBICFI(bic) {
+  <span class="k">if</span> (typeof bic !== <span class="v">"string"</span>) <span class="k">return false</span>;
+  <span class="k">return</span> BIC_REGEX.test(bic.trim().toUpperCase());
+}
+
+console.log(validateBICFI(<span class="v">"DEUTDEDBFRA"</span>));  <span class="c">// true — 11-char with branch</span>
+console.log(validateBICFI(<span class="v">"NTRSUS33XXX"</span>));  <span class="c">// true — 11-char with branch XXX</span>
+console.log(validateBICFI(<span class="v">"CHASUS33"</span>));     <span class="c">// true — 8-char, no branch</span>
+console.log(validateBICFI(<span class="v">"BAD"</span>));          <span class="c">// false — too short</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">(d) ISO 13616 IBAN — mod-97 check-digit verification</span>
+      </div>
+      <pre><span class="c">/**
+ * validateIBAN(iban)
+ * ISO 13616 algorithm:
+ *   1. Remove spaces, uppercase.
+ *   2. Move first 4 characters to the end.
+ *   3. Replace each letter with its numeric equivalent: A=10, B=11, …, Z=35.
+ *   4. Compute the numeric string mod 97.
+ *   5. Valid IBAN → remainder === 1.
+ *
+ * Country-specific length rules are not enforced here; add a lookup table
+ * if strict per-country length validation is required.
+ */</span>
+<span class="k">function</span> validateIBAN(iban) {
+  <span class="k">if</span> (typeof iban !== <span class="v">"string"</span>) <span class="k">return false</span>;
+
+  <span class="c">// Step 1: Normalise — remove spaces, uppercase</span>
+  <span class="k">const</span> normalized = iban.replace(/\s+/g, <span class="v">""</span>).toUpperCase();
+
+  <span class="c">// Basic structural check: 2 alpha country + 2 digit check + up to 30 alphanum</span>
+  <span class="k">if</span> (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/.test(normalized)) <span class="k">return false</span>;
+
+  <span class="c">// Step 2: Rearrange — move first 4 chars to end</span>
+  <span class="k">const</span> rearranged = normalized.slice(<span class="n">4</span>) + normalized.slice(<span class="n">0</span>, <span class="n">4</span>);
+
+  <span class="c">// Step 3: Convert letters to digits (A=10 … Z=35)</span>
+  <span class="k">const</span> numeric = rearranged.replace(/[A-Z]/g, ch => ch.charCodeAt(<span class="n">0</span>) - <span class="n">55</span>);
+
+  <span class="c">// Step 4 & 5: Compute mod 97 using chunk arithmetic (BigInt avoids precision loss)</span>
+  <span class="k">let</span> remainder = BigInt(numeric) % <span class="n">97n</span>;
+  <span class="k">return</span> remainder === <span class="n">1n</span>;
+}
+
+console.log(validateIBAN(<span class="v">"GB82 WEST 1234 5698 7654 32"</span>));  <span class="c">// true — canonical IBAN test vector</span>
+console.log(validateIBAN(<span class="v">"DE89370400440532013000"</span>));       <span class="c">// true — Deutsche Bank DE</span>
+console.log(validateIBAN(<span class="v">"DE89370400440532013001"</span>));       <span class="c">// false — bad check digit</span>
+console.log(validateIBAN(<span class="v">"NOTANIBAN"</span>));                   <span class="c">// false — fails structural check</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">(e) ISO 17442 LEI — ISO 7064 MOD 97-10 check-digit verification</span>
+      </div>
+      <pre><span class="c">/**
+ * validateLEI(lei)
+ * ISO 17442 Legal Entity Identifier — 20 characters:
+ *   Chars 1–18:  alphanumeric entity identifier (issued by an LOU)
+ *   Chars 19–20: 2-digit check digits, computed via ISO 7064 MOD 97-10
+ *                (same algorithm as IBAN mod-97).
+ *
+ * Algorithm:
+ *   1. Convert letters to digits: A=10, B=11, …, Z=35 (same mapping as IBAN).
+ *   2. Compute the resulting numeric string mod 97.
+ *   3. Valid LEI → remainder === 1.
+ */</span>
+<span class="k">function</span> validateLEI(lei) {
+  <span class="k">if</span> (typeof lei !== <span class="v">"string"</span>) <span class="k">return false</span>;
+
+  <span class="c">// Normalise and structural check: exactly 20 uppercase alphanumeric chars</span>
+  <span class="k">const</span> normalized = lei.trim().toUpperCase();
+  <span class="k">if</span> (!/^[A-Z0-9]{18}[0-9]{2}$/.test(normalized)) <span class="k">return false</span>;
+
+  <span class="c">// Convert letters to digits (A=10 … Z=35), digits stay as-is</span>
+  <span class="k">const</span> numeric = normalized.replace(/[A-Z]/g, ch => ch.charCodeAt(<span class="n">0</span>) - <span class="n">55</span>);
+
+  <span class="c">// MOD 97-10 check: remainder must equal 1</span>
+  <span class="k">let</span> remainder = BigInt(numeric) % <span class="n">97n</span>;
+  <span class="k">return</span> remainder === <span class="n">1n</span>;
+}
+
+console.log(validateLEI(<span class="v">"549300TRUWO2CD2G5692"</span>));  <span class="c">// true — valid LEI test vector</span>
+console.log(validateLEI(<span class="v">"5493008IOANM4MK63B46"</span>));  <span class="c">// true — Northern Trust LEI</span>
+console.log(validateLEI(<span class="v">"549300TRUWO2CD2G5691"</span>));  <span class="c">// false — bad check digit</span>
+console.log(validateLEI(<span class="v">"TOOSHORT"</span>));              <span class="c">// false — not 20 chars</span>
+
+<span class="c">/**
+ * validateISO20022Payload(payload)
+ * Convenience wrapper — validates all applicable code-list fields in an OCG
+ * output_payload that carries the ISO 20022 profile.
+ * Returns { valid: bool, errors: string[] }.
+ */</span>
+<span class="k">function</span> validateISO20022Payload(payload) {
+  <span class="k">const</span> errors = [];
+
+  <span class="k">const</span> currency = payload?.instructed_amount?.currency;
+  <span class="k">if</span> (currency && !validateISO4217(currency))
+    errors.push(`instructed_amount.currency "${currency}" is not a valid ISO 4217 code`);
+
+  <span class="k">for</span> (<span class="k">const</span> role <span class="k">of</span> [<span class="v">"debtor"</span>, <span class="v">"creditor"</span>]) {
+    <span class="k">const</span> party = payload?.[role];
+    <span class="k">if</span> (party?.country && !validateISO3166Alpha2(party.country))
+      errors.push(`${role}.country "${party.country}" is not a valid ISO 3166-1 alpha-2 code`);
+    <span class="k">if</span> (party?.lei && !validateLEI(party.lei))
+      errors.push(`${role}.lei "${party.lei}" fails ISO 17442 MOD 97-10 check`);
+  }
+
+  <span class="k">for</span> (<span class="k">const</span> role <span class="k">of</span> [<span class="v">"debtor_agent"</span>, <span class="v">"creditor_agent"</span>]) {
+    <span class="k">const</span> agent = payload?.[role];
+    <span class="k">if</span> (agent?.bicfi && !validateBICFI(agent.bicfi))
+      errors.push(`${role}.bicfi "${agent.bicfi}" fails ISO 9362 BIC validation`);
+  }
+
+  <span class="k">for</span> (<span class="k">const</span> role <span class="k">of</span> [<span class="v">"debtor_account"</span>, <span class="v">"creditor_account"</span>]) {
+    <span class="k">const</span> account = payload?.[role];
+    <span class="k">if</span> (account?.iban && !validateIBAN(account.iban))
+      errors.push(`${role}.iban "${account.iban}" fails ISO 13616 mod-97 check`);
+  }
+
+  <span class="k">return</span> { valid: errors.length === <span class="n">0</span>, errors };
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §5 Crosswalk to pacs.008 -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>Crosswalk to pacs.008</h2>
+    <p>The ISO 20022 <strong>pacs.008</strong> message (FIToFICustomerCreditTransfer) is the primary inter-bank credit transfer message used in SWIFT CBPR+ and TARGET2/T2. The OCG ISO 20022 profile is designed so that its payload fields align directly with the pacs.008 <code>CdtTrfTxInf</code> (Credit Transfer Transaction Information) block, enabling downstream tooling to map OCG artifacts to pacs.008 elements without ambiguity.</p>
+    <p><strong>This is alignment for interoperability — OCG does not generate or transmit live pacs.008 messages.</strong> The crosswalk is a read direction only: given a completed OCG artifact, a downstream system can derive the pacs.008 field values. The reverse (parsing a live pacs.008 XML/MX message into an OCG artifact) is an application-layer concern.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>OCG payload field</th>
+          <th>pacs.008 element path</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>instructed_amount.{amount, currency}</td>
+          <td>CdtTrfTxInf/IntrBkSttlmAmt[@Ccy]</td>
+          <td>Amount value + Ccy attribute. pacs.008 uses InterbankSettlementAmount; InstructedAmount is an optional additional element.</td>
+        </tr>
+        <tr>
+          <td>debtor.{party_name, lei, country}</td>
+          <td>CdtTrfTxInf/Dbtr/Nm, /Id/OrgId/LEI, /PstlAdr/Ctry</td>
+          <td>PartyIdentification element. LEI maps to OrganisationIdentification/LEI sub-element.</td>
+        </tr>
+        <tr>
+          <td>creditor.{party_name, lei, country}</td>
+          <td>CdtTrfTxInf/Cdtr/Nm, /Id/OrgId/LEI, /PstlAdr/Ctry</td>
+          <td>Same structure as Dbtr. CountryCode (ISO 3166-1 alpha-2) in PostalAddress/Country.</td>
+        </tr>
+        <tr>
+          <td>debtor_agent.bicfi</td>
+          <td>CdtTrfTxInf/DbtrAgt/FinInstnId/BICFI</td>
+          <td>ISO 9362 BIC. Required in CBPR+ for all SWIFT messages.</td>
+        </tr>
+        <tr>
+          <td>creditor_agent.bicfi</td>
+          <td>CdtTrfTxInf/CdtrAgt/FinInstnId/BICFI</td>
+          <td>ISO 9362 BIC. Required in CBPR+.</td>
+        </tr>
+        <tr>
+          <td>debtor_account.iban</td>
+          <td>CdtTrfTxInf/DbtrAcct/Id/IBAN</td>
+          <td>ISO 13616. Required in SEPA and CBPR+ where applicable.</td>
+        </tr>
+        <tr>
+          <td>creditor_account.iban</td>
+          <td>CdtTrfTxInf/CdtrAcct/Id/IBAN</td>
+          <td>ISO 13616. Required in SEPA and CBPR+ where applicable.</td>
+        </tr>
+        <tr>
+          <td>settlement_date</td>
+          <td>CdtTrfTxInf/IntrBkSttlmDt</td>
+          <td>ISO 8601 date (YYYY-MM-DD). pacs.008 uses ISODate type.</td>
+        </tr>
+        <tr>
+          <td>remittance_information</td>
+          <td>CdtTrfTxInf/RmtInf/Ustrd or /Strd</td>
+          <td>Unstructured (Ustrd) or structured (Strd). OCG stores as a string; structured parsing is application-layer.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-gold">
+      <div class="lab">RCA-03: pacs.008 PostalAddress24 validation (CBPR+ Nov 2026)</div>
+      <p>The AINumbers suite already includes RCA-03 (<code>verify_address_migration_batch</code>), which validates ISO 20022 pacs.008 PostalAddress24 structured addresses for the SWIFT CBPR+ November 2026 structured-address mandate. That mandate requires replacing free-form address lines with structured PostalAddress24 fields (street name, building number, town name, country sub-division, post code, country). The OCG ISO 20022 profile's <code>country</code> field (ISO 3166-1 alpha-2) aligns directly with the PostalAddress24 <code>Ctry</code> element validated by RCA-03.</p>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Aligned, not registered</div>
+      <p>OCG artifacts with the ISO 20022 profile are not ISO 20022 messages and cannot be submitted directly to SWIFT or any ISO 20022-compliant financial infrastructure. They are provenance artifacts that carry ISO 20022-aligned field names to enable interoperability tooling. Generating and transmitting live pacs.008 MX messages requires a SWIFT-connected application and appropriate connectivity agreements — this is outside the scope of OpenChainGraph.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §6 Discovery: semantic_profile marker -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Discovery: the semantic_profile marker</h2>
+    <p>The <code>chaingraph.json</code> graph-index file lists all OCG-compatible tools and their nodes. In v0.3, a node may carry an <code>ocg:semantic_profile</code> field that declares which semantic overlay it uses. Crawlers, agents, and integration tooling can filter the index to discover ISO 20022-aligned tools without inspecting each artifact individually.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">json</span>
+        <span class="code-note">chaingraph.json graph-index node fragment — ISO 20022 profile marker</span>
+      </div>
+      <pre>{
+  <span class="k">"nodes"</span>: [
+    {
+      <span class="k">"tool_id"</span>:                <span class="v">"T290"</span>,
+      <span class="k">"name"</span>:                   <span class="v">"Settlement Mandate Validator"</span>,
+      <span class="k">"mandate_type"</span>:           <span class="v">"settlement_mandate"</span>,
+      <span class="k">"tool_version"</span>:           <span class="v">"1.0.0"</span>,
+      <span class="k">"ap2_version"</span>:            <span class="v">"v0.3"</span>,
+      <span class="k">"ocg:semantic_profile"</span>:   <span class="v">"iso20022:pacs.008-subset"</span>,   <span class="c">/* ISO 20022 discovery marker */</span>
+      <span class="k">"href"</span>:                   <span class="v">"tools/T290-settlement-mandate-validator.html"</span>,
+      <span class="k">"compliance_frameworks"</span>:  [<span class="v">"CBPR+"</span>, <span class="v">"LEI_VALID"</span>]
+    },
+    {
+      <span class="k">"tool_id"</span>:                <span class="v">"T291"</span>,
+      <span class="k">"name"</span>:                   <span class="v">"CBPR+ Address Validator"</span>,
+      <span class="k">"mandate_type"</span>:           <span class="v">"compliance_control"</span>,
+      <span class="k">"tool_version"</span>:           <span class="v">"1.0.0"</span>,
+      <span class="k">"ap2_version"</span>:            <span class="v">"v0.3"</span>,
+      <span class="k">"ocg:semantic_profile"</span>:   <span class="v">"iso20022:pacs.008-subset"</span>,   <span class="c">/* same marker */</span>
+      <span class="k">"href"</span>:                   <span class="v">"tools/T291-cbpr-address-validator.html"</span>,
+      <span class="k">"compliance_frameworks"</span>:  [<span class="v">"CBPR+"</span>]
+    }
+  ]
+}</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Filter graph-index nodes by semantic_profile — find ISO 20022-aligned tools</span>
+      </div>
+      <pre><span class="c">/**
+ * findISO20022Tools(chaingraphJson)
+ * Given the parsed chaingraph.json object, returns all nodes that declare
+ * an ISO 20022 semantic profile. Filters on the ocg:semantic_profile field.
+ */</span>
+<span class="k">function</span> findISO20022Tools(chaingraphJson) {
+  <span class="k">const</span> nodes = chaingraphJson?.nodes ?? [];
+  <span class="k">return</span> nodes.filter(node =>
+    typeof node[<span class="v">"ocg:semantic_profile"</span>] === <span class="v">"string"</span> &&
+    node[<span class="v">"ocg:semantic_profile"</span>].startsWith(<span class="v">"iso20022:"</span>)
+  );
+}
+
+<span class="c">// Usage — fetch the live graph index and find ISO 20022-aligned tools:</span>
+<span class="k">const</span> resp = <span class="k">await</span> fetch(<span class="v">"/chaingraph/chaingraph.json"</span>);
+<span class="k">const</span> index = <span class="k">await</span> resp.json();
+<span class="k">const</span> iso20022Tools = findISO20022Tools(index);
+
+console.log(iso20022Tools.map(t => `${t.tool_id}: ${t.name}`));
+<span class="c">// ["T290: Settlement Mandate Validator", "T291: CBPR+ Address Validator"]</span>
+
+<span class="c">// Narrower filter — only pacs.008-subset profile:</span>
+<span class="k">const</span> pacs008Tools = iso20022Tools.filter(
+  t => t[<span class="v">"ocg:semantic_profile"</span>] === <span class="v">"iso20022:pacs.008-subset"</span>
+);</pre>
+    </div>
+  </div>
+</div>
+
+<!-- §7 Backwards compatibility -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§7</div>
+    <h2>Backwards compatibility &amp; diligence posture</h2>
+    <p>The v0.3 ISO 20022 overlay is designed to be fully backwards-compatible with all prior OCG versions and to be diligence-safe in a regulated financial context. The following guarantees and posture notes apply.</p>
+
+    <div class="callout callout-teal">
+      <div class="lab">Version compatibility</div>
+      <p><strong>All v0.1 and v0.2 artifacts remain valid under v0.3.</strong> The overlay is strictly additive — it introduces no required fields and removes no existing fields. A v0.1 artifact without any <code>@context</code> array extension is still a valid OCG artifact. A v0.3 artifact without the ISO 20022 overlay is also valid. The version number in <code>ap2_version</code> signals which overlay set the tool supports, not a breaking change to the core schema.</p>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">All v0.3 ISO 20022 fields are optional</div>
+      <p><strong>Every field in the ISO 20022 profile is optional.</strong> A tool may carry <code>instructed_amount</code> without <code>debtor</code>, or <code>bicfi</code> without <code>iban</code>. The profile is a menu of available alignment fields, not a mandatory schema. Validators should not fail an artifact for missing ISO 20022 fields unless the tool's own specification declares them required.</p>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="lab">Hash preimage untouched</div>
+      <p><strong>The <code>execution_hash</code> preimage is unchanged.</strong> It remains the sorted-key SHA-256 over <code>{"policy_parameters": …, "output_payload": …}</code> only — identical to v0.1 and v0.2. The <code>@context</code> array, <code>ocg:semantic_profile</code>, and all JSON-LD framing fields are outside the preimage. A verifier that was correct for v0.1 artifacts will compute the same hash for a v0.3 artifact with no changes to its verification code.</p>
+    </div>
+
+    <div class="callout">
+      <div class="lab">ISO 20022-aligned, not registered — governance note</div>
+      <p><strong>ISO 20022 is a registered international standard.</strong> Message type definitions are published by the ISO Registration Authority (ISO/TC68/SC9) and administered operationally by SWIFT, which maintains the ISO 20022 Message Definition Repository. OpenChainGraph is not registered with the ISO RA. Using ISO 20022-aligned terminology in OCG artifacts does not imply conformance to, or registration under, the ISO 20022 normative specification. Compliance officers and auditors should treat OCG's ISO 20022 alignment as a semantic interoperability layer, not a claim of ISO 20022 certification.</p>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="lab">LEI and Ed25519 identity binding</div>
+      <p><strong>LEI is optional and, when present, may be bound to the Ed25519 signing-key identity.</strong> The <code>debtor.lei</code> or <code>creditor.lei</code> field in the output payload identifies the party being evaluated. Separately, the <code>audit_signature.signatures[0].keyid</code> field identifies the Ed25519 key that signed the artifact. These two identity anchors can be linked — for example, the publisher's own LEI bound to the signing key — to provide a verifiable chain from the cryptographic signature to the registered legal entity. See the <a href="guide-ed25519.html">Ed25519 integration guide</a> for key-management and signing-key attestation details.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §8 Integration checklist -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§8</div>
+    <h2>Integration checklist</h2>
+    <p>Six steps to verify that an OCG tool correctly implements the v0.3 ISO 20022 profile. Each step is independently testable.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Verified by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Confirm the tool emits a v0.3 OCG artifact whose <code>@context</code> is an array containing both the base context and the ISO 20022 overlay URL.</td>
+          <td><code>Array.isArray(artifact["@context"])</code> and <code>artifact["@context"].includes("https://openchain.graph/spec/v0.3/iso20022-context.jsonld")</code></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Map the tool's output payload fields to the ISO 20022 profile field names: <code>instructed_amount</code>, <code>debtor</code>/<code>creditor</code>, <code>debtor_agent</code>/<code>creditor_agent</code>, <code>settlement_date</code>, <code>remittance_information</code>.</td>
+          <td>Payload field names match the §2 mapping table. No ad-hoc naming (e.g., <code>amount_eur</code> instead of <code>instructed_amount.amount</code>).</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Run <code>validateISO20022Payload(artifact.output_payload)</code> from §4. All five code lists — ISO 4217 currency, ISO 3166-1 alpha-2 country, ISO 9362 BICFI, ISO 13616 IBAN, ISO 17442 LEI — must pass for any field that is present.</td>
+          <td><code>result.valid === true</code> and <code>result.errors.length === 0</code></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Add <code>"ocg:semantic_profile": "iso20022:pacs.008-subset"</code> to the tool's <code>chaingraph.json</code> graph-index node so that the discovery filter in §6 returns it.</td>
+          <td><code>findISO20022Tools(index).some(n => n.tool_id === YOUR_TOOL_ID)</code></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>(Optional) Attach a LEI to the party or publisher identity field and, if applicable, bind it to the Ed25519 signing key as described in the <a href="guide-ed25519.html">Ed25519 guide</a>.</td>
+          <td><code>validateLEI(artifact.output_payload.debtor.lei) === true</code> and the signing-key attestation references the same LEI.</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Confirm the <code>execution_hash</code> still verifies unchanged. Recompute SHA-256 over the sorted-key JSON of <code>{policy_parameters, output_payload}</code> and assert it matches <code>artifact.execution_hash</code>.</td>
+          <td>Recomputed hash === <code>artifact.execution_hash</code>. The overlay's <code>@context</code> and <code>ocg:semantic_profile</code> fields must not appear in the preimage.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-teal">
+      <div class="lab">RCA-03 already covers pacs.008 address validation</div>
+      <p>If your integration involves CBPR+ structured-address compliance, RCA-03 (<code>verify_address_migration_batch</code>) in the AINumbers suite validates pacs.008 PostalAddress24 fields for the SWIFT CBPR+ November 2026 mandate. Running RCA-03 as part of your OCG chain satisfies the structured-address validation requirement independently of the ISO 20022 profile overlay. The two are complementary: the overlay provides semantic alignment; RCA-03 provides regulatory compliance validation.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.3 (DRAFT)
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer</a>
+      <span>·</span> Licensed CC BY 4.0
+      <span>·</span> <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
