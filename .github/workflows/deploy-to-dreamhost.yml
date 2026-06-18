@@ -185,6 +185,39 @@ jobs:
 
           echo "✅ rsync completed successfully."
 
+      - name: ☁️ Purge Cloudflare cache
+        # ainumbers.co is fronted by Cloudflare. Static assets (.jsonld profiles + contexts,
+        # chaingraph.json, spec/guide HTML, tool exports) are edge-cached and otherwise serve
+        # STALE until TTL expiry — e.g. a freshly deployed profile URL returns the old cached
+        # 404/empty. Purge the zone after a successful rsync so fresh content is visible at once.
+        #
+        # Requires two repo secrets (GitHub → Settings → Secrets → Actions):
+        #   CF_ZONE_ID    — the ainumbers.co zone ID (Cloudflare dashboard → Overview → API → Zone ID)
+        #   CF_API_TOKEN  — a scoped API token with permission: Zone → Cache Purge → Purge
+        # Uses purge_everything (works on all Cloudflare plans; prefix/tag purge is Enterprise-only).
+        # Skips gracefully if the secrets are not set, so it never blocks an otherwise-good deploy.
+        env:
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          if [ -z "$CF_ZONE_ID" ] || [ -z "$CF_API_TOKEN" ]; then
+            echo "ℹ️  CF_ZONE_ID / CF_API_TOKEN not set — skipping Cloudflare purge."
+            echo "   Add them in GitHub → Settings → Secrets → Actions (token scope: Zone → Cache Purge → Purge)."
+            exit 0
+          fi
+          RESP=$(curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          echo "$RESP"
+          if echo "$RESP" | grep -q '"success":true'; then
+            echo "✅ Cloudflare cache purged — fresh content live"
+          else
+            echo "❌ Cloudflare purge failed (see response above). Files deployed OK; cache will clear on TTL."
+            exit 1
+          fi
+
       - name: 🌐 Smoke test — homepage responds
         # A lightweight check that the site root returns HTTP 200 after deploy.
         # Set DH_SITE_URL secret to your domain, e.g. https://ainumbers.co
