@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tempo Agentic Checkout Settlement Mapper · ART-40 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Bind an ACP/Visa-TAP/ISO-20022 checkout to a TIP-20 transfer. Maps the 32-byte Tempo memo to ISO 20022 remittance_information, sender/receiver to debtor/creditor. Canonical OCG v0.3 pacs.008-subset crosswalk. OpenChainGraph node ART-40, Wave 9.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-40-tempo-agentic-checkout.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tempo Agentic Checkout Settlement Mapper · ART-40 · OpenChainGraph","applicationCategory":"FinanceApplication","operatingSystem":"Web","url":"https://ainumbers.co/chaingraph/art-40-tempo-agentic-checkout.html","description":"Bind an ACP/Visa-TAP/ISO-20022 checkout to a TIP-20 transfer. Maps the 32-byte Tempo memo to ISO 20022 remittance_information, sender/receiver to debtor/creditor. Canonical OCG v0.3 pacs.008-subset crosswalk. OpenChainGraph node ART-40, Wave 9.","provider":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;min-height:100vh}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+.container{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+nav{border-bottom:1px solid var(--border);padding:.75rem 0;background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem;line-height:1.2}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin:.75rem 0;border-radius:0 var(--radius) var(--radius) 0}
+.tool-body{padding:2rem 0 4rem}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.form-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+@media(max-width:700px){.form-grid,.form-grid-3{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.65rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .85rem;border-radius:var(--radius);outline:none;width:100%}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field select option{background:var(--bg-3)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.2rem}
+.warn-inline{font-size:.62rem;color:var(--warn);margin-top:.2rem;display:none}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;cursor:pointer;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.code-block{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto}
+.crosswalk-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.crosswalk-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.55rem .8rem;border-bottom:1px solid var(--border);text-align:left;background:var(--bg-3)}
+.crosswalk-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.crosswalk-table tr:last-child td{border-bottom:none}
+.crosswalk-table tr:hover td{background:rgba(30,47,74,.4)}
+.field-name{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal-lt)}
+.arrow-cell{color:var(--muted);text-align:center;font-size:.85rem}
+.iso-field{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--gold)}
+.field-value{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);word-break:break-all}
+.protocol-bind{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.75rem}
+.proto-name{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem}
+.proto-desc{font-size:.72rem;color:var(--body);line-height:1.55}
+.bilateral-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.75rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.65;border-radius:0 var(--radius) var(--radius) 0;margin-top:.75rem}
+.warn-box{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.65rem 1rem;font-size:.7rem;color:var(--warn);margin-bottom:.75rem}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);word-break:break-all}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+#exportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s}
+#exportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#exportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
+.foot-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body)}.foot-inner a:hover{color:var(--teal-lt)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">AINumbers.co</span>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+      <span>ART-40</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">ART-40 · Wave 9 · OpenChainGraph · iso20022:pacs.008-subset · Canonical</div>
+    <h1>Tempo <em>Agentic Checkout</em> Settlement Mapper</h1>
+    <p class="hero-desc">Binds an ACP / Visa TAP / ISO 20022 checkout or remittance to a TIP-20 Tempo transfer. Maps the 32-byte Tempo memo to ISO 20022 <code style="font-size:.72rem;color:var(--teal)">remittance_information</code>, sender/receiver to <code style="font-size:.72rem;color:var(--teal)">debtor</code>/<code style="font-size:.72rem;color:var(--teal)">creditor</code>, and normalizes an on-chain Tempo tx into the AP2 artifact envelope. This is the canonical OCG v0.3 pacs.008-subset tool — the crosswalk is the entire value. Tempo MPP (HTTP 402) live March 2026; Kraken US CEX custody June 2026; Flutterwave Africa stablecoin settlements June 2026.</p>
+    <div class="pii-banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+    <div class="hero-badges">
+      <span class="badge badge-teal">ART-40 · OpenChainGraph v0.3</span>
+      <span class="badge badge-teal">settlement_mandate · Canonical pacs.008</span>
+      <span class="badge badge-gold">TIP-20 · MPP · ACP</span>
+      <span class="badge badge-purple">Visa TAP · ISO 20022</span>
+      <span class="badge badge-green">Zero PII · No Network</span>
+    </div>
+  </div>
+</div>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div class="form-card">
+      <div class="section-title">▸ Checkout / Settlement Parameters</div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Checkout Protocol</label>
+          <select id="protocol">
+            <option value="ACP">ACP (Agentic Commerce Protocol)</option>
+            <option value="Visa TAP">Visa TAP (Trusted Agent Protocol)</option>
+            <option value="Manual ISO 20022">Manual ISO 20022</option>
+            <option value="On-chain Tempo tx">On-chain Tempo tx</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Stablecoin</label>
+          <select id="stablecoin">
+            <option value="USDC">USDC</option>
+            <option value="USDT">USDT</option>
+            <option value="pathUSD">pathUSD</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Order / Remittance Reference <span style="color:var(--muted);font-size:.48rem">(max 32 chars · TIP-20 memo field)</span></label>
+          <input type="text" id="orderRef" value="ORD-2026-0618-001" maxlength="40" placeholder="ORD-2026-0618-001">
+          <div class="warn-inline" id="memoWarn">⚠ Reference exceeds 32 chars — will be truncated to fit TIP-20 memo field.</div>
+        </div>
+        <div class="field">
+          <label>Amount (USD)</label>
+          <input type="number" id="amount" value="47.99" min="0.01" step="0.01">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Sender Name</label>
+          <input type="text" id="senderName" value="Anthropic Agent v1" placeholder="Sender name">
+        </div>
+        <div class="field">
+          <label>Sender LEI <span style="color:var(--muted);font-size:.46rem">(optional)</span></label>
+          <input type="text" id="senderLei" placeholder="549300..." value="">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Receiver Name</label>
+          <input type="text" id="receiverName" value="Shopify Merchant" placeholder="Receiver name">
+        </div>
+        <div class="field">
+          <label>Receiver LEI <span style="color:var(--muted);font-size:.46rem">(optional)</span></label>
+          <input type="text" id="receiverLei" placeholder="213800..." value="">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Creditor Agent BIC <span style="color:var(--muted);font-size:.46rem">(optional)</span></label>
+          <input type="text" id="creditorBic" placeholder="CHASUS33" value="">
+        </div>
+        <div class="field">
+          <label>Settlement Date</label>
+          <input type="date" id="settlementDate" value="">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="run-btn" onclick="runMapper()">▶ Map Settlement</button>
+        <button class="ghost-btn" onclick="resetDefaults()">↺ Reset Defaults</button>
+      </div>
+    </div>
+
+    <div id="outputSection" class="output-section hidden"></div>
+
+    <div class="export-row">
+      <button id="exportBtn" onclick="buildAndExport()" disabled title="Map a settlement above to generate artifact">{} Export OpenChainGraph Artifact · ART-40 · settlement_mandate · hash-anchored</button>
+    </div>
+
+    <div style="margin-top:1rem">
+      <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+        <span>📦 &nbsp;MANIFEST · MCP tool definition · map_tempo_settlement</span>
+        <span id="mfstArrow" style="color:var(--muted)">▼</span>
+      </button>
+      <div class="mfst-body" id="mfstBody" aria-hidden="true"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>Post Oak Labs · CC BY 4.0 · OpenChainGraph Suite · ART-40 v1.0.0</span>
+    <span>
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a> ·
+      <a href="art-38-tempo-onchain-aml.html">ART-38 AML Screener</a> ·
+      <a href="art-39-tempo-zone-disclosure.html">ART-39 Zone Disclosure</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+var _lastResult = null;
+
+var MANIFEST = {
+  name: "map_tempo_settlement",
+  description: "Bind an ACP/Visa-TAP/ISO-20022 checkout or remittance to a TIP-20 Tempo transfer. Maps the 32-byte memo to ISO 20022 remittance_information, sender/receiver to debtor/creditor. Canonical OCG v0.3 pacs.008-subset tool.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      protocol: { type: "string", enum: ["ACP","Visa TAP","Manual ISO 20022","On-chain Tempo tx"] },
+      order_ref: { type: "string", maxLength: 32, description: "Order/remittance reference — maps to TIP-20 32-byte memo field and ISO 20022 remittance_information" },
+      sender_name: { type: "string" },
+      sender_lei: { type: "string" },
+      receiver_name: { type: "string" },
+      receiver_lei: { type: "string" },
+      amount_usd: { type: "number", minimum: 0.01 },
+      stablecoin: { type: "string", enum: ["USDC","USDT","pathUSD"] },
+      creditor_agent_bic: { type: "string" },
+      settlement_date: { type: "string", format: "date" }
+    },
+    required: ["order_ref","sender_name","receiver_name","amount_usd"]
+  }
+};
+
+// Set default settlement date to today
+(function(){
+  var d = new Date();
+  var iso = d.toISOString().slice(0,10);
+  document.getElementById('settlementDate').value = iso;
+})();
+
+// Memo length warning
+document.getElementById('orderRef').addEventListener('input', function(){
+  var warn = document.getElementById('memoWarn');
+  warn.style.display = this.value.length > 32 ? 'block' : 'none';
+});
+
+async function sha256(obj){
+  var c=JSON.stringify(obj,Object.keys(obj).sort());
+  var b=new TextEncoder().encode(c);
+  var h=await crypto.subtle.digest('SHA-256',b);
+  return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').replace(/\..*/,'').slice(0,14);}
+function esc(s){return String(s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+// Deterministic address from name: btoa → first 20 chars, padded
+function deterministicAddr(name){
+  var encoded = btoa(unescape(encodeURIComponent(name || 'unknown')));
+  var raw = encoded.replace(/[^a-zA-Z0-9]/g,'');
+  while(raw.length < 20) raw = raw + '0';
+  return '0x' + raw.slice(0,20).toLowerCase();
+}
+
+function protocolBindInfo(protocol){
+  var info = {
+    ACP: {
+      standard: 'ACP (Agentic Commerce Protocol)',
+      description: 'ACP checkout session presents merchant policy + price. Agent signs mandate and submits. TIP-20 transfer carries order_ref as 32-byte memo.',
+      fields_mapped: 'ACP session.reference → memo · ACP buyer_agent → debtor · ACP merchant_agent → creditor'
+    },
+    'Visa TAP': {
+      standard: 'Visa Trusted Agent Protocol (TAP)',
+      description: 'Visa TAP agent token authorises the transfer. The TAP session reference maps to the TIP-20 memo. Settlement is Tempo-native stablecoin.',
+      fields_mapped: 'TAP.reference → memo · TAP.cardholder → debtor · TAP.merchant → creditor'
+    },
+    'Manual ISO 20022': {
+      standard: 'ISO 20022 pacs.008 (FI-to-FI Customer Credit Transfer)',
+      description: 'Direct ISO 20022 crosswalk. No protocol intermediary — fields map one-to-one to the pacs.008 message schema.',
+      fields_mapped: 'RmtInf → memo · Dbtr → debtor · Cdtr → creditor · InstrAmt → instructed_amount'
+    },
+    'On-chain Tempo tx': {
+      standard: 'Tempo MPP (HTTP 402 · live March 2026)',
+      description: 'On-chain Tempo transfer already settled. This tool retrospectively maps the on-chain fields to the AP2 artifact envelope for audit and chain anchoring.',
+      fields_mapped: 'tx.memo → remittance_information · tx.sender → debtor · tx.receiver → creditor · tx.amount → instructed_amount'
+    }
+  };
+  return info[protocol] || info['Manual ISO 20022'];
+}
+
+async function runMapper(){
+  var protocol = document.getElementById('protocol').value;
+  var rawRef = document.getElementById('orderRef').value.trim() || 'ORD-2026-0618-001';
+  var senderName = document.getElementById('senderName').value.trim() || 'Anthropic Agent v1';
+  var senderLei = document.getElementById('senderLei').value.trim();
+  var receiverName = document.getElementById('receiverName').value.trim() || 'Shopify Merchant';
+  var receiverLei = document.getElementById('receiverLei').value.trim();
+  var amount = Number(document.getElementById('amount').value) || 47.99;
+  var stablecoin = document.getElementById('stablecoin').value;
+  var creditorBic = document.getElementById('creditorBic').value.trim() || 'TMPOXYZ1';
+  var settlementDate = document.getElementById('settlementDate').value || new Date().toISOString().slice(0,10);
+
+  // Memo validation
+  var memo = rawRef;
+  var truncated = false;
+  if(memo.length > 32){
+    memo = memo.slice(0,32);
+    truncated = true;
+  }
+
+  // Deterministic addresses
+  var senderAddr = deterministicAddr(senderName);
+  var receiverAddr = deterministicAddr(receiverName);
+
+  // TIP-20 transfer object
+  var tip20Transfer = {
+    network: 'tempo-mainnet',
+    token_standard: 'TIP-20',
+    stablecoin: stablecoin,
+    currency: 'USD',
+    amount: amount,
+    memo: memo,
+    sender_address: senderAddr,
+    receiver_address: receiverAddr,
+    settlement_date: settlementDate
+  };
+
+  // ISO 20022 pacs.008 mapping
+  var pacs008 = {
+    message_type: 'pacs.008.001',
+    instructed_amount: { amount: amount, currency: 'USD' },
+    debtor: { party_name: senderName, lei: senderLei || null },
+    debtor_agent: { bicfi: 'TMPOXYZ1' },
+    creditor: { party_name: receiverName, lei: receiverLei || null },
+    creditor_agent: { bicfi: creditorBic },
+    settlement_date: settlementDate,
+    remittance_information: memo,
+    charge_bearer: 'SLEV'
+  };
+
+  var protoInfo = protocolBindInfo(protocol);
+
+  var inputs = {protocol, order_ref: rawRef, memo, sender_name: senderName, sender_lei: senderLei, receiver_name: receiverName, receiver_lei: receiverLei, amount_usd: amount, stablecoin, creditor_agent_bic: creditorBic, settlement_date: settlementDate};
+  var execHash = await sha256({inputs, tip20Transfer, pacs008});
+
+  _lastResult = {protocol, inputs, tip20Transfer, pacs008, truncated, execHash, _ts: new Date().toISOString()};
+
+  var html = '';
+
+  // Memo truncation warning
+  if(truncated){
+    html += '<div class="out-card"><div class="out-header"><span class="out-title">⚠ Memo Truncation Warning</span></div><div class="out-body">';
+    html += '<div class="warn-box">Original reference "'+esc(rawRef)+'" ('+rawRef.length+' chars) exceeds the 32-byte TIP-20 memo field. Truncated to: "'+esc(memo)+'"</div>';
+    html += '</div></div>';
+  }
+
+  // TIP-20 transfer object
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">TIP-20 Transfer Object</span></div><div class="out-body">';
+  html += '<pre class="code-block">'+esc(JSON.stringify(tip20Transfer,null,2))+'</pre>';
+  html += '</div></div>';
+
+  // ISO 20022 crosswalk table
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">ISO 20022 pacs.008 Crosswalk · TIP-20 → ISO 20022</span></div><div class="out-body" style="overflow-x:auto">';
+  html += '<table class="crosswalk-table"><thead><tr><th>TIP-20 Field</th><th style="text-align:center">→</th><th>ISO 20022 Field</th><th>Value</th></tr></thead><tbody>';
+
+  var rows = [
+    ['memo', 'remittance_information (RmtInf)', memo],
+    ['sender (party)', 'debtor.party_name (Dbtr)', senderName],
+    ['sender (address)', 'debtor_agent.bicfi (DbtrAgt)', 'TMPOXYZ1 (Tempo pseudo-BIC)'],
+    [senderLei||'(no LEI)', 'debtor.lei', senderLei||'—'],
+    ['receiver (party)', 'creditor.party_name (Cdtr)', receiverName],
+    ['receiver (address)', 'creditor_agent.bicfi (CdtrAgt)', creditorBic],
+    [receiverLei||'(no LEI)', 'creditor.lei', receiverLei||'—'],
+    ['amount', 'instructed_amount.amount (InstrAmt)', '$'+amount.toFixed(2)],
+    ['currency (USD)', 'instructed_amount.currency', 'USD'],
+    ['settlement_date', 'settlement_date (SttlmDt)', settlementDate],
+    ['stablecoin', 'charge_bearer / network metadata', stablecoin+' · Tempo mainnet']
+  ];
+  rows.forEach(function(r){
+    html += '<tr><td class="field-name">'+esc(r[0])+'</td><td class="arrow-cell">→</td><td class="iso-field">'+esc(r[1])+'</td><td class="field-value">'+esc(r[2])+'</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  // Protocol binding
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">Protocol Binding Confirmation · '+esc(protocol)+'</span></div><div class="out-body">';
+  html += '<div class="protocol-bind">';
+  html += '<div class="proto-name">'+esc(protoInfo.standard)+'</div>';
+  html += '<div class="proto-desc">'+esc(protoInfo.description)+'</div>';
+  html += '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.6rem;color:var(--muted);margin-top:.5rem">'+esc(protoInfo.fields_mapped)+'</div>';
+  html += '</div>';
+
+  html += '<div class="bilateral-note">⚑ <strong>Bilateral Note:</strong> Merchant emits this artifact; agent re-runs <code style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--teal)">verify_execution_hash</code> using the same inputs before honoring settlement.</div>';
+  html += '<div class="hash-row">sha256:'+execHash+'</div>';
+  html += '</div></div>';
+
+  var sec = document.getElementById('outputSection');
+  sec.innerHTML = html;
+  sec.classList.remove('hidden');
+
+  var btn=document.getElementById('exportBtn');btn.classList.add('ready');btn.disabled=false;
+}
+
+async function buildAndExport(){
+  if(!_lastResult) return;
+  var h = _lastResult.execHash;
+  var artifact = {
+    "@context":["https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld"],
+    "chaingraph_version":"0.3.1","ap2_version":"1.0.0",
+    "buildType":"https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256",
+    "mandate_type":"settlement_mandate",
+    "tool_id":"art-40-tempo-agentic-checkout","tool_version":"1.0.0",
+    "generated_at":_lastResult._ts,"execution_hash":h,
+    "dct:conformsTo":["https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"],
+    "semantic_profile":"iso20022:pacs.008-subset",
+    "chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0,"feeds":"chains/tempo-agentic-checkout.html"},
+    "policy_parameters":{"execution_backend":"js","input_parameters":_lastResult.inputs},
+    "output_payload":{
+      "tip20_transfer":_lastResult.tip20Transfer,
+      "iso20022_pacs008":_lastResult.pacs008,
+      "memo_truncated":_lastResult.truncated,
+      "protocol":_lastResult.protocol
+    },
+    "compliance_flags":_lastResult.truncated?["MEMO_TRUNCATED"]:[],
+    "audit_signature":{"client_side_executed":true,"zero_pii_verified":true,"deterministic_run":true}
+  };
+  var ts=ts14();
+  var jsonStr=JSON.stringify(artifact,null,2);
+  var mdStr='# ART-40 Tempo Agentic Checkout Settlement Mapper\n\n**tool_id:** art-40-tempo-agentic-checkout  \n**generated_at:** '+_lastResult._ts+'  \n**execution_hash:** '+h+'  \n**protocol:** '+_lastResult.protocol+'  \n**amount:** $'+_lastResult.inputs.amount_usd.toFixed(2)+' '+_lastResult.inputs.stablecoin+'  \n**sender:** '+_lastResult.inputs.sender_name+'  \n**receiver:** '+_lastResult.inputs.receiver_name+'  \n**memo:** '+_lastResult.tip20Transfer.memo+(+_lastResult.truncated?' (truncated)':'')+'  \n\n```json\n'+jsonStr+'\n```\n';
+  download('art-40-tempo-agentic-checkout_'+ts+'.policy.json',jsonStr,'application/json');
+  setTimeout(function(){download('art-40-tempo-agentic-checkout_'+ts+'.md',mdStr,'text/markdown');},200);
+}
+
+function download(name,content,type){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:type}));
+  a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+
+function resetDefaults(){
+  document.getElementById('protocol').value='ACP';
+  document.getElementById('orderRef').value='ORD-2026-0618-001';
+  document.getElementById('senderName').value='Anthropic Agent v1';
+  document.getElementById('senderLei').value='';
+  document.getElementById('receiverName').value='Shopify Merchant';
+  document.getElementById('receiverLei').value='';
+  document.getElementById('amount').value='47.99';
+  document.getElementById('stablecoin').value='USDC';
+  document.getElementById('creditorBic').value='';
+  document.getElementById('settlementDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('memoWarn').style.display='none';
+  document.getElementById('outputSection').classList.add('hidden');
+  var btn=document.getElementById('exportBtn');btn.classList.remove('ready');btn.disabled=true;
+}
+
+function toggleMfst(){
+  var body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));
+  body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>

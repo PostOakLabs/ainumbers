@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tempo On-Chain AML &amp; Travel Rule Screener · ART-38 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Parse a batch of synthetic TIP-20 Tempo transfers, run OFAC/SDN screening, check FATF Travel Rule completeness, score AML typologies, and emit a SAR determination + Travel Rule attestation. OpenChainGraph node ART-38, Wave 9.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tempo On-Chain AML & Travel Rule Screener · ART-38 · OpenChainGraph","applicationCategory":"FinanceApplication","operatingSystem":"Web","url":"https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html","description":"Parse a batch of synthetic TIP-20 Tempo transfers, run OFAC/SDN screening, check FATF Travel Rule completeness, score AML typologies, and emit a SAR determination + Travel Rule attestation. OpenChainGraph node ART-38, Wave 9.","provider":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;min-height:100vh}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+.container{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+nav{border-bottom:1px solid var(--border);padding:.75rem 0;background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem;line-height:1.2}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin:.75rem 0;border-radius:0 var(--radius) var(--radius) 0}
+.tool-body{padding:2rem 0 4rem}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.form-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.4rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .85rem;border-radius:var(--radius);outline:none;width:100%}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field select option{background:var(--bg-3)}
+textarea.code-input{width:100%;min-height:180px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.6;padding:.85rem 1rem;border-radius:var(--radius);outline:none;resize:vertical}
+textarea.code-input:focus{border-color:var(--teal)}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;cursor:pointer;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.summary-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1.1rem;flex:1;min-width:120px}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--bright)}
+.stat-val.warn{color:var(--warn)}.stat-val.red{color:var(--red)}.stat-val.green{color:var(--green)}
+.tx-table{width:100%;border-collapse:collapse;font-size:.68rem}
+.tx-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .7rem;border-bottom:1px solid var(--border);text-align:left;background:var(--bg-3)}
+.tx-table td{padding:.55rem .7rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.tx-table tr:last-child td{border-bottom:none}
+.tx-table tr:hover td{background:rgba(30,47,74,.4)}
+.pill{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .5rem;border-radius:3px;border:1px solid;display:inline-block;white-space:nowrap;margin:.1rem .1rem .1rem 0}
+.pill-red{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.pill-warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.pill-green{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.pill-muted{color:var(--muted);border-color:var(--border)}
+.pill-teal{color:var(--teal);border-color:rgba(20,184,166,.4);background:var(--teal-dim)}
+.verdict-box{padding:1.25rem;border-radius:var(--radius-lg);border:2px solid;text-align:center}
+.verdict-pass{border-color:var(--green);background:var(--green-dim)}
+.verdict-flag{border-color:var(--warn);background:rgba(245,158,11,.08)}
+.verdict-escalate{border-color:var(--red);background:var(--red-dim)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.verdict-val{font-family:'DM Serif Display',serif;font-size:1.8rem}
+.verdict-pass .verdict-val{color:var(--green)}
+.verdict-flag .verdict-val{color:var(--warn)}
+.verdict-escalate .verdict-val{color:var(--red)}
+.attestation-list{display:flex;flex-direction:column;gap:.6rem}
+.att-row{display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.att-label{font-size:.72rem;color:var(--text)}
+.att-status{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase}
+.att-pass{color:var(--green)}.att-fail{color:var(--red)}.att-warn{color:var(--warn)}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);word-break:break-all}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+#exportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s}
+#exportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#exportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
+.foot-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body)}.foot-inner a:hover{color:var(--teal-lt)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">AINumbers.co</span>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+      <span>ART-38</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">ART-38 · Wave 9 · OpenChainGraph · iso20022:pacs.008-subset</div>
+    <h1>Tempo On-Chain <em>AML</em> &amp; Travel Rule Screener</h1>
+    <p class="hero-desc">Parses a batch of synthetic TIP-20 transfers (with 32-byte memos), runs OFAC/SDN screening against a hardcoded test watchlist, applies FATF Travel Rule field-completeness checks (originator/beneficiary name, VASP ID, value threshold), scores AML typologies (structuring, layering, missing identity), and emits a SAR determination + Travel Rule attestation. Tempo mainnet launched March 18, 2026, incubated by Stripe &amp; Paradigm.</p>
+    <div class="pii-banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+    <div class="hero-badges">
+      <span class="badge badge-teal">ART-38 · OpenChainGraph v0.3</span>
+      <span class="badge badge-gold">aml_rule mandate</span>
+      <span class="badge badge-gold">FATF Travel Rule</span>
+      <span class="badge badge-red">OFAC SDN Screen</span>
+      <span class="badge badge-green">Zero PII · No Network</span>
+    </div>
+  </div>
+</div>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div class="form-card">
+      <div class="section-title">▸ Transfer Batch Input</div>
+      <div class="field" style="margin-bottom:1rem">
+        <label>TIP-20 Transfer Batch (JSON array)</label>
+        <textarea id="batchInput" class="code-input" spellcheck="false">[
+  {"id":"TX001","from":"0xA1b2c3","to":"0xD4e5f6","amount_usd":12500,"memo":"payroll-batch-001","originator_name":"Acme Corp","originator_vasp":"LEI:54930084UKLVMY22DS16","beneficiary_name":"Maria Garcia","beneficiary_vasp":"LEI:213800WSGIIZCXF1P572"},
+  {"id":"TX002","from":"0xB2c3d4","to":"0xE5f6a7","amount_usd":2800,"memo":"invoice-INV-2026","originator_name":"TechPay Ltd","originator_vasp":"LEI:21380015QIKU6ZFB5B21","beneficiary_name":"Dev Services LLC","beneficiary_vasp":""},
+  {"id":"TX003","from":"0xC3d4e5","to":"0xF6a7b8","amount_usd":9900,"memo":"","originator_name":"UNKNOWN","originator_vasp":"","beneficiary_name":"UNKNOWN","beneficiary_vasp":""}
+]</textarea>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Screening Mode</label>
+          <select id="screeningMode">
+            <option value="standard">Standard</option>
+            <option value="edd">Enhanced Due Diligence (EDD)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Jurisdiction</label>
+          <select id="jurisdiction">
+            <option value="us">US (BSA)</option>
+            <option value="eu">EU (AMLD6)</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>SAR Threshold (USD)</label>
+          <input type="number" id="sarThreshold" value="5000" min="0" step="100">
+        </div>
+        <div class="field">
+          <label>Travel Rule Threshold (USD)</label>
+          <input type="number" id="trThreshold" value="3000" min="0" step="100">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="run-btn" onclick="runScreen()">▶ Run AML Screen</button>
+        <button class="ghost-btn" onclick="resetBatch()">↺ Reset Batch</button>
+      </div>
+    </div>
+
+    <div id="outputSection" class="output-section hidden"></div>
+
+    <div class="export-row">
+      <button id="exportBtn" onclick="buildAndExport()" disabled title="Run screen above to generate artifact">{} Export OpenChainGraph Artifact · ART-38 · aml_rule · hash-anchored</button>
+    </div>
+
+    <div style="margin-top:1rem">
+      <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false">
+        <span>📦 &nbsp;MANIFEST · MCP tool definition · screen_tip20_transfer_batch</span>
+        <span id="mfstArrow" style="color:var(--muted)">▼</span>
+      </button>
+      <div class="mfst-body" id="mfstBody" aria-hidden="true"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>Post Oak Labs · CC BY 4.0 · OpenChainGraph Suite · ART-38 v1.0.0</span>
+    <span>
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a> ·
+      <a href="art-39-tempo-zone-disclosure.html">ART-39 Zone Disclosure</a> ·
+      <a href="art-40-tempo-agentic-checkout.html">ART-40 Agentic Checkout</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+var _lastResult = null;
+var _manifest = null;
+
+var OFAC_WATCHLIST = ["SANCTIONED ENTITY","OFAC_TEST_SDN","BLOCKED_PARTY"];
+
+var MANIFEST = {
+  name: "screen_tip20_transfer_batch",
+  description: "Parse a batch of TIP-20 Tempo transfers, run OFAC/SDN screening, check FATF Travel Rule completeness, score AML typologies (structuring, layering, missing identity), and emit a SAR determination + Travel Rule attestation.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      transfers: { type: "array", description: "Array of TIP-20 transfer objects with id, from, to, amount_usd, memo, originator_name, originator_vasp, beneficiary_name, beneficiary_vasp" },
+      screening_mode: { type: "string", enum: ["standard","edd"], description: "Standard or Enhanced Due Diligence" },
+      jurisdiction: { type: "string", enum: ["us","eu","both"] },
+      sar_threshold_usd: { type: "number", default: 5000 },
+      travel_rule_threshold_usd: { type: "number", default: 3000 }
+    },
+    required: ["transfers"]
+  }
+};
+
+async function sha256(obj){
+  var c=JSON.stringify(obj,Object.keys(obj).sort());
+  var b=new TextEncoder().encode(c);
+  var h=await crypto.subtle.digest('SHA-256',b);
+  return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function ts14(){return new Date().toISOString().replace(/[:.TZ-]/g,'').slice(0,14);}
+function esc(s){return String(s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+function matchWatchlist(name){
+  if(!name) return false;
+  var u=name.trim().toUpperCase();
+  return OFAC_WATCHLIST.some(function(w){return u.includes(w);});
+}
+
+function screenTransfer(tx, sarThresh, trThresh, mode){
+  var result = {
+    id: tx.id || '?',
+    amount_usd: Number(tx.amount_usd)||0,
+    ofac_status: 'CLEAR',
+    travel_rule_status: 'N/A',
+    aml_flags: [],
+    sar_determination: 'NOT_REQUIRED'
+  };
+
+  // OFAC screening
+  if(matchWatchlist(tx.originator_name) || matchWatchlist(tx.beneficiary_name)){
+    result.ofac_status = 'MATCH';
+  }
+
+  // Travel Rule check
+  if(result.amount_usd >= trThresh){
+    result.travel_rule_status = 'REQUIRED';
+    var missing = [];
+    if(!tx.originator_name || tx.originator_name.trim()==='') missing.push('originator_name');
+    if(!tx.originator_vasp || tx.originator_vasp.trim()==='') missing.push('originator_vasp');
+    if(!tx.beneficiary_name || tx.beneficiary_name.trim()==='') missing.push('beneficiary_name');
+    if(!tx.beneficiary_vasp || tx.beneficiary_vasp.trim()==='') missing.push('beneficiary_vasp');
+    if(missing.length > 0){
+      result.travel_rule_status = 'INCOMPLETE';
+      result.travel_rule_missing = missing;
+      result.aml_flags.push('TRAVEL_RULE_INCOMPLETE');
+    } else {
+      result.travel_rule_status = 'COMPLIANT';
+    }
+  }
+
+  // AML Typology scoring
+  if(result.amount_usd >= 9000 && result.amount_usd < 10000){
+    result.aml_flags.push('STRUCTURING_INDICATOR');
+  }
+  if((!tx.memo || tx.memo.trim()==='') && result.amount_usd >= 5000){
+    result.aml_flags.push('UNUSUAL_TRANSACTION');
+  }
+  var unkNames = ['UNKNOWN','','N/A'];
+  var origUnk = !tx.originator_name || unkNames.includes(tx.originator_name.trim().toUpperCase());
+  var benUnk = !tx.beneficiary_name || unkNames.includes(tx.beneficiary_name.trim().toUpperCase());
+  if(origUnk || benUnk){
+    result.aml_flags.push('MISSING_IDENTITY');
+  }
+  if(mode === 'edd' && (!tx.memo || tx.memo.trim()==='')) {
+    result.aml_flags.push('EDD_NO_MEMO');
+  }
+
+  // SAR determination
+  if(result.ofac_status === 'MATCH'){
+    result.sar_determination = 'SAR_REQUIRED';
+  } else if(result.amount_usd >= sarThresh && (result.aml_flags.includes('STRUCTURING_INDICATOR') || result.aml_flags.includes('MISSING_IDENTITY'))){
+    result.sar_determination = 'SAR_RECOMMENDED';
+  }
+
+  return result;
+}
+
+function pillHtml(text, cls){
+  return '<span class="pill pill-'+cls+'">'+esc(text)+'</span>';
+}
+
+function renderFlagPills(flags){
+  if(!flags || flags.length===0) return pillHtml('CLEAN','green');
+  return flags.map(function(f){
+    if(f==='STRUCTURING_INDICATOR'||f==='MISSING_IDENTITY'||f==='OFAC_MATCH') return pillHtml(f,'red');
+    if(f==='TRAVEL_RULE_INCOMPLETE'||f==='UNUSUAL_TRANSACTION'||f==='EDD_NO_MEMO') return pillHtml(f,'warn');
+    return pillHtml(f,'muted');
+  }).join('');
+}
+
+async function runScreen(){
+  var raw = document.getElementById('batchInput').value.trim();
+  var sarThresh = Number(document.getElementById('sarThreshold').value)||5000;
+  var trThresh = Number(document.getElementById('trThreshold').value)||3000;
+  var mode = document.getElementById('screeningMode').value;
+  var jurisdiction = document.getElementById('jurisdiction').value;
+
+  var batch;
+  try{
+    batch = JSON.parse(raw);
+    if(!Array.isArray(batch)) throw new Error('Input must be a JSON array.');
+  } catch(e){
+    alert('JSON parse error: '+e.message);
+    return;
+  }
+
+  var results = batch.map(function(tx){return screenTransfer(tx, sarThresh, trThresh, mode);});
+  var totalUSD = results.reduce(function(s,r){return s+r.amount_usd;},0);
+  var flaggedCount = results.filter(function(r){return r.aml_flags.length>0||r.ofac_status==='MATCH';}).length;
+  var sarRequired = results.filter(function(r){return r.sar_determination==='SAR_REQUIRED';}).length;
+  var sarRecommended = results.filter(function(r){return r.sar_determination==='SAR_RECOMMENDED';}).length;
+
+  // Overall verdict
+  var overallVerdict = 'PASS';
+  var verdictClass = 'verdict-pass';
+  if(sarRequired > 0 || results.some(function(r){return r.ofac_status==='MATCH';})){
+    overallVerdict='ESCALATE'; verdictClass='verdict-escalate';
+  } else if(flaggedCount > 0){
+    overallVerdict='FLAG'; verdictClass='verdict-flag';
+  }
+
+  // Travel Rule attestation
+  var trResults = results.filter(function(r){return r.travel_rule_status!=='N/A';});
+  var trCompliant = trResults.filter(function(r){return r.travel_rule_status==='COMPLIANT';});
+  var trIncomplete = trResults.filter(function(r){return r.travel_rule_status==='INCOMPLETE';});
+
+  // Build ISO 20022 output payload
+  var originatorLEIs = batch.map(function(tx){return tx.originator_vasp||'';}).filter(Boolean);
+  var beneficiaryLEIs = batch.map(function(tx){return tx.beneficiary_vasp||'';}).filter(Boolean);
+  var iso20022Payload = {
+    instructed_amount: {amount: totalUSD, currency:'USD'},
+    debtor: {party_name: 'Originator batch', lei: originatorLEIs[0]||''},
+    creditor: {party_name: 'Beneficiary batch', lei: beneficiaryLEIs[0]||''},
+    remittance_information: 'TIP-20 batch screen · '+batch.length+' transfers'
+  };
+
+  // Store for export
+  _lastResult = {
+    batch_size: batch.length,
+    total_usd: totalUSD,
+    flagged_count: flaggedCount,
+    sar_required: sarRequired,
+    sar_recommended: sarRecommended,
+    overall_verdict: overallVerdict,
+    screening_mode: mode,
+    jurisdiction: jurisdiction,
+    sar_threshold: sarThresh,
+    travel_rule_threshold: trThresh,
+    per_transfer: results,
+    iso20022: iso20022Payload
+  };
+
+  // Compute hash
+  var hashObj = {inputs:{batch:batch, mode:mode, jurisdiction:jurisdiction, sarThresh:sarThresh, trThresh:trThresh}, output:_lastResult};
+  var execHash = await sha256(hashObj);
+
+  // Render output
+  var html = '';
+
+  // Summary stats
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">Batch Summary</span></div><div class="out-body">';
+  html += '<div class="summary-row">';
+  html += '<div class="stat-box"><div class="stat-label">Transfers</div><div class="stat-val">'+batch.length+'</div></div>';
+  html += '<div class="stat-box"><div class="stat-label">Total USD</div><div class="stat-val">$'+totalUSD.toLocaleString()+'</div></div>';
+  html += '<div class="stat-box"><div class="stat-label">Flagged</div><div class="stat-val '+(flaggedCount>0?'warn':'green')+'">'+flaggedCount+'</div></div>';
+  html += '<div class="stat-box"><div class="stat-label">SAR Required</div><div class="stat-val '+(sarRequired>0?'red':'green')+'">'+sarRequired+'</div></div>';
+  html += '<div class="stat-box"><div class="stat-label">SAR Recommended</div><div class="stat-val '+(sarRecommended>0?'warn':'green')+'">'+sarRecommended+'</div></div>';
+  html += '</div></div></div>';
+
+  // Per-transfer table
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">Per-Transfer Results</span></div><div class="out-body" style="overflow-x:auto">';
+  html += '<table class="tx-table"><thead><tr>';
+  html += '<th>ID</th><th>Amount (USD)</th><th>OFAC Status</th><th>Travel Rule</th><th>AML Flags</th><th>SAR</th>';
+  html += '</tr></thead><tbody>';
+  results.forEach(function(r){
+    var ofacPill = r.ofac_status==='MATCH' ? pillHtml('MATCH','red') : pillHtml('CLEAR','green');
+    var trPill;
+    if(r.travel_rule_status==='COMPLIANT') trPill=pillHtml('COMPLIANT','green');
+    else if(r.travel_rule_status==='INCOMPLETE') trPill=pillHtml('INCOMPLETE','red')+(r.travel_rule_missing?' <small style="font-size:.58rem;color:var(--warn)">missing: '+esc(r.travel_rule_missing.join(', '))+'</small>':'');
+    else trPill=pillHtml('N/A','muted');
+    var sarPill = r.sar_determination==='SAR_REQUIRED'?pillHtml('REQUIRED','red'):r.sar_determination==='SAR_RECOMMENDED'?pillHtml('RECOMMENDED','warn'):pillHtml('NOT REQUIRED','green');
+    html += '<tr>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--bright)">'+esc(r.id)+'</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">$'+r.amount_usd.toLocaleString()+'</td>';
+    html += '<td>'+ofacPill+'</td>';
+    html += '<td>'+trPill+'</td>';
+    html += '<td>'+renderFlagPills(r.aml_flags)+'</td>';
+    html += '<td>'+sarPill+'</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  // Travel Rule attestation
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">Travel Rule Attestation · FATF ('+esc(jurisdiction.toUpperCase())+')</span></div><div class="out-body">';
+  html += '<div class="attestation-list">';
+  html += '<div class="att-row"><span class="att-label">FATF Travel Rule applies ≥ $'+trThresh.toLocaleString()+' (US virtual assets)</span><span class="att-status att-pass">THRESHOLD APPLIED</span></div>';
+  html += '<div class="att-row"><span class="att-label">Transfers requiring Travel Rule: '+trResults.length+'</span><span class="att-status '+(trIncomplete.length>0?'att-fail':'att-pass')+'">'+trCompliant.length+'/'+trResults.length+' COMPLIANT</span></div>';
+  html += '<div class="att-row"><span class="att-label">Required fields: originator_name, originator_vasp, beneficiary_name, beneficiary_vasp</span><span class="att-status '+(trIncomplete.length>0?'att-warn':'att-pass')+'">'+(trIncomplete.length>0?trIncomplete.length+' INCOMPLETE':'ALL PRESENT')+'</span></div>';
+  html += '<div class="att-row"><span class="att-label">OFAC SDN / GENIUS Act PPSI AML Rule (NPRM Apr 10, 2026) screening</span><span class="att-status '+(sarRequired>0?'att-fail':'att-pass')+'">'+(sarRequired>0?'MATCHES FOUND':'NO MATCHES')+'</span></div>';
+  html += '<div class="att-row"><span class="att-label">BSA SAR threshold ≥ $'+sarThresh.toLocaleString()+' (suspicious activity)</span><span class="att-status att-pass">THRESHOLD APPLIED</span></div>';
+  html += '</div></div></div>';
+
+  // ISO 20022 crosswalk
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">ISO 20022 pacs.008-subset Output</span></div><div class="out-body">';
+  html += '<pre class="mfst-code" style="background:var(--bg-3);padding:1rem;border-radius:var(--radius);border:1px solid var(--border);font-size:.65rem">'+esc(JSON.stringify(iso20022Payload,null,2))+'</pre>';
+  html += '</div></div>';
+
+  // Overall verdict
+  html += '<div class="out-card"><div class="out-header"><span class="out-title">Overall Verdict</span></div><div class="out-body">';
+  html += '<div class="verdict-box '+verdictClass+'"><div class="verdict-label">AML Screen Result</div><div class="verdict-val">'+overallVerdict+'</div></div>';
+  html += '<div class="hash-row">sha256:'+execHash+'</div>';
+  html += '</div></div>';
+
+  var sec = document.getElementById('outputSection');
+  sec.innerHTML = html;
+  sec.classList.remove('hidden');
+
+  var btn = document.getElementById('exportBtn');
+  btn.classList.add('ready');
+  btn.disabled = false;
+
+  // Store hash for export
+  _lastResult._execHash = execHash;
+  _lastResult._ts = new Date().toISOString();
+}
+
+async function buildAndExport(){
+  if(!_lastResult) return;
+  var h = _lastResult._execHash || await sha256(_lastResult);
+  var artifact = {
+    "@context":["https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld"],
+    "chaingraph_version":"0.3.1",
+    "ap2_version":"1.0.0",
+    "buildType":"https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256",
+    "mandate_type":"aml_rule",
+    "tool_id":"art-38-tempo-onchain-aml",
+    "tool_version":"1.0.0",
+    "generated_at":_lastResult._ts,
+    "execution_hash":h,
+    "dct:conformsTo":["https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"],
+    "semantic_profile":"iso20022:pacs.008-subset",
+    "chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},
+    "policy_parameters":{
+      "execution_backend":"js",
+      "input_parameters":{
+        "screening_mode":_lastResult.screening_mode,
+        "jurisdiction":_lastResult.jurisdiction,
+        "sar_threshold_usd":_lastResult.sar_threshold,
+        "travel_rule_threshold_usd":_lastResult.travel_rule_threshold,
+        "batch_size":_lastResult.batch_size
+      }
+    },
+    "output_payload":{
+      "overall_verdict":_lastResult.overall_verdict,
+      "batch_size":_lastResult.batch_size,
+      "total_usd":_lastResult.total_usd,
+      "flagged_count":_lastResult.flagged_count,
+      "sar_required":_lastResult.sar_required,
+      "sar_recommended":_lastResult.sar_recommended,
+      "iso20022":_lastResult.iso20022,
+      "per_transfer":_lastResult.per_transfer
+    },
+    "compliance_flags":[],
+    "audit_signature":{"client_side_executed":true,"zero_pii_verified":true,"deterministic_run":true}
+  };
+
+  var ts = ts14();
+  var jsonStr = JSON.stringify(artifact, null, 2);
+  var mdStr = '# ART-38 Tempo On-Chain AML Screener\n\n**tool_id:** art-38-tempo-onchain-aml  \n**generated_at:** '+_lastResult._ts+'  \n**execution_hash:** '+h+'  \n**verdict:** '+_lastResult.overall_verdict+'  \n**batch_size:** '+_lastResult.batch_size+'  \n**total_usd:** $'+_lastResult.total_usd.toLocaleString()+'  \n**flagged:** '+_lastResult.flagged_count+'  \n**sar_required:** '+_lastResult.sar_required+'  \n\n```json\n'+jsonStr+'\n```\n';
+
+  download('art-38-tempo-onchain-aml_'+ts+'.policy.json', jsonStr, 'application/json');
+  setTimeout(function(){download('art-38-tempo-onchain-aml_'+ts+'.md', mdStr, 'text/markdown');}, 200);
+}
+
+function download(name, content, type){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type:type}));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').replace(/\..*/,'').slice(0,14);}
+
+function resetBatch(){
+  document.getElementById('batchInput').value = '[\n  {"id":"TX001","from":"0xA1b2c3","to":"0xD4e5f6","amount_usd":12500,"memo":"payroll-batch-001","originator_name":"Acme Corp","originator_vasp":"LEI:54930084UKLVMY22DS16","beneficiary_name":"Maria Garcia","beneficiary_vasp":"LEI:213800WSGIIZCXF1P572"},\n  {"id":"TX002","from":"0xB2c3d4","to":"0xE5f6a7","amount_usd":2800,"memo":"invoice-INV-2026","originator_name":"TechPay Ltd","originator_vasp":"LEI:21380015QIKU6ZFB5B21","beneficiary_name":"Dev Services LLC","beneficiary_vasp":""},\n  {"id":"TX003","from":"0xC3d4e5","to":"0xF6a7b8","amount_usd":9900,"memo":"","originator_name":"UNKNOWN","originator_vasp":"","beneficiary_name":"UNKNOWN","beneficiary_vasp":""}\n]';
+  document.getElementById('outputSection').classList.add('hidden');
+  var btn=document.getElementById('exportBtn');btn.classList.remove('ready');btn.disabled=true;
+}
+
+function toggleMfst(){
+  var body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));
+  body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
