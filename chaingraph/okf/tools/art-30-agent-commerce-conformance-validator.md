@@ -4,7 +4,7 @@ title: "Agent Commerce Cross-Protocol Conformance Validator"
 description: "The synergy flagship of Wave 6. Validates a single agent purchase end-to-end across four protocols: AP2 v0.2 mandate chain (Intent → Cart → Payment), ACP checkout conformance (OpenAI/Stripe), Visa TAP RFC 9421 HTTP Message Signature inspection, and x402 settlement leg. Issues one unified PASS/WARN/FAIL verdict and a single execution_hash receipt (ChainGraph Standard v0.1 §4, chain_depth: 1). Consumes ART-01, ART-12, ART-03. Feeds CRY-05, PTG-01."
 resource: https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html
 tags: ["payment_mandate", "wave-6", "mcp:validate_agent_commerce_conformance"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # Agent Commerce Cross-Protocol Conformance Validator

@@ -4,7 +4,7 @@ title: "ISO 20022 Structured-Address Migration Batch Verifier"
 description: "GPU-parallel validation of PostalAddress24 fields across pacs.008 messages (up to 500k). Country-specific rules (UK postcode, DE Postleitzahl, US ZIP+4), MT103 :50K: truncation-risk flagging, November-2026 readiness score."
 resource: https://ainumbers.co/chaingraph/rca-03-iso20022-address-migration-verifier.html
 tags: ["compliance_mandate", "wave-1", "mcp:verify_address_migration_batch", "iso20022:pacs.008-subset"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # ISO 20022 Structured-Address Migration Batch Verifier
@@ -14,6 +14,8 @@ timestamp: 2026-06-18T12:19:38.802Z
 **Deadline:** 2026-11-01 — SWIFT CBPR+ structured-address mandate — November 2026 (~5 months). Hardest deadline tool in suite by proximity.
 
 **Semantic profile:** `iso20022:pacs.008-subset` (ISO 20022-aligned)
+
+**Conforms to (`dct:conformsTo`):** <https://openchain.graph/profiles/iso20022/pacs.008-subset>
 
 ## Inputs
 

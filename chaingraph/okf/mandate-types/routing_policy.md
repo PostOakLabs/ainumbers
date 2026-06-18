@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "routing_policy"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"routing_policy\"."
 tags: ["routing_policy", "count-2"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # routing_policy

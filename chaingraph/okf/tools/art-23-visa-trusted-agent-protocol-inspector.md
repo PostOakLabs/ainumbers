@@ -4,7 +4,7 @@ title: "Visa Trusted Agent Protocol (TAP) Signature Inspector"
 description: "Parses and scores Visa TAP Signature-Input / Signature header pairs (RFC 9421 HTTP Message Signatures). Runs a 5-question TAP Readiness Assessment. Branch A, node 2 of the Agentic Rail Chain. Promoted from T286."
 resource: https://ainumbers.co/chaingraph/art-23-visa-trusted-agent-protocol-inspector.html
 tags: ["compliance_control", "wave-A", "mcp:inspect_visa_tap_signature"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # Visa Trusted Agent Protocol (TAP) Signature Inspector

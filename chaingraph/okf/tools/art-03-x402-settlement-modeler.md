@@ -3,8 +3,8 @@ type: DecisionTool
 title: "x402 Settlement Cost & Finality Modeler"
 description: "Rail-selection and finality recommendation across x402 (HTTP 402), Stripe USDC, card, ACH, and SWIFT. Per-transaction cost, eligibility scoring, micropayment support, cross-border flags. ~69k active agents / 165M+ x402 txns (2026)."
 resource: https://ainumbers.co/chaingraph/art-03-x402-settlement-modeler.html
-tags: ["settlement_mandate", "wave-2", "mcp:model_x402_settlement"]
-timestamp: 2026-06-18T12:19:38.802Z
+tags: ["settlement_mandate", "wave-2", "mcp:model_x402_settlement", "iso20022:pacs.008-subset"]
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # x402 Settlement Cost & Finality Modeler
@@ -12,6 +12,10 @@ timestamp: 2026-06-18T12:19:38.802Z
 > Exports a decision via MCP `model_x402_settlement` — mandate type `settlement_mandate`.
 
 **Context:** x402 live on Coinbase CDP; Stripe USDC on Base
+
+**Semantic profile:** `iso20022:pacs.008-subset` (ISO 20022-aligned)
+
+**Conforms to (`dct:conformsTo`):** <https://openchain.graph/profiles/iso20022/pacs.008-subset>
 
 ## Inputs
 

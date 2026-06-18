@@ -4,7 +4,7 @@ title: "ZK Compliance Proof Generator"
 description: "Synthetic ZK compliance proof token for AML/Travel Rule predicates (amount threshold, sanctions clear, KYC complete, velocity normal, source of funds). NTT simulation — models the number-theoretic transform in real ZK-SNARK/STARK backends. GDPR Art. 25 data-minimisation demonstrator. Explicitly educational."
 resource: https://ainumbers.co/chaingraph/cry-01-zk-compliance-proof-generator.html
 tags: ["compliance_mandate", "wave-2", "mcp:generate_zk_compliance_proof"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # ZK Compliance Proof Generator

@@ -66,7 +66,16 @@ function conceptBody(n) {
   lines.push(`> Exports a decision via MCP \`${n.mcp_name}\` — mandate type \`${n.mandate_type}\`.`, '');
   if (n.deadline) lines.push(`**Deadline:** ${n.deadline}${n.deadline_note ? ` — ${n.deadline_note}` : ''}`, '');
   else if (n.deadline_note) lines.push(`**Context:** ${n.deadline_note}`, '');
-  if (n.semantic_profile) lines.push(`**Semantic profile:** \`${n.semantic_profile}\` (ISO 20022-aligned)`, '');
+  if (n.semantic_profile) {
+    // v0.3.1: surface the resolvable profile URI (dct:conformsTo) the token aliases to.
+    const PROFILE_URIS = {
+      'iso20022:pacs.008-subset': 'https://openchain.graph/profiles/iso20022/pacs.008-subset',
+      'iso20022:party-identification': 'https://openchain.graph/profiles/iso20022/party-identification',
+    };
+    const uri = PROFILE_URIS[n.semantic_profile];
+    lines.push(`**Semantic profile:** \`${n.semantic_profile}\` (ISO 20022-aligned)`, '');
+    if (uri) lines.push(`**Conforms to (\`dct:conformsTo\`):** <${uri}>`, '');
+  }
   lines.push('## Inputs', '', `Typed \`inputSchema\` — see [tool page](${n.url}).`, '');
   lines.push('## Outputs', '', 'A hash-anchored OpenChainGraph artifact (decision, not context).', '');
   lines.push('## Chains', '');

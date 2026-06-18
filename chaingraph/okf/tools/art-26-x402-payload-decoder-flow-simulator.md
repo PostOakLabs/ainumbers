@@ -4,7 +4,7 @@ title: "x402 Header Decoder, Payload Linter & 402 Flow Simulator"
 description: "Decodes base64 PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE headers, lints exact-scheme PaymentPayload (EIP-3009 style authorization fields), walks the HTTP-402 request/verify/settle flow, shows scheme×network matrix. Branch B, node 2 of the Agentic Rail Chain. Promoted from T277."
 resource: https://ainumbers.co/chaingraph/art-26-x402-payload-decoder-flow-simulator.html
 tags: ["compliance_control", "wave-A", "mcp:decode_x402_payment"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # x402 Header Decoder, Payload Linter & 402 Flow Simulator

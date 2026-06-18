@@ -4,7 +4,7 @@ title: "FRTB IMA Expected Shortfall Pre-Validator"
 description: "FRTB IMA Expected Shortfall pre-validation: MC simulation across liquidity horizons LH1–LH5 (10/20/40/60/120 days), NMRF surcharge estimation, PLA Test (green/amber/red), IMA vs SA floor capital comparison. Educational pre-validator ahead of UK IMA go-live January 2028."
 resource: https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.html
 tags: ["risk_parameter", "wave-3", "mcp:simulate_frtb_es"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # FRTB IMA Expected Shortfall Pre-Validator

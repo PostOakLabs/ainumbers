@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "risk_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"risk_control\"."
 tags: ["risk_control", "count-4"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # risk_control

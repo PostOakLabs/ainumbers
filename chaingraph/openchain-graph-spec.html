@@ -115,7 +115,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="nav-meta">
       <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.3</span>
+      <span class="nav-pill">v0.3.1</span>
     </div>
   </div>
 </nav>
@@ -123,8 +123,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.3</h1>
-    <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. Every v0.3 addition is optional and additive — all v0.1 and v0.2 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved.</p>
+    <h1>OpenChainGraph Standard v0.3.1</h1>
+    <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive — all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved.</p>
   </div>
 </div>
 
@@ -143,7 +143,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s8">ISO 20022 Semantic Profile <span style="color:var(--green)">(new in v0.3)</span></a></li>
         <li><a href="#s9">Party Identity — LEI &amp; did:key <span style="color:var(--green)">(new in v0.3)</span></a></li>
         <li><a href="#s10">OKF Companion Bundle <span style="color:var(--green)">(new in v0.3)</span></a></li>
-        <li><a href="#s11">Changelog</a></li>
+        <li><a href="#s11">Profile Conformance <span style="color:var(--green)">(new in v0.3.1)</span></a></li>
+        <li><a href="#s12">Changelog</a></li>
       </ol>
     </div>
   </div>
@@ -679,13 +680,81 @@ const is_valid = await crypto.subtle.verify(
   </div>
 </div>
 
-<!-- ═══ §11 Changelog ═══ -->
+<!-- ═══ §11 Profile Conformance (new in v0.3.1) ═══ -->
 <div class="section" id="s11">
   <div class="wrap">
-    <div class="sec-num">Section 11</div>
+    <div class="sec-num">Section 11 — New in v0.3.1</div>
+    <h2>Profile Conformance</h2>
+    <p>v0.3 introduced ISO 20022 alignment via an inline <code>semantic_profile</code> string token. v0.3.1 makes that conformance a first-class, machine-resolvable assertion using the <strong>W3C Profiles Vocabulary (PROF)</strong> and <strong>Content Negotiation by Profile</strong>: a profile is a <code>dct:Standard</code> published at a <strong>dereferenceable URI</strong> and declared with <code>dct:conformsTo</code>. This is fully additive — the <code>execution_hash</code> preimage is unchanged and <code>semantic_profile</code> tokens stay valid as registered aliases.</p>
+
+    <div class="callout gold">
+      <div class="lab">Uniform mechanism, truthful claims</div>
+      <p>Every node declares conformance the same way (<code>dct:conformsTo</code>), but only declares what it <em>truthfully</em> conforms to. ISO 20022 payment/party profiles are applied solely to nodes with the matching payload; a VaR engine or DORA classifier carries no ISO 20022 profile. Forcing a payment profile onto a non-payment node would be a false conformance claim, which this design avoids.</p>
+    </div>
+
+    <h3>Published profiles</h3>
+    <table class="spec-table">
+      <thead><tr><th>Token (alias)</th><th>Profile URI (dereferenceable)</th><th>Applies to</th></tr></thead>
+      <tbody>
+        <tr><td><code>iso20022:pacs.008-subset</code></td><td><code>https://openchain.graph/profiles/iso20022/pacs.008-subset</code></td><td>Payment/settlement nodes (amount + parties + agents) — e.g. x402 settlement, VoP, ISO 20022 address.</td></tr>
+        <tr><td><code>iso20022:party-identification</code> <span class="badge-new">new</span></td><td><code>https://openchain.graph/profiles/iso20022/party-identification</code></td><td>Party/issuer/legal-entity identity without a transaction (<code>party_name</code> + <code>lei</code>). Named after the ISO 20022 PartyIdentification element used in the REDA/ACMT families.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Token → URI registry</h3>
+    <p>The authoritative token↔URI map is published at <code>chaingraph-standard/profiles/registry.json</code> (Content-Negotiation-by-Profile permits a short token alongside the mandatory URI). Each profile URI dereferences to a PROF <code>prof:Profile</code> document listing its schema (the v0.3 ISO 20022 context) and guidance resources.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JSON — artifact / graph-index node with v0.3.1 conformance</span></div>
+      <pre>{
+  <span class="k">"@context"</span>: [
+    <span class="v">"https://openchain.graph/spec/v0.3/context.jsonld"</span>,
+    <span class="v">"https://openchain.graph/spec/v0.3/iso20022-context.jsonld"</span>
+  ],
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.3.1"</span>,
+  <span class="k">"ocg:semantic_profile"</span>: <span class="v">"iso20022:pacs.008-subset"</span>,        <span class="c">// token alias (retained)</span>
+  <span class="k">"dct:conformsTo"</span>: [<span class="v new">"https://openchain.graph/profiles/iso20022/pacs.008-subset"</span>]  <span class="c">// authoritative, dereferenceable</span>
+}</pre>
+    </div>
+
+    <div class="callout">
+      <div class="lab">Hash preimage unchanged</div>
+      <p><code>@context</code>, <code>ocg:semantic_profile</code>, and <code>dct:conformsTo</code> are all outside the <code>execution_hash</code> preimage (sorted-key SHA-256 over <code>{policy_parameters, output_payload}</code>). A verifier correct for v0.1/v0.2/v0.3 computes identical hashes for v0.3.1 artifacts. See the <a href="guide-profiles.html">profile-conformance guide</a>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ §12 Changelog ═══ -->
+<div class="section" id="s12">
+  <div class="wrap">
+    <div class="sec-num">Section 12</div>
     <h2>Changelog</h2>
 
-    <h3 style="margin-top:.4rem">v0.2 → v0.3</h3>
+    <h3 style="margin-top:.4rem">v0.3 → v0.3.1</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§11</span>
+        <span class="change-desc">Formalized <strong>profile conformance</strong>: profiles published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF + Content Negotiation by Profile); <code>semantic_profile</code> retained as a registered token alias; token↔URI registry at <code>profiles/registry.json</code>. <strong>Hash preimage unchanged.</strong></span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§8 + §11</span>
+        <span class="change-desc">Added the <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned PartyIdentification subset: <code>party_name</code> + <code>lei</code>) for party-only payloads, so non-payment nodes can declare conformance truthfully instead of being force-tagged with a payment profile.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Graph Index</span>
+        <span class="change-desc">Fixed DCAT-mirror drift in <code>chaingraph.json</code> (<code>ocg</code> namespace and <code>ocg:spec_version</code> advanced from 0.2 to 0.3.1); added dataset-level <code>dct:conformsTo</code> on profiled nodes.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Guides</span>
+        <span class="change-desc">Added <code>guide-profiles.html</code> (now eight integration guides).</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Compat</span>
+        <span class="change-desc">All v0.1/v0.2/v0.3 artifacts remain valid. Every v0.3.1 field is optional. Internal <code>chaingraph_version</code> and folder paths unchanged.</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">v0.2 → v0.3</h3>
     <div style="margin-top:.6rem">
       <div class="change-row">
         <span class="change-ref">§8</span>
@@ -754,7 +823,7 @@ const is_valid = await crypto.subtle.verify(
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.3 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.3.1 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       Reference implementation: <a href="https://ainumbers.co">AINumbers.co</a>
       <span>·</span>

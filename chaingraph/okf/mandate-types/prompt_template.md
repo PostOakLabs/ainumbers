@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "prompt_template"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"prompt_template\"."
 tags: ["prompt_template", "count-1"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # prompt_template

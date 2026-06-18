@@ -4,7 +4,7 @@ title: "XVA / CVA Calculator"
 description: ""
 resource: https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html
 tags: ["risk_parameter", "wave-3", "mcp:calculate_xva"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # XVA / CVA Calculator

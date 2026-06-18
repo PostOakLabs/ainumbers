@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile Conformance — OpenChainGraph Integration Guide</title>
+<meta name="description" content="OpenChainGraph v0.3.1 profile-conformance guide. Declare ISO 20022 (and other) profile conformance with W3C dct:conformsTo + dereferenceable profile URIs, retaining semantic_profile as a registered token alias (Content Negotiation by Profile). Hash preimage unchanged.">
+<meta property="og:title" content="OpenChainGraph — Profile Conformance Guide">
+<meta property="og:description" content="dct:conformsTo + dereferenceable profile URIs (W3C PROF). semantic_profile retained as a token alias. New iso20022:party-identification profile. Hash preimage unchanged.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+  /* Guide #8 accent: profile violet */
+  --accent:#9B72F5; --accent-lt:#B79BF8; --accent-dim:rgba(155,114,245,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent-lt);border:1px solid rgba(155,114,245,.3);padding:.25rem .65rem;border-radius:20px}
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--accent-lt)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--accent-dim);color:var(--accent-lt);border-color:rgba(155,114,245,.35)}
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);background:var(--accent-dim);border:1px solid rgba(155,114,245,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)} .v{color:var(--gold)} .n{color:var(--green)} .c{color:var(--muted);font-style:italic} .r{color:var(--red-lt)} .p{color:var(--purple)}
+.new{color:var(--green)}
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+.callout-green{border-left-color:var(--green)}
+.callout-green .lab{color:var(--green)}
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="openchain-graph-spec.html">← Spec</a>
+      <span class="nav-tag">Integration Guide #8</span>
+      <span class="nav-pill">v0.3.1</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Post Oak Labs · Integration Guide · 2026</div>
+    <h1>Profile Conformance with <em>dct:conformsTo</em></h1>
+    <p class="hero-desc">How an OpenChainGraph artifact or Graph-Index node declares which semantic profile it conforms to, the v0.3.1 way: a dereferenceable <strong>profile URI</strong> declared via <code>dct:conformsTo</code> (W3C Profiles Vocabulary), with the short <code>semantic_profile</code> token retained as a registered alias (W3C Content Negotiation by Profile). Fully additive — the <code>execution_hash</code> preimage is unchanged.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-provdm.html">PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+      <a class="guide-pill" href="guide-iso20022.html">ISO 20022</a>
+      <a class="guide-pill" href="guide-okf.html">OKF</a>
+      <a class="guide-pill active" href="guide-profiles.html">Profiles</a>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">Section 1</div>
+    <h2>Why profiles, not strings</h2>
+    <p>v0.3 introduced ISO 20022 alignment via a single inline string, <code>semantic_profile: "iso20022:pacs.008-subset"</code>. That is a useful discovery hint but not a standards-grade conformance assertion: the string is opaque, resolves to nothing, and a consumer cannot fetch a machine-readable description of what it means.</p>
+    <p>v0.3.1 follows the <strong>W3C Profiles Vocabulary (PROF)</strong> and <strong>Content Negotiation by Profile</strong>: a profile is a <code>dct:Standard</code> published at a persistent, <strong>dereferenceable URI</strong>, and a resource declares conformance with <code>dct:conformsTo</code>. The short token is kept as a registered alias — conneg-by-profile explicitly allows a token <em>alongside</em> the mandatory URI.</p>
+    <div class="callout callout-gold">
+      <div class="lab">Uniform mechanism, truthful claims</div>
+      <p>Every node declares conformance the same way (<code>dct:conformsTo</code>) but only declares what it <em>truthfully</em> conforms to. ISO 20022 profiles apply only to nodes with the matching payload; a VaR engine, Basel RWA modeller, or DORA classifier carries no ISO 20022 profile. "Uniform" means a uniform mechanism — never a false conformance claim.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">Section 2</div>
+    <h2>The published profiles</h2>
+    <table class="spec-table">
+      <thead><tr><th>Token (alias)</th><th>Profile URI</th><th>Applies to</th></tr></thead>
+      <tbody>
+        <tr><td>iso20022:pacs.008-subset</td><td>/profiles/iso20022/pacs.008-subset</td><td>Payment/settlement payloads — amount + parties + agents. e.g. x402 settlement, VoP, ISO 20022 address.</td></tr>
+        <tr><td>iso20022:party-identification <span class="new">(new)</span></td><td>/profiles/iso20022/party-identification</td><td>Party / issuer / legal-entity identity without a transaction (<code>party_name</code> + <code>lei</code>). Named after the ISO 20022 PartyIdentification element used in the REDA / ACMT families.</td></tr>
+      </tbody>
+    </table>
+    <p>Each URI dereferences to a PROF <code>prof:Profile</code> document that points at its schema resource (the v0.3 ISO 20022 JSON-LD context) and a human guidance resource. The authoritative token→URI map is <code>profiles/registry.json</code>.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">Section 3</div>
+    <h2>Declaring conformance</h2>
+    <p>On an emitted artifact and on a Graph-Index node, add <code>dct:conformsTo</code> (the authoritative URI) and keep <code>ocg:semantic_profile</code> (the alias):</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JSON — v0.3.1 conformance</span><span class="code-note">▲ dct:conformsTo new; token retained</span></div>
+      <pre>{
+  <span class="k">"@context"</span>: [
+    <span class="v">"https://openchain.graph/spec/v0.3/context.jsonld"</span>,
+    <span class="v">"https://openchain.graph/spec/v0.3/iso20022-context.jsonld"</span>
+  ],
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.3.1"</span>,
+  <span class="k">"ocg:semantic_profile"</span>: <span class="v">"iso20022:pacs.008-subset"</span>,         <span class="c">// alias (retained)</span>
+  <span class="k">"dct:conformsTo"</span>: [<span class="v new">"https://openchain.graph/profiles/iso20022/pacs.008-subset"</span>]   <span class="c">// authoritative</span>
+}</pre>
+    </div>
+    <p>An agent resolving the token looks it up in <code>profiles/registry.json</code>; a crawler filters the Graph Index on <code>dct:conformsTo</code> or <code>ocg:semantic_profile</code>. Both work.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">Section 4</div>
+    <h2>Hash preimage is unchanged</h2>
+    <p>The <code>execution_hash</code> preimage remains the sorted-key SHA-256 over <code>{"policy_parameters": …, "output_payload": …}</code> only — identical to v0.1/v0.2/v0.3. The <code>@context</code> array, <code>ocg:semantic_profile</code>, and <code>dct:conformsTo</code> are all JSON-LD framing, outside the preimage. A verifier that was correct for earlier versions computes the same hash for a v0.3.1 artifact with no code changes.</p>
+    <div class="callout callout-green">
+      <div class="lab">Migration acceptance</div>
+      <p>(1) Re-emit a known artifact pre/post migration → identical <code>execution_hash</code>. (2) Every profile URI resolves (no 404) and every registry token maps to a resolvable URI. (3) No non-payment / non-party node carries an <code>iso20022:</code> profile. (4) v0.1/v0.2/v0.3 artifacts without <code>dct:conformsTo</code> still validate.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.3.1 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span>
+      <a href="openchain-graph-spec.html">← Technical Specification</a>
+      <span>·</span>
+      Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

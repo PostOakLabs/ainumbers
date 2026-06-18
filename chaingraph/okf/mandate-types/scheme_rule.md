@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "scheme_rule"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"scheme_rule\"."
 tags: ["scheme_rule", "count-1"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # scheme_rule

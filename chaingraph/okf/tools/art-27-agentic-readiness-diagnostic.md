@@ -4,7 +4,7 @@ title: "Agentic Payments Readiness Diagnostic"
 description: "12-question scored diagnostic: graded A–F across policy & mandates, protocol formalisation, financial-crime controls, and MCP runtime operations. Single-node ChainGraph (chain_depth: 0). Promoted from guides/agentic-readiness-diagnostic.html."
 resource: https://ainumbers.co/chaingraph/art-27-agentic-readiness-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:run_agentic_readiness_diagnostic"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # Agentic Payments Readiness Diagnostic

@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "liquidity_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"liquidity_mandate\"."
 tags: ["liquidity_mandate", "count-2"]
-timestamp: 2026-06-18T12:19:38.802Z
+timestamp: 2026-06-18T13:58:30.949Z
 ---
 
 # liquidity_mandate
