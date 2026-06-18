@@ -4,7 +4,7 @@ title: "x402 Settlement Cost & Finality Modeler"
 description: "Rail-selection and finality recommendation across x402 (HTTP 402), Stripe USDC, card, ACH, and SWIFT. Per-transaction cost, eligibility scoring, micropayment support, cross-border flags. ~69k active agents / 165M+ x402 txns (2026)."
 resource: https://ainumbers.co/chaingraph/art-03-x402-settlement-modeler.html
 tags: ["settlement_mandate", "wave-2", "mcp:model_x402_settlement", "iso20022:pacs.008-subset"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # x402 Settlement Cost & Finality Modeler
@@ -15,7 +15,7 @@ timestamp: 2026-06-18T13:58:30.949Z
 
 **Semantic profile:** `iso20022:pacs.008-subset` (ISO 20022-aligned)
 
-**Conforms to (`dct:conformsTo`):** <https://openchain.graph/profiles/iso20022/pacs.008-subset>
+**Conforms to (`dct:conformsTo`):** <https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld>
 
 ## Inputs
 

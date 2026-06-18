@@ -4,7 +4,7 @@ title: "DORA Major-Incident Reporting Threshold Classifier"
 description: "DORA Article 19/20 reporting determination and reporting-clock start. Clients affected, transaction value, downtime, geographic spread, cross-border component. Fast, deterministic."
 resource: https://ainumbers.co/chaingraph/art-09-dora-incident-classifier.html
 tags: ["infrastructure_mandate", "wave-1", "mcp:classify_dora_incident"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # DORA Major-Incident Reporting Threshold Classifier

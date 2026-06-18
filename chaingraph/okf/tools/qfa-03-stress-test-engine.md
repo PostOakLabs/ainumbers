@@ -4,7 +4,7 @@ title: "Stress Test Engine"
 description: "Multi-scenario stress testing across 6 historical crisis scenarios (GFC 2008, COVID Mar 2020, Dot-com Bust, Lehman Week, Rate Shock 2022, SVB Contagion 2023) with Monte Carlo per scenario. Equity/credit/rate factor decomposition, stressed VaR and ES, stress multiplier, recovery-day estimate. Chains from QFA-02 (VaR Engine). Feeds RCA-01 (FRTB IMA). Basel 3.1 Pillar 2 ICAAP / EBA GL/2018/04 / FRTB MAR30 stress calibration reference."
 resource: https://ainumbers.co/chaingraph/qfa-03-stress-test-engine.html
 tags: ["risk_parameter", "wave-4", "mcp:compute_stress_test_scenarios"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # Stress Test Engine

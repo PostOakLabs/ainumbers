@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "capital_assessment"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"capital_assessment\"."
 tags: ["capital_assessment", "count-2"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # capital_assessment

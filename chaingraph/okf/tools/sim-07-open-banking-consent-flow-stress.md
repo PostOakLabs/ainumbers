@@ -4,7 +4,7 @@ title: "Open Banking Consent Flow Stress Simulator"
 description: "Monte Carlo stress simulation of PSD2/FAPI 2.0/CDR consent lifecycle FSM (INIT→REDIRECT→AUTH→AUTHORIZED→ACTIVE→FAILED/EXPIRED/REVOKED). Configurable failure probabilities per transition stage, terminal state distribution, ASPSP SCA availability compliance check (95% threshold). Chains from PNR-01 (DORA ICT cascade)."
 resource: https://ainumbers.co/chaingraph/sim-07-open-banking-consent-flow-stress.html
 tags: ["compliance_mandate", "wave-3", "mcp:simulate_consent_stress"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # Open Banking Consent Flow Stress Simulator

@@ -69,8 +69,8 @@ function conceptBody(n) {
   if (n.semantic_profile) {
     // v0.3.1: surface the resolvable profile URI (dct:conformsTo) the token aliases to.
     const PROFILE_URIS = {
-      'iso20022:pacs.008-subset': 'https://openchain.graph/profiles/iso20022/pacs.008-subset',
-      'iso20022:party-identification': 'https://openchain.graph/profiles/iso20022/party-identification',
+      'iso20022:pacs.008-subset': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs.008-subset.jsonld',
+      'iso20022:party-identification': 'https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld',
     };
     const uri = PROFILE_URIS[n.semantic_profile];
     lines.push(`**Semantic profile:** \`${n.semantic_profile}\` (ISO 20022-aligned)`, '');

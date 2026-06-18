@@ -4,7 +4,7 @@ title: "APP Fraud Graph Simulator"
 description: ""
 resource: https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html
 tags: ["aml_rule", "wave-3", "mcp:simulate_app_fraud_graph"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # APP Fraud Graph Simulator

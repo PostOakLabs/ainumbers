@@ -4,7 +4,7 @@ title: "A2A Agent Card Validator & Extension Checker"
 description: "Validates an A2A agent-card.json against the v1.0 shape — identity fields, capabilities, extensions (AP2/x402), input/output modes, skills, provider, signed-card JWS block. Branch B, node 1 of the Agentic Rail Chain. Promoted from T283."
 resource: https://ainumbers.co/chaingraph/art-25-a2a-agent-card-validator.html
 tags: ["compliance_control", "wave-A", "mcp:validate_a2a_agent_card"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # A2A Agent Card Validator & Extension Checker

@@ -4,7 +4,7 @@ title: "Agentic Checkout Protocol Selector"
 description: "Scores ACP, UCP, x402, and Visa TAP against platform profile (buyer type, AOV, geography, stack capabilities) and returns a ranked protocol recommendation with fit scores. Node 1 of 3 in the Agentic Checkout Chain."
 resource: https://ainumbers.co/chaingraph/art-19-agentic-checkout-protocol-selector.html
 tags: ["routing_policy", "wave-A", "mcp:compare_agentic_payment_protocols"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # Agentic Checkout Protocol Selector

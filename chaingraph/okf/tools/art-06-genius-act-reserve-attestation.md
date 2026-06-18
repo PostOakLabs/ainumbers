@@ -4,7 +4,7 @@ title: "GENIUS Act Reserve Attestation Pre-Check"
 description: "1:1 reserve coverage, reserve-composition eligibility against GENIUS Act permitted-asset classes, monthly reserve-report figures against AICPA 2025 Criteria for CEO/CFO certification. Distinct from MiCA reserve stress."
 resource: https://ainumbers.co/chaingraph/art-06-genius-act-reserve-attestation.html
 tags: ["attestation_mandate", "wave-1", "mcp:precheck_reserve_attestation"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # GENIUS Act Reserve Attestation Pre-Check

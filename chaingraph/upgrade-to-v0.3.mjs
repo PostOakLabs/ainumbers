@@ -13,7 +13,7 @@
  * What it deliberately does NOT change:
  *   · buildType — the WebCryptoSHA256 URI is a version-independent identifier of the
  *     hash construction, which is byte-identical in v0.3 (immutability rule). Artifacts
- *     keep https://openchain.graph/spec/v0.2#WebCryptoSHA256.
+ *     keep https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256.
  *   · the execution_hash preimage (policy_parameters + output_payload) — untouched, so
  *     every previously emitted hash still verifies.
  *   · documentation / spec / guide / hub pages — they use double-quoted JSON examples and
@@ -33,11 +33,11 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APPLY = process.argv.includes('--apply');
 
-const V2_CTX = "'@context': 'https://openchain.graph/spec/v0.2/context.jsonld'";
-const V3_CTX_SINGLE = "'@context': 'https://openchain.graph/spec/v0.3/context.jsonld'";
+const V2_CTX = "'@context': 'https://ainumbers.co/chaingraph/context/v0.2/context.jsonld'";
+const V3_CTX_SINGLE = "'@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'";
 const V3_CTX_ARRAY =
-  "'@context': ['https://openchain.graph/spec/v0.3/context.jsonld', " +
-  "'https://openchain.graph/spec/v0.3/iso20022-context.jsonld']";
+  "'@context': ['https://ainumbers.co/chaingraph/context/v0.3/context.jsonld', " +
+  "'https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld']";
 const V2_VER = "chaingraph_version: '0.2.0'";
 const V3_VER = "chaingraph_version: '0.3.0'";
 const SEMPROFILE = "\n    semantic_profile: 'iso20022:pacs.008-subset',";

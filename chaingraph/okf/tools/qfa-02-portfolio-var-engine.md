@@ -4,7 +4,7 @@ title: "Portfolio Covariance & VaR Engine"
 description: "VaR and Expected Shortfall: Historical Simulation, Parametric (variance-covariance), and Monte Carlo with Cholesky 2-factor correlation structure. P&L histogram (30 bins), 8×8 covariance heatmap. 500 assets, seeded LCG RNG. Buy-side zero-egress story."
 resource: https://ainumbers.co/chaingraph/qfa-02-portfolio-var-engine.html
 tags: ["risk_control", "wave-2", "mcp:compute_portfolio_var"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # Portfolio Covariance & VaR Engine

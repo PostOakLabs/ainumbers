@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "aml_rule"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"aml_rule\"."
 tags: ["aml_rule", "count-1"]
-timestamp: 2026-06-18T13:58:30.949Z
+timestamp: 2026-06-18T14:43:45.819Z
 ---
 
 # aml_rule
