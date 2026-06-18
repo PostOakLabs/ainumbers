@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Collateral Swap Eligibility Validator · AINumbers.co</title>
+<meta name="description" content="Validate a collateral swap (upgrade/downgrade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determine HQLA impact and regulatory eligibility. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/515-collateral-swap-eligibility-validator.html">
+<script type="application/ld+json">{"@context":["https://schema.org","https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"],"@type":"SoftwareApplication","name":"Collateral Swap Eligibility Validator","url":"https://ainumbers.co/tools/515-collateral-swap-eligibility-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"dct:conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"}</script>
+<!-- manifest.json
+{
+  "tool_id": "515-collateral-swap-eligibility-validator",
+  "version": "1.0.0",
+  "title": "Collateral Swap Eligibility Validator",
+  "description": "Validate a collateral swap (upgrade/downgrade trade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determine HQLA impact and regulatory eligibility.",
+  "category": "capital-markets",
+  "tags": ["collateral-swap","gmsla","gmra","sftr","hqla","upgrade","downgrade","canton","securities-lending"],
+  "audience": ["collateral-desk","treasury","risk","operations"],
+  "mcp_tool_definition": {"name":"validate_collateral_swap_eligibility","description":"Validate a collateral swap (upgrade/downgrade trade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determines HQLA tier impact and swap eligibility.","inputSchema":{"type":"object","properties":{"asset_type_a":{"type":"string","enum":["ust","gilt","eu_sovereign","agency_mbs","ig_corp_bond","equity","cash_usd","cash_eur","mmf_fund_share"]},"notional_a":{"type":"number"},"currency_a":{"type":"string","enum":["USD","EUR","GBP"]},"asset_type_b":{"type":"string","enum":["ust","gilt","eu_sovereign","agency_mbs","ig_corp_bond","equity","cash_usd","cash_eur","mmf_fund_share"]},"notional_b":{"type":"number"},"currency_b":{"type":"string","enum":["USD","EUR","GBP"]},"swap_direction":{"type":"string","enum":["upgrade","downgrade","neutral"]},"governing_agreement":{"type":"string","enum":["gmsla","gmra","bespoke_csa","undefined"]},"sftr_consent":{"type":"boolean"},"collateral_reuse":{"type":"boolean"},"haircut_a":{"type":"number"},"haircut_b":{"type":"number"},"provider_informed":{"type":"boolean"},"eu_counterparty":{"type":"boolean"}},"required":["asset_type_a","notional_a","asset_type_b","notional_b","swap_direction","governing_agreement"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/515-collateral-swap-eligibility-validator.html","function_name":"runCollateralSwap","timeout_ms":3000},
+  "ap2_export": true,
+  "mandate_type": "collateral_mandate",
+  "semantic_profile": "iso20022:pacs.008-subset",
+  "dct_conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chaingraph_version": "0.3.1"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1rem}
+.form-field{display:flex;flex-direction:column;gap:.35rem}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-select,.form-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.form-select:focus,.form-input:focus{border-color:var(--teal)}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.checkbox-row{display:flex;align-items:center;gap:.55rem;padding:.4rem 0}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.checkbox-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text)}
+.leg-divider{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:.85rem 0 .6rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:110px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;line-height:1;color:var(--teal)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+.stat-note{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--body);text-align:center;margin-top:.15rem}
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.flag-warn .flag-name{color:var(--warn)}
+.flag-error .flag-name{color:var(--red)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.chain-next{display:flex;align-items:center;gap:.75rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal-lt)}
+.chain-next a{color:var(--teal-lt);text-decoration:underline}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.alert-box{border-radius:6px;padding:.6rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;line-height:1.6;margin:.5rem 0}
+.alert-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.alert-teal{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt)}
+.alert-green{background:var(--green-dim);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.alert-red{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.kv-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.kv-table td{padding:.4rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:top}
+.kv-table tr:last-child td{border-bottom:none}
+.kv-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;width:35%}
+.kv-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)}
+.swap-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.swap-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.swap-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.swap-table tr:last-child td{border-bottom:none}
+.eligibility-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .85rem;border-radius:4px;font-weight:500}
+.elig-pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.elig-cond{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.elig-fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.hqla-l1{color:var(--green)}.hqla-l2a{color:var(--teal)}.hqla-l2b{color:var(--warn)}.hqla-non{color:var(--red)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-515</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T515 · Collateral Swap · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Collateral Swap <em>Eligibility Validator</em></h1>
+  <p class="hero-desc">Validate a collateral swap (upgrade/downgrade trade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determine HQLA tier impact, economic terms, and swap eligibility.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">GMSLA / GMRA</span>
+    <span class="badge badge-warn">SFTR Art 15</span>
+    <span class="badge badge-gold">HQLA Impact</span>
+    <span class="badge badge-purple">HQLAX / Canton</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+    This tool applies GMSLA (ISLA), GMRA (ICMA), SFTR Art 15 (Regulation (EU) 2015/2365), and BCBS LCR HQLA classification (BCBS LCR standard, January 2013, revised April 2014). Outputs are decision-support only — verify with your legal and collateral teams before executing swaps. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('hqlax_upgrade')">HQLAX-style Gilt→UST upgrade on Canton [Source: HQLAX on Canton, publicly announced]</button>
+      <button class="preset-btn" onclick="loadPreset('sftr_reuse_missing')">EU repo swap — missing SFTR consent [Illustrative]</button>
+      <button class="preset-btn" onclick="loadPreset('mmf_upgrade_attempt')">MMF fund share upgrade attempt [Illustrative — shows why MMF fails]</button>
+    </div>
+  </div>
+
+  <!-- INPUTS -->
+  <div class="panel">
+    <div class="panel-header">Swap Parameters</div>
+
+    <div class="leg-divider">Leg A — Collateral Given</div>
+    <div class="form-grid">
+      <div class="form-field">
+        <span class="form-label">Asset Type (Leg A)</span>
+        <select class="form-select" id="assetTypeA">
+          <option value="ust">US Treasury (UST)</option>
+          <option value="gilt">Gilt</option>
+          <option value="eu_sovereign">EU Sovereign Bond</option>
+          <option value="agency_mbs">Agency MBS</option>
+          <option value="ig_corp_bond">IG Corporate Bond</option>
+          <option value="equity">Equity</option>
+          <option value="cash_usd">Cash USD</option>
+          <option value="cash_eur">Cash EUR</option>
+          <option value="mmf_fund_share">MMF Fund Share</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notional A</span>
+        <input type="number" class="form-input" id="notionalA" value="50000000" min="0" step="1000000">
+      </div>
+      <div class="form-field">
+        <span class="form-label">Currency A</span>
+        <select class="form-select" id="currencyA">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Haircut A (%)</span>
+        <input type="number" class="form-input" id="haircutA" value="0" min="0" max="100" step="0.5">
+      </div>
+    </div>
+
+    <div class="leg-divider">Leg B — Collateral Received</div>
+    <div class="form-grid">
+      <div class="form-field">
+        <span class="form-label">Asset Type (Leg B)</span>
+        <select class="form-select" id="assetTypeB">
+          <option value="ust">US Treasury (UST)</option>
+          <option value="gilt">Gilt</option>
+          <option value="eu_sovereign">EU Sovereign Bond</option>
+          <option value="agency_mbs">Agency MBS</option>
+          <option value="ig_corp_bond">IG Corporate Bond</option>
+          <option value="equity">Equity</option>
+          <option value="cash_usd">Cash USD</option>
+          <option value="cash_eur">Cash EUR</option>
+          <option value="mmf_fund_share">MMF Fund Share</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notional B</span>
+        <input type="number" class="form-input" id="notionalB" value="50000000" min="0" step="1000000">
+      </div>
+      <div class="form-field">
+        <span class="form-label">Currency B</span>
+        <select class="form-select" id="currencyB">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Haircut B (%)</span>
+        <input type="number" class="form-input" id="haircutB" value="0" min="0" max="100" step="0.5">
+      </div>
+    </div>
+
+    <div class="leg-divider">Swap Terms &amp; Legal Framework</div>
+    <div class="form-grid">
+      <div class="form-field">
+        <span class="form-label">Swap Direction</span>
+        <select class="form-select" id="swapDirection">
+          <option value="upgrade">Upgrade (receiving higher HQLA quality)</option>
+          <option value="downgrade">Downgrade (receiving lower HQLA quality)</option>
+          <option value="neutral">Neutral (same HQLA tier)</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Governing Agreement</span>
+        <select class="form-select" id="governingAgreement">
+          <option value="gmsla">GMSLA — Securities Lending</option>
+          <option value="gmra">GMRA — Repo / Buy-Sell Back</option>
+          <option value="bespoke_csa">Bespoke CSA</option>
+          <option value="undefined">Undefined / None</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="leg-divider">SFTR &amp; Reuse</div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="euCounterparty">
+      <label class="checkbox-label" for="euCounterparty">EU counterparty (SFTR applies)</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="collateralReuse">
+      <label class="checkbox-label" for="collateralReuse">Collateral reuse intended</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="sftrConsent">
+      <label class="checkbox-label" for="sftrConsent">SFTR Art 15: counterparty consent to collateral reuse obtained</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="providerInformed">
+      <label class="checkbox-label" for="providerInformed">Collateral provider informed of reuse</label>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runCollateralSwap()">&#9654; Validate Collateral Swap</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="514-tokenized-fund-collateral-validator.html">&#8592; T514</a>
+    <a href="../guides/canton-tmf-hub.html">Canton TMF Hub &#8594;</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T515 Collateral Swap Eligibility Validator v1.0
+   GMSLA (ISLA) + GMRA (ICMA) + SFTR Art 15 (Regulation (EU) 2015/2365)
+   HQLA tier assignment per BCBS LCR standard (Jan 2013, rev. Apr 2014)
+   All client-side. Zero network. Zero storage. ═══ */
+
+/* ── HQLA tier table ── */
+var HQLA_TIERS = {
+  ust:           { tier:'Level1',    tierNum:1, label:'US Treasury', hqlaLabel:'Level 1', stdHaircut:0.00, cls:'hqla-l1' },
+  gilt:          { tier:'Level1',    tierNum:1, label:'Gilt',         hqlaLabel:'Level 1', stdHaircut:0.00, cls:'hqla-l1' },
+  eu_sovereign:  { tier:'Level1',    tierNum:1, label:'EU Sovereign', hqlaLabel:'Level 1', stdHaircut:0.00, cls:'hqla-l1' },
+  agency_mbs:    { tier:'Level2A',   tierNum:2, label:'Agency MBS',   hqlaLabel:'Level 2A',stdHaircut:0.15, cls:'hqla-l2a' },
+  ig_corp_bond:  { tier:'Level2B',   tierNum:3, label:'IG Corp Bond', hqlaLabel:'Level 2B',stdHaircut:0.50, cls:'hqla-l2b' },
+  equity:        { tier:'Level2B',   tierNum:3, label:'Equity',       hqlaLabel:'Level 2B',stdHaircut:0.50, cls:'hqla-l2b' },
+  cash_usd:      { tier:'Level1',    tierNum:1, label:'Cash USD',     hqlaLabel:'Level 1 (Cash)',stdHaircut:0.00, cls:'hqla-l1' },
+  cash_eur:      { tier:'Level1',    tierNum:1, label:'Cash EUR',     hqlaLabel:'Level 1 (Cash)',stdHaircut:0.00, cls:'hqla-l1' },
+  mmf_fund_share:{ tier:'NON_HQLA',  tierNum:99,label:'MMF Fund Share',hqlaLabel:'NON-HQLA',stdHaircut:0.10, cls:'hqla-non' }
+};
+
+var AGREEMENT_LABELS = {
+  gmsla:'GMSLA (Global Master Securities Lending Agreement, ISLA)',
+  gmra:'GMRA (ICMA Global Master Repurchase Agreement)',
+  bespoke_csa:'Bespoke CSA',
+  undefined:'Undefined / None'
+};
+
+var PRESETS = {
+  hqlax_upgrade: {
+    assetTypeA:'ig_corp_bond', notionalA:50000000, currencyA:'GBP', haircutA:0,
+    assetTypeB:'ust', notionalB:50000000, currencyB:'USD', haircutB:0,
+    swapDirection:'upgrade', governingAgreement:'gmsla',
+    euCounterparty:true, collateralReuse:true, sftrConsent:true, providerInformed:true
+  },
+  sftr_reuse_missing: {
+    assetTypeA:'eu_sovereign', notionalA:40000000, currencyA:'EUR', haircutA:0,
+    assetTypeB:'agency_mbs', notionalB:38000000, currencyB:'EUR', haircutB:15,
+    swapDirection:'downgrade', governingAgreement:'gmra',
+    euCounterparty:true, collateralReuse:true, sftrConsent:false, providerInformed:false
+  },
+  mmf_upgrade_attempt: {
+    assetTypeA:'mmf_fund_share', notionalA:20000000, currencyA:'USD', haircutA:0,
+    assetTypeB:'ust', notionalB:20000000, currencyB:'USD', haircutB:0,
+    swapDirection:'upgrade', governingAgreement:'gmsla',
+    euCounterparty:false, collateralReuse:false, sftrConsent:false, providerInformed:false
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('assetTypeA').value = p.assetTypeA;
+  document.getElementById('notionalA').value = p.notionalA;
+  document.getElementById('currencyA').value = p.currencyA;
+  document.getElementById('haircutA').value = p.haircutA;
+  document.getElementById('assetTypeB').value = p.assetTypeB;
+  document.getElementById('notionalB').value = p.notionalB;
+  document.getElementById('currencyB').value = p.currencyB;
+  document.getElementById('haircutB').value = p.haircutB;
+  document.getElementById('swapDirection').value = p.swapDirection;
+  document.getElementById('governingAgreement').value = p.governingAgreement;
+  document.getElementById('euCounterparty').checked = !!p.euCounterparty;
+  document.getElementById('collateralReuse').checked = !!p.collateralReuse;
+  document.getElementById('sftrConsent').checked = !!p.sftrConsent;
+  document.getElementById('providerInformed').checked = !!p.providerInformed;
+}
+
+function fmt(n) {
+  if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(2)+'B';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toFixed(2);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function computeHash(obj) {
+  var sorted = JSON.stringify(obj, Object.keys(obj).sort());
+  var buf = new TextEncoder().encode(sorted);
+  var digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+var _lastResult = null;
+var _executionHash = null;
+
+function runCollateralSwap() {
+  var assetA   = document.getElementById('assetTypeA').value;
+  var notionalA = parseFloat(document.getElementById('notionalA').value) || 0;
+  var ccyA     = document.getElementById('currencyA').value;
+  var hcA      = parseFloat(document.getElementById('haircutA').value) || 0;
+  var assetB   = document.getElementById('assetTypeB').value;
+  var notionalB = parseFloat(document.getElementById('notionalB').value) || 0;
+  var ccyB     = document.getElementById('currencyB').value;
+  var hcB      = parseFloat(document.getElementById('haircutB').value) || 0;
+  var direction = document.getElementById('swapDirection').value;
+  var agreement = document.getElementById('governingAgreement').value;
+  var euCp     = document.getElementById('euCounterparty').checked;
+  var reuse    = document.getElementById('collateralReuse').checked;
+  var sftrConsent = document.getElementById('sftrConsent').checked;
+  var providerInformed = document.getElementById('providerInformed').checked;
+  var ts = new Date().toISOString().slice(0,10);
+
+  if (notionalA <= 0 || notionalB <= 0) { alert('Please enter notionals greater than zero.'); return; }
+
+  var tierA = HQLA_TIERS[assetA];
+  var tierB = HQLA_TIERS[assetB];
+  var flags = {};
+  var alerts = [];
+
+  /* ── Economic terms ── */
+  var valueA = notionalA * (1 - hcA / 100);
+  var valueB = notionalB * (1 - hcB / 100);
+  var netEconomicValue = valueB - valueA;
+  if (netEconomicValue > 0) {
+    flags.SWAP_ECONOMICALLY_FAVOURABLE = { pass:true, label:'Swap Economically Favourable', desc:'Net economic value = '+fmt(netEconomicValue)+' (Leg B > Leg A after haircuts).' };
+  } else if (netEconomicValue < 0) {
+    flags.SWAP_ECONOMICALLY_UNFAVOURABLE = { pass:false, label:'Swap Economically Unfavourable', desc:'Net economic value = '+fmt(netEconomicValue)+' (Leg A > Leg B after haircuts). Counterparty value given exceeds value received.', warn:true };
+    alerts.push({ kind:'alert-warn', msg:'Net economic value is negative ('+fmt(netEconomicValue)+'). Leg A value exceeds Leg B after haircuts.' });
+  }
+
+  /* ── HQLA tier detection and direction validation ── */
+  var hqlaImpact;
+  if (tierA.tierNum > tierB.tierNum) {
+    hqlaImpact = 'UPGRADE';
+    flags.HQLA_UPGRADE = { pass:true, label:'HQLA Upgrade', desc:'Giving '+tierA.hqlaLabel+' (Leg A), receiving '+tierB.hqlaLabel+' (Leg B) — positive LCR HQLA impact (receiving higher quality).' };
+  } else if (tierA.tierNum < tierB.tierNum) {
+    hqlaImpact = 'DOWNGRADE';
+    flags.HQLA_DOWNGRADE = { pass:false, label:'HQLA Downgrade', desc:'Giving '+tierA.hqlaLabel+' (Leg A), receiving '+tierB.hqlaLabel+' (Leg B) — negative LCR HQLA impact. May require LCR buffer top-up.', warn:true };
+    alerts.push({ kind:'alert-warn', msg:'HQLA Downgrade: Receiving lower HQLA quality than given. LCR buffer may need topping up.' });
+  } else {
+    hqlaImpact = 'NEUTRAL';
+    flags.HQLA_NEUTRAL = { pass:true, label:'HQLA Neutral', desc:'Both legs have the same HQLA tier ('+tierA.hqlaLabel+'). No LCR HQLA quality change.' };
+  }
+
+  /* ── Direction mismatch check ── */
+  if (direction === 'upgrade' && hqlaImpact !== 'UPGRADE') {
+    flags.SWAP_DIRECTION_MISMATCH = { pass:false, label:'Swap Direction Mismatch', desc:'Selected direction is "upgrade" but HQLA tier analysis shows the swap is a '+hqlaImpact.toLowerCase()+' (Leg A: '+tierA.hqlaLabel+', Leg B: '+tierB.hqlaLabel+'). Verify asset selection.', err:true };
+    alerts.push({ kind:'alert-warn', msg:'Direction mismatch: Declared "upgrade" but HQLA tier analysis = '+hqlaImpact.toLowerCase()+'. Leg A: '+tierA.hqlaLabel+', Leg B: '+tierB.hqlaLabel+'.' });
+  } else if (direction === 'downgrade' && hqlaImpact !== 'DOWNGRADE') {
+    flags.SWAP_DIRECTION_MISMATCH = { pass:false, label:'Swap Direction Mismatch', desc:'Selected direction is "downgrade" but HQLA tier analysis shows the swap is a '+hqlaImpact.toLowerCase()+' (Leg A: '+tierA.hqlaLabel+', Leg B: '+tierB.hqlaLabel+'). Verify asset selection.', warn:true };
+  }
+
+  /* ── MMF collateral note ── */
+  if (assetA === 'mmf_fund_share' || assetB === 'mmf_fund_share') {
+    flags.FUND_HQLA_EXCLUDED_SWAP = { pass:false, label:'MMF Fund Share: NON-HQLA', desc:'MMF fund shares used in a collateral swap are NON-HQLA. The swap does not improve LCR HQLA quality regardless of swap direction. SFTR reporting applies if EU counterparty.', err:true };
+    flags.MMF_COLLATERAL_NOTE = { pass:false, label:'MMF Collateral Note', desc:'MMF fund shares are NON-HQLA. A collateral swap involving MMF fund shares cannot achieve an HQLA upgrade. BCBS LCR paras 50–54; fund units are not eligible HQLA.', warn:true };
+    alerts.push({ kind:'alert-red', msg:'MMF Fund Share: NON-HQLA. A swap involving MMF fund shares cannot achieve a HQLA upgrade. SFTR reporting applies if EU counterparty. BCBS LCR paras 50–54.' });
+  }
+
+  /* ── SFTR Art 15 ── */
+  if (euCp) {
+    if (reuse && !sftrConsent) {
+      flags.SFTR_ART15_CONSENT_MISSING = { pass:false, label:'SFTR Art 15(1): Consent Missing', desc:'SFTR Art 15(1): A counterparty receiving collateral under an SFT may only reuse it if the collateral provider has been expressly informed of the risks and has given prior consent. Reuse without consent is a SFTR violation.', err:true };
+      alerts.push({ kind:'alert-red', msg:'SFTR Art 15(1) VIOLATION: Collateral reuse intended but counterparty consent not obtained. This is a SFTR violation. Obtain written consent before reuse.' });
+    }
+    if (reuse && !providerInformed) {
+      flags.SFTR_ART15_PROVIDER_NOT_INFORMED = { pass:false, label:'SFTR Art 15: Provider Not Informed', desc:'SFTR Art 15 requires the collateral provider to be informed of reuse risks before reuse proceeds.', err:true };
+      alerts.push({ kind:'alert-warn', msg:'SFTR Art 15: Collateral provider has not been informed of reuse. Required before reuse proceeds.' });
+    }
+    if (sftrConsent && providerInformed) {
+      flags.SFTR_ART15_COMPLIANT = { pass:true, label:'SFTR Art 15 Compliant', desc:'Counterparty consent obtained and provider informed per SFTR Art 15(1) requirements.' };
+    } else if (!reuse) {
+      flags.SFTR_ART15_COMPLIANT = { pass:true, label:'SFTR Art 15 N/A — No Reuse', desc:'Collateral reuse is not intended; SFTR Art 15 consent requirements do not apply for this transaction.' };
+    }
+  }
+
+  /* ── Governing agreement check ── */
+  if (agreement === 'undefined') {
+    flags.GOVERNING_AGREEMENT_UNDEFINED = { pass:false, label:'No Standardised Legal Agreement', desc:'No standardised legal agreement — eligibility and reuse rights are contractually undefined. High operational and legal risk.', err:true };
+    alerts.push({ kind:'alert-red', msg:'No governing legal agreement defined. Eligibility and reuse rights are contractually undefined. High legal risk.' });
+  } else if (agreement === 'gmsla' && hqlaImpact === 'UPGRADE') {
+    flags.GMSLA_UPGRADE_NOTE = { pass:true, label:'GMSLA Upgrade: Verify Schedule', desc:'GMSLA collateral upgrades are standard in securities lending — ensure schedule permits the specific asset classes.' };
+    alerts.push({ kind:'alert-teal', msg:'GMSLA: Collateral upgrades are standard in securities lending — verify the schedule permits the specific asset classes being exchanged.' });
+  } else if (agreement === 'gmra' && hqlaImpact === 'UPGRADE') {
+    flags.GMRA_SUBSTITUTION_NOTE = { pass:true, label:'GMRA Collateral Substitution: Verify', desc:'GMRA collateral substitution — ensure the repo agreement permits substitution and the counterparty has agreed to the substitute collateral.' };
+    alerts.push({ kind:'alert-teal', msg:'GMRA: Collateral substitution — ensure the repo agreement permits substitution and counterparty consented.' });
+  }
+
+  /* ── Overall eligibility ── */
+  var hasHardFail = Object.keys(flags).some(function(k){ return flags[k].err; });
+  var hasWarn = Object.keys(flags).some(function(k){ return flags[k].warn && !flags[k].err; });
+  var sftrViolation = euCp && reuse && !sftrConsent;
+
+  var eligibility, eligClass, eligLabel;
+  if (sftrViolation || hasHardFail) {
+    eligibility = 'SWAP_INELIGIBLE'; eligClass = 'elig-fail'; eligLabel = '✗ INELIGIBLE';
+    flags.SWAP_INELIGIBLE = { pass:false, label:'Swap Ineligible', desc:'One or more hard compliance failures prevent this swap from proceeding as structured.', err:true };
+  } else if (hasWarn) {
+    eligibility = 'SWAP_ELIGIBLE_WITH_CONDITIONS'; eligClass = 'elig-cond'; eligLabel = '⚠ ELIGIBLE WITH CONDITIONS';
+    flags.SWAP_ELIGIBLE_WITH_CONDITIONS = { pass:false, label:'Swap Eligible with Conditions', desc:'Swap is structurally eligible but requires review of flagged conditions before execution.', warn:true };
+  } else {
+    eligibility = 'SWAP_ELIGIBLE'; eligClass = 'elig-pass'; eligLabel = '✓ ELIGIBLE';
+    flags.SWAP_ELIGIBLE = { pass:true, label:'Collateral Swap Validated', desc:'Swap passes all applicable compliance checks under '+AGREEMENT_LABELS[agreement]+'.' };
+    flags.COLLATERAL_SWAP_VALIDATED = { pass:true, label:'COLLATERAL_SWAP_VALIDATED', desc:'Swap validated under '+AGREEMENT_LABELS[agreement]+'. Export Policy Mandate for audit trail.' };
+  }
+
+  /* ── pacs.008 payload ── */
+  var pacs008 = {
+    message_type: 'pacs.008',
+    '@context': ['https://ainumbers.co/chaingraph/context.jsonld','https://ainumbers.co/chaingraph/iso20022-context.jsonld'],
+    semantic_profile: 'iso20022:pacs.008-subset',
+    instructed_amount: Math.max(valueA, valueB),
+    currency: ccyA,
+    settlement_date: new Date(Date.now()+86400000).toISOString().slice(0,10),
+    debtor: { party_name:'Collateral giver (illustrative)', lei: null },
+    creditor: { party_name:'Collateral receiver (illustrative)', lei: null },
+    remittance_info: 'Collateral swap — '+direction+' — '+AGREEMENT_LABELS[agreement]
+  };
+
+  /* ── Policy params & output payload ── */
+  var policyParams = {
+    asset_type_a: assetA, notional_a: notionalA, currency_a: ccyA, haircut_a: hcA,
+    asset_type_b: assetB, notional_b: notionalB, currency_b: ccyB, haircut_b: hcB,
+    swap_direction: direction, governing_agreement: agreement,
+    eu_counterparty: euCp, collateral_reuse: reuse,
+    sftr_consent: sftrConsent, provider_informed: providerInformed
+  };
+  var outputPayload = {
+    hqla_tier_a: tierA.hqlaLabel, hqla_tier_b: tierB.hqlaLabel,
+    value_a: valueA, value_b: valueB, net_economic_value: netEconomicValue,
+    hqla_impact: hqlaImpact, eligibility: eligibility, pacs008: pacs008
+  };
+
+  _lastResult = {
+    policy_parameters: policyParams, output_payload: outputPayload,
+    flags: flags, alerts: alerts,
+    tierA: tierA, tierB: tierB, assetA: assetA, assetB: assetB,
+    valueA: valueA, valueB: valueB, netEconomicValue: netEconomicValue,
+    hqlaImpact: hqlaImpact, eligibility: eligibility, eligClass: eligClass, eligLabel: eligLabel,
+    ccyA: ccyA, ccyB: ccyB, direction: direction, agreement: agreement,
+    pacs008: pacs008, generated: ts
+  };
+  window._currentMandate = buildMandate();
+
+  computeHash({ policy_parameters: policyParams, output_payload: outputPayload }).then(function(hash) {
+    _executionHash = hash;
+    _lastResult.execution_hash = hash;
+    window._currentMandate = buildMandate();
+    window.enableAP2Btn && window.enableAP2Btn();
+  });
+
+  renderOutput(_lastResult, flags, alerts, pacs008);
+}
+
+function hqlaColor(tier) {
+  if (tier === 'Level1') return 'var(--green)';
+  if (tier === 'Level2A') return 'var(--teal)';
+  if (tier === 'Level2B') return 'var(--warn)';
+  return 'var(--red)';
+}
+
+function renderOutput(res, flags, alerts, pacs008) {
+  var out = document.getElementById('outputSection');
+
+  /* ── Swap summary table ── */
+  var swapTableHtml =
+    '<div style="overflow-x:auto"><table class="swap-table">' +
+    '<thead><tr><th>Leg</th><th>Asset</th><th>Notional</th><th>Haircut</th><th>Value (after HC)</th><th>HQLA Tier</th></tr></thead>' +
+    '<tbody>' +
+    '<tr><td style="color:var(--body)">Leg A (Given)</td>' +
+    '<td style="color:var(--bright)">'+esc(res.tierA.label)+'</td>' +
+    '<td>'+fmt(res.policy_parameters.notional_a)+' '+res.ccyA+'</td>' +
+    '<td>'+res.policy_parameters.haircut_a+'%</td>' +
+    '<td>'+fmt(res.valueA)+' '+res.ccyA+'</td>' +
+    '<td><span class="'+res.tierA.cls+'">'+esc(res.tierA.hqlaLabel)+'</span></td>' +
+    '</tr>' +
+    '<tr><td style="color:var(--body)">Leg B (Received)</td>' +
+    '<td style="color:var(--bright)">'+esc(res.tierB.label)+'</td>' +
+    '<td>'+fmt(res.policy_parameters.notional_b)+' '+res.ccyB+'</td>' +
+    '<td>'+res.policy_parameters.haircut_b+'%</td>' +
+    '<td>'+fmt(res.valueB)+' '+res.ccyB+'</td>' +
+    '<td><span class="'+res.tierB.cls+'">'+esc(res.tierB.hqlaLabel)+'</span></td>' +
+    '</tr>' +
+    '</tbody></table></div>';
+
+  /* ── Summary stats ── */
+  var hqlaImpactColor = res.hqlaImpact === 'UPGRADE' ? 'var(--green)' : (res.hqlaImpact === 'DOWNGRADE' ? 'var(--red)' : 'var(--muted)');
+  var statsHtml =
+    '<div class="stat-row">' +
+    '<div class="stat-chip"><span class="stat-num">'+fmt(res.valueA)+'</span><span class="stat-lbl">Leg A Value</span><span class="stat-note">'+res.ccyA+'</span></div>' +
+    '<div class="stat-chip"><span class="stat-num">'+fmt(res.valueB)+'</span><span class="stat-lbl">Leg B Value</span><span class="stat-note">'+res.ccyB+'</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:'+(res.netEconomicValue>=0?'var(--green)':'var(--red)')+'">'+fmt(res.netEconomicValue)+'</span><span class="stat-lbl">Net Economic</span><span class="stat-note">'+(res.netEconomicValue>=0?'favourable':'unfavourable')+'</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:'+hqlaImpactColor+';font-size:.72rem">'+res.hqlaImpact+'</span><span class="stat-lbl">HQLA Impact</span></div>' +
+    '</div>' +
+    '<div style="margin:.75rem 0"><span class="eligibility-badge '+res.eligClass+'">'+res.eligLabel+'</span></div>';
+
+  /* ── Alerts ── */
+  var alertsHtml = res.alerts.map(function(a) {
+    return '<div class="alert-box '+a.kind+'">'+esc(a.msg)+'</div>';
+  }).join('');
+
+  /* ── Framework & regulatory ── */
+  var frameworkHtml =
+    '<table class="kv-table">' +
+    '<tr><td>Governing Agreement</td><td>'+esc(AGREEMENT_LABELS[res.agreement]||res.agreement)+'</td></tr>' +
+    '<tr><td>Swap Direction</td><td>'+esc(res.direction)+' (detected: '+res.hqlaImpact.toLowerCase()+')</td></tr>' +
+    '<tr><td>SFTR Applicable</td><td>'+(res.policy_parameters.eu_counterparty?'Yes — EU counterparty':'No')+'</td></tr>' +
+    '<tr><td>Collateral Reuse</td><td>'+(res.policy_parameters.collateral_reuse?'Yes':'No')+'</td></tr>' +
+    '<tr><td>Leg A HQLA Tier</td><td><span class="'+res.tierA.cls+'">'+esc(res.tierA.hqlaLabel)+'</span></td></tr>' +
+    '<tr><td>Leg B HQLA Tier</td><td><span class="'+res.tierB.cls+'">'+esc(res.tierB.hqlaLabel)+'</span></td></tr>' +
+    '</table>';
+
+  var regCites = [
+    ['GMSLA (ISLA)','https://www.islaemea.org/gmsla/'],
+    ['GMRA (ICMA)','https://www.icmagroup.org/market-practice-and-regulatory-policy/repo-and-collateral-markets/legal-documentation/global-master-repurchase-agreement-gmra/'],
+    ['SFTR Regulation (EU) 2015/2365','https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32015R2365'],
+    ['BCBS LCR Standard (Jan 2013, rev. Apr 2014)','https://www.bis.org/publ/bcbs238.htm']
+  ];
+  var citesHtml = regCites.map(function(c){
+    return '<a href="'+c[1]+'" target="_blank" rel="noopener noreferrer" style="color:var(--teal);font-size:.62rem;font-family:\'JetBrains Mono\',monospace;display:block;margin:.2rem 0">&#x2197; '+esc(c[0])+'</a>';
+  }).join('');
+
+  /* ── Flags ── */
+  var flagsHtml = '<div class="flags-grid">' +
+    Object.keys(flags).map(function(k){
+      var f = flags[k];
+      var icon = f.err ? '❌' : (f.warn ? '⚠️' : '✅');
+      var rowCls = f.err ? 'flag-row flag-error' : (f.warn ? 'flag-row flag-warn' : 'flag-row');
+      return '<div class="'+rowCls+'"><span class="flag-icon">'+icon+'</span><div><div class="flag-name">'+k+'</div><div class="flag-desc">'+esc(f.desc)+'</div></div></div>';
+    }).join('') +
+    '</div>';
+
+  out.innerHTML =
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Swap Summary</span></div>' +
+      '<div class="out-body">'+swapTableHtml+statsHtml+alertsHtml+'</div>' +
+    '</div>' +
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Framework &amp; Regulatory Basis</span></div>' +
+      '<div class="out-body">'+frameworkHtml+'<div style="margin-top:.75rem">'+citesHtml+'</div></div>' +
+    '</div>' +
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">pacs.008 Collateral Swap Payload</span>' +
+        '<button class="copy-btn" id="pacsCopyBtn" onclick="copyPacs()">Copy</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block">'+esc(JSON.stringify(pacs008, null, 2))+'</div></div>' +
+    '</div>' +
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body">'+flagsHtml+'</div>' +
+    '</div>' +
+    '<div class="chain-next">⛓ <strong>T515 Collateral Swap Eligibility Validator complete.</strong>&nbsp; End of Canton collateral wave. Explore the full suite: <a href="../guides/canton-tmf-hub.html">Canton TMF Hub &#8594;</a></div>';
+
+  window._pacs008 = pacs008;
+}
+
+function copyPacs() {
+  if (!window._pacs008) return;
+  navigator.clipboard.writeText(JSON.stringify(window._pacs008, null, 2)).then(function(){
+    var b = document.getElementById('pacsCopyBtn');
+    if (b) { b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+function buildMandate() {
+  if (!_lastResult) return null;
+  var ts = new Date().toISOString();
+  var flagsCopy = {};
+  Object.keys(_lastResult.flags).forEach(function(k){
+    flagsCopy[k] = !!_lastResult.flags[k].pass && !_lastResult.flags[k].err && !_lastResult.flags[k].warn;
+  });
+  return {
+    ap2_version: '1.0',
+    mandate_id: '515-collateral-swap-eligibility-validator-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: '515-collateral-swap-eligibility-validator',
+    tool_version: '1.0.0',
+    mandate_type: 'collateral_mandate',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['GMSLA (ISLA)','GMRA (ICMA)','SFTR Regulation (EU) 2015/2365','BCBS LCR Standard (January 2013, revised April 2014)'],
+    semantic_profile: 'iso20022:pacs.008-subset',
+    dct_conformsTo: 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld',
+    chaingraph_version: '0.3.1',
+    payload: _lastResult.output_payload,
+    policy_parameters: _lastResult.policy_parameters,
+    compliance_flags: flagsCopy,
+    summary: 'Collateral swap validated · '+_lastResult.direction+' · HQLA impact: '+_lastResult.hqlaImpact+' · Eligibility: '+_lastResult.eligibility+' · Net economic: '+fmt(_lastResult.netEconomicValue)+' · Generated '+_lastResult.generated,
+    agent_instructions: [
+      'Verify HQLA tier classification against current portfolio LCR buffer before executing swap.',
+      _lastResult.policy_parameters.eu_counterparty ? 'SFTR Art 15: EU counterparty — ensure consent and provider notification are documented before any collateral reuse.' : 'No EU counterparty — SFTR Art 15 does not apply.',
+      'Confirm governing agreement ('+AGREEMENT_LABELS[_lastResult.agreement]+') permits the specific asset classes before settlement.',
+      _lastResult.eligibility === 'SWAP_INELIGIBLE' ? 'INELIGIBLE: Swap has hard compliance failures. Do not proceed without legal/compliance review.' : 'Review flagged conditions and obtain counterparty agreement before execution.'
+    ].filter(Boolean),
+    execution_hash: _executionHash || null,
+    valid_from: ts.slice(0,10),
+    valid_until: new Date(Date.now()+90*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts.slice(0,10),
+    source_tool_inputs: _lastResult.policy_parameters,
+    regulatory_citations: [
+      { ref:'GMSLA (ISLA)', url:'https://www.islaemea.org/gmsla/' },
+      { ref:'GMRA (ICMA)', url:'https://www.icmagroup.org/market-practice-and-regulatory-policy/repo-and-collateral-markets/legal-documentation/global-master-repurchase-agreement-gmra/' },
+      { ref:'SFTR Regulation (EU) 2015/2365', url:'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32015R2365' },
+      { ref:'BCBS LCR Standard (Jan 2013, rev. Apr 2014)', url:'https://www.bis.org/publ/bcbs238.htm' }
+    ],
+    audit_metadata: { client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+}
+
+window.AIN_BUILD_MANDATE = buildMandate;
+
+/* ── Default load ── */
+loadPreset('hqlax_upgrade');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"515-collateral-swap-eligibility-validator","version":"1.0.0","title":"Collateral Swap Eligibility Validator","description":"Validate a collateral swap (upgrade/downgrade trade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determine HQLA tier impact and regulatory eligibility.","category":"capital-markets","tags":["collateral-swap","gmsla","gmra","sftr","hqla","upgrade","downgrade","canton","securities-lending"],"audience":["collateral-desk","treasury","risk","operations"],"mcp_tool_definition":{"name":"validate_collateral_swap_eligibility","description":"Validate a collateral swap (upgrade/downgrade trade) under GMSLA, GMRA, and SFTR Art 15 collateral reuse rules. Determines HQLA tier impact and swap eligibility.","inputSchema":{"type":"object","properties":{"asset_type_a":{"type":"string","enum":["ust","gilt","eu_sovereign","agency_mbs","ig_corp_bond","equity","cash_usd","cash_eur","mmf_fund_share"]},"notional_a":{"type":"number"},"currency_a":{"type":"string","enum":["USD","EUR","GBP"]},"asset_type_b":{"type":"string","enum":["ust","gilt","eu_sovereign","agency_mbs","ig_corp_bond","equity","cash_usd","cash_eur","mmf_fund_share"]},"notional_b":{"type":"number"},"currency_b":{"type":"string","enum":["USD","EUR","GBP"]},"swap_direction":{"type":"string","enum":["upgrade","downgrade","neutral"]},"governing_agreement":{"type":"string","enum":["gmsla","gmra","bespoke_csa","undefined"]},"sftr_consent":{"type":"boolean"},"collateral_reuse":{"type":"boolean"},"haircut_a":{"type":"number"},"haircut_b":{"type":"number"},"provider_informed":{"type":"boolean"},"eu_counterparty":{"type":"boolean"}},"required":["asset_type_a","notional_a","asset_type_b","notional_b","swap_direction","governing_agreement"]}},"execution":{"type":"browser-javascript","entry":"tools/515-collateral-swap-eligibility-validator.html","function_name":"runCollateralSwap","timeout_ms":3000},"ap2_export":true,"mandate_type":"collateral_mandate","semantic_profile":"iso20022:pacs.008-subset","dct_conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true,"chaingraph_version":"0.3.1"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=buildMandate();if(!mandate){alert('Run the tool first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='515-collateral-swap-eligibility-validator_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runCollateralSwap',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

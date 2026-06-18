@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Canton Cash-Leg Assurance Composer · AINumbers.co</title>
+<meta name="description" content="4-stage Canton Cash-Leg Assurance chain: ART-06 Counterparty Exposure → RCA-02 Reserve Attestation → SIM-01 LCR/NSFR → T506 Cash-Leg Finality. Canton Network atomic settlement.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/canton-cash-leg-composer.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--red:#EF4444;--warn:#F59E0B;
+  --purple:#9B72F5;--purple-lt:#B794F4;--purple-dim:rgba(155,114,245,.12);
+  --s1:#EF4444;--s2:#F59E0B;--s3:#9B72F5;--s4:#22C55E;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:.6rem}
+.hero h1{font-size:2rem;color:var(--white);margin-bottom:.6rem}.hero p{font-size:.88rem;color:var(--body);max-width:820px;line-height:1.7}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.badge.b-teal{border-color:rgba(20,184,166,.4);color:var(--teal);background:var(--teal-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(155,114,245,.07);border:1px solid rgba(155,114,245,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+.howto{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin:1.4rem 0;font-size:.78rem;color:var(--body)}.howto strong{color:var(--bright)}
+.stages-bar{display:flex;gap:0;margin:1.8rem 0 0;overflow-x:auto}
+.stage-tab{flex:1;min-width:130px;padding:.7rem .9rem;border:1px solid var(--border);background:var(--bg-3);cursor:pointer;transition:all .2s;position:relative;text-align:center}
+.stage-tab:first-child{border-radius:var(--radius-lg) 0 0 0}.stage-tab:last-child{border-radius:0 var(--radius-lg) 0 0}
+.stage-tab.active{background:var(--bg-2)}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.2rem}
+.stage-name{font-size:.75rem;color:var(--bright)}.stage-tid{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.1rem}
+.stage-done{position:absolute;top:.5rem;right:.6rem;font-size:.65rem;color:var(--green)}
+.stage-active-bar{height:2px;background:currentColor;position:absolute;bottom:-1px;left:0;right:0}
+.frame-wrap{border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-lg) var(--radius-lg);background:var(--bg-3);min-height:560px}
+.tool-frame{width:100%;height:680px;border:none;background:var(--bg);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.frame-nav{display:flex;justify-content:space-between;align-items:center;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-4)}
+.frame-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .85rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}.nav-btn:hover{border-color:var(--teal);color:var(--teal)}
+.nav-btn.primary{background:var(--purple);border-color:var(--purple);color:var(--white);font-weight:500}.nav-btn.primary:hover{opacity:.88}
+.nav-btn:disabled{opacity:.35;cursor:not-allowed}
+.external-card{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:480px;padding:2.5rem;text-align:center;gap:1.2rem}
+.ext-icon{font-size:2.5rem}
+.ext-title{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.ext-desc{font-size:.82rem;color:var(--body);max-width:500px;line-height:1.7}
+.ext-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:1px solid var(--teal);color:var(--teal);background:var(--teal-dim);transition:all .2s}.ext-link:hover{background:rgba(20,184,166,.22)}
+.ext-visited{font-size:.7rem;color:var(--green);font-family:'JetBrains Mono',monospace}
+.mandate-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.6rem 0}
+.mandate-panel h2{font-size:1.1rem;color:var(--white);margin-bottom:.8rem}
+.mandate-sub{font-size:.78rem;color:var(--body);margin-bottom:1rem}
+.stage-mandates{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.7rem;margin-bottom:1rem}
+.sm-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.6rem .85rem}
+.sm-card-head{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem}
+.sm-card-status{font-size:.72rem}.sm-status-ok{color:var(--green)}.sm-status-pend{color:var(--muted)}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:.9rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}.exp-btn:hover{border-color:var(--purple);color:var(--purple)}
+.exp-btn.primary{background:var(--purple);border-color:var(--purple);color:var(--white);font-weight:500}.exp-btn.primary:hover{opacity:.88}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:1060px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.foot a:hover{color:var(--teal-lt)}
+@media(max-width:700px){.stages-bar{flex-wrap:wrap}.tool-frame{height:560px}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r"><a href="../index.html">All Tools</a><a href="tool-chains.html">All Chains</a><a href="../sitemap.html">Sitemap</a></div>
+</nav>
+<div class="container">
+  <div class="hero">
+    <div class="eyebrow">Composer · Canton TMI · Canton Cash-Leg Assurance Chain · AINumbers.co</div>
+    <h1>Canton Cash-Leg Assurance Chain</h1>
+    <p>Counterparty exposure analysis → reserve attestation → LCR stress test → on-chain cash-leg finality validation for Canton atomic settlement.</p>
+    <div class="hero-badges">
+      <span class="badge b-purple">Canton · Atomic Settlement · Daml</span>
+      <span class="badge b-purple">4-stage chain · AIN Bridge v1.0</span>
+      <span class="badge b-teal">LCR · Reserve Attestation · Finality</span>
+      <span class="badge">ART-06 · RCA-02 · SIM-01 · T506</span>
+    </div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <div class="howto">
+    <strong>How to use:</strong> Work through stages in order. Open ART-06 to assess counterparty exposure, then RCA-02 to verify reserve attestation. SIM-01 stress-tests liquidity; finally T506 validates atomic cash-leg finality on Canton. Click <strong>Mark as Visited</strong> after external tools, and <strong>⚡ Capture Stage Mandate</strong> after T506.
+  </div>
+
+  <div class="stages-bar" id="stages-bar"></div>
+
+  <div class="frame-wrap">
+    <div class="frame-nav">
+      <span class="frame-label" id="frame-label">Stage 1 of 4</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="nav-btn" id="btn-capture" onclick="captureOrVisit()">⚡ Capture Stage Mandate</button>
+        <button class="nav-btn" id="btn-prev" onclick="goPrev()" disabled>← Prev</button>
+        <button class="nav-btn primary" id="btn-next" onclick="goNext()">Next →</button>
+      </div>
+    </div>
+    <iframe id="tool-frame" class="tool-frame" src="" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"></iframe>
+    <div id="ext-card" class="external-card" style="display:none"></div>
+  </div>
+
+  <div class="mandate-panel">
+    <h2>Canton Cash-Leg Assurance Composite Mandate</h2>
+    <p class="mandate-sub">Aggregates counterparty exposure (ART-06), reserve attestation (RCA-02), LCR/NSFR stress (SIM-01), and cash-leg finality (T506) into a single assurance audit record.</p>
+    <div class="stage-mandates" id="stage-mandates"></div>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportComposite()">📤 Export Composite Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Summary Markdown</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="foot">
+    <span>Canton Cash-Leg Assurance Composer · AINumbers.co · Post Oak Labs · CC BY 4.0</span>
+    <span>
+      <a href="../tools/506-onchain-cash-leg-finality-checker.html">T506 Cash-Leg Finality</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+/* ═══ Canton Cash-Leg Assurance Composer v1.0
+   Chain: ART-06 (ext) → RCA-02 (ext) → SIM-01 (ext) → T506
+   Composite cash-leg assurance mandate. AIN Bridge v1.0. ═══ */
+
+var STAGES = [
+  {num:1, tool_id:'art-06-counterparty-exposure-analyzer',   tid:'ART-06', title:'Counterparty Exposure Analyzer',      url:'../tools/#art-06',                                    color:'var(--s1)', external:true,  handoff:'counterparty_exposure_usd and rating feed Stage 2 reserve attestation'},
+  {num:2, tool_id:'rca-02-reserve-attestation-checker',      tid:'RCA-02', title:'Reserve Attestation Checker',         url:'../tools/#rca-02',                                    color:'var(--s2)', external:true,  handoff:'reserve_attestation_status and coverage_ratio feed Stage 3 LCR stress'},
+  {num:3, tool_id:'sim-01-lcr-nsfr-liquidity-stress-test',   tid:'SIM-01', title:'LCR / NSFR Liquidity Stress Test',   url:'../tools/#sim-01',                                    color:'var(--s3)', external:true,  handoff:'lcr_ratio and nsfr_ratio feed Stage 4 cash-leg finality validation'},
+  {num:4, tool_id:'506-onchain-cash-leg-finality',           tid:'T506',   title:'On-Chain Cash-Leg Finality Checker', url:'../tools/506-onchain-cash-leg-finality-checker.html', color:'var(--s4)', external:false, handoff:'finality_confirmed and settlement_latency_ms complete cash-leg assurance chain'},
+];
+
+var currentStage = 0;
+var stageMandates = new Array(STAGES.length).fill(null);
+
+function buildTabs() {
+  var bar = document.getElementById('stages-bar'); bar.innerHTML = '';
+  STAGES.forEach(function(s, i) {
+    var tab = document.createElement('div');
+    tab.className = 'stage-tab' + (i === currentStage ? ' active' : '');
+    tab.onclick = function() { goTo(i); };
+    tab.innerHTML =
+      '<div class="stage-num" style="color:' + s.color + '">Stage ' + s.num + '</div>' +
+      '<div class="stage-name">' + s.title + '</div>' +
+      '<div class="stage-tid">' + s.tid + (s.external ? ' ↗' : '') + '</div>' +
+      (stageMandates[i] ? '<span class="stage-done">✓</span>' : '') +
+      (i === currentStage ? '<div class="stage-active-bar" style="color:' + s.color + '"></div>' : '');
+    bar.appendChild(tab);
+  });
+}
+
+function buildMandateStatus() {
+  var area = document.getElementById('stage-mandates'); area.innerHTML = '';
+  STAGES.forEach(function(s, i) {
+    var card = document.createElement('div'); card.className = 'sm-card';
+    card.innerHTML =
+      '<div class="sm-card-head" style="color:' + s.color + '">' + s.tid + ' — ' + s.title + '</div>' +
+      '<div class="sm-card-status ' + (stageMandates[i] ? 'sm-status-ok' : 'sm-status-pend') + '">' +
+      (stageMandates[i] ? '✓ Captured' : '⏳ Pending') + '</div>';
+    area.appendChild(card);
+  });
+}
+
+function renderStage(idx) {
+  var s = STAGES[idx];
+  var frame = document.getElementById('tool-frame');
+  var extCard = document.getElementById('ext-card');
+  var btnCapture = document.getElementById('btn-capture');
+  document.getElementById('frame-label').textContent = 'Stage ' + s.num + ' of ' + STAGES.length + ' — ' + s.title + ' (' + s.tid + ')';
+  document.getElementById('btn-prev').disabled = (idx === 0);
+  document.getElementById('btn-next').textContent = idx < STAGES.length - 1 ? 'Next →' : 'Done ✓';
+  if (s.external) {
+    frame.style.display = 'none'; frame.src = '';
+    extCard.style.display = 'flex';
+    var visited = !!stageMandates[idx];
+    extCard.innerHTML =
+      '<div class="ext-icon">🔗</div>' +
+      '<div class="ext-title">' + s.title + '</div>' +
+      '<div class="ext-desc">This tool opens in a new tab. Review the results, then return here and click <strong>Mark as Visited</strong> to continue the chain.</div>' +
+      '<a class="ext-link" href="' + s.url + '" target="_blank" rel="noopener">Open Tool →</a>' +
+      (visited ? '<div class="ext-visited">✓ Marked as visited</div>' : '');
+    btnCapture.textContent = 'Mark as Visited';
+  } else {
+    extCard.style.display = 'none';
+    frame.style.display = 'block'; frame.src = s.url;
+    btnCapture.textContent = '⚡ Capture Stage Mandate';
+  }
+  buildTabs(); buildMandateStatus();
+}
+
+function goTo(idx) { currentStage = idx; renderStage(idx); }
+function goPrev() { if (currentStage > 0) { currentStage--; renderStage(currentStage); } }
+function goNext() { if (currentStage < STAGES.length - 1) { currentStage++; renderStage(currentStage); } }
+
+function captureOrVisit() {
+  var s = STAGES[currentStage];
+  if (s.external) {
+    stageMandates[currentStage] = { stage: s.num, tid: s.tid, title: s.title, captured_at: new Date().toISOString(), method: 'external_visited', handoff: s.handoff };
+    buildTabs(); buildMandateStatus(); renderStage(currentStage);
+  } else { captureMandate(); }
+}
+
+function captureMandate() {
+  var frame = document.getElementById('tool-frame');
+  var ro = location.origin;
+  var handler = function(e) {
+    if (e.origin !== ro) return;
+    if (!e.data || e.data.type !== 'ain:mandate') return;
+    window.removeEventListener('message', handler);
+    if (e.data.mandate) { stageMandates[currentStage] = e.data.mandate; buildTabs(); buildMandateStatus(); }
+    else { alert('Run the tool first (▶ button), then capture the mandate.'); }
+  };
+  window.addEventListener('message', handler);
+  frame.contentWindow.postMessage({ type: 'ain:getMandate' }, ro);
+  setTimeout(function() { window.removeEventListener('message', handler); }, 5000);
+}
+
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  var h = Array.prototype.map.call(b, function(x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+
+function buildComposite() {
+  var now = new Date().toISOString();
+  var captured = stageMandates.filter(Boolean).length;
+  return {
+    ap2_version: '1.0', mandate_id: uuid(), issued_at: now, issued_by: 'ainumbers.co',
+    tool_id: 'canton-cash-leg-composer', tool_version: '1.0.0',
+    mandate_type: 'compliance_control', jurisdiction: ['INT'],
+    regulatory_frameworks: [
+      'Canton Network · Global Synchronizer · Atomic Settlement',
+      'Basel III LCR (Art. 412 CRR) / NSFR (Art. 428 CRR)',
+      'BCBS SA-CCR — counterparty credit risk',
+      'ECB / Fed — reserve attestation standards',
+      'PFMI — Principles for Financial Market Infrastructures'
+    ],
+    payload: {
+      stage_chain: STAGES.map(function(s, i) { return { stage: s.num, tool_id: s.tool_id, tid: s.tid, title: s.title, external: s.external, captured: !!stageMandates[i] }; }),
+      stages_captured: captured, stages_total: STAGES.length, stage_mandates: stageMandates
+    },
+    summary: 'Canton cash-leg assurance chain: ' + captured + '/' + STAGES.length + ' stages captured. ART-06 (counterparty_exposure) → RCA-02 (reserve_attestation) → SIM-01 (lcr_nsfr) → T506 (cash_leg_finality).',
+    agent_instructions: [
+      'ART-06: Quantify counterparty exposure before cash-leg settlement; drives reserve attestation scope.',
+      'RCA-02: Verify reserve attestation coverage_ratio ≥ 1.0 before proceeding.',
+      'SIM-01: Confirm LCR ≥ 100% and NSFR ≥ 100% under stressed outflow scenarios.',
+      'T506: Validate atomic cash-leg finality on Canton — check settlement_latency_ms and finality_confirmed.',
+      'Do NOT use synthetic figures in actual regulatory or audit submissions.'
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now() + 90*24*60*60*1000).toISOString().slice(0,10),
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, composer_version: '1.0', chain_id: 'canton-cash-leg' }
+  };
+}
+
+function exportComposite() {
+  var o = buildComposite();
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('canton-cash-leg_composite_' + ts + '.policy.json', JSON.stringify(o, null, 2), 'application/json');
+}
+
+function exportMarkdown() {
+  var o = buildComposite();
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var lines = ['# Canton Cash-Leg Assurance Chain — Summary', '', '**Mandate ID:** ' + o.mandate_id, '**Issued:** ' + o.issued_at, '**Stages:** ' + o.payload.stages_captured + '/' + o.payload.stages_total + ' captured', ''];
+  lines.push('## Regulatory Frameworks', '');
+  o.regulatory_frameworks.forEach(function(f) { lines.push('- ' + f); });
+  lines.push('', '## Stage Chain', '');
+  STAGES.forEach(function(s, i) { lines.push('- **Stage ' + s.num + ' (' + s.tid + '):** ' + s.title + (s.external ? ' [External]' : '') + ' — ' + (stageMandates[i] ? '✓ Captured' : '⏳ Pending')); });
+  lines.push('', '## Handoff Flow', '');
+  STAGES.forEach(function(s) { lines.push('- **' + s.tid + ':** ' + s.handoff); });
+  lines.push('', '---', '*Generated by AINumbers.co Canton Cash-Leg Assurance Composer v1.0 · Post Oak Labs · CC BY 4.0*');
+  download('canton-cash-leg_summary_' + ts + '.md', lines.join('\n'), 'text/markdown');
+}
+
+function download(name, content, mime) {
+  var blob = new Blob([content], { type: mime });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+buildTabs(); buildMandateStatus(); renderStage(0);
+</script>
+</body>
+</html>

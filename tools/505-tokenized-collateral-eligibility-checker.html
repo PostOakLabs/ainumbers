@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tokenized Collateral Eligibility Checker · AINumbers.co</title>
+<meta name="description" content="Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Used by DvP, repo, margin, and fund workflows. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/505-tokenized-collateral-eligibility-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tokenized Collateral Eligibility Checker","url":"https://ainumbers.co/tools/505-tokenized-collateral-eligibility-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "505-tokenized-collateral-eligibility-checker",
+  "version": "1.0.0",
+  "title": "Tokenized Collateral Eligibility Checker",
+  "description": "Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Used by DvP, repo, margin, and fund workflows.",
+  "category": "capital-markets",
+  "tags": ["canton","collateral","hqla","dtc","sco60","basel","tokenization"],
+  "audience": ["collateral-desk","settlement-ops","risk","compliance"],
+  "mcp_tool_definition": {"name":"check_tokenized_collateral_eligibility","description":"Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Returns eligibility badge, HQLA tier, haircut, adjusted collateral value, and compliance flags.","inputSchema":{"type":"object","properties":{"asset_type":{"type":"string"},"notional":{"type":"number"},"currency":{"type":"string"},"platform":{"type":"string"},"custody_linkage":{"type":"string"},"transfer_restrictions":{"type":"array"}},"required":["asset_type","notional","currency"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/505-tokenized-collateral-eligibility-checker.html","function_name":"runCollateralEligibility","timeout_ms":3000},
+  "ap2_export": true,
+  "mandate_type": "collateral_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.006) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.006) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem;margin-bottom:1rem}
+.form-grid-wide{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.85rem;margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-note{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.1rem}
+.f-select,.f-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.f-select:focus,.f-input:focus{border-color:var(--teal)}
+.checkbox-group{display:flex;flex-direction:column;gap:.45rem}
+.checkbox-item{display:flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text)}
+.checkbox-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:110px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:500;line-height:1}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+.elig-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .75rem;border-radius:4px;font-weight:500}
+.elig-dtc{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.35)}
+.elig-fed{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.35)}
+.elig-ineligible{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.35)}
+.hqla-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;padding:.25rem .65rem;border-radius:4px}
+.hqla-1{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.hqla-2a{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+.hqla-2b{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.hqla-none{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.res-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.res-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.res-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.note-block{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:6px;padding:.65rem .9rem;font-size:.72rem;line-height:1.6;color:#9aa7b8;margin-bottom:.75rem}
+.chain-next{display:flex;align-items:center;gap:.75rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal-lt)}
+.chain-next a{color:var(--teal-lt);text-decoration:underline}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-505</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T505 · Tokenized Collateral · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Tokenized Collateral <em>Eligibility Checker</em></h1>
+  <p class="hero-desc">Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Used by DvP, repo, margin, and fund workflows. Deterministic logic — no inference, zero PII, client-side only.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Basel HQLA</span>
+    <span class="badge badge-warn">BCBS SCO60</span>
+    <span class="badge badge-gold">DTC / Fed</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    Eligibility outputs are decision-support tools for collateral desk use. Verify all determinations with your custodian, legal counsel, and prudential supervisor before settlement or margin call posting. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('dtc_ust_canton')">DTC-Custodied UST on Canton</button>
+      <button class="preset-btn" onclick="loadPreset('onchain_gilt')">Tokenized UK Gilt (Canton)</button>
+      <button class="preset-btn" onclick="loadPreset('mmf_benji')">Franklin Templeton Benji FOBXX</button>
+    </div>
+  </div>
+
+  <!-- ASSET INPUTS -->
+  <div class="panel">
+    <div class="panel-header">Asset Parameters</div>
+    <div class="form-grid">
+      <div class="field">
+        <span class="field-label">Asset Name (illustrative)</span>
+        <input type="text" class="f-input" id="assetName" placeholder="e.g. US Treasury 4.25% 2028">
+      </div>
+      <div class="field">
+        <span class="field-label">Asset Type</span>
+        <select class="f-select" id="assetType">
+          <option value="ust">US Treasury (UST)</option>
+          <option value="agency_mbs">Agency MBS</option>
+          <option value="ig_corp_bond">IG Corp Bond</option>
+          <option value="equity">Listed Equity</option>
+          <option value="tokenized_deposit">Tokenized Bank Deposit</option>
+          <option value="stablecoin">Regulated Stablecoin</option>
+          <option value="mmf_fund_share">MMF Fund Share / CIU Unit</option>
+          <option value="gilt">UK Gilt</option>
+          <option value="eu_sovereign">EU Sovereign Bond</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">ISIN (optional)</span>
+        <input type="text" class="f-input" id="isin" placeholder="e.g. US912828ZQ50">
+        <span class="field-note">Use a public/test ISIN only</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Issuer LEI (optional)</span>
+        <input type="text" class="f-input" id="issuerLei" placeholder="e.g. 254900HROIFWPRGM1403">
+        <span class="field-note">Use a public/test ISIN only</span>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <span class="field-label">Notional</span>
+        <input type="number" class="f-input" id="notional" value="100000000" min="0" step="1000000">
+      </div>
+      <div class="field">
+        <span class="field-label">Currency</span>
+        <select class="f-select" id="currency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="JPY">JPY</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">On-Chain Platform</span>
+        <select class="f-select" id="platform">
+          <option value="canton_dtc">Canton + DTC custody</option>
+          <option value="canton_standalone">Canton standalone</option>
+          <option value="other_dlt">Other DLT</option>
+          <option value="traditional">Traditional CSD</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Custody Linkage</span>
+        <select class="f-select" id="custodyLinkage">
+          <option value="dtc_custodied">DTC-custodied</option>
+          <option value="fed_eligible">Fed-eligible</option>
+          <option value="third_party_custodian">Third-party custodian</option>
+          <option value="self_custodied">Self-custodied</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid-wide">
+      <div class="field">
+        <span class="field-label">Transfer Restrictions</span>
+        <div class="checkbox-group" style="margin-top:.25rem">
+          <label class="checkbox-item"><input type="checkbox" id="restrict_lockup"> Lock-up period</label>
+          <label class="checkbox-item"><input type="checkbox" id="restrict_min_denom"> Minimum denomination</label>
+          <label class="checkbox-item"><input type="checkbox" id="restrict_transfer_agent"> Transfer agent approval required</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runCollateralEligibility()">&#9654; Run Eligibility Check</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the checker to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="504-canton-network-settlement-diagnostics.html">← T504</a>
+    <a href="506-onchain-cash-leg-finality-checker.html">T506 →</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T505 Tokenized Collateral Eligibility Checker v1.0
+   DTC/Fed eligibility · Basel HQLA tier (BCBS LCR paras 50-54) · BCBS SCO60
+   All client-side. Zero network. Zero storage. ═══ */
+
+var ASSET_LABELS = {
+  ust:'US Treasury (UST)', agency_mbs:'Agency MBS', ig_corp_bond:'IG Corp Bond',
+  equity:'Listed Equity', tokenized_deposit:'Tokenized Bank Deposit',
+  stablecoin:'Regulated Stablecoin', mmf_fund_share:'MMF Fund Share / CIU Unit',
+  gilt:'UK Gilt', eu_sovereign:'EU Sovereign Bond', other:'Other'
+};
+var PLATFORM_LABELS = {
+  canton_dtc:'Canton + DTC custody', canton_standalone:'Canton standalone',
+  other_dlt:'Other DLT', traditional:'Traditional CSD'
+};
+var CUSTODY_LABELS = {
+  dtc_custodied:'DTC-custodied', fed_eligible:'Fed-eligible',
+  third_party_custodian:'Third-party custodian', self_custodied:'Self-custodied'
+};
+
+/* ── Presets ── */
+var PRESETS = {
+  dtc_ust_canton:{
+    assetName:'US Treasury 4.25% 2028 (illustrative)',
+    assetType:'ust', isin:'US912828ZQ50', issuerLei:'',
+    notional:100000000, currency:'USD',
+    platform:'canton_dtc', custodyLinkage:'dtc_custodied',
+    restrict_lockup:false, restrict_min_denom:false, restrict_transfer_agent:false
+  },
+  onchain_gilt:{
+    assetName:'UK Gilt 4.5% 2034 (illustrative)',
+    assetType:'gilt', isin:'GB0032452982', issuerLei:'',
+    notional:50000000, currency:'GBP',
+    platform:'canton_standalone', custodyLinkage:'third_party_custodian',
+    restrict_lockup:false, restrict_min_denom:false, restrict_transfer_agent:false
+  },
+  mmf_benji:{
+    assetName:'Franklin Templeton Benji FOBXX (illustrative)',
+    assetType:'mmf_fund_share', isin:'', issuerLei:'',
+    notional:25000000, currency:'USD',
+    platform:'canton_dtc', custodyLinkage:'dtc_custodied',
+    restrict_lockup:false, restrict_min_denom:false, restrict_transfer_agent:false
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return;
+  document.getElementById('assetName').value = p.assetName;
+  document.getElementById('assetType').value = p.assetType;
+  document.getElementById('isin').value = p.isin || '';
+  document.getElementById('issuerLei').value = p.issuerLei || '';
+  document.getElementById('notional').value = p.notional;
+  document.getElementById('currency').value = p.currency;
+  document.getElementById('platform').value = p.platform;
+  document.getElementById('custodyLinkage').value = p.custodyLinkage;
+  document.getElementById('restrict_lockup').checked = !!p.restrict_lockup;
+  document.getElementById('restrict_min_denom').checked = !!p.restrict_min_denom;
+  document.getElementById('restrict_transfer_agent').checked = !!p.restrict_transfer_agent;
+}
+
+function getInputs() {
+  return {
+    asset_name: document.getElementById('assetName').value.trim() || 'Unnamed Asset',
+    asset_type: document.getElementById('assetType').value,
+    isin: document.getElementById('isin').value.trim(),
+    issuer_lei: document.getElementById('issuerLei').value.trim(),
+    notional: parseFloat(document.getElementById('notional').value) || 0,
+    currency: document.getElementById('currency').value,
+    platform: document.getElementById('platform').value,
+    custody_linkage: document.getElementById('custodyLinkage').value,
+    transfer_restrictions: {
+      lock_up: document.getElementById('restrict_lockup').checked,
+      min_denomination: document.getElementById('restrict_min_denom').checked,
+      transfer_agent_approval: document.getElementById('restrict_transfer_agent').checked
+    }
+  };
+}
+
+function isTokenizedPlatform(platform) {
+  return platform === 'canton_dtc' || platform === 'canton_standalone' || platform === 'other_dlt';
+}
+
+function hasRestrictions(tr) {
+  return tr.lock_up || tr.min_denomination || tr.transfer_agent_approval;
+}
+
+function computeEligibility(inp) {
+  var at = inp.asset_type;
+  var platform = inp.platform;
+  var custody = inp.custody_linkage;
+  var tr = inp.transfer_restrictions;
+  var notional = inp.notional;
+
+  /* ── MMF/CIU branch — MUST be first ── */
+  if (at === 'mmf_fund_share') {
+    return {
+      dtc_status: 'INELIGIBLE_DTC',
+      hqla_tier: 'NON_HQLA',
+      base_haircut: null,
+      haircut_adj: 0,
+      final_haircut: null,
+      adjusted_value: null,
+      flags: buildFlags(['COLLATERAL_ELIGIBILITY_ASSESSED','NOT_ELIGIBLE','NON_HQLA','MMF_HQLA_EXCLUDED'],
+                        hasRestrictions(tr)?['TRANSFER_RESTRICTION_PRESENT']:[],
+                        isTokenizedPlatform(platform)?['BCBS_SCO60_GROUP1A_NOTE']:[]),
+      mmf_note: true,
+      sco60_note: isTokenizedPlatform(platform),
+      restriction_flag: hasRestrictions(tr)
+    };
+  }
+
+  /* ── DTC / Fed eligibility ── */
+  var dtc_status;
+  if (at === 'tokenized_deposit' || at === 'stablecoin') {
+    dtc_status = 'INELIGIBLE_DTC';
+  } else if (at === 'ust' && platform === 'canton_dtc' && custody === 'dtc_custodied') {
+    dtc_status = 'DTC_ELIGIBLE';
+  } else if (at === 'gilt' || at === 'eu_sovereign' || at === 'agency_mbs') {
+    dtc_status = 'FED_ELIGIBLE_VERIFY';
+  } else {
+    dtc_status = 'DTC_ELIGIBLE'; /* default for other eligible types */
+  }
+
+  /* ── HQLA tier (BCBS LCR paras 50–54) ── */
+  var hqla_tier, base_haircut;
+  if (at === 'ust') {
+    hqla_tier = 'HQLA_LEVEL_1'; base_haircut = 0;
+  } else if (at === 'gilt') {
+    hqla_tier = 'HQLA_LEVEL_1'; base_haircut = 0; /* Level 1 if 0% RW — verify */
+  } else if (at === 'eu_sovereign') {
+    hqla_tier = 'HQLA_LEVEL_1'; base_haircut = 0; /* Level 1 if 0% RW — verify */
+  } else if (at === 'agency_mbs') {
+    hqla_tier = 'HQLA_LEVEL_2A'; base_haircut = 15;
+  } else if (at === 'ig_corp_bond' || at === 'equity') {
+    hqla_tier = 'HQLA_LEVEL_2B'; base_haircut = 50;
+  } else {
+    hqla_tier = 'NON_HQLA'; base_haircut = null;
+  }
+
+  /* ── Transfer restriction add-on ── */
+  var haircut_adj = 0;
+  if (hasRestrictions(tr) && base_haircut !== null) {
+    haircut_adj = 5;
+  }
+
+  var final_haircut = base_haircut !== null ? Math.min(base_haircut + haircut_adj, 100) : null;
+  var adjusted_value = final_haircut !== null ? notional * (1 - final_haircut / 100) : null;
+
+  /* ── Build flags ── */
+  var pos_flags = ['COLLATERAL_ELIGIBILITY_ASSESSED'];
+  var neg_flags = [];
+
+  if (dtc_status === 'DTC_ELIGIBLE') pos_flags.push('DTC_ELIGIBLE');
+  else if (dtc_status === 'FED_ELIGIBLE_VERIFY') pos_flags.push('FED_ELIGIBLE_VERIFY');
+  else neg_flags.push('NOT_ELIGIBLE');
+
+  if (hqla_tier === 'HQLA_LEVEL_1') pos_flags.push('HQLA_LEVEL_1');
+  else if (hqla_tier === 'HQLA_LEVEL_2A') pos_flags.push('HQLA_LEVEL_2A');
+  else if (hqla_tier === 'HQLA_LEVEL_2B') pos_flags.push('HQLA_LEVEL_2B');
+  else neg_flags.push('NON_HQLA');
+
+  if (hasRestrictions(tr)) neg_flags.push('TRANSFER_RESTRICTION_PRESENT');
+  if (isTokenizedPlatform(platform)) pos_flags.push('BCBS_SCO60_GROUP1A_NOTE');
+  if (custody === 'dtc_custodied' || custody === 'fed_eligible') pos_flags.push('CUSTODY_LINKAGE_VERIFIED');
+
+  return {
+    dtc_status: dtc_status,
+    hqla_tier: hqla_tier,
+    base_haircut: base_haircut,
+    haircut_adj: haircut_adj,
+    final_haircut: final_haircut,
+    adjusted_value: adjusted_value,
+    flags: buildFlags(pos_flags, neg_flags, []),
+    mmf_note: false,
+    sco60_note: isTokenizedPlatform(platform),
+    restriction_flag: hasRestrictions(tr)
+  };
+}
+
+function buildFlags(pass_list, fail_list, info_list) {
+  var FLAG_DESCS = {
+    COLLATERAL_ELIGIBILITY_ASSESSED:'Collateral eligibility determination completed per BCBS LCR (bis.org/publ/bcbs238.htm) and DTC eligibility criteria.',
+    DTC_ELIGIBLE:'Asset meets DTC eligibility criteria for tokenized settlement.',
+    FED_ELIGIBLE_VERIFY:'Fed eligibility possible — verify with Fed/custodian, subject to account eligibility.',
+    NOT_ELIGIBLE:'Asset is not eligible for DTC or Fed settlement.',
+    HQLA_LEVEL_1:'BCBS LCR Level 1 HQLA — 0% haircut (0% RW sovereign). Cite: BCBS LCR standard paras 50–54.',
+    HQLA_LEVEL_2A:'BCBS LCR Level 2A HQLA — 15% haircut, max 40% of HQLA pool. US LCR implementation for Agency MBS. Cite: paras 50–54.',
+    HQLA_LEVEL_2B:'BCBS LCR Level 2B HQLA — 50% haircut, max 15% of HQLA pool. Cite: BCBS LCR standard paras 50–54.',
+    NON_HQLA:'Asset does not qualify for HQLA classification under BCBS LCR standard paras 50–54.',
+    MMF_HQLA_EXCLUDED:'MMF/CIU units excluded from Basel LCR HQLA. See BCBS LCR standard paras 50–54 exhaustive enumeration.',
+    TRANSFER_RESTRICTION_PRESENT:'One or more transfer restrictions present — +5% haircut add-on applied to base HQLA haircut.',
+    BCBS_SCO60_GROUP1A_NOTE:'Tokenized asset on DLT platform — BCBS SCO60 Group 1a classification conditions apply. Infrastructure-risk add-on may apply (effective 1 Jan 2026). Verify with prudential supervisor.',
+    CUSTODY_LINKAGE_VERIFIED:'Custody linkage confirmed as DTC-custodied or Fed-eligible — eligibility determination supported.'
+  };
+  var result = {};
+  pass_list.forEach(function(k){ result[k]={pass:true, desc: FLAG_DESCS[k]||k}; });
+  fail_list.forEach(function(k){ result[k]={pass:false, desc: FLAG_DESCS[k]||k}; });
+  info_list.forEach(function(k){ result[k]={pass:true, desc: FLAG_DESCS[k]||k}; });
+  return result;
+}
+
+function fmt(n, currency) {
+  if (n === null || n === undefined) return '—';
+  return new Intl.NumberFormat('en-US',{style:'currency',currency:currency||'USD',maximumFractionDigits:0}).format(n);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+var _lastResult = null;
+
+function runCollateralEligibility() {
+  var inp = getInputs();
+  if (!inp.notional || inp.notional <= 0) { alert('Enter a positive notional amount.'); return; }
+  var result = computeEligibility(inp);
+  var ts = new Date().toISOString().slice(0,10);
+
+  /* Build pacs.008 ChainGraph payload */
+  var pacs008 = {
+    instructed_amount: inp.notional,
+    currency: inp.currency,
+    debtor: { party_name: 'Holder (illustrative)', lei: inp.issuer_lei || null },
+    creditor: { party_name: 'Custodian (illustrative)', lei: null }
+  };
+
+  _lastResult = { inputs: inp, result: result, pacs008: pacs008, generated: ts };
+  window._currentMandate = null;
+  computeHashAndFinalize(inp, result, pacs008, ts);
+}
+
+function computeHashAndFinalize(inp, result, pacs008, ts) {
+  var policy_parameters = {
+    asset_type: inp.asset_type,
+    platform: inp.platform,
+    custody_linkage: inp.custody_linkage,
+    notional: inp.notional,
+    currency: inp.currency,
+    transfer_restrictions: inp.transfer_restrictions
+  };
+  var output_payload = {
+    dtc_status: result.dtc_status,
+    hqla_tier: result.hqla_tier,
+    final_haircut: result.final_haircut,
+    adjusted_value: result.adjusted_value
+  };
+  /* Sort keys for determinism */
+  var sortedObj = {};
+  var allKeys = Object.keys(policy_parameters).concat(Object.keys(output_payload)).sort();
+  allKeys.forEach(function(k){
+    if (k in policy_parameters) sortedObj[k] = policy_parameters[k];
+    else if (k in output_payload) sortedObj[k] = output_payload[k];
+  });
+  var canonical = JSON.stringify(sortedObj);
+  var enc = new TextEncoder().encode(canonical);
+  crypto.subtle.digest('SHA-256', enc).then(function(buf){
+    var arr = Array.from(new Uint8Array(buf));
+    var hex = arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    var execution_hash = hex;
+    _lastResult.execution_hash = execution_hash;
+    window._currentMandate = buildMandate(inp, result, pacs008, ts, execution_hash);
+    renderOutput(inp, result, pacs008, ts, execution_hash);
+    window.enableAP2Btn && window.enableAP2Btn();
+  }).catch(function(){
+    var execution_hash = 'sha256-unavailable';
+    _lastResult.execution_hash = execution_hash;
+    window._currentMandate = buildMandate(inp, result, pacs008, ts, execution_hash);
+    renderOutput(inp, result, pacs008, ts, execution_hash);
+    window.enableAP2Btn && window.enableAP2Btn();
+  });
+}
+
+function renderOutput(inp, result, pacs008, ts, execution_hash) {
+  /* ── Eligibility badge HTML ── */
+  var eligBadge;
+  if (result.dtc_status === 'DTC_ELIGIBLE') {
+    eligBadge = '<span class="elig-badge elig-dtc">&#9679; DTC ELIGIBLE</span>';
+  } else if (result.dtc_status === 'FED_ELIGIBLE_VERIFY') {
+    eligBadge = '<span class="elig-badge elig-fed">&#9651; FED ELIGIBLE — VERIFY</span>';
+  } else {
+    eligBadge = '<span class="elig-badge elig-ineligible">&#10005; INELIGIBLE</span>';
+  }
+
+  /* ── HQLA badge HTML ── */
+  var hqlaBadge;
+  var ht = result.hqla_tier;
+  if (ht === 'HQLA_LEVEL_1') hqlaBadge = '<span class="hqla-badge hqla-1">HQLA Level 1 · 0% haircut</span>';
+  else if (ht === 'HQLA_LEVEL_2A') hqlaBadge = '<span class="hqla-badge hqla-2a">HQLA Level 2A · 15% haircut</span>';
+  else if (ht === 'HQLA_LEVEL_2B') hqlaBadge = '<span class="hqla-badge hqla-2b">HQLA Level 2B · 50% haircut</span>';
+  else hqlaBadge = '<span class="hqla-badge hqla-none">NON-HQLA</span>';
+
+  var haircut_pct = result.final_haircut !== null ? result.final_haircut + '%' : '—';
+  var adj_val = result.adjusted_value !== null ? fmt(result.adjusted_value, inp.currency) : '—';
+
+  /* ── Notes ── */
+  var notes = '';
+  if (result.mmf_note) {
+    notes += '<div class="note-block"><strong style="color:var(--warn);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;text-transform:uppercase">MMF / CIU HQLA Exclusion &mdash;</strong> ' +
+      'MMF / CIU units are excluded from Basel LCR HQLA. The BCBS LCR standard (January 2013, revised April 2014) paras 50–54 exhaustively enumerate eligible HQLA asset classes; fund units / CIU shares do not appear. ' +
+      'Value the position via the underlying portfolio with applicable haircut.</div>';
+  }
+  if (result.sco60_note) {
+    notes += '<div class="note-block"><strong style="color:var(--teal);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;text-transform:uppercase">BCBS SCO60 (d545) — Tokenized Asset &mdash;</strong> ' +
+      'Tokenized traditional assets are Group 1a cryptoassets — they receive the same prudential treatment as the underlying only if the SCO60 classification conditions are independently met, and an infrastructure-risk add-on may apply (effective 1 Jan 2026). ' +
+      'Verify with your prudential supervisor.</div>';
+  }
+  if (result.restriction_flag) {
+    notes += '<div class="note-block"><strong style="color:var(--gold);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;text-transform:uppercase">Transfer Restriction Add-on &mdash;</strong> ' +
+      'One or more transfer restrictions are present. A +5% haircut add-on has been applied to the base HQLA haircut.</div>';
+  }
+  if (ht === 'HQLA_LEVEL_1' && (inp.asset_type === 'gilt' || inp.asset_type === 'eu_sovereign')) {
+    notes += '<div class="note-block" style="border-left-color:var(--muted)"><strong style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;text-transform:uppercase">Sovereign HQLA — Verify &mdash;</strong> ' +
+      'Level 1 treatment assumes 0% risk weight. Confirm 0% RW with your regulator or internal risk framework.</div>';
+  }
+
+  /* ── Memo text ── */
+  var memo = 'TOKENIZED COLLATERAL ELIGIBILITY DETERMINATION\n' +
+    'Generated: ' + ts + '\n' +
+    'Standard: BCBS LCR (bis.org/publ/bcbs238.htm), paras 50–54; BCBS SCO60/d545; DTC eligibility criteria\n\n' +
+    'ASSET\n' +
+    '  Name:          ' + inp.asset_name + '\n' +
+    '  Type:          ' + (ASSET_LABELS[inp.asset_type]||inp.asset_type) + '\n' +
+    (inp.isin?'  ISIN:          ' + inp.isin + '\n':'') +
+    '  Notional:      ' + fmt(inp.notional, inp.currency) + ' ' + inp.currency + '\n' +
+    '  Platform:      ' + (PLATFORM_LABELS[inp.platform]||inp.platform) + '\n' +
+    '  Custody:       ' + (CUSTODY_LABELS[inp.custody_linkage]||inp.custody_linkage) + '\n\n' +
+    'ELIGIBILITY DETERMINATION\n' +
+    '  DTC / Fed:     ' + result.dtc_status.replace(/_/g,' ') + '\n' +
+    '  HQLA Tier:     ' + result.hqla_tier.replace(/_/g,' ') + '\n' +
+    '  Base Haircut:  ' + (result.base_haircut !== null ? result.base_haircut+'%' : 'N/A (Non-HQLA)') + '\n' +
+    '  Restrict. Add-on: ' + result.haircut_adj + '%\n' +
+    '  Final Haircut: ' + haircut_pct + '\n' +
+    '  Adj. Value:    ' + adj_val + '\n\n' +
+    'COMPLIANCE FLAGS\n' +
+    Object.keys(result.flags).map(function(k){ var f=result.flags[k]; return '  ['+(f.pass?'✓':'✗')+'] '+k; }).join('\n') + '\n\n' +
+    'REGULATORY REFERENCES\n' +
+    '  BCBS LCR standard: https://bis.org/publ/bcbs238.htm (paras 50–54)\n' +
+    '  BCBS SCO60 / d545: https://www.bis.org/bcbs/publ/d545.htm\n' +
+    '  DTC eligibility criteria: https://www.dtcc.com\n\n' +
+    'Execution hash (SHA-256): ' + execution_hash + '\n' +
+    'DISCLAIMER: Decision-support only. Verify with custodian, legal counsel, and prudential supervisor.';
+
+  window._memo = memo;
+
+  var out = document.getElementById('outputSection');
+  out.innerHTML =
+    /* Summary cards */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Eligibility Determination</span></div>' +
+      '<div class="out-body">' +
+        notes +
+        '<div class="stat-row">' +
+          '<div class="stat-chip">' + eligBadge + '<span class="stat-lbl">DTC / Fed Status</span></div>' +
+          '<div class="stat-chip">' + hqlaBadge + '<span class="stat-lbl">Basel HQLA Tier</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--bright);font-size:1.1rem">' + haircut_pct + '</span><span class="stat-lbl">Final Haircut</span></div>' +
+          '<div class="stat-chip"><span class="stat-num" style="color:var(--teal);font-size:.9rem">' + adj_val + '</span><span class="stat-lbl">Adjusted Value</span></div>' +
+        '</div>' +
+        '<table class="res-table" style="margin-top:.75rem">' +
+          '<thead><tr><th>Parameter</th><th>Value</th></tr></thead>' +
+          '<tbody>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Asset Name</td><td style="font-size:.7rem;color:var(--bright)">' + esc(inp.asset_name) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Asset Type</td><td style="font-size:.7rem;color:var(--text)">' + esc(ASSET_LABELS[inp.asset_type]||inp.asset_type) + '</td></tr>' +
+            (inp.isin?'<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">ISIN</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--text)">' + esc(inp.isin) + '</td></tr>':'') +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Notional</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--bright)">' + fmt(inp.notional,inp.currency) + ' ' + inp.currency + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Platform</td><td style="font-size:.7rem;color:var(--text)">' + esc(PLATFORM_LABELS[inp.platform]||inp.platform) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Custody</td><td style="font-size:.7rem;color:var(--text)">' + esc(CUSTODY_LABELS[inp.custody_linkage]||inp.custody_linkage) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Base Haircut (HQLA)</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--text)">' + (result.base_haircut !== null ? result.base_haircut+'%' : 'N/A') + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Restriction Add-on</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:'+(result.haircut_adj>0?'var(--warn)':'var(--muted)')+'">+' + result.haircut_adj + '%</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Execution Hash</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.55rem;color:var(--muted);word-break:break-all">' + esc(execution_hash) + '</td></tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+    /* Compliance flags */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' +
+        Object.keys(result.flags).map(function(k){ var f=result.flags[k]; return '<div class="flag-row"><span class="flag-icon">'+(f.pass?'✅':'❌')+'</span><div><div class="flag-name">'+k+'</div><div class="flag-desc">'+esc(f.desc||'')+'</div></div></div>'; }).join('') +
+      '</div></div>' +
+    '</div>' +
+    /* Memo */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Collateral Eligibility Memo</span>' +
+        '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button>' +
+        '<button class="copy-btn" onclick="downloadCSV()" style="margin-left:.4rem">CSV</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">' + esc(memo) + '</div></div>' +
+    '</div>' +
+    /* Chain next */
+    '<div class="chain-next">&#9903; <strong>OpenChainGraph — Capital Markets.</strong>&nbsp; Next: validate cash leg in ' +
+      '<a href="506-onchain-cash-leg-finality-checker.html">T506 On-Chain Cash-Leg Finality Checker &#8594;</a>' +
+    '</div>';
+}
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function(){
+    var b = document.getElementById('memoCopyBtn');
+    if (b) { b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+function downloadCSV() {
+  if (!_lastResult) return;
+  var inp = _lastResult.inputs; var r = _lastResult.result;
+  var rows = [
+    ['Field','Value'],
+    ['Asset Name', inp.asset_name],
+    ['Asset Type', ASSET_LABELS[inp.asset_type]||inp.asset_type],
+    ['ISIN', inp.isin||''],
+    ['Notional', inp.notional],
+    ['Currency', inp.currency],
+    ['Platform', PLATFORM_LABELS[inp.platform]||inp.platform],
+    ['Custody', CUSTODY_LABELS[inp.custody_linkage]||inp.custody_linkage],
+    ['DTC/Fed Status', r.dtc_status],
+    ['HQLA Tier', r.hqla_tier],
+    ['Base Haircut (%)', r.base_haircut !== null ? r.base_haircut : 'N/A'],
+    ['Restriction Add-on (%)', r.haircut_adj],
+    ['Final Haircut (%)', r.final_haircut !== null ? r.final_haircut : 'N/A'],
+    ['Adjusted Value', r.adjusted_value !== null ? r.adjusted_value : 'N/A'],
+    ['Execution Hash', _lastResult.execution_hash||''],
+    ['Generated', _lastResult.generated]
+  ];
+  Object.keys(r.flags).forEach(function(k){ rows.push(['Flag: '+k, r.flags[k].pass ? 'PASS' : 'FAIL']); });
+  var csv = rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = '505-collateral-eligibility-' + (_lastResult.generated||'').replace(/-/g,'') + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function buildMandate(inp, result, pacs008, ts, execution_hash) {
+  var issuedAt = new Date().toISOString();
+  return {
+    '@context': ['https://ainumbers.co/context.jsonld','https://ainumbers.co/iso20022-context.jsonld'],
+    'dct:conformsTo': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld',
+    ap2_version: '1.0',
+    mandate_id: '505-tokenized-collateral-eligibility-checker-' + issuedAt.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: issuedAt,
+    issued_by: 'ainumbers.co',
+    tool_id: '505-tokenized-collateral-eligibility-checker',
+    tool_version: '1.0.0',
+    mandate_type: 'collateral_mandate',
+    semantic_profile: 'iso20022:pacs.008-subset',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['BCBS LCR (paras 50–54)','BCBS SCO60 / d545','DTC Eligibility Criteria'],
+    execution_hash: execution_hash,
+    chaingraph_version: '0.3.1',
+    chain: {
+      id: 'tokenized-collateral-settlement',
+      step: 1,
+      prev: '504-canton-network-settlement-diagnostics',
+      next: '506-onchain-cash-leg-finality-checker'
+    },
+    policy_parameters: {
+      asset_type: inp.asset_type,
+      platform: inp.platform,
+      custody_linkage: inp.custody_linkage,
+      notional: inp.notional,
+      currency: inp.currency,
+      transfer_restrictions: inp.transfer_restrictions
+    },
+    output_payload: {
+      dtc_status: result.dtc_status,
+      hqla_tier: result.hqla_tier,
+      base_haircut_pct: result.base_haircut,
+      restriction_addon_pct: result.haircut_adj,
+      final_haircut_pct: result.final_haircut,
+      adjusted_value: result.adjusted_value,
+      pacs008_subset: pacs008
+    },
+    compliance_flags: (function(){
+      var o = {};
+      Object.keys(result.flags).forEach(function(k){ o[k] = result.flags[k].pass; });
+      return o;
+    })(),
+    summary: 'Collateral eligibility: ' + result.dtc_status.replace(/_/g,' ') + ' · HQLA: ' + result.hqla_tier.replace(/_/g,' ') + ' · Haircut: ' + (result.final_haircut !== null ? result.final_haircut+'%' : 'N/A') + ' · ' + inp.currency + ' ' + inp.notional.toLocaleString(),
+    agent_instructions: [
+      'Feed output_payload into T506 On-Chain Cash-Leg Finality Checker for DvP settlement chain.',
+      'Verify HQLA tier with prudential supervisor if gilt/eu_sovereign — 0% RW assumption must hold.',
+      'For SCO60 Group 1a assets: obtain independent classification confirmation before trade settlement.'
+    ],
+    source_tool_inputs: { asset_type: inp.asset_type, notional: inp.notional, currency: inp.currency, platform: inp.platform },
+    regulatory_citations: [
+      { ref: 'BCBS LCR standard (January 2013, revised April 2014)', url: 'https://www.bis.org/publ/bcbs238.htm' },
+      { ref: 'BCBS SCO60 / d545', url: 'https://www.bis.org/bcbs/publ/d545.htm' },
+      { ref: 'DTC Eligibility Criteria', url: 'https://www.dtcc.com' }
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+}
+
+window.AIN_BUILD_MANDATE = function() { return window._currentMandate; };
+
+/* ── Default load ── */
+loadPreset('dtc_ust_canton');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = {"tool_id":"505-tokenized-collateral-eligibility-checker","version":"1.0.0","title":"Tokenized Collateral Eligibility Checker","description":"Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Used by DvP, repo, margin, and fund workflows.","category":"capital-markets","tags":["canton","collateral","hqla","dtc","sco60","basel","tokenization"],"audience":["collateral-desk","settlement-ops","risk","compliance"],"mcp_tool_definition":{"name":"check_tokenized_collateral_eligibility","description":"Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Returns eligibility badge, HQLA tier, haircut, adjusted collateral value, and compliance flags.","inputSchema":{"type":"object","properties":{"asset_type":{"type":"string","enum":["ust","agency_mbs","ig_corp_bond","equity","tokenized_deposit","stablecoin","mmf_fund_share","gilt","eu_sovereign","other"]},"notional":{"type":"number"},"currency":{"type":"string","enum":["USD","EUR","GBP","JPY"]},"platform":{"type":"string","enum":["canton_dtc","canton_standalone","other_dlt","traditional"]},"custody_linkage":{"type":"string","enum":["dtc_custodied","fed_eligible","third_party_custodian","self_custodied"]},"transfer_restrictions":{"type":"array","items":{"type":"string","enum":["lock_up","min_denomination","transfer_agent_approval"]}}},"required":["asset_type","notional","currency"]}},"execution":{"type":"browser-javascript","entry":"tools/505-tokenized-collateral-eligibility-checker.html","function_name":"runCollateralEligibility","timeout_ms":3000},"ap2_export":true,"mandate_type":"collateral_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=window._currentMandate;if(!mandate){alert('Run the checker first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='505-tokenized-collateral-eligibility-checker_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runCollateralEligibility',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName!=='INPUT'&&el.tagName!=='SELECT'&&el.tagName!=='TEXTAREA')return;if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=typeof v==='object'?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

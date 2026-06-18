@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Digital Asset Regulatory Classifier · AINumbers.co</title>
+<meta name="description" content="Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime. Determine which regulatory framework applies — and what falls outside scope.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/510-digital-asset-regulatory-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Digital Asset Regulatory Classifier","url":"https://ainumbers.co/tools/510-digital-asset-regulatory-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "510-digital-asset-regulatory-classifier",
+  "version": "1.0.0",
+  "title": "Digital Asset Regulatory Classifier",
+  "description": "Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime. Determine which regulatory framework applies — and what falls outside scope.",
+  "category": "capital-markets",
+  "tags": ["digital-asset","regulatory","genius","mica","mifid","dlt-pilot","classification","stablecoin","tokenization"],
+  "audience": ["legal","compliance","capital-markets","fintech"],
+  "mcp_tool_definition": {
+    "name": "classify_digital_asset_regulatory",
+    "description": "Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "asset_name": {"type": "string"},
+        "asset_type": {"type": "string", "enum": ["tokenized_security","stablecoin_usd","stablecoin_eur","deposit_token","utility_token","nft_financial","cbdc","crypto_native","other"]},
+        "issuer_jurisdiction": {"type": "string", "enum": ["us","eu","uk","sg","hk","jp","ch","other"]},
+        "issuer_type": {"type": "string", "enum": ["bank","payment_institution","investment_firm","fund","other"]},
+        "transfer_value": {"type": "boolean"},
+        "redeemable_par": {"type": "boolean"},
+        "economic_rights": {"type": "boolean"},
+        "market_cap_eur": {"type": "number"},
+        "on_dlt": {"type": "boolean"},
+        "dlt_type": {"type": "string", "enum": ["canton","ethereum","other_permissioned","other_public","none"]}
+      },
+      "required": ["asset_name","asset_type","issuer_jurisdiction"]
+    }
+  },
+  "execution": {"type": "browser-javascript", "entry": "tools/510-digital-asset-regulatory-classifier.html", "function_name": "runRegulatoryClassifier", "timeout_ms": 3000},
+  "ap2_export": true,
+  "mandate_type": "compliance_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "semantic_profile": "iso20022:party-identification",
+  "dct:conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld",
+  "@context": ["https://ainumbers.co/chaingraph/context.jsonld", "https://ainumbers.co/chaingraph/iso20022-context.jsonld"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* 2-col form grid */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem 1.25rem;margin-bottom:1rem}
+.form-grid .full-width{grid-column:1/-1}
+.meta-field{display:flex;flex-direction:column;gap:.35rem}
+.meta-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta-select,.meta-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.meta-select:focus,.meta-input:focus{border-color:var(--teal)}
+/* checkbox row */
+.check-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:.5rem;grid-column:1/-1}
+.check-item{display:flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);cursor:pointer}
+.check-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* classification matrix table */
+.cls-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.cls-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.cls-table td{padding:.55rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:top;font-size:.68rem;color:var(--body)}
+.cls-table tr:last-child td{border-bottom:none}
+.cls-table tr:hover td{background:rgba(20,184,166,.02)}
+.cls-table td:first-child{font-family:'JetBrains Mono',monospace;color:var(--bright);font-size:.65rem;white-space:nowrap}
+/* applies badges */
+.applies-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;white-space:nowrap}
+.applies-teal{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+.applies-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.applies-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.applies-muted{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+/* flags grid */
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-510</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T510 · Digital Assets · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Digital Asset <em>Regulatory Classifier</em></h1>
+  <p class="hero-desc">Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime. Determine which regulatory framework applies — and what falls outside scope.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">GENIUS Act</span>
+    <span class="badge badge-teal">MiCA 2023/1114</span>
+    <span class="badge badge-gold">MiFID II</span>
+    <span class="badge badge-gold">DLT Pilot Regime</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    Classification outputs are decision-support tools for legal and compliance teams — not legal advice. Framework applicability depends on issuer structure, product terms, and evolving regulatory guidance. Always verify with qualified counsel. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Load Preset</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('ust_tokenized')">Tokenized US Treasury (Canton)</button>
+      <button class="preset-btn" onclick="loadPreset('usdc_us')">USDC-style USD Stablecoin</button>
+      <button class="preset-btn" onclick="loadPreset('eur_emt_eu')">MiCA EUR EMT (Illustrative)</button>
+    </div>
+  </div>
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">Asset Details</div>
+    <div class="form-grid">
+      <!-- Row 1: asset name full width -->
+      <div class="meta-field full-width">
+        <span class="meta-label">Asset Name</span>
+        <input type="text" class="meta-input" id="assetName" placeholder="e.g., Illustrative USD Token">
+      </div>
+      <!-- Row 2: asset type | issuer jurisdiction -->
+      <div class="meta-field">
+        <span class="meta-label">Asset Type</span>
+        <select class="meta-select" id="assetType">
+          <option value="tokenized_security">Tokenized Security (equity/bond/fund unit)</option>
+          <option value="stablecoin_usd">USD-pegged stablecoin</option>
+          <option value="stablecoin_eur">EUR-pegged stablecoin</option>
+          <option value="deposit_token">Tokenized bank deposit</option>
+          <option value="utility_token">Utility token</option>
+          <option value="nft_financial">Financial NFT</option>
+          <option value="cbdc">CBDC / Wholesale CBDC</option>
+          <option value="crypto_native">Native crypto (BTC/ETH/SOL style)</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">Issuer Jurisdiction</span>
+        <select class="meta-select" id="issuerJurisdiction">
+          <option value="us">United States (US)</option>
+          <option value="eu">European Union (EU)</option>
+          <option value="uk">United Kingdom (UK)</option>
+          <option value="sg">Singapore (SG)</option>
+          <option value="hk">Hong Kong (HK)</option>
+          <option value="jp">Japan (JP)</option>
+          <option value="ch">Switzerland (CH)</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <!-- Row 3: issuer type | dlt type -->
+      <div class="meta-field">
+        <span class="meta-label">Issuer Type</span>
+        <select class="meta-select" id="issuerType">
+          <option value="bank">Bank / Credit Institution</option>
+          <option value="payment_institution">Payment Institution / E-Money Institution</option>
+          <option value="investment_firm">Investment Firm</option>
+          <option value="fund">Fund / Asset Manager</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">DLT Type</span>
+        <select class="meta-select" id="dltType">
+          <option value="canton">Canton (permissioned)</option>
+          <option value="ethereum">Ethereum (public)</option>
+          <option value="other_permissioned">Other permissioned DLT</option>
+          <option value="other_public">Other public DLT</option>
+          <option value="none">Not on DLT / N/A</option>
+        </select>
+      </div>
+      <!-- Row 4: market cap | spacer -->
+      <div class="meta-field">
+        <span class="meta-label">Market Cap / Outstanding (EUR)</span>
+        <input type="number" class="meta-input" id="marketCapEur" placeholder="e.g., 500000000 — for DLT Pilot threshold" min="0">
+      </div>
+      <div class="meta-field">
+        <span class="meta-label" style="color:transparent">—</span>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);padding:.45rem 0;line-height:1.6">DLT Pilot threshold: ≤ €500M (shares/bonds).<br>Leave blank if unknown.</div>
+      </div>
+      <!-- Row 5: checkboxes -->
+      <div class="check-row">
+        <label class="check-item"><input type="checkbox" id="transferValue"> Transfers monetary value between parties</label>
+        <label class="check-item"><input type="checkbox" id="redeemablePar"> Redeemable at par</label>
+        <label class="check-item"><input type="checkbox" id="economicRights"> Entitles holder to economic rights (dividends, voting, profit share)</label>
+        <label class="check-item"><input type="checkbox" id="onDlt"> Issued / settled on DLT</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runRegulatoryClassifier()">&#9654; Classify Asset</button>
+  </div>
+
+  <div class="output-section" id="outputSection" style="display:none"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the classifier to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="509-canton-party-allowlist-validator.html">&#8592; T509: Canton Party Allowlist</a>
+    <a href="../tools/511-multi-currency-pvp-validator.html">T511: Multi-Currency PvP &#8594;</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T510 Digital Asset Regulatory Classifier v1.0
+   GENIUS Act · MiCA (EU) 2023/1114 · MiFID II 2014/65/EU · DLT Pilot Regime (EU) 2022/858
+   All client-side. Zero network. Zero storage. ═══ */
+
+var PRESETS = {
+  ust_tokenized: {
+    assetName: 'Illustrative Tokenized US Treasury [Source: DTCC + Digital Asset/Canton]',
+    assetType: 'tokenized_security',
+    issuerJurisdiction: 'us',
+    issuerType: 'bank',
+    transferValue: false,
+    redeemablePar: false,
+    economicRights: false,
+    marketCapEur: 1000000000000,
+    onDlt: true,
+    dltType: 'canton'
+  },
+  usdc_us: {
+    assetName: 'Circle USDC [Source: Circle; GENIUS Act context]',
+    assetType: 'stablecoin_usd',
+    issuerJurisdiction: 'us',
+    issuerType: 'payment_institution',
+    transferValue: true,
+    redeemablePar: true,
+    economicRights: false,
+    marketCapEur: 0,
+    onDlt: false,
+    dltType: 'none'
+  },
+  eur_emt_eu: {
+    assetName: 'MiCA-compliant EUR EMT [Illustrative]',
+    assetType: 'stablecoin_eur',
+    issuerJurisdiction: 'eu',
+    issuerType: 'payment_institution',
+    transferValue: true,
+    redeemablePar: true,
+    economicRights: false,
+    marketCapEur: 0,
+    onDlt: false,
+    dltType: 'none'
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('assetName').value = p.assetName;
+  document.getElementById('assetType').value = p.assetType;
+  document.getElementById('issuerJurisdiction').value = p.issuerJurisdiction;
+  document.getElementById('issuerType').value = p.issuerType;
+  document.getElementById('transferValue').checked = !!p.transferValue;
+  document.getElementById('redeemablePar').checked = !!p.redeemablePar;
+  document.getElementById('economicRights').checked = !!p.economicRights;
+  document.getElementById('marketCapEur').value = (p.marketCapEur || p.marketCapEur === 0) ? p.marketCapEur : '';
+  document.getElementById('onDlt').checked = !!p.onDlt;
+  document.getElementById('dltType').value = p.dltType;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+var _lastMandate = null;
+
+function runRegulatoryClassifier() {
+  var assetName          = document.getElementById('assetName').value.trim() || 'Unnamed Asset';
+  var assetType          = document.getElementById('assetType').value;
+  var issuerJurisdiction = document.getElementById('issuerJurisdiction').value;
+  var issuerType         = document.getElementById('issuerType').value;
+  var transferValue      = document.getElementById('transferValue').checked;
+  var redeemablePar      = document.getElementById('redeemablePar').checked;
+  var economicRights     = document.getElementById('economicRights').checked;
+  var marketCapRaw       = document.getElementById('marketCapEur').value;
+  var marketCapEur       = (marketCapRaw !== '' && marketCapRaw !== null) ? parseFloat(marketCapRaw) : null;
+  var onDlt              = document.getElementById('onDlt').checked;
+  var dltType            = document.getElementById('dltType').value;
+  var ts                 = new Date().toISOString().slice(0, 10);
+
+  /* ── Classification flags ── */
+  var flags = {
+    REGULATORY_CLASSIFICATION_ASSESSED:  false,
+    GENIUS_ACT_APPLIES:                  false,
+    CBDC_EXEMPT_GENIUS:                  false,
+    MICA_EMT_APPLIES:                    false,
+    MICA_TITLE_IV_APPLIES:               false,
+    MICA_TITLE_III_NOTE:                 false,
+    MIFID_II_FINANCIAL_INSTRUMENT:       false,
+    DLT_PILOT_ELIGIBLE:                  false,
+    DLT_PILOT_THRESHOLD_EXCEEDED:        false,
+    REGULATORY_CLASSIFICATION_UNCLEAR:   false
+  };
+  flags.REGULATORY_CLASSIFICATION_ASSESSED = true;
+
+  /* ── Classification matrix rows ── */
+  var results = [];
+
+  /* ─── GENIUS Act ─── */
+  var geniusRow = {framework: 'GENIUS Act', applies: null, note: '', next_step: ''};
+  if (assetType === 'cbdc') {
+    flags.CBDC_EXEMPT_GENIUS = true;
+    geniusRow.applies = 'EXEMPT';
+    geniusRow.note = 'CBDC issued by Federal Reserve is exempt from GENIUS Act stablecoin licensing requirements.';
+    geniusRow.next_step = 'No GENIUS Act licensing required for Federal Reserve CBDC.';
+  } else if (assetType === 'stablecoin_usd' && issuerJurisdiction === 'us' && transferValue) {
+    flags.GENIUS_ACT_APPLIES = true;
+    geniusRow.applies = 'APPLIES';
+    geniusRow.note = '1:1 reserve, monthly reserve attestation, federal or state payment stablecoin license required. (GENIUS Act, anticipated enactment 2025–2026)';
+    geniusRow.next_step = 'Engage US counsel. Obtain federal or state payment stablecoin license. Prepare monthly reserve attestation program.';
+  } else {
+    geniusRow.applies = 'NOT APPLICABLE';
+    geniusRow.note = 'Asset does not meet GENIUS Act scope criteria (USD-pegged stablecoin issued in US with value-transfer function).';
+    geniusRow.next_step = 'No GENIUS Act stablecoin licensing obligation triggered.';
+  }
+  results.push(geniusRow);
+
+  /* ─── MiFID II ─── */
+  var mifidRow = {framework: 'MiFID II (2014/65/EU)', applies: null, note: '', next_step: ''};
+  if (assetType === 'tokenized_security' && (economicRights || issuerType === 'investment_firm' || issuerType === 'fund')) {
+    flags.MIFID_II_FINANCIAL_INSTRUMENT = true;
+    mifidRow.applies = 'APPLIES';
+    mifidRow.note = 'Tokenized securities qualifying as financial instruments under MiFID II Annex I §C are outside MiCA\'s scope per Art 2(3)(a). Subject to prospectus, MAR, and MiFID II trading venue requirements.';
+    mifidRow.next_step = 'Engage EU securities law counsel. Prepare prospectus (Prospectus Regulation). Confirm MAR obligations. Identify authorised trading venue.';
+  } else {
+    mifidRow.applies = 'NOT APPLICABLE';
+    mifidRow.note = 'Asset does not appear to qualify as a MiFID II financial instrument under Annex I §C based on the inputs provided.';
+    mifidRow.next_step = 'Confirm with EU legal counsel if the asset has characteristics of a transferable security, money-market instrument, or derivative.';
+  }
+  results.push(mifidRow);
+
+  /* ─── MiCA ─── */
+  var micaRow = {framework: 'MiCA (EU) 2023/1114', applies: null, note: '', next_step: ''};
+  if (flags.MIFID_II_FINANCIAL_INSTRUMENT) {
+    micaRow.applies = 'NOT APPLICABLE';
+    micaRow.note = 'Asset qualifies as MiFID II financial instrument — excluded from MiCA scope per Art 2(3)(a).';
+    micaRow.next_step = 'MiFID II / Prospectus Regulation pathway applies instead.';
+  } else if (assetType === 'stablecoin_eur' && issuerJurisdiction === 'eu' && transferValue) {
+    flags.MICA_EMT_APPLIES = true;
+    micaRow.applies = 'APPLIES';
+    micaRow.note = 'MiCA Title III — E-Money Token: single fiat reference, redemption at par, issuer must be credit institution or e-money institution authorised in EU.';
+    micaRow.next_step = 'Prepare MiCA Title III white paper and submit regulatory notification. Confirm issuer is authorised as credit institution or EMI under PSD2.';
+  } else if (assetType === 'deposit_token' && issuerJurisdiction === 'eu') {
+    flags.MICA_TITLE_III_NOTE = true;
+    micaRow.applies = 'NOTE';
+    micaRow.note = 'Deposit tokens issued by credit institutions may be treated as e-money or subject to bank licensing requirements rather than full MiCA EMT. Verify with issuer\'s counsel.';
+    micaRow.next_step = 'Obtain legal opinion on deposit token characterisation. Determine whether CRD/CRR bank licence suffices or MiCA EMT compliance is also required.';
+  } else if (assetType === 'utility_token' && issuerJurisdiction === 'eu') {
+    flags.MICA_TITLE_IV_APPLIES = true;
+    micaRow.applies = 'APPLIES';
+    micaRow.note = 'MiCA Title IV — crypto-assets other than ART/EMT. White paper required; marketing/offer requirements apply.';
+    micaRow.next_step = 'Prepare MiCA Title IV crypto-asset white paper. Comply with offer, marketing, and investor communication requirements.';
+  } else if (issuerJurisdiction === 'eu' && assetType !== 'tokenized_security' && !flags.MIFID_II_FINANCIAL_INSTRUMENT) {
+    flags.MICA_TITLE_IV_APPLIES = true;
+    micaRow.applies = 'APPLIES';
+    micaRow.note = 'MiCA Title IV — crypto-assets other than ART/EMT. EU-issued crypto-asset not otherwise categorised. White paper required; marketing/offer requirements apply.';
+    micaRow.next_step = 'Prepare MiCA Title IV crypto-asset white paper. Comply with offer, marketing, and investor communication requirements.';
+  } else {
+    micaRow.applies = 'NOT APPLICABLE';
+    micaRow.note = 'Asset does not appear to fall within MiCA scope based on the inputs provided (asset type and/or jurisdiction do not trigger MiCA obligations).';
+    micaRow.next_step = 'Confirm with EU legal counsel whether any MiCA notification or passporting obligations arise for non-EU issuers targeting EU investors.';
+  }
+  results.push(micaRow);
+
+  /* ─── DLT Pilot Regime ─── */
+  var dltRow = {framework: 'EU DLT Pilot Regime (2022/858)', applies: null, note: '', next_step: ''};
+  if (assetType === 'tokenized_security' && onDlt && issuerJurisdiction === 'eu') {
+    var threshold = 500000000;
+    if (marketCapEur !== null) {
+      if (marketCapEur <= threshold) {
+        flags.DLT_PILOT_ELIGIBLE = true;
+        dltRow.applies = 'ELIGIBLE';
+        var dltNote = 'Asset is within DLT Pilot Regime thresholds (Art 3(3), Regulation (EU) 2022/858). DLT-specific derogations from MiFID II/CSDR may be available.';
+        if (dltType === 'canton') {
+          dltNote += ' Canton operates as a permissioned DLT — verify with DLT Pilot operator licence requirements under Art 7–8 of Regulation (EU) 2022/858.';
+        }
+        dltRow.note = dltNote;
+        dltRow.next_step = 'Contact a DLT Pilot operator authorised under Art 7–8. Apply for DLT MTF / DLT SS derogation. Confirm market cap stays within threshold.';
+      } else {
+        flags.DLT_PILOT_THRESHOLD_EXCEEDED = true;
+        dltRow.applies = 'NOT ELIGIBLE';
+        dltRow.note = 'Asset exceeds DLT Pilot Regime thresholds (Art 3(3)). Standard MiFID II venue/settlement rules apply — no DLT-specific derogation available.';
+        dltRow.next_step = 'Use standard MiFID II-authorised trading venue and CSDR-compliant settlement infrastructure.';
+      }
+    } else {
+      dltRow.applies = 'UNKNOWN';
+      dltRow.note = 'Enter market cap / outstanding to determine DLT Pilot Regime eligibility under Art 3(3) thresholds (≤ €500M for shares/bonds as conservative default).';
+      dltRow.next_step = 'Re-run with market cap entered to confirm DLT Pilot eligibility.';
+    }
+  } else {
+    dltRow.applies = 'N/A';
+    dltRow.note = 'DLT Pilot Regime applies only to tokenized securities settled on DLT with EU issuer jurisdiction.';
+    dltRow.next_step = 'DLT Pilot Regime derogation not applicable to this asset.';
+  }
+  results.push(dltRow);
+
+  /* ─── Unclear catch-all ─── */
+  var anyPositive = flags.GENIUS_ACT_APPLIES || flags.CBDC_EXEMPT_GENIUS ||
+    flags.MICA_EMT_APPLIES || flags.MICA_TITLE_IV_APPLIES || flags.MICA_TITLE_III_NOTE ||
+    flags.MIFID_II_FINANCIAL_INSTRUMENT || flags.DLT_PILOT_ELIGIBLE || flags.DLT_PILOT_THRESHOLD_EXCEEDED;
+  if (!anyPositive) {
+    flags.REGULATORY_CLASSIFICATION_UNCLEAR = true;
+  }
+
+  /* ─── Build mandate async (execution_hash via WebCrypto) ─── */
+  var mandateBase = buildMandateSync(assetName, assetType, issuerJurisdiction, issuerType, transferValue, redeemablePar, economicRights, marketCapEur, onDlt, dltType, results, flags, ts);
+
+  /* Compute execution hash */
+  var sortedPayload = JSON.stringify(mandateBase.payload, Object.keys(mandateBase.payload).sort());
+  var encoder = new TextEncoder();
+  var data = encoder.encode(sortedPayload);
+  crypto.subtle.digest('SHA-256', data).then(function(hashBuffer) {
+    var hashArray = Array.from(new Uint8Array(hashBuffer));
+    var hashHex = hashArray.map(function(b){ return ('00'+b.toString(16)).slice(-2); }).join('');
+    mandateBase.chaingraph.execution_hash = hashHex;
+    _lastMandate = mandateBase;
+    window._currentMandate = mandateBase;
+    window.enableAP2Btn && window.enableAP2Btn();
+  }).catch(function() {
+    _lastMandate = mandateBase;
+    window._currentMandate = mandateBase;
+    window.enableAP2Btn && window.enableAP2Btn();
+  });
+
+  /* ─── Render ─── */
+  renderOutput(assetName, assetType, issuerJurisdiction, results, flags, ts);
+}
+
+function buildMandateSync(assetName, assetType, issuerJurisdiction, issuerType, transferValue, redeemablePar, economicRights, marketCapEur, onDlt, dltType, results, flags, ts) {
+  var now = new Date().toISOString();
+  var jurisdictionIso = {us:'US',eu:'EU',uk:'GB',sg:'SG',hk:'HK',jp:'JP',ch:'CH',other:'XX'}[issuerJurisdiction] || 'XX';
+  var mandate_id = '510-digital-asset-regulatory-classifier-' + now.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14);
+  return {
+    ap2_version: '1.0',
+    mandate_id: mandate_id,
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '510-digital-asset-regulatory-classifier',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_mandate',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['GENIUS Act', 'MiCA (EU) 2023/1114', 'MiFID II 2014/65/EU', 'DLT Pilot Regime (EU) 2022/858'],
+    payload: {
+      asset_name: assetName,
+      asset_type: assetType,
+      issuer_jurisdiction: issuerJurisdiction,
+      issuer_type: issuerType,
+      classification_results: results.map(function(r){ return {framework:r.framework,applies:r.applies,note:r.note,next_step:r.next_step}; }),
+      iso20022_party_identification: [{party_name: assetName, lei: null, country: jurisdictionIso, currency: null}]
+    },
+    compliance_flags: (function(){
+      var o = {};
+      Object.keys(flags).forEach(function(k){ o[k] = flags[k]; });
+      return o;
+    })(),
+    chaingraph: {
+      chaingraph_version: '0.3.1',
+      execution_hash: 'computing...',
+      chain: [
+        {step: 1, tool: '510-digital-asset-regulatory-classifier', output: 'regulatory_classification_result'}
+      ]
+    },
+    summary: 'Digital asset "' + assetName + '" classified under GENIUS Act / MiCA / MiFID II / DLT Pilot Regime. ' +
+      (flags.GENIUS_ACT_APPLIES ? 'GENIUS Act applies. ' : '') +
+      (flags.MIFID_II_FINANCIAL_INSTRUMENT ? 'MiFID II financial instrument. ' : '') +
+      (flags.MICA_EMT_APPLIES ? 'MiCA EMT (Title III) applies. ' : '') +
+      (flags.MICA_TITLE_IV_APPLIES ? 'MiCA Title IV applies. ' : '') +
+      (flags.DLT_PILOT_ELIGIBLE ? 'DLT Pilot Regime eligible. ' : '') +
+      'Generated ' + ts,
+    agent_instructions: [
+      'Review classification_results for each applicable framework.',
+      'GENIUS_ACT_APPLIES: engage US legal counsel for reserve attestation and licensing.',
+      'MIFID_II_FINANCIAL_INSTRUMENT: engage EU securities law counsel for prospectus and venue requirements.',
+      'MICA_EMT_APPLIES: prepare MiCA Title III white paper and regulatory notification.',
+      'DLT_PILOT_ELIGIBLE: verify with a DLT Pilot operator under Regulation (EU) 2022/858 Arts 7-8.'
+    ],
+    valid_from: ts,
+    valid_until: new Date(Date.now() + 365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts,
+    source_tool_inputs: {asset_name: assetName, asset_type: assetType, issuer_jurisdiction: issuerJurisdiction},
+    regulatory_citations: [
+      {ref: 'GENIUS Act (US)', url: 'https://www.congress.gov/bill/119th-congress/senate-bill/394'},
+      {ref: 'Regulation (EU) 2023/1114 (MiCA)', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32023R1114'},
+      {ref: 'Directive 2014/65/EU (MiFID II) Annex I §C', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32014L0065'},
+      {ref: 'Regulation (EU) 2022/858 (DLT Pilot Regime)', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R0858'}
+    ],
+    audit_metadata: {client_side_executed: true, zero_pii_verified: true, deterministic_run: true}
+  };
+}
+
+function appliesBadge(applies) {
+  switch (applies) {
+    case 'APPLIES':       return '<span class="applies-badge applies-teal">APPLIES</span>';
+    case 'ELIGIBLE':      return '<span class="applies-badge applies-teal">ELIGIBLE</span>';
+    case 'EXEMPT':        return '<span class="applies-badge applies-gold">EXEMPT</span>';
+    case 'NOTE':          return '<span class="applies-badge applies-gold">NOTE</span>';
+    case 'UNKNOWN':       return '<span class="applies-badge applies-gold">UNKNOWN</span>';
+    case 'NOT APPLICABLE':return '<span class="applies-badge applies-red">NOT APPLICABLE</span>';
+    case 'NOT ELIGIBLE':  return '<span class="applies-badge applies-red">NOT ELIGIBLE</span>';
+    case 'N/A':           return '<span class="applies-badge applies-muted">N/A</span>';
+    default:              return '<span class="applies-badge applies-muted">' + esc(applies) + '</span>';
+  }
+}
+
+function renderOutput(assetName, assetType, issuerJurisdiction, results, flags, ts) {
+  var out = document.getElementById('outputSection');
+  out.style.display = 'flex';
+
+  /* Build memo */
+  var memo = 'DIGITAL ASSET REGULATORY CLASSIFICATION\n' +
+    'Generated: ' + ts + '\n' +
+    'Asset: ' + assetName + '\n' +
+    'Type: ' + assetType + ' | Jurisdiction: ' + issuerJurisdiction.toUpperCase() + '\n\n' +
+    'CLASSIFICATION MATRIX\n' +
+    results.map(function(r){
+      return '  ' + r.framework + '\n' +
+        '    Applies: ' + r.applies + '\n' +
+        '    Note: ' + r.note + '\n' +
+        '    Next Step: ' + r.next_step;
+    }).join('\n\n') + '\n\n' +
+    'COMPLIANCE FLAGS\n' +
+    Object.keys(flags).map(function(k){ return '  [' + (flags[k] ? 'TRUE' : 'false') + '] ' + k; }).join('\n') + '\n\n' +
+    'REGULATORY CITATIONS\n' +
+    '  GENIUS Act (US): https://www.congress.gov/bill/119th-congress/senate-bill/394\n' +
+    '  MiCA (EU) 2023/1114: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32023R1114\n' +
+    '  MiFID II Annex I §C: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32014L0065\n' +
+    '  DLT Pilot Regime (EU) 2022/858: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R0858\n\n' +
+    'This output is for decision-support purposes only. Seek qualified legal counsel for definitive regulatory classification.';
+
+  window._memo = memo;
+
+  out.innerHTML =
+    /* Classification matrix */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Classification Matrix</span></div>' +
+      '<div class="out-body" style="padding:0;overflow-x:auto">' +
+        '<table class="cls-table">' +
+          '<thead><tr>' +
+            '<th style="min-width:180px">Framework</th>' +
+            '<th style="min-width:120px">Applies?</th>' +
+            '<th>Key Requirements / Note</th>' +
+            '<th style="min-width:220px">Next Step</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+            results.map(function(r){
+              return '<tr>' +
+                '<td>' + esc(r.framework) + '</td>' +
+                '<td>' + appliesBadge(r.applies) + '</td>' +
+                '<td style="font-size:.65rem;line-height:1.6;color:var(--body)">' + esc(r.note) + '</td>' +
+                '<td style="font-size:.63rem;line-height:1.6;color:var(--muted)">' + esc(r.next_step) + '</td>' +
+              '</tr>';
+            }).join('') +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+    /* Compliance flags */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' +
+        Object.keys(flags).map(function(k){
+          var v = flags[k];
+          var icon = v ? '&#9989;' : '&#11036;';
+          var desc = {
+            REGULATORY_CLASSIFICATION_ASSESSED: 'Classification logic executed successfully',
+            GENIUS_ACT_APPLIES: 'USD stablecoin with US issuer — GENIUS Act licensing required',
+            CBDC_EXEMPT_GENIUS: 'Federal Reserve CBDC — exempt from GENIUS Act',
+            MICA_EMT_APPLIES: 'MiCA Title III E-Money Token obligations triggered',
+            MICA_TITLE_IV_APPLIES: 'MiCA Title IV white paper and offer requirements triggered',
+            MICA_TITLE_III_NOTE: 'Deposit token — MiCA vs bank licence analysis required',
+            MIFID_II_FINANCIAL_INSTRUMENT: 'Tokenized security qualifies under MiFID II Annex I §C',
+            DLT_PILOT_ELIGIBLE: 'Within EU DLT Pilot Regime thresholds — derogations available',
+            DLT_PILOT_THRESHOLD_EXCEEDED: 'Exceeds DLT Pilot thresholds — standard MiFID II/CSDR applies',
+            REGULATORY_CLASSIFICATION_UNCLEAR: 'No framework clearly triggered — seek legal counsel'
+          }[k] || k;
+          return '<div class="flag-row"><span class="flag-icon">' + icon + '</span><div><div class="flag-name">' + esc(k) + '</div><div class="flag-desc">' + esc(desc) + '</div></div></div>';
+        }).join('') +
+      '</div></div>' +
+    '</div>' +
+    /* Memo */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Regulatory Classification Memo</span>' +
+        '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">' + esc(memo) + '</div></div>' +
+    '</div>';
+}
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function(){
+    var b = document.getElementById('memoCopyBtn');
+    if (b) { b.textContent = 'Copied &#10003;'; setTimeout(function(){ b.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+window.AIN_BUILD_MANDATE = function() { return _lastMandate; };
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"510-digital-asset-regulatory-classifier","version":"1.0.0","title":"Digital Asset Regulatory Classifier","description":"Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime. Determine which regulatory framework applies — and what falls outside scope.","category":"capital-markets","tags":["digital-asset","regulatory","genius","mica","mifid","dlt-pilot","classification","stablecoin","tokenization"],"audience":["legal","compliance","capital-markets","fintech"],"mcp_tool_definition":{"name":"classify_digital_asset_regulatory","description":"Classify a tokenized asset under GENIUS Act, MiCA, MiFID II, and EU DLT Pilot Regime.","inputSchema":{"type":"object","properties":{"asset_name":{"type":"string"},"asset_type":{"type":"string","enum":["tokenized_security","stablecoin_usd","stablecoin_eur","deposit_token","utility_token","nft_financial","cbdc","crypto_native","other"]},"issuer_jurisdiction":{"type":"string","enum":["us","eu","uk","sg","hk","jp","ch","other"]},"issuer_type":{"type":"string","enum":["bank","payment_institution","investment_firm","fund","other"]},"transfer_value":{"type":"boolean"},"redeemable_par":{"type":"boolean"},"economic_rights":{"type":"boolean"},"market_cap_eur":{"type":"number"},"on_dlt":{"type":"boolean"},"dlt_type":{"type":"string","enum":["canton","ethereum","other_permissioned","other_public","none"]}},"required":["asset_name","asset_type","issuer_jurisdiction"]}},"execution":{"type":"browser-javascript","entry":"tools/510-digital-asset-regulatory-classifier.html","function_name":"runRegulatoryClassifier","timeout_ms":3000},"ap2_export":true,"mandate_type":"compliance_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true,"semantic_profile":"iso20022:party-identification","dct:conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld","@context":["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=_lastMandate||window._currentMandate;if(!mandate){alert('Run the classifier first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='510-digital-asset-regulatory-classifier_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runRegulatoryClassifier',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName!=='INPUT'&&el.tagName!=='SELECT'&&el.tagName!=='TEXTAREA')return;if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=typeof v==='object'?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

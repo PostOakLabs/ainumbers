@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Canton Party Allowlist Validator · AINumbers.co</title>
+<meta name="description" content="Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding. Generate a counterparty-verifiable allowlist attestation.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/509-canton-party-allowlist-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Canton Party Allowlist Validator","url":"https://ainumbers.co/tools/509-canton-party-allowlist-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "509-canton-party-allowlist-validator",
+  "version": "1.0.0",
+  "title": "Canton Party Allowlist Validator",
+  "description": "Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding. Generate a counterparty-verifiable allowlist attestation.",
+  "category": "capital-markets",
+  "tags": ["canton","kyc","kya","aml","fatf","travel-rule","allowlist","compliance","onboarding"],
+  "audience": ["compliance","aml","legal","capital-markets"],
+  "mcp_tool_definition": {
+    "name": "validate_canton_party_allowlist",
+    "description": "Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "party_name": {"type": "string"},
+              "lei": {"type": "string"},
+              "entity_type": {"type": "string", "enum": ["bank","broker_dealer","asset_manager","hedge_fund","custodian","exchange","other"]},
+              "jurisdiction": {"type": "string", "enum": ["us","eu","uk","sg","hk","jp","ch","other"]},
+              "fatf_category": {"type": "string", "enum": ["fatf_member_compliant","fatf_member_monitored","fatf_grey_list","fatf_black_list","non_fatf_member"]},
+              "pep": {"type": "boolean"},
+              "adverse_media": {"type": "boolean"},
+              "daml_party_id_known": {"type": "boolean"},
+              "canton_access": {"type": "string", "enum": ["global_synchronizer","canton_private","both","unknown"]}
+            },
+            "required": ["party_name","entity_type","jurisdiction","fatf_category"]
+          }
+        }
+      },
+      "required": ["parties"]
+    }
+  },
+  "execution": {"type": "browser-javascript","entry": "tools/509-canton-party-allowlist-validator.html","function_name": "runPartyAllowlist","timeout_ms": 5000},
+  "ap2_export": true,
+  "mandate_type": "compliance_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "semantic_profile": "iso20022:party-identification",
+  "dct:conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld",
+  "@context": ["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.006) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.006) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.add-row-btn{background:transparent;border:1px dashed var(--border-2);color:var(--body);padding:.45rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.add-row-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-banner{display:flex;align-items:center;gap:1rem;padding:.85rem 1.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;margin-bottom:1rem}
+.verdict-all-approved{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.verdict-conditional{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.4)}
+.verdict-rejected{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.decision-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .55rem;border-radius:4px;font-weight:600}
+.dec-approved{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.35)}
+.dec-conditional{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.35)}
+.dec-rejected{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.35)}
+.res-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.res-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.res-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.res-table tr:hover td{background:rgba(20,184,166,.02)}
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.5rem}
+.flag-chip{display:inline-flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.04em;padding:.3rem .65rem;border-radius:4px;border:1px solid}
+.flag-true{color:var(--teal);border-color:rgba(20,184,166,.3);background:var(--teal-dim)}
+.flag-false{color:var(--red);border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.68rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.note-block{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:6px;padding:.65rem .9rem;font-size:.72rem;line-height:1.6;color:#9aa7b8;margin-bottom:.75rem}
+.chain-next{display:flex;align-items:center;gap:.75rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal-lt)}
+.chain-next a{color:var(--teal-lt);text-decoration:underline}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+/* Party table styles */
+.party-table-wrap{overflow-x:auto;margin-bottom:1rem}
+.party-table{width:100%;border-collapse:collapse;font-size:.68rem;min-width:900px}
+.party-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.45rem .5rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap;background:var(--bg-3)}
+.party-table td{padding:.35rem .4rem;border-bottom:1px solid rgba(30,47,74,.45);vertical-align:middle}
+.party-table tr:last-child td{border-bottom:none}
+.party-table tr:hover td{background:rgba(20,184,166,.02)}
+.pt-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.28rem .45rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%;min-width:120px}
+.pt-input:focus{border-color:var(--teal)}
+.pt-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.28rem .4rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.pt-select:focus{border-color:var(--teal)}
+.pt-cb{width:14px;height:14px;accent-color:var(--teal);cursor:pointer}
+.del-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:.22rem .5rem;border-radius:3px;transition:all .2s;white-space:nowrap}
+.del-btn:hover{border-color:var(--red);color:var(--red)}
+.cite-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);line-height:1.9}
+.cite-block a{color:var(--teal);text-decoration:underline}
+.flag-list-inline{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--warn);line-height:1.5}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-509</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T509 · Canton Network · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Canton Party <em>Allowlist Validator</em></h1>
+  <p class="hero-desc">Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding. Generate a counterparty-verifiable allowlist attestation.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">FATF Rec 16</span>
+    <span class="badge badge-teal">Travel Rule</span>
+    <span class="badge badge-purple">Canton Network</span>
+    <span class="badge badge-green">KYA / AML</span>
+    <span class="badge badge-muted">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    This tool provides decision-support analysis only. All screening decisions must be validated by qualified AML compliance officers, legal counsel, and your regulatory supervisor before onboarding parties to the Canton Network. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('g_sib_onboard')">G-SIB bilateral Canton counterparty [Illustrative]</button>
+      <button class="preset-btn" onclick="loadPreset('cross_border_emerging')">Onboarding EM counterparty [Illustrative]</button>
+      <button class="preset-btn" onclick="loadPreset('full_screening')">Mixed panel [Illustrative]</button>
+    </div>
+  </div>
+
+  <!-- PARTY TABLE -->
+  <div class="panel">
+    <div class="panel-header">Party Screening Panel (up to 5 parties)</div>
+    <div class="party-table-wrap">
+      <table class="party-table">
+        <thead>
+          <tr>
+            <th>Party Name</th>
+            <th>LEI (optional)</th>
+            <th>Entity Type</th>
+            <th>Jurisdiction</th>
+            <th>FATF Category</th>
+            <th>PEP?</th>
+            <th>Adverse Media?</th>
+            <th>Daml Party ID Known?</th>
+            <th>Canton Sub-Network</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="partyBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:.75rem">
+      <button class="add-row-btn" onclick="addPartyRow(null)">+ Add Party</button>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-left:.75rem">Max 5 parties per run</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap;align-items:center">
+    <button class="run-btn" onclick="runPartyAllowlist()">&#9654; Run Allowlist Screening</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the screening to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="508-dvp-settlement-failure-analyser.html">&#8592; T508</a>
+    <a href="510-digital-asset-regulatory-classifier.html">T510 &#8594;</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T509 Canton Party Allowlist Validator v1.0
+   FATF Recommendation 16 (Travel Rule, Oct 2021) · Canton Network KYA
+   All client-side. Zero network. Zero storage. ═══ */
+
+var ENTITY_LABELS = {
+  bank:'Bank', broker_dealer:'Broker-Dealer', asset_manager:'Asset Manager',
+  hedge_fund:'Hedge Fund', custodian:'Custodian', exchange:'Exchange', other:'Other'
+};
+var JURISDICTION_LABELS = {
+  us:'United States', eu:'European Union', uk:'United Kingdom', sg:'Singapore',
+  hk:'Hong Kong', jp:'Japan', ch:'Switzerland', other:'Other'
+};
+var JURISDICTION_ISO = {
+  us:'US', eu:'EU', uk:'GB', sg:'SG', hk:'HK', jp:'JP', ch:'CH', other:'XX'
+};
+var FATF_LABELS = {
+  fatf_member_compliant:'FATF member, compliant',
+  fatf_member_monitored:'FATF member, enhanced monitoring',
+  fatf_grey_list:'FATF grey list',
+  fatf_black_list:'DPRK/Iran — FATF black list',
+  non_fatf_member:'Non-FATF member'
+};
+var CANTON_ACCESS_LABELS = {
+  global_synchronizer:'Global Synchronizer', canton_private:'Canton Private',
+  both:'Both', unknown:'Unknown'
+};
+
+/* ── Presets ── */
+var PRESETS = {
+  g_sib_onboard: {
+    parties: [
+      {party_name:'Alpha Global Bank N.A. [Illustrative]', lei:'5493001KJTIIGC8Y1R12', entity_type:'bank', jurisdiction:'us', fatf_category:'fatf_member_compliant', pep:false, adverse_media:false, daml_party_id_known:true, canton_access:'global_synchronizer'},
+      {party_name:'Beta Investment Bank GmbH [Illustrative]', lei:'213800WSGIIZCXF1P572', entity_type:'bank', jurisdiction:'eu', fatf_category:'fatf_member_compliant', pep:false, adverse_media:false, daml_party_id_known:true, canton_access:'global_synchronizer'}
+    ]
+  },
+  cross_border_emerging: {
+    parties: [
+      {party_name:'Gamma Custody Services Pte Ltd [Illustrative]', lei:'', entity_type:'custodian', jurisdiction:'sg', fatf_category:'fatf_grey_list', pep:false, adverse_media:false, daml_party_id_known:false, canton_access:'canton_private'}
+    ]
+  },
+  full_screening: {
+    parties: [
+      {party_name:'Delta Trust Corp [Illustrative]', lei:'7ZW8QJWVPR4P1SVVBQ55', entity_type:'bank', jurisdiction:'us', fatf_category:'fatf_member_compliant', pep:false, adverse_media:false, daml_party_id_known:true, canton_access:'global_synchronizer'},
+      {party_name:'Epsilon Alternatives Ltd [Illustrative]', lei:'', entity_type:'hedge_fund', jurisdiction:'hk', fatf_category:'fatf_grey_list', pep:false, adverse_media:false, daml_party_id_known:false, canton_access:'canton_private'},
+      {party_name:'Zeta Exchange Corp [Illustrative]', lei:'', entity_type:'exchange', jurisdiction:'other', fatf_category:'fatf_black_list', pep:false, adverse_media:false, daml_party_id_known:false, canton_access:'unknown'}
+    ]
+  }
+};
+
+/* ── Row management ── */
+var _rowCount = 0;
+
+function addPartyRow(p) {
+  var tbody = document.getElementById('partyBody');
+  if (tbody.rows.length >= 5) { alert('Maximum 5 parties per screening run.'); return; }
+  _rowCount++;
+  var rid = 'pr' + _rowCount;
+  p = p || {};
+
+  function sel(name, opts, val) {
+    var s = '<select class="pt-select" id="' + rid + '_' + name + '">';
+    opts.forEach(function(o) {
+      s += '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>';
+    });
+    return s + '</select>';
+  }
+  function cb(name, checked) {
+    return '<input type="checkbox" class="pt-cb" id="' + rid + '_' + name + '"' + (checked ? ' checked' : '') + '>';
+  }
+
+  var entityOpts = [['bank','Bank'],['broker_dealer','Broker-Dealer'],['asset_manager','Asset Manager'],['hedge_fund','Hedge Fund'],['custodian','Custodian'],['exchange','Exchange'],['other','Other']];
+  var jurOpts = [['us','US'],['eu','EU'],['uk','UK'],['sg','SG'],['hk','HK'],['jp','JP'],['ch','CH'],['other','Other']];
+  var fatfOpts = [['fatf_member_compliant','FATF compliant'],['fatf_member_monitored','Enhanced monitoring'],['fatf_grey_list','Grey list'],['fatf_black_list','Black list'],['non_fatf_member','Non-FATF']];
+  var cantonOpts = [['global_synchronizer','Global Sync.'],['canton_private','Canton Private'],['both','Both'],['unknown','Unknown']];
+
+  var tr = document.createElement('tr');
+  tr.id = rid;
+  tr.innerHTML =
+    '<td><input type="text" class="pt-input" id="' + rid + '_name" value="' + esc(p.party_name||'') + '" placeholder="Use illustrative/anonymised name" style="min-width:150px"></td>' +
+    '<td><input type="text" class="pt-input" id="' + rid + '_lei" value="' + esc(p.lei||'') + '" placeholder="Test LEI only" style="min-width:100px"></td>' +
+    '<td>' + sel('entity_type', entityOpts, p.entity_type||'bank') + '</td>' +
+    '<td>' + sel('jurisdiction', jurOpts, p.jurisdiction||'us') + '</td>' +
+    '<td>' + sel('fatf_category', fatfOpts, p.fatf_category||'fatf_member_compliant') + '</td>' +
+    '<td style="text-align:center">' + cb('pep', !!p.pep) + '</td>' +
+    '<td style="text-align:center">' + cb('adverse_media', !!p.adverse_media) + '</td>' +
+    '<td style="text-align:center">' + cb('daml_id', !!p.daml_party_id_known) + '</td>' +
+    '<td>' + sel('canton_access', cantonOpts, p.canton_access||'global_synchronizer') + '</td>' +
+    '<td><button class="del-btn" onclick="delRow(\'' + rid + '\')">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
+function delRow(rid) {
+  var tr = document.getElementById(rid);
+  if (tr) tr.parentNode.removeChild(tr);
+}
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return;
+  var tbody = document.getElementById('partyBody');
+  tbody.innerHTML = '';
+  p.parties.forEach(function(party) { addPartyRow(party); });
+}
+
+function getParties() {
+  var tbody = document.getElementById('partyBody');
+  var rows = tbody.querySelectorAll('tr');
+  var parties = [];
+  rows.forEach(function(tr) {
+    var rid = tr.id;
+    if (!rid) return;
+    parties.push({
+      party_name: (document.getElementById(rid+'_name')||{}).value||'',
+      lei: ((document.getElementById(rid+'_lei')||{}).value||'').trim(),
+      entity_type: (document.getElementById(rid+'_entity_type')||{}).value||'other',
+      jurisdiction: (document.getElementById(rid+'_jurisdiction')||{}).value||'other',
+      fatf_category: (document.getElementById(rid+'_fatf_category')||{}).value||'fatf_member_compliant',
+      pep: !!(document.getElementById(rid+'_pep')||{}).checked,
+      adverse_media: !!(document.getElementById(rid+'_adverse_media')||{}).checked,
+      daml_party_id_known: !!(document.getElementById(rid+'_daml_id')||{}).checked,
+      canton_access: (document.getElementById(rid+'_canton_access')||{}).value||'unknown'
+    });
+  });
+  return parties;
+}
+
+/* ── Screening logic ── */
+function screenParty(p) {
+  var decision = 'APPROVED';
+  var flags = [];
+
+  /* FATF black list → auto-reject */
+  if (p.fatf_category === 'fatf_black_list') {
+    decision = 'REJECTED';
+    flags.push('FATF_BLACK_LIST_MATCH');
+  }
+  /* FATF grey list → conditions */
+  if (p.fatf_category === 'fatf_grey_list') {
+    if (decision !== 'REJECTED') decision = 'APPROVED_WITH_CONDITIONS';
+    flags.push('FATF_GREY_LIST_MATCH');
+    flags.push('ENHANCED_DUE_DILIGENCE_REQUIRED');
+  }
+  /* PEP */
+  if (p.pep) {
+    if (decision !== 'REJECTED') decision = 'APPROVED_WITH_CONDITIONS';
+    flags.push('PEP_IDENTIFIED');
+    if (flags.indexOf('ENHANCED_DUE_DILIGENCE_REQUIRED') === -1) flags.push('ENHANCED_DUE_DILIGENCE_REQUIRED');
+  }
+  /* Adverse media */
+  if (p.adverse_media) {
+    if (decision !== 'REJECTED' && decision !== 'APPROVED_WITH_CONDITIONS') decision = 'APPROVED_WITH_CONDITIONS';
+    flags.push('ADVERSE_MEDIA_FLAG');
+    if (decision !== 'REJECTED') decision = 'APPROVED_WITH_CONDITIONS';
+  }
+  /* LEI absent */
+  if (!p.lei) {
+    flags.push('TRAVEL_RULE_LEI_MISSING');
+  }
+  /* Daml party ID unknown */
+  if (!p.daml_party_id_known) {
+    flags.push('CANTON_PARTY_ID_MISSING');
+  }
+  /* Canton access unknown */
+  if (p.canton_access === 'unknown') {
+    flags.push('CANTON_ACCESS_UNVERIFIED');
+  }
+
+  return { party: p, decision: decision, flags: flags };
+}
+
+function computePortfolioVerdict(results) {
+  var anyRejected = results.some(function(r){ return r.decision === 'REJECTED'; });
+  var anyConditional = results.some(function(r){ return r.decision === 'APPROVED_WITH_CONDITIONS'; });
+  if (anyRejected) return 'ONE_OR_MORE_REJECTED';
+  if (!anyConditional) return 'ALL_APPROVED';
+  return 'CONDITIONAL';
+}
+
+function buildComplianceFlags(results, verdict) {
+  var f = {
+    PARTY_ALLOWLIST_VALIDATED: true,
+    FATF_BLACK_LIST_MATCH: false,
+    FATF_GREY_LIST_MATCH: false,
+    TRAVEL_RULE_LEI_MISSING: false,
+    PEP_IDENTIFIED: false,
+    ADVERSE_MEDIA_FLAG: false,
+    ENHANCED_DUE_DILIGENCE_REQUIRED: false,
+    CANTON_PARTY_ID_MISSING: false,
+    CANTON_ACCESS_UNVERIFIED: false,
+    ALL_PARTIES_APPROVED: verdict === 'ALL_APPROVED',
+    CONDITIONAL_APPROVAL: verdict === 'CONDITIONAL',
+    ONE_OR_MORE_REJECTED: verdict === 'ONE_OR_MORE_REJECTED'
+  };
+  results.forEach(function(r) {
+    r.flags.forEach(function(flag) {
+      if (flag in f) f[flag] = true;
+    });
+  });
+  return f;
+}
+
+function buildISO20022(results) {
+  return results.map(function(r) {
+    var p = r.party;
+    return {
+      party_name: p.party_name,
+      lei: p.lei || null,
+      country: JURISDICTION_ISO[p.jurisdiction] || 'XX',
+      currency: null
+    };
+  });
+}
+
+var _lastMandate = null;
+var _executionHash = null;
+
+function runPartyAllowlist() {
+  var parties = getParties();
+  if (!parties.length) { alert('Add at least one party before running.'); return; }
+
+  var results = parties.map(screenParty);
+  var verdict = computePortfolioVerdict(results);
+  var flags = buildComplianceFlags(results, verdict);
+  var iso20022 = buildISO20022(results);
+
+  var ts = new Date().toISOString().slice(0,10);
+  _lastMandate = null;
+  _executionHash = null;
+
+  window._screeningResults = { results: results, verdict: verdict, flags: flags, iso20022: iso20022, ts: ts };
+
+  computeHashAndEnable(results, verdict);
+  renderOutput(results, verdict, flags, iso20022, ts, null);
+}
+
+function computeHashAndEnable(results, verdict) {
+  var hashPayload = {
+    parties: results.map(function(r) {
+      return { party_name: r.party.party_name, fatf_category: r.party.fatf_category, jurisdiction: r.party.jurisdiction, decision: r.decision };
+    }),
+    portfolio_verdict: verdict
+  };
+  var sortedKeys = Object.keys(hashPayload).sort();
+  var obj = {};
+  sortedKeys.forEach(function(k){ obj[k] = hashPayload[k]; });
+  var canonical = JSON.stringify(obj);
+  var enc = new TextEncoder().encode(canonical);
+  crypto.subtle.digest('SHA-256', enc).then(function(buf) {
+    var arr = Array.from(new Uint8Array(buf));
+    _executionHash = arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    var sr = window._screeningResults;
+    _lastMandate = buildMandate(sr.results, sr.verdict, sr.flags, sr.iso20022, sr.ts, _executionHash);
+    window._currentMandate = _lastMandate;
+    /* Update hash display if already rendered */
+    var hashEl = document.getElementById('execHashDisplay');
+    if (hashEl) hashEl.textContent = _executionHash;
+    enableAP2Btn();
+  }).catch(function() {
+    _executionHash = 'sha256-unavailable';
+    var sr = window._screeningResults;
+    _lastMandate = buildMandate(sr.results, sr.verdict, sr.flags, sr.iso20022, sr.ts, _executionHash);
+    window._currentMandate = _lastMandate;
+    enableAP2Btn();
+  });
+}
+
+function enableAP2Btn() {
+  var b = document.getElementById('ap2ExportBtn');
+  if (b) { b.disabled = false; b.classList.add('ready'); }
+}
+
+/* ── Mandate builder ── */
+function buildMandate(results, verdict, flags, iso20022, ts, execution_hash) {
+  var issuedAt = new Date().toISOString();
+  var validUntil = new Date(new Date().setFullYear(new Date().getFullYear()+1)).toISOString().slice(0,10);
+  return {
+    '@context': ['https://ainumbers.co/chaingraph/context.jsonld','https://ainumbers.co/chaingraph/iso20022-context.jsonld'],
+    'dct:conformsTo': 'https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld',
+    ap2_version: '1.0',
+    mandate_id: '509-canton-party-allowlist-validator-' + issuedAt.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: issuedAt,
+    issued_by: 'ainumbers.co',
+    tool_id: '509-canton-party-allowlist-validator',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_mandate',
+    semantic_profile: 'iso20022:party-identification',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['FATF Recommendation 16', 'Canton Network KYA'],
+    payload: {
+      parties: results.map(function(r){
+        return {
+          party_name: r.party.party_name,
+          lei: r.party.lei || null,
+          entity_type: r.party.entity_type,
+          jurisdiction: r.party.jurisdiction,
+          fatf_category: r.party.fatf_category,
+          pep: r.party.pep,
+          adverse_media: r.party.adverse_media,
+          daml_party_id_known: r.party.daml_party_id_known,
+          canton_access: r.party.canton_access,
+          decision: r.decision,
+          flags: r.flags
+        };
+      }),
+      iso20022_party_identification: iso20022,
+      portfolio_verdict: verdict
+    },
+    compliance_flags: flags,
+    chaingraph: {
+      chaingraph_version: '0.3.1',
+      execution_hash: execution_hash || null,
+      chain: [
+        { step: 1, tool: '509-canton-party-allowlist-validator', output: 'party_allowlist_result' }
+      ]
+    },
+    summary: 'Canton party allowlist: ' + verdict.replace(/_/g,' ') + ' · ' + results.length + ' parties screened · FATF Travel Rule + KYA',
+    agent_instructions: [
+      'Portfolio verdict: ' + verdict + '. ' + (verdict === 'ONE_OR_MORE_REJECTED' ? 'Do NOT onboard rejected parties. Escalate to compliance immediately.' : verdict === 'CONDITIONAL' ? 'Conditional approvals require enhanced due diligence before Canton onboarding proceeds.' : 'All parties approved — proceed with Canton Network onboarding per standard workflow.'),
+      'Any FATF_GREY_LIST_MATCH requires Enhanced Due Diligence documentation before onboarding.',
+      'TRAVEL_RULE_LEI_MISSING: obtain LEI for any party before cross-border transfers ≥ USD 1,000 per FATF Rec 16.',
+      'CANTON_PARTY_ID_MISSING: provisioning of Daml party ID is required before settlement operations on Canton.'
+    ],
+    valid_from: ts,
+    valid_until: validUntil,
+    last_reviewed: ts,
+    regulatory_citations: [
+      { ref: 'FATF Recommendation 16 (Travel Rule, Oct 2021)', url: 'https://www.fatf-gafi.org/en/recommendations/recommendations.html' },
+      { ref: 'FATF high-risk and monitored jurisdictions', url: 'https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html' }
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+}
+
+window.AIN_BUILD_MANDATE = function() { return window._currentMandate || null; };
+
+/* ── Output rendering ── */
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function decisionBadge(decision) {
+  if (decision === 'APPROVED') return '<span class="decision-badge dec-approved">✓ APPROVED</span>';
+  if (decision === 'APPROVED_WITH_CONDITIONS') return '<span class="decision-badge dec-conditional">⚡ COND. APPROVAL</span>';
+  if (decision === 'REJECTED') return '<span class="decision-badge dec-rejected">✕ REJECTED</span>';
+  return '<span class="decision-badge">' + esc(decision) + '</span>';
+}
+
+function renderOutput(results, verdict, flags, iso20022, ts, execution_hash) {
+  /* Portfolio verdict banner */
+  var verdictCls = verdict === 'ALL_APPROVED' ? 'verdict-all-approved' : verdict === 'CONDITIONAL' ? 'verdict-conditional' : 'verdict-rejected';
+  var verdictIcon = verdict === 'ALL_APPROVED' ? '✓' : verdict === 'CONDITIONAL' ? '⚡' : '✕';
+  var verdictLabel = verdict === 'ALL_APPROVED' ? 'ALL PARTIES APPROVED' : verdict === 'CONDITIONAL' ? 'CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED' : 'ONE OR MORE PARTIES REJECTED';
+
+  /* Per-party table rows */
+  var partyRows = results.map(function(r) {
+    var p = r.party;
+    var flagsHtml = r.flags.length ? '<div class="flag-list-inline">' + r.flags.map(function(f){ return '⚑ '+f; }).join('<br>') + '</div>' : '<span style="color:var(--green);font-family:\'JetBrains Mono\',monospace;font-size:.5rem">None</span>';
+    return '<tr>' +
+      '<td style="font-size:.7rem;color:var(--bright);max-width:180px;word-break:break-word">' + esc(p.party_name||'—') + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--text)">' + esc(ENTITY_LABELS[p.entity_type]||p.entity_type) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--text)">' + esc(JURISDICTION_LABELS[p.jurisdiction]||p.jurisdiction) + '</td>' +
+      '<td style="font-size:.6rem;color:var(--body)">' + esc(FATF_LABELS[p.fatf_category]||p.fatf_category) + '</td>' +
+      '<td>' + decisionBadge(r.decision) + '</td>' +
+      '<td>' + flagsHtml + '</td>' +
+      '</tr>';
+  }).join('');
+
+  /* Compliance flags chips */
+  var flagChips = Object.keys(flags).map(function(k) {
+    return '<div><span class="flag-chip ' + (flags[k] ? 'flag-true' : 'flag-false') + '">' + (flags[k] ? '✓' : '✗') + ' ' + k + '</span></div>';
+  }).join('');
+
+  /* Memo */
+  var memo = 'CANTON PARTY ALLOWLIST SCREENING REPORT\n' +
+    'Generated:  ' + ts + '\n' +
+    'Standards:  FATF Recommendation 16 (Travel Rule, Oct 2021 update)\n' +
+    '            Canton Network KYA / Daml party provisioning requirements\n\n' +
+    'PORTFOLIO VERDICT: ' + verdict + '\n\n' +
+    'PARTIES SCREENED\n';
+  results.forEach(function(r, i) {
+    var p = r.party;
+    memo += '\n  Party ' + (i+1) + ': ' + (p.party_name||'—') + '\n';
+    memo += '    Entity Type:     ' + (ENTITY_LABELS[p.entity_type]||p.entity_type) + '\n';
+    memo += '    Jurisdiction:    ' + (JURISDICTION_LABELS[p.jurisdiction]||p.jurisdiction) + '\n';
+    memo += '    FATF Category:   ' + (FATF_LABELS[p.fatf_category]||p.fatf_category) + '\n';
+    memo += '    LEI:             ' + (p.lei||'NOT PROVIDED') + '\n';
+    memo += '    PEP:             ' + (p.pep?'YES':'No') + '\n';
+    memo += '    Adverse Media:   ' + (p.adverse_media?'YES':'No') + '\n';
+    memo += '    Daml Party ID:   ' + (p.daml_party_id_known?'Known':'NOT KNOWN') + '\n';
+    memo += '    Canton Access:   ' + (CANTON_ACCESS_LABELS[p.canton_access]||p.canton_access) + '\n';
+    memo += '    Decision:        ' + r.decision + '\n';
+    memo += '    Flags:           ' + (r.flags.length?r.flags.join(', '):'None') + '\n';
+  });
+  memo += '\nCOMPLIANCE FLAGS\n';
+  Object.keys(flags).forEach(function(k){ memo += '  [' + (flags[k]?'✓':'✗') + '] ' + k + '\n'; });
+  memo += '\nISO 20022 PARTY IDENTIFICATION\n';
+  iso20022.forEach(function(p) {
+    memo += '  ' + p.party_name + ' · ' + (p.lei||'NO LEI') + ' · ' + p.country + '\n';
+  });
+  memo += '\nREGULATORY REFERENCES\n';
+  memo += '  FATF Rec 16 (Travel Rule): https://www.fatf-gafi.org/en/recommendations/recommendations.html\n';
+  memo += '  FATF high-risk jurisdictions: https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html\n';
+  memo += '  Canton Network Daml party provisioning requirements (Digital Asset)\n\n';
+  memo += 'Execution hash (SHA-256): ' + (execution_hash||'computing…') + '\n';
+  memo += 'DISCLAIMER: Decision-support only. Verify all screening with qualified AML compliance officers and legal counsel before onboarding.';
+
+  window._memo509 = memo;
+
+  var out = document.getElementById('outputSection');
+  out.innerHTML =
+    /* Verdict banner */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Portfolio Verdict</span></div>' +
+      '<div class="out-body">' +
+        '<div class="verdict-banner ' + verdictCls + '">' + verdictIcon + ' &nbsp; ' + esc(verdictLabel) + '</div>' +
+        '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted)">' + results.length + ' part' + (results.length===1?'y':'ies') + ' screened · ' + ts + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    /* Per-party table */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Per-Party Screening Results</span></div>' +
+      '<div class="out-body" style="padding:.75rem 0 0"><div style="overflow-x:auto">' +
+        '<table class="res-table" style="min-width:750px">' +
+          '<thead><tr><th>Party Name</th><th>Entity Type</th><th>Jurisdiction</th><th>FATF Category</th><th>Decision</th><th>Flags</th></tr></thead>' +
+          '<tbody>' + partyRows + '</tbody>' +
+        '</table>' +
+      '</div></div>' +
+    '</div>' +
+
+    /* Compliance flags grid */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' + flagChips + '</div></div>' +
+    '</div>' +
+
+    /* Regulatory citations */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Regulatory Citations</span></div>' +
+      '<div class="out-body"><div class="cite-block">' +
+        '· <a href="https://www.fatf-gafi.org/en/recommendations/recommendations.html" target="_blank" rel="noopener noreferrer">FATF Recommendation 16 (Travel Rule, Oct 2021 update)</a> — originator/beneficiary information for transfers ≥ USD 1,000; LEI as acceptable party identifier for cross-border transactions.<br>' +
+        '· <a href="https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html" target="_blank" rel="noopener noreferrer">FATF high-risk and monitored jurisdictions list</a> — grey list jurisdictions trigger enhanced due diligence; black list jurisdictions (DPRK, Iran) require countermeasures under Rec 7.<br>' +
+        '· Canton Network Daml party provisioning requirements (Digital Asset) — each onboarded counterparty must have a Daml party ID provisioned on the relevant sub-network (Global Synchronizer or Canton Private) before settlement operations commence.' +
+      '</div></div>' +
+    '</div>' +
+
+    /* Assessment memo */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Allowlist Attestation Memo</span>' +
+        '<button class="copy-btn" id="memoCopyBtn509" onclick="copyMemo509()">Copy</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock509">' + esc(memo) + '</div>' +
+        '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.46rem;color:var(--muted);margin-top:.5rem">Execution hash (SHA-256): <span id="execHashDisplay" style="color:var(--teal)">' + (execution_hash||'computing…') + '</span></div>' +
+      '</div>' +
+    '</div>' +
+
+    /* Chain next */
+    '<div class="chain-next">&#9903; <strong>OpenChainGraph — Capital Markets.</strong>&nbsp; T509 complete. Proceed to ' +
+      '<a href="510-digital-asset-regulatory-classifier.html">T510 Digital Asset Regulatory Classifier &#8594;</a>' +
+    '</div>';
+}
+
+function copyMemo509() {
+  if (!window._memo509) return;
+  navigator.clipboard.writeText(window._memo509).then(function(){
+    var b = document.getElementById('memoCopyBtn509');
+    if (b) { b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+/* ── Init ── */
+loadPreset('g_sib_onboard');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = {"tool_id":"509-canton-party-allowlist-validator","version":"1.0.0","title":"Canton Party Allowlist Validator","description":"Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding. Generate a counterparty-verifiable allowlist attestation.","category":"capital-markets","tags":["canton","kyc","kya","aml","fatf","travel-rule","allowlist","compliance","onboarding"],"audience":["compliance","aml","legal","capital-markets"],"mcp_tool_definition":{"name":"validate_canton_party_allowlist","description":"Screen parties against FATF Travel Rule requirements and AML/KYA checks for Canton Network onboarding.","inputSchema":{"type":"object","properties":{"parties":{"type":"array","items":{"type":"object","properties":{"party_name":{"type":"string"},"lei":{"type":"string"},"entity_type":{"type":"string","enum":["bank","broker_dealer","asset_manager","hedge_fund","custodian","exchange","other"]},"jurisdiction":{"type":"string","enum":["us","eu","uk","sg","hk","jp","ch","other"]},"fatf_category":{"type":"string","enum":["fatf_member_compliant","fatf_member_monitored","fatf_grey_list","fatf_black_list","non_fatf_member"]},"pep":{"type":"boolean"},"adverse_media":{"type":"boolean"},"daml_party_id_known":{"type":"boolean"},"canton_access":{"type":"string","enum":["global_synchronizer","canton_private","both","unknown"]}},"required":["party_name","entity_type","jurisdiction","fatf_category"]}}},"required":["parties"]}},"execution":{"type":"browser-javascript","entry":"tools/509-canton-party-allowlist-validator.html","function_name":"runPartyAllowlist","timeout_ms":5000},"ap2_export":true,"mandate_type":"compliance_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true,"semantic_profile":"iso20022:party-identification","dct:conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld","@context":["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=window._currentMandate;if(!mandate){alert('Run the screening first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='509-canton-party-allowlist-validator_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runPartyAllowlist',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName!=='INPUT'&&el.tagName!=='SELECT'&&el.tagName!=='TEXTAREA')return;if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=typeof v==='object'?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

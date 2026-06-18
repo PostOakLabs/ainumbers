@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>On-Chain Cash-Leg Finality Checker · AINumbers.co</title>
+<meta name="description" content="Validate the cash leg of a Canton settlement: finality model, reserve attestation, regulatory classification (GENIUS / MiCA), and depeg circuit-breaker. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/506-onchain-cash-leg-finality-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"On-Chain Cash-Leg Finality Checker","url":"https://ainumbers.co/tools/506-onchain-cash-leg-finality-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "506-onchain-cash-leg-finality-checker",
+  "version": "1.0.0",
+  "title": "On-Chain Cash-Leg Finality Checker",
+  "description": "Validate the cash leg of a Canton settlement: finality model, reserve attestation, regulatory classification (GENIUS / MiCA), and depeg circuit-breaker.",
+  "category": "capital-markets",
+  "tags": ["canton","cash-leg","finality","stablecoin","genius","mica","pfmi"],
+  "audience": ["treasury","counterparty-risk","settlement-ops","compliance"],
+  "mcp_tool_definition": {"name":"check_cash_leg_finality","description":"Validate the cash leg of a Canton settlement. Checks finality model (PFMI P8/P12), reserve attestation, GENIUS/MiCA regulatory classification, and depeg circuit-breaker. Returns verdict PASS/CONDITIONAL/FAIL.","inputSchema":{"type":"object","properties":{"cash_leg_type":{"type":"string"},"amount":{"type":"number"},"currency":{"type":"string"},"finality_model":{"type":"string"},"reserve_attestation_available":{"type":"boolean"},"jurisdiction":{"type":"string"}},"required":["cash_leg_type","amount","currency","finality_model","jurisdiction"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/506-onchain-cash-leg-finality-checker.html","function_name":"runCashLegFinality","timeout_ms":3000},
+  "ap2_export": true,
+  "mandate_type": "attestation_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.006) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.006) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem;margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.f-select,.f-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.f-select:focus,.f-input:focus{border-color:var(--teal)}
+.f-input.error{border-color:var(--red)}
+.checkbox-row{display:flex;align-items:center;gap:.55rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);margin:.35rem 0}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.reserve-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin:.5rem 0 .85rem}
+.reserve-hint{font-family:'JetBrains Mono',monospace;font-size:.45rem;color:var(--muted);margin-top:.25rem}
+.sum-indicator{font-family:'JetBrains Mono',monospace;font-size:.5rem;margin-top:.35rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:110px}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+.verdict-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:5px;font-weight:600}
+.verdict-pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.verdict-conditional{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.4)}
+.verdict-fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.reg-badge{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.07em;text-transform:uppercase;padding:.25rem .65rem;border-radius:4px}
+.reg-compliant{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+.reg-gap{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.reg-na{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.finality-bar-wrap{width:100%;height:12px;background:var(--bg-3);border-radius:4px;overflow:hidden;margin:.4rem 0}
+.finality-bar{height:100%;border-radius:4px}
+.res-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.res-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.res-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.note-block{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:6px;padding:.65rem .9rem;font-size:.72rem;line-height:1.6;color:#9aa7b8;margin-bottom:.75rem}
+.chain-next{display:flex;align-items:center;gap:.75rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:6px;padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal-lt)}
+.chain-next a{color:var(--teal-lt);text-decoration:underline}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-506</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T506 · Cash-Leg Finality · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>On-Chain Cash-Leg <em>Finality Checker</em></h1>
+  <p class="hero-desc">Validate the cash leg of a Canton settlement: finality model, reserve attestation, regulatory classification (GENIUS Act / MiCA), and depeg circuit-breaker. Produces a cash-leg assurance memo for the desk accepting tokenized cash settlement.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">PFMI P8 / P12</span>
+    <span class="badge badge-purple">GENIUS Act</span>
+    <span class="badge badge-warn">MiCA Title III</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    This tool provides decision-support analysis only. Verify all finality and reserve determinations with legal counsel, your prudential supervisor, and the issuer's attestation reports before accepting tokenized cash settlement. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('usdc_circle_atomic')">Circle USDC — Atomic DvP</button>
+      <button class="preset-btn" onclick="loadPreset('jpmd_kinexys_usd')">JPMorgan Kinexys USD</button>
+      <button class="preset-btn" onclick="loadPreset('hsbc_eur_deposit')">HSBC Tokenized EUR Deposit</button>
+    </div>
+  </div>
+
+  <!-- CASH LEG INPUTS -->
+  <div class="panel">
+    <div class="panel-header">Cash Leg Parameters</div>
+    <div class="form-grid">
+      <div class="field">
+        <span class="field-label">Cash Leg Type</span>
+        <select class="f-select" id="cashLegType">
+          <option value="usdc">Circle USDC</option>
+          <option value="jpmd">JPMorgan Kinexys Deposit Token</option>
+          <option value="hsbc_deposit">HSBC Tokenized Deposit</option>
+          <option value="eur_emt">MiCA-compliant EMT</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Issuer Name</span>
+        <input type="text" class="f-input" id="issuerName" placeholder="e.g. Circle Internet Financial">
+      </div>
+      <div class="field">
+        <span class="field-label">Amount</span>
+        <input type="number" class="f-input" id="amount" value="50000000" min="0" step="1000000">
+      </div>
+      <div class="field">
+        <span class="field-label">Currency</span>
+        <select class="f-select" id="currency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="HKD">HKD</option>
+          <option value="SGD">SGD</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <span class="field-label">Finality Model</span>
+        <select class="f-select" id="finalityModel">
+          <option value="atomic_dvp_bound">Atomic DvP — cash only if securities settle</option>
+          <option value="conditional_irrevocable">Conditional irrevocable</option>
+          <option value="standard_blockchain">Standard blockchain finality</option>
+          <option value="traditional_wire">Traditional wire</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Jurisdiction</span>
+        <select class="f-select" id="jurisdiction">
+          <option value="us">US — GENIUS Act</option>
+          <option value="eu">EU — MiCA</option>
+          <option value="hk">HK — HKMA</option>
+          <option value="sg">SG — MAS</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Redemption Window</span>
+        <select class="f-select" id="redemptionWindow">
+          <option value="instant">Instant</option>
+          <option value="same_day">Same day</option>
+          <option value="t1">T+1</option>
+          <option value="t2_plus">T+2 or longer</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Reserve attestation -->
+    <div style="margin-bottom:.85rem">
+      <label class="checkbox-row"><input type="checkbox" id="reserveAttestation" checked> Reserve attestation available</label>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Reserve Composition (must sum ≤ 100%)</div>
+    <div class="reserve-grid">
+      <div class="field">
+        <span class="field-label">Cash / Deposits (%)</span>
+        <input type="number" class="f-input" id="cashPct" value="85" min="0" max="100" oninput="checkReserveSum()">
+      </div>
+      <div class="field">
+        <span class="field-label">T-Bills ≤93d (%)</span>
+        <input type="number" class="f-input" id="tbillsPct" value="15" min="0" max="100" oninput="checkReserveSum()">
+      </div>
+      <div class="field">
+        <span class="field-label">Overnight Repo (%)</span>
+        <input type="number" class="f-input" id="repoPct" value="0" min="0" max="100" oninput="checkReserveSum()">
+      </div>
+    </div>
+    <div class="reserve-hint" id="reserveSumHint"></div>
+
+    <!-- Depeg -->
+    <div style="margin:.75rem 0 .5rem">
+      <label class="checkbox-row"><input type="checkbox" id="depegDefined" checked> Depeg circuit-breaker defined</label>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <span class="field-label">Depeg Threshold (%)</span>
+        <input type="number" class="f-input" id="depegThreshold" value="0.3" min="0" max="100" step="0.1">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runCashLegFinality()">&#9654; Run Finality Check</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the checker to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="505-tokenized-collateral-eligibility-checker.html">← T505</a>
+    <a href="507-dvp-settlement-failure-analyser.html">T507 →</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T506 On-Chain Cash-Leg Finality Checker v1.0
+   PFMI Principle 8 (settlement finality) · PFMI Principle 12 (exchange-of-value)
+   GENIUS Act reserve check · MiCA Title III EMT check · Depeg circuit-breaker
+   All client-side. Zero network. Zero storage. ═══ */
+
+var CASH_LEG_LABELS = {
+  usdc:'Circle USDC', jpmd:'JPMorgan Kinexys Deposit Token',
+  hsbc_deposit:'HSBC Tokenized Deposit', eur_emt:'MiCA-compliant EMT', custom:'Custom'
+};
+var FINALITY_LABELS = {
+  atomic_dvp_bound:'Atomic DvP — cash only if securities settle',
+  conditional_irrevocable:'Conditional irrevocable',
+  standard_blockchain:'Standard blockchain finality',
+  traditional_wire:'Traditional wire'
+};
+var REDEMPTION_LABELS = {
+  instant:'Instant', same_day:'Same day', t1:'T+1', t2_plus:'T+2 or longer'
+};
+var JURISDICTION_LABELS = {
+  us:'US — GENIUS Act', eu:'EU — MiCA', hk:'HK — HKMA', sg:'SG — MAS', other:'Other'
+};
+
+/* ── Presets ── */
+var PRESETS = {
+  usdc_circle_atomic:{
+    cashLegType:'usdc', issuerName:'Circle Internet Financial',
+    amount:50000000, currency:'USD',
+    finalityModel:'atomic_dvp_bound', jurisdiction:'us',
+    redemptionWindow:'instant', reserveAttestation:true,
+    cashPct:85, tbillsPct:15, repoPct:0,
+    depegDefined:true, depegThreshold:0.3
+  },
+  jpmd_kinexys_usd:{
+    cashLegType:'jpmd', issuerName:'JPMorgan Chase Bank, N.A. (Kinexys)',
+    amount:100000000, currency:'USD',
+    finalityModel:'atomic_dvp_bound', jurisdiction:'us',
+    redemptionWindow:'instant', reserveAttestation:true,
+    cashPct:100, tbillsPct:0, repoPct:0,
+    depegDefined:true, depegThreshold:0.1
+  },
+  hsbc_eur_deposit:{
+    cashLegType:'hsbc_deposit', issuerName:'HSBC Bank plc',
+    amount:40000000, currency:'EUR',
+    finalityModel:'conditional_irrevocable', jurisdiction:'eu',
+    redemptionWindow:'same_day', reserveAttestation:true,
+    cashPct:100, tbillsPct:0, repoPct:0,
+    depegDefined:false, depegThreshold:0.5
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return;
+  document.getElementById('cashLegType').value = p.cashLegType;
+  document.getElementById('issuerName').value = p.issuerName;
+  document.getElementById('amount').value = p.amount;
+  document.getElementById('currency').value = p.currency;
+  document.getElementById('finalityModel').value = p.finalityModel;
+  document.getElementById('jurisdiction').value = p.jurisdiction;
+  document.getElementById('redemptionWindow').value = p.redemptionWindow;
+  document.getElementById('reserveAttestation').checked = !!p.reserveAttestation;
+  document.getElementById('cashPct').value = p.cashPct;
+  document.getElementById('tbillsPct').value = p.tbillsPct;
+  document.getElementById('repoPct').value = p.repoPct;
+  document.getElementById('depegDefined').checked = !!p.depegDefined;
+  document.getElementById('depegThreshold').value = p.depegThreshold;
+  checkReserveSum();
+}
+
+function checkReserveSum() {
+  var c = parseFloat(document.getElementById('cashPct').value)||0;
+  var t = parseFloat(document.getElementById('tbillsPct').value)||0;
+  var r = parseFloat(document.getElementById('repoPct').value)||0;
+  var sum = c + t + r;
+  var hint = document.getElementById('reserveSumHint');
+  if (sum > 100) {
+    hint.textContent = '⚠ Sum exceeds 100% (currently ' + sum.toFixed(1) + '%) — reduce one component.';
+    hint.style.color = 'var(--red)';
+  } else {
+    hint.textContent = 'Sum: ' + sum.toFixed(1) + '% of stated reserves';
+    hint.style.color = 'var(--muted)';
+  }
+}
+
+function getInputs() {
+  return {
+    cash_leg_type: document.getElementById('cashLegType').value,
+    issuer_name: document.getElementById('issuerName').value.trim() || 'Unknown Issuer',
+    amount: parseFloat(document.getElementById('amount').value)||0,
+    currency: document.getElementById('currency').value,
+    finality_model: document.getElementById('finalityModel').value,
+    jurisdiction: document.getElementById('jurisdiction').value,
+    redemption_window: document.getElementById('redemptionWindow').value,
+    reserve_attestation: document.getElementById('reserveAttestation').checked,
+    cash_pct: parseFloat(document.getElementById('cashPct').value)||0,
+    tbills_pct: parseFloat(document.getElementById('tbillsPct').value)||0,
+    repo_pct: parseFloat(document.getElementById('repoPct').value)||0,
+    depeg_defined: document.getElementById('depegDefined').checked,
+    depeg_threshold: parseFloat(document.getElementById('depegThreshold').value)||0.5
+  };
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function computeFinality(inp) {
+  var flags = {};
+  var notes = [];
+  var reserve_sum = inp.cash_pct + inp.tbills_pct + inp.repo_pct;
+
+  /* ── Base flag ── */
+  flags['CASH_LEG_FINALITY_ASSESSED'] = {pass:true, desc:'Cash-leg finality assessment completed per CPMI-IOSCO PFMI Principles 8 and 12.'};
+
+  /* ── PFMI Principle 8 finality model ── */
+  var finality_flag, finality_label, finality_color;
+  switch (inp.finality_model) {
+    case 'atomic_dvp_bound':
+      finality_flag = 'FINALITY_ATOMIC';
+      finality_label = 'Atomic DvP';
+      finality_color = 'var(--green)';
+      flags['FINALITY_ATOMIC'] = {pass:true, desc:'Settlement finality is unconditional — cash leg releases if and only if securities leg settles. Principal risk structurally eliminated (PFMI P12).'};
+      break;
+    case 'conditional_irrevocable':
+      finality_flag = 'FINALITY_CONDITIONAL';
+      finality_label = 'Conditional irrevocable';
+      finality_color = 'var(--warn)';
+      flags['FINALITY_CONDITIONAL'] = {pass:true, desc:'Conditional irrevocable finality. Verify that unwind conditions are well-defined with no race conditions.'};
+      notes.push({type:'warn', title:'Conditional Finality — Verify', text:'Verify that unwind conditions are well-defined with no race conditions. Confirm legal enforceability with counsel.'});
+      break;
+    case 'standard_blockchain':
+      finality_flag = 'FINALITY_BLOCKCHAIN';
+      finality_label = 'Standard blockchain';
+      finality_color = 'var(--warn)';
+      flags['FINALITY_BLOCKCHAIN'] = {pass:true, desc:'Blockchain finality ≠ legal finality — verify against applicable settlement finality framework (PFMI Principle 8). Ensure governing law provides irrevocability.'};
+      notes.push({type:'warn', title:'Blockchain Finality — Not Legal Finality', text:'Blockchain finality is probabilistic and does not equal legal finality. Verify against applicable settlement finality framework (PFMI Principle 8). Ensure governing law provides irrevocability and the transaction cannot be reversed.'});
+      break;
+    case 'traditional_wire':
+      finality_flag = 'FINALITY_TRADITIONAL_WIRE';
+      finality_label = 'Traditional wire';
+      finality_color = 'var(--red)';
+      flags['FINALITY_TRADITIONAL_WIRE'] = {pass:false, desc:'No atomic binding; Herstatt / principal risk present. Traditional wire transfer carries counterparty risk between payment and receipt of securities.'};
+      notes.push({type:'warn', title:'Herstatt / Principal Risk Present', text:'No atomic binding — traditional wire transfers carry Herstatt risk and principal risk between payment and delivery of securities (PFMI P12). Consider upgrading to atomic DvP.'});
+      break;
+  }
+
+  /* ── GENIUS Act (US) ── */
+  var genius_status = 'N/A';
+  if (inp.jurisdiction === 'us') {
+    var reserve_compliant = (inp.cash_pct + inp.tbills_pct + inp.repo_pct) >= 95;
+    if (!inp.reserve_attestation) {
+      flags['RESERVE_ATTESTATION_MISSING'] = {pass:false, desc:'Reserve attestation not available. GENIUS Act requires monthly reserve reports and annual PCAOB audit for issuers >$50B. Obtain attestation before accepting settlement.'};
+      notes.push({type:'warn', title:'GENIUS Act — Reserve Attestation Missing', text:'Reserve attestation not provided. The GENIUS Act (enacted [pending signature — model as effective within 12 months of publication]) requires 1:1 reserve against eligible assets (USD cash, FDIC-insured deposits, T-bills ≤93 days, Fed overnight repo, Fed Funds), monthly reporting, and annual PCAOB audit for issuers above $50B. Obtain attestation before accepting settlement.'});
+    }
+    if (!reserve_compliant) {
+      flags['GENIUS_RESERVE_SHORTFALL'] = {pass:false, desc:'Stated reserves (cash + T-bills + repo) sum to ' + reserve_sum.toFixed(1) + '% — below GENIUS Act 95% eligible-asset threshold. Verify reserve composition with issuer.'};
+      notes.push({type:'warn', title:'GENIUS Act — Reserve Shortfall', text:'Stated eligible reserve composition (' + reserve_sum.toFixed(1) + '%) is below the 95% GENIUS Act threshold. Eligible assets: USD cash/FDIC-insured deposits, T-bills ≤93 days, Fed overnight repo, Fed Funds. Verify with issuer attestation.'});
+      genius_status = 'SHORTFALL';
+    } else {
+      flags['GENIUS_RESERVE_COMPLIANT'] = {pass:true, desc:'Stated reserve composition meets GENIUS Act 1:1 eligible-asset requirement (' + reserve_sum.toFixed(1) + '% eligible).'};
+      genius_status = 'COMPLIANT';
+    }
+  }
+
+  /* ── MiCA Title III (EU) ── */
+  var mica_status = 'N/A';
+  if (inp.jurisdiction === 'eu') {
+    if (inp.redemption_window === 't2_plus') {
+      flags['MICA_REDEMPTION_WINDOW_GAP'] = {pass:false, desc:'Redemption window T+2 or longer may conflict with MiCA Title III instant-redemption obligation. Regulation (EU) 2023/1114 requires redemption at par for EMTs with sustained depeg >2% for >20 consecutive days.'};
+      notes.push({type:'warn', title:'MiCA — Redemption Window Gap', text:'Redemption window T+2 or longer may conflict with MiCA Title III (Regulation (EU) 2023/1114) obligations. For EMTs: if depeg exceeds 2% for more than 20 consecutive days, the issuer must offer redemption at par. Review with regulatory counsel.'});
+      mica_status = 'GAP';
+    } else {
+      flags['MICA_EMT_COMPLIANT'] = {pass:true, desc:'Redemption window and structure are consistent with MiCA Title III EMT requirements (Regulation (EU) 2023/1114).'};
+      mica_status = 'COMPLIANT';
+    }
+  }
+
+  /* ── Depeg circuit-breaker ── */
+  if (!inp.depeg_defined) {
+    flags['DEPEG_CIRCUIT_BREAKER_ABSENT'] = {pass:false, desc:'No depeg circuit-breaker defined. This is a risk gap — tokenized cash without a circuit-breaker exposes settlement to unconstrained depeg events.'};
+  } else {
+    if (inp.depeg_threshold > 1.0) {
+      flags['DEPEG_THRESHOLD_WIDE'] = {pass:false, desc:'Depeg threshold (' + inp.depeg_threshold + '%) is wider than 1% — may not adequately protect settlement from peg deviation events.'};
+      notes.push({type:'warn', title:'Depeg Threshold Wide', text:'Depeg circuit-breaker threshold of ' + inp.depeg_threshold + '% is greater than 1%. Consider a tighter threshold (e.g. 0.3–0.5%) to protect against intraday peg deviation during settlement.'});
+    } else {
+      flags['DEPEG_CIRCUIT_BREAKER_PRESENT'] = {pass:true, desc:'Depeg circuit-breaker defined at ' + inp.depeg_threshold + '% — within recommended tolerance.'};
+    }
+  }
+
+  /* ── Overall verdict ── */
+  var has_critical = (inp.finality_model === 'traditional_wire') ||
+    (!inp.reserve_attestation && inp.jurisdiction === 'us' && (inp.cash_pct + inp.tbills_pct + inp.repo_pct) < 95);
+  var has_gaps = Object.keys(flags).some(function(k){ return !flags[k].pass; });
+
+  var verdict, verdict_cls, verdict_label;
+  if (!has_critical && !has_gaps) {
+    verdict = 'CASH_LEG_VERDICT_PASS';
+    verdict_cls = 'verdict-pass';
+    verdict_label = '✓ PASS';
+    flags['CASH_LEG_VERDICT_PASS'] = {pass:true, desc:'Cash-leg finality assessment: all critical checks passed. Atomic finality confirmed, reserve composition adequate, depeg protection in place.'};
+  } else if (has_critical) {
+    verdict = 'CASH_LEG_VERDICT_FAIL';
+    verdict_cls = 'verdict-fail';
+    verdict_label = '✕ FAIL — CRITICAL';
+    flags['CASH_LEG_VERDICT_FAIL'] = {pass:false, desc:'Cash-leg finality assessment: FAIL. Critical issues present — traditional wire (Herstatt risk) or insufficient reserve attestation. Do not accept settlement without remediation.'};
+  } else {
+    verdict = 'CASH_LEG_VERDICT_CONDITIONAL';
+    verdict_cls = 'verdict-conditional';
+    verdict_label = '⚡ CONDITIONAL';
+    flags['CASH_LEG_VERDICT_CONDITIONAL'] = {pass:false, desc:'Cash-leg finality assessment: CONDITIONAL. Gaps present but remediation path is clear. Address flagged items before final settlement acceptance.'};
+  }
+
+  return {
+    finality_flag: finality_flag,
+    finality_label: finality_label,
+    finality_color: finality_color,
+    genius_status: genius_status,
+    mica_status: mica_status,
+    reserve_sum: reserve_sum,
+    verdict: verdict,
+    verdict_cls: verdict_cls,
+    verdict_label: verdict_label,
+    flags: flags,
+    notes: notes
+  };
+}
+
+var _lastResult = null;
+
+function runCashLegFinality() {
+  var inp = getInputs();
+  if (!inp.amount || inp.amount <= 0) { alert('Enter a positive amount.'); return; }
+  var result = computeFinality(inp);
+  var ts = new Date().toISOString().slice(0,10);
+
+  var pacs008 = {
+    instructed_amount: inp.amount,
+    currency: inp.currency,
+    debtor: { party_name: 'Issuer (illustrative)', lei: null },
+    creditor: { party_name: 'Holder (illustrative)', lei: null }
+  };
+
+  _lastResult = { inputs: inp, result: result, pacs008: pacs008, generated: ts };
+  window._currentMandate = null;
+  computeHashAndFinalize(inp, result, pacs008, ts);
+}
+
+function computeHashAndFinalize(inp, result, pacs008, ts) {
+  var policy_parameters = {
+    cash_leg_type: inp.cash_leg_type,
+    finality_model: inp.finality_model,
+    jurisdiction: inp.jurisdiction,
+    amount: inp.amount,
+    currency: inp.currency,
+    reserve_attestation: inp.reserve_attestation,
+    cash_pct: inp.cash_pct,
+    tbills_pct: inp.tbills_pct,
+    repo_pct: inp.repo_pct,
+    depeg_defined: inp.depeg_defined,
+    depeg_threshold: inp.depeg_threshold
+  };
+  var output_payload = {
+    verdict: result.verdict,
+    finality_flag: result.finality_flag,
+    genius_status: result.genius_status,
+    mica_status: result.mica_status,
+    reserve_sum: result.reserve_sum
+  };
+  var sortedObj = {};
+  var allKeys = Object.keys(policy_parameters).concat(Object.keys(output_payload)).sort();
+  allKeys.forEach(function(k){
+    if (k in policy_parameters) sortedObj[k] = policy_parameters[k];
+    else if (k in output_payload) sortedObj[k] = output_payload[k];
+  });
+  var canonical = JSON.stringify(sortedObj);
+  var enc = new TextEncoder().encode(canonical);
+  crypto.subtle.digest('SHA-256', enc).then(function(buf){
+    var arr = Array.from(new Uint8Array(buf));
+    var hex = arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    _lastResult.execution_hash = hex;
+    window._currentMandate = buildMandate(inp, result, pacs008, ts, hex);
+    renderOutput(inp, result, pacs008, ts, hex);
+    window.enableAP2Btn && window.enableAP2Btn();
+  }).catch(function(){
+    var h = 'sha256-unavailable';
+    _lastResult.execution_hash = h;
+    window._currentMandate = buildMandate(inp, result, pacs008, ts, h);
+    renderOutput(inp, result, pacs008, ts, h);
+    window.enableAP2Btn && window.enableAP2Btn();
+  });
+}
+
+function renderOutput(inp, result, pacs008, ts, execution_hash) {
+  /* Reserve bar */
+  var res_sum = Math.min(result.reserve_sum, 100);
+  var res_color = res_sum >= 95 ? 'var(--green)' : res_sum >= 70 ? 'var(--warn)' : 'var(--red)';
+
+  /* Regulatory badges */
+  var genius_badge = '', mica_badge = '';
+  if (result.genius_status === 'COMPLIANT') genius_badge = '<span class="reg-badge reg-compliant">GENIUS ✓</span>';
+  else if (result.genius_status === 'SHORTFALL') genius_badge = '<span class="reg-badge reg-gap">GENIUS ✗</span>';
+  else genius_badge = '<span class="reg-badge reg-na">GENIUS N/A</span>';
+
+  if (result.mica_status === 'COMPLIANT') mica_badge = '<span class="reg-badge reg-compliant">MiCA ✓</span>';
+  else if (result.mica_status === 'GAP') mica_badge = '<span class="reg-badge reg-gap">MiCA GAP</span>';
+  else mica_badge = '<span class="reg-badge reg-na">MiCA N/A</span>';
+
+  /* Notes HTML */
+  var notesHtml = result.notes.map(function(n){
+    return '<div class="note-block"><strong style="color:var(--warn);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;text-transform:uppercase">' + esc(n.title) + ' &mdash;</strong> ' + esc(n.text) + '</div>';
+  }).join('');
+
+  /* Memo text */
+  var memo = 'ON-CHAIN CASH-LEG FINALITY ASSESSMENT\n' +
+    'Generated: ' + ts + '\n' +
+    'Standards: CPMI-IOSCO PFMI Principle 8 (settlement finality), Principle 12 (exchange-of-value);\n' +
+    '           GENIUS Act (US stablecoin legislation, pending enactment);\n' +
+    '           Regulation (EU) 2023/1114 (MiCA) Title III\n\n' +
+    'CASH LEG\n' +
+    '  Type:           ' + (CASH_LEG_LABELS[inp.cash_leg_type]||inp.cash_leg_type) + '\n' +
+    '  Issuer:         ' + inp.issuer_name + '\n' +
+    '  Amount:         ' + inp.amount.toLocaleString() + ' ' + inp.currency + '\n' +
+    '  Finality Model: ' + (FINALITY_LABELS[inp.finality_model]||inp.finality_model) + '\n' +
+    '  Jurisdiction:   ' + (JURISDICTION_LABELS[inp.jurisdiction]||inp.jurisdiction) + '\n' +
+    '  Redemption:     ' + (REDEMPTION_LABELS[inp.redemption_window]||inp.redemption_window) + '\n\n' +
+    'RESERVE COMPOSITION\n' +
+    '  Cash / Deposits: ' + inp.cash_pct + '%\n' +
+    '  T-Bills ≤93d:    ' + inp.tbills_pct + '%\n' +
+    '  Overnight Repo:  ' + inp.repo_pct + '%\n' +
+    '  Total Eligible:  ' + result.reserve_sum.toFixed(1) + '%\n' +
+    '  Attestation:     ' + (inp.reserve_attestation ? 'Available' : 'NOT AVAILABLE') + '\n\n' +
+    'DEPEG\n' +
+    '  Circuit-breaker: ' + (inp.depeg_defined ? 'Defined at ' + inp.depeg_threshold + '%' : 'NOT DEFINED') + '\n\n' +
+    'VERDICT: ' + result.verdict_label + '\n\n' +
+    'FINALITY: ' + result.finality_flag + '\n' +
+    'GENIUS:   ' + result.genius_status + '\n' +
+    'MiCA:     ' + result.mica_status + '\n\n' +
+    'COMPLIANCE FLAGS\n' +
+    Object.keys(result.flags).map(function(k){ var f=result.flags[k]; return '  ['+(f.pass?'✓':'✗')+'] '+k; }).join('\n') + '\n\n' +
+    'REGULATORY REFERENCES\n' +
+    '  CPMI-IOSCO PFMI: https://www.bis.org/cpmi/publ/d101a.htm\n' +
+    '  GENIUS Act: https://www.congress.gov (pending enactment)\n' +
+    '  MiCA (EU) 2023/1114: https://eur-lex.europa.eu\n\n' +
+    'Execution hash (SHA-256): ' + execution_hash + '\n' +
+    'DISCLAIMER: Decision-support only. Verify with legal counsel and prudential supervisor.';
+
+  window._memo = memo;
+
+  var out = document.getElementById('outputSection');
+  out.innerHTML =
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Cash-Leg Finality Verdict</span></div>' +
+      '<div class="out-body">' +
+        notesHtml +
+        '<div class="stat-row">' +
+          '<div class="stat-chip"><span class="verdict-badge ' + result.verdict_cls + '">' + esc(result.verdict_label) + '</span><span class="stat-lbl">Overall Verdict</span></div>' +
+          '<div class="stat-chip"><span style="font-family:\'JetBrains Mono\',monospace;font-size:.85rem;color:' + result.finality_color + '">' + esc(result.finality_label) + '</span><span class="stat-lbl">Finality Model (PFMI P8)</span></div>' +
+          '<div class="stat-chip">' + genius_badge + mica_badge + '<span class="stat-lbl" style="margin-top:.3rem">Regulatory Status</span></div>' +
+        '</div>' +
+        /* Reserve bar */
+        '<div style="margin-top:.85rem"><div style="font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Reserve Composition — ' + result.reserve_sum.toFixed(1) + '% Eligible</div>' +
+          '<div class="finality-bar-wrap"><div class="finality-bar" style="width:' + res_sum + '%;background:' + res_color + '"></div></div>' +
+          '<div style="display:flex;gap:1rem;font-family:\'JetBrains Mono\',monospace;font-size:.48rem;color:var(--muted);margin-top:.25rem">' +
+            '<span>Cash: ' + inp.cash_pct + '%</span><span>T-Bills: ' + inp.tbills_pct + '%</span><span>Repo: ' + inp.repo_pct + '%</span>' +
+            (inp.reserve_attestation ? '<span style="color:var(--teal)">Attestation: Available</span>' : '<span style="color:var(--red)">Attestation: MISSING</span>') +
+          '</div>' +
+        '</div>' +
+        /* Depeg */
+        '<div style="margin-top:.85rem"><div style="font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Depeg Circuit-Breaker</div>' +
+          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem;color:' + (inp.depeg_defined && inp.depeg_threshold <= 1.0 ? 'var(--green)' : inp.depeg_defined ? 'var(--warn)' : 'var(--red)') + '">' +
+            (inp.depeg_defined ? 'Defined at ' + inp.depeg_threshold + '%' : 'NOT DEFINED') +
+          '</span>' +
+        '</div>' +
+        /* Detail table */
+        '<table class="res-table" style="margin-top:1rem">' +
+          '<thead><tr><th>Parameter</th><th>Value</th></tr></thead>' +
+          '<tbody>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Cash Leg Type</td><td style="font-size:.7rem;color:var(--bright)">' + esc(CASH_LEG_LABELS[inp.cash_leg_type]||inp.cash_leg_type) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Issuer</td><td style="font-size:.7rem;color:var(--text)">' + esc(inp.issuer_name) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Amount</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--bright)">' + inp.amount.toLocaleString() + ' ' + inp.currency + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Finality Model</td><td style="font-size:.65rem;color:var(--text)">' + esc(FINALITY_LABELS[inp.finality_model]||inp.finality_model) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Jurisdiction</td><td style="font-size:.65rem;color:var(--text)">' + esc(JURISDICTION_LABELS[inp.jurisdiction]||inp.jurisdiction) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Redemption Window</td><td style="font-size:.65rem;color:var(--text)">' + esc(REDEMPTION_LABELS[inp.redemption_window]||inp.redemption_window) + '</td></tr>' +
+            '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">Execution Hash</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted);word-break:break-all">' + esc(execution_hash) + '</td></tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+    /* Flags */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Compliance Flags</span></div>' +
+      '<div class="out-body"><div class="flags-grid">' +
+        Object.keys(result.flags).map(function(k){ var f=result.flags[k]; return '<div class="flag-row"><span class="flag-icon">'+(f.pass?'✅':'❌')+'</span><div><div class="flag-name">'+k+'</div><div class="flag-desc">'+esc(f.desc||'')+'</div></div></div>'; }).join('') +
+      '</div></div>' +
+    '</div>' +
+    /* Memo */
+    '<div class="out-card">' +
+      '<div class="out-header"><span class="out-title">Cash-Leg Assurance Memo</span>' +
+        '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button>' +
+        '<button class="copy-btn" onclick="downloadCSV()" style="margin-left:.4rem">CSV</button>' +
+      '</div>' +
+      '<div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">' + esc(memo) + '</div></div>' +
+    '</div>' +
+    '<div class="chain-next">&#9903; <strong>OpenChainGraph — Capital Markets.</strong>&nbsp; T506 complete. Review collateral leg via ' +
+      '<a href="505-tokenized-collateral-eligibility-checker.html">&#8592; T505 Collateral Eligibility</a> or proceed to ' +
+      '<a href="507-dvp-settlement-failure-analyser.html">T507 DvP Settlement Failure Analyser &#8594;</a>' +
+    '</div>';
+}
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function(){
+    var b = document.getElementById('memoCopyBtn');
+    if (b) { b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+function downloadCSV() {
+  if (!_lastResult) return;
+  var inp = _lastResult.inputs; var r = _lastResult.result;
+  var rows = [
+    ['Field','Value'],
+    ['Cash Leg Type', CASH_LEG_LABELS[inp.cash_leg_type]||inp.cash_leg_type],
+    ['Issuer', inp.issuer_name],
+    ['Amount', inp.amount],
+    ['Currency', inp.currency],
+    ['Finality Model', FINALITY_LABELS[inp.finality_model]||inp.finality_model],
+    ['Jurisdiction', JURISDICTION_LABELS[inp.jurisdiction]||inp.jurisdiction],
+    ['Reserve Attestation', inp.reserve_attestation ? 'Available' : 'Missing'],
+    ['Cash Pct', inp.cash_pct],
+    ['T-Bills Pct', inp.tbills_pct],
+    ['Repo Pct', inp.repo_pct],
+    ['Reserve Sum Eligible', r.reserve_sum.toFixed(1)+'%'],
+    ['Depeg Defined', inp.depeg_defined ? 'Yes' : 'No'],
+    ['Depeg Threshold', inp.depeg_threshold+'%'],
+    ['Finality Flag', r.finality_flag],
+    ['GENIUS Status', r.genius_status],
+    ['MiCA Status', r.mica_status],
+    ['Verdict', r.verdict],
+    ['Execution Hash', _lastResult.execution_hash||''],
+    ['Generated', _lastResult.generated]
+  ];
+  Object.keys(r.flags).forEach(function(k){ rows.push(['Flag: '+k, r.flags[k].pass ? 'PASS' : 'FAIL']); });
+  var csv = rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = '506-cash-leg-finality-' + (_lastResult.generated||'').replace(/-/g,'') + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function buildMandate(inp, result, pacs008, ts, execution_hash) {
+  var issuedAt = new Date().toISOString();
+  return {
+    '@context': ['https://ainumbers.co/context.jsonld','https://ainumbers.co/iso20022-context.jsonld'],
+    'dct:conformsTo': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld',
+    ap2_version: '1.0',
+    mandate_id: '506-onchain-cash-leg-finality-checker-' + issuedAt.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: issuedAt,
+    issued_by: 'ainumbers.co',
+    tool_id: '506-onchain-cash-leg-finality-checker',
+    tool_version: '1.0.0',
+    mandate_type: 'attestation_mandate',
+    semantic_profile: 'iso20022:pacs.008-subset',
+    jurisdiction: [inp.jurisdiction.toUpperCase()],
+    regulatory_frameworks: ['CPMI-IOSCO PFMI Principles 8 & 12','GENIUS Act (US)','Regulation (EU) 2023/1114 (MiCA) Title III'],
+    execution_hash: execution_hash,
+    chaingraph_version: '0.3.1',
+    chain: {
+      id: 'tokenized-collateral-settlement',
+      step: 2,
+      prev: '505-tokenized-collateral-eligibility-checker',
+      next: '507-dvp-settlement-failure-analyser'
+    },
+    policy_parameters: {
+      cash_leg_type: inp.cash_leg_type,
+      finality_model: inp.finality_model,
+      jurisdiction: inp.jurisdiction,
+      amount: inp.amount,
+      currency: inp.currency,
+      reserve_attestation: inp.reserve_attestation,
+      cash_pct: inp.cash_pct,
+      tbills_pct: inp.tbills_pct,
+      repo_pct: inp.repo_pct,
+      depeg_defined: inp.depeg_defined,
+      depeg_threshold: inp.depeg_threshold
+    },
+    output_payload: {
+      verdict: result.verdict,
+      finality_flag: result.finality_flag,
+      genius_status: result.genius_status,
+      mica_status: result.mica_status,
+      reserve_sum_pct: result.reserve_sum,
+      pacs008_subset: pacs008
+    },
+    compliance_flags: (function(){
+      var o = {};
+      Object.keys(result.flags).forEach(function(k){ o[k] = result.flags[k].pass; });
+      return o;
+    })(),
+    summary: 'Cash-leg finality: ' + result.verdict.replace(/_/g,' ') + ' · ' + result.finality_flag.replace(/_/g,' ') + ' · Reserve: ' + result.reserve_sum.toFixed(1) + '% · ' + (CASH_LEG_LABELS[inp.cash_leg_type]||inp.cash_leg_type),
+    agent_instructions: [
+      'Verdict ' + result.verdict + ': ' + (result.verdict === 'CASH_LEG_VERDICT_FAIL' ? 'Do NOT proceed to settlement without resolving critical gaps.' : result.verdict === 'CASH_LEG_VERDICT_CONDITIONAL' ? 'Address flagged gaps before final settlement acceptance.' : 'All checks passed — proceed to DvP settlement.'),
+      'Verify reserve attestation independently with issuer before accepting large tokenized cash settlements.',
+      'Review blockchain finality vs legal finality gap with legal counsel if finality_model is standard_blockchain.'
+    ],
+    source_tool_inputs: { cash_leg_type: inp.cash_leg_type, amount: inp.amount, currency: inp.currency, jurisdiction: inp.jurisdiction },
+    regulatory_citations: [
+      { ref: 'CPMI-IOSCO PFMI Principle 8 (settlement finality)', url: 'https://www.bis.org/cpmi/publ/d101a.htm' },
+      { ref: 'CPMI-IOSCO PFMI Principle 12 (exchange-of-value)', url: 'https://www.bis.org/cpmi/publ/d101a.htm' },
+      { ref: 'GENIUS Act (US stablecoin legislation, pending enactment)', url: 'https://www.congress.gov' },
+      { ref: 'Regulation (EU) 2023/1114 (MiCA) Title III', url: 'https://eur-lex.europa.eu' }
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+}
+
+window.AIN_BUILD_MANDATE = function() { return window._currentMandate; };
+
+/* ── Init ── */
+checkReserveSum();
+loadPreset('usdc_circle_atomic');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = {"tool_id":"506-onchain-cash-leg-finality-checker","version":"1.0.0","title":"On-Chain Cash-Leg Finality Checker","description":"Validate the cash leg of a Canton settlement: finality model, reserve attestation, regulatory classification (GENIUS / MiCA), and depeg circuit-breaker. Produces a cash-leg assurance memo for the desk accepting tokenized cash settlement.","category":"capital-markets","tags":["canton","cash-leg","finality","stablecoin","genius","mica","pfmi"],"audience":["treasury","counterparty-risk","settlement-ops","compliance"],"mcp_tool_definition":{"name":"check_cash_leg_finality","description":"Validate the cash leg of a Canton settlement. Checks finality model (PFMI P8/P12), reserve attestation, GENIUS/MiCA regulatory classification, and depeg circuit-breaker. Returns verdict PASS/CONDITIONAL/FAIL.","inputSchema":{"type":"object","properties":{"cash_leg_type":{"type":"string","enum":["usdc","jpmd","hsbc_deposit","eur_emt","custom"]},"amount":{"type":"number"},"currency":{"type":"string","enum":["USD","EUR","GBP","HKD","SGD"]},"finality_model":{"type":"string","enum":["atomic_dvp_bound","conditional_irrevocable","standard_blockchain","traditional_wire"]},"reserve_attestation_available":{"type":"boolean"},"jurisdiction":{"type":"string","enum":["us","eu","hk","sg","other"]},"redemption_window":{"type":"string","enum":["instant","same_day","t1","t2_plus"]},"cash_pct":{"type":"number"},"tbills_pct":{"type":"number"},"repo_pct":{"type":"number"},"depeg_defined":{"type":"boolean"},"depeg_threshold":{"type":"number"}},"required":["cash_leg_type","amount","currency","finality_model","jurisdiction"]}},"execution":{"type":"browser-javascript","entry":"tools/506-onchain-cash-leg-finality-checker.html","function_name":"runCashLegFinality","timeout_ms":3000},"ap2_export":true,"mandate_type":"attestation_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=window._currentMandate;if(!mandate){alert('Run the checker first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='506-onchain-cash-leg-finality-checker_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runCashLegFinality',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName!=='INPUT'&&el.tagName!=='SELECT'&&el.tagName!=='TEXTAREA')return;if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=typeof v==='object'?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

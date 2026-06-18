@@ -1,0 +1,95 @@
+{
+  "tool_id": "505-tokenized-collateral-eligibility-checker",
+  "version": "1.0.0",
+  "title": "Tokenized Collateral Eligibility Checker",
+  "description": "Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier, and transfer restrictions. Used by DvP, repo, margin, and fund workflows. Deterministic logic per BCBS LCR paras 50–54 and BCBS SCO60/d545.",
+  "category": "capital-markets",
+  "tags": ["canton", "collateral", "hqla", "dtc", "sco60", "basel", "tokenization"],
+  "audience": ["collateral-desk", "settlement-ops", "risk", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "asset_type": {
+        "type": "string",
+        "enum": ["ust", "agency_mbs", "ig_corp_bond", "equity", "tokenized_deposit", "stablecoin", "mmf_fund_share", "gilt", "eu_sovereign", "other"]
+      },
+      "notional": { "type": "number" },
+      "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "JPY"] },
+      "platform": { "type": "string", "enum": ["canton_dtc", "canton_standalone", "other_dlt", "traditional"] },
+      "custody_linkage": { "type": "string", "enum": ["dtc_custodied", "fed_eligible", "third_party_custodian", "self_custodied"] },
+      "transfer_restrictions": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["lock_up", "min_denomination", "transfer_agent_approval"] }
+      }
+    },
+    "required": ["asset_type", "notional", "currency"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "dtc_status": { "type": "string" },
+      "hqla_tier": { "type": "string" },
+      "final_haircut_pct": { "type": "number" },
+      "adjusted_value": { "type": "number" },
+      "compliance_flags": { "type": "object" },
+      "mandate_type": { "type": "string", "const": "collateral_mandate" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_tokenized_collateral_eligibility",
+    "description": "Classify tokenized assets for DTC/Fed eligibility, Basel HQLA tier (BCBS LCR paras 50–54), and transfer restrictions. Returns eligibility badge (DTC_ELIGIBLE / FED_ELIGIBLE_VERIFY / INELIGIBLE), HQLA tier (LEVEL_1 / LEVEL_2A / LEVEL_2B / NON_HQLA), haircut %, adjusted collateral value, and compliance flags including BCBS_SCO60_GROUP1A_NOTE for on-chain assets. MMF/CIU units are always NON_HQLA (excluded per paras 50–54).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "asset_type": {
+          "type": "string",
+          "enum": ["ust", "agency_mbs", "ig_corp_bond", "equity", "tokenized_deposit", "stablecoin", "mmf_fund_share", "gilt", "eu_sovereign", "other"],
+          "description": "Asset class. mmf_fund_share → always NON_HQLA (BCBS LCR paras 50–54 exhaustive list)."
+        },
+        "notional": { "type": "number", "description": "Face / notional amount in stated currency." },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "JPY"] },
+        "platform": {
+          "type": "string",
+          "enum": ["canton_dtc", "canton_standalone", "other_dlt", "traditional"],
+          "description": "On-chain settlement platform. Canton + DTC required for DTC_ELIGIBLE USTs."
+        },
+        "custody_linkage": {
+          "type": "string",
+          "enum": ["dtc_custodied", "fed_eligible", "third_party_custodian", "self_custodied"]
+        },
+        "transfer_restrictions": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["lock_up", "min_denomination", "transfer_agent_approval"] },
+          "description": "Any restriction present adds +5% to HQLA haircut."
+        }
+      },
+      "required": ["asset_type", "notional", "currency"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/505-tokenized-collateral-eligibility-checker.html",
+    "function_name": "runCollateralEligibility",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "mandate_type": "collateral_mandate",
+  "semantic_profile": "iso20022:pacs.008-subset",
+  "dct:conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chain": {
+    "id": "tokenized-collateral-settlement",
+    "step": 1,
+    "prev": "504-canton-network-settlement-diagnostics",
+    "next": "506-onchain-cash-leg-finality-checker"
+  },
+  "regulatory_refs": [
+    { "ref": "BCBS LCR standard (January 2013, revised April 2014), paras 50–54", "url": "https://www.bis.org/publ/bcbs238.htm" },
+    { "ref": "BCBS SCO60 / d545 — Cryptoasset Prudential Standard", "url": "https://www.bis.org/bcbs/publ/d545.htm" },
+    { "ref": "DTC Eligibility Criteria", "url": "https://www.dtcc.com" }
+  ]
+}

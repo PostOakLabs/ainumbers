@@ -36,7 +36,13 @@ const APPLY = process.argv.includes('--apply');
 
 const CTX_BASE = 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld';
 const CTX_ISO  = 'https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld';
-const AP2_CONFORMS_TO = 'https://github.com/google-agentic-commerce/AP2/tree/v0.2'; // verify org/repo/tag at build
+// Canonical protocol spec URLs (verified 2026-06-18) for dct:conformsTo claims.
+const SPEC = {
+  ap2:  'https://github.com/google-agentic-commerce/AP2/tree/v0.2',
+  acp:  'https://github.com/agentic-commerce-protocol/agentic-commerce-protocol',
+  x402: 'https://github.com/coinbase/x402',
+  tap:  'https://github.com/visa/trusted-agent-protocol',
+};
 
 // Tools whose payload genuinely carries a payment/settlement (amount+parties) -> ISO 20022 pacs.008 profile.
 const ISO_PACS_TOOLS = new Map([
@@ -46,15 +52,15 @@ const ISO_PACS_TOOLS = new Map([
 ]);
 const PROFILE_URI = { 'iso20022:pacs.008-subset': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld' };
 
-// Tools that genuinely validate/relate to AP2 v0.2 structures -> AP2 conformsTo. EDIT to taste; conservative default.
-const AP2_TOOLS = new Set([
-  'art-01-ap2-mandate-chain-validator',
-  'art-15-agentic-mandate-sandbox',
-  'art-16-google-ap2-mandate-builder',
-  'art-17-ap2-mcp-policy-validator',
-  'art-30-agent-commerce-conformance-validator', // validates AP2 among ACP/TAP/x402
-  // repo/tools:
-  '102-ap2-payments-checker',
+// Per-tool protocol conformsTo (reviewed 2026-06-18). Each tool genuinely validates/emits the
+// listed protocol structures. NOTE: 102-ap2-payments-checker was REMOVED — per CONTRACT.md it emits
+// an AINumbers Policy Mandate *about* AP2, not a real AP2 mandate, so a conformsTo claim would be false.
+const PROTOCOL_CONFORMS_TO = new Map([
+  ['art-01-ap2-mandate-chain-validator', [SPEC.ap2]],   // reference AP2 v0.2 validator
+  ['art-15-agentic-mandate-sandbox',     [SPEC.ap2]],   // emits AP2-compatible mandate JSON
+  ['art-16-google-ap2-mandate-builder',  [SPEC.ap2]],   // builds AP2 mandates
+  ['art-17-ap2-mcp-policy-validator',    [SPEC.ap2]],   // validates AP2/MCP policy
+  ['art-30-agent-commerce-conformance-validator', [SPEC.ap2, SPEC.acp, SPEC.x402, SPEC.tap]], // cross-protocol — all four
 ]);
 
 const EXTS = new Set(['.html', '.json', '.jsonld']);
@@ -118,24 +124,25 @@ for (const f of targets) {
     }
   }
 
-  // --- Part C: AP2 v0.2 conformsTo on AP2 tools (anchored, idempotent) ---
-  if (AP2_TOOLS.has(id)) {
-    if (text.includes(AP2_CONFORMS_TO)) {
-      notes.push('ap2-conformsTo: already present');
+  // --- Part C: protocol conformsTo on agentic-payment tools (anchored, idempotent) ---
+  if (PROTOCOL_CONFORMS_TO.has(id)) {
+    const urls = PROTOCOL_CONFORMS_TO.get(id);
+    const list = urls.map((u) => `'${u}'`).join(', ');
+    if (urls.every((u) => text.includes(u))) {
+      notes.push('protocol-conformsTo: already present');
+    } else if (/'dct:conformsTo': \[/.test(text)) {
+      // merge: prepend any missing protocol URLs into the existing array
+      const missing = urls.filter((u) => !text.includes(u)).map((u) => `'${u}'`).join(', ');
+      text = text.replace(/'dct:conformsTo': \[/, `'dct:conformsTo': [${missing}, `);
+      ap2Done++; notes.push(`protocol-conformsTo: merged ${urls.length} spec(s)`);
     } else {
-      // Add to an existing dct:conformsTo array if present, else insert a new line after version.
-      if (/'dct:conformsTo': \[/.test(text)) {
-        text = text.replace(/'dct:conformsTo': \[/, `'dct:conformsTo': ['${AP2_CONFORMS_TO}', `);
-        ap2Done++; notes.push('ap2-conformsTo: merged into existing dct:conformsTo');
-      } else {
-        const m = text.match(/\n(\s*)chaingraph_version: '0\.3\.1',/);
-        if (m) {
-          const ind = m[1];
-          text = text.replace(/\n\s*chaingraph_version: '0\.3\.1',/,
-            `\n${ind}chaingraph_version: '0.3.1',\n${ind}'dct:conformsTo': ['${AP2_CONFORMS_TO}'],`);
-          ap2Done++; notes.push('ap2-conformsTo: +AP2 v0.2');
-        } else { ap2Skip++; notes.push('ap2-conformsTo: SKIPPED (anchor not found)'); }
-      }
+      const m = text.match(/\n(\s*)chaingraph_version: '0\.3\.1',/);
+      if (m) {
+        const ind = m[1];
+        text = text.replace(/\n\s*chaingraph_version: '0\.3\.1',/,
+          `\n${ind}chaingraph_version: '0.3.1',\n${ind}'dct:conformsTo': [${list}],`);
+        ap2Done++; notes.push(`protocol-conformsTo: +${urls.length} spec(s)`);
+      } else { ap2Skip++; notes.push('protocol-conformsTo: SKIPPED (anchor not found)'); }
     }
   }
 
@@ -149,8 +156,9 @@ for (const f of targets) {
 
 console.log(`OpenChainGraph v0.3.1 full envelope migration${APPLY ? ' [APPLYING]' : ' [dry-run]'}`);
 for (const [file, note] of log) console.log(`  ${file}\n      ${note}`);
-console.log(`\nSummary: ${bumped} version bumps · ISO parity ${isoDone} done/${isoSkip} skipped · AP2 conformsTo ${ap2Done} done/${ap2Skip} skipped`);
+console.log(`\nSummary: ${bumped} version bumps · ISO parity ${isoDone} done/${isoSkip} skipped · protocol conformsTo ${ap2Done} done/${ap2Skip} skipped`);
 console.log('ap2_version retained as a DEPRECATED ALIAS (remove in v0.4). Hash preimage unchanged.');
-console.log('⚠️ Verify the AP2 conformsTo URL (org/repo/tag) against the live AP2 GitHub before --apply.');
+console.log('Protocol conformsTo: art-01/15/16/17 → AP2 v0.2; art-30 → AP2+ACP+x402+TAP. (102-ap2-payments-checker excluded — emits a mandate ABOUT AP2, not a real one.)');
+console.log('⚠️ Verify the four SPEC URLs (AP2 tag, ACP, x402, Visa TAP) resolve before --apply.');
 if (!APPLY) console.log('Dry-run only. Review SKIPPED entries, then re-run with --apply.');
 else console.log('Applied. Next: generate-okf.mjs ; regen_catalog.py ; regen_sitemap.py --apply ; verify_repo.py ; commit.');

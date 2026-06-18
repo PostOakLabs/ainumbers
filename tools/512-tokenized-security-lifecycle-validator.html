@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tokenized Security Lifecycle Validator · AINumbers.co</title>
+<meta name="description" content="Validate issuance, corporate actions, and maturity/redemption lifecycle for tokenized securities on Daml/Canton. Checks Daml contract coverage against required lifecycle events by security type. EU DLT Pilot Regime eligibility and prospectus obligation checks.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/512-tokenized-security-lifecycle-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tokenized Security Lifecycle Validator","url":"https://ainumbers.co/tools/512-tokenized-security-lifecycle-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "512-tokenized-security-lifecycle-validator",
+  "version": "1.0.0",
+  "title": "Tokenized Security Lifecycle Validator",
+  "description": "Validate issuance, corporate actions, and maturity/redemption lifecycle for tokenized securities on Daml/Canton. Checks Daml contract coverage against required lifecycle events by security type. EU DLT Pilot Regime eligibility and prospectus obligation checks.",
+  "category": "capital-markets",
+  "tags": ["canton","daml","lifecycle","tokenization","issuance","dlt-pilot","corporate-action","securities"],
+  "audience": ["issuance","securities-ops","compliance","capital-markets","legal"],
+  "mcp_tool_definition": {"name":"validate_tokenized_security_lifecycle","description":"Validate Daml contract lifecycle coverage for tokenized securities on Canton. Checks required events (issuance, coupon, corporate action, transfer, redemption, default) by security type. EU DLT Pilot Regime and prospectus requirement checks included.","inputSchema":{"type":"object","properties":{"security_name":{"type":"string"},"security_type":{"type":"string","enum":["ust","corporate_bond","equity","fund_unit","govt_bond","structured_note"]},"issuance_jurisdiction":{"type":"string","enum":["us","eu","uk","sg","hk","other"]},"daml_contract_defined":{"type":"boolean"},"daml_events_covered":{"type":"array","items":{"type":"string","enum":["issuance","coupon_payment","corporate_action","transfer","maturity_redemption","default_handling"]}},"issuance_amount_usd":{"type":"number"},"custodian_model":{"type":"string","enum":["dtc_custodied","third_party_csd","self_custodied","canton_native"]},"prospectus_filed":{"type":"boolean"},"isin_assigned":{"type":"boolean"},"corporate_actions_expected":{"type":"string","enum":["none","coupon_only","coupon_and_redemption","equity_events","complex"]}},"required":["security_type","issuance_jurisdiction","daml_events_covered"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/512-tokenized-security-lifecycle-validator.html","function_name":"runSecurityLifecycle","timeout_ms":5000},
+  "chaingraph": {"chaingraph_version":"0.3.1","semantic_profile":"iso20022:party-identification","dct_conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld","@context":["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]},
+  "ap2_export": true,
+  "mandate_type": "compliance_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1rem}
+.form-field{display:flex;flex-direction:column;gap:.35rem}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-select,.form-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s}
+.form-select:focus,.form-input:focus{border-color:var(--teal)}
+.checkbox-row{display:flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text)}
+.checkbox-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--teal);cursor:pointer}
+.daml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1.1rem;border-radius:var(--radius);border:1px solid;margin-bottom:.75rem}
+.verdict-compliant{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.verdict-gaps{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.verdict-critical{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.lc-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.lc-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.lc-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.lc-table tr:last-child td{border-bottom:none}
+.lc-table tr:hover td{background:rgba(20,184,166,.02)}
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.info-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.8;margin-bottom:.75rem}
+.info-block strong{color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
+.warn-block{background:rgba(212,168,71,.07);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.8;margin-bottom:.75rem}
+.warn-block strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-512</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T512 · DLT Securities · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Tokenized Security <em>Lifecycle Validator</em></h1>
+  <p class="hero-desc">Validate issuance, corporate actions, and maturity/redemption lifecycle for tokenized securities on Daml/Canton. Ensure Daml contract state matches regulatory obligations under the EU DLT Pilot Regime, MiFID II, and Prospectus Regulation.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Daml/Canton</span>
+    <span class="badge badge-teal">DLT Pilot Regime</span>
+    <span class="badge badge-warn">EU 2022/858</span>
+    <span class="badge badge-gold">Prospectus Reg</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    This tool performs a structured gap analysis against known regulatory requirements for tokenized securities. It does not constitute legal or compliance advice. Verify outputs with qualified legal counsel and your compliance team before relying on results. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Load Preset</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('dtcc_ust_lifecycle')">DTCC ComposerX UST [Canton]</button>
+      <button class="preset-btn" onclick="loadPreset('eu_bond_dlt_pilot')">EU Corporate Bond DLT Pilot [Illustrative]</button>
+      <button class="preset-btn" onclick="loadPreset('equity_canton_sg')">Singapore Equity Canton [Illustrative]</button>
+    </div>
+  </div>
+
+  <!-- SECURITY DETAILS -->
+  <div class="panel">
+    <div class="panel-header">Security Details</div>
+    <div class="form-grid">
+      <div class="form-field" style="grid-column:span 2">
+        <span class="form-label">Security Name (illustrative)</span>
+        <input type="text" class="form-input" id="securityName" placeholder="e.g. US Treasury Token (illustrative)" style="max-width:480px">
+      </div>
+      <div class="form-field">
+        <span class="form-label">Security Type</span>
+        <select class="form-select" id="securityType">
+          <option value="ust">US Treasury (UST)</option>
+          <option value="corporate_bond">Corporate Bond</option>
+          <option value="equity">Equity</option>
+          <option value="fund_unit">Fund Unit</option>
+          <option value="govt_bond">Government Bond</option>
+          <option value="structured_note">Structured Note</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Issuance Jurisdiction</span>
+        <select class="form-select" id="issuanceJurisdiction">
+          <option value="us">United States (US)</option>
+          <option value="eu">European Union (EU)</option>
+          <option value="uk">United Kingdom (UK)</option>
+          <option value="sg">Singapore (SG)</option>
+          <option value="hk">Hong Kong (HK)</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Primary Issuance Amount (USD eq.)</span>
+        <input type="number" class="form-input" id="issuanceAmount" placeholder="e.g. 500000000" min="0" style="max-width:220px">
+      </div>
+      <div class="form-field">
+        <span class="form-label">Custodian Model</span>
+        <select class="form-select" id="custodianModel">
+          <option value="dtc_custodied">DTC-Custodied</option>
+          <option value="third_party_csd">Third-Party CSD</option>
+          <option value="self_custodied">Self-Custodied</option>
+          <option value="canton_native">Canton-Native</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Corporate Actions Expected</span>
+        <select class="form-select" id="corporateActionsExpected">
+          <option value="none">None</option>
+          <option value="coupon_only">Coupon Only</option>
+          <option value="coupon_and_redemption">Coupon &amp; Redemption</option>
+          <option value="equity_events">Equity Events</option>
+          <option value="complex">Complex</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Maturity Date (optional)</span>
+        <input type="date" class="form-input" id="maturityDate" style="max-width:180px">
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:1.25rem;margin-top:.5rem">
+      <label class="checkbox-row"><input type="checkbox" id="damlContractDefined"> Daml contract defined?</label>
+      <label class="checkbox-row"><input type="checkbox" id="prospectusFiled"> Prospectus filed?</label>
+      <label class="checkbox-row"><input type="checkbox" id="isinAssigned"> ISIN assigned?</label>
+    </div>
+  </div>
+
+  <!-- DAML LIFECYCLE EVENTS -->
+  <div class="panel">
+    <div class="panel-header">Daml Contract Lifecycle Coverage</div>
+    <p style="font-size:.7rem;color:var(--body);margin-bottom:.75rem">Check each lifecycle event that is covered by the Daml smart contract definition.</p>
+    <div class="daml-grid">
+      <label class="checkbox-row"><input type="checkbox" id="daml_issuance"> Issuance</label>
+      <label class="checkbox-row"><input type="checkbox" id="daml_coupon_payment"> Coupon Payment</label>
+      <label class="checkbox-row"><input type="checkbox" id="daml_corporate_action"> Corporate Action</label>
+      <label class="checkbox-row"><input type="checkbox" id="daml_transfer"> Transfer</label>
+      <label class="checkbox-row"><input type="checkbox" id="daml_maturity_redemption"> Maturity / Redemption</label>
+      <label class="checkbox-row"><input type="checkbox" id="daml_default_handling"> Default Handling</label>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runSecurityLifecycle()">&#9654; Validate Lifecycle</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MANIFEST -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 EXPORT -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the validator to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    <a href="511-multi-currency-pvp-validator.html">&#8592; T511 PvP Validator</a>
+    <a href="513-margin-call-collateral-mobilizer.html">Next: T513 Collateral Mobilizer &#8594;</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+'use strict';
+/* ═══ T512 Tokenized Security Lifecycle Validator v1.0
+   Daml/Canton lifecycle gap analysis · EU DLT Pilot Regime · Prospectus Regulation
+   All client-side. Zero network. Zero storage. ═══ */
+
+/* ── Required lifecycle events by security type ── */
+var REQUIRED_EVENTS = {
+  ust:             ['issuance','coupon_payment','maturity_redemption'],
+  govt_bond:       ['issuance','coupon_payment','maturity_redemption'],
+  corporate_bond:  ['issuance','coupon_payment','maturity_redemption','default_handling'],
+  equity:          ['issuance','corporate_action','transfer'],
+  fund_unit:       ['issuance','transfer','maturity_redemption'],
+  structured_note: ['issuance','coupon_payment','maturity_redemption','default_handling']
+};
+
+var EVENT_LABELS = {
+  issuance:            'Issuance',
+  coupon_payment:      'Coupon Payment',
+  corporate_action:    'Corporate Action',
+  transfer:            'Transfer',
+  maturity_redemption: 'Maturity / Redemption',
+  default_handling:    'Default Handling'
+};
+
+var ALL_EVENTS = ['issuance','coupon_payment','corporate_action','transfer','maturity_redemption','default_handling'];
+
+var SECURITY_TYPE_LABELS = {
+  ust:             'US Treasury (UST)',
+  govt_bond:       'Government Bond',
+  corporate_bond:  'Corporate Bond',
+  equity:          'Equity',
+  fund_unit:       'Fund Unit',
+  structured_note: 'Structured Note'
+};
+
+var CUSTODIAN_LABELS = {
+  dtc_custodied:   'DTC-Custodied',
+  third_party_csd: 'Third-Party CSD',
+  self_custodied:  'Self-Custodied',
+  canton_native:   'Canton-Native'
+};
+
+/* ── Critical events determine LIFECYCLE_CRITICAL_GAP verdict ── */
+var CRITICAL_EVENTS = {
+  ust:             ['issuance','maturity_redemption'],
+  govt_bond:       ['issuance','maturity_redemption'],
+  corporate_bond:  ['issuance','maturity_redemption'],
+  equity:          ['issuance','transfer'],
+  fund_unit:       ['issuance','maturity_redemption'],
+  structured_note: ['issuance','maturity_redemption']
+};
+
+/* ── Presets ── */
+var PRESETS = {
+  dtcc_ust_lifecycle: {
+    securityName:'US Treasury Token (illustrative)',securityType:'ust',issuanceJurisdiction:'us',
+    damlContractDefined:true,daml_issuance:true,daml_coupon_payment:true,daml_corporate_action:true,
+    daml_transfer:true,daml_maturity_redemption:true,daml_default_handling:true,
+    issuanceAmount:1000000000,custodianModel:'dtc_custodied',prospectusFiled:true,
+    isinAssigned:true,corporateActionsExpected:'coupon_and_redemption'
+  },
+  eu_bond_dlt_pilot: {
+    securityName:'EU Corporate Bond DLT Pilot (illustrative)',securityType:'corporate_bond',issuanceJurisdiction:'eu',
+    damlContractDefined:true,daml_issuance:true,daml_coupon_payment:true,daml_corporate_action:true,
+    daml_transfer:true,daml_maturity_redemption:true,daml_default_handling:false,
+    issuanceAmount:500000000,custodianModel:'third_party_csd',prospectusFiled:true,
+    isinAssigned:true,corporateActionsExpected:'coupon_and_redemption'
+  },
+  equity_canton_sg: {
+    securityName:'Singapore Equity Canton (illustrative)',securityType:'equity',issuanceJurisdiction:'sg',
+    damlContractDefined:true,daml_issuance:true,daml_coupon_payment:false,daml_corporate_action:false,
+    daml_transfer:true,daml_maturity_redemption:false,daml_default_handling:false,
+    issuanceAmount:200000000,custodianModel:'canton_native',prospectusFiled:false,
+    isinAssigned:false,corporateActionsExpected:'equity_events'
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return; var el;
+  ['securityName','securityType','issuanceJurisdiction','custodianModel','corporateActionsExpected','issuanceAmount'].forEach(function(id){
+    el=document.getElementById(id); if(el&&p[id]!==undefined){el.value=p[id];try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}}
+  });
+  ['damlContractDefined','prospectusFiled','isinAssigned','daml_issuance','daml_coupon_payment',
+   'daml_corporate_action','daml_transfer','daml_maturity_redemption','daml_default_handling'].forEach(function(id){
+    el=document.getElementById(id); if(el){el.checked=!!p[id];try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}}
+  });
+  if(p.maturityDate){el=document.getElementById('maturityDate');if(el)el.value=p.maturityDate;}
+}
+
+async function computeHash(payload) {
+  var sorted = JSON.stringify(payload, Object.keys(payload).sort());
+  var enc = new TextEncoder().encode(sorted);
+  var buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+var _lastResult = null;
+
+function runSecurityLifecycle() {
+  var securityName    = document.getElementById('securityName').value.trim()||'(unnamed)';
+  var securityType    = document.getElementById('securityType').value;
+  var jurisdiction    = document.getElementById('issuanceJurisdiction').value;
+  var damlDefined     = document.getElementById('damlContractDefined').checked;
+  var issuanceAmount  = parseFloat(document.getElementById('issuanceAmount').value)||0;
+  var custodianModel  = document.getElementById('custodianModel').value;
+  var prospectusFiled = document.getElementById('prospectusFiled').checked;
+  var isinAssigned    = document.getElementById('isinAssigned').checked;
+  var maturityDate    = document.getElementById('maturityDate').value||null;
+
+  var coveredEvents = [];
+  ALL_EVENTS.forEach(function(ev){if(document.getElementById('daml_'+ev).checked)coveredEvents.push(ev);});
+
+  var ts = new Date().toISOString().slice(0,10);
+  var required = REQUIRED_EVENTS[securityType]||[];
+  var criticalEvts = CRITICAL_EVENTS[securityType]||[];
+
+  var matrix = ALL_EVENTS.map(function(ev){
+    var isRequired=required.indexOf(ev)>=0, isCovered=coveredEvents.indexOf(ev)>=0;
+    var status = !isRequired?'na':isCovered?'ok':'gap';
+    return {event:ev,label:EVENT_LABELS[ev],required:isRequired,covered:isCovered,status:status};
+  });
+
+  var gaps         = matrix.filter(function(r){return r.status==='gap';});
+  var criticalGaps = gaps.filter(function(r){return criticalEvts.indexOf(r.event)>=0;});
+
+  var verdict = !damlDefined?'critical':criticalGaps.length>0?'critical':gaps.length>0?'gaps':'compliant';
+
+  var flags = {};
+  flags.LIFECYCLE_VALIDATED = {pass:true,label:'Lifecycle Validated',desc:'Daml contract lifecycle analysis completed for '+(SECURITY_TYPE_LABELS[securityType]||securityType)};
+
+  if(verdict==='compliant'){
+    flags.LIFECYCLE_COMPLIANT = {pass:true,label:'Lifecycle Compliant',desc:'All required Daml lifecycle events are covered for this security type.'};
+  } else if(verdict==='gaps'){
+    flags.LIFECYCLE_GAPS_PRESENT = {pass:false,label:'Lifecycle Gaps Present',desc:'Non-critical Daml lifecycle events are missing: '+gaps.map(function(g){return g.label;}).join(', ')};
+  } else {
+    flags.LIFECYCLE_CRITICAL_GAP = {pass:false,label:'Lifecycle Critical Gap',desc:damlDefined?('Critical events missing: '+criticalGaps.map(function(g){return g.label;}).join(', ')):'Daml contract not defined — no lifecycle coverage.'};
+  }
+
+  gaps.forEach(function(g){
+    var key='DAML_LIFECYCLE_GAP_'+g.event.toUpperCase();
+    flags[key]={pass:false,label:'Daml Gap: '+g.label,desc:'Lifecycle event "'+g.label+'" is required for '+(SECURITY_TYPE_LABELS[securityType]||securityType)+' but not covered by the Daml contract.'};
+  });
+
+  var dltSection=null;
+  if(jurisdiction==='eu'){
+    var bondTypes=['corporate_bond','govt_bond','ust','structured_note'];
+    var equityTypes=['equity','fund_unit'];
+    var eligible=false;
+    if(bondTypes.indexOf(securityType)>=0&&issuanceAmount>0&&issuanceAmount<=1000000000)eligible=true;
+    if(equityTypes.indexOf(securityType)>=0&&issuanceAmount>0&&issuanceAmount<=500000000)eligible=true;
+    dltSection={eligible:eligible,isinMissing:!isinAssigned};
+    if(eligible)flags.DLT_PILOT_ELIGIBLE={pass:true,label:'DLT Pilot Eligible',desc:'Issuance amount is within EU DLT Pilot Regime thresholds (bonds ≤ €1B, equity ≤ €500M) per Reg (EU) 2022/858.'};
+    if(!isinAssigned)flags.DLT_PILOT_ISIN_MISSING={pass:false,label:'DLT Pilot: ISIN Missing',desc:'ISIN not assigned. DLT financial instruments under the EU Pilot Regime require standard identification.'};
+  }
+
+  var prospectusRequired=false;
+  if((jurisdiction==='eu'||jurisdiction==='uk')&&issuanceAmount>8000000&&!prospectusFiled){
+    prospectusRequired=true;
+    flags.PROSPECTUS_REQUIRED_NOT_FILED={pass:false,label:'Prospectus Required — Not Filed',desc:'Prospectus Regulation (EU) 2017/1129 requires a prospectus for public offers > €8M. Tokenized securities are financial instruments subject to the same disclosure obligations.'};
+  }
+
+  var custodianNote=null;
+  if(custodianModel==='canton_native')custodianNote='Canton-native custody — verify legal recognition of on-chain title transfer in governing jurisdiction.';
+  if(custodianModel==='self_custodied')flags.SELF_CUSTODY_RISK={pass:false,label:'Self-Custody Risk',desc:'Self-custodied tokenized securities present elevated operational and legal risk. Verify legal title transfer recognition and segregation of assets.'};
+
+  var verdictClass=verdict==='compliant'?'verdict-compliant':verdict==='gaps'?'verdict-gaps':'verdict-critical';
+  var verdictLabel=verdict==='compliant'?'✅ LIFECYCLE_COMPLIANT':verdict==='gaps'?'⚠ LIFECYCLE_GAPS_PRESENT':'🔴 LIFECYCLE_CRITICAL_GAP';
+
+  var matrixHTML='<table class="lc-table"><thead><tr><th>Event</th><th>Required?</th><th>Covered (Daml)?</th><th>Status</th></tr></thead><tbody>'+
+    matrix.map(function(r){
+      var req=r.required?'<span style="color:var(--bright)">Yes</span>':'<span style="color:var(--muted)">N/A</span>';
+      var cov=!r.required?'<span style="color:var(--muted)">—</span>':r.covered?'<span style="color:var(--green)">Yes</span>':'<span style="color:var(--red)">No</span>';
+      var s=r.status==='ok'?'<span style="font-size:1rem">✅</span>':r.status==='gap'?'<span style="font-size:1rem">❌</span>':'<span style="color:var(--muted);font-size:.7rem">N/A</span>';
+      return '<tr><td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--bright)">'+esc(r.label)+'</td><td style="text-align:center">'+req+'</td><td style="text-align:center">'+cov+'</td><td style="text-align:center">'+s+'</td></tr>';
+    }).join('')+'</tbody></table>';
+
+  var dltHTML='';
+  if(dltSection){
+    dltHTML='<div class="out-card"><div class="out-header"><span class="out-title">EU DLT Pilot Regime (Reg (EU) 2022/858)</span></div><div class="out-body">'+
+      (dltSection.eligible?'<div class="info-block"><strong>DLT Pilot Eligible</strong><br>Issuance amount is within EU DLT Pilot Regime thresholds (bonds ≤ €1B market cap, equity ≤ €500M market cap). This instrument may qualify for admission under the DLT Pilot Regime.</div>':'<div class="warn-block"><strong>DLT Pilot Threshold Exceeded or Not Applicable</strong><br>Issuance amount exceeds EU DLT Pilot Regime thresholds, or amount not provided. Verify eligibility under Reg (EU) 2022/858 Art 3.</div>')+
+      (dltSection.isinMissing?'<div class="warn-block"><strong>ISIN Not Assigned</strong><br>DLT financial instruments require standard identification. Assign an ISIN for regulatory reporting and CSD interoperability.</div>':'<div class="info-block"><strong>ISIN Assigned</strong><br>ISIN is assigned — satisfies standard identification requirement for DLT Pilot financial instruments.</div>')+
+      '<div class="info-block"><strong>DLT Lifecycle Note (Art 5)</strong><br>EU DLT Pilot Regime (Art 5) requires equivalent lifecycle event handling to traditional CSD operations. Ensure all Daml contract lifecycle events are covered and operationally tested before admission.</div>'+
+    '</div></div>';
+  }
+
+  var prospectusHTML='';
+  if(jurisdiction==='eu'||jurisdiction==='uk'){
+    prospectusHTML='<div class="out-card"><div class="out-header"><span class="out-title">Prospectus Regulation (EU) 2017/1129</span></div><div class="out-body">'+
+      (prospectusRequired?'<div class="warn-block"><strong>Prospectus Required — Not Filed</strong><br>Prospectus Regulation (EU) 2017/1129 requires a prospectus for public offers exceeding €8M. Tokenized securities are financial instruments subject to the same disclosure obligations as traditional securities under MiFID II.</div>':
+       '<div class="info-block"><strong>Prospectus Obligation Satisfied</strong><br>'+(issuanceAmount>0&&issuanceAmount<=8000000?'Issuance amount is at or below the €8M prospectus threshold.':'Prospectus is filed — MiFID II / Prospectus Regulation disclosure obligation satisfied.')+'</div>')+
+    '</div></div>';
+  }
+
+  var custodianHTML='';
+  if(custodianNote){
+    custodianHTML='<div class="out-card"><div class="out-header"><span class="out-title">Custodian Model Note</span></div><div class="out-body"><div class="warn-block"><strong>Canton-Native Custody</strong><br>'+esc(custodianNote)+'</div></div></div>';
+  }
+
+  var flagsHTML='<div class="out-card"><div class="out-header"><span class="out-title">Compliance Flags</span></div><div class="out-body"><div class="flags-grid">'+
+    Object.keys(flags).map(function(k){var f=flags[k];return '<div class="flag-row"><span class="flag-icon">'+(f.pass?'✅':'❌')+'</span><div><div class="flag-name">'+esc(k)+'</div><div class="flag-desc">'+esc(f.desc)+'</div></div></div>';}).join('')+
+  '</div></div></div>';
+
+  var memo='TOKENIZED SECURITY LIFECYCLE VALIDATION\n'+
+    'Generated: '+ts+'\n'+
+    'Security: '+securityName+'\n'+
+    'Type: '+(SECURITY_TYPE_LABELS[securityType]||securityType)+' · Jurisdiction: '+jurisdiction.toUpperCase()+'\n'+
+    'Custodian Model: '+(CUSTODIAN_LABELS[custodianModel]||custodianModel)+'\n'+
+    'Standards: EU DLT Pilot Regime (Reg (EU) 2022/858) · Prospectus Reg (EU) 2017/1129 · MiFID II\n\n'+
+    'VERDICT: '+(verdict==='compliant'?'LIFECYCLE_COMPLIANT':verdict==='gaps'?'LIFECYCLE_GAPS_PRESENT':'LIFECYCLE_CRITICAL_GAP')+'\n\n'+
+    'LIFECYCLE EVENT MATRIX\n'+
+    matrix.map(function(r){var s=r.required?(r.covered?'✓ COVERED':'✗ GAP'):'— N/A';return '  '+r.label.padEnd(24,' ')+'required='+(r.required?'Yes':'No ')+'  '+s;}).join('\n')+'\n\n'+
+    'COMPLIANCE FLAGS\n'+
+    Object.keys(flags).map(function(k){var f=flags[k];return '  ['+(f.pass?'✓':'✗')+'] '+k+'\n      '+f.desc;}).join('\n')+'\n\n'+
+    'REFERENCES\n'+
+    '[1] EU DLT Pilot Regime: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R0858\n'+
+    '[2] Prospectus Regulation: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32017R1129\n'+
+    '[3] DTCC ComposerX / Canton UST Tokenization Pilot\n'+
+    '[4] Broadridge DLR (Digital Ledger Repo)';
+
+  _lastResult={security_name:securityName,security_type:securityType,jurisdiction:jurisdiction,
+    custodian_model:custodianModel,issuance_amount:issuanceAmount,prospectus_filed:prospectusFiled,
+    isin_assigned:isinAssigned,daml_contract_defined:damlDefined,covered_events:coveredEvents,
+    required_events:required,gaps:gaps.map(function(g){return g.event;}),
+    verdict:verdict,flags:flags,matrix:matrix,generated:ts};
+
+  var out=document.getElementById('outputSection');
+  out.innerHTML=
+    '<div class="out-card"><div class="out-header"><span class="out-title">Lifecycle Verdict</span></div><div class="out-body">'+
+      '<div class="'+verdictClass+' verdict-badge">'+verdictLabel+'</div>'+
+      '<p style="font-size:.72rem;color:var(--body);margin-bottom:1rem">Security: <strong style="color:var(--bright)">'+esc(securityName)+'</strong> &nbsp;·&nbsp; Type: <strong style="color:var(--bright)">'+esc(SECURITY_TYPE_LABELS[securityType]||securityType)+'</strong> &nbsp;·&nbsp; Jurisdiction: <strong style="color:var(--bright)">'+jurisdiction.toUpperCase()+'</strong></p>'+
+    '</div></div>'+
+    '<div class="out-card"><div class="out-header"><span class="out-title">Lifecycle Event Coverage Matrix</span></div><div class="out-body" style="padding:0;overflow-x:auto">'+matrixHTML+'</div></div>'+
+    dltHTML+prospectusHTML+custodianHTML+flagsHTML+
+    '<div class="out-card"><div class="out-header"><span class="out-title">Validation Memo</span><button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button></div><div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">'+esc(memo)+'</div></div></div>';
+
+  window._memo=memo;
+  window._currentMandate=buildMandate();
+
+  computeHash({
+    policy_parameters:{security_type:securityType,jurisdiction:jurisdiction,issuance_amount:issuanceAmount,covered_events:coveredEvents},
+    output_payload:{verdict:verdict,gaps:gaps.map(function(g){return g.event;}),flags:Object.keys(flags).reduce(function(o,k){o[k]=flags[k].pass;return o;},{})}
+  }).then(function(hash){
+    _lastResult.execution_hash=hash;
+    if(window._currentMandate)window._currentMandate.execution_hash=hash;
+    window.enableAP2Btn&&window.enableAP2Btn();
+  });
+}
+
+function copyMemo(){
+  if(!window._memo)return;
+  navigator.clipboard.writeText(window._memo).then(function(){var b=document.getElementById('memoCopyBtn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});
+}
+
+function buildMandate(){
+  if(!_lastResult)return null;
+  var ts=new Date().toISOString();
+  return {
+    ap2_version:'1.0',
+    mandate_id:'512-tokenized-security-lifecycle-validator-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:'512-tokenized-security-lifecycle-validator',
+    tool_version:'1.0.0',
+    mandate_type:'compliance_mandate',
+    jurisdiction:[_lastResult.jurisdiction.toUpperCase()],
+    regulatory_frameworks:['Reg (EU) 2022/858 DLT Pilot Regime','Prospectus Regulation (EU) 2017/1129','MiFID II','ISO 20022'],
+    chaingraph_version:'0.3.1',
+    payload:{
+      security_name:_lastResult.security_name,security_type:_lastResult.security_type,
+      issuance_jurisdiction:_lastResult.jurisdiction,issuance_amount_usd:_lastResult.issuance_amount,
+      daml_contract_defined:_lastResult.daml_contract_defined,covered_events:_lastResult.covered_events,
+      required_events:_lastResult.required_events,gaps:_lastResult.gaps,
+      verdict:_lastResult.verdict,custodian_model:_lastResult.custodian_model
+    },
+    compliance_flags:(function(){var o={};Object.keys(_lastResult.flags).forEach(function(k){o[k]=_lastResult.flags[k].pass;});return o;})(),
+    summary:'Lifecycle validation: '+_lastResult.verdict.toUpperCase()+' · '+_lastResult.gaps.length+' gap(s) · Security: '+_lastResult.security_name+' · Generated '+_lastResult.generated,
+    agent_instructions:[
+      'Review all DAML_LIFECYCLE_GAP_* flags and remediate missing contract coverage before deployment.',
+      'For EU jurisdiction, ensure DLT Pilot Regime eligibility is confirmed with legal counsel under Reg (EU) 2022/858.',
+      'Prospectus filing must be completed before public offer of tokenized securities > €8M in EU/UK jurisdictions.'
+    ],
+    execution_hash:_lastResult.execution_hash||null,
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    source_tool_inputs:{securityType:_lastResult.security_type,issuanceJurisdiction:_lastResult.jurisdiction,issuanceAmount:_lastResult.issuance_amount,custodianModel:_lastResult.custodian_model},
+    regulatory_citations:[
+      {ref:'Reg (EU) 2022/858 DLT Pilot Regime',url:'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R0858'},
+      {ref:'Prospectus Regulation (EU) 2017/1129',url:'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32017R1129'},
+      {ref:'MiFID II Directive 2014/65/EU',url:'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32014L0065'}
+    ],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+}
+
+window.AIN_BUILD_MANDATE=buildMandate;
+
+/* ── Default load ── */
+loadPreset('dtcc_ust_lifecycle');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"512-tokenized-security-lifecycle-validator","version":"1.0.0","title":"Tokenized Security Lifecycle Validator","description":"Validate issuance, corporate actions, and maturity/redemption lifecycle for tokenized securities on Daml/Canton. Checks Daml contract coverage against required lifecycle events by security type. EU DLT Pilot Regime eligibility and prospectus obligation checks.","category":"capital-markets","tags":["canton","daml","lifecycle","tokenization","issuance","dlt-pilot","corporate-action","securities"],"audience":["issuance","securities-ops","compliance","capital-markets","legal"],"mcp_tool_definition":{"name":"validate_tokenized_security_lifecycle","description":"Validate Daml contract lifecycle coverage for tokenized securities on Canton. Checks required events (issuance, coupon, corporate action, transfer, redemption, default) by security type. EU DLT Pilot Regime and prospectus requirement checks included.","inputSchema":{"type":"object","properties":{"security_name":{"type":"string"},"security_type":{"type":"string","enum":["ust","corporate_bond","equity","fund_unit","govt_bond","structured_note"]},"issuance_jurisdiction":{"type":"string","enum":["us","eu","uk","sg","hk","other"]},"daml_contract_defined":{"type":"boolean"},"daml_events_covered":{"type":"array","items":{"type":"string","enum":["issuance","coupon_payment","corporate_action","transfer","maturity_redemption","default_handling"]}},"issuance_amount_usd":{"type":"number"},"custodian_model":{"type":"string","enum":["dtc_custodied","third_party_csd","self_custodied","canton_native"]},"prospectus_filed":{"type":"boolean"},"isin_assigned":{"type":"boolean"},"corporate_actions_expected":{"type":"string","enum":["none","coupon_only","coupon_and_redemption","equity_events","complex"]}},"required":["security_type","issuance_jurisdiction","daml_events_covered"]}},"execution":{"type":"browser-javascript","entry":"tools/512-tokenized-security-lifecycle-validator.html","function_name":"runSecurityLifecycle","timeout_ms":5000},"chaingraph":{"chaingraph_version":"0.3.1","semantic_profile":"iso20022:party-identification","dct_conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld","@context":["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]},"ap2_export":true,"mandate_type":"compliance_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=buildMandate();if(!mandate){alert('Run the validator first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='512-tokenized-security-lifecycle-validator_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runSecurityLifecycle',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف .policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}};
+function t(k){return(L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;var v=fields[id];if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=document.getElementById('ainIntakeZone')||anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}
+function looksLikeMandate(o){return!!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}var n=0;if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');return n;}
+function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');var txt=document.createElement('span');txt.textContent=t('drop');function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');}}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

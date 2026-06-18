@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Multi-Currency PvP Settlement Validator · AINumbers.co</title>
+<meta name="description" content="Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Eliminate Herstatt risk in cross-border FX and multi-currency repo on Canton. PFMI P12 compliance. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/511-multi-currency-pvp-validator.html">
+<script type="application/ld+json">{"@context":["https://schema.org","https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"],"@type":"SoftwareApplication","name":"Multi-Currency PvP Settlement Validator","url":"https://ainumbers.co/tools/511-multi-currency-pvp-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"dct:conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"}</script>
+<!-- manifest.json
+{
+  "tool_id": "511-multi-currency-pvp-validator",
+  "version": "1.0.0",
+  "title": "Multi-Currency PvP Settlement Validator",
+  "description": "Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Eliminate Herstatt risk in cross-border FX and multi-currency repo on Canton. Outputs PvP compliance status, finality assessment, and SA-CCR FX add-on note.",
+  "category": "capital-markets",
+  "tags": ["canton","pvp","fx","herstatt","pfmi","settlement","multi-currency","cross-border"],
+  "audience": ["treasury","fx-ops","settlement","compliance","capital-markets"],
+  "mcp_tool_definition": {
+    "name": "validate_pvp_settlement",
+    "description": "Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Checks PFMI P12 atomicity compliance, Herstatt risk elimination, finality model, FX rate plausibility, and SA-CCR add-on. Returns verdict (PASS/CONDITIONAL/FAIL) and compliance flags.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "legs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "currency_sold": {"type": "string"},
+              "amount_sold": {"type": "number"},
+              "currency_bought": {"type": "string"},
+              "amount_bought": {"type": "number"},
+              "settlement_platform": {"type": "string", "enum": ["canton_daml","cls_bank","bilateral_wire","other"]}
+            },
+            "required": ["currency_sold","amount_sold","currency_bought","amount_bought","settlement_platform"]
+          }
+        },
+        "atomicity_model": {"type": "string", "enum": ["atomic_pvp","sequential_pvp","free_payment"]},
+        "finality_model": {"type": "string", "enum": ["irrevocable_realtime","irrevocable_eod","provisional","undefined"]},
+        "netting_enabled": {"type": "boolean"},
+        "canton_247": {"type": "boolean"},
+        "unwind_procedure_defined": {"type": "boolean"}
+      },
+      "required": ["legs","atomicity_model","finality_model"]
+    }
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/511-multi-currency-pvp-validator.html","function_name":"runPvPValidator","timeout_ms":5000},
+  "chaingraph": {
+    "chaingraph_version": "0.3.1",
+    "semantic_profile": "iso20022:pacs.008-subset",
+    "dct_conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld",
+    "@context": [
+      "https://ainumbers.co/chaingraph/context.jsonld",
+      "https://ainumbers.co/chaingraph/iso20022-context.jsonld"
+    ]
+  },
+  "ap2_export": true,
+  "mandate_type": "settlement_mandate",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .8rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.meta-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end}
+.meta-field{display:flex;flex-direction:column;gap:.35rem}
+.meta-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta-select,.meta-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s}
+.meta-select:focus,.meta-input:focus{border-color:var(--teal)}
+.check-row{display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.check-item{display:flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--text);letter-spacing:.04em}
+.check-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--teal);cursor:pointer}
+.leg-table-wrap{overflow-x:auto;margin-bottom:.75rem}
+.leg-table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:820px}
+.leg-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .55rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.leg-table td{padding:.35rem .45rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.leg-table tr:last-child td{border-bottom:none}
+.leg-table input[type=number],.leg-table select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.25rem .4rem;border-radius:3px;outline:none;width:100%}
+.leg-table input[type=number]:focus,.leg-table select:focus{border-color:var(--teal)}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.1rem .3rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.add-row-btn:hover{border-color:var(--teal);color:var(--teal)}
+.add-row-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Verdict */
+.verdict-wrap{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.verdict-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.25rem;border-radius:var(--radius);border:1px solid;font-weight:500}
+.verdict-pass{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict-conditional{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.4)}
+.verdict-fail{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+/* stat chips */
+.stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;min-width:90px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:500;line-height:1}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+/* result table */
+.res-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.res-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.res-table td{padding:.45rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.res-table tr:hover td{background:rgba(20,184,166,.02)}
+/* flags */
+.flags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem}
+.flag-row{display:flex;align-items:flex-start;gap:.55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .75rem}
+.flag-pass{border-color:rgba(34,197,94,.2)!important}
+.flag-warn{border-color:rgba(245,158,11,.2)!important}
+.flag-fail{border-color:rgba(239,68,68,.2)!important}
+.flag-info{border-color:rgba(20,184,166,.2)!important}
+.flag-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.flag-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);letter-spacing:.04em}
+.flag-desc{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem;line-height:1.5}
+/* inline chips */
+.chip{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.06em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;white-space:nowrap}
+.chip-teal{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+.chip-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.chip-warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.chip-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.chip-muted{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+/* info/warn blocks */
+.info-block{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem;font-size:.7rem;color:var(--body);line-height:1.7;margin-bottom:.75rem}
+.info-block strong{color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:.25rem}
+.warn-block{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.75rem 1rem;font-size:.7rem;color:var(--body);line-height:1.7;margin-bottom:.75rem}
+.warn-block strong{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:.25rem}
+.ref-note{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);letter-spacing:.03em;margin-top:.4rem}
+/* standards */
+.standards-list{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+.standards-list li{font-size:.7rem;color:var(--body);line-height:1.6;padding-left:.75rem;border-left:2px solid var(--border-2)}
+.standards-list li strong{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;display:block;margin-bottom:.1rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.68rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn{opacity:.4;cursor:not-allowed;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.55rem 1.25rem;border-radius:var(--radius);transition:all .2s}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 (2026-06-09) -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-511</span>
+  </div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Capital Markets · T511 · Settlement · OpenChainGraph</div>
+  <span class="hero-badge">v1.0</span>
+  <h1>Multi-Currency <em>PvP Settlement Validator</em></h1>
+  <p class="hero-desc">Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Eliminate Herstatt risk in cross-border FX and multi-currency repo on Canton. Checks PFMI Principle 12 atomicity compliance, finality model, FX rate plausibility, and SA-CCR FX add-on per BCBS CRE54.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">PvP Settlement</span>
+    <span class="badge badge-teal">PFMI P12</span>
+    <span class="badge badge-warn">Canton / CLS</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note">
+    <strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    FX reference rates are illustrative mid-2025 estimates — replace with live rates in production. Regulatory citations are informational; verify with your legal and compliance team before operationalisation. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-header">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('usd_eur_canton')">USD/EUR Canton PvP</button>
+      <button class="preset-btn" onclick="loadPreset('jpmd_hsbc_multiccy')">JPMorgan Kinexys / HSBC Multi-ccy [Canton]</button>
+      <button class="preset-btn" onclick="loadPreset('cls_baseline')">CLS Bank Baseline</button>
+    </div>
+  </div>
+
+  <!-- CURRENCY LEGS -->
+  <div class="panel">
+    <div class="panel-header">Currency Legs (up to 4)</div>
+    <div class="leg-table-wrap">
+      <table class="leg-table">
+        <thead>
+          <tr>
+            <th style="width:28px">#</th>
+            <th>Currency Sold</th>
+            <th>Amount Sold</th>
+            <th>Currency Bought</th>
+            <th>Amount Bought</th>
+            <th>Settlement Platform</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="legBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addLegRow()" id="addLegBtn">+ Add Leg</button>
+    <p class="ref-note">Reference rates illustrative — as of mid-2025. Replace with live rates in production.</p>
+  </div>
+
+  <!-- GLOBAL OPTIONS -->
+  <div class="panel">
+    <div class="panel-header">Global Options</div>
+    <div class="meta-row">
+      <div class="meta-field">
+        <span class="meta-label">Atomicity Model</span>
+        <select class="meta-select" id="atomicityModel" style="min-width:210px">
+          <option value="atomic_pvp">Atomic PvP (all-or-nothing)</option>
+          <option value="sequential_pvp">Sequential PvP (conditional)</option>
+          <option value="free_payment">Free Payment (no PvP)</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <span class="meta-label">Finality Model</span>
+        <select class="meta-select" id="finalityModel" style="min-width:210px">
+          <option value="irrevocable_realtime">Irrevocable Real-Time</option>
+          <option value="irrevocable_eod">Irrevocable End-of-Day</option>
+          <option value="provisional">Provisional</option>
+          <option value="undefined">Undefined</option>
+        </select>
+      </div>
+    </div>
+    <div class="check-row">
+      <label class="check-item"><input type="checkbox" id="nettingEnabled"> Netting Enabled</label>
+      <label class="check-item"><input type="checkbox" id="canton247"> Canton 24/7 Window</label>
+      <label class="check-item"><input type="checkbox" id="unwindDefined"> Unwind Procedure Defined</label>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runPvPValidator()">Run PvP Validator</button>
+
+  <div class="output-section" id="outputSection"></div>
+
+  <!-- MANIFEST TOGGLE -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>MCP Tool Definition &amp; Manifest</span>
+      <span id="mfstArr">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+  <!-- AP2 EXPORT -->
+  <div style="margin-top:1rem;display:flex;align-items:center;gap:1rem">
+    <button id="ap2ExportBtn" disabled onclick="exportAP2()">Export Policy Mandate (.policy.json)</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);letter-spacing:.04em">Available after run completes &amp; hash computed</span>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="https://postoaklabs.com" class="footer-brand-link" target="_blank" rel="noopener">
+      <div class="footer-wordmark" style="color:var(--teal)">Post Oak Labs</div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="510-digital-asset-regulatory-classifier.html">&#8592; T510 Digital Asset Classifier</a>
+      <a href="512-tokenized-security-lifecycle-validator.html">T512 Tokenized Security Lifecycle &#8594;</a>
+      <a href="../index.html">All Tools</a>
+      <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>T511 · Multi-Currency PvP Settlement Validator</span>
+      <span>ainumbers.co · Post Oak Labs · CC BY 4.0</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   T511 — Multi-Currency PvP Settlement Validator
+   Standards: CPMI-IOSCO PFMI P12, CLS Bank, BIS FX Global Code (May 2024),
+              BCBS CRE54 (SA-CCR FX add-on)
+   ISO 20022 semantic profile: pacs.008-subset
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── FX Reference Rates (mid-2025 illustrative, USD base) ── */
+var FX_USD = {
+  USD: 1.000,
+  EUR: 0.920,   /* USD/EUR */
+  GBP: 0.790,   /* USD/GBP */
+  JPY: 154.00,  /* USD/JPY */
+  CHF: 0.900,   /* USD/CHF */
+  HKD: 7.780,   /* USD/HKD */
+  SGD: 1.340    /* USD/SGD */
+};
+
+/* Get reference rate for ccySold→ccyBought (amount_sold / amount_bought) */
+function getRefRate(ccySold, ccyBought) {
+  var s = FX_USD[ccySold];
+  var b = FX_USD[ccyBought];
+  if (s === undefined || b === undefined) return null;
+  /* Rate = units of ccy_bought per unit of ccy_sold */
+  /* If sold=USD, bought=EUR: rate = 0.920 USD/EUR amount ratio */
+  /* General: amount_sold * (1/FX_USD[sold]) = USD notional = amount_bought * (1/FX_USD[bought]) */
+  /* => amount_sold/amount_bought = FX_USD[sold]/FX_USD[bought] */
+  return s / b;
+}
+
+var CURRENCIES = ['USD','EUR','GBP','JPY','CHF','HKD','SGD'];
+var PLATFORMS  = [
+  {v:'canton_daml',    l:'Canton / DAML'},
+  {v:'cls_bank',       l:'CLS Bank'},
+  {v:'bilateral_wire', l:'Bilateral Wire'},
+  {v:'other',          l:'Other'}
+];
+
+function ccyOptions(sel) {
+  return CURRENCIES.map(function(c){
+    return '<option value="'+c+'"'+(c===sel?' selected':'')+'>'+c+'</option>';
+  }).join('');
+}
+function platOptions(sel) {
+  return PLATFORMS.map(function(p){
+    return '<option value="'+p.v+'"'+(p.v===sel?' selected':'')+'>'+p.l+'</option>';
+  }).join('');
+}
+
+/* ── Row management ── */
+var legCount = 0;
+
+function addLegRow(d) {
+  d = d || {};
+  var tb = document.getElementById('legBody');
+  if (tb.querySelectorAll('tr').length >= 4) { alert('Maximum 4 legs supported.'); return; }
+  legCount++;
+  var tr = document.createElement('tr');
+  var rowNum = tb.querySelectorAll('tr').length + 1;
+  tr.innerHTML =
+    '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.56rem;color:var(--muted);text-align:center;width:28px">' + rowNum + '</td>' +
+    '<td style="min-width:85px"><select class="leg-ccy-sold">' + ccyOptions(d.currency_sold || 'USD') + '</select></td>' +
+    '<td style="min-width:120px"><input type="number" class="leg-amt-sold" value="' + (d.amount_sold !== undefined ? d.amount_sold : 10000000) + '" min="0" step="1000"></td>' +
+    '<td style="min-width:85px"><select class="leg-ccy-bought">' + ccyOptions(d.currency_bought || 'EUR') + '</select></td>' +
+    '<td style="min-width:120px"><input type="number" class="leg-amt-bought" value="' + (d.amount_bought !== undefined ? d.amount_bought : 9200000) + '" min="0" step="1000"></td>' +
+    '<td style="min-width:140px"><select class="leg-platform">' + platOptions(d.settlement_platform || 'canton_daml') + '</select></td>' +
+    '<td><button class="del-btn" onclick="removeLegRow(this)" title="Remove row">&#x2715;</button></td>';
+  tb.appendChild(tr);
+  updateAddBtn();
+}
+
+function removeLegRow(btn) {
+  btn.closest('tr').remove();
+  reindexLegs();
+  updateAddBtn();
+}
+
+function reindexLegs() {
+  document.querySelectorAll('#legBody tr').forEach(function(tr, i){
+    tr.querySelector('td:first-child').textContent = i + 1;
+  });
+}
+
+function updateAddBtn() {
+  var btn = document.getElementById('addLegBtn');
+  var count = document.querySelectorAll('#legBody tr').length;
+  btn.disabled = count >= 4;
+}
+
+function getLegs() {
+  return Array.from(document.querySelectorAll('#legBody tr')).map(function(tr) {
+    return {
+      currency_sold:       tr.querySelector('.leg-ccy-sold').value,
+      amount_sold:         parseFloat(tr.querySelector('.leg-amt-sold').value) || 0,
+      currency_bought:     tr.querySelector('.leg-ccy-bought').value,
+      amount_bought:       parseFloat(tr.querySelector('.leg-amt-bought').value) || 0,
+      settlement_platform: tr.querySelector('.leg-platform').value
+    };
+  });
+}
+
+/* ── Presets ── */
+var PRESETS = {
+  usd_eur_canton: {
+    legs: [
+      { currency_sold:'USD', amount_sold:10000000, currency_bought:'EUR', amount_bought:9200000, settlement_platform:'canton_daml' }
+    ],
+    atomicity: 'atomic_pvp', finality: 'irrevocable_realtime',
+    netting: false, canton247: true, unwind: true
+  },
+  jpmd_hsbc_multiccy: {
+    legs: [
+      { currency_sold:'USD', amount_sold:10000000, currency_bought:'EUR', amount_bought:9200000, settlement_platform:'canton_daml' },
+      { currency_sold:'EUR', amount_sold:5000000,  currency_bought:'GBP', amount_bought:4350000, settlement_platform:'canton_daml' }
+    ],
+    atomicity: 'atomic_pvp', finality: 'irrevocable_realtime',
+    netting: true, canton247: true, unwind: true
+  },
+  cls_baseline: {
+    legs: [
+      { currency_sold:'USD', amount_sold:10000000, currency_bought:'EUR', amount_bought:9200000, settlement_platform:'cls_bank' }
+    ],
+    atomicity: 'sequential_pvp', finality: 'irrevocable_eod',
+    netting: true, canton247: false, unwind: true
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('legBody').innerHTML = '';
+  legCount = 0;
+  p.legs.forEach(function(l){ addLegRow(l); });
+  document.getElementById('atomicityModel').value = p.atomicity;
+  document.getElementById('finalityModel').value  = p.finality;
+  document.getElementById('nettingEnabled').checked = !!p.netting;
+  document.getElementById('canton247').checked      = !!p.canton247;
+  document.getElementById('unwindDefined').checked  = !!p.unwind;
+}
+
+/* ── Utilities ── */
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtNum(n, dp) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return n.toFixed(dp !== undefined ? dp : 4);
+}
+function fmtCcy(n) {
+  if (!n && n !== 0 || isNaN(n)) return '—';
+  var abs = Math.abs(n);
+  if (abs >= 1e9) return (n/1e9).toFixed(3)+'B';
+  if (abs >= 1e6) return (n/1e6).toFixed(3)+'M';
+  if (abs >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toFixed(2);
+}
+
+/* ── WebCrypto execution hash ── */
+async function computeHash(payload) {
+  var sorted = JSON.stringify(payload, Object.keys(payload).sort());
+  var enc = new TextEncoder().encode(sorted);
+  var buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+/* ── Main validator ── */
+var _lastResult = null;
+
+function runPvPValidator() {
+  var legs = getLegs();
+  if (!legs.length) { alert('Add at least one currency leg.'); return; }
+
+  var atomicity = document.getElementById('atomicityModel').value;
+  var finality  = document.getElementById('finalityModel').value;
+  var netting   = document.getElementById('nettingEnabled').checked;
+  var canton247 = document.getElementById('canton247').checked;
+  var unwind    = document.getElementById('unwindDefined').checked;
+  var today     = new Date().toISOString().slice(0, 10);
+
+  /* ── PvP Atomicity check ── */
+  var hasCantonLeg = legs.some(function(l){ return l.settlement_platform === 'canton_daml'; });
+  var allFlags     = [];
+  var herstattElim = false;
+
+  if (atomicity === 'atomic_pvp' && hasCantonLeg) {
+    allFlags.push({ pass:true, icon:'✅', label:'PVP_ATOMICITY_PFMI_P12_COMPLIANT',
+      desc:'All legs settle conditionally — principal risk structurally eliminated per PFMI P12 [1].', kind:'pass' });
+    allFlags.push({ pass:true, icon:'✅', label:'PVP_ATOMICITY_VALIDATED',
+      desc:'Atomic PvP with Canton DAML settlement confirmed. Both legs are final simultaneously or neither settles.', kind:'pass' });
+    allFlags.push({ pass:true, icon:'✅', label:'HERSTATT_RISK_ELIMINATED',
+      desc:'Atomic conditional settlement eliminates Herstatt (principal) risk. Counterparty failure between legs cannot cause principal loss.', kind:'pass' });
+    herstattElim = true;
+  } else if (atomicity === 'atomic_pvp' && !hasCantonLeg) {
+    allFlags.push({ pass:true, icon:'✅', label:'PVP_ATOMICITY_VALIDATED',
+      desc:'Atomic PvP model selected. No Canton DAML leg present — verify atomic settlement guarantee at platform level.', kind:'info' });
+    allFlags.push({ pass:false, icon:'⚠️', label:'PVP_ATOMICITY_CONDITIONAL',
+      desc:'Atomic PvP claimed but no Canton DAML leg detected. Atomicity guarantee subject to platform-level verification.', kind:'warn' });
+    herstattElim = false;
+  } else if (atomicity === 'sequential_pvp') {
+    allFlags.push({ pass:false, icon:'⚠️', label:'PVP_ATOMICITY_CONDITIONAL',
+      desc:'Sequential PvP — settlement of leg 2 is conditional on leg 1 but not atomically linked. Residual principal risk window exists between legs.', kind:'warn' });
+    herstattElim = false;
+  } else if (atomicity === 'free_payment') {
+    allFlags.push({ pass:false, icon:'❌', label:'PVP_ATOMICITY_FAILED',
+      desc:'Free payment — no PvP mechanism in place. Both legs settle independently. Principal risk is not mitigated by design.', kind:'fail' });
+    allFlags.push({ pass:false, icon:'❌', label:'HERSTATT_RISK_PRESENT',
+      desc:'Herstatt risk is present. If a counterparty fails between delivery of one leg and receipt of the other, principal loss is not prevented. See PFMI P12 [1], BIS FX Global Code Principle 35 [3].', kind:'fail' });
+    herstattElim = false;
+  }
+
+  /* ── Finality flags ── */
+  if (finality === 'irrevocable_realtime') {
+    allFlags.push({ pass:true, icon:'✅', label:'FINALITY_IRREVOCABLE_REALTIME',
+      desc:'Irrevocable real-time finality — settlement is unconditionally final upon execution. Highest finality assurance. Compatible with Canton 24/7 atomic PvP.', kind:'pass' });
+  } else if (finality === 'irrevocable_eod') {
+    allFlags.push({ pass:true, icon:'✅', label:'FINALITY_IRREVOCABLE_EOD',
+      desc:'Irrevocable end-of-day finality — settlement is final at batch close (typical CLS Bank model). Intraday exposure window exists between trade execution and batch settlement.', kind:'info' });
+  } else if (finality === 'provisional') {
+    allFlags.push({ pass:false, icon:'⚠️', label:'FINALITY_PROVISIONAL',
+      desc:'Provisional settlement — subject to reversal before finality confirmation. Principal risk is not fully mitigated until final status is confirmed.', kind:'warn' });
+  } else if (finality === 'undefined') {
+    allFlags.push({ pass:false, icon:'⚠️', label:'FINALITY_PROVISIONAL',
+      desc:'Finality model is undefined — unable to confirm settlement finality. This is a compliance gap per PFMI P12. Define finality model before production deployment.', kind:'warn' });
+  }
+
+  /* ── Canton 24/7 flag ── */
+  if (canton247) {
+    allFlags.push({ pass:true, icon:'✅', label:'PVP_CANTON_247',
+      desc:'Canton enables atomic PvP outside CLS batch windows — 24/7 including weekends. Traditional FX settlement relies on CLS Bank batch (window closes ~noon London). Canton atomic PvP eliminates both Herstatt risk and batch-window constraints [2,3].', kind:'pass' });
+  }
+
+  /* ── FX Rate validation ── */
+  var legResults = legs.map(function(leg, i) {
+    var impliedRate = leg.amount_bought > 0 ? leg.amount_sold / leg.amount_bought : null;
+    var refRate     = getRefRate(leg.currency_sold, leg.currency_bought);
+    var rateCheck   = 'N/A';
+    var rateOk      = true;
+    var deviation   = null;
+
+    if (impliedRate !== null && refRate !== null) {
+      deviation = Math.abs(impliedRate - refRate) / refRate;
+      if (deviation > 0.20) {
+        rateOk    = false;
+        rateCheck = 'IMPLAUSIBLE ('+((deviation*100).toFixed(1))+'% from ref)';
+        allFlags.push({ pass:false, icon:'⚠️', label:'PVP_RATE_IMPLAUSIBLE',
+          desc:'Leg '+(i+1)+' ('+leg.currency_sold+'/'+leg.currency_bought+'): implied rate '+impliedRate.toFixed(6)+' deviates '+((deviation*100).toFixed(1))+'% from reference rate '+refRate.toFixed(6)+'. Verify amounts or replace with live market data.',
+          kind:'warn' });
+      } else {
+        rateCheck = 'OK ('+((deviation*100).toFixed(2))+'% from ref)';
+      }
+    }
+
+    return {
+      index:             i + 1,
+      currency_sold:     leg.currency_sold,
+      amount_sold:       leg.amount_sold,
+      currency_bought:   leg.currency_bought,
+      amount_bought:     leg.amount_bought,
+      platform:          leg.settlement_platform,
+      implied_rate:      impliedRate,
+      ref_rate:          refRate,
+      rate_deviation_pct:deviation !== null ? (deviation * 100) : null,
+      rate_check:        rateCheck,
+      rate_ok:           rateOk
+    };
+  });
+
+  /* ── SA-CCR FX add-on ── */
+  var totalNotionalUSD = legs.reduce(function(sum, l){ return sum + l.amount_sold; }, 0);
+  var saccrAddon       = totalNotionalUSD * 0.04;
+  allFlags.push({ pass:true, icon:'ℹ️', label:'SACCR_FX_ADDON_NOTE',
+    desc:'FX SA-CCR supervisory add-on = 4.0% of notional (BCBS CRE54 [4]). Total FX notional: '+fmtCcy(totalNotionalUSD)+' USD equiv → add-on: '+fmtCcy(saccrAddon)+'. Feed to T504 for full capital computation.',
+    kind:'info' });
+
+  /* ── Unwind procedure ── */
+  if (!unwind) {
+    allFlags.push({ pass:false, icon:'⚠️', label:'UNWIND_PROCEDURE_ABSENT',
+      desc:'No unwind procedure defined. In the event of a settlement failure, absence of a defined unwind protocol increases operational and credit risk. Establish and document an unwind procedure per PFMI P12 guidance.',
+      kind:'warn' });
+  }
+
+  /* ── Verdict ── */
+  var rateImplausible = legResults.some(function(lr){ return !lr.rate_ok && lr.rate_deviation_pct !== null; });
+  var hasFail    = atomicity === 'free_payment';
+  var hasWarn    = !hasFail && (
+    atomicity === 'sequential_pvp' ||
+    finality === 'provisional' || finality === 'undefined' ||
+    !unwind || rateImplausible ||
+    (atomicity === 'atomic_pvp' && !hasCantonLeg)
+  );
+  var verdict = hasFail ? 'FAIL' : (hasWarn ? 'CONDITIONAL' : 'PASS');
+
+  /* Verdict flag */
+  if (verdict === 'PASS') {
+    allFlags.push({ pass:true, icon:'✅', label:'PVP_VERDICT_PASS',
+      desc:'All PvP settlement checks passed. Atomic finality confirmed with Herstatt risk eliminated per PFMI P12 [1].', kind:'pass' });
+  } else if (verdict === 'CONDITIONAL') {
+    allFlags.push({ pass:false, icon:'⚠️', label:'PVP_VERDICT_CONDITIONAL',
+      desc:'PvP settlement partially validated. Review and resolve flagged conditions before production deployment.', kind:'warn' });
+  } else {
+    allFlags.push({ pass:false, icon:'❌', label:'PVP_VERDICT_FAIL',
+      desc:'PvP settlement validation failed. Free payment model creates unmitigated Herstatt risk. Migrate to atomic_pvp with Canton DAML or CLS Bank.', kind:'fail' });
+  }
+
+  /* ── pacs.008 payload per leg ── */
+  var pacs008Legs = legResults.map(function(lr) {
+    return {
+      instructed_amount: lr.amount_sold,
+      currency_sold:     lr.currency_sold,
+      currency_bought:   lr.currency_bought,
+      implied_rate:      lr.implied_rate,
+      debtor:   { party_name:'FX seller (illustrative)', lei:null },
+      creditor: { party_name:'FX buyer (illustrative)',  lei:null },
+      settlement_platform: lr.platform,
+      settlement_date: today
+    };
+  });
+
+  /* ── Store result ── */
+  _lastResult = {
+    verdict:         verdict,
+    atomicity_model: atomicity,
+    finality_model:  finality,
+    netting_enabled: netting,
+    canton_247:      canton247,
+    unwind_defined:  unwind,
+    leg_results:     legResults,
+    pacs008_legs:    pacs008Legs,
+    flags:           allFlags,
+    total_notional:  totalNotionalUSD,
+    saccr_addon:     saccrAddon,
+    herstatt_elim:   herstattElim,
+    generated:       today,
+    _execution_hash: null
+  };
+
+  /* ── Render ── */
+  renderOutput(_lastResult);
+
+  /* ── Async hash then enable export ── */
+  var hashInput = {
+    policy_parameters: {
+      atomicity_model: atomicity,
+      finality_model:  finality,
+      netting_enabled: netting,
+      canton_247:      canton247,
+      unwind_defined:  unwind,
+      legs: legs
+    },
+    output_payload: {
+      verdict:       verdict,
+      flags:         allFlags.map(function(f){ return f.label; }),
+      total_notional:totalNotionalUSD,
+      saccr_addon:   saccrAddon
+    }
+  };
+  computeHash(hashInput).then(function(hash) {
+    _lastResult._execution_hash = hash;
+    window.enableAP2Btn && window.enableAP2Btn();
+  });
+}
+
+/* ── Render output ── */
+function renderOutput(r) {
+  var verdictClass = r.verdict === 'PASS'        ? 'verdict-pass' :
+                     r.verdict === 'FAIL'        ? 'verdict-fail' : 'verdict-conditional';
+  var verdictIcon  = r.verdict === 'PASS'        ? '✅ PASS' :
+                     r.verdict === 'FAIL'        ? '❌ FAIL' : '⚠️ CONDITIONAL';
+
+  var html = '';
+
+  /* Verdict card */
+  html += '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">PvP Settlement Verdict</span>' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.48rem;color:var(--muted)">Generated: ' + r.generated + '</span></div>' +
+    '<div class="out-body">' +
+    '<div class="verdict-wrap">' +
+    '<span class="verdict-badge ' + verdictClass + '">' + verdictIcon + '</span>' +
+    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.56rem;color:var(--body);line-height:1.9">' +
+    'Atomicity: <strong style="color:var(--text)">' + r.atomicity_model + '</strong><br>' +
+    'Finality: <strong style="color:var(--text)">' + r.finality_model + '</strong><br>' +
+    'Herstatt Risk: <strong style="color:' + (r.herstatt_elim?'var(--green)':'var(--red)') + '">' + (r.herstatt_elim ? 'ELIMINATED' : 'PRESENT') + '</strong>' +
+    '</div></div>';
+
+  /* Stats row */
+  var verdictNumColor = r.verdict==='PASS' ? 'var(--green)' : r.verdict==='FAIL' ? 'var(--red)' : 'var(--gold)';
+  html += '<div class="stat-row">' +
+    '<div class="stat-chip"><span class="stat-num" style="color:var(--teal)">' + r.leg_results.length + '</span><span class="stat-lbl">Currency Legs</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:' + verdictNumColor + ';font-size:.9rem">' + r.verdict + '</span><span class="stat-lbl">Verdict</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:var(--bright);font-size:.85rem">' + fmtCcy(r.total_notional) + '</span><span class="stat-lbl">Total Notional</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:var(--warn);font-size:.85rem">' + fmtCcy(r.saccr_addon) + '</span><span class="stat-lbl">SA-CCR Add-on</span></div>' +
+    '<div class="stat-chip"><span class="stat-num" style="color:var(--teal);font-size:.85rem">' + r.flags.length + '</span><span class="stat-lbl">Flags Raised</span></div>' +
+    '</div>';
+
+  html += '</div></div>';
+
+  /* Leg analysis table */
+  html += '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">Per-Leg Settlement Analysis</span>' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.46rem;color:var(--muted)">' + r.leg_results.length + ' leg(s)</span></div>' +
+    '<div class="out-body" style="overflow-x:auto">' +
+    '<table class="res-table" style="min-width:700px">' +
+    '<thead><tr>' +
+    '<th>#</th><th>Pair</th><th>Amount Sold</th><th>Amount Bought</th>' +
+    '<th>Platform</th><th>Implied Rate</th><th>Ref Rate (mid-2025)</th><th>Rate Check</th>' +
+    '</tr></thead><tbody>';
+
+  r.leg_results.forEach(function(lr) {
+    var platLabel = {canton_daml:'Canton / DAML',cls_bank:'CLS Bank',bilateral_wire:'Bilateral Wire',other:'Other'}[lr.platform] || lr.platform;
+    var platChip  = lr.platform === 'canton_daml' ? 'chip-teal' : 'chip-muted';
+    var rateChip  = lr.rate_ok ? 'chip-green' : 'chip-warn';
+    html += '<tr>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted);text-align:center">' + lr.index + '</td>' +
+      '<td><span style="font-family:\'JetBrains Mono\',monospace;font-size:.75rem;color:var(--bright);font-weight:500">' + esc(lr.currency_sold) + '/' + esc(lr.currency_bought) + '</span></td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.68rem;color:var(--text)">' + fmtCcy(lr.amount_sold) + ' ' + esc(lr.currency_sold) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.68rem;color:var(--text)">' + fmtCcy(lr.amount_bought) + ' ' + esc(lr.currency_bought) + '</td>' +
+      '<td><span class="chip ' + platChip + '">' + esc(platLabel) + '</span></td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:var(--text)">' + (lr.implied_rate !== null ? lr.implied_rate.toFixed(6) : '—') + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:var(--muted)">' + (lr.ref_rate !== null ? lr.ref_rate.toFixed(6) : '—') + '</td>' +
+      '<td><span class="chip ' + rateChip + '">' + esc(lr.rate_check) + '</span></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<p class="ref-note">Reference rates illustrative — as of mid-2025. Replace with live rates in production. Cross-pair rates derived via USD.</p>';
+  html += '</div></div>';
+
+  /* Standards card */
+  html += '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">Applicable Standards &amp; Regulatory Citations</span></div>' +
+    '<div class="out-body">' +
+    '<ul class="standards-list">' +
+    '<li><strong>[1] CPMI-IOSCO PFMI Principle 12 — Exchange-of-value / PvP</strong>PvP eliminates principal risk in FX settlement when both legs are conditionally final. The FMI must eliminate principal risk wherever practicable.</li>' +
+    '<li><strong>[2] CLS Bank — Herstatt Risk / Batch PvP Settlement</strong>Traditional FX Herstatt risk solution via PvP netting and batch settlement. Canton enables 24/7 atomic PvP outside CLS batch windows (which close ~noon London time).</li>' +
+    '<li><strong>[3] BIS FX Global Code (May 2024 update) — Principle 35</strong>Market participants should seek to reduce and manage settlement risk, including through PvP mechanisms. Settlement risk should be measured and actively managed.</li>' +
+    '<li><strong>[4] BCBS CRE54 (SA-CCR FX add-on) — Supervisory Delta</strong>Supervisory delta for FX = 4% of notional under SA-CCR. Feed computed add-on to T504 for full capital computation including netting sets.</li>' +
+    '</ul></div></div>';
+
+  /* Special notices */
+  var noticeHtml = '';
+  if (r.canton_247) {
+    noticeHtml += '<div class="info-block"><strong>Canton 24/7 Window Active</strong>' +
+      'Canton enables atomic PvP outside CLS batch windows — 24/7 including weekends and public holidays. Traditional FX settlement relies on CLS Bank batch (window closes ~noon London). Canton atomic PvP eliminates both Herstatt risk and batch-window constraints [2,3]. JPMorgan Kinexys (formerly JPM Coin) and HSBC utilise Canton for multi-currency atomic settlement.</div>';
+  }
+  if (r.saccr_addon > 0) {
+    noticeHtml += '<div class="info-block"><strong>SA-CCR FX Add-on (BCBS CRE54 [4])</strong>' +
+      'Total FX notional: <strong style="color:var(--bright)">' + fmtCcy(r.total_notional) + ' USD equiv</strong> · ' +
+      'SA-CCR supervisory add-on (4.0%) = <strong style="color:var(--warn)">' + fmtCcy(r.saccr_addon) + '</strong>. ' +
+      'Feed to T504 for full SA-CCR capital computation including netting benefits and collateral recognition.</div>';
+  }
+  if (!r.unwind_defined) {
+    noticeHtml += '<div class="warn-block"><strong>Unwind Procedure Absent</strong>' +
+      'No unwind procedure is defined. Establish and document an unwind protocol — covering partial settlement failure, counterparty default, and system outage scenarios — before production deployment. See PFMI P12 guidance on default management.</div>';
+  }
+  if (noticeHtml) {
+    html += '<div class="out-card"><div class="out-header"><span class="out-title">Operational Notices</span></div>' +
+      '<div class="out-body">' + noticeHtml + '</div></div>';
+  }
+
+  /* Flags grid */
+  html += '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">Compliance Flags</span>' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.46rem;color:var(--muted)">' + r.flags.length + ' flags raised</span></div>' +
+    '<div class="out-body"><div class="flags-grid">';
+
+  r.flags.forEach(function(f) {
+    var rowCls = f.kind === 'pass' ? 'flag-pass' : f.kind === 'fail' ? 'flag-fail' : f.kind === 'warn' ? 'flag-warn' : 'flag-info';
+    html += '<div class="flag-row ' + rowCls + '">' +
+      '<span class="flag-icon">' + f.icon + '</span>' +
+      '<div><div class="flag-name">' + esc(f.label) + '</div>' +
+      '<div class="flag-desc">' + esc(f.desc) + '</div></div></div>';
+  });
+
+  html += '</div></div></div>';
+
+  /* Memo / pacs.008 card */
+  var memo = buildMemo(r);
+  html += '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">Settlement Memo — ISO 20022 pacs.008-subset</span>' +
+    '<button class="copy-btn" id="memoCopyBtn" onclick="copyMemo()">Copy</button></div>' +
+    '<div class="out-body"><pre class="memo-block">' + esc(memo) + '</pre></div></div>';
+
+  document.getElementById('outputSection').innerHTML = html;
+  window._memo = memo;
+}
+
+/* ── Build text memo ── */
+function buildMemo(r) {
+  var lines = [
+    'MULTI-CURRENCY PvP SETTLEMENT VALIDATION',
+    'Generated: ' + r.generated + ' · T511 · ainumbers.co',
+    'Standard:  ISO 20022 pacs.008-subset · PFMI P12 · BIS FX Global Code · BCBS CRE54',
+    '',
+    'VERDICT: ' + r.verdict,
+    '',
+    'CONFIGURATION',
+    '  Atomicity model:  ' + r.atomicity_model,
+    '  Finality model:   ' + r.finality_model,
+    '  Netting enabled:  ' + (r.netting_enabled ? 'Yes' : 'No'),
+    '  Canton 24/7:      ' + (r.canton_247 ? 'Yes' : 'No'),
+    '  Unwind defined:   ' + (r.unwind_defined ? 'Yes' : 'No'),
+    ''
+  ];
+
+  lines.push('CURRENCY LEGS (' + r.leg_results.length + ')');
+  r.leg_results.forEach(function(lr) {
+    lines.push('');
+    lines.push('  Leg ' + lr.index + ': ' + lr.currency_sold + ' → ' + lr.currency_bought);
+    lines.push('    Amount Sold:    ' + fmtCcy(lr.amount_sold) + ' ' + lr.currency_sold);
+    lines.push('    Amount Bought:  ' + fmtCcy(lr.amount_bought) + ' ' + lr.currency_bought);
+    lines.push('    Platform:       ' + lr.platform);
+    lines.push('    Implied Rate:   ' + (lr.implied_rate !== null ? lr.implied_rate.toFixed(6) : 'N/A') + ' (' + lr.currency_sold + '/' + lr.currency_bought + ')');
+    lines.push('    Ref Rate:       ' + (lr.ref_rate !== null ? lr.ref_rate.toFixed(6) : 'N/A') + ' (mid-2025 illustrative)');
+    lines.push('    Rate Check:     ' + lr.rate_check);
+  });
+
+  lines.push('');
+  lines.push('SA-CCR FX ADD-ON (BCBS CRE54 [4])');
+  lines.push('  Total FX Notional:  ' + fmtCcy(r.total_notional) + ' USD equiv');
+  lines.push('  Supervisory Add-on: ' + fmtCcy(r.saccr_addon) + ' (4.0% of notional)');
+  lines.push('  → Feed to T504 for full SA-CCR capital computation.');
+
+  lines.push('');
+  lines.push('PACS.008-SUBSET PAYLOAD PER LEG');
+  r.pacs008_legs.forEach(function(pl, i) {
+    lines.push('');
+    lines.push('  Leg ' + (i+1) + ':');
+    lines.push('    instructed_amount: ' + pl.instructed_amount);
+    lines.push('    currency_sold:     ' + pl.currency_sold);
+    lines.push('    currency_bought:   ' + pl.currency_bought);
+    lines.push('    implied_rate:      ' + (pl.implied_rate !== null ? pl.implied_rate.toFixed(6) : 'N/A'));
+    lines.push('    debtor:            ' + pl.debtor.party_name);
+    lines.push('    creditor:          ' + pl.creditor.party_name);
+    lines.push('    settlement_date:   ' + pl.settlement_date);
+    lines.push('    settlement_platform: ' + pl.settlement_platform);
+  });
+
+  lines.push('');
+  lines.push('COMPLIANCE FLAGS (' + r.flags.length + ')');
+  r.flags.forEach(function(f) {
+    lines.push('  [' + (f.kind==='pass'?'PASS':f.kind==='fail'?'FAIL':f.kind.toUpperCase()) + '] ' + f.label);
+  });
+
+  lines.push('');
+  lines.push('STANDARDS CITED');
+  lines.push('  [1] CPMI-IOSCO PFMI Principle 12 — Exchange-of-value / PvP');
+  lines.push('  [2] CLS Bank — Herstatt risk, batch settlement, PvP netting');
+  lines.push('  [3] BIS FX Global Code (May 2024) — Principle 35: Settlement Risk');
+  lines.push('  [4] BCBS CRE54 — SA-CCR FX supervisory add-on (4% of notional)');
+
+  return lines.join('\n');
+}
+
+function copyMemo() {
+  if (!window._memo) return;
+  navigator.clipboard.writeText(window._memo).then(function() {
+    var btn = document.getElementById('memoCopyBtn');
+    if (btn) { btn.textContent = 'Copied ✓'; setTimeout(function(){ btn.textContent = 'Copy'; }, 2000); }
+  });
+}
+
+/* ── Build mandate for AP2 export ── */
+function buildMandate() {
+  if (!_lastResult) return null;
+  var ts   = new Date().toISOString();
+  var hash = _lastResult._execution_hash || 'pending';
+  return {
+    ap2_version:  '1.0',
+    mandate_id:   '511-multi-currency-pvp-validator-' + ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:    ts,
+    issued_by:    'ainumbers.co',
+    tool_id:      '511-multi-currency-pvp-validator',
+    tool_version: '1.0.0',
+    mandate_type: 'settlement_mandate',
+    jurisdiction: ['INT'],
+    regulatory_frameworks: ['CPMI-IOSCO PFMI P12','BIS FX Global Code (May 2024)','BCBS CRE54'],
+    semantic_profile: 'iso20022:pacs.008-subset',
+    'dct:conformsTo': 'https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld',
+    '@context': [
+      'https://ainumbers.co/chaingraph/context.jsonld',
+      'https://ainumbers.co/chaingraph/iso20022-context.jsonld'
+    ],
+    payload: {
+      verdict:         _lastResult.verdict,
+      leg_results:     _lastResult.leg_results,
+      pacs008_legs:    _lastResult.pacs008_legs,
+      total_notional:  _lastResult.total_notional,
+      saccr_addon:     _lastResult.saccr_addon,
+      netting_enabled: _lastResult.netting_enabled,
+      canton_247:      _lastResult.canton_247,
+      unwind_defined:  _lastResult.unwind_defined,
+      herstatt_eliminated: _lastResult.herstatt_elim
+    },
+    compliance_flags: (function() {
+      var o = {};
+      _lastResult.flags.forEach(function(f){ o[f.label] = f.kind === 'pass' || f.kind === 'info'; });
+      return o;
+    })(),
+    summary: 'PvP Settlement: ' + _lastResult.verdict +
+      ' · ' + _lastResult.leg_results.length + ' leg(s)' +
+      ' · Notional: ' + fmtCcy(_lastResult.total_notional) +
+      ' · SA-CCR add-on: ' + fmtCcy(_lastResult.saccr_addon) +
+      ' · Generated ' + _lastResult.generated,
+    agent_instructions: [
+      'Feed saccr_addon to T504 for full SA-CCR capital computation.',
+      'For FAIL verdict: migrate from free_payment to atomic_pvp with Canton DAML or CLS Bank.',
+      'For CONDITIONAL: resolve all flagged warnings before production deployment.',
+      'Replace illustrative FX reference rates with live market data in production.'
+    ],
+    valid_from:    ts.slice(0,10),
+    valid_until:   new Date(Date.now() + 90*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts.slice(0,10),
+    source_tool_inputs: {
+      atomicity_model: _lastResult.atomicity_model,
+      finality_model:  _lastResult.finality_model,
+      netting_enabled: _lastResult.netting_enabled,
+      canton_247:      _lastResult.canton_247,
+      unwind_defined:  _lastResult.unwind_defined
+    },
+    regulatory_citations: [
+      { ref:'CPMI-IOSCO PFMI Principle 12', url:'https://www.bis.org/cpmi/publ/d101a.htm' },
+      { ref:'BIS FX Global Code (May 2024)', url:'https://www.globalfxc.org/fx_global_code.htm' },
+      { ref:'BCBS CRE54', url:'https://www.bis.org/basel_framework/chapter/CRE/54.htm' }
+    ],
+    chaingraph: {
+      chaingraph_version: '0.3.1',
+      execution_hash: hash,
+      chain: {
+        parent_hashes:   [],
+        parent_tool_ids: [],
+        chain_depth:     0
+      }
+    },
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified:    true,
+      deterministic_run:    true
+    }
+  };
+}
+
+window.AIN_BUILD_MANDATE = buildMandate;
+
+/* ── Default load ── */
+loadPreset('usd_eur_canton');
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = {"tool_id":"511-multi-currency-pvp-validator","version":"1.0.0","title":"Multi-Currency PvP Settlement Validator","description":"Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Eliminate Herstatt risk in cross-border FX and multi-currency repo on Canton. Outputs PvP compliance status, finality assessment, and SA-CCR FX add-on note.","category":"capital-markets","tags":["canton","pvp","fx","herstatt","pfmi","settlement","multi-currency","cross-border"],"audience":["treasury","fx-ops","settlement","compliance","capital-markets"],"mcp_tool_definition":{"name":"validate_pvp_settlement","description":"Validate atomic Payment-vs-Payment (PvP) settlement across currency pairs. Checks PFMI P12 atomicity compliance, Herstatt risk elimination, finality model, FX rate plausibility, and SA-CCR add-on. Returns verdict (PASS/CONDITIONAL/FAIL) and compliance flags.","inputSchema":{"type":"object","properties":{"legs":{"type":"array","items":{"type":"object","properties":{"currency_sold":{"type":"string"},"amount_sold":{"type":"number"},"currency_bought":{"type":"string"},"amount_bought":{"type":"number"},"settlement_platform":{"type":"string","enum":["canton_daml","cls_bank","bilateral_wire","other"]}},"required":["currency_sold","amount_sold","currency_bought","amount_bought","settlement_platform"]}},"atomicity_model":{"type":"string","enum":["atomic_pvp","sequential_pvp","free_payment"]},"finality_model":{"type":"string","enum":["irrevocable_realtime","irrevocable_eod","provisional","undefined"]},"netting_enabled":{"type":"boolean"},"canton_247":{"type":"boolean"},"unwind_procedure_defined":{"type":"boolean"}},"required":["legs","atomicity_model","finality_model"]}},"execution":{"type":"browser-javascript","entry":"tools/511-multi-currency-pvp-validator.html","function_name":"runPvPValidator","timeout_ms":5000},"chaingraph":{"chaingraph_version":"0.3.1","semantic_profile":"iso20022:pacs.008-subset","dct_conformsTo":"https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld","@context":["https://ainumbers.co/chaingraph/context.jsonld","https://ainumbers.co/chaingraph/iso20022-context.jsonld"]},"ap2_export":true,"mandate_type":"settlement_mandate","pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0","intake":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')throw new Error('AP2Schema: missing identity field');if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');return true;};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){var mandate=buildMandate();if(!mandate){alert('Run the validator first.');return;}window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var ts=new Date().toISOString();var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='511-multi-currency-pvp-validator_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runPvPValidator',intake:true,intakeTarget:null,intakeAnchor:'.scope-note'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

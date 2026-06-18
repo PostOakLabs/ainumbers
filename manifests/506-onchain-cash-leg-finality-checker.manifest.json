@@ -1,0 +1,99 @@
+{
+  "tool_id": "506-onchain-cash-leg-finality-checker",
+  "version": "1.0.0",
+  "title": "On-Chain Cash-Leg Finality Checker",
+  "description": "Validate the cash leg of a Canton settlement: finality model (PFMI P8/P12), reserve attestation, GENIUS Act / MiCA regulatory classification, and depeg circuit-breaker. Returns verdict PASS / CONDITIONAL / FAIL with assurance memo.",
+  "category": "capital-markets",
+  "tags": ["canton", "cash-leg", "finality", "stablecoin", "genius", "mica", "pfmi"],
+  "audience": ["treasury", "counterparty-risk", "settlement-ops", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "cash_leg_type": { "type": "string", "enum": ["usdc", "jpmd", "hsbc_deposit", "eur_emt", "custom"] },
+      "amount": { "type": "number" },
+      "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "HKD", "SGD"] },
+      "finality_model": { "type": "string", "enum": ["atomic_dvp_bound", "conditional_irrevocable", "standard_blockchain", "traditional_wire"] },
+      "jurisdiction": { "type": "string", "enum": ["us", "eu", "hk", "sg", "other"] },
+      "reserve_attestation_available": { "type": "boolean" },
+      "cash_pct": { "type": "number" },
+      "tbills_pct": { "type": "number" },
+      "repo_pct": { "type": "number" },
+      "depeg_defined": { "type": "boolean" },
+      "depeg_threshold": { "type": "number" },
+      "redemption_window": { "type": "string", "enum": ["instant", "same_day", "t1", "t2_plus"] }
+    },
+    "required": ["cash_leg_type", "amount", "currency", "finality_model", "jurisdiction"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": "string", "enum": ["CASH_LEG_VERDICT_PASS", "CASH_LEG_VERDICT_CONDITIONAL", "CASH_LEG_VERDICT_FAIL"] },
+      "finality_flag": { "type": "string" },
+      "genius_status": { "type": "string" },
+      "mica_status": { "type": "string" },
+      "compliance_flags": { "type": "object" },
+      "mandate_type": { "type": "string", "const": "attestation_mandate" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_cash_leg_finality",
+    "description": "Validate the cash leg of a Canton settlement. Checks finality model (PFMI P8/P12): atomic_dvp_bound → FINALITY_ATOMIC (principal risk eliminated), standard_blockchain → warn on legal finality gap, traditional_wire → FAIL (Herstatt risk). GENIUS Act: cash+tbills+repo ≥ 95% and attestation required. MiCA: redemption_window T+2+ and EU jurisdiction → MICA_REDEMPTION_WINDOW_GAP. Depeg threshold >1% → DEPEG_THRESHOLD_WIDE. Verdict: PASS (atomic + reserve OK), CONDITIONAL (gaps, clear remediation), FAIL (critical).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cash_leg_type": {
+          "type": "string",
+          "enum": ["usdc", "jpmd", "hsbc_deposit", "eur_emt", "custom"],
+          "description": "Type of on-chain cash instrument."
+        },
+        "amount": { "type": "number", "description": "Settlement amount in stated currency." },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "HKD", "SGD"] },
+        "finality_model": {
+          "type": "string",
+          "enum": ["atomic_dvp_bound", "conditional_irrevocable", "standard_blockchain", "traditional_wire"],
+          "description": "Cash-leg finality mechanism. Assessed against CPMI-IOSCO PFMI Principles 8 and 12."
+        },
+        "jurisdiction": {
+          "type": "string",
+          "enum": ["us", "eu", "hk", "sg", "other"],
+          "description": "Regulatory jurisdiction. us → GENIUS Act check; eu → MiCA Title III check."
+        },
+        "reserve_attestation_available": { "type": "boolean" },
+        "cash_pct": { "type": "number", "description": "Cash / FDIC-insured deposit % of reserves." },
+        "tbills_pct": { "type": "number", "description": "T-bills ≤93 days % of reserves." },
+        "repo_pct": { "type": "number", "description": "Fed overnight repo % of reserves." },
+        "depeg_defined": { "type": "boolean" },
+        "depeg_threshold": { "type": "number", "description": "Depeg circuit-breaker trigger % (default 0.5). >1.0 → DEPEG_THRESHOLD_WIDE." },
+        "redemption_window": { "type": "string", "enum": ["instant", "same_day", "t1", "t2_plus"] }
+      },
+      "required": ["cash_leg_type", "amount", "currency", "finality_model", "jurisdiction"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/506-onchain-cash-leg-finality-checker.html",
+    "function_name": "runCashLegFinality",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "mandate_type": "attestation_mandate",
+  "semantic_profile": "iso20022:pacs.008-subset",
+  "dct:conformsTo": "https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true,
+  "chain": {
+    "id": "tokenized-collateral-settlement",
+    "step": 2,
+    "prev": "505-tokenized-collateral-eligibility-checker",
+    "next": "507-dvp-settlement-failure-analyser"
+  },
+  "regulatory_refs": [
+    { "ref": "CPMI-IOSCO PFMI Principle 8 (settlement finality)", "url": "https://www.bis.org/cpmi/publ/d101a.htm" },
+    { "ref": "CPMI-IOSCO PFMI Principle 12 (exchange-of-value / DVP)", "url": "https://www.bis.org/cpmi/publ/d101a.htm" },
+    { "ref": "GENIUS Act (US stablecoin legislation, pending enactment)", "url": "https://www.congress.gov" },
+    { "ref": "Regulation (EU) 2023/1114 (MiCA) Title III — E-money tokens", "url": "https://eur-lex.europa.eu" }
+  ]
+}
