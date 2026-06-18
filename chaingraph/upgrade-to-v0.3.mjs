@@ -58,8 +58,13 @@ for (const file of files) {
   const name = basename(file);
   let src = readFileSync(file, 'utf8');
 
-  // Only tool emission code qualifies.
-  if (!src.includes('_artifact') || !src.includes(V2_VER)) {
+  // Only tool emission code qualifies. The JS-literal `chaingraph_version: '0.2.0'`
+  // appears exclusively in artifact-emission code — documentation/spec/hub pages use
+  // double-quoted JSON examples — so it alone is a reliable, sufficient signal,
+  // independent of the artifact object's variable name (some tools assign to
+  // `_artifact`, others to a different identifier). Do NOT also require `_artifact`:
+  // that wrongly skipped ~22 tools that build the artifact under a different name.
+  if (!src.includes(V2_VER)) {
     skipped++;
     continue;
   }
