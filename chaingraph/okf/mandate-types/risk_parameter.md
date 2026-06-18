@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "risk_parameter"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"risk_parameter\"."
 tags: ["risk_parameter", "count-4"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # risk_parameter

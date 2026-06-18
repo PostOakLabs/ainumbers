@@ -4,7 +4,7 @@ title: "VoP Batch Match-Rate Analyser"
 description: "Batch IBAN-name matching: match/close-match/no-match classification, configurable strictness (exact/normalized/fuzzy), false-positive vs false-negative trade-off curves, per-corridor mismatch-rate distribution. Upgrades T289 to full ChainGraph export schema."
 resource: https://ainumbers.co/chaingraph/art-11-vop-batch-match-rate-analyser.html
 tags: ["compliance_mandate", "wave-1", "mcp:simulate_vop_matching", "iso20022:pacs.008-subset"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # VoP Batch Match-Rate Analyser

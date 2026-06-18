@@ -4,7 +4,7 @@ title: "Credit Default Risk Scorer"
 description: "Logistic regression PD scorer on synthetic loan portfolio with Basel 3.1 F-IRB / A-IRB / SA RWA comparison (BCBS d424 formula, Φ⁻¹ Horner rational approximation). AUC-ROC trapezoid, KS statistic, Gini coefficient (EBA GL/2017/16 model performance thresholds). Chains from ART-05 (EU AI Act conformity). Feeds SIM-03 (Basel RWA Scenario Modeler)."
 resource: https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html
 tags: ["credit_assessment", "wave-4", "mcp:score_credit_default_risk"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Credit Default Risk Scorer

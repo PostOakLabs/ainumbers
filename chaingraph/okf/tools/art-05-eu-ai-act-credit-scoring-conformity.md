@@ -4,7 +4,7 @@ title: "EU AI Act Credit-Scoring Conformity Pack"
 description: "Bias testing across protected characteristics (disparate impact ratios, equalized odds gaps), data-quality attestations, Article 11 technical-documentation skeleton, conformity self-assessment. Hard deadline Aug 2, 2026."
 resource: https://ainumbers.co/chaingraph/art-05-eu-ai-act-credit-scoring-conformity.html
 tags: ["model_governance", "wave-1", "mcp:assess_ai_act_conformity"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # EU AI Act Credit-Scoring Conformity Pack

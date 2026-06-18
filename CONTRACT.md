@@ -352,10 +352,12 @@ The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in an
 
 ### A3.2 · Mandatory chain block + execution_hash (RFC 2119: MUST)
 
-The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1):
+The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1). **v0.3.1:** `chaingraph_version` is the canonical envelope-version field and `@context` the JSON-LD anchor; `ap2_version` is a **deprecated alias** (value `"1.0.0"` — a legacy envelope label, *not* the AP2 standard version, which is v0.2) retained for back-compat and slated for removal in **v0.4**. Tools that genuinely validate AP2 v0.2 structures declare it via `dct:conformsTo` → the AP2 v0.2 spec, not via this field.
 
 ```json
 {
+  "@context": "https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",
+  "chaingraph_version": "0.3.1",
   "ap2_version": "1.0.0",
   "mandate_type": "<§4 taxonomy — see A3.5>",
   "tool_id": "<kebab-case>",

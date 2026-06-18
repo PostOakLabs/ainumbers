@@ -4,7 +4,7 @@ title: "AP2 Mandate-Chain Validator"
 description: "Validates AP2 v0.2 Intent→Cart→Payment mandate trio: signature-chain integrity, scope/limit consistency, TTL/expiry, over-spend detection, Human-Not-Present autonomous-agent flows. Publishes conformance test-vector fixtures."
 resource: https://ainumbers.co/chaingraph/art-01-ap2-mandate-chain-validator.html
 tags: ["payment_mandate", "wave-1", "mcp:validate_ap2_mandate_chain"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # AP2 Mandate-Chain Validator

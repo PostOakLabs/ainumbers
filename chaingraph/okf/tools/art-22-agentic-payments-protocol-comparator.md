@@ -4,7 +4,7 @@ title: "Agentic Payments Protocol Comparator"
 description: "Compares AP2, ACP, x402, Visa TAP, and Mastercard Agentic Token across 8 dimensions (backer, artifact, signing, scope, rail, identity, audit, status) and 5 agentic scenarios. Root node of the Agentic Rail Chain — routing_policy output determines Branch A (AP2/card) or Branch B (A2A/x402). Promoted from T276."
 resource: https://ainumbers.co/chaingraph/art-22-agentic-payments-protocol-comparator.html
 tags: ["routing_policy", "wave-A", "mcp:compare_agentic_payment_protocols"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Agentic Payments Protocol Comparator

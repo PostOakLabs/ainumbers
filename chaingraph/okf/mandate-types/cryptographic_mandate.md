@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "cryptographic_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"cryptographic_mandate\"."
 tags: ["cryptographic_mandate", "count-2"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # cryptographic_mandate

@@ -4,7 +4,7 @@ title: "Merkle Batch Verifier"
 description: ""
 resource: https://ainumbers.co/chaingraph/cry-04-merkle-batch-verifier.html
 tags: ["cryptographic_mandate", "wave-3", "mcp:verify_merkle_batch"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Merkle Batch Verifier

@@ -4,7 +4,7 @@ title: "Agent-Action Audit-Trail Aggregator"
 description: "The regulatory receipt. Aggregates N execution_hashes from an agent session into one SHA-256 Merkle-root session receipt with per-leaf inclusion proofs and an ordered chain-depth map. Sets session_receipt_root. The tamper-evident audit object for EU AI Act Art. 12 record-keeping + DORA. Consumes ANY ChainGraph artifact; feeds CRY-04, PTG-01."
 resource: https://ainumbers.co/chaingraph/cry-05-agent-action-audit-trail-aggregator.html
 tags: ["cryptographic_mandate", "wave-6", "mcp:aggregate_execution_receipts"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Agent-Action Audit-Trail Aggregator

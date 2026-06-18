@@ -4,7 +4,7 @@ title: "MCP Server Self-Attestation Pack"
 description: "Combines the five MCP-dev checks — tool-definition lint (JSON Schema 2020-12), server.json validation (2025-12-11 schema), OAuth 2.1 audit (RFC 9728 PRM, RFC 8707 audience), tool-poisoning scan, and ops/readiness — into one signed attestation: composite A-F ship-readiness grade + per-domain scores + ordered remediation. Dogfooding: the AINumbers server can attest itself."
 resource: https://ainumbers.co/chaingraph/art-33-mcp-server-self-attestation-pack.html
 tags: ["infrastructure_mandate", "wave-6", "mcp:attest_mcp_server"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # MCP Server Self-Attestation Pack

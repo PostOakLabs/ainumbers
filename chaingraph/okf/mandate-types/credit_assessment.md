@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "credit_assessment"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"credit_assessment\"."
 tags: ["credit_assessment", "count-1"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # credit_assessment

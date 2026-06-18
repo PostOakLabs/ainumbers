@@ -4,7 +4,7 @@ title: "Options Greeks Calculator"
 description: ""
 resource: https://ainumbers.co/chaingraph/qfa-01-options-greeks.html
 tags: ["risk_parameter", "wave-3", "mcp:compute_options_greeks"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Options Greeks Calculator

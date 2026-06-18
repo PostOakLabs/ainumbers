@@ -4,7 +4,7 @@ title: "MCP Server Deployability Diagnostic"
 description: "12-question scored diagnostic: graded A–F across tool definitions & schemas, transport & auth, security hygiene, and operations. Single-node ChainGraph (chain_depth: 0). Promoted from guides/mcp-server-deployability-diagnostic.html."
 resource: https://ainumbers.co/chaingraph/art-28-mcp-server-deployability-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:run_mcp_deployability_diagnostic"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # MCP Server Deployability Diagnostic

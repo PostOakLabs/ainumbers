@@ -4,7 +4,7 @@ title: "EUDI Wallet Credential-Acceptance Readiness Checker"
 description: "eIDAS 2.0 verifiable-credential acceptance readiness against EUDI Wallet ARF v1.4 profiles. PID/QEAA/EAA attribute mapping, relying-party obligations, conformance gaps. Member-state wallet rollout Nov 2026; obliged-entity acceptance Dec 2027."
 resource: https://ainumbers.co/chaingraph/art-13-eudi-wallet-credential-readiness-checker.html
 tags: ["compliance_mandate", "wave-2", "mcp:check_eudi_readiness"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # EUDI Wallet Credential-Acceptance Readiness Checker

@@ -4,7 +4,7 @@ title: "Isolation Forest Transaction Anomaly Detector"
 description: "Native-JS Isolation Forest anomaly detection on synthetic transaction batches. 10-tree forest, 4-feature scoring (amount, hour, counterparty frequency, recency), anomaly score histogram, flagged transaction table. Zero-egress — no real transaction data transmitted. Chains from ART-05 (EU AI Act credit-scoring) and ART-10 (AMLA typology)."
 resource: https://ainumbers.co/chaingraph/ml-01-isolation-forest.html
 tags: ["risk_control", "wave-3", "mcp:detect_transaction_anomalies"]
-timestamp: 2026-06-18T14:43:45.819Z
+timestamp: 2026-06-18T15:09:48.675Z
 ---
 
 # Isolation Forest Transaction Anomaly Detector
