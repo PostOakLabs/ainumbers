@@ -4,7 +4,7 @@ title: "Basel RWA Scenario Modeler"
 description: "SA-CR / F-IRB / A-IRB RWA in parallel with output-floor comparison (72.5% §CAP30). BCBS d424 IRB capital formula with Φ⁻¹ rational approximation, LCG Monte Carlo. Percentile table P5–P99. Three portfolio mixes."
 resource: https://ainumbers.co/chaingraph/sim-03-basel-rwa-scenario-modeler.html
 tags: ["capital_assessment", "wave-2", "mcp:compute_rwa_scenarios"]
-timestamp: 2026-06-18T15:15:44.978Z
+timestamp: 2026-06-18T15:18:23.408Z
 ---
 
 # Basel RWA Scenario Modeler

@@ -4,7 +4,7 @@ title: "ACP/UCP Product-Feed Conformance Auditor"
 description: "Validates product/checkout/mandate JSON payloads against ACP or UCP field schemas (5 schema arrays). Identifies missing required fields, type mismatches, and unknown fields. Node 2 of 3 in the Agentic Checkout Chain."
 resource: https://ainumbers.co/chaingraph/art-20-acp-ucp-product-feed-conformance-auditor.html
 tags: ["scheme_rule", "wave-A", "mcp:validate_acp_checkout"]
-timestamp: 2026-06-18T15:15:44.978Z
+timestamp: 2026-06-18T15:18:23.408Z
 ---
 
 # ACP/UCP Product-Feed Conformance Auditor

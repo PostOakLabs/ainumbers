@@ -3,7 +3,7 @@ type: MandateTypeGroup
 title: "infrastructure_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"infrastructure_mandate\"."
 tags: ["infrastructure_mandate", "count-4"]
-timestamp: 2026-06-18T15:15:44.978Z
+timestamp: 2026-06-18T15:18:23.408Z
 ---
 
 # infrastructure_mandate

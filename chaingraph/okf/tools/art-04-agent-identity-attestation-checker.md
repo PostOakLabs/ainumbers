@@ -4,7 +4,7 @@ title: "Agent Identity & Authorization Attestation Checker"
 description: "KYA-OS (DIF Trusted AI Agents WG) credential-chain attestation: delegated-authority credential chain, scope limits, validity windows (max 90 days), chain depth cap (4 hops), EU AI Act high-risk scope classification."
 resource: https://ainumbers.co/chaingraph/art-04-agent-identity-attestation-checker.html
 tags: ["compliance_mandate", "wave-2", "mcp:check_agent_attestation"]
-timestamp: 2026-06-18T15:15:44.978Z
+timestamp: 2026-06-18T15:18:23.408Z
 ---
 
 # Agent Identity & Authorization Attestation Checker

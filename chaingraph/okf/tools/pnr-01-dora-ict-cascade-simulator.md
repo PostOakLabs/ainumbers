@@ -4,7 +4,7 @@ title: "DORA ICT Cascade Simulator"
 description: ""
 resource: https://ainumbers.co/chaingraph/pnr-01-dora-ict-cascade-simulator.html
 tags: ["infrastructure_mandate", "wave-3", "mcp:simulate_ict_cascade"]
-timestamp: 2026-06-18T15:15:44.978Z
+timestamp: 2026-06-18T15:18:23.408Z
 ---
 
 # DORA ICT Cascade Simulator
