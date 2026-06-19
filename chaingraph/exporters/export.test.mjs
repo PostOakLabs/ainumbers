@@ -44,8 +44,26 @@ ok(ctext.includes('execution_hash'), 'csv carries execution_hash in manifest');
 ok(ctext.includes('annual_saving_usd'), 'csv carries an output_payload field');
 safeWrite('sample-export.csv', ctext);
 
+// pdf
+const pdf = exportArtifact({ artifact, format: 'pdf' });
+ok(pdf.ok, 'pdf export ok');
+const pbytes = Buffer.from(pdf.bytes_base64, 'base64');
+ok(pbytes.slice(0, 5).toString('latin1') === '%PDF-', 'pdf has %PDF- header');
+ok(pbytes.slice(-5).toString('latin1') === '%%EOF', 'pdf ends with %%EOF');
+ok(pdf.metadata.execution_hash === artifact.execution_hash, 'pdf metadata carries execution_hash');
+safeWrite('sample-export.pdf', pbytes);
+
+// xbrl — ocg-ext works now; eba-corep-* return a "pending, do not fabricate" error
+const xbrl = exportArtifact({ artifact, format: 'xbrl', xbrl_taxonomy: 'ocg-ext' });
+ok(xbrl.ok, 'xbrl(ocg-ext) export ok');
+const xtext = Buffer.from(xbrl.bytes_base64, 'base64').toString('utf8');
+ok(xtext.includes('<xbrli:xbrl'), 'xbrl instance has well-formed root');
+ok(xtext.includes(artifact.execution_hash), 'xbrl carries source execution_hash');
+ok(xtext.includes('iso4217:USD'), 'xbrl emits a monetary unit for a USD fact');
+safeWrite('sample-export.xbrl', xtext);
+ok(!exportArtifact({ artifact, format: 'xbrl', xbrl_taxonomy: 'eba-corep-own-funds' }).ok, 'eba-corep pending (no fabricated EBA concepts)');
+
 // guards
-ok(!exportArtifact({ artifact, format: 'pdf' }).ok, 'pdf correctly reports not-yet-implemented');
 ok(!exportArtifact({ artifact, format: 'xbrl' }).ok, 'xbrl without taxonomy rejected');
 ok(!exportArtifact({ format: 'xlsx' }).ok, 'missing artifact rejected');
 ok(!exportArtifact({ artifact, format: 'json' }).ok, 'unknown format rejected');

@@ -1,8 +1,10 @@
 # OpenChainGraph Export Profiles — `chaingraph_export` (OCG Standard §13, v0.4)
 
 Server-side, hash-excluded renderings of a verified v0.4 artifact. Parallel to `../kernels/`.
-This directory is a **scaffold**: `xlsx` and `csv` are implemented and tested; `pdf` and `xbrl`
-are declared/stubbed so the MCP surface and discovery story are complete.
+All four `chaingraph_export` formats are implemented and tested. `xbrl` ships a working
+`ocg-ext` taxonomy (our namespace) now; the `eba-corep-*` taxonomies are registered but return
+a "pending — do not fabricate" error until their concept maps are populated from the published
+EBA taxonomy (core project rule).
 
 ## Files
 | File | Role |
@@ -11,10 +13,14 @@ are declared/stubbed so the MCP surface and discovery story are complete.
 | `_meta.mjs` | Metadata block, filename, **standard** base64 (not url-safe), payload flattener, XML/CSV escapers |
 | `zip.mjs` | Dependency-free STORE-only ZIP + CRC32 (xlsx is a ZIP; Workers-safe, deterministic) |
 | `xlsx.mjs` | `buildXlsx(artifact)` → 3-sheet workbook (Decision / Data / Provenance), inline strings |
-| `csv.mjs` | `buildCsv(artifact)` → manifest + scalars + tables |
-| `export.test.mjs` | Node smoke test; writes `sample-export.xlsx` / `.csv` |
+| `csv.mjs` | `buildCsv(artifact)` → manifest + scalars + tables (UTF-8 BOM) |
+| `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer |
+| `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1 instance; `ocg-ext` working, `eba-corep-*` guarded |
+| `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` |
 
-`pdf.mjs` (per-`mandate_type` template, §13.6) and `xbrl.mjs` (EBA COREP pilots + `ocg-ext:*`, §13.8) are the next two modules — add them to `EXPORTERS` in `index.mjs` when ready.
+**TODOs:** `pdf.mjs` renders the verify URL as text (QR encoding pending). `xbrl.mjs` needs the
+`eba-corep-own-funds` / `eba-corep-lcr-nsfr` concept maps populated from the published EBA taxonomy
+(metric/dimension qnames) — do not fabricate; the machinery + `ocg-ext` path are proven.
 
 ## Test (Node 18+)
 ```

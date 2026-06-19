@@ -7,18 +7,19 @@
 
 import { buildXlsx } from './xlsx.mjs';
 import { buildCsv } from './csv.mjs';
+import { buildPdf } from './pdf.mjs';
+import { buildXbrl } from './xbrl.mjs';
 import { metaBlock, bytesToBase64 } from './_meta.mjs';
 
-// Implemented now. pdf + xbrl are declared but stubbed (see §13.6/§13.8) so the
-// surface and discovery story are complete while the renderers are built.
+// All four formats implemented. xbrl takes a second arg (the taxonomy) and may
+// throw for an unknown/pending taxonomy — the dispatcher catches it.
 const EXPORTERS = {
-  xlsx: buildXlsx,
-  csv: buildCsv,
+  xlsx: (a) => buildXlsx(a),
+  csv:  (a) => buildCsv(a),
+  pdf:  (a) => buildPdf(a),
+  xbrl: (a, taxonomy) => buildXbrl(a, taxonomy),
 };
-const PLANNED = {
-  pdf: 'chaingraph_export:pdf — per-mandate_type static template renderer (OCG §13.6). Not yet implemented.',
-  xbrl: 'chaingraph_export:xbrl — EBA COREP pilots + ocg-ext:* (OCG §13.8). Not yet implemented.',
-};
+const PLANNED = {};
 
 export const SUPPORTED_FORMATS = Object.keys(EXPORTERS);
 export const ALL_FORMATS = [...SUPPORTED_FORMATS, ...Object.keys(PLANNED)];
@@ -55,7 +56,12 @@ export function exportArtifact({ artifact, format, xbrl_taxonomy, isFormatAllowe
     return { ok: false, error: `Tool "${tid}" does not declare export_capability for "${format}". See its chaingraph.json node.` };
   }
 
-  const built = EXPORTERS[format](artifact);
+  let built;
+  try {
+    built = EXPORTERS[format](artifact, xbrl_taxonomy);
+  } catch (e) {
+    return { ok: false, error: String(e?.message ?? e) };
+  }
   return {
     ok: true,
     format,
@@ -80,8 +86,9 @@ export function registerExportArtifact(server, z, opts = {}) {
       'Render a verified OpenChainGraph v0.4 artifact into a chaingraph_export profile (OCG Standard §13). ' +
       'Generated downstream of and EXCLUDED from the execution_hash preimage — the export is a view, not a fact; ' +
       'verification always routes back to the canonical JSON artifact. Pass the FULL artifact you received from a ' +
-      'compute tool (the server is stateless — there is no hash cache). Supported now: xlsx, csv. ' +
-      'Planned: pdf (per-mandate_type memo), xbrl (EBA COREP pilots + ocg-ext:*). readOnlyHint: true; zero PII, zero payload logging.',
+      'compute tool (the server is stateless — there is no hash cache). Formats: xlsx, csv, pdf, ' +
+      'and xbrl (xbrl_taxonomy="ocg-ext" works now; eba-corep-* return a pending error until their ' +
+      'concept maps are populated from the published EBA taxonomy). readOnlyHint: true; zero PII, zero payload logging.',
     inputSchema: {
       artifact: z.record(z.any()).describe('Full v0.4 ChainGraph artifact (policy_parameters + output_payload + execution_hash + chain).'),
       format: z.enum(['xlsx', 'csv', 'pdf', 'xbrl']).describe('Export profile. xlsx/csv implemented; pdf/xbrl planned.'),
