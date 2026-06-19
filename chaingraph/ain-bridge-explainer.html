@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How AIN Bridge Works — Interactive Explainer · AINumbers</title>
+<meta name="description" content="Three-capability interactive walkthrough of the AIN Bridge v1.0 — prefill deep-links, Policy Mandate intake, and composer postMessage messaging. Client-side, zero-egress, zero-storage.">
+<meta property="og:title" content="How AIN Bridge Works — Interactive Explainer">
+<meta property="og:description" content="AIN Bridge is the client-side JS layer that connects agents, composers, and deep-links to tool inputs — without any network calls or storage writes.">
+<meta property="og:type" content="website">
+<meta name="author" content="Post Oak Labs">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.1); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-glow:rgba(212,168,71,.4);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --red:#EF4444; --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt)}
+.wrap{max-width:1000px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:1000px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .ain{color:var(--gold)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.25rem .65rem;border-radius:20px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.nav-link:hover{color:var(--body);border-color:var(--border-2)}
+
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(2rem,4vw,3.2rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:700px;margin-bottom:2rem;line-height:1.9}
+
+.cap-pills{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem}
+.cap-pill{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.35rem .85rem;border-radius:20px;border:1px solid var(--border-2);color:var(--body)}
+.cap-pill.active{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.35)}
+
+.section{padding:3rem 0;border-bottom:1px solid var(--border)}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.3rem,2.5vw,1.9rem);color:var(--white);margin-bottom:.7rem}
+.section > .wrap > p{color:var(--body);font-size:.93rem;max-width:750px;margin-bottom:1.2rem;line-height:1.85}
+
+.concept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:1.4rem 0}
+.concept-card{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem}
+.concept-card.teal{border-left-color:var(--teal)}
+.concept-card.purple{border-left-color:var(--purple)}
+.concept-title{font-size:.84rem;color:var(--bright);font-weight:500;margin-bottom:.25rem}
+.concept-desc{font-size:.76rem;color:var(--body);line-height:1.65}
+
+.demo-box{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin:1.5rem 0}
+.demo-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem}
+.demo-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.7rem}
+@media(max-width:640px){.demo-row{grid-template-columns:1fr}}
+.demo-input{width:100%;background:var(--bg-2);border:1px solid var(--border-2);color:var(--white);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.55rem .8rem;outline:none;transition:border-color .15s}
+.demo-input:focus{border-color:rgba(212,168,71,.5)}
+.demo-input::placeholder{color:var(--muted)}
+.demo-output{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .9rem;margin-top:.6rem}
+.demo-output-label{font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.demo-output-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);word-break:break-all;line-height:1.65;min-height:1.4em}
+.demo-output-val.gold{color:var(--gold)}
+.demo-output-val.dim{color:var(--muted)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border-2);color:var(--body);border-radius:var(--radius);padding:.3rem .8rem;cursor:pointer;transition:all .15s;margin-top:.5rem}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+.flow{display:flex;align-items:stretch;gap:0;margin:1.5rem 0;overflow-x:auto;padding-bottom:.5rem}
+.flow-node{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius);padding:.8rem 1rem;flex:1;min-width:140px;text-align:center}
+.flow-node-tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.flow-node-name{font-size:.82rem;color:var(--bright);font-weight:500;margin-bottom:.2rem}
+.flow-node-desc{font-size:.7rem;color:var(--body)}
+.flow-arrow{display:flex;align-items:center;padding:0 .4rem;color:var(--border-2);font-size:.9rem;flex-shrink:0}
+
+.msg-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:1.2rem 0}
+.msg-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border)}
+.msg-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+.msg-table tr:last-child td{border-bottom:none}
+.msg-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);white-space:nowrap}
+.msg-table td:nth-child(2){font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold);white-space:nowrap}
+.msg-table td:nth-child(3){color:var(--body);font-size:.78rem}
+
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:1.1rem 1.3rem;margin:1.2rem 0;overflow-x:auto}
+.code-block pre{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--text);line-height:1.75;white-space:pre}
+.code-block .c{color:var(--muted)}
+.code-block .k{color:var(--purple)}
+.code-block .s{color:var(--gold)}
+.code-block .n{color:var(--teal-lt)}
+.code-block .v{color:var(--green)}
+
+.posture-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:1.3rem 0}
+.posture-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem}
+.posture-icon{font-size:1.1rem;margin-bottom:.4rem}
+.posture-title{font-size:.82rem;color:var(--bright);font-weight:500;margin-bottom:.2rem}
+.posture-desc{font-size:.74rem;color:var(--body);line-height:1.6}
+
+.api-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:1rem 0}
+.api-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:.5rem .8rem;border-bottom:1px solid var(--border)}
+.api-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.api-table tr:last-child td{border-bottom:none}
+.api-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);white-space:nowrap}
+.api-table td:nth-child(2){color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.api-table td:nth-child(3){color:var(--body);font-size:.78rem}
+
+.section-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;padding:.25rem .7rem;border-radius:20px;margin-right:.5rem;vertical-align:middle}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.3)}
+
+footer{padding:2.5rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)}
+.footer-links{display:flex;gap:1.25rem}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em}
+.footer-links a:hover{color:var(--body)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="ain">AIN</span> Bridge v1.0</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="../index.html">← All Tools</a>
+      <a class="nav-link" href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a class="nav-link" href="openchain-graph-explainer.html">OCG Explainer</a>
+      <span class="nav-tag">Interactive Explainer</span>
+      <span class="nav-pill">3 Capabilities</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Post Oak Labs · Platform Infrastructure</div>
+    <h1>How <em>AIN Bridge</em> works</h1>
+    <p class="hero-desc">AIN Bridge is the thin client-side JavaScript layer injected into every AINumbers tool before <code>&lt;/body&gt;</code>. It gives tools three capabilities without requiring any server, any network call, or any storage write: <strong style="color:var(--bright)">prefill deep-links</strong> (agents hand users a one-click URL with inputs pre-encoded), <strong style="color:var(--bright)">Policy Mandate intake</strong> (drop or paste the output of a prior tool to automatically fill the next), and <strong style="color:var(--bright)">composer messaging</strong> (same-origin parent frames orchestrate tools via postMessage). The bridge is the connective tissue between every composer, every agent handoff, and every tool in the suite.</p>
+    <div class="cap-pills">
+      <span class="cap-pill active">① Prefill Deep-Links</span>
+      <span class="cap-pill active">② Policy Mandate Intake</span>
+      <span class="cap-pill active">③ Composer Messaging</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ WHAT PROBLEM DOES IT SOLVE ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Foundation</div>
+    <h2>The problem: 420+ tools, no wiring</h2>
+    <p>Each AINumbers tool is a fully self-contained HTML page with its own inputs and its own computed outputs. That is the security guarantee — no cross-page data leakage, no shared state, no server that could log your inputs. But it creates an integration gap: when an agent wants to chain tools, or when a user finishes one tool and needs to carry its outputs into the next, who does the hand-off?</p>
+    <p>AIN Bridge is the answer. It runs <em>inside</em> each tool's browser context — never on a server — and provides three channels through which inputs can be populated from the outside world: a URL hash fragment, a JSON file, or a parent frame's postMessage.</p>
+
+    <div class="flow">
+      <div class="flow-node">
+        <div class="flow-node-tag">Source</div>
+        <div class="flow-node-name">Agent / Composer / Deep-link</div>
+        <div class="flow-node-desc">Knows what inputs the next tool needs</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" style="border-color:rgba(212,168,71,.4);background:rgba(212,168,71,.06)">
+        <div class="flow-node-tag" style="color:var(--gold)">Bridge</div>
+        <div class="flow-node-name" style="color:var(--gold)">AIN Bridge v1.0</div>
+        <div class="flow-node-desc">Decodes, validates, applies to DOM · zero network · zero storage</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-tag">Target</div>
+        <div class="flow-node-name">Tool Inputs (DOM)</div>
+        <div class="flow-node-desc">Fields filled, ready to run</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CAPABILITY 1: PREFILL DEEP-LINKS ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Capability 1 of 3</div>
+    <h2><span class="section-tag tag-gold">Prefill</span> Deep-link URL encoding</h2>
+    <p>The simplest Bridge capability: encode a JSON object of <code>{elementId: value}</code> pairs as base64url, append it to a tool URL as <code>#in=&lt;encoded&gt;</code>, and share the link. When the tool loads in the browser, the Bridge decodes the fragment, fills each matching input, and shows a confirmation notice. Adding <code>&amp;run=1</code> opts into auto-execution — the tool runs immediately after filling.</p>
+    <p style="color:var(--body);font-size:.88rem">This is the mechanism agents use to hand off context to users in a zero-PII way. The encoded data never leaves the browser — the hash fragment is not sent to any server in HTTP requests. The tool URL and its inputs are the only things that cross the wire.</p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-title">URL format</div>
+        <div class="concept-desc"><code>tool.html#in=&lt;b64url&gt;</code><br>Add <code>&amp;run=1</code> to auto-execute on load.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-title">JSON payload</div>
+        <div class="concept-desc">Keys = DOM element IDs. Values = strings, numbers, or booleans. <code>{fields:{…}}</code> wrapper also accepted.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-title">Encoding</div>
+        <div class="concept-desc">Standard base64url (RFC 4648 §5): <code>+</code>→<code>-</code>, <code>/</code>→<code>_</code>, padding stripped. <code>btoa(unescape(encodeURIComponent(json)))</code>.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-title">Field mapping</div>
+        <div class="concept-desc">Sets <code>.value</code> (text/select/textarea) or <code>.checked</code> (checkbox/radio). Dispatches <code>input</code> + <code>change</code> events so reactive UIs update.</div>
+      </div>
+    </div>
+
+    <!-- LIVE DEMO -->
+    <div class="demo-box">
+      <div class="demo-label">Live Prefill Link Builder</div>
+      <p style="font-size:.8rem;color:var(--body);margin-bottom:1rem;line-height:1.7">Enter a tool URL and one or more <code>elementId: value</code> pairs. The encoder builds the deep-link in real time. Paste the result into a browser to see the Bridge fill the form.</p>
+      <div style="margin-bottom:.6rem">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Tool URL (base)</div>
+        <input class="demo-input" id="blBaseUrl" placeholder="https://ainumbers.co/tools/503-canton-tokenization-readiness-diagnostic.html" style="width:100%" oninput="buildLink()">
+      </div>
+      <div style="margin-bottom:.6rem">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Fields JSON <span style="color:var(--border-2)">({"elementId": value, …})</span></div>
+        <textarea class="demo-input" id="blFields" rows="4" style="resize:vertical" oninput="buildLink()" spellcheck="false">{"entityName": "Apex Clearing Corp", "entityType": "clearing_member", "domicile": "US"}</textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem">
+        <label style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--body);display:flex;align-items:center;gap:.4rem;cursor:pointer">
+          <input type="checkbox" id="blAutoRun" onchange="buildLink()"> <span>Auto-run (<code>&amp;run=1</code>)</span>
+        </label>
+      </div>
+      <div class="demo-output">
+        <div class="demo-output-label">Generated deep-link</div>
+        <div id="blOutput" class="demo-output-val gold">—</div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+        <button class="copy-btn" onclick="copyLink()">Copy link</button>
+        <button class="copy-btn" onclick="copyFragment()">Copy #in= fragment only</button>
+      </div>
+    </div>
+
+    <!-- DECODER -->
+    <div class="demo-box" style="border-color:rgba(20,184,166,.2)">
+      <div class="demo-label" style="color:var(--teal)">Live Fragment Decoder</div>
+      <p style="font-size:.8rem;color:var(--body);margin-bottom:.8rem;line-height:1.7">Paste a <code>#in=</code> fragment (or just the base64url part) to decode it back to JSON.</p>
+      <input class="demo-input" id="decInput" placeholder="Paste #in=eyJ… or just the base64url token" style="width:100%" oninput="decodeFrag()">
+      <div class="demo-output" style="margin-top:.7rem">
+        <div class="demo-output-label">Decoded JSON</div>
+        <pre id="decOutput" style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);white-space:pre-wrap;min-height:1.4em">—</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CAPABILITY 2: POLICY MANDATE INTAKE ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Capability 2 of 3</div>
+    <h2><span class="section-tag tag-teal">Intake</span> Policy Mandate import zone</h2>
+    <p>When a tool is configured with <code>intake: true</code>, the Bridge renders a drop zone above the first panel. Users can drag-and-drop a <code>.policy.json</code> file produced by any prior tool, choose one from disk, or paste raw JSON. The Bridge validates the mandate structure, then maps its <code>payload</code> and <code>source_tool_inputs</code> fields onto matching DOM element IDs — the same mechanism as prefill, but driven by the mandate file rather than a URL.</p>
+    <p style="font-size:.88rem;color:var(--body)">This is how chaining works in practice. Tool A exports a Policy Mandate. The user opens Tool B. They drop the <code>.policy.json</code> into the intake zone. Relevant fields auto-fill. No copy-pasting, no manual transcription, no re-entry errors.</p>
+
+    <div class="concept-grid">
+      <div class="concept-card teal">
+        <div class="concept-title">Mandate structure check</div>
+        <div class="concept-desc">Bridge validates <code>mandate_id</code>, <code>tool_id</code>, and <code>payload</code> before applying. Invalid JSON or wrong shape → amber warning, nothing applied.</div>
+      </div>
+      <div class="concept-card teal">
+        <div class="concept-title">Field resolution order</div>
+        <div class="concept-desc">Applies <code>intakeTarget</code> textarea first (full JSON paste), then <code>payload</code> fields, then <code>source_tool_inputs</code>. Total applied count shown in notice.</div>
+      </div>
+      <div class="concept-card teal">
+        <div class="concept-title">Three intake paths</div>
+        <div class="concept-desc"><strong style="color:var(--bright)">Drop</strong> — drag file onto zone. <strong style="color:var(--bright)">Choose</strong> — file picker. <strong style="color:var(--bright)">Paste</strong> — expand text area and paste raw JSON.</div>
+      </div>
+      <div class="concept-card teal">
+        <div class="concept-title">intakeTarget opt-in</div>
+        <div class="concept-desc">If <code>CFG.intakeTarget</code> is set to a textarea element ID, the full mandate JSON is also pasted there — useful for tools that parse mandates themselves.</div>
+      </div>
+    </div>
+
+    <div class="demo-box" style="border-color:rgba(20,184,166,.2)">
+      <div class="demo-label" style="color:var(--teal)">Policy Mandate Schema (minimum valid)</div>
+      <div class="code-block" style="margin-top:0">
+        <pre>{
+  <span class="n">"mandate_id"</span>: <span class="s">"mnd_20260618_T503_abc123"</span>,
+  <span class="n">"tool_id"</span>: <span class="s">"503-canton-tokenization-readiness-diagnostic"</span>,
+  <span class="n">"tool_version"</span>: <span class="s">"1.0.0"</span>,
+  <span class="n">"issued_at"</span>: <span class="s">"2026-06-18T14:30:00Z"</span>,
+  <span class="n">"payload"</span>: {
+    <span class="c">/* keys = element IDs in the RECEIVING tool */</span>
+    <span class="n">"entityName"</span>: <span class="s">"Apex Clearing Corp"</span>,
+    <span class="n">"domicile"</span>: <span class="s">"US"</span>
+  },
+  <span class="n">"source_tool_inputs"</span>: {
+    <span class="c">/* the sending tool's own inputs, for audit trail */</span>
+    <span class="n">"entityType"</span>: <span class="s">"clearing_member"</span>
+  },
+  <span class="n">"execution_hash"</span>: <span class="s">"a3f8c2…"</span>  <span class="c">/* SHA-256 of sorted canonical JSON */</span>
+}</pre>
+      </div>
+      <p style="font-size:.78rem;color:var(--body);margin-top:.5rem">The Bridge checks for <code>mandate_id</code>, <code>tool_id</code>, and <code>payload</code>. All other fields are optional but preserved for downstream tools.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CAPABILITY 3: COMPOSER MESSAGING ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Capability 3 of 3</div>
+    <h2><span class="section-tag tag-purple">Messaging</span> Composer postMessage protocol</h2>
+    <p>Composer pages (e.g. <code>guides/aml-programme-composer.html</code>) load tools in <code>&lt;iframe&gt;</code> elements. AIN Bridge listens for <code>window.message</code> events from a same-origin parent and responds to three message types. This lets a composer pre-fill a tool, trigger its run function, and collect the resulting Policy Mandate — all without any server round-trip.</p>
+    <p style="font-size:.88rem;color:var(--body)">Same-origin enforcement is strict: the Bridge checks <code>e.source === window.parent</code> and, where available, verifies <code>e.origin === location.origin</code>. Cross-origin composers cannot drive tools.</p>
+
+    <table class="msg-table">
+      <thead>
+        <tr><th>Inbound message (parent → tool)</th><th>Reply (tool → parent)</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ain:prefill<br><span style="color:var(--muted);font-size:.65rem">{fields:{id:value,…}}</span></td>
+          <td>ain:prefilled<br><span style="color:var(--muted);font-size:.65rem">{applied:N, tool}</span></td>
+          <td>Fill N inputs. Returns count of matched fields. Same as prefill deep-link but driven by postMessage instead of URL hash.</td>
+        </tr>
+        <tr>
+          <td>ain:run</td>
+          <td>ain:ran<br><span style="color:var(--muted);font-size:.65rem">{ok:bool, tool}</span></td>
+          <td>Call the tool's run function (declared in <code>CFG.runFn</code>). <code>ok:false</code> if no run function is configured or the call throws.</td>
+        </tr>
+        <tr>
+          <td>ain:getMandate</td>
+          <td>ain:mandate<br><span style="color:var(--muted);font-size:.65rem">{mandate:{…}, tool}</span></td>
+          <td>Return the most recently exported Policy Mandate. Reads <code>window._lastMandate</code> then <code>window.AIN_BUILD_MANDATE()</code> then <code>window._currentMandate</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="flow" style="margin-top:1.5rem">
+      <div class="flow-node" style="border-color:rgba(155,114,245,.4);background:rgba(155,114,245,.06)">
+        <div class="flow-node-tag" style="color:var(--purple)">Composer (parent frame)</div>
+        <div class="flow-node-name">guides/aml-programme-composer.html</div>
+        <div class="flow-node-desc">Sends ain:prefill → waits → sends ain:run → waits → sends ain:getMandate</div>
+      </div>
+      <div class="flow-arrow" style="flex-direction:column;gap:.3rem;font-size:.65rem;color:var(--purple)">
+        <span>ain:prefill →</span>
+        <span>← ain:prefilled</span>
+        <span>ain:run →</span>
+        <span>← ain:ran</span>
+        <span>ain:getMandate →</span>
+        <span>← ain:mandate</span>
+      </div>
+      <div class="flow-node">
+        <div class="flow-node-tag">Tool (child iframe)</div>
+        <div class="flow-node-name">tools/110-customer-risk-rating.html</div>
+        <div class="flow-node-desc">AIN Bridge listens, applies fields, calls runFn, returns mandate JSON</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SECURITY POSTURE ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Design Principles</div>
+    <h2>Security posture</h2>
+    <p>AIN Bridge was designed with a strict contract: it can connect tools without creating new attack surfaces. Every design decision — from how values are applied to when functions are invoked — is constrained to prevent injection, data exfiltration, and cross-origin abuse.</p>
+    <div class="posture-grid">
+      <div class="posture-card">
+        <div class="posture-icon">🌐</div>
+        <div class="posture-title">Zero network</div>
+        <div class="posture-desc">The Bridge makes no <code>fetch()</code>, <code>XMLHttpRequest</code>, or <code>WebSocket</code> calls. Data moves only inside the browser context.</div>
+      </div>
+      <div class="posture-card">
+        <div class="posture-icon">💾</div>
+        <div class="posture-title">Zero storage</div>
+        <div class="posture-desc">No <code>localStorage</code>, <code>sessionStorage</code>, <code>IndexedDB</code>, or cookie writes. State exists only in DOM element values during the session.</div>
+      </div>
+      <div class="posture-card">
+        <div class="posture-icon">🔒</div>
+        <div class="posture-title">No innerHTML injection</div>
+        <div class="posture-desc">Field values are assigned via <code>.value</code> or <code>.checked</code> only — never via <code>innerHTML</code> or <code>eval</code>. XSS via crafted payload fields is structurally prevented.</div>
+      </div>
+      <div class="posture-card">
+        <div class="posture-icon">📋</div>
+        <div class="posture-title">Run-function whitelist</div>
+        <div class="posture-desc">Auto-run calls only the function declared in <code>CFG.runFn</code>. Arbitrary function names from URL parameters are never executed.</div>
+      </div>
+      <div class="posture-card">
+        <div class="posture-icon">🛡️</div>
+        <div class="posture-title">Same-origin messaging</div>
+        <div class="posture-desc">postMessage handler verifies <code>e.source === window.parent</code> and origin match before acting. Cross-origin iframes cannot drive tool inputs.</div>
+      </div>
+      <div class="posture-card">
+        <div class="posture-icon">🔑</div>
+        <div class="posture-title">Hash-only URL data</div>
+        <div class="posture-desc">The <code>#in=</code> fragment is never sent in HTTP requests. Prefilled data stays in the browser and leaves no server-side trace.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ INTEGRATION GUIDE ════ -->
+<div class="section">
+  <div class="wrap">
+    <div class="section-eyebrow">Integration Reference</div>
+    <h2>Adding the Bridge to a tool</h2>
+    <p>Each tool carries one configuration line declaring its Bridge options, followed by the shared Bridge script. The snippet is inserted before <code>&lt;/body&gt;</code> by <code>scripts/fix_bridge_t.py</code> during builds. For manual integration:</p>
+
+    <div class="code-block">
+      <pre><span class="c">&lt;!-- 1. Declare config before the Bridge script --&gt;</span>
+&lt;script&gt;window.AIN_BRIDGE_CFG = {
+  <span class="n">runFn</span>:        <span class="s">"runMyTool"</span>,   <span class="c">// global function name; null = no auto-run</span>
+  <span class="n">intake</span>:       <span class="v">true</span>,          <span class="c">// show Policy Mandate drop zone?</span>
+  <span class="n">intakeTarget</span>: <span class="s">"mandateInput"</span>, <span class="c">// textarea id for full JSON paste (optional)</span>
+  <span class="n">intakeAnchor</span>: <span class="s">".pii-notice"</span>  <span class="c">// CSS selector — drop zone inserts before this</span>
+};&lt;/script&gt;
+
+<span class="c">&lt;!-- 2. Bridge script (minified, from scripts/ain-bridge-v1.snippet.html) --&gt;</span>
+&lt;script&gt;(function(){ /* … bridge code … */ })();&lt;/script&gt;</pre>
+    </div>
+
+    <h3 style="font-size:1.1rem;color:var(--bright);margin:1.8rem 0 .6rem">Public API — <code>window.AINBridge</code></h3>
+    <p style="font-size:.88rem;color:var(--body);margin-bottom:.8rem">Once the Bridge boots, these methods are available to tool code for programmatic use:</p>
+    <table class="api-table">
+      <thead>
+        <tr><th>Method</th><th>Signature</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AINBridge.apply</td><td>(fields: object) → N</td><td>Apply a <code>{id:value}</code> map to DOM inputs. Returns count of matched fields.</td></tr>
+        <tr><td>AINBridge.run</td><td>() → bool</td><td>Call <code>CFG.runFn</code>. Returns <code>true</code> on success, <code>false</code> if not configured or throws.</td></tr>
+        <tr><td>AINBridge.intake</td><td>(json: string) → N</td><td>Parse and apply a Policy Mandate JSON string. Shows notice. Returns applied count.</td></tr>
+        <tr><td>AINBridge.getMandate</td><td>() → object|null</td><td>Return the current Policy Mandate (<code>_lastMandate</code> → <code>AIN_BUILD_MANDATE()</code> → <code>_currentMandate</code>).</td></tr>
+        <tr><td>AINBridge.makeLink</td><td>(fields, run?) → string</td><td>Build a prefill deep-link URL for this tool with the given fields. <code>run=true</code> adds <code>&amp;run=1</code>.</td></tr>
+        <tr><td>AINBridge.version</td><td>string</td><td>Bridge version string — currently <code>"1.0"</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-inner">
+      <div class="footer-brand">AIN Bridge v1.0 · Post Oak Labs · CC BY 4.0</div>
+      <div class="footer-links">
+        <a href="../index.html">All Tools</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="../mcp.html">MCP Server</a>
+        <a href="../guides/policy-composer.html">Policy Composer</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+// ── Prefill link builder ──────────────────────────────────────────────────────
+function b64uEnc(s){
+  try{return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+  catch(e){return '';}
+}
+function b64uDec(s){
+  try{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+  catch(e){return null;}
+}
+var _lastLink='', _lastFrag='';
+function buildLink(){
+  var base = document.getElementById('blBaseUrl').value.trim();
+  var fieldsRaw = document.getElementById('blFields').value.trim();
+  var autoRun = document.getElementById('blAutoRun').checked;
+  var out = document.getElementById('blOutput');
+  if(!fieldsRaw){out.textContent='—';_lastLink='';_lastFrag='';return;}
+  var obj;
+  try{obj=JSON.parse(fieldsRaw);}catch(e){out.textContent='⚠ Invalid JSON — fix the fields to see the link';out.style.color='var(--red)';_lastLink='';_lastFrag='';return;}
+  out.style.color='var(--gold)';
+  var encoded = b64uEnc(JSON.stringify(obj));
+  var frag = '#in='+encoded+(autoRun?'&run=1':'');
+  _lastFrag = frag;
+  if(base){
+    // strip any existing hash
+    var b = base.split('#')[0];
+    _lastLink = b+frag;
+  } else {
+    _lastLink = frag;
+  }
+  out.textContent = _lastLink || frag;
+}
+function copyLink(){
+  if(!_lastLink){return;}
+  navigator.clipboard&&navigator.clipboard.writeText(_lastLink).then(function(){
+    var b=document.querySelectorAll('.copy-btn')[0];if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy link';},1800);}
+  });
+}
+function copyFragment(){
+  if(!_lastFrag){return;}
+  navigator.clipboard&&navigator.clipboard.writeText(_lastFrag).then(function(){
+    var b=document.querySelectorAll('.copy-btn')[1];if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy #in= fragment only';},1800);}
+  });
+}
+
+// ── Fragment decoder ──────────────────────────────────────────────────────────
+function decodeFrag(){
+  var raw=document.getElementById('decInput').value.trim();
+  var out=document.getElementById('decOutput');
+  if(!raw){out.textContent='—';out.style.color='var(--teal-lt)';return;}
+  // accept full URL, #in=... fragment, or raw token
+  var m=raw.match(/[#&]?in=([A-Za-z0-9_\-]+)/);
+  var token = m ? m[1] : raw.replace(/^#?in=/,'');
+  var decoded=b64uDec(token);
+  if(!decoded){out.textContent='⚠ Could not decode — check the token is valid base64url';out.style.color='var(--red)';return;}
+  try{
+    var obj=JSON.parse(decoded);
+    out.textContent=JSON.stringify(obj,null,2);
+    out.style.color='var(--teal-lt)';
+  }catch(e){
+    out.textContent=decoded;
+    out.style.color='var(--gold)';
+  }
+}
+
+// Init
+buildLink();
+</script>
+
+</body>
+</html>
