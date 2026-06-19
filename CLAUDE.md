@@ -31,6 +31,13 @@ ainumbers/
 - **Routing:** Tools in `tools/` must use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes for all internal links. Absolute URLs reserved strictly for `suite-registry.json` & external MCP endpoints.
 - **License:** CC BY 4.0. Code must be readable, commented, and attribution-ready.
 
+## 🤖 MCP / tool-registration invariants (CONTRACT §A4 — MUST)
+
+Before adding or renaming any tool, ChainGraph node, chain, or kernel:
+- **Unique `mcp_name`** across live `chaingraph.json` nodes + PILOT widgets + the 6 utility tools — a duplicate 500s the live `/mcp` handshake. Check: `node ../mcp-apps-poc/scripts/check-tool-names.mjs`.
+- **Canonical `execution_hash` only** via the shared `chaingraph/kernels/_hash.mjs` (real WebCrypto SHA-256 over RFC 8785/JCS `{policy_parameters, output_payload}`). Forbidden: array-replacer canon (`JSON.stringify(x, Object.keys(x).sort())`), `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity,parity-art-01,syntax-check}.mjs`.
+- **The MCP worker is a separate repo (`mcp-apps-poc/`) that boots from generated `data/` + `kernels/`.** After changing `chaingraph.json`/manifests/kernels, run `node generate.mjs` there and commit `data/` + `kernels/` in the SAME push (generate.mjs can't run in the cloud build). Deploy is gated GitHub Actions only (Workers Builds stays disconnected); confirm the post-deploy `/mcp` smoke step. Full detail: `CONTRACT.md` §A4.
+
 ## 📐 Required UI & Export Contracts
 
 - **Lang toggle:** OMIT. Do not add `.lang-bar`, `setLang()`, or `TRANSLATIONS` objects. Toggle deferred — see `CONTRACT.md` §1.1 and `../I18N-SPEC.md` for future re-implementation spec.

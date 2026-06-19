@@ -1,5 +1,5 @@
 # 📜 AINumbers.co — Unified Build Contract v1.3
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026  
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026  
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
 **Target Audience:** AI Build Instances (Claude/LLMs), Frontend Engineers, Compliance QA  
 
@@ -411,6 +411,27 @@ Promoted tools switch from the §3.1 Policy Mandate set to the §4 set. A docume
 - Two export schemas coexist transitionally: §4 (ChainGraph) and §3.1 Policy Mandate (un-promoted catalog tools). The crosswalk (A3.5) keeps them reconcilable; the long-term direction is §4 only.
 - The catalog tool count **drops** as tools are promoted/retired — update the "counts drift" verification and any hardcoded totals.
 - This amendment supersedes the optional-`execution_hash` language in §3.1 for ChainGraph artifacts, deprecates architecture #4 in §5.3, and updates the §1.2 disclosure rules to the `/chaingraph/` surface.
+
+---
+
+## 🚨 Amendment A4 — MCP Server deploy & tool-registration invariants (v1.3 → v1.4)
+
+Codifies the rules that prevent the recurring "MCP down after a build" outages (root-caused 2026-06-19). **RFC 2119: MUST.** Applies to EVERY new or renamed tool, node, chain, or kernel, in every session. Two repos are in play: the **site repo** (`repo/` — tool/chain HTML, `chaingraph.json` source) and the **server repo** (`mcp-apps-poc/` — the Cloudflare Worker + vendored `data/`/`kernels/`).
+
+### A4.1 · Unique `mcp_name` across the WHOLE registration surface (MUST)
+The Worker registers, by tool name: (a) every **live `chaingraph.json` node** (`mcp_name`), (b) every **PILOT widget tool** (`mcp-apps-poc/pilot.mjs` → each manifest's `mcp_tool_definition.name`), and (c) the fixed **utility tools** (`list_ainumbers_tools`, `build_workflow_links`, `verify_execution_hash`, `build_chaingraph`, `emit_chaingraph_artifact`, `build_session_receipt`). A name **MUST be unique across all three sets** — not just among nodes. A duplicate threw `Tool X is already registered`, aborting `buildServer()` and 500-ing the entire `/mcp` handshake while the rest of the worker still served. Before adding/renaming a tool/node, verify uniqueness with **`node mcp-apps-poc/scripts/check-tool-names.mjs`**. (The Worker also defensively skips duplicates, but a skipped tool is a silently-missing tool — uniqueness is still required.)
+
+### A4.2 · Re-vendor + commit generated worker inputs in the SAME push (MUST)
+The Worker boots from **generated/vendored** files: `data/` (served via the ASSETS binding — `chaingraph.json`, manifests, `counts.json`) and `kernels/` (server-side compute). These are produced by `mcp-apps-poc/generate.mjs`, which reads the sibling `../repo` and **therefore cannot run in any cloud build.** Any change to `chaingraph.json`, a manifest, `pilot.mjs`, or a kernel MUST be followed by `node generate.mjs` and a commit that includes the regenerated `data/` **and** `kernels/` in the SAME push. Uncommitted/stale generated inputs = the worker deploys without them and breaks. (`git status` must show `data/` + `kernels/` clean before push.)
+
+### A4.3 · Canonical `execution_hash` via the one shared module (MUST)
+Every artifact's `execution_hash` MUST be a real **WebCrypto SHA-256** over the **RFC 8785 / JCS-canonical** `{policy_parameters, output_payload}` produced by the single shared canonicalizer **`repo/chaingraph/kernels/_hash.mjs`** (browser tools inline it at build; the Worker imports it; both byte-identical). **FORBIDDEN:** array-replacer canonicalization (`JSON.stringify(x, Object.keys(x).sort())`), non-SHA-256 placeholders (`simpleHash`/djb2/FNV, any string mislabeled `sha256:`), hashing a reduced object different from the stored `output_payload`, or embedding the hash inside the hashed payload. The hash MUST anchor the inputs (fold decision inputs into `policy_parameters`). Enforced by `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, and `parity-art-01.test.mjs`.
+
+### A4.4 · The deploy model is fixed (MUST)
+The MCP Worker deploys **solely via the gated GitHub Actions workflow** (`mcp-apps-poc/.github/workflows/ci.yml`: `validate` → `deploy`). **Cloudflare Workers Builds MUST stay DISCONNECTED** — running both is a double-deployer and causes outages. Do NOT add `wrangler deploy` / a `wrangler-action`, do NOT hand-deploy, and do NOT hand-edit the Worker `NAMED_CHAINS` (it is a generated projection of `chaingraph.json` `chains[]`).
+
+### A4.5 · CI gates are mandatory and MUST NOT be removed (MUST)
+The pipeline runs — and MUST keep running — `check-tool-names.mjs` (no name collisions), `wrangler deploy --dry-run` (bundle resolves), and the post-deploy `scripts/smoke-mcp.mjs` (a real `/mcp` `initialize`). **A green bundle does NOT prove the handshake works — only the smoke test does.** After any worker-affecting push, confirm Actions is green AND the smoke step passed AND `/mcp` `initialize` returns HTTP 200 before considering the build done. History + rationale: memory `feedback_wrangler_deploy_in_commit_block`.
 
 ---
 
