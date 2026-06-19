@@ -47,9 +47,12 @@ const TAXONOMIES = {
       rwa_delta:          { name: 'RwaDelta', type: 'monetary', unit: 'USD' },
     },
   },
-  // Registered, NOT yet mapped — do not fabricate EBA concepts.
-  'eba-corep-own-funds': { pending: 'EBA COREP own-funds concept map not yet populated. Populate eba_met qnames + dimensions from the published EBA taxonomy before emitting; concepts must not be fabricated (OCG §13.8). Use ocg-ext in the interim.' },
-  'eba-corep-lcr-nsfr':  { pending: 'EBA COREP LCR/NSFR concept map not yet populated. Same rule as own-funds.' },
+  // Registered, NOT yet mapped — do not fabricate EBA concepts. The mapping
+  // scaffold (public template/row refs, eba_qname slots) lives at
+  // exporters/taxonomies/eba-corep-concept-map.json — populate it from the
+  // published EBA taxonomy, then load it here and drop the guard.
+  'eba-corep-own-funds': { pending: 'EBA COREP own-funds concept map not yet populated (eba_met qnames absent). See exporters/taxonomies/eba-corep-concept-map.json; populate from the published EBA taxonomy — concepts must not be fabricated (OCG §13.8). Use xbrl_taxonomy="ocg-ext" in the interim.' },
+  'eba-corep-lcr-nsfr':  { pending: 'EBA COREP LCR/NSFR concept map not yet populated. See exporters/taxonomies/eba-corep-concept-map.json. Same rule as own-funds.' },
 };
 
 export const XBRL_TAXONOMIES = Object.keys(TAXONOMIES);
