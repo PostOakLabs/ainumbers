@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'cry-04-merkle-batch-verifier';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'cry-04-merkle-batch-verifier',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'verify_merkle_batch',
   mandate_type: 'cryptographic_mandate',
+  gpu: false,
 };
 
 function _sha256(bytes) {
@@ -99,7 +106,7 @@ export function compute(pp) {
     MERKLE_BATCH_COMPROMISED: batchIntegrity==='COMPROMISED',
   };
 
-  return {
+  const output_payload = {
     batch_integrity: batchIntegrity,
     verified_count: verifiedCount,
     failed_count: failedCount,
@@ -107,18 +114,28 @@ export function compute(pp) {
     pass_rate: +passRate.toFixed(4),
     total: entries.length,
     results,
-    compliance_flags,
   };
+
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts={}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    inputs: pp,
-    outputs: result,
-    artifact_version: '1.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

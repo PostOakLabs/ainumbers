@@ -3,12 +3,17 @@
  * Tempo Fit Diagnostic — 12-Q / 4-dimension readiness scorer.
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-34-tempo-fit-diagnostic';
+const TOOL_VERSION = '1.0.0';
 
 export const meta = {
-  tool_id:       'art-34-tempo-fit-diagnostic',
-  mcp_name:      'run_tempo_fit_diagnostic',
-  mandate_type:  'agent_guardrail_mandate',
-  version:       '1.0.0',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
+  mcp_name:     'run_tempo_fit_diagnostic',
+  mandate_type: 'agent_guardrail_mandate',
+  gpu:          false,
 };
 
 // Scoring constant
@@ -109,29 +114,35 @@ export function compute(pp) {
     compliance_flags.push('TEMPO_NOT_READY');
   }
 
-  return {
-    verdict:          overallGrade,
-    total_score:      totalScore,
-    total_max:        TOTAL_MAX,
-    total_pct:        totalPct,
-    primary_chain:    primaryDim.chain,
-    primary_dim:      primaryDim.id,
-    dim_results:      dimResults,
-    compliance_flags,
+  const output_payload = {
+    verdict:       overallGrade,
+    total_score:   totalScore,
+    total_max:     TOTAL_MAX,
+    total_pct:     totalPct,
+    primary_chain: primaryDim.chain,
+    primary_dim:   primaryDim.id,
+    dim_results:   dimResults,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:          meta.tool_id,
-    mandate_type:     meta.mandate_type,
-    verdict:          r.verdict,
-    total_score:      r.total_score,
-    total_pct:        r.total_pct,
-    primary_chain:    r.primary_chain,
-    dim_results:      r.dim_results,
-    compliance_flags: r.compliance_flags,
-    inputs:           pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-13-eudi-wallet-credential-readiness-checker';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'art-13-eudi-wallet-credential-readiness-checker',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'check_eudi_readiness',
   mandate_type: 'compliance_mandate',
+  gpu: false,
 };
 
 export function compute(pp) {
@@ -95,13 +102,13 @@ export function compute(pp) {
   const failCount = failChecks.length;
   const acceptanceReady = readinessScore >= 80 && failCount === 0;
 
-  let complianceFlags;
+  let compliance_flags;
   if (acceptanceReady) {
-    complianceFlags = ['EUDI_WALLET_READY', 'EIDEAS2_COMPLIANT'];
+    compliance_flags = ['EUDI_WALLET_READY', 'EIDEAS2_COMPLIANT'];
   } else if (readinessScore >= 60) {
-    complianceFlags = ['EUDI_WALLET_PARTIAL', 'REMEDIATION_REQUIRED'];
+    compliance_flags = ['EUDI_WALLET_PARTIAL', 'REMEDIATION_REQUIRED'];
   } else {
-    complianceFlags = ['EUDI_WALLET_NOT_READY', 'CRITICAL_GAPS'];
+    compliance_flags = ['EUDI_WALLET_NOT_READY', 'CRITICAL_GAPS'];
   }
 
   const verdict = acceptanceReady
@@ -110,7 +117,7 @@ export function compute(pp) {
       ? 'PARTIAL READINESS — GAPS IDENTIFIED'
       : 'NOT READY — CRITICAL GAPS';
 
-  return {
+  const output_payload = {
     acceptance_ready: acceptanceReady,
     readiness_score: readinessScore,
     verdict,
@@ -120,17 +127,27 @@ export function compute(pp) {
     format,
     issuer_country: issuerCountry,
     check_results: checkResults,
-    compliance_flags: complianceFlags,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    output_payload: result,
-    compliance_flags: result.compliance_flags,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

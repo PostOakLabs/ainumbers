@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-31-a2a-x402-extension-mandate-validator';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'art-31-a2a-x402-extension-mandate-validator',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'validate_a2a_x402_mandate',
   mandate_type: 'settlement_mandate',
+  gpu: false,
 };
 
 const USDC_BASE = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
@@ -125,27 +132,27 @@ export function compute(pp) {
     ? ['X402_EXTENSION_CONFORMANT_WITH_WARNINGS']
     : ['X402_EXTENSION_FULLY_CONFORMANT'];
 
-  return {
-    verdict,
-    pass_count: passCount,
-    fail_count: failCount,
-    warn_count: warnCount,
-    extension_declared: !!ext,
-    payment_authority_scope_present: !!(ext?.params?.payment_authority?.scope),
-    settlement_rail_bound: !!(rail),
-    checks: allChecks,
-    compliance_flags,
-  };
+  const output_payload = { verdict, pass_count: passCount, fail_count: failCount, warn_count: warnCount, extension_declared: !!ext, payment_authority_scope_present: !!(ext?.params?.payment_authority?.scope), settlement_rail_bound: !!(rail), checks: allChecks };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts={}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    inputs: pp,
-    outputs: result,
-    artifact_version: '1.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

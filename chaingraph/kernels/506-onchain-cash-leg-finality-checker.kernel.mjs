@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = '506-onchain-cash-leg-finality-checker';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: '506-onchain-cash-leg-finality-checker',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'check_cash_leg_finality',
   mandate_type: 'attestation_mandate',
+  gpu: false,
 };
 
 export function compute(pp) {
@@ -62,27 +69,27 @@ export function compute(pp) {
   if (verdict === 'FAIL') compliance_flags.CASH_LEG_FAIL = true;
   if (verdict === 'CONDITIONAL') compliance_flags.CASH_LEG_CONDITIONAL = true;
 
-  return {
-    verdict,
-    finality_flag,
-    finality_pass,
-    has_critical,
-    has_gaps,
-    genius_sum: +genius_sum.toFixed(1),
-    depeg_wide,
-    mica_gap,
-    compliance_flags,
-  };
+  const output_payload = { verdict, finality_flag, finality_pass, has_critical, has_gaps, genius_sum: +genius_sum.toFixed(1), depeg_wide, mica_gap };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    cash_instrument: pp.cash_instrument ?? null,
-    jurisdiction: pp.jurisdiction ?? null,
-    ...result,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

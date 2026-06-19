@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-23-visa-trusted-agent-protocol-inspector';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'art-23-visa-trusted-agent-protocol-inspector',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'inspect_visa_tap_signature',
   mandate_type: 'compliance_control',
+  gpu: false,
 };
 
 function parseSigInput(line) {
@@ -126,25 +133,27 @@ export function compute(pp) {
     ALG_ED25519: parsed_params?.alg?.toLowerCase() === 'ed25519',
   };
 
-  return {
-    verdict,
-    score,
-    errors,
-    warnings,
-    passes,
-    parsed_label,
-    parsed_params,
-    findings: findings.map(f => ({ level: f.level, msg: f.msg })),
-    compliance_flags,
-  };
+  const output_payload = { verdict, score, errors, warnings, passes, parsed_label, parsed_params, findings: findings.map(f => ({ level: f.level, msg: f.msg })) };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    ...result,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

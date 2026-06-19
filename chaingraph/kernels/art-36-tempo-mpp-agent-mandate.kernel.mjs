@@ -3,12 +3,17 @@
  * Tempo MPP Agent Mandate — decode and risk-score an agent payment session.
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-36-tempo-mpp-agent-mandate';
+const TOOL_VERSION = '1.0.0';
 
 export const meta = {
-  tool_id:      'art-36-tempo-mpp-agent-mandate',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name:     'decode_mpp_session',
   mandate_type: 'payment_mandate',
-  version:      '1.0.0',
+  gpu:          false,
 };
 
 const CALL_COSTS = {
@@ -77,31 +82,35 @@ export function compute(pp) {
   if (didValid) compliance_flags.push('AGENT_IDENTITY_VERIFIED');
   compliance_flags.push('MPP_SESSION_STRUCTURED');
 
-  return {
+  const output_payload = {
     risk,
-    did_valid:       didValid,
-    max_vouchers:    maxVouchers,
-    cost_per_call:   costPerCall,
+    did_valid:     didValid,
+    max_vouchers:  maxVouchers,
+    cost_per_call: costPerCall,
     rail,
     stablecoin,
-    spend_cap:       spendCap,
-    compliance_flags,
+    spend_cap:     spendCap,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:          meta.tool_id,
-    mandate_type:     meta.mandate_type,
-    risk:             r.risk,
-    did_valid:        r.did_valid,
-    max_vouchers:     r.max_vouchers,
-    cost_per_call:    r.cost_per_call,
-    rail:             r.rail,
-    stablecoin:       r.stablecoin,
-    spend_cap:        r.spend_cap,
-    compliance_flags: r.compliance_flags,
-    inputs:           pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

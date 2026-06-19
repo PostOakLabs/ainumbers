@@ -1,14 +1,21 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'ptg-01-ap2-prompt-template-generator';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'ptg-01-ap2-prompt-template-generator',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'compose_ap2_prompt',
   mandate_type: 'prompt_template',
+  gpu: false,
 };
 
 export function compute(pp) {
   const artifactRaw = pp.artifact_json;
   let mandateType = 'unknown';
   let toolId = 'unknown';
-  let executionHash = 'unknown';
+  let exHash = 'unknown';
   let chainDepth = 0;
   let outputPayload = {};
 
@@ -17,7 +24,7 @@ export function compute(pp) {
       const artifact = typeof artifactRaw === 'string' ? JSON.parse(artifactRaw) : artifactRaw;
       mandateType = artifact.mandate_type || 'unknown';
       toolId = artifact.tool_id || 'unknown';
-      executionHash = artifact.execution_hash || 'unknown';
+      exHash = artifact.execution_hash || 'unknown';
       chainDepth = (artifact.chain && artifact.chain.chain_depth) || 0;
       outputPayload = artifact.output_payload || {};
     } catch (_) {
@@ -55,7 +62,7 @@ export function compute(pp) {
     `Tone: ${toneModifier}\n` +
     `Mandate type: ${mandateType}\n` +
     `Tool: ${toolId}\n` +
-    `Execution hash: ${executionHash}\n` +
+    `Execution hash: ${exHash}\n` +
     `Chain depth: ${chainDepth}\n\n` +
     `Key findings from the tool output:\n${JSON.stringify(outputPayload, null, 2)}\n\n` +
     (citationBlock ? `${citationBlock}\n\n` : '') +
@@ -63,28 +70,39 @@ export function compute(pp) {
 
   const claudeDeeplink = 'https://claude.ai/new?q=' + encodeURIComponent(generatedPrompt);
 
-  return {
+  const output_payload = {
     generated_prompt: generatedPrompt,
     claude_deeplink: claudeDeeplink,
     generated_prompt_length: generatedPrompt.length,
     mandate_type_matched: mandateType,
     source_tool_id: toolId,
-    source_execution_hash: executionHash,
+    source_execution_hash: exHash,
     task,
     audience,
     tone,
     include_citations: includeCitations,
-    compliance_flags: [],
   };
+
+  return { output_payload, compliance_flags: [] };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    output_payload: result,
-    compliance_flags: result.compliance_flags,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

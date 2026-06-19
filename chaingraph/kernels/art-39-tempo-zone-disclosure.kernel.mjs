@@ -3,12 +3,17 @@
  * Tempo Zone Disclosure — privacy-layer and AML attestation validator.
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-39-tempo-zone-disclosure';
+const TOOL_VERSION = '1.0.0';
 
 export const meta = {
-  tool_id:      'art-39-tempo-zone-disclosure',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name:     'validate_tempo_zone_disclosure',
   mandate_type: 'attestation_mandate',
-  version:      '1.0.0',
+  gpu:          false,
 };
 
 export function compute(pp) {
@@ -46,25 +51,33 @@ export function compute(pp) {
     : hasWarn ? 'PARTIAL_ATTESTATION'
     : 'FULL_ATTESTATION';
 
-  return {
+  const compliance_flags = [];
+  const output_payload = {
     verdict,
-    operator_name:    operatorName,
-    use_case:         useCase,
+    operator_name: operatorName,
+    use_case:      useCase,
     checks,
-    compliance_flags: [],
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:          meta.tool_id,
-    mandate_type:     meta.mandate_type,
-    verdict:          r.verdict,
-    operator_name:    r.operator_name,
-    use_case:         r.use_case,
-    checks:           r.checks,
-    compliance_flags: r.compliance_flags,
-    inputs:           pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

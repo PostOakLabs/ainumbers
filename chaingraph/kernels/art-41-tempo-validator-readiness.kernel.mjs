@@ -3,12 +3,17 @@
  * Tempo Validator Readiness Scorer — 12-Q / 5-dimension infrastructure diagnostic.
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-41-tempo-validator-readiness';
+const TOOL_VERSION = '1.0.0';
 
 export const meta = {
-  tool_id:      'art-41-tempo-validator-readiness',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name:     'score_tempo_validator_readiness',
   mandate_type: 'infrastructure_mandate',
-  version:      '1.0.0',
+  gpu:          false,
 };
 
 const SCORE = { yes: 4, partial: 2, no: 0 };
@@ -91,23 +96,34 @@ export function compute(pp) {
     compliance_flags.push('TEMPO_PERMISSIONING_REQUIRED');
   }
 
-  return {
-    verdict:                    overallGrade,
-    total_score:                totalScore,
-    total_max:                  TOTAL_MAX,
-    total_pct:                  totalPct,
-    dim_results:                dimResults,
-    requires_permissioning:     requiresPermissioningNotice,
-    compliance_flags,
+  const output_payload = {
+    verdict:                overallGrade,
+    total_score:            totalScore,
+    total_max:              TOTAL_MAX,
+    total_pct:              totalPct,
+    dim_results:            dimResults,
+    requires_permissioning: requiresPermissioningNotice,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:      meta.tool_id,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    ...r,
-    inputs: pp,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

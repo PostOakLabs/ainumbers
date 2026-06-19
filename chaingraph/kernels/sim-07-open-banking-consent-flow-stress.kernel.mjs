@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'sim-07-open-banking-consent-flow-stress';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'sim-07-open-banking-consent-flow-stress',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'simulate_consent_stress',
   mandate_type: 'compliance_mandate',
+  gpu: false,
 };
 
 function makeLCG(seed) {
@@ -80,7 +87,7 @@ export function compute(pp) {
     stageFails.auth / n > 0.10 ? 'AUTH_FAILURE_RATE_ELEVATED' : 'AUTH_FAILURE_RATE_NOMINAL'
   );
 
-  return {
+  const output_payload = {
     verdict,
     success_rate: +successRate.toFixed(4),
     consents_active: counts.ACTIVE,
@@ -91,17 +98,28 @@ export function compute(pp) {
     mean_fsm_steps: +meanSteps.toFixed(2),
     total_flows: n,
     regulatory_regime: pp.regime || 'psd2',
-    compliance_flags: complianceFlags,
   };
+
+  return { output_payload, compliance_flags: complianceFlags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    output_payload: result,
-    compliance_flags: result.compliance_flags,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

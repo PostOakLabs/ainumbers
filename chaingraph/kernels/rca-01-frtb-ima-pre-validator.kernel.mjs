@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'rca-01-frtb-ima-pre-validator';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'rca-01-frtb-ima-pre-validator',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'simulate_frtb_es',
   mandate_type: 'risk_parameter',
+  gpu: false,
 };
 
 const LH_DAYS = [10, 20, 40, 60, 120];
@@ -117,7 +124,7 @@ export function compute(pp) {
     'UK_IMA_PREVALIDATION_2028',
   ];
 
-  return {
+  const output_payload = {
     verdict,
     es_97_5_pct: +es.toFixed(2),
     undiversified_es: +undiversified.toFixed(2),
@@ -132,17 +139,28 @@ export function compute(pp) {
     n_positions: nPositions,
     n_scenarios: nScenarios,
     confidence_level: confidenceLevel,
-    compliance_flags: complianceFlags,
   };
+
+  return { output_payload, compliance_flags: complianceFlags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    output_payload: result,
-    compliance_flags: result.compliance_flags,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

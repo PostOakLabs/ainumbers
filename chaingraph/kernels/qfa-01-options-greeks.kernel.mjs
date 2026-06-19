@@ -1,7 +1,14 @@
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'qfa-01-options-greeks';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id: 'qfa-01-options-greeks',
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name: 'compute_options_greeks',
   mandate_type: 'risk_parameter',
+  gpu: false,
 };
 
 function normCdf(x) {
@@ -29,19 +36,8 @@ export function compute(pp) {
   if (T <= 0) {
     const intrinsic = isCall ? Math.max(S - K, 0) : Math.max(K - S, 0);
     const delta = isCall ? (S > K ? 1 : 0) : (S < K ? -1 : 0);
-    return {
-      price: intrinsic,
-      delta,
-      gamma: 0,
-      theta_per_day: 0,
-      vega_per_pct: 0,
-      rho_per_pct: 0,
-      d1: 0,
-      d2: 0,
-      delta_risk_band: 'LOW',
-      type: pp.type || 'call',
-      compliance_flags: complianceFlags,
-    };
+    const output_payload = { price: intrinsic, delta, gamma: 0, theta_per_day: 0, vega_per_pct: 0, rho_per_pct: 0, d1: 0, d2: 0, delta_risk_band: 'LOW', type: pp.type || 'call' };
+    return { output_payload, compliance_flags: complianceFlags };
   }
 
   const sqT = Math.sqrt(T);
@@ -65,7 +61,7 @@ export function compute(pp) {
   const absDelta = Math.abs(delta);
   const deltaRiskBand = absDelta >= 0.7 ? 'HIGH' : absDelta >= 0.3 ? 'MODERATE' : 'LOW';
 
-  return {
+  const output_payload = {
     price: +price.toFixed(6),
     delta: +delta.toFixed(6),
     gamma: +gamma.toFixed(6),
@@ -76,17 +72,28 @@ export function compute(pp) {
     d2: +d2.toFixed(6),
     delta_risk_band: deltaRiskBand,
     type: pp.type || 'call',
-    compliance_flags: complianceFlags,
   };
+
+  return { output_payload, compliance_flags: complianceFlags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const result = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id: meta.tool_id,
-    mcp_name: meta.mcp_name,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    output_payload: result,
-    compliance_flags: result.compliance_flags,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

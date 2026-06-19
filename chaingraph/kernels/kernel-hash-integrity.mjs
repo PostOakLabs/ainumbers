@@ -18,8 +18,8 @@
 // the default probe input is reported as "needs a fixture" (kernel-contract.test.mjs covers those),
 // not hard-failed, to avoid false positives on input-sensitive kernels.
 //
-// Usage:  node kernel-hash-integrity.mjs            (hard-fail on new/regressed breakage only)
-//         node kernel-hash-integrity.mjs --strict   (also fail while ANY debt remains)
+// Usage:  node kernel-hash-integrity.mjs            (strict by default — fails on any debt or new breakage)
+//         node kernel-hash-integrity.mjs --no-strict (warn-only on debt, hard-fail only on new breakage)
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -28,7 +28,7 @@ import { executionHash } from './_hash.mjs';
 import { KERNELS } from './index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const STRICT = process.argv.includes('--strict');
+const STRICT = !process.argv.includes('--no-strict');
 const norm = (h) => String(h ?? '').replace(/^sha256:/, '');
 const isHex64 = (h) => /^[a-f0-9]{64}$/.test(norm(h));
 

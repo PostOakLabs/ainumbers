@@ -3,12 +3,17 @@
  * Tempo Payments Business Case — CPN corridor cost model vs incumbent rails.
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = 'art-35-tempo-payments-business-case';
+const TOOL_VERSION = '1.0.0';
 
 export const meta = {
-  tool_id:      'art-35-tempo-payments-business-case',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name:     'model_tempo_payment_economics',
   mandate_type: 'treasury_mandate',
-  version:      '1.0.0',
+  gpu:          false,
 };
 
 // Per-transaction fee tables for incumbent rails
@@ -83,7 +88,7 @@ export function compute(pp) {
   else if (verdict === 'EVALUATE') compliance_flags.push('TEMPO_EVALUATION_RECOMMENDED');
   else compliance_flags.push('TEMPO_HOLD');
 
-  return {
+  const output_payload = {
     verdict,
     rail,
     stablecoin,
@@ -95,16 +100,27 @@ export function compute(pp) {
     annual_saving_usd:       +annualSaving.toFixed(2),
     impl_cost_usd:           +implCost.toFixed(2),
     break_even_months:       isFinite(breakEvenMonths) ? +breakEvenMonths.toFixed(1) : null,
-    compliance_flags,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:      meta.tool_id,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    ...r,
-    inputs: pp,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

@@ -4,11 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
 
+import { executionHash } from './_hash.mjs';
+
+const TOOL_ID = '511-multi-currency-pvp-validator';
+const TOOL_VERSION = '1.0.0';
+
 export const meta = {
-  tool_id:      '511-multi-currency-pvp-validator',
+  tool_id:      TOOL_ID,
+  tool_version: TOOL_VERSION,
   mcp_name:     'validate_pvp_settlement',
   mandate_type: 'settlement_mandate',
-  version:      '1.0.0',
+  gpu: false,
 };
 
 // FX reference rates (mid-2025 USD base)
@@ -136,7 +142,7 @@ export function compute(pp) {
   if (verdict === 'PASS')        compliance_flags.push('PFMI_P12_SATISFIED');
   if (verdict === 'FAIL')        compliance_flags.push('PFMI_P12_VIOLATED');
 
-  return {
+  const output_payload = {
     verdict,
     pfmi_p12_status:      pfmiStatus,
     herstatt_risk_status: herstattStatus,
@@ -148,22 +154,27 @@ export function compute(pp) {
     saccr_fx_addon_usd:   saccrFxAddon,
     leg_count:            legResults.length,
     legs:                 legResults,
-    compliance_flags,
   };
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:      meta.tool_id,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
-    ...r,
-    inputs: {
-      atomicity_type:       pp.atomicity_type,
-      finality_type:        pp.finality_type,
-      has_unwind_procedure: pp.has_unwind_procedure,
-      canton_leg:           pp.canton_leg,
-      leg_count:            (pp.legs ?? []).length,
-    },
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
