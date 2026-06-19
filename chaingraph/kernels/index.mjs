@@ -3,6 +3,10 @@
 // generate.mjs (server repo) vendors repo/chaingraph/kernels/ into data/kernels/.
 // As each gpu:false node is ported (Workstream A), add one line here.
 
+import * as art02  from './art-02-agent-spend-policy-simulator.kernel.mjs';
+import * as art07  from './art-07-basel31-reporting-delta-calculator.kernel.mjs';
+import * as art08  from './art-08-en16931-einvoice-batch-validator.kernel.mjs';
+import * as art10  from './art-10-amla-transaction-typology-risk-scorer.kernel.mjs';
 import * as art01  from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art03  from './art-03-x402-settlement-modeler.kernel.mjs';
 import * as art04  from './art-04-agent-identity-attestation-checker.kernel.mjs';
@@ -49,17 +53,32 @@ import * as t512   from './512-tokenized-security-lifecycle-validator.kernel.mjs
 import * as t513   from './513-margin-call-collateral-mobilizer.kernel.mjs';
 import * as t514   from './514-tokenized-fund-collateral-validator.kernel.mjs';
 import * as t515   from './515-collateral-swap-eligibility-validator.kernel.mjs';
+import * as cry01  from './cry-01-zk-compliance-proof-generator.kernel.mjs';
 import * as cry04  from './cry-04-merkle-batch-verifier.kernel.mjs';
 import * as cry05  from './cry-05-agent-action-audit-trail-aggregator.kernel.mjs';
+import * as ml02   from './ml-02-credit-default-risk-scorer.kernel.mjs';
 import * as ml01   from './ml-01-isolation-forest.kernel.mjs';
 import * as ml03   from './ml-03-timeseries-anomaly-detector.kernel.mjs';
+import * as mms03  from './mms-03-app-fraud-graph.kernel.mjs';
+import * as pnr01  from './pnr-01-dora-ict-cascade-simulator.kernel.mjs';
 import * as ptg01  from './ptg-01-ap2-prompt-template-generator.kernel.mjs';
 import * as qfa01  from './qfa-01-options-greeks.kernel.mjs';
+import * as qfa02  from './qfa-02-portfolio-var-engine.kernel.mjs';
+import * as qfa03  from './qfa-03-stress-test-engine.kernel.mjs';
+import * as qfa04  from './qfa-04-xva-cva-calculator.kernel.mjs';
 import * as rca01  from './rca-01-frtb-ima-pre-validator.kernel.mjs';
+import * as rca02  from './rca-02-mica-reserve-stress.kernel.mjs';
+import * as rca03  from './rca-03-iso20022-address-migration-verifier.kernel.mjs';
+import * as sim01  from './sim-01-lcr-nsfr-liquidity-stress-test.kernel.mjs';
+import * as sim03  from './sim-03-basel-rwa-scenario-modeler.kernel.mjs';
 import * as sim07  from './sim-07-open-banking-consent-flow-stress.kernel.mjs';
 
 export const KERNELS = {
   // ART series — agent / agentic payments / compliance
+  'art-02-agent-spend-policy-simulator':             art02,
+  'art-07-basel31-reporting-delta-calculator':       art07,
+  'art-08-en16931-einvoice-batch-validator':         art08,
+  'art-10-amla-transaction-typology-risk-scorer':    art10,
   'art-01-ap2-mandate-chain-validator':              art01,
   'art-03-x402-settlement-modeler':                  art03,
   'art-04-agent-identity-attestation-checker':       art04,
@@ -108,14 +127,25 @@ export const KERNELS = {
   '513-margin-call-collateral-mobilizer':            t513,
   '514-tokenized-fund-collateral-validator':         t514,
   '515-collateral-swap-eligibility-validator':       t515,
-  // CRY / ML / PTG / QFA / RCA / SIM prefixes
+  // CRY / ML / MMS / PNR / PTG / QFA / RCA / SIM prefixes
+  'cry-01-zk-compliance-proof-generator':            cry01,
   'cry-04-merkle-batch-verifier':                    cry04,
   'cry-05-agent-action-audit-trail-aggregator':      cry05,
   'ml-01-isolation-forest':                          ml01,
+  'ml-02-credit-default-risk-scorer':                ml02,
   'ml-03-timeseries-anomaly-detector':               ml03,
+  'mms-03-app-fraud-graph':                          mms03,
+  'pnr-01-dora-ict-cascade-simulator':               pnr01,
   'ptg-01-ap2-prompt-template-generator':            ptg01,
   'qfa-01-options-greeks':                           qfa01,
+  'qfa-02-portfolio-var-engine':                     qfa02,
+  'qfa-03-stress-test-engine':                       qfa03,
+  'qfa-04-xva-cva-calculator':                       qfa04,
   'rca-01-frtb-ima-pre-validator':                   rca01,
+  'rca-02-mica-reserve-stress':                      rca02,
+  'rca-03-iso20022-address-migration-verifier':      rca03,
+  'sim-01-lcr-nsfr-liquidity-stress-test':           sim01,
+  'sim-03-basel-rwa-scenario-modeler':               sim03,
   'sim-07-open-banking-consent-flow-stress':         sim07,
 };
 
