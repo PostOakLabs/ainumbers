@@ -40,6 +40,12 @@ import * as art38  from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art39  from './art-39-tempo-zone-disclosure.kernel.mjs';
 import * as art40  from './art-40-tempo-agentic-checkout.kernel.mjs';
 import * as art41  from './art-41-tempo-validator-readiness.kernel.mjs';
+import * as art42  from './art-42-arc-fit-diagnostic.kernel.mjs';
+import * as art43  from './art-43-arc-cpn-model.kernel.mjs';
+import * as art44  from './art-44-arc-stablefx-model.kernel.mjs';
+import * as art45  from './art-45-arc-xreserve-linter.kernel.mjs';
+import * as art46  from './art-46-arc-paymaster-model.kernel.mjs';
+import * as art47  from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -113,6 +119,13 @@ export const KERNELS = {
   'art-39-tempo-zone-disclosure':                    art39,
   'art-40-tempo-agentic-checkout':                   art40,
   'art-41-tempo-validator-readiness':                art41,
+  // ART Arc Network (wave 10)
+  'art-42-arc-fit-diagnostic':                      art42,
+  'art-43-arc-cpn-model':                           art43,
+  'art-44-arc-stablefx-model':                      art44,
+  'art-45-arc-xreserve-linter':                     art45,
+  'art-46-arc-paymaster-model':                     art46,
+  'art-47-arc-cctp-transfer':                       art47,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
