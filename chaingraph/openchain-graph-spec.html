@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenChainGraph Standard v0.3 — Technical Specification</title>
+<title>OpenChainGraph Standard v0.4 — Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -115,7 +115,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="nav-meta">
       <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.3.1</span>
+      <span class="nav-pill">v0.4.0</span>
     </div>
   </div>
 </nav>
@@ -123,7 +123,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.3.1</h1>
+    <h1>OpenChainGraph Standard v0.4.0</h1>
     <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive — all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved.</p>
   </div>
 </div>
@@ -144,7 +144,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s9">Party Identity — LEI &amp; did:key <span style="color:var(--green)">(new in v0.3)</span></a></li>
         <li><a href="#s10">OKF Companion Bundle <span style="color:var(--green)">(new in v0.3)</span></a></li>
         <li><a href="#s11">Profile Conformance <span style="color:var(--green)">(new in v0.3.1)</span></a></li>
-        <li><a href="#s12">Changelog</a></li>
+        <li><a href="#s12">Compute Binding <span style="color:var(--green)">(new in v0.4)</span></a></li>
+        <li><a href="#s13">Changelog</a></li>
       </ol>
     </div>
   </div>
@@ -724,13 +725,110 @@ const is_valid = await crypto.subtle.verify(
   </div>
 </div>
 
-<!-- ═══ §12 Changelog ═══ -->
+<!-- ═══ §12 Compute Binding (new in v0.4) ═══ -->
 <div class="section" id="s12">
   <div class="wrap">
     <div class="sec-num">Section 12</div>
+    <h2>Compute Binding <span style="font-size:.75em;font-weight:400;color:var(--green)">new in v0.4</span></h2>
+    <p>OpenChainGraph v0.4 introduces <strong>Compute Binding</strong> — the mechanism by which an MCP tool computes a node's decision function <em>server-side</em> and returns a fully verifiable <code>v0.4</code> artifact in a single round-trip, instead of delegating to the browser. This makes every <code>gpu:false</code> node with a registered kernel <em>agent-native</em>: an AI agent can call the tool, receive the structured <code>output_payload</code> and <code>execution_hash</code>, and immediately chain to downstream tools without requiring a browser session.</p>
+
+    <h3>§12.1 — compute_capability field</h3>
+    <p>Every live node in <code>chaingraph.json</code> carries a <code>compute_capability</code> field that declares how the Worker will dispatch it:</p>
+
+    <pre>{
+  <span class="k">"tool_id"</span>:            <span class="v">"art-05-eu-ai-act-credit-scoring-conformity"</span>,
+  <span class="k">"gpu"</span>:                <span class="n">false</span>,
+  <span class="k">"compute_capability"</span>: <span class="v">"server"</span>   <span class="c">// "server" | "browser" | "auto"</span>
+}</pre>
+
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem;margin:1rem 0">
+      <thead>
+        <tr style="background:rgba(255,255,255,.06)">
+          <th style="padding:.5rem .8rem;text-align:left;border-bottom:1px solid rgba(255,255,255,.1)">Value</th>
+          <th style="padding:.5rem .8rem;text-align:left;border-bottom:1px solid rgba(255,255,255,.1)">Condition</th>
+          <th style="padding:.5rem .8rem;text-align:left;border-bottom:1px solid rgba(255,255,255,.1)">Worker behaviour</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)"><code>"server"</code></td>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)"><code>gpu:false</code> + kernel registered in <code>kernels/index.mjs</code></td>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)">Runs the kernel, returns artifact. Falls back to browser delegation if <code>compute:"browser"</code> is passed.</td>
+        </tr>
+        <tr>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)"><code>"browser"</code></td>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)"><code>gpu:true</code></td>
+          <td style="padding:.45rem .8rem;border-bottom:1px solid rgba(255,255,255,.07)">Always returns the browser delegation URL + structured metadata. Compute runs client-side.</td>
+        </tr>
+        <tr>
+          <td style="padding:.45rem .8rem"><code>"auto"</code></td>
+          <td style="padding:.45rem .8rem"><code>gpu:false</code> + no kernel yet</td>
+          <td style="padding:.45rem .8rem">Behaves like <code>"browser"</code> today; transitions to <code>"server"</code> when a kernel is added — no schema change needed.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>§12.2 — GPU delegation and the compute parameter</h3>
+    <p>Callers may override dispatch per-call using the <code>compute</code> input parameter on any ChainGraph MCP tool:</p>
+    <pre>{
+  <span class="k">"compute"</span>: <span class="v">"auto"</span>    <span class="c">// default — server for gpu:false nodes with kernels</span>
+  <span class="k">"compute"</span>: <span class="v">"server"</span>  <span class="c">// force server-side (errors if no kernel)</span>
+  <span class="k">"compute"</span>: <span class="v">"browser"</span> <span class="c">// always return browser delegation URL</span>
+}</pre>
+    <p>Nodes with <code>gpu:true</code> ignore <code>compute</code> and always delegate to the browser — the GPU dependency cannot be satisfied server-side. Future nodes may carry a per-node <code>gpu_fallback</code> flag for seeded LCG reduced-path approximation, but this is not part of v0.4.</p>
+
+    <h3>§12.3 — Kernel pattern</h3>
+    <p>A kernel is a pure ESM module at <code>repo/chaingraph/kernels/&lt;tool-id&gt;.kernel.mjs</code> exporting three symbols:</p>
+    <pre><span class="c">// compute(pp) → { output_payload, compliance_flags }
+// Pure: no DOM, no window, no network, no Date.now().
+// policy_parameters is passed verbatim so the execution_hash anchors the full input.</span>
+export function compute(policy_parameters) { … }
+
+<span class="c">// buildArtifact(pp, opts) → Promise&lt;v0.4 artifact object&gt;
+// Calls compute(), then hashes with executionHash() from _hash.mjs.</span>
+export async function buildArtifact(pp, { now, parent_hashes, parent_tool_ids, chain_depth } = {}) { … }
+
+<span class="c">// Static metadata for the Worker registry.</span>
+export const meta = { tool_id, tool_version, gpu: false, mandate_type };</pre>
+    <p>Kernels are vendored from <code>repo/chaingraph/kernels/</code> into both <code>mcp-apps-poc/kernels/</code> (bundled into the Worker by wrangler/esbuild) and <code>mcp-apps-poc/data/kernels/</code> (served as static assets) by running <code>node generate.mjs</code> before every push.</p>
+
+    <h3>§12.4 — Privacy boundary</h3>
+    <p>The zero-egress contract is preserved for all compute modes. Server-side kernels are pure functions: they receive <code>policy_parameters</code>, run deterministic logic, and return <code>output_payload</code>. No policy parameters, outputs, or user data are logged, stored, or transmitted beyond the JSON-RPC response. The only telemetry written is structural metadata (tool name, latency, success/error flag, and a salted one-way hash of the caller IP — never the payload). <code>gpu:true</code> nodes continue to run entirely in the user's browser with zero network egress.</p>
+
+    <h3>§12.5 — v0.4 artifact schema delta</h3>
+    <p>The v0.4 artifact adds two fields to the v0.3.1 envelope:</p>
+    <pre>{
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.4.0"</span>,           <span class="c">// bumped from 0.3.x</span>
+  <span class="k">"compute_mode"</span>:       <span class="v">"server"</span>,           <span class="c">// "server" | "browser" — new in v0.4</span>
+  …                                          <span class="c">// all v0.3 fields retained</span>
+}</pre>
+    <p>The <strong>hash preimage definition is unchanged</strong> — <code>execution_hash</code> is still <code>SHA-256(JCS({ policy_parameters, output_payload }))</code>. A v0.4 artifact is verifiable by any v0.3 verifier that ignores unknown fields.</p>
+  </div>
+</div>
+
+<!-- ═══ §13 Changelog ═══ -->
+<div class="section" id="s13">
+  <div class="wrap">
+    <div class="sec-num">Section 13</div>
     <h2>Changelog</h2>
 
-    <h3 style="margin-top:.4rem">Maintenance — 2026-06-18 (no version change)</h3>
+    <h3 style="margin-top:.4rem">v0.3.1 → v0.4.0 — 2026-06-19</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§12 (new)</span>
+        <span class="change-desc"><strong>Compute Binding.</strong> Added <code>compute_capability</code> field to all live nodes (<code>"server"</code> | <code>"browser"</code> | <code>"auto"</code>); added <code>compute</code> override parameter on all ChainGraph MCP tools; <code>compute_mode</code> field in artifact envelope. Kernels extracted for art-05 (EU AI Act credit-scoring conformity), art-06 (GENIUS Act reserve attestation), art-09 (DORA incident classifier), art-29 (DORA readiness diagnostic) — joining art-01, art-03, art-04, art-11, art-12. <code>chaingraph_version</code> advanced to <code>"0.4.0"</code> in artifacts. Hash preimage unchanged.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">CI gate</span>
+        <span class="change-desc"><strong>Layer 3 mcp_name uniqueness check</strong> in <code>validate-chains.mjs</code>. Errors pre-deploy if any two live nodes share an <code>mcp_name</code>, or if any node name collides with a PILOT widget or utility tool name — the class of registration crash that caused the 2026-06-19 outage. Complements the existing runtime dedup guard in <code>worker.mjs</code>.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">CI gate</span>
+        <span class="change-desc"><strong>Post-deploy /mcp smoke test</strong> (<code>scripts/smoke-mcp.mjs</code>). Performs a real MCP <code>initialize</code> handshake against the live endpoint after every deploy, with 6 retries and 4s edge-propagation delay. Catches runtime registration throws that the bundle dry-run cannot catch. A failure turns the deploy job red immediately.</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">Maintenance — 2026-06-18 (no version change)</h3>
     <div style="margin-top:.6rem">
       <div class="change-row">
         <span class="change-ref">§2 Hashing</span>
