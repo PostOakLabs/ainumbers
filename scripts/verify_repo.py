@@ -36,6 +36,7 @@ HASH_GATES = [
     ("golden parity",        "golden-parity.test.mjs"),  # pinned execution_hash drift
     ("art-01 kernel parity", "parity-art-01.test.mjs"),  # canonicalizer self-test
     ("kernel contract",      "kernel-contract.test.mjs"),# every kernel ships a fixture + buildArtifact is self-consistent (live hash_valid)
+    ("kernel hash integrity","kernel-hash-integrity.mjs"),# fixture-free: every live gpu:false kernel emits a self-consistent canonical hash (debt ratchet)
 ]
 
 # CONTRACT §1.3 canonical PII text prefix (enough to confirm correct wording)
