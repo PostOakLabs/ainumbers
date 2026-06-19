@@ -14,17 +14,13 @@
  *   8. role_segregation   — mint/burn roles must be separate from admin
  */
 
-export const meta = {
-  tool_id:      'art-45-arc-xreserve-linter',
-  mcp_name:     'lint_arc_xreserve_config',
-  mandate_type: 'compliance_mandate',
-  version:      '1.0.0',
-};
+import { executionHash } from './_hash.mjs';
 
-// Attestation cadence weights (monthly or better = pass)
+const TOOL_ID      = 'art-45-arc-xreserve-linter';
+const TOOL_VERSION = '1.0.0';
+
 const CADENCE_PASS = new Set(['daily', 'weekly', 'monthly']);
 
-// Grade by fail + warn count
 function grade(failCount, warnCount) {
   if (failCount === 0 && warnCount === 0) return 'A';
   if (failCount === 0 && warnCount <= 1)  return 'B';
@@ -36,17 +32,17 @@ function grade(failCount, warnCount) {
 
 export function compute(pp) {
   const {
-    usdc_pct              = 0,
-    usyc_pct              = 0,
-    other_pct             = 0,
-    us_issuers_only       = false,
-    yield_enabled         = false,
-    is_us_ppsi            = true,   // US Payment Stablecoin Issuer → yield prohibition applies
-    is_eu_emt             = false,  // EU EMT issuer → MiCA Art. 54 applies
-    reserve_segregated    = false,
-    cctp_domains          = 0,
-    attestation_cadence   = 'quarterly',
-    mint_role_segregated  = false,
+    usdc_pct             = 0,
+    usyc_pct             = 0,
+    other_pct            = 0,
+    us_issuers_only      = false,
+    yield_enabled        = false,
+    is_us_ppsi           = true,
+    is_eu_emt            = false,
+    reserve_segregated   = false,
+    cctp_domains         = 0,
+    attestation_cadence  = 'quarterly',
+    mint_role_segregated = false,
   } = pp;
 
   const usdcPct  = Number(usdc_pct);
@@ -57,7 +53,7 @@ export function compute(pp) {
   const checks = [];
 
   // Check 1: reserve sum
-  const reserveSum = usdcPct + usycPct + otherPct;
+  const reserveSum     = usdcPct + usycPct + otherPct;
   const reserveSumPass = Math.abs(reserveSum - 100) < 0.01;
   checks.push({
     id:      'reserve_sum',
@@ -69,7 +65,7 @@ export function compute(pp) {
     cite:    'GENIUS Act §4; xReserve Program Terms §3',
   });
 
-  // Check 2: US issuers only (GENIUS §4 eligible assets)
+  // Check 2: US issuers only
   const usIssuersPass = !!us_issuers_only;
   checks.push({
     id:      'us_issuers_only',
@@ -81,7 +77,7 @@ export function compute(pp) {
     cite:    'GENIUS Act §4(a)',
   });
 
-  // Check 3: yield prohibition (US PPSI only)
+  // Check 3: yield prohibition
   const yieldWarn = is_us_ppsi && yield_enabled;
   checks.push({
     id:      'genius_yield',
@@ -93,7 +89,7 @@ export function compute(pp) {
     cite:    'GENIUS Act §4(a)(11)',
   });
 
-  // Check 4: MiCA Art. 54 reserve segregation (EU EMT issuers only)
+  // Check 4: MiCA Art. 54 reserve segregation
   const micaApplies = !!is_eu_emt;
   const micaPass    = !micaApplies || !!reserve_segregated;
   const micaWarn    = micaApplies && !reserve_segregated;
@@ -139,7 +135,7 @@ export function compute(pp) {
     cite:    'CCTP v2 docs; xReserve cross-chain eligibility',
   });
 
-  // Check 7: attestation cadence ≤ monthly
+  // Check 7: attestation cadence
   const attestPass = CADENCE_PASS.has(attestation_cadence);
   const attestWarn = !attestPass;
   checks.push({
@@ -164,10 +160,9 @@ export function compute(pp) {
     cite:    'GENIUS Act §4(a)(8); xReserve Program Terms §6',
   });
 
-  // Aggregate
-  const failCount = checks.filter(c => !c.pass && !c.warn).length;
-  const warnCount = checks.filter(c => c.warn).length;
-  const verdict   = failCount === 0 ? (warnCount === 0 ? 'PASS' : 'WARN') : 'FAIL';
+  const failCount    = checks.filter(c => !c.pass && !c.warn).length;
+  const warnCount    = checks.filter(c => c.warn).length;
+  const verdict      = failCount === 0 ? (warnCount === 0 ? 'PASS' : 'WARN') : 'FAIL';
   const overallGrade = grade(failCount, warnCount);
 
   const compliance_flags = checks
@@ -176,27 +171,37 @@ export function compute(pp) {
   compliance_flags.push(`VERDICT_${verdict}`);
   compliance_flags.push(`GRADE_${overallGrade}`);
 
-  return {
+  const output_payload = {
     verdict,
-    grade:     overallGrade,
+    grade:      overallGrade,
     fail_count: failCount,
     warn_count: warnCount,
     checks,
     compliance_flags,
   };
+
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:          meta.tool_id,
-    mandate_type:     meta.mandate_type,
-    verdict:          r.verdict,
-    grade:            r.grade,
-    fail_count:       r.fail_count,
-    warn_count:       r.warn_count,
-    checks:           r.checks,
-    compliance_flags: r.compliance_flags,
-    inputs:           pp,
+    '@context':         'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version:        '1.0.0',
+    mandate_type:       'compliance_mandate',
+    tool_id:            TOOL_ID,
+    tool_version:       TOOL_VERSION,
+    generated_at:       now ?? null,
+    execution_hash:     hash,
+    chain:              { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters:  pp,
+    output_payload,
+    compliance_flags,
+    compute_mode:       'server',
+    audit_signature:    { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, gpu: false, mandate_type: 'compliance_mandate' };

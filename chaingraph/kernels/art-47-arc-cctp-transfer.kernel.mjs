@@ -8,21 +8,17 @@
  * FATF R16 / GENIUS Act PPSI: Travel Rule applies ≥$3,000 cross-border.
  */
 
-export const meta = {
-  tool_id:      'art-47-arc-cctp-transfer',
-  mcp_name:     'validate_cctp_v2_transfer',
-  mandate_type: 'settlement_mandate',
-  version:      '1.0.0',
-};
+import { executionHash } from './_hash.mjs';
 
-// CCTP v2 supported domains as of Oct 2025 (13 domains)
+const TOOL_ID      = 'art-47-arc-cctp-transfer';
+const TOOL_VERSION = '1.0.0';
+
 const CCTP_V2_DOMAINS = new Set([
   'ethereum', 'base', 'arbitrum', 'optimism', 'polygon',
   'avalanche', 'solana', 'noble', 'sui', 'linea',
   'arc', 'unichain', 'worldchain',
 ]);
 
-// Fast Transfer currently available on select domain pairs (non-exhaustive subset)
 const FAST_TRANSFER_PAIRS = new Set([
   'ethereum:base', 'base:ethereum',
   'ethereum:arbitrum', 'arbitrum:ethereum',
@@ -31,13 +27,9 @@ const FAST_TRANSFER_PAIRS = new Set([
   'arc:base', 'base:arc',
 ]);
 
-// Large notional threshold for LP depth risk (Fast Transfer relies on LP pre-funding)
-const LARGE_NOTIONAL_THRESHOLD = 1_000_000; // $1M
+const LARGE_NOTIONAL_THRESHOLD = 1_000_000;
+const TRAVEL_RULE_THRESHOLD    = 3_000;
 
-// Travel Rule threshold (FATF R16 / GENIUS PPSI)
-const TRAVEL_RULE_THRESHOLD = 3_000; // $3,000
-
-// Grade by fail/warn counts
 function grade(failCount, warnCount) {
   if (failCount === 0 && warnCount === 0) return 'A';
   if (failCount === 0 && warnCount === 1) return 'B';
@@ -49,25 +41,25 @@ function grade(failCount, warnCount) {
 
 export function compute(pp) {
   const {
-    source_domain  = '',
-    dest_domain    = '',
-    notional_usd   = 0,
-    transfer_mode  = 'standard', // 'standard' | 'fast'
-    hook_payload   = null,       // string or null
-    using_v1       = false,
+    source_domain = '',
+    dest_domain   = '',
+    notional_usd  = 0,
+    transfer_mode = 'standard',
+    hook_payload  = null,
+    using_v1      = false,
   } = pp;
 
-  const src       = source_domain.toLowerCase().trim();
-  const dst       = dest_domain.toLowerCase().trim();
-  const notional  = Number(notional_usd) || 0;
-  const isFast    = transfer_mode === 'fast';
-  const pairKey   = `${src}:${dst}`;
+  const src      = source_domain.toLowerCase().trim();
+  const dst      = dest_domain.toLowerCase().trim();
+  const notional = Number(notional_usd) || 0;
+  const isFast   = transfer_mode === 'fast';
+  const pairKey  = `${src}:${dst}`;
 
   const checks = [];
 
-  // Check 1: Domain eligibility (both endpoints must be in CCTP v2 domain list)
-  const srcValid  = CCTP_V2_DOMAINS.has(src);
-  const dstValid  = CCTP_V2_DOMAINS.has(dst);
+  // Check 1: Domain eligibility
+  const srcValid   = CCTP_V2_DOMAINS.has(src);
+  const dstValid   = CCTP_V2_DOMAINS.has(dst);
   const domainPass = srcValid && dstValid;
   checks.push({
     id:      'domain_eligibility',
@@ -86,7 +78,6 @@ export function compute(pp) {
   // Check 2: Fast Transfer eligibility
   const fastPairKnown = FAST_TRANSFER_PAIRS.has(pairKey);
   const fastWarn      = isFast && !fastPairKnown;
-  const fastNote      = isFast && fastPairKnown;
   checks.push({
     id:      'fast_transfer',
     pass:    !fastWarn,
@@ -112,7 +103,7 @@ export function compute(pp) {
     cite: 'CCTP v2 Hooks spec; EVM reentrancy risk (SWC-107)',
   });
 
-  // Check 4: CCTP v1 sunset migration
+  // Check 4: CCTP v1 sunset
   const v1Warn = !!using_v1;
   checks.push({
     id:      'v1_sunset',
@@ -124,7 +115,7 @@ export function compute(pp) {
     cite: 'Circle announcement — CCTP v1 manual relay phase-out 31 Jul 2026',
   });
 
-  // Check 5: Large notional LP depth risk (Fast Transfer only)
+  // Check 5: Large notional LP depth risk
   const lpRiskWarn = isFast && notional > LARGE_NOTIONAL_THRESHOLD;
   checks.push({
     id:      'lp_depth_risk',
@@ -138,7 +129,7 @@ export function compute(pp) {
     cite: 'CCTP v2 Fast Transfer LP financing model',
   });
 
-  // Check 6: Travel Rule (FATF R16 / GENIUS Act PPSI AML NPRM)
+  // Check 6: Travel Rule
   const travelRuleRequired = notional >= TRAVEL_RULE_THRESHOLD;
   const travelRuleWarn     = travelRuleRequired;
   checks.push({
@@ -151,7 +142,6 @@ export function compute(pp) {
     cite: 'FATF Recommendation 16; GENIUS Act PPSI AML NPRM (Fed. Reg. 2026-06963)',
   });
 
-  // Aggregate
   const failCount    = checks.filter(c => !c.pass && !c.warn).length;
   const warnCount    = checks.filter(c => c.warn).length;
   const verdict      = failCount === 0 ? (warnCount === 0 ? 'PASS' : 'WARN') : 'FAIL';
@@ -162,11 +152,11 @@ export function compute(pp) {
     .map(c => c.warn ? `WARN_${c.id.toUpperCase()}` : `FAIL_${c.id.toUpperCase()}`);
   compliance_flags.push(`VERDICT_${verdict}`);
 
-  return {
+  const output_payload = {
     verdict,
-    grade:       overallGrade,
-    fail_count:  failCount,
-    warn_count:  warnCount,
+    grade:        overallGrade,
+    fail_count:   failCount,
+    warn_count:   warnCount,
     source_domain: src || source_domain,
     dest_domain:   dst || dest_domain,
     transfer_mode,
@@ -174,23 +164,29 @@ export function compute(pp) {
     checks,
     compliance_flags,
   };
+
+  return { output_payload, compliance_flags };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:          meta.tool_id,
-    mandate_type:     meta.mandate_type,
-    verdict:          r.verdict,
-    grade:            r.grade,
-    fail_count:       r.fail_count,
-    warn_count:       r.warn_count,
-    source_domain:    r.source_domain,
-    dest_domain:      r.dest_domain,
-    transfer_mode:    r.transfer_mode,
-    notional_usd:     r.notional_usd,
-    checks:           r.checks,
-    compliance_flags: r.compliance_flags,
-    inputs:           pp,
+    '@context':         'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    ap2_version:        '1.0.0',
+    mandate_type:       'settlement_mandate',
+    tool_id:            TOOL_ID,
+    tool_version:       TOOL_VERSION,
+    generated_at:       now ?? null,
+    execution_hash:     hash,
+    chain:              { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters:  pp,
+    output_payload,
+    compliance_flags,
+    compute_mode:       'server',
+    audit_signature:    { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, gpu: false, mandate_type: 'settlement_mandate' };
