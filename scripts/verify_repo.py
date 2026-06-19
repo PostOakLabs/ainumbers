@@ -35,6 +35,7 @@ HASH_GATES = [
     ("forbidden-hash lint",  "lint-forbidden-hash.mjs"), # no array-replacer / fake simpleHash
     ("golden parity",        "golden-parity.test.mjs"),  # pinned execution_hash drift
     ("art-01 kernel parity", "parity-art-01.test.mjs"),  # canonicalizer self-test
+    ("kernel contract",      "kernel-contract.test.mjs"),# every kernel ships a fixture + buildArtifact is self-consistent (live hash_valid)
 ]
 
 # CONTRACT §1.3 canonical PII text prefix (enough to confirm correct wording)
