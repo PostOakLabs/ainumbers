@@ -410,16 +410,18 @@ function renderResults(r){
   document.getElementById('resultsPanel').classList.add('visible');
 
   // Artifact (computed async)
-  sha256({policy_parameters:{ead_bn:r.eadBn,mc_n:r.mcN},output_payload:{sacr_rwa_bn:Math.round(r.sacrRWA*100)/100,firb_floored_bn:Math.round(r.firbFloored*100)/100,airb_floored_bn:Math.round(r.airbFloored*100)/100}}).then(hash=>{
+  const _policyParameters={ead_bn:r.eadBn,firb_pd_pct:r.firbPd*100,firb_lgd_pct:r.firbLgd*100,airb_pd_pct:r.airbPd*100,airb_lgd_pct:r.airbLgd*100,mc_n:r.mcN};
+  const _outputPayload={sacr_rwa_bn:Math.round(r.sacrRWA*100)/100,firb_rwa_bn:Math.round(r.firbRWA*100)/100,airb_rwa_bn:Math.round(r.airbRWA*100)/100,floor_rwa_bn:Math.round(r.floorRWA*100)/100,firb_floored_bn:Math.round(r.firbFloored*100)/100,airb_floored_bn:Math.round(r.airbFloored*100)/100,floor_binding:{firb:r.firbFloorBinding,airb:r.airbFloorBinding}};
+  sha256({policy_parameters:_policyParameters,output_payload:_outputPayload}).then(hash=>{
     _artifact={'@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
 chaingraph_version: '0.3.1',
 buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
-ap2_version:'1.0.0',mandate_type:'capital_assessment',tool_id:'sim-03-basel-rwa-scenario-modeler',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{ead_bn:r.eadBn,firb_pd_pct:r.firbPd*100,firb_lgd_pct:r.firbLgd*100,airb_pd_pct:r.airbPd*100,airb_lgd_pct:r.airbLgd*100,mc_n:r.mcN},output_payload:{sacr_rwa_bn:Math.round(r.sacrRWA*100)/100,firb_rwa_bn:Math.round(r.firbRWA*100)/100,airb_rwa_bn:Math.round(r.airbRWA*100)/100,floor_rwa_bn:Math.round(r.floorRWA*100)/100,firb_floored_bn:Math.round(r.firbFloored*100)/100,airb_floored_bn:Math.round(r.airbFloored*100)/100,floor_binding:{firb:r.firbFloorBinding,airb:r.airbFloorBinding}},compliance_flags:r.firbFloorBinding||r.airbFloorBinding?['OUTPUT_FLOOR_BINDING']:['OUTPUT_FLOOR_NOT_BINDING'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
+ap2_version:'1.0.0',mandate_type:'capital_assessment',tool_id:'sim-03-basel-rwa-scenario-modeler',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_policyParameters,output_payload:_outputPayload,compliance_flags:r.firbFloorBinding||r.airbFloorBinding?['OUTPUT_FLOOR_BINDING']:['OUTPUT_FLOOR_NOT_BINDING'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
   });
 }
 
 /* Utils */
-async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function sha256(obj){const c=__ocgCanonStr(obj);const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function sv(id,vid,fmt){const v=parseFloat(document.getElementById(id).value);document.getElementById(vid).textContent=fmt?fmt(v):v;}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`sim-03_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
@@ -430,6 +432,12 @@ function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=docum
 document.querySelectorAll('.approach-toggle').forEach(lbl=>{lbl.addEventListener('click',()=>{lbl.classList.toggle('active');});});
 /* Init sliders */
 ['firbPd','firbLgd','airbPd','airbLgd'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

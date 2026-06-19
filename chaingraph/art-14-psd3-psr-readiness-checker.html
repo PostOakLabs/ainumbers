@@ -418,8 +418,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;
 </footer>
 
 <script>
-function simpleHash(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(Math.imul(h,0x01000193))>>>0;}return 'sha256:'+h.toString(16).padStart(8,'0')+(h^0xdeadbeef).toString(16).padStart(8,'0')+(h^0xcafebabe).toString(16).padStart(8,'0')+(h^0x12345678).toString(16).padStart(8,'0');}
-
 const PRESETS={
   bank_eu:{instType:'credit_institution',jurisdiction:'eu_single',psd2Status:'fully_compliant',openBankingLevel:'ob_live',
     tpp_pisp:false,tpp_aisp:false,tpp_piisp:false,tpp_none:true,
@@ -461,7 +459,7 @@ function selectPreset(name){
 
 let lastResult=null;
 
-function runAssessment(){
+async function runAssessment(){
   const instType=document.getElementById('instType').value;
   const jur=document.getElementById('jurisdiction').value;
   const psd2Status=document.getElementById('psd2Status').value;
@@ -567,10 +565,10 @@ function runAssessment(){
       scaLow,scaRec,scaTrusted,scaTRA,scaCorp,scaNone,consentMaturity,
       ofSavings,ofInv,ofIns,ofPen,ofMort,ofNone,fraudLiab,baasScope}};
 
-  renderResults();
+  await renderResults();
 }
 
-function renderResults(){
+async function renderResults(){
   const r=lastResult;
 
   // Gauge
@@ -653,7 +651,7 @@ function renderResults(){
     vt.textContent=`Overall readiness ${r.overall}/100 with ${r.gaps.length} minor gaps identified. Existing PSD2 compliance and Open Finance infrastructure position this institution well for PSD3 transposition. Priority actions: extend Open Finance data scope beyond payments per Art. 35, and refine consent granularity as regulatory technical standards are finalised (expected EBA consultation 2025–2026). Continue monitoring EU legislative timeline (~${r.months} months to transposition).`;
   }
 
-  buildExport();
+  await buildExport();
   document.getElementById('results').style.display='block';
 }
 
@@ -706,7 +704,7 @@ function drawRadar(domains){
   tt2.setAttribute('font-size','8');tt2.setAttribute('font-family','JetBrains Mono,monospace');tt2.textContent='Radar';svg.appendChild(tt2);
 }
 
-function buildExport(){
+async function buildExport(){
   const r=lastResult;
   const payload={
     overall_readiness_score:r.overall,
@@ -736,7 +734,7 @@ function buildExport(){
       baas_scope:r.params.baasScope
     }
   };
-  const execHash=simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const execHash=await __ocgHash(params, payload);
   const flags=[
     'PSD3_PSR_READINESS_ASSESSED',
     'COMPLIANCE_MANDATE_ISSUED',
@@ -791,6 +789,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

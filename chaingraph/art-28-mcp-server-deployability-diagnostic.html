@@ -178,7 +178,7 @@ footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3re
 
 /* ── §4 helpers ── */
 async function sha256(obj){
-  var sorted=JSON.stringify(obj,Object.keys(obj).sort());
+  var sorted=__ocgCanonStr(obj);
   var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sorted));
   return Array.from(new Uint8Array(buf)).map(function(b){return('0'+b.toString(16)).slice(-2);}).join('');
 }
@@ -304,11 +304,11 @@ async function runDiagnostic(){
     all_answered: allAnswered
   };
   _outputPayload = {
-    score_pct: pct,
-    grade: g,
-    domain_scores: domScores,
-    gap_count: gaps.length,
-    gap_severities: {no: gaps.filter(function(x){return x.sev==='no';}).length, partial: gaps.filter(function(x){return x.sev==='partial';}).length}
+    deployability_score: lastResult.score_pct,
+    grade: lastResult.grade,
+    domain_scores: lastResult.domains,
+    gaps: lastResult.gaps.map(function(x){return {question:x.q,severity:x.sev,remediation_tool:x.tname};}),
+    answers: lastResult.answers
   };
   _ap2Hash = await sha256({policy_parameters: _policyParams, output_payload: _outputPayload});
   var hr = el('hashRow'); hr.style.display='block'; el('hashVal').textContent=_ap2Hash;
@@ -335,13 +335,7 @@ function buildAndExport(){
     jurisdiction:['ZZ'],
     regulatory_frameworks:['MCP 2025-11-25','OAuth 2.1','OWASP ASVS'],
     policy_parameters: _policyParams,
-    output_payload: {
-      deployability_score: lastResult.score_pct,
-      grade: lastResult.grade,
-      domain_scores: lastResult.domains,
-      gaps: lastResult.gaps.map(function(x){return {question:x.q,severity:x.sev,remediation_tool:x.tname};}),
-      answers: lastResult.answers
-    },
+    output_payload: _outputPayload,
     execution_hash: _ap2Hash,
     chain:{
       chain_id:'mcp-server-deployability-diagnostic',
@@ -435,6 +429,12 @@ var MANIFEST={
   tags:['mcp','deployability','server','diagnostic','chaingraph','oauth','security'],
   audience:['developer','fintech','compliance','mcp-publisher']
 };
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

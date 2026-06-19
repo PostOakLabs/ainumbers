@@ -215,7 +215,7 @@ function toast(msg){ var t=el('toast'); t.textContent=msg; t.style.display='bloc
 
 /* ── async SHA-256 via WebCrypto ── */
 async function sha256(obj){
-  var sorted = JSON.stringify(obj, Object.keys(obj).sort());
+  var sorted = __ocgCanonStr(obj);
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sorted));
   return Array.from(new Uint8Array(buf)).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
@@ -373,7 +373,7 @@ async function buildAndExport(){
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',
       signatures: []
-    }
+    },
     valid_from: now.slice(0,10),
     valid_until: new Date(Date.now()+180*86400000).toISOString().slice(0,10),
     source_tool_inputs: lastResult.answers,
@@ -433,6 +433,12 @@ window.addEventListener('message', function(e){
     e.source.postMessage({type:'ain:mandate',mandate:window._lastArtifact||null},ro);
   }
 });
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

@@ -554,12 +554,12 @@ async function renderResults(r){
 
   // Artifact
   const policyParams={credential_type:type,chain_depth:delegates.length>0?Math.max(...delegates.map(d=>d.depth||0)):0,scope_count:allScopes.length};
-  const outputPayload={overall_status:overallStatus,pass,fail,warn,checks:checks.map(c=>({code:c.code,status:c.status}))};
+  const outputPayload={overall_status:overallStatus,pass,fail,warn,checks:checks.map(c=>({code:c.code,status:c.status})),root_agent_id:rootCred?.agent_id||null,scopes:allScopes};
   const hash=await sha256({policy_parameters:policyParams,output_payload:outputPayload});
   _artifact={'@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
 chaingraph_version: '0.3.1',
 buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
-ap2_version:'1.0.0',mandate_type:'compliance_mandate',tool_id:'art-04-agent-identity-attestation-checker',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:policyParams,output_payload:{...outputPayload,root_agent_id:rootCred?.agent_id||null,scopes:allScopes},compliance_flags:fail>0?['KYA_ATTESTATION_FAILED']:warn>0?['KYA_ATTESTED_WITH_WARNINGS']:['KYA_FULLY_ATTESTED'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
+ap2_version:'1.0.0',mandate_type:'compliance_mandate',tool_id:'art-04-agent-identity-attestation-checker',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:policyParams,output_payload:outputPayload,compliance_flags:fail>0?['KYA_ATTESTATION_FAILED']:warn>0?['KYA_ATTESTED_WITH_WARNINGS']:['KYA_FULLY_ATTESTED'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
 
   document.getElementById('ap2Btn').disabled=false;document.getElementById('ap2Btn').classList.add('ready');
   document.getElementById('mdBtn').disabled=false;document.getElementById('mdBtn').classList.add('ready');
@@ -568,7 +568,7 @@ ap2_version:'1.0.0',mandate_type:'compliance_mandate',tool_id:'art-04-agent-iden
 }
 
 /* ── Utils ── */
-async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function sha256(obj){const c=__ocgCanonStr(obj);const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 function loadPreset(k,ev){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));ev.currentTarget.classList.add('active');if(k==='custom'){document.getElementById('credInput').value='';return;}const d=PRESETS[k];if(d)document.getElementById('credInput').value=JSON.stringify(d,null,2);document.getElementById('credInput').classList.remove('err','ok');document.getElementById('resultsPanel').classList.remove('visible');}
 function fmtCred(){try{const v=JSON.parse(document.getElementById('credInput').value);document.getElementById('credInput').value=JSON.stringify(v,null,2);}catch{showToast('JSON parse error');}}
@@ -578,6 +578,12 @@ function exportMd(){if(!_lastResult||!_artifact)return;const r=_lastResult;const
 function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
 
 loadPreset('valid_chain',{currentTarget:document.querySelector('.tab-btn')});
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

@@ -149,7 +149,7 @@ footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
 /* OpenChainGraph nodes do not write ain_lang to sessionStorage */
 
 async function sha256(obj){
-  var canonical=JSON.stringify(obj,Object.keys(obj).sort());
+  var canonical=__ocgCanonStr(obj);
   var buf=new TextEncoder().encode(canonical);
   var hashBuf=await crypto.subtle.digest('SHA-256',buf);
   return Array.from(new Uint8Array(hashBuf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -351,6 +351,12 @@ function notice(msg,type){var d=document.getElementById('ainBridgeNotice');if(!d
 function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
 try{var hash=location.hash;if(hash&&hash.indexOf('#in=')===0){var raw=hash.slice(4),runNow=false;if(raw.indexOf('&run=1')>-1){raw=raw.replace('&run=1','');runNow=true;}var fields=JSON.parse(b64uDec(raw));var n=applyFields(fields);if(runNow){runTool();notice('Inputs prefilled and executed · '+n+' fields','ok');}else{notice('Inputs prefilled from link — review, then Run · '+n+' fields','warn');}}}catch(e){}
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

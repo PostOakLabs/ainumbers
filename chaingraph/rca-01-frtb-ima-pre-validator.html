@@ -326,12 +326,6 @@ function randn(rng) {
   const u1 = rng(), u2 = rng();
   return Math.sqrt(-2 * Math.log(u1 + 1e-15)) * Math.cos(2 * Math.PI * u2);
 }
-function simpleHash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
-  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
-}
-
 // ── FRTB liquidity horizon days ──────────────────────────────
 const LH_DAYS  = [10, 20, 40, 60, 120];
 const LH_LABELS = ['LH1 10d','LH2 20d','LH3 40d','LH4 60d','LH5 120d'];
@@ -479,14 +473,14 @@ async function startSim() {
     } catch(e) { parentHash = chainRaw.startsWith('sha256:') ? chainRaw : ''; }
   }
 
-  renderResults(parentHash, parentToolId);
+  await renderResults(parentHash, parentToolId);
   btn.disabled = false;
 }
 
 function fmt(v, dec=2) { return (v*100).toFixed(dec) + '%'; }
 function fmtES(v) { return (v*100).toFixed(3) + '%'; }
 
-function renderResults(parentHash, parentToolId) {
+async function renderResults(parentHash, parentToolId) {
   const r = simResult;
   document.getElementById('mES').textContent        = fmtES(r.es);
   document.getElementById('mESUndiv').textContent   = fmtES(r.undiversified);
@@ -524,7 +518,7 @@ function renderResults(parentHash, parentToolId) {
     vt.textContent = `PLA test GREEN (ratio ${r.plaRatio.toFixed(2)}), IMA capital ${fmtES(r.capitalIMA)} is not constrained by the SA floor (${fmtES(r.saFloor)}). This desk would be eligible for IMA treatment under FRTB subject to backtesting requirements. Capital benefit vs undiversified: ${((1 - r.es/r.undiversified)*100).toFixed(1)}% diversification credit.`;
   }
 
-  buildExport(parentHash, parentToolId);
+  await buildExport(parentHash, parentToolId);
   document.getElementById('results').style.display = 'block';
 }
 
@@ -646,7 +640,7 @@ function drawCapitalChart() {
   }
 }
 
-function buildExport(parentHash, parentToolId) {
+async function buildExport(parentHash, parentToolId) {
   const r = simResult;
   const p = simParams;
   const chainDepth = parentHash ? 1 : 0;
@@ -676,8 +670,7 @@ function buildExport(parentHash, parentToolId) {
       seed: p.seed
     }
   };
-  const hashInput = JSON.stringify({policy_parameters: params, output_payload: payload}, null, 0);
-  const execHash = simpleHash(hashInput);
+  const execHash = await __ocgHash(params, payload);
   const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -738,6 +731,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

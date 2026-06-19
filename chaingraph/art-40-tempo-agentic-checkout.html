@@ -262,7 +262,7 @@ document.getElementById('orderRef').addEventListener('input', function(){
 });
 
 async function sha256(obj){
-  var c=JSON.stringify(obj,Object.keys(obj).sort());
+  var c=__ocgCanonStr(obj);
   var b=new TextEncoder().encode(c);
   var h=await crypto.subtle.digest('SHA-256',b);
   return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -357,9 +357,12 @@ async function runMapper(){
   var protoInfo = protocolBindInfo(protocol);
 
   var inputs = {protocol, order_ref: rawRef, memo, sender_name: senderName, sender_lei: senderLei, receiver_name: receiverName, receiver_lei: receiverLei, amount_usd: amount, stablecoin, creditor_agent_bic: creditorBic, settlement_date: settlementDate};
-  var execHash = await sha256({inputs, tip20Transfer, pacs008});
+  // hash covers EXACTLY the stored policy_parameters and output_payload
+  var policyParameters = {execution_backend: "js", input_parameters: inputs};
+  var outputPayload = {tip20_transfer: tip20Transfer, iso20022_pacs008: pacs008, memo_truncated: truncated, protocol: protocol};
+  var execHash = await sha256({policy_parameters: policyParameters, output_payload: outputPayload});
 
-  _lastResult = {protocol, inputs, tip20Transfer, pacs008, truncated, execHash, _ts: new Date().toISOString()};
+  _lastResult = {protocol, inputs, tip20Transfer, pacs008, truncated, _policyParameters: policyParameters, _outputPayload: outputPayload, execHash, _ts: new Date().toISOString()};
 
   var html = '';
 
@@ -429,13 +432,8 @@ async function buildAndExport(){
     "dct:conformsTo":["https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"],
     "semantic_profile":"iso20022:pacs.008-subset",
     "chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0,"feeds":"chains/tempo-agentic-checkout.html"},
-    "policy_parameters":{"execution_backend":"js","input_parameters":_lastResult.inputs},
-    "output_payload":{
-      "tip20_transfer":_lastResult.tip20Transfer,
-      "iso20022_pacs008":_lastResult.pacs008,
-      "memo_truncated":_lastResult.truncated,
-      "protocol":_lastResult.protocol
-    },
+    "policy_parameters":_lastResult._policyParameters,
+    "output_payload":_lastResult._outputPayload,
     "compliance_flags":_lastResult.truncated?["MEMO_TRUNCATED"]:[],
     "audit_signature":{"client_side_executed":true,"zero_pii_verified":true,"deterministic_run":true}
   };
@@ -477,6 +475,12 @@ function toggleMfst(){
   body.setAttribute('aria-hidden',String(open));
   if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

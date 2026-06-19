@@ -473,7 +473,7 @@ async function runSimulation() {
   const params = {instrument:_currentPreset,notional,maturity_years:T,vol_pct:vol*100,rfr_pct:rfr*100,cpyPD_pct:cpyPD*100,cpyLGD_pct:cpyLGD*100,ownPD_pct:ownPD*100,funding_bps:fundBps,n_paths:nPaths,n_steps:nSteps};
   const results = {cva:+cva.toFixed(2),dva:+dva.toFixed(2),fva:+fva.toFixed(2),xva:+xva.toFixed(2),peak_epe:+peakEpe.toFixed(2),peak_epe_pct_notional:+peakEpePct.toFixed(3)};
 
-  buildAP2(params, results);
+  await buildAP2(params, results);
   renderResults(notional, cva, dva, fva, xva, peakEpe, peakEpePct, epe, ene, times);
 
   setProgress(1); setStatus(`Done — ${nPaths} paths, ${nSteps} steps.`);
@@ -481,14 +481,10 @@ async function runSimulation() {
 }
 
 // ─── AP2 ──────────────────────────────────────────────────────────────────────
-function simpleHash(s) {
-  let h = 0x811c9dc5;
-  for (let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}
-  return h.toString(16).padStart(8,'0').repeat(8);
-}
-
-function buildAP2(params, results) {
+async function buildAP2(params, results) {
   const riskRating = results.cva > 200000 ? 'HIGH' : results.cva > 50000 ? 'MODERATE' : 'LOW';
+  const output_payload = {...results,xva_risk_rating:riskRating,cva_basis:'Basel_III_SA-CVA_EPE_discounted',dva_basis:'ENE_own_hazard_discounted',fva_basis:'EPE_funding_spread_integral'};
+  const execution_hash = await __ocgHash(params, output_payload);
   _ap2 = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -496,16 +492,16 @@ function buildAP2(params, results) {
     ap2_version:'1.0.0', mandate_type:'risk_parameter',
     tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
     generated_at:new Date().toISOString(),
-    execution_hash:'sha256:'+simpleHash(JSON.stringify({...params,...results})),
+    execution_hash:execution_hash,
     chain:{parent_hashes:_chainParentHashes,parent_tool_ids:_chainParentToolIds,chain_depth:_chainDepth},
     policy_parameters:params,
-    output_payload:{...results,xva_risk_rating:riskRating,cva_basis:'Basel_III_SA-CVA_EPE_discounted',dva_basis:'ENE_own_hazard_discounted',fva_basis:'EPE_funding_spread_integral'},
+    output_payload:output_payload,
     compliance_flags:['FRTB_CVA_DESK_COMPUTED','BASEL_III_SA_CCR_ASSESSED','IFRS13_FAIR_VALUE_HIERARCHY','SA_CVA_'+riskRating+'_RISK'],
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',
       signatures: []
-    }
+    },
     regulatory_context:{framework:'Basel III SA-CVA (BCBS d325) · FRTB CVA Desk Requirements · IFRS 13 Fair Value Measurement (Level 2/3 inputs) · ECB Supervisory Expectations on CCR'}
   };
   ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
@@ -598,6 +594,14 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 
 // ─── Init preset ──────────────────────────────────────────────────────────────
 selectPreset('irs');
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

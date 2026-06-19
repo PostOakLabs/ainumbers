@@ -618,7 +618,13 @@ async function computeBaselDelta() {
     rwa_delta_bn: round2(rwaUpliftBn), rwa_delta_pct: round2(rwaUpliftPct),
     output_floor_binding: floorBindsAggregate,
     capital_shortfall_bn: round2(capitalShortfall),
-    cet1_ratio_current_pct: round2(cet1Current), cet1_ratio_basel31_pct: round2(cet1Basel31)
+    cet1_ratio_current_pct: round2(cet1Current), cet1_ratio_basel31_pct: round2(cet1Basel31),
+    portfolio_preset: preset,
+    output_floor_rate: OUTPUT_FLOOR,
+    asset_class_summary: assetResults.map(r => ({
+      asset_class: r.id, ead_bn: round2(r.ead), current_rwa_bn: round2(r.currentRWA),
+      basel31_rwa_bn: round2(r.basel31_total_RWA), floor_binding: r.floorBinding
+    }))
   };
 
   const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
@@ -636,15 +642,7 @@ async function computeBaselDelta() {
     execution_hash: hash,
     chain: {parent_hashes: [], parent_tool_ids: [], chain_depth: 0},
     policy_parameters: policyParams,
-    output_payload: {
-      ...outputPayload,
-      portfolio_preset: preset,
-      output_floor_rate: OUTPUT_FLOOR,
-      asset_class_summary: assetResults.map(r => ({
-        asset_class: r.id, ead_bn: round2(r.ead), current_rwa_bn: round2(r.currentRWA),
-        basel31_rwa_bn: round2(r.basel31_total_RWA), floor_binding: r.floorBinding
-      }))
-    },
+    output_payload: outputPayload,
     compliance_flags: floorBindsAggregate
       ? ['BASEL31_OUTPUT_FLOOR_BINDING','CAPITAL_PLANNING_REQUIRED']
       : ['BASEL31_COMPLIANT_CAPITAL_ADEQUATE'],
@@ -736,7 +734,7 @@ function renderResults(r) {
    HASH / UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -824,5 +822,11 @@ function toggleMfst(){
 ['tier1CapPct','irbCoverage','irbDensity'].forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
 </script>
 
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
 </body>
 </html>

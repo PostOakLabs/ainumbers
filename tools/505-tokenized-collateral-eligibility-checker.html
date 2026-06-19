@@ -541,14 +541,8 @@ function computeHashAndFinalize(inp, result, pacs008, ts) {
     final_haircut: result.final_haircut,
     adjusted_value: result.adjusted_value
   };
-  /* Sort keys for determinism */
-  var sortedObj = {};
-  var allKeys = Object.keys(policy_parameters).concat(Object.keys(output_payload)).sort();
-  allKeys.forEach(function(k){
-    if (k in policy_parameters) sortedObj[k] = policy_parameters[k];
-    else if (k in output_payload) sortedObj[k] = output_payload[k];
-  });
-  var canonical = JSON.stringify(sortedObj);
+  /* Canonicalize over the {policy_parameters, output_payload} envelope (OCG-CANON v1, RFC 8785/JCS) */
+  var canonical = __ocgCanonStr({policy_parameters: policy_parameters, output_payload: output_payload});
   var enc = new TextEncoder().encode(canonical);
   crypto.subtle.digest('SHA-256', enc).then(function(buf){
     var arr = Array.from(new Uint8Array(buf));
@@ -832,6 +826,12 @@ window.addEventListener('message',function(e){if(window.parent===window||e.sourc
 function boot(){buildIntakeUI();initPrefill();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

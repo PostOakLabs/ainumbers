@@ -564,7 +564,7 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function syncSlider(id,vid,fmt){ const v=parseFloat(document.getElementById(id).value); document.getElementById(vid).textContent=fmt?fmt(v):v.toFixed(1); }
 function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function yieldTick(){ return new Promise(r=>setTimeout(r,0)); }
-async function sha256(obj){ const c=JSON.stringify(obj,Object.keys(obj).sort()); const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function sha256(obj){ const c=__ocgCanonStr(obj); const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
 function dl(content,filename,type){ const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([content],{type})),download:filename}); a.click(); URL.revokeObjectURL(a.href); }
 function riskColor(s){ return s>=70?'var(--red)':s>=40?'var(--warn)':'var(--green)'; }
 function riskLabel(s){ return s>=70?'HIGH':s>=40?'MED':'LOW'; }
@@ -816,8 +816,15 @@ async function runScoring(){
 
   /* Build AP2 artifact */
   const policyParams={reporting_threshold:params.reportingThreshold,travel_rule_threshold:params.travelRuleThreshold,layering_window:params.layeringWindow};
-  const outputForHash={total_tx:scored.length,high_risk:highRisk.length,avg_score:avgScore};
-  const hash=await sha256({policy_parameters:policyParams,output_payload:outputForHash});
+  const outputPayload={
+      overall_risk:overallRisk,transaction_count:scored.length,
+      high_risk_count:highRisk.length,medium_risk_count:medRisk.length,
+      average_score:avgScore,max_score:maxScore,
+      travel_rule_violations:travelViol.length,
+      typology_hit_counts:Object.fromEntries(Object.entries(typologyStats).map(([k,v])=>[k,v.hits])),
+      top_risk_accounts:profiles.slice(0,5).map(p=>({account:p.account,max_score:p.maxScore,typologies:p.typologies}))
+  };
+  const hash=await sha256({policy_parameters:policyParams,output_payload:outputPayload});
 
   _artifact={
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
@@ -827,14 +834,7 @@ async function runScoring(){
     generated_at:new Date().toISOString(),execution_hash:hash,
     chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
     policy_parameters:policyParams,
-    output_payload:{
-      overall_risk:overallRisk,transaction_count:scored.length,
-      high_risk_count:highRisk.length,medium_risk_count:medRisk.length,
-      average_score:avgScore,max_score:maxScore,
-      travel_rule_violations:travelViol.length,
-      typology_hit_counts:Object.fromEntries(Object.entries(typologyStats).map(([k,v])=>[k,v.hits])),
-      top_risk_accounts:profiles.slice(0,5).map(p=>({account:p.account,max_score:p.maxScore,typologies:p.typologies}))
-    },
+    output_payload:outputPayload,
     compliance_flags:[`AML_RISK_${overallRisk}`,
       ...(travelViol.length?['FATF_TRAVEL_RULE_GAP']:[]),
       ...(roundTripPairs.length?['ROUND_TRIP_DETECTED']:[]),
@@ -1005,6 +1005,12 @@ function toggleMfst(){
 
 /* Init sliders */
 ['wStructuring','wLayering','wFunnel','wRoundtrip','wVelocity','wTravelRule'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

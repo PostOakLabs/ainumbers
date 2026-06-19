@@ -426,13 +426,19 @@ function renderResults(r,trace){
   document.getElementById('proofToken').textContent=tokenStr;
 }
 
-async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function sha256(obj){const c=__ocgCanonStr(obj);const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`cry-01_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
 function exportMd(){if(!_result||!_artifact)return;const r=_result;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const lines=['# ZK Compliance Proof Report',`**Tool:** CRY-01 · OpenChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact.execution_hash}`,`**Predicate:** ${r.predType} · **System:** ${r.proofSystem} · **Result:** ${r.allSatisfied?'SATISFIED':'FAILED'}`,``,'## Predicate Checks','',...r.checks.map(c=>`${c.result==='satisfied'?'✅':c.result==='redacted'?'🔒':'❌'} **[${c.code}]** ${c.label}${c.note?` — ${c.note}`:''} *(${c.result})*`),``,'## Regulatory Basis',`GDPR: ${r.pred.gdpr}`,`FATF: ${r.pred.fatf}`,``,'---',`> **⚗️ Educational simulation only.** Synthetic ZK proof tokens — not cryptographically secure. GDPR Art. 25 data-minimisation principle demonstrator.`,`> *CRY-01 · OpenChainGraph Suite · Post Oak Labs · CC BY 4.0 · Zero PII*`].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`cry-01_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
 function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
 
 updatePredicateFields();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

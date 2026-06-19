@@ -734,7 +734,9 @@ async function renderResults(r, rawJson) {
     pass_count: passCount,
     fail_count: failCount,
     warn_count: warnCount,
-    checks: checks.map(c => ({code:c.code, status:c.status}))
+    checks: checks.map(c => ({code:c.code, status:c.status})),
+    merchant_id: parsed.merchant_id || null,
+    currency: parsed.currency || null
   };
   const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
   const now = new Date().toISOString();
@@ -750,7 +752,7 @@ async function renderResults(r, rawJson) {
     execution_hash: hash,
     chain: {parent_hashes: [], parent_tool_ids: [], chain_depth: 0},
     policy_parameters: policyParams,
-    output_payload: {...outputPayload, merchant_id: parsed.merchant_id || null, currency: parsed.currency || null},
+    output_payload: outputPayload,
     compliance_flags: failCount > 0
       ? ['ACP_NON_CONFORMANT', 'FIELD_VALIDATION_FAILED']
       : warnCount > 0
@@ -854,7 +856,7 @@ function exportMarkdown() {
    UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -880,5 +882,11 @@ loadPreset('req_pass');
 document.querySelectorAll('.tab-btn')[0].classList.add('active');
 </script>
 
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
 </body>
 </html>

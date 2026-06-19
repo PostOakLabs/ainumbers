@@ -326,12 +326,6 @@ function makeLCG(seed) {
   let s = seed >>> 0;
   return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
 }
-function simpleHash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
-  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
-}
-
 // ── Isolation Forest ─────────────────────────────────────────
 // c(n) = expected path length for n samples
 function cN(n) {
@@ -505,11 +499,11 @@ async function startDetection() {
     } catch(e) { parentHash = chainRaw.startsWith('sha256:') ? chainRaw : ''; }
   }
 
-  renderResults(parentHash, parentToolId);
+  await renderResults(parentHash, parentToolId);
   btn.disabled = false;
 }
 
-function renderResults(parentHash, parentToolId) {
+async function renderResults(parentHash, parentToolId) {
   const r = detResult;
   const p = detParams;
   document.getElementById('mFlagged').textContent  = r.flagged.length.toLocaleString();
@@ -544,7 +538,7 @@ function renderResults(parentHash, parentToolId) {
     vt.textContent = `${(r.flagRate*100).toFixed(1)}% anomaly rate is within normal operational range. Score distribution is concentrated below threshold ${p.threshold} (mean ${r.meanScore.toFixed(4)}). The ${r.flagged.length} flagged transactions represent edge cases warranting standard review. No batch-level suspicious activity pattern detected.`;
   }
 
-  buildExport(parentHash, parentToolId);
+  await buildExport(parentHash, parentToolId);
   document.getElementById('results').style.display = 'block';
 }
 
@@ -660,7 +654,7 @@ function renderFlaggedTable() {
   });
 }
 
-function buildExport(parentHash, parentToolId) {
+async function buildExport(parentHash, parentToolId) {
   const r = detResult;
   const p = detParams;
   const chainDepth = parentHash ? 1 : 0;
@@ -686,7 +680,7 @@ function buildExport(parentHash, parentToolId) {
       seed: p.seed
     }
   };
-  const execHash = simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const execHash = await __ocgHash(params, payload);
   const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -747,6 +741,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

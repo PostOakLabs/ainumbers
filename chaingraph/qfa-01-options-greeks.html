@@ -379,7 +379,7 @@ function setType(t) {
 }
 
 // ─── Main computation ────────────────────────────────────────────────────────
-function runGreeks() {
+async function runGreeks() {
   const S     = parseFloat(document.getElementById('inSpot').value);
   const K     = parseFloat(document.getElementById('inStrike').value);
   const days  = parseFloat(document.getElementById('inExpiry').value);
@@ -393,7 +393,7 @@ function runGreeks() {
   }
 
   const g = bs(S, K, T, r, q, vol, _optType);
-  buildAP2(g, {S,K,T,vol,r,q,type:_optType});
+  await buildAP2(g, {S,K,T,vol,r,q,type:_optType});
   renderGreeks(g, S, K);
   renderPayoff(S, K, g.price, vol, T, r, q);
   renderSensitivity(S, K, T, r, q, vol);
@@ -401,8 +401,11 @@ function runGreeks() {
 }
 
 // ─── AP2 ─────────────────────────────────────────────────────────────────────
-function buildAP2(g, params) {
+async function buildAP2(g, params) {
   const risk = Math.abs(g.delta) >= 0.7 ? 'HIGH' : Math.abs(g.delta) >= 0.3 ? 'MODERATE' : 'LOW';
+  const policy_parameters = {spot:params.S,strike:params.K,expiry_years:+params.T.toFixed(6),vol_decimal:+params.vol.toFixed(4),rate_decimal:+params.r.toFixed(4),div_yield_decimal:+params.q.toFixed(4),option_type:params.type};
+  const output_payload = {price:+g.price.toFixed(6),delta:+g.delta.toFixed(6),gamma:+g.gamma.toFixed(6),theta_per_day:+g.theta.toFixed(6),vega_per_pct:+g.vega.toFixed(6),rho_per_pct:+g.rho.toFixed(6),d1:+g.d1.toFixed(6),d2:+g.d2.toFixed(6),delta_risk_band:risk};
+  const execution_hash = await __ocgHash(policy_parameters, output_payload);
   _ap2 = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -410,26 +413,19 @@ function buildAP2(g, params) {
     ap2_version:'1.0.0', mandate_type:'risk_parameter',
     tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version,
     generated_at: new Date().toISOString(),
-    execution_hash: 'sha256:' + simpleHash(JSON.stringify({...params,...g})),
+    execution_hash: execution_hash,
     chain: {parent_hashes:_chainParentHashes, parent_tool_ids:_chainParentToolIds, chain_depth:_chainDepth},
-    policy_parameters: {spot:params.S,strike:params.K,expiry_years:+params.T.toFixed(6),vol_decimal:+params.vol.toFixed(4),rate_decimal:+params.r.toFixed(4),div_yield_decimal:+params.q.toFixed(4),option_type:params.type},
-    output_payload: {price:+g.price.toFixed(6),delta:+g.delta.toFixed(6),gamma:+g.gamma.toFixed(6),theta_per_day:+g.theta.toFixed(6),vega_per_pct:+g.vega.toFixed(6),rho_per_pct:+g.rho.toFixed(6),d1:+g.d1.toFixed(6),d2:+g.d2.toFixed(6),delta_risk_band:risk},
+    policy_parameters: policy_parameters,
+    output_payload: output_payload,
     compliance_flags:['FRTB_SA_GREEKS_COMPUTED','BASEL_III_MARKET_RISK','IFRS13_FAIR_VALUE_ASSESSED'],
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',
       signatures: []
-    }
+    },
     regulatory_context:{framework:'FRTB SA (BCBS 457) · Basel III market risk · IFRS 13 Fair Value · EMIR clearing thresholds'}
   };
   ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
-}
-
-function simpleHash(s) {
-  // deterministic non-crypto hash for non-security uses (AP2 hash uses WebCrypto in production but we keep this sync)
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
-  return h.toString(16).padStart(8,'0').repeat(8);
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -538,6 +534,14 @@ function showToast(msg) {
 }
 
 selectPreset('equity_call');
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

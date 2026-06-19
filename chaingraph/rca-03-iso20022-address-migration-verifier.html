@@ -677,13 +677,17 @@ async function runBatchVerify() {
     truncation_threshold: truncThreshold,
     input_record_count: _records.length
   };
-  const outputForHash = {
-    readiness_pct: readinessPct,
-    pass, warn, fail,
-    truncation_risk_count: trunc,
-    validation_ms: Math.round(_perfMs)
+  const outputPayload = {
+    cbpr_plus_mandate_deadline: '2026-11-01',
+    november_2026_readiness_pct: readinessPct,
+    batch_summary: { total: validated.length, pass, warn, fail, truncation_risk: trunc },
+    strictness_applied: strictness,
+    validation_engine: _gpuAvail ? 'webgpu-parallel' : 'js-cpu-chunked',
+    validation_ms: Math.round(_perfMs),
+    failing_records: validated.filter(r=>r.status==='FAIL').map(r=>({ nm:r.nm, errors:r.errors })),
+    regulatory_framework: 'SWIFT CBPR+ Nov 2026 structured-address mandate · ISO 20022 pacs.008'
   };
-  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputPayload});
 
   _artifact = {
     '@context': ['https://ainumbers.co/chaingraph/context/v0.3/context.jsonld', 'https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld'],
@@ -698,16 +702,7 @@ async function runBatchVerify() {
     execution_hash: hash,
     chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
     policy_parameters: policyParams,
-    output_payload: {
-      cbpr_plus_mandate_deadline: '2026-11-01',
-      november_2026_readiness_pct: readinessPct,
-      batch_summary: { total: validated.length, pass, warn, fail, truncation_risk: trunc },
-      strictness_applied: strictness,
-      validation_engine: _gpuAvail ? 'webgpu-parallel' : 'js-cpu-chunked',
-      validation_ms: Math.round(_perfMs),
-      failing_records: validated.filter(r=>r.status==='FAIL').map(r=>({ nm:r.nm, errors:r.errors })),
-      regulatory_framework: 'SWIFT CBPR+ Nov 2026 structured-address mandate · ISO 20022 pacs.008'
-    },
+    output_payload: outputPayload,
     compliance_flags: readinessPct >= 90
       ? ['CBPR_PLUS_READY']
       : readinessPct >= 70
@@ -861,7 +856,7 @@ function exportMarkdown() {
    UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -908,6 +903,12 @@ function toggleMfst() {
 (function init() {
   renderRecords();
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

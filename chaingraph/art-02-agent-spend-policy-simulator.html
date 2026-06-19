@@ -690,8 +690,19 @@ async function runSimulation() {
 
   // Build AP2 artifact
   const policyParams = { policy_version:'1.0', sim_count:simCount, hnp_ratio:hnpRatio, chaos_level:chaos, drip_frequency:dripFreq };
-  const outputForHash= { pass_rate: passCount/simCount, violation_rate:(failCount+bypassCount)/simCount, bypass_paths_found:bypassPaths.length };
-  const hash = await sha256({ policy_parameters:policyParams, output_payload:outputForHash });
+  const outputPayload = {
+    simulation_summary: {
+      total_transactions: simCount,
+      pass: passCount,
+      fail: failCount,
+      bypass: bypassCount,
+      pass_rate_pct: +(passCount/simCount*100).toFixed(2),
+      violation_breakdown: { scope_creep:scopeCreepCount, limit:limitViolCount, hnp:hnpViolCount, method:methodViolCount }
+    },
+    bypass_paths_detected: bypassPaths.length,
+    policy_risk_assessment: policyRiskVerdict(_simResult)
+  };
+  const hash = await sha256({ policy_parameters:policyParams, output_payload:outputPayload });
 
   const parentHash  = _parentArtifact?.execution_hash || null;
   const parentDepth = _parentArtifact?.chain?.chain_depth ?? -1;
@@ -712,18 +723,7 @@ async function runSimulation() {
       chain_depth: parentDepth + 1
     },
     policy_parameters: policyParams,
-    output_payload: {
-      simulation_summary: {
-        total_transactions: simCount,
-        pass: passCount,
-        fail: failCount,
-        bypass: bypassCount,
-        pass_rate_pct: +(passCount/simCount*100).toFixed(2),
-        violation_breakdown: { scope_creep:scopeCreepCount, limit:limitViolCount, hnp:hnpViolCount, method:methodViolCount }
-      },
-      bypass_paths_detected: bypassPaths.length,
-      policy_risk_assessment: policyRiskVerdict(_simResult)
-    },
+    output_payload: outputPayload,
     compliance_flags: buildComplianceFlags(_simResult),
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
@@ -1045,7 +1045,7 @@ function dl(content, filename, type) {
 function yieldTick() { return new Promise(r => setTimeout(r, 0)); }
 
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb  = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1073,6 +1073,12 @@ function toggleMfst(){
   const el = document.getElementById(id);
   el.dispatchEvent(new Event('input'));
 });
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

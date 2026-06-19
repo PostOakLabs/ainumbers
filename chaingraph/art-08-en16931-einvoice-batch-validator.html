@@ -710,7 +710,16 @@ async function runValidation() {
   const outputPayload = {
     total_invoices: batchSize, pass_count: passCount, fail_count: failCount,
     compliance_rate_pct: complianceRate, deadline_readiness_score: readinessScore,
-    top_failure_rules: Object.entries(ruleCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0])
+    top_failure_rules: Object.entries(ruleCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0]),
+    country_profile: profile,
+    profile_name: PROFILES[profile].name,
+    mandate_deadline: PROFILES[profile].deadline,
+    rule_failure_counts: ruleCounts,
+    invoice_sample: allResults.slice(0, 20).map(r => ({
+      invoice_id: r.inv.invoice_id,
+      pass: r.pass,
+      failure_rules: r.failures
+    }))
   };
 
   const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
@@ -728,18 +737,7 @@ async function runValidation() {
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
     policy_parameters: policyParams,
-    output_payload: {
-      ...outputPayload,
-      country_profile: profile,
-      profile_name: PROFILES[profile].name,
-      mandate_deadline: PROFILES[profile].deadline,
-      rule_failure_counts: ruleCounts,
-      invoice_sample: allResults.slice(0, 20).map(r => ({
-        invoice_id: r.inv.invoice_id,
-        pass: r.pass,
-        failure_rules: r.failures
-      }))
-    },
+    output_payload: outputPayload,
     compliance_flags: readinessScore >= 95 ? ['EN16931_COMPLIANT','DEADLINE_READY']
       : readinessScore >= 80 ? ['EN16931_PARTIAL_COMPLIANCE','REMEDIATION_REQUIRED']
       : ['EN16931_NON_COMPLIANT','DEADLINE_RISK'],
@@ -843,7 +841,7 @@ function updateProfileInfo() {
    HASH
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -908,5 +906,11 @@ document.getElementById('countryProfile').addEventListener('change', updateProfi
 updateProfileInfo();
 </script>
 
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
 </body>
 </html>

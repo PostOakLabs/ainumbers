@@ -230,7 +230,7 @@ var MANIFEST = {
 };
 
 async function sha256(obj){
-  var c=JSON.stringify(obj,Object.keys(obj).sort());
+  var c=__ocgCanonStr(obj);
   var b=new TextEncoder().encode(c);
   var h=await crypto.subtle.digest('SHA-256',b);
   return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -379,9 +379,30 @@ async function runScreen(){
     iso20022: iso20022Payload
   };
 
-  // Compute hash
-  var hashObj = {inputs:{batch:batch, mode:mode, jurisdiction:jurisdiction, sarThresh:sarThresh, trThresh:trThresh}, output:_lastResult};
-  var execHash = await sha256(hashObj);
+  // Compute hash — hash covers EXACTLY the stored policy_parameters and output_payload
+  var policyParameters = {
+    execution_backend: "js",
+    input_parameters: {
+      screening_mode: _lastResult.screening_mode,
+      jurisdiction: _lastResult.jurisdiction,
+      sar_threshold_usd: _lastResult.sar_threshold,
+      travel_rule_threshold_usd: _lastResult.travel_rule_threshold,
+      batch_size: _lastResult.batch_size
+    }
+  };
+  var outputPayload = {
+    overall_verdict: _lastResult.overall_verdict,
+    batch_size: _lastResult.batch_size,
+    total_usd: _lastResult.total_usd,
+    flagged_count: _lastResult.flagged_count,
+    sar_required: _lastResult.sar_required,
+    sar_recommended: _lastResult.sar_recommended,
+    iso20022: _lastResult.iso20022,
+    per_transfer: _lastResult.per_transfer
+  };
+  var execHash = await sha256({policy_parameters: policyParameters, output_payload: outputPayload});
+  _lastResult._policyParameters = policyParameters;
+  _lastResult._outputPayload = outputPayload;
 
   // Render output
   var html = '';
@@ -469,26 +490,8 @@ async function buildAndExport(){
     "dct:conformsTo":["https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"],
     "semantic_profile":"iso20022:pacs.008-subset",
     "chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},
-    "policy_parameters":{
-      "execution_backend":"js",
-      "input_parameters":{
-        "screening_mode":_lastResult.screening_mode,
-        "jurisdiction":_lastResult.jurisdiction,
-        "sar_threshold_usd":_lastResult.sar_threshold,
-        "travel_rule_threshold_usd":_lastResult.travel_rule_threshold,
-        "batch_size":_lastResult.batch_size
-      }
-    },
-    "output_payload":{
-      "overall_verdict":_lastResult.overall_verdict,
-      "batch_size":_lastResult.batch_size,
-      "total_usd":_lastResult.total_usd,
-      "flagged_count":_lastResult.flagged_count,
-      "sar_required":_lastResult.sar_required,
-      "sar_recommended":_lastResult.sar_recommended,
-      "iso20022":_lastResult.iso20022,
-      "per_transfer":_lastResult.per_transfer
-    },
+    "policy_parameters":_lastResult._policyParameters,
+    "output_payload":_lastResult._outputPayload,
     "compliance_flags":[],
     "audit_signature":{"client_side_executed":true,"zero_pii_verified":true,"deterministic_run":true}
   };
@@ -526,6 +529,12 @@ function toggleMfst(){
   body.setAttribute('aria-hidden',String(open));
   if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

@@ -384,12 +384,6 @@ function randn(rng) {
   const u1=rng(),u2=rng();
   return Math.sqrt(-2*Math.log(u1+1e-15))*Math.cos(2*Math.PI*u2);
 }
-function simpleHash(str) {
-  let h=0x811c9dc5;
-  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(Math.imul(h,0x01000193))>>>0;}
-  return 'sha256:'+h.toString(16).padStart(8,'0')+(h^0xdeadbeef).toString(16).padStart(8,'0')+(h^0xcafebabe).toString(16).padStart(8,'0')+(h^0x12345678).toString(16).padStart(8,'0');
-}
-
 // ── Scenario library ──────────────────────────────────────────
 const SCENARIOS = [
   {id:'gfc_2008',    label:'GFC Peak (Oct 2008)',      equityShock:-0.42, creditShock:0.06, rateShock:-0.02, volMult:3.0, horizon:10},
@@ -517,13 +511,13 @@ async function startStress() {
     } catch(e){parentHash=chainRaw.startsWith('sha256:')?chainRaw:'';}
   }
 
-  renderResults(parentHash, parentToolId);
+  await renderResults(parentHash, parentToolId);
   btn.disabled=false;
 }
 
 function pct(v,dec=2){return(v*100).toFixed(dec)+'%';}
 
-function renderResults(parentHash, parentToolId){
+async function renderResults(parentHash, parentToolId){
   const r=stressResult;
   document.getElementById('mWorstLoss').textContent=pct(r.worstSc.totalLoss);
   document.getElementById('mWorstScen').textContent=r.worstSc.label;
@@ -560,7 +554,7 @@ function renderResults(parentHash, parentToolId){
     vt.textContent=`Stress multiplier of ${mult.toFixed(2)}× and worst-case loss of ${pct(r.worstSc.totalLoss)} (${r.worstSc.label}) suggest contained exposure to the six historical scenarios modelled. Normal VaR: ${pct(r.normalVar)}. Stressed VaR: ${pct(r.aggStressVar)}. Continue monitoring tail risk and update stress parameters as market conditions evolve.`;
   }
 
-  buildExport(parentHash, parentToolId);
+  await buildExport(parentHash, parentToolId);
   document.getElementById('results').style.display='block';
 }
 
@@ -706,7 +700,7 @@ function renderScenarioTable(){
   });
 }
 
-function buildExport(parentHash, parentToolId){
+async function buildExport(parentHash, parentToolId){
   const r=stressResult;
   const p=stressParams;
   const chainDepth=parentHash?1:0;
@@ -735,7 +729,7 @@ function buildExport(parentHash, parentToolId){
       scenarios_applied:SCENARIOS.map(s=>s.id)
     }
   };
-  const execHash=simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const execHash=await __ocgHash(params, payload);
   const artifact={
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -797,6 +791,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

@@ -345,12 +345,6 @@ function makeLCG(seed) {
   let s = seed >>> 0;
   return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
 }
-function simpleHash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
-  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
-}
-
 // ── FSM states ───────────────────────────────────────────────
 const STATES = { INIT:0, REDIRECT:1, AUTH:2, AUTHORIZED:3, ACTIVE:4, FAILED:5, EXPIRED:6, REVOKED:7 };
 
@@ -440,11 +434,11 @@ async function startSim() {
   const refs = REG_REFS[regime];
   simResult = { counts, stageFails, successRate, meanSteps, refs };
 
-  renderResults();
+  await renderResults();
   btn.disabled = false;
 }
 
-function renderResults() {
+async function renderResults() {
   const r = simResult;
   const p = simParams;
   const n = p.nConsents;
@@ -465,7 +459,7 @@ function renderResults() {
   drawStageChart();
   renderFailTable();
   renderVerdict();
-  buildExport();
+  await buildExport();
   document.getElementById('results').style.display = 'block';
 }
 
@@ -585,7 +579,7 @@ function renderVerdict() {
   }
 }
 
-function buildExport() {
+async function buildExport() {
   const r = simResult; const p = simParams;
   const chainRaw = document.getElementById('chainIntake').value.trim();
   let parentHash = '', parentToolId = '';
@@ -624,7 +618,7 @@ function buildExport() {
       seed:              p.seed
     }
   };
-  const execHash = simpleHash(JSON.stringify({policyParams,payload},null,0));
+  const execHash = await __ocgHash(policyParams, payload);
   const compFlags = [
     'PSD2_CONSENT_FSM_SIMULATED',
     'FAPI2_AUTHORIZATION_FLOW_MODELLED',
@@ -686,6 +680,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

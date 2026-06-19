@@ -450,7 +450,7 @@ async function runSimulation() {
   const psrP = lossPerPath.filter(l => l > psrThreshold).length / nPaths;
   const meanDetectHop = detectionHops.filter(h=>h>0).reduce((a,b)=>a+b,0) / (detectionHops.filter(h=>h>0).length||1);
 
-  buildAP2({nPaths,detectionRate,psrThreshold,preset:_currentPreset}, {meanLoss,lossP95,psrP,meanDetectHop,reachProb});
+  await buildAP2({nPaths,detectionRate,psrThreshold,preset:_currentPreset}, {meanLoss,lossP95,psrP,meanDetectHop,reachProb});
   renderResults(nodes, reachProb, {meanLoss,lossP95,psrP,meanDetectHop,nPaths}, lossPerPath);
 
   setProgress(1); setStatus(`Done — ${nPaths} paths.`);
@@ -497,8 +497,10 @@ function quantile(sorted, q) {
 }
 
 // ─── AP2 ──────────────────────────────────────────────────────────────────────
-function buildAP2(params, results) {
+async function buildAP2(params, results) {
   const verdict = results.psrP >= 0.5 ? 'CRITICAL' : results.psrP >= 0.2 ? 'HIGH' : 'CONTAINED';
+  const output_payload = {fraud_verdict:verdict,mean_loss_at_risk:+results.meanLoss.toFixed(2),loss_p95:+results.lossP95.toFixed(2),psr_threshold_breach_probability:+results.psrP.toFixed(4),mean_detection_hop:+results.meanDetectHop.toFixed(2)};
+  const execution_hash = await __ocgHash(params, output_payload);
   _ap2 = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -506,25 +508,19 @@ function buildAP2(params, results) {
     ap2_version:'1.0.0', mandate_type:'aml_rule',
     tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
     generated_at:new Date().toISOString(),
-    execution_hash:'sha256:'+simpleHash(JSON.stringify({...params,...results})),
+    execution_hash:execution_hash,
     chain:{parent_hashes:_chainParentHashes,parent_tool_ids:_chainParentToolIds,chain_depth:_chainDepth},
     policy_parameters:params,
-    output_payload:{fraud_verdict:verdict,mean_loss_at_risk:+results.meanLoss.toFixed(2),loss_p95:+results.lossP95.toFixed(2),psr_threshold_breach_probability:+results.psrP.toFixed(4),mean_detection_hop:+results.meanDetectHop.toFixed(2)},
+    output_payload:output_payload,
     compliance_flags:['UK_PSR_REIMBURSEMENT_ASSESSED','EBA_FRAUD_MONITORING_GUIDELINES','SEPA_INSTANT_SCT_FRAUD_REVIEW','PSD2_TRANSACTION_MONITORING',verdict==='CRITICAL'?'PSR_BREACH_LIKELY':'PSR_BREACH_UNLIKELY'],
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',
       signatures: []
-    }
+    },
     regulatory_context:{framework:'UK PSR Oct 2024 (£85k reimbursement cap) · SEPA Instant Credit Transfer · EBA Guidelines on Fraud Monitoring · PSD2 Art.94 transaction monitoring'}
   };
   ['ap2ExportBtn','exportJsonBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
-}
-
-function simpleHash(s) {
-  let h = 0x811c9dc5;
-  for (let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}
-  return h.toString(16).padStart(8,'0').repeat(8);
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -603,6 +599,14 @@ function setProgress(p){document.getElementById('progressFill').style.width=(p*1
 function setStatus(m){document.getElementById('runStatus').textContent=m;}
 function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArrow');const open=b.style.display==='block';b.style.display=open?'none':'block';a.textContent=open?'▼':'▲';if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

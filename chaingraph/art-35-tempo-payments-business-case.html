@@ -399,25 +399,48 @@ async function modelBusinessCase() {
 
   renderResults(_result);
 
-  /* Hash and artifact */
-  const hashInput = {
-    policy_parameters: {
-      execution_backend: 'js',
-      input_parameters: { flow_profile: flowProfile, monthly_volume: txVolume, avg_amount_usd: txAmount, incumbent_rail: incumbentKey, corridor, stablecoin, impl_months: implMonths }
-    },
-    output_payload: {
-      per_tx_saving_usd: Math.round(perTxSaving * 10000) / 10000,
-      annual_saving_usd: Math.round(annualSaving * 100) / 100,
-      verdict: verd,
-      break_even_months: breakEvenMonths !== null ? Math.round(breakEvenMonths * 10) / 10 : null
+  /* Hash and artifact — hash covers EXACTLY the stored policy_parameters and output_payload */
+  const today = new Date().toISOString().slice(0, 10);
+
+  const policyParameters = {
+    execution_backend: 'js',
+    input_parameters: {
+      flow_profile: flowProfile,
+      monthly_volume: txVolume,
+      avg_amount_usd: txAmount,
+      incumbent_rail: incumbentKey,
+      corridor,
+      stablecoin,
+      impl_months: implMonths
     }
+  };
+  const outputPayload = {
+    instructed_amount: { amount: txAmount * txVolume, currency: 'USD' },
+    debtor: { party_name: 'Payer (synthetic)', lei: null },
+    creditor: { party_name: 'Payee (synthetic)', lei: null },
+    settlement_date: today,
+    remittance_information: FLOW_LABELS[flowProfile] + ' · ' + CORRIDOR_LABELS[corridor] + ' corridor',
+    per_tx_incumbent_fee_usd: Math.round(incumbentFee * 10000) / 10000,
+    per_tx_tempo_fee_usd: Math.round(tempoFee * 10000) / 10000,
+    per_tx_saving_usd: Math.round(perTxSaving * 10000) / 10000,
+    saving_bps: Math.round(bpsSaving * 10000 * 10) / 10,
+    monthly_saving_usd: Math.round(monthlySaving * 100) / 100,
+    annual_saving_usd: Math.round(annualSaving * 100) / 100,
+    break_even_months: breakEvenMonths !== null ? Math.round(breakEvenMonths * 10) / 10 : null,
+    verdict: verd,
+    finality_incumbent: incumbentFinalityLabel,
+    finality_tempo: tempoFinalityLabel,
+    stablecoin,
+    corridor
+  };
+  const hashInput = {
+    policy_parameters: policyParameters,
+    output_payload: outputPayload
   };
   const hash = await sha256(hashInput);
 
   document.getElementById('hashRow').style.display = 'block';
   document.getElementById('hashVal').textContent = hash;
-
-  const today = new Date().toISOString().slice(0, 10);
 
   _artifact = {
     '@context': [
@@ -435,37 +458,8 @@ async function modelBusinessCase() {
     'dct:conformsTo': ['https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld'],
     semantic_profile: 'iso20022:pacs.008-subset',
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
-    policy_parameters: {
-      execution_backend: 'js',
-      input_parameters: {
-        flow_profile: flowProfile,
-        monthly_volume: txVolume,
-        avg_amount_usd: txAmount,
-        incumbent_rail: incumbentKey,
-        corridor,
-        stablecoin,
-        impl_months: implMonths
-      }
-    },
-    output_payload: {
-      instructed_amount: { amount: txAmount * txVolume, currency: 'USD' },
-      debtor: { party_name: 'Payer (synthetic)', lei: null },
-      creditor: { party_name: 'Payee (synthetic)', lei: null },
-      settlement_date: today,
-      remittance_information: FLOW_LABELS[flowProfile] + ' · ' + CORRIDOR_LABELS[corridor] + ' corridor',
-      per_tx_incumbent_fee_usd: Math.round(incumbentFee * 10000) / 10000,
-      per_tx_tempo_fee_usd: Math.round(tempoFee * 10000) / 10000,
-      per_tx_saving_usd: Math.round(perTxSaving * 10000) / 10000,
-      saving_bps: Math.round(bpsSaving * 10000 * 10) / 10,
-      monthly_saving_usd: Math.round(monthlySaving * 100) / 100,
-      annual_saving_usd: Math.round(annualSaving * 100) / 100,
-      break_even_months: breakEvenMonths !== null ? Math.round(breakEvenMonths * 10) / 10 : null,
-      verdict: verd,
-      finality_incumbent: incumbentFinalityLabel,
-      finality_tempo: tempoFinalityLabel,
-      stablecoin,
-      corridor
-    },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
     compliance_flags: ['TREASURY_BUSINESS_CASE_COMPLETE', 'ISO20022_PACS008_CROSSWALK'],
     audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
@@ -552,7 +546,7 @@ function renderResults(r) {
 
 /* ── Export helpers ─────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const c = JSON.stringify(obj, Object.keys(obj).sort());
+  const c = __ocgCanonStr(obj);
   const b = new TextEncoder().encode(c);
   const h = await crypto.subtle.digest('SHA-256', b);
   return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -638,6 +632,12 @@ function toggleMfst() {
   body.setAttribute('aria-hidden', String(open));
   if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

@@ -296,7 +296,7 @@ var MANIFEST = {
 };
 
 async function sha256(obj){
-  var c=JSON.stringify(obj,Object.keys(obj).sort());
+  var c=__ocgCanonStr(obj);
   var b=new TextEncoder().encode(c);
   var h=await crypto.subtle.digest('SHA-256',b);
   return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -369,9 +369,12 @@ async function runAttestation(){
     tip403:{allowlist:tip403Allow,blocklist:tip403Block,freeze:tip403Freeze,propagates_mainnet:tip403Mainnet},
     aml_obligations:{fatf_travel_rule:amlTravel,bsa_sar:amlSAR,ofac_sdn:amlOFAC,regulator_audit:amlAudit}
   };
-  var execHash = await sha256({inputs:inputs, verdict:verdict, checks:checks});
+  // hash covers EXACTLY the stored policy_parameters and output_payload
+  var policyParameters = {execution_backend:"js", input_parameters:inputs};
+  var outputPayload = {verdict:verdict, operator_name:operatorName, use_case:useCase, checks:checks};
+  var execHash = await sha256({policy_parameters:policyParameters, output_payload:outputPayload});
 
-  _lastResult = {operator_name:operatorName, use_case:useCase, checks:checks, verdict:verdict, inputs:inputs, _execHash:execHash, _ts:new Date().toISOString()};
+  _lastResult = {operator_name:operatorName, use_case:useCase, checks:checks, verdict:verdict, inputs:inputs, _policyParameters:policyParameters, _outputPayload:outputPayload, _execHash:execHash, _ts:new Date().toISOString()};
 
   var html = '';
 
@@ -450,8 +453,8 @@ async function buildAndExport(){
     "dct:conformsTo":["https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld"],
     "semantic_profile":"iso20022:pacs.008-subset",
     "chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},
-    "policy_parameters":{"execution_backend":"js","input_parameters":_lastResult.inputs},
-    "output_payload":{"verdict":_lastResult.verdict,"operator_name":_lastResult.operator_name,"use_case":_lastResult.use_case,"checks":_lastResult.checks},
+    "policy_parameters":_lastResult._policyParameters,
+    "output_payload":_lastResult._outputPayload,
     "compliance_flags":[],"audit_signature":{"client_side_executed":true,"zero_pii_verified":true,"deterministic_run":true}
   };
   var ts=ts14();
@@ -485,6 +488,12 @@ function toggleMfst(){
   body.setAttribute('aria-hidden',String(open));
   if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

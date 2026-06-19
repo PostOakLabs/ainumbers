@@ -570,10 +570,34 @@ async function runScorer() {
   document.getElementById('resultsPanel').classList.add('visible');
   document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  /* Compute hash and enable export */
+  /* Compute hash and enable export — hash covers EXACTLY the stored policy_parameters and output_payload */
+  const policyParameters = {
+    execution_backend: 'js',
+    input_parameters: {
+      dimension_count: 5,
+      question_count: 12,
+      all_answered: allAnswered
+    }
+  };
+  const outputPayload = {
+    overall_score: totalScore,
+    total_max: TOTAL_MAX,
+    grade: g,
+    dim_scores: {
+      hardware: dimScores.hw + '/' + DIM_MAX.hw,
+      software_os: dimScores.os + '/' + DIM_MAX.os,
+      key_management: dimScores.key + '/' + DIM_MAX.key,
+      telemetry: dimScores.tel + '/' + DIM_MAX.tel,
+      upgrade_cadence: dimScores.upg + '/' + DIM_MAX.upg
+    },
+    permissioning_note: 'Validator set is permissioned — entry requires Tempo team approval via partners@tempo.xyz regardless of infrastructure score.',
+    unpublished_requirements: ['bond/stake amounts', 'slashing conditions', 'KYC/AML operator obligations'],
+    regulatory_flag: 'GENIUS PPSI AML Rule (FinCEN/OFAC NPRM, Fed. Reg. 2026-06963, April 10 2026) applicability to validator operators not yet clarified — engage Tempo and counsel directly.',
+    answers: answerMap
+  };
   const hashInput = {
-    policy_parameters: { dimension_count: 5, question_count: 12, all_answered: allAnswered },
-    output_payload: { overall_score: totalScore, grade: g, dim_scores: dimScores }
+    policy_parameters: policyParameters,
+    output_payload: outputPayload
   };
   const hash = await sha256(hashInput);
 
@@ -596,30 +620,8 @@ async function runScorer() {
     'dct:conformsTo': ['https://ainumbers.co/chaingraph/profiles/iso20022/party-identification.jsonld'],
     semantic_profile: 'iso20022:party-identification',
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
-    policy_parameters: {
-      execution_backend: 'js',
-      input_parameters: {
-        dimension_count: 5,
-        question_count: 12,
-        all_answered: allAnswered
-      }
-    },
-    output_payload: {
-      overall_score: totalScore,
-      total_max: TOTAL_MAX,
-      grade: g,
-      dim_scores: {
-        hardware: dimScores.hw + '/' + DIM_MAX.hw,
-        software_os: dimScores.os + '/' + DIM_MAX.os,
-        key_management: dimScores.key + '/' + DIM_MAX.key,
-        telemetry: dimScores.tel + '/' + DIM_MAX.tel,
-        upgrade_cadence: dimScores.upg + '/' + DIM_MAX.upg
-      },
-      permissioning_note: 'Validator set is permissioned — entry requires Tempo team approval via partners@tempo.xyz regardless of infrastructure score.',
-      unpublished_requirements: ['bond/stake amounts', 'slashing conditions', 'KYC/AML operator obligations'],
-      regulatory_flag: 'GENIUS PPSI AML Rule (FinCEN/OFAC NPRM, Fed. Reg. 2026-06963, April 10 2026) applicability to validator operators not yet clarified — engage Tempo and counsel directly.',
-      answers: answerMap
-    },
+    policy_parameters: policyParameters,
+    output_payload: outputPayload,
     compliance_flags: [
       'TEMPO_VALIDATOR_READINESS_COMPLETE',
       'PERMISSIONED_ENTRY_REQUIRED',
@@ -637,7 +639,7 @@ async function runScorer() {
 
 /* ── Export helpers ─────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const c = JSON.stringify(obj, Object.keys(obj).sort());
+  const c = __ocgCanonStr(obj);
   const b = new TextEncoder().encode(c);
   const h = await crypto.subtle.digest('SHA-256', b);
   return Array.from(new Uint8Array(h)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
@@ -725,6 +727,12 @@ function toggleMfst() {
   body.setAttribute('aria-hidden', String(open));
   if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

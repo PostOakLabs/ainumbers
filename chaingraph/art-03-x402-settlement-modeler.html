@@ -370,7 +370,9 @@ function modelX402Settlement(){
 
   renderResults(_result);
 
-  sha256({policy_parameters:{amount_usd:amount,volume,payment_type:payType,finality_req:finalReq},output_payload:{winner_rail:winner.id,winner_fee_usd:Math.round(winner.perTxFee*10000)/10000,winner_finality_sec:winner.finality}}).then(hash=>{
+  const policyParams={amount_usd:amount,monthly_volume:volume,payment_type:payType,finality_requirement:finalReq,gas_tier:gasTier};
+  const outputPayload={recommended_rail:winner.id,per_tx_fee_usd:Math.round(winner.perTxFee*10000)/10000,monthly_cost_usd:Math.round(winner.monthlyFee*100)/100,finality_sec:winner.finality,eligible_rails:results.filter(r=>r.eligible).map(r=>r.id)};
+  sha256({policy_parameters:policyParams,output_payload:outputPayload}).then(hash=>{
     _artifact={'@context': [
           'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
           'https://ainumbers.co/chaingraph/context/v0.3/iso20022-context.jsonld'
@@ -379,7 +381,7 @@ chaingraph_version: '0.3.1',
 semantic_profile: 'iso20022:pacs.008-subset',
 'dct:conformsTo': ['https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld'],
 buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
-ap2_version:'1.0.0',mandate_type:'settlement_mandate',tool_id:'art-03-x402-settlement-modeler',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{amount_usd:amount,monthly_volume:volume,payment_type:payType,finality_requirement:finalReq,gas_tier:gasTier},output_payload:{recommended_rail:winner.id,per_tx_fee_usd:Math.round(winner.perTxFee*10000)/10000,monthly_cost_usd:Math.round(winner.monthlyFee*100)/100,finality_sec:winner.finality,eligible_rails:results.filter(r=>r.eligible).map(r=>r.id)},compliance_flags:['SETTLEMENT_ANALYSIS_COMPLETE'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
+ap2_version:'1.0.0',mandate_type:'settlement_mandate',tool_id:'art-03-x402-settlement-modeler',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:policyParams,output_payload:outputPayload,compliance_flags:['SETTLEMENT_ANALYSIS_COMPLETE'],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.2',payload:'',signatures:[]}};
     ['ap2Btn','mdBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
   });
 }
@@ -428,11 +430,17 @@ function renderResults(r){
   document.getElementById('resultsPanel').classList.add('visible');
 }
 
-async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function sha256(obj){const c=__ocgCanonStr(obj);const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`art-03_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
 function exportMd(){if(!_result||!_artifact)return;const r=_result;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const lines=['# x402 Settlement Rail Comparison Report',`**Tool:** ART-03 · OpenChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact.execution_hash}`,``,`## Parameters`,`Amount: $${r.amount} · Volume: ${r.volume.toLocaleString()}/month · Type: ${r.payType} · Finality: ${r.finalReq}`,``,`## Recommendation`,`**${r.winner.full}** — $${r.winner.perTxFee.toFixed(4)}/tx · Finality: ${fmtDuration(r.winner.finality)} · ${r.winner.note}`,``,`## Rail Comparison`,`| Rail | Per-tx | Fee% | Finality | Monthly | Eligible |`,`|---|---|---|---|---|---|`,...r.results.map(rail=>`| ${rail.name} | $${rail.perTxFee.toFixed(4)} | ${rail.feePct.toFixed(2)}% | ${fmtDuration(rail.finality)} | $${rail.monthlyFee.toFixed(0)} | ${rail.eligible?'✓':'✗'} |`),``,`---`,`> Fee schedules: x402 spec / Coinbase CDP; Stripe USDC; Visa/MC interchange 2025; Nacha; SWIFT gpi. Indicative only.`,`> *ART-03 · OpenChainGraph Suite · Post Oak Labs · CC BY 4.0*`].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`art-03_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
 function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

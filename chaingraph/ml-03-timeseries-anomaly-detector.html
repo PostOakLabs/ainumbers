@@ -355,7 +355,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;
 // ── LCG ──────────────────────────────────────────────────────
 function makeLCG(seed){let s=seed>>>0;return()=>{s=(Math.imul(1664525,s)+1013904223)>>>0;return s/4294967296;};}
 function randn(rng){const u1=rng(),u2=rng();return Math.sqrt(-2*Math.log(u1+1e-15))*Math.cos(2*Math.PI*u2);}
-function simpleHash(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(Math.imul(h,0x01000193))>>>0;}return 'sha256:'+h.toString(16).padStart(8,'0')+(h^0xdeadbeef).toString(16).padStart(8,'0')+(h^0xcafebabe).toString(16).padStart(8,'0')+(h^0x12345678).toString(16).padStart(8,'0');}
 
 // Presets
 const PRESETS={
@@ -521,11 +520,11 @@ async function startDetection(){
   let parentHash='',parentToolId='';
   if(chainRaw){try{const parsed=chainRaw.startsWith('{')?JSON.parse(chainRaw):null;parentHash=parsed?(parsed.execution_hash||''):(chainRaw.startsWith('sha256:')?chainRaw:'');parentToolId=parsed?(parsed.tool_id||''):'';}catch(e){parentHash=chainRaw.startsWith('sha256:')?chainRaw:'';}}
 
-  renderResults(parentHash, parentToolId);
+  await renderResults(parentHash, parentToolId);
   btn.disabled=false;
 }
 
-function renderResults(parentHash, parentToolId){
+async function renderResults(parentHash, parentToolId){
   const r=tsResult; const p=tsParams;
   const flagRate=r.flagged.length/p.nPeriods;
   document.getElementById('mFlagged').textContent=r.flagged.length;
@@ -557,7 +556,7 @@ function renderResults(parentHash, parentToolId){
     vt.textContent=`${r.flagged.length} anomaly periods detected — within normal variance for a ${p.nPeriods}-period ${p.granularity} series at the ${p.zThreshold}σ threshold. Max |z|=${r.maxZ.toFixed(2)}σ. Seasonal amplitude ${((r.seasonalAmpl/1000)*100).toFixed(1)}% of baseline. Residual std ${r.resStd.toFixed(1)} units. Series appears statistically stable for the observation window. Export this artifact to RCA-01 (FRTB IMA Pre-Validator) as supporting context for capital model validation.`;
   }
 
-  buildExport(parentHash, parentToolId);
+  await buildExport(parentHash, parentToolId);
   document.getElementById('results').style.display='block';
 }
 
@@ -765,7 +764,7 @@ function renderFlagTable(){
   });
 }
 
-function buildExport(parentHash, parentToolId){
+async function buildExport(parentHash, parentToolId){
   const r=tsResult;const p=tsParams;
   const chainDepth=parentHash?1:0;
   const payload={
@@ -790,7 +789,7 @@ function buildExport(parentHash, parentToolId){
       method:'rolling_zscore_stl_decomposition'
     }
   };
-  const execHash=simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const execHash=await __ocgHash(params, payload);
   const artifact={
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.3.1',
@@ -841,6 +840,14 @@ function toggleMfst(){
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+async function __ocgHash(policy_parameters,output_payload){const b=new TextEncoder().encode(__ocgCanonStr({policy_parameters,output_payload}));const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 </script>
 </body>
 </html>

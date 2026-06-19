@@ -687,13 +687,19 @@ async function runAttestation() {
     issuer_type: issuerType,
     reserve_asset_count: _assets.length
   };
-  const outputForHash = {
-    determination,
-    coverage_pct: parseFloat((coverageRatio*100).toFixed(4)),
-    prohibited_usd: prohibitedTotal,
-    aicpa_score_pct: Math.round(aicpaScore*100)
+  const outputPayload = {
+      attestation_readiness_determination: determination,
+      coverage_ratio_pct: parseFloat((coverageRatio*100).toFixed(4)),
+      total_reserves_usd: totalReserve,
+      total_liabilities_usd: totalLiab,
+      reserve_shortfall_usd: Math.max(0, totalLiab - totalReserve),
+      prohibited_assets_usd: prohibitedTotal,
+      aicpa_2025_score_pct: Math.round(aicpaScore*100),
+      failing_dimensions: failingDimensions,
+      applicable_deadline: '2027-01-18',
+      regulatory_framework: 'GENIUS Act S.394 · AICPA 2025 Attestation Criteria'
   };
-  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputPayload});
 
   _artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
@@ -707,18 +713,7 @@ async function runAttestation() {
     execution_hash: hash,
     chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
     policy_parameters: policyParams,
-    output_payload: {
-      attestation_readiness_determination: determination,
-      coverage_ratio_pct: parseFloat((coverageRatio*100).toFixed(4)),
-      total_reserves_usd: totalReserve,
-      total_liabilities_usd: totalLiab,
-      reserve_shortfall_usd: Math.max(0, totalLiab - totalReserve),
-      prohibited_assets_usd: prohibitedTotal,
-      aicpa_2025_score_pct: Math.round(aicpaScore*100),
-      failing_dimensions: failingDimensions,
-      applicable_deadline: '2027-01-18',
-      regulatory_framework: 'GENIUS Act S.394 · AICPA 2025 Attestation Criteria'
-    },
+    output_payload: outputPayload,
     compliance_flags: determination === 'FAIL'
       ? ['GENIUS_ACT_ATTESTATION_FAIL','RESERVE_DEFICIENCY']
       : determination === 'WARN'
@@ -892,7 +887,7 @@ function exportMarkdown() {
    UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -928,6 +923,12 @@ function toggleMfst(){
   renderChecklist();
   renderAssets();
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

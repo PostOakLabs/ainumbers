@@ -737,8 +737,16 @@ async function validateChain() {
   /* AP2 artifact */
   const now = new Date().toISOString();
   const policyParams = { execution_backend:'js', hnp_mode:hnpMode, hash_algo:hashAlgo, validate_at: validateAt.toISOString() };
-  const outputForHash = { verdict, failing_check_ids: failing.map(c=>c.id), check_count: checks.length };
-  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
+  const outputPayload = {
+    validation_verdict: verdict,
+    checks_run: checks.length,
+    failing_checks: failing.map(c=>({ id:c.id, detail:c.detail.slice(0,200) })),
+    warning_checks: warnings.map(c=>c.id),
+    mandate_ids: { intent:intent.mandate_id, cart:cart?.mandate_id||null, payment:payment.mandate_id },
+    has_cart: !!cart,
+    human_not_present: !!intent.human_not_present
+  };
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputPayload});
 
   _artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
@@ -753,15 +761,7 @@ async function validateChain() {
     execution_hash: hash,
     chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
     policy_parameters: policyParams,
-    output_payload: {
-      validation_verdict: verdict,
-      checks_run: checks.length,
-      failing_checks: failing.map(c=>({ id:c.id, detail:c.detail.slice(0,200) })),
-      warning_checks: warnings.map(c=>c.id),
-      mandate_ids: { intent:intent.mandate_id, cart:cart?.mandate_id||null, payment:payment.mandate_id },
-      has_cart: !!cart,
-      human_not_present: !!intent.human_not_present
-    },
+    output_payload: outputPayload,
     compliance_flags: verdict==='PASS'
       ? ['AP2_MANDATE_CHAIN_VALID']
       : verdict==='WARN'
@@ -883,7 +883,7 @@ function copyFixture() {
    UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hb = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -909,6 +909,12 @@ function toggleMfst() {
   if(!open&&!document.getElementById('mfstCode').textContent)
     document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
 }
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

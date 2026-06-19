@@ -814,14 +814,30 @@ async function classifyIncident() {
       third_party_ict: inputs.tpict
     }
   };
-  const outputForHash = {
+  const outputPayload = {
     major_incident: _result.isMajor,
-    criteria_met_count: _result.criteriaMetList.length,
-    criteria_met_ids: _result.criteriaMetList.map(c => c.id),
-    determination_code: _result.isMajor ? 'MAJOR' : 'NON_MAJOR'
+    determination_code: _result.isMajor ? 'MAJOR' : 'NON_MAJOR',
+    qualifying_criteria: _result.criteriaMetList.map(c => c.id),
+    criteria_detail: _result.criteria.map(c => ({
+      id: c.id,
+      met: c.met,
+      value: c.value,
+      article: c.article
+    })),
+    reporting_clock: {
+      detection_datetime: inputs.detectionDt,
+      initial_notification_deadline: _result.clock[2].datetime_str,
+      intermediate_report_deadline: _result.clock[3].datetime_str,
+      final_report_deadline: _result.clock[4].datetime_str
+    },
+    competent_authority_note: _result.authorityInfo.primary,
+    entity_type: inputs.entityType,
+    incident_type: inputs.incidentType,
+    cross_border: inputs.crossBorder,
+    third_party_ict: inputs.tpict
   };
 
-  const hash = await sha256({policy_parameters: policyParams, output_payload: outputForHash});
+  const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
 
   const now = new Date().toISOString();
   _artifact = {
@@ -840,28 +856,7 @@ async function classifyIncident() {
       chain_depth: 0
     },
     policy_parameters: policyParams,
-    output_payload: {
-      major_incident: _result.isMajor,
-      determination_code: _result.isMajor ? 'MAJOR' : 'NON_MAJOR',
-      qualifying_criteria: _result.criteriaMetList.map(c => c.id),
-      criteria_detail: _result.criteria.map(c => ({
-        id: c.id,
-        met: c.met,
-        value: c.value,
-        article: c.article
-      })),
-      reporting_clock: {
-        detection_datetime: inputs.detectionDt,
-        initial_notification_deadline: _result.clock[2].datetime_str,
-        intermediate_report_deadline: _result.clock[3].datetime_str,
-        final_report_deadline: _result.clock[4].datetime_str
-      },
-      competent_authority_note: _result.authorityInfo.primary,
-      entity_type: inputs.entityType,
-      incident_type: inputs.incidentType,
-      cross_border: inputs.crossBorder,
-      third_party_ict: inputs.tpict
-    },
+    output_payload: outputPayload,
     compliance_flags: _result.isMajor
       ? ['DORA_MAJOR_INCIDENT','REPORTING_OBLIGATION_TRIGGERED']
       : ['DORA_NON_MAJOR'],
@@ -964,7 +959,7 @@ function renderResults(result) {
    HASH
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hashBuf = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -1066,5 +1061,11 @@ function toggleMfst() {
 })();
 </script>
 
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
 </body>
 </html>

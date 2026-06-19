@@ -853,28 +853,7 @@ async function runConformity() {
       art_checklist_answered: Object.keys(_artAnswers).length
     }
   };
-  const outputForHash = {
-    conformity_determination: determination,
-    bias_failing_chars: biasResults.filter(b=>!b.skipped&&b.anyFail).map(b=>b.name),
-    data_score_pct: Math.round(dataScore.score*100),
-    art_score_pct: Math.round(artScore.score*100),
-    failing_dimensions_count: failingDimensions.length
-  };
-  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
-
-  _artifact = {
-    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.3.1',
-    buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
-    ap2_version: '1.0.0',
-    mandate_type: 'model_governance',
-    tool_id: 'art-05-eu-ai-act-credit-scoring-conformity',
-    tool_version: '1.0.0',
-    generated_at: now,
-    execution_hash: hash,
-    chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
-    policy_parameters: policyParams,
-    output_payload: {
+  const outputPayload = {
       conformity_determination: determination,
       conformity_determination_note: determination === 'FAIL'
         ? 'One or more mandatory bias or high-weight checklist items are failing. Remediation required before August 2, 2026 ⚠ Digital Omnibus proposes deferral to Dec 2, 2027 — confirm.'
@@ -896,7 +875,22 @@ async function runConformity() {
       failing_dimensions: failingDimensions,
       applicable_deadline: '2026-08-02', applicable_deadline_note: 'Digital Omnibus (Jun 2026 trilogue) proposes deferral to 2027-12-02 — verify before relying',
       regulatory_framework: 'EU AI Act (Regulation (EU) 2024/1689) — Annex III Part 5(b)'
-    },
+  };
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputPayload});
+
+  _artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.3.1',
+    buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
+    ap2_version: '1.0.0',
+    mandate_type: 'model_governance',
+    tool_id: 'art-05-eu-ai-act-credit-scoring-conformity',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters: policyParams,
+    output_payload: outputPayload,
     compliance_flags: determination === 'FAIL'
       ? ['EU_AI_ACT_CONFORMITY_FAIL','REMEDIATION_REQUIRED']
       : determination === 'WARN'
@@ -1056,7 +1050,7 @@ function copyDocSkeleton() {
    UTILS
    ───────────────────────────────────────────────────────────────── */
 async function sha256(obj) {
-  const canonical = JSON.stringify(obj,Object.keys(obj).sort());
+  const canonical = __ocgCanonStr(obj);
   const buf = new TextEncoder().encode(canonical);
   const hashBuf = await crypto.subtle.digest('SHA-256',buf);
   return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1088,6 +1082,12 @@ function toggleMfst() {
   renderChecklists();
   renderCharacteristics();
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

@@ -316,7 +316,7 @@ footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
 
 /* ── §4 OpenChainGraph helpers ── */
 async function sha256(obj) {
-  var canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  var canonical = __ocgCanonStr(obj);
   var buf = new TextEncoder().encode(canonical);
   var hashBuf = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hashBuf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -719,6 +719,12 @@ function copyMfst(){var s=JSON.stringify(MANIFEST,null,2);if(navigator.clipboard
 window.AINBridge={version:'1.0',apply:applyPrefill,run:function(){if(typeof window[CFG.runFn]==='function'){try{window[CFG.runFn]();return true;}catch(e){return false;}}return false;},getMandate:function(){return(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
 window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var applied=applyPrefill(d.fields||{});e.source&&e.source.postMessage({type:'ain:prefilled',applied:applied},ro);}else if(d.type==='ain:run'){try{window[CFG.runFn]&&window[CFG.runFn]();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}catch(ex){e.source&&e.source.postMessage({type:'ain:ran',ok:false,error:ex.message},ro);}}else if(d.type==='ain:getMandate'){var m=(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initPrefill);else initPrefill();})();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>

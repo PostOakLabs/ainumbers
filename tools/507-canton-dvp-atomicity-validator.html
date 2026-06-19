@@ -558,10 +558,8 @@ function runDvPAtomicity() {
 }
 
 function computeHash(policy_parameters, output_payload) {
-  var combined = Object.assign({}, policy_parameters, output_payload);
-  var sorted = {};
-  Object.keys(combined).sort().forEach(function(k){ sorted[k] = combined[k]; });
-  var str = JSON.stringify(sorted);
+  /* Canonicalize over the {policy_parameters, output_payload} envelope (OCG-CANON v1, RFC 8785/JCS) */
+  var str = __ocgCanonStr({policy_parameters: policy_parameters, output_payload: output_payload});
   var buf = new TextEncoder().encode(str);
   return crypto.subtle.digest('SHA-256', buf).then(function(hashBuf) {
     return Array.from(new Uint8Array(hashBuf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
@@ -852,6 +850,12 @@ window.addEventListener('message',function(e){
 function boot(){buildIntakeUI();initPrefill();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
 </script>
 </body>
 </html>
