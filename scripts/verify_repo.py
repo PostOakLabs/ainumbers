@@ -2,11 +2,14 @@
 """
 verify_repo.py — S1 deploy gate (hard gate — exits 1 on failure)
 
-Four checks, all hard failures that block deploy:
+Five checks, all hard failures that block deploy:
   1. PII text correctness  — any pii-notice div must have canonical §1.3 text
   2. Manifest coverage     — every tools/*.html must have a .manifest.json
   3. AP2 consistency       — manifests with ap2_export:true must have the button in HTML
   4. Sitemap coverage      — every tools/*.html and guides/*.html in sitemap.xml
+  5. Hash + syntax gates   — Node: JS syntax parse, forbidden-hash lint, golden
+                             execution_hash parity, art-01 canonicalizer self-test
+                             (soft-skips only if Node is absent; CI always enforces)
 
 Usage:
   python scripts/verify_repo.py   # exits 0 (pass) or 1 (fail)
@@ -14,6 +17,8 @@ Usage:
 
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +27,15 @@ TOOLS = REPO / "tools"
 GUIDES = REPO / "guides"
 MANIFESTS = REPO / "manifests"
 SITEMAP = REPO / "sitemap.xml"
+KERNELS = REPO / "chaingraph" / "kernels"
+
+# Node-based gates (OpenChainGraph hash integrity + JS syntax). Each exits non-zero on failure.
+HASH_GATES = [
+    ("JS syntax",            "syntax-check.mjs"),        # every inline classic script parses
+    ("forbidden-hash lint",  "lint-forbidden-hash.mjs"), # no array-replacer / fake simpleHash
+    ("golden parity",        "golden-parity.test.mjs"),  # pinned execution_hash drift
+    ("art-01 kernel parity", "parity-art-01.test.mjs"),  # canonicalizer self-test
+]
 
 # CONTRACT §1.3 canonical PII text prefix (enough to confirm correct wording)
 CANON_PII_PREFIX = (
@@ -133,6 +147,29 @@ def check_sitemap():
         print(f"  ✅ Sitemap: all {t} tools + {g} guides present")
 
 
+# ── Check 5: Node hash + syntax gates ─────────────────────────────────────────
+def check_hash_gates():
+    node = shutil.which("node")
+    if not node:
+        # Soft-skip when Node is absent (e.g. a Python-only checkout). CI installs
+        # Node, so the gates are still enforced there. Do not block on missing tooling.
+        print("  ⚠️  node not found — skipping hash/syntax gates locally (CI enforces them)")
+        return
+    for label, script in HASH_GATES:
+        path = KERNELS / script
+        if not path.exists():
+            fail(f"[HASH] gate script missing: chaingraph/kernels/{script}")
+            continue
+        res = subprocess.run([node, str(path)], cwd=str(REPO), capture_output=True, text=True)
+        if res.returncode != 0:
+            fail(f"[HASH] {label} gate failed — `node chaingraph/kernels/{script}`:")
+            tail = (res.stdout + res.stderr).strip().splitlines()[-12:]
+            for line in tail:
+                fail(f"    {line}")
+        else:
+            print(f"  ✅ {label}: passed")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     print("\n=== verify_repo.py — deploy gate ===\n")
@@ -140,6 +177,7 @@ def main():
     check_manifests()
     check_ap2()
     check_sitemap()
+    check_hash_gates()
 
     if errors:
         print(f"\n❌  FAILED — {len(errors)} error(s) block deploy:\n")

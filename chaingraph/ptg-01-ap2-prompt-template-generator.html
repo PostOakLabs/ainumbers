@@ -973,12 +973,18 @@ async function runPTG() {
       input_artifact_tool_id: artifact ? (artifact.tool_id || null) : null,
       input_artifact_hash: artifact ? (artifact.execution_hash || null) : null
     };
-    const outputPayloadForHash = {
+    const policy_parameters = { execution_backend: 'js', input_parameters: policyParams };
+    const output_payload = {
+      task, audience, tone,
+      include_citations: includeCitations,
       generated_prompt_length: prompt.length,
-      generated_prompt_preview: prompt.slice(0, 200),
-      claude_deeplink_length: deepLink.length
+      claude_deeplink: deepLink,
+      template_registry_version: TEMPLATE_REGISTRY.registry_version,
+      mandate_type_matched: (artifact?.mandate_type || null),
+      source_tool_id: artifact?.tool_id || null,
+      source_execution_hash: artifact?.execution_hash || null
     };
-    const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayloadForHash });
+    const hash = await sha256({ policy_parameters, output_payload });
     _state.executionHash = hash;
 
     // Chain block
@@ -997,7 +1003,7 @@ sha256:${hash}
 <strong>Template Registry</strong> v${TEMPLATE_REGISTRY.registry_version}
 <strong>Computed At</strong>     ${new Date().toISOString()}
 
-This hash is over: canonicalized(policy_parameters + output_payload_digest)
+This hash is over: canonicalized(policy_parameters + output_payload)
 Any downstream LLM narrative citing this hash is traceable to this computation.`.trim();
 
     // Build the PTG-01 OpenChainGraph artifact
@@ -1017,20 +1023,8 @@ Any downstream LLM narrative citing this hash is traceable to this computation.`
         parent_tool_ids: parentToolId ? [parentToolId] : [],
         chain_depth: chainDepth
       },
-      policy_parameters: {
-        execution_backend: 'js',
-        input_parameters: policyParams
-      },
-      output_payload: {
-        task, audience, tone,
-        include_citations: includeCitations,
-        generated_prompt_length: prompt.length,
-        claude_deeplink: deepLink,
-        template_registry_version: TEMPLATE_REGISTRY.registry_version,
-        mandate_type_matched: (artifact?.mandate_type || null),
-        source_tool_id: artifact?.tool_id || null,
-        source_execution_hash: artifact?.execution_hash || null
-      },
+      policy_parameters,
+      output_payload,
       compliance_flags: [],
       audit_signature: {
         payloadType: 'application/vnd.openchain.graph+json;version=0.2',

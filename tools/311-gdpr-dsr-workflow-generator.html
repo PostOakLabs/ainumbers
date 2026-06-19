@@ -1271,18 +1271,19 @@ function generateUUID() {
   });
 }
 
-function simpleHash(str) {
-  // Deterministic djb2-style hash for execution_hash field
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
-  return (h >>> 0).toString(16).padStart(8, '0') + '-sha256-client-side';
+async function realSha256Hex(str) {
+  // Real WebCrypto SHA-256 (replaces a prior non-cryptographic djb2 placeholder
+  // that also failed this tool's own RE_SHA256 64-hex validator).
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function exportAP2() {
+async function exportAP2() {
   if (!_lastResult) return;
   const r = _lastResult;
   const ts = new Date().toISOString();
   const inputStr = JSON.stringify({ jurisdiction: r.jurisdiction, request_type: r.requestType, data_category: r.dataCategory, requestor_type: r.requestorType, org_type: r.orgType });
+  const execution_hash = await realSha256Hex(inputStr);
 
   const ap2 = {
     ap2_version: "1.0",
@@ -1340,7 +1341,7 @@ function exportAP2() {
       zero_pii_verified: true,
       deterministic_run: true,
     },
-    execution_hash: simpleHash(inputStr),
+    execution_hash,
   };
 
   AP2Schema.validate(ap2);

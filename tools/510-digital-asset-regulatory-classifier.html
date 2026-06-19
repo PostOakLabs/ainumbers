@@ -517,13 +517,14 @@ function runRegulatoryClassifier() {
   /* ─── Build mandate async (execution_hash via WebCrypto) ─── */
   var mandateBase = buildMandateSync(assetName, assetType, issuerJurisdiction, issuerType, transferValue, redeemablePar, economicRights, marketCapEur, onDlt, dltType, results, flags, ts);
 
-  /* Compute execution hash */
-  var sortedPayload = JSON.stringify(mandateBase.payload, Object.keys(mandateBase.payload).sort());
+  /* Compute execution hash — canonical SHA-256 over {policy_parameters, output_payload} */
+  var sortedPayload = JSON.stringify(__ocgCanon({ policy_parameters: mandateBase.policy_parameters, output_payload: mandateBase.output_payload }));
   var encoder = new TextEncoder();
   var data = encoder.encode(sortedPayload);
   crypto.subtle.digest('SHA-256', data).then(function(hashBuffer) {
     var hashArray = Array.from(new Uint8Array(hashBuffer));
     var hashHex = hashArray.map(function(b){ return ('00'+b.toString(16)).slice(-2); }).join('');
+    mandateBase.execution_hash = hashHex;
     mandateBase.chaingraph.execution_hash = hashHex;
     _lastMandate = mandateBase;
     window._currentMandate = mandateBase;
@@ -538,6 +539,7 @@ function runRegulatoryClassifier() {
   renderOutput(assetName, assetType, issuerJurisdiction, results, flags, ts);
 }
 
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=__ocgCanon(v[k]);return o;},{}):v;}
 function buildMandateSync(assetName, assetType, issuerJurisdiction, issuerType, transferValue, redeemablePar, economicRights, marketCapEur, onDlt, dltType, results, flags, ts) {
   var now = new Date().toISOString();
   var jurisdictionIso = {us:'US',eu:'EU',uk:'GB',sg:'SG',hk:'HK',jp:'JP',ch:'CH',other:'XX'}[issuerJurisdiction] || 'XX';
@@ -552,6 +554,25 @@ function buildMandateSync(assetName, assetType, issuerJurisdiction, issuerType, 
     mandate_type: 'compliance_mandate',
     jurisdiction: ['INT'],
     regulatory_frameworks: ['GENIUS Act', 'MiCA (EU) 2023/1114', 'MiFID II 2014/65/EU', 'DLT Pilot Regime (EU) 2022/858'],
+    execution_hash: null,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: {
+      asset_name: assetName,
+      asset_type: assetType,
+      issuer_jurisdiction: issuerJurisdiction,
+      issuer_type: issuerType,
+      transfer_value: transferValue,
+      redeemable_par: redeemablePar,
+      economic_rights: economicRights,
+      market_cap_eur: marketCapEur,
+      on_dlt: onDlt,
+      dlt_type: dltType
+    },
+    output_payload: {
+      classification_results: results.map(function(r){ return {framework:r.framework,applies:r.applies,note:r.note,next_step:r.next_step}; }),
+      iso20022_party_identification: [{party_name: assetName, lei: null, country: jurisdictionIso, currency: null}],
+      compliance_flags: (function(){ var o={}; Object.keys(flags).forEach(function(k){o[k]=flags[k];}); return o; })()
+    },
     payload: {
       asset_name: assetName,
       asset_type: assetType,

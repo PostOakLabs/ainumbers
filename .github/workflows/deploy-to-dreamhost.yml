@@ -24,6 +24,23 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: ⬢ Setup Node (for hash + syntax gates)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🔐 OpenChainGraph hash + JS syntax gates
+        # Hard gate (exits 1 on failure). Catches: any inline classic <script>
+        # that fails to parse; forbidden hash patterns (array-replacer
+        # canonicalization, fake 32-bit simpleHash); execution_hash golden-parity
+        # drift; and an art-01 canonicalizer self-test. These zero-dependency
+        # scripts are the regression guard for the 2026-06-18 hash remediation.
+        run: |
+          node chaingraph/kernels/syntax-check.mjs
+          node chaingraph/kernels/lint-forbidden-hash.mjs
+          node chaingraph/kernels/golden-parity.test.mjs
+          node chaingraph/kernels/parity-art-01.test.mjs
+
       - name: 🔍 Index sync — verify all tools are on the homepage
         # Fails the build if any tool in tools/ has no card in index.html
         # (unless it's in the INTENTIONAL_OMISSIONS list in the script).

@@ -362,7 +362,13 @@ function loadPreset(key) {
 
 var _lastResult = null;
 
-function runRepoHaircut() {
+async function __ocgHash(policy_parameters, output_payload){
+  var cn=function cn(v){return Array.isArray(v)?v.map(cn):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cn(v[k]);return o;},{}):v;};
+  var s=JSON.stringify(cn({policy_parameters:policy_parameters,output_payload:output_payload}));
+  var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+}
+async function runRepoHaircut() {
   var collateralType   = document.getElementById('collateralType').value;
   var notional         = parseFloat(document.getElementById('notional').value) || 0;
   var currency         = document.getElementById('currency').value;
@@ -498,6 +504,7 @@ function runRepoHaircut() {
     collateralLabel: base.label
   };
 
+  _lastResult.execution_hash = await __ocgHash(policy_parameters, output_payload);
   window._currentMandate = buildMandate();
   renderOutput();
   window.enableAP2Btn && window.enableAP2Btn();
@@ -652,6 +659,8 @@ function buildMandate() {
     semantic_profile:'iso20022:pacs.008-subset',
     jurisdiction:['INT'],
     regulatory_frameworks:['Basel CRE22','BCBS d349 SFT Floors','GMRA','SFTR EU 2015/2365'],
+    execution_hash: r.execution_hash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
     policy_parameters: r.policy_parameters,
     output_payload: r.output_payload,
     chaingraph:{

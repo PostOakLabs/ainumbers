@@ -517,22 +517,23 @@ function runPartyAllowlist() {
   renderOutput(results, verdict, flags, iso20022, ts, null);
 }
 
-function computeHashAndEnable(results, verdict) {
-  var hashPayload = {
-    parties: results.map(function(r) {
-      return { party_name: r.party.party_name, fatf_category: r.party.fatf_category, jurisdiction: r.party.jurisdiction, decision: r.decision };
-    }),
-    portfolio_verdict: verdict
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=__ocgCanon(v[k]);return o;},{}):v;}
+// Canonical {policy_parameters, output_payload} envelope — inputs vs results.
+// Used for BOTH the execution_hash preimage and the stored artifact so they verify.
+function __ocgPPOP(results, verdict, flags){
+  return {
+    policy_parameters: { parties: results.map(function(r){ return { party_name:r.party.party_name, lei:r.party.lei||null, entity_type:r.party.entity_type, jurisdiction:r.party.jurisdiction, fatf_category:r.party.fatf_category, pep:r.party.pep, adverse_media:r.party.adverse_media, daml_party_id_known:r.party.daml_party_id_known, canton_access:r.party.canton_access }; }) },
+    output_payload: { party_decisions: results.map(function(r){ return { party_name:r.party.party_name, decision:r.decision, flags:r.flags }; }), portfolio_verdict: verdict, compliance_flags: flags }
   };
-  var sortedKeys = Object.keys(hashPayload).sort();
-  var obj = {};
-  sortedKeys.forEach(function(k){ obj[k] = hashPayload[k]; });
-  var canonical = JSON.stringify(obj);
+}
+function computeHashAndEnable(results, verdict) {
+  var sr = window._screeningResults;
+  var ppop = __ocgPPOP(results, verdict, sr.flags);
+  var canonical = JSON.stringify(__ocgCanon({ policy_parameters: ppop.policy_parameters, output_payload: ppop.output_payload }));
   var enc = new TextEncoder().encode(canonical);
   crypto.subtle.digest('SHA-256', enc).then(function(buf) {
     var arr = Array.from(new Uint8Array(buf));
     _executionHash = arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-    var sr = window._screeningResults;
     _lastMandate = buildMandate(sr.results, sr.verdict, sr.flags, sr.iso20022, sr.ts, _executionHash);
     window._currentMandate = _lastMandate;
     /* Update hash display if already rendered */
@@ -541,7 +542,6 @@ function computeHashAndEnable(results, verdict) {
     enableAP2Btn();
   }).catch(function() {
     _executionHash = 'sha256-unavailable';
-    var sr = window._screeningResults;
     _lastMandate = buildMandate(sr.results, sr.verdict, sr.flags, sr.iso20022, sr.ts, _executionHash);
     window._currentMandate = _lastMandate;
     enableAP2Btn();
@@ -570,6 +570,10 @@ function buildMandate(results, verdict, flags, iso20022, ts, execution_hash) {
     semantic_profile: 'iso20022:party-identification',
     jurisdiction: ['INT'],
     regulatory_frameworks: ['FATF Recommendation 16', 'Canton Network KYA'],
+    execution_hash: execution_hash || null,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: __ocgPPOP(results, verdict, flags).policy_parameters,
+    output_payload: __ocgPPOP(results, verdict, flags).output_payload,
     payload: {
       parties: results.map(function(r){
         return {
