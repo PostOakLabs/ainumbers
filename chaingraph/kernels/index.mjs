@@ -11,16 +11,55 @@ import * as art06  from './art-06-genius-act-reserve-attestation.kernel.mjs';
 import * as art09  from './art-09-dora-incident-classifier.kernel.mjs';
 import * as art11  from './art-11-vop-batch-match-rate-analyser.kernel.mjs';
 import * as art12  from './art-12-acp-checkout-conformance-validator.kernel.mjs';
+import * as art13  from './art-13-eudi-wallet-credential-readiness-checker.kernel.mjs';
+import * as art14  from './art-14-psd3-psr-readiness-checker.kernel.mjs';
+import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
+import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
+import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
+import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
+import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
+import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
+import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
+import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
+import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
+import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
+import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
+import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
+import * as art32  from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
+import * as art33  from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
 import * as art34  from './art-34-tempo-fit-diagnostic.kernel.mjs';
 import * as art35  from './art-35-tempo-payments-business-case.kernel.mjs';
+import * as art36  from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
+import * as art37  from './art-37-tempo-stablecoin-issuance.kernel.mjs';
 import * as art38  from './art-38-tempo-onchain-aml.kernel.mjs';
+import * as art39  from './art-39-tempo-zone-disclosure.kernel.mjs';
+import * as art40  from './art-40-tempo-agentic-checkout.kernel.mjs';
 import * as art41  from './art-41-tempo-validator-readiness.kernel.mjs';
+import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
+import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
+import * as t506   from './506-onchain-cash-leg-finality-checker.kernel.mjs';
+import * as t507   from './507-canton-dvp-atomicity-validator.kernel.mjs';
 import * as t508   from './508-repo-haircut-collateral-calculator.kernel.mjs';
+import * as t509   from './509-canton-party-allowlist-validator.kernel.mjs';
+import * as t510   from './510-digital-asset-regulatory-classifier.kernel.mjs';
 import * as t511   from './511-multi-currency-pvp-validator.kernel.mjs';
+import * as t512   from './512-tokenized-security-lifecycle-validator.kernel.mjs';
+import * as t513   from './513-margin-call-collateral-mobilizer.kernel.mjs';
+import * as t514   from './514-tokenized-fund-collateral-validator.kernel.mjs';
+import * as t515   from './515-collateral-swap-eligibility-validator.kernel.mjs';
+import * as cry04  from './cry-04-merkle-batch-verifier.kernel.mjs';
+import * as cry05  from './cry-05-agent-action-audit-trail-aggregator.kernel.mjs';
+import * as ml01   from './ml-01-isolation-forest.kernel.mjs';
+import * as ml03   from './ml-03-timeseries-anomaly-detector.kernel.mjs';
+import * as ptg01  from './ptg-01-ap2-prompt-template-generator.kernel.mjs';
+import * as qfa01  from './qfa-01-options-greeks.kernel.mjs';
+import * as rca01  from './rca-01-frtb-ima-pre-validator.kernel.mjs';
+import * as sim07  from './sim-07-open-banking-consent-flow-stress.kernel.mjs';
 
 export const KERNELS = {
+  // ART series — agent / agentic payments / compliance
   'art-01-ap2-mandate-chain-validator':              art01,
   'art-03-x402-settlement-modeler':                  art03,
   'art-04-agent-identity-attestation-checker':       art04,
@@ -29,14 +68,55 @@ export const KERNELS = {
   'art-09-dora-incident-classifier':                 art09,
   'art-11-vop-batch-match-rate-analyser':            art11,
   'art-12-acp-checkout-conformance-validator':       art12,
+  'art-13-eudi-wallet-credential-readiness-checker': art13,
+  'art-14-psd3-psr-readiness-checker':               art14,
+  'art-19-agentic-checkout-protocol-selector':       art19,
+  'art-20-acp-ucp-product-feed-conformance-auditor': art20,
+  'art-21-agent-traffic-acceptance-policy-builder':  art21,
+  'art-22-agentic-payments-protocol-comparator':     art22,
+  'art-23-visa-trusted-agent-protocol-inspector':    art23,
+  'art-24-mastercard-agentic-token-builder':         art24,
+  'art-25-a2a-agent-card-validator':                 art25,
+  'art-26-x402-payload-decoder-flow-simulator':      art26,
+  'art-27-agentic-readiness-diagnostic':             art27,
+  'art-28-mcp-server-deployability-diagnostic':      art28,
   'art-29-dora-readiness-diagnostic':                art29,
+  'art-30-agent-commerce-conformance-validator':     art30,
+  'art-31-a2a-x402-extension-mandate-validator':     art31,
+  'art-32-a2a-agent-card-trust-chain-validator':     art32,
+  'art-33-mcp-server-self-attestation-pack':         art33,
+  // ART Tempo series (waves 8–9)
   'art-34-tempo-fit-diagnostic':                     art34,
   'art-35-tempo-payments-business-case':             art35,
+  'art-36-tempo-mpp-agent-mandate':                  art36,
+  'art-37-tempo-stablecoin-issuance':                art37,
   'art-38-tempo-onchain-aml':                        art38,
+  'art-39-tempo-zone-disclosure':                    art39,
+  'art-40-tempo-agentic-checkout':                   art40,
   'art-41-tempo-validator-readiness':                art41,
+  // T-series — capital markets / tokenization
+  '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
+  '505-tokenized-collateral-eligibility-checker':    t505,
+  '506-onchain-cash-leg-finality-checker':           t506,
+  '507-canton-dvp-atomicity-validator':              t507,
   '508-repo-haircut-collateral-calculator':          t508,
+  '509-canton-party-allowlist-validator':            t509,
+  '510-digital-asset-regulatory-classifier':         t510,
   '511-multi-currency-pvp-validator':                t511,
+  '512-tokenized-security-lifecycle-validator':      t512,
+  '513-margin-call-collateral-mobilizer':            t513,
+  '514-tokenized-fund-collateral-validator':         t514,
+  '515-collateral-swap-eligibility-validator':       t515,
+  // CRY / ML / PTG / QFA / RCA / SIM prefixes
+  'cry-04-merkle-batch-verifier':                    cry04,
+  'cry-05-agent-action-audit-trail-aggregator':      cry05,
+  'ml-01-isolation-forest':                          ml01,
+  'ml-03-timeseries-anomaly-detector':               ml03,
+  'ptg-01-ap2-prompt-template-generator':            ptg01,
+  'qfa-01-options-greeks':                           qfa01,
+  'rca-01-frtb-ima-pre-validator':                   rca01,
+  'sim-07-open-banking-consent-flow-stress':         sim07,
 };
 
 export function getKernel(tool_id) {
