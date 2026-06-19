@@ -63,6 +63,13 @@ ok(xtext.includes('iso4217:USD'), 'xbrl emits a monetary unit for a USD fact');
 safeWrite('sample-export.xbrl', xtext);
 ok(!exportArtifact({ artifact, format: 'xbrl', xbrl_taxonomy: 'eba-corep-own-funds' }).ok, 'eba-corep pending (no fabricated EBA concepts)');
 
+// qr (structural only — SCAN sample-export.pdf to confirm it decodes to the verify URL)
+const { qrMatrix } = await import('./qr.mjs');
+const qr = qrMatrix('https://ainumbers.co/chaingraph/verify?hash=' + 'a'.repeat(64));
+ok(qr.size >= 21 && qr.size % 4 === 1, `qr size is a valid module count (${qr.size})`);
+const finderOK = (r, c) => qr.modules[r][c] && qr.modules[r + 6][c] && qr.modules[r][c + 6] && !qr.modules[r + 1][c + 1];
+ok(finderOK(0, 0) && finderOK(0, qr.size - 7) && finderOK(qr.size - 7, 0), 'qr has 3 finder patterns at the corners');
+
 // guards
 ok(!exportArtifact({ artifact, format: 'xbrl' }).ok, 'xbrl without taxonomy rejected');
 ok(!exportArtifact({ format: 'xlsx' }).ok, 'missing artifact rejected');

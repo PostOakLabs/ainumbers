@@ -14,13 +14,15 @@ EBA taxonomy (core project rule).
 | `zip.mjs` | Dependency-free STORE-only ZIP + CRC32 (xlsx is a ZIP; Workers-safe, deterministic) |
 | `xlsx.mjs` | `buildXlsx(artifact)` → 3-sheet workbook (Decision / Data / Provenance), inline strings |
 | `csv.mjs` | `buildCsv(artifact)` → manifest + scalars + tables (UTF-8 BOM) |
-| `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer |
-| `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1 instance; `ocg-ext` working, `eba-corep-*` guarded |
-| `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` |
+| `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer, **QR** of the verify URL (top-right) |
+| `qr.mjs` | `qrMatrix(text)` → boolean module matrix (byte mode, EC-M, v1–7). ⚠ SCAN the sample PDF to confirm |
+| `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1; `ocg-ext` working; `eba-corep-*` loader present but **guarded** until qnames populated |
+| `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` + QR structural check |
 
-**TODOs:** `pdf.mjs` renders the verify URL as text (QR encoding pending). `xbrl.mjs` needs the
-`eba-corep-own-funds` / `eba-corep-lcr-nsfr` concept maps populated from the published EBA taxonomy
-(metric/dimension qnames) — do not fabricate; the machinery + `ocg-ext` path are proven.
+**TODOs:** `qr.mjs` is unverified against a scanner in CI — scan `sample-export.pdf` once (the verify URL is
+also printed as text, so a non-scanning QR loses nothing). `xbrl.mjs` COREP emission is wired (`buildCorep`)
+but `eba-corep-*` stay guarded until `COREP_MAPS` (and the JSON scaffold at `taxonomies/eba-corep-concept-map.json`)
+have real `eba_qname`/`schemaRef` values from the published EBA taxonomy — do not fabricate.
 
 ## Test (Node 18+)
 ```

@@ -9,6 +9,7 @@
 // rendered as text for now. Harden before GA.
 
 import { metaBlock, exportFilename, flattenPayload } from './_meta.mjs';
+import { qrMatrix } from './qr.mjs';
 
 const MEDIA_TYPE = 'application/pdf';
 
@@ -123,6 +124,25 @@ function pageContent(pageLines) {
   return s;
 }
 
+// Top-right QR of the verify_url, drawn as filled module squares. Additive — the
+// verify URL is also printed as text, so a non-scanning QR never loses information.
+function qrOps(artifact) {
+  const url = metaBlock(artifact).verify_url;
+  if (!url) return '';
+  let mat;
+  try { mat = qrMatrix(url); } catch { return ''; } // too long / encode error → skip QR
+  const ms = 2.3, n = mat.size;
+  const x0 = PAGE_W - X_LEFT - n * ms;     // right-aligned in the right margin
+  const yTop = Y_TOP - 4;                   // just below the top margin
+  let s = `BT /F1 7 Tf 1 0 0 1 ${x0.toFixed(2)} ${(yTop + 8).toFixed(2)} Tm (${escapePdf('Scan to verify')}) Tj ET\n0 0 0 rg\n`;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    if (!mat.modules[i][j]) continue;
+    const x = x0 + j * ms, y = yTop - (i + 1) * ms;
+    s += `${x.toFixed(2)} ${y.toFixed(2)} ${ms} ${ms} re\n`;
+  }
+  return s + 'f\n';
+}
+
 // Latin-1 byte encoder (every char already guaranteed <= 0xFF by asciiSafe / structure).
 function latin1Bytes(str) {
   const out = new Uint8Array(str.length);
@@ -142,9 +162,12 @@ export function buildPdf(artifact) {
 
   let objNum = 5;
   const pageRefs = [];
+  let pageIdx = 0;
   for (const pl of pages) {
     const contentNum = objNum++, pageNum = objNum++;
-    const stream = pageContent(pl);
+    let stream = pageContent(pl);
+    if (pageIdx === 0) stream += qrOps(artifact);   // QR on page 1 only
+    pageIdx++;
     all[contentNum] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;
     all[pageNum] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] ` +
       `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentNum} 0 R >>`;

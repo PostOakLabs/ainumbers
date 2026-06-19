@@ -47,15 +47,78 @@ const TAXONOMIES = {
       rwa_delta:          { name: 'RwaDelta', type: 'monetary', unit: 'USD' },
     },
   },
-  // Registered, NOT yet mapped — do not fabricate EBA concepts. The mapping
-  // scaffold (public template/row refs, eba_qname slots) lives at
-  // exporters/taxonomies/eba-corep-concept-map.json — populate it from the
-  // published EBA taxonomy, then load it here and drop the guard.
-  'eba-corep-own-funds': { pending: 'EBA COREP own-funds concept map not yet populated (eba_met qnames absent). See exporters/taxonomies/eba-corep-concept-map.json; populate from the published EBA taxonomy — concepts must not be fabricated (OCG §13.8). Use xbrl_taxonomy="ocg-ext" in the interim.' },
-  'eba-corep-lcr-nsfr':  { pending: 'EBA COREP LCR/NSFR concept map not yet populated. See exporters/taxonomies/eba-corep-concept-map.json. Same rule as own-funds.' },
 };
 
-export const XBRL_TAXONOMIES = Object.keys(TAXONOMIES);
+// --- EBA COREP runtime maps (loader) -------------------------------------
+// Mirrors exporters/taxonomies/eba-corep-concept-map.json (the human artifact).
+// eba_qname / schemaRef / ns.uri are NULL — buildCorep() guards while unpopulated
+// and DOES NOT fabricate concepts (OCG §13.8 / core project rule). When a future
+// session fills these from the published EBA taxonomy, COREP emission turns on with
+// no other change. Keep this in sync with the JSON scaffold.
+const COREP_MAPS = {
+  'eba-corep-own-funds': {
+    schemaRef: null,                                   // EBA COREP-OF entry-point .xsd
+    ns: { prefix: 'eba_met', uri: null },              // confirm metric namespace URI from taxonomy
+    fields: [
+      { payload_field: 'basel31_rwa_bn', template: 'C 02.00', label: 'TREA', eba_qname: null, unit: 'monetary' },
+      { payload_field: 'cet1_ratio_basel31_pct', template: 'C 03.00', label: 'CET1 ratio', eba_qname: null, unit: 'percent' },
+      { payload_field: 'floor_rwa_bn', template: 'C 02.00', label: 'Output floor RWA', eba_qname: null, unit: 'monetary' },
+    ],
+  },
+  'eba-corep-lcr-nsfr': {
+    schemaRef: null,                                   // EBA Liquidity entry-point .xsd
+    ns: { prefix: 'eba_met', uri: null },
+    fields: [
+      { payload_field: 'lcr_median_day30', template: 'C 76.00', label: 'LCR', eba_qname: null, unit: 'percent' },
+      { payload_field: 'nsfr_median_day250', template: 'C 84.00', label: 'NSFR', eba_qname: null, unit: 'percent' },
+    ],
+  },
+};
+
+export const XBRL_TAXONOMIES = [...Object.keys(TAXONOMIES), ...Object.keys(COREP_MAPS)];
+
+// Build a COREP instance — or throw a clear "pending" error while unpopulated.
+function buildCorep(artifact, taxonomyId) {
+  const map = COREP_MAPS[taxonomyId];
+  const ready = map.schemaRef && map.ns.uri && map.fields.some((f) => f.eba_qname);
+  if (!ready) {
+    throw new Error(
+      `EBA COREP ${taxonomyId}: concept map not populated (schemaRef / ns.uri / eba_qname are null). ` +
+      `See exporters/taxonomies/eba-corep-concept-map.json — populate from the published EBA taxonomy; ` +
+      `concepts must not be fabricated (OCG §13.8). Use xbrl_taxonomy="ocg-ext" in the interim.`);
+  }
+  // --- Activated path (runs once qnames are populated) ---
+  const m = metaBlock(artifact);
+  const op = artifact?.output_payload ?? {};
+  const { scalars } = flattenPayload(op);
+  const lookup = new Map(scalars);
+  const period = (artifact?.generated_at ?? '').slice(0, 10) || '1970-01-01';
+  const monetaryUnits = new Set();
+  const facts = [];
+  for (const f of map.fields) {
+    if (!f.eba_qname || !lookup.has(f.payload_field)) continue;
+    const v = lookup.get(f.payload_field);
+    const u = f.unit === 'monetary' ? 'u-RC' : 'u-pure';
+    if (f.unit === 'monetary') monetaryUnits.add('RC');
+    facts.push(`  <${f.eba_qname} contextRef="c1" unitRef="${u}" decimals="2">${factValue(f.unit, v)}</${f.eba_qname}>`);
+  }
+  const units = [`  <unit id="u-pure"><measure>xbrli:pure</measure></unit>`,
+    ...[...monetaryUnits].map(() => `  <unit id="u-RC"><measure>iso4217:EUR</measure></unit>`)].join('\n');
+  const xml =
+`<?xml version="1.0" encoding="UTF-8"?>
+<!-- chaingraph_export:xbrl ${taxonomyId} (OCG §13.8). Generated view — NOT independently
+     verifiable. Verify JSON: ${m.verify_url}  | source execution_hash: ${m.execution_hash} -->
+<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:link="http://www.xbrl.org/2003/linkbase"
+    xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+    xmlns:${map.ns.prefix}="${map.ns.uri}">
+  <link:schemaRef xlink:type="simple" xlink:href="${map.schemaRef}"/>
+  <xbrli:context id="c1"><xbrli:entity><xbrli:identifier scheme="https://www.gleif.org/">${xmlEscape(m.tool_id || 'ocg')}</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:instant>${period}</xbrli:instant></xbrli:period></xbrli:context>
+${units}
+${facts.join('\n')}
+</xbrli:xbrl>
+`;
+  return { bytes: new TextEncoder().encode(xml), filename: exportFilename(artifact, 'xbrl'), media_type: MEDIA_TYPE };
+}
 
 function unitRef(type, unit) {
   if (type === 'monetary') return `u-${unit}`;
@@ -71,9 +134,9 @@ function factValue(type, v) {
 
 /** buildXbrl(artifact, xbrl_taxonomy) -> { bytes, filename, media_type } | throws */
 export function buildXbrl(artifact, xbrl_taxonomy) {
+  if (COREP_MAPS[xbrl_taxonomy]) return buildCorep(artifact, xbrl_taxonomy);
   const tax = TAXONOMIES[xbrl_taxonomy];
   if (!tax) throw new Error(`Unknown xbrl_taxonomy "${xbrl_taxonomy}". Known: ${XBRL_TAXONOMIES.join(', ')}.`);
-  if (tax.pending) throw new Error(tax.pending);
 
   const m = metaBlock(artifact);
   const op = artifact?.output_payload ?? {};

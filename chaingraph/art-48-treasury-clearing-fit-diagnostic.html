@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasury Clearing Fit Diagnostic — ART-48 | AINumbers OpenChainGraph</title>
+<meta name="description" content="A–F readiness diagnostic for the SEC US Treasury clearing mandate (cash Dec 31 2026 / repo Jun 30 2027). 12 questions, 6 dimensions, routes to the right tcm-* chain. Client-side, zero-egress, hash-anchored.">
+<meta name="robots" content="index, follow">
+<!--
+  ART-48 — Wave 11 Treasury Clearing fit diagnostic. v1 functional build.
+  TODO before audit: reconcile header/footer/styling against the canonical template
+  (reconciled/152-baas-provider-comparator.html) per the AINumbers template convention.
+  The in-browser compute below MUST stay byte-identical to
+  kernels/art-48-treasury-clearing-fit-diagnostic.kernel.mjs (same as the _hash pattern).
+-->
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav .brand b{color:var(--teal)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select,input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results{display:none}
+.results.show{display:block}
+.grade-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:600;width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.dims{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+@media(max-width:620px){.dims{grid-template-columns:1fr 1fr}}
+.dim-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.dim-card .n{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.dim-card .s{font-size:1.1rem;color:var(--bright);font-weight:600}
+.route{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.route b{color:var(--teal-lt)}
+.chk{font-size:.8rem;color:var(--body);margin:4px 0;padding-left:14px;border-left:2px solid var(--warn)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+</style>
+</head>
+<body>
+<nav><div class="in"><span class="brand"><b>AI</b>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-48 · Wave 11 · US Treasury Clearing · D0 diagnostic</div>
+  <h1>Treasury Clearing Fit Diagnostic</h1>
+  <p class="sub">Grade your firm A–F across six dimensions for the SEC US Treasury clearing mandate (cash <b>Dec 31 2026</b>, repo <b>Jun 30 2027</b>), and get routed to the right downstream chain. Client-side, zero-egress; every run emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
+  <div class="flag">Educational diagnostic — not legal or clearing advice</div>
+
+  <div class="card">
+    <div class="grid" id="form">
+      <div class="q"><label><span class="dim">Scope</span>Cash UST trading activity</label><select id="activity_cash"><option value="none">None</option><option value="occasional" selected>Occasional</option><option value="core">Core</option></select></div>
+      <div class="q"><label><span class="dim">Scope</span>Repo activity</label><select id="activity_repo"><option value="none">None</option><option value="triparty-only" selected>Triparty only</option><option value="bilateral">Bilateral</option><option value="both">Both</option></select></div>
+      <div class="q"><label><span class="dim">Access</span>Current FICC access</label><select id="current_access"><option value="direct-member">Direct member</option><option value="sponsored">Sponsored</option><option value="agent">Agent clearing</option><option value="none" selected>None</option></select></div>
+      <div class="q"><label><span class="dim">Access</span># dealers/venues you trade UST/repo with</label><input type="number" id="execution_breadth" value="2" min="0" max="50"></div>
+      <div class="q"><label><span class="dim">Margin</span>IM funding readiness</label><select id="im_funding_ready"><option value="yes-segregated">Yes — segregated</option><option value="yes-omnibus">Yes — omnibus</option><option value="unsure" selected>Unsure</option><option value="no">No</option></select></div>
+      <div class="q"><label><span class="dim">Margin</span>% of book in Level-1 HQLA</label><input type="number" id="hqla_inventory_pct" value="40" min="0" max="100"></div>
+      <div class="q"><label><span class="dim">Capital</span>Capital constraint</label><select id="capital_constrained"><option value="bank-SLR">Bank — SLR constrained</option><option value="non-bank" selected>Non-bank</option><option value="na">N/A</option></select></div>
+      <div class="q"><label><span class="dim">Capital</span>Cross-product hedges (CME)</label><select id="cross_product_hedges"><option value="both">Treasury + SOFR futures</option><option value="cme-futures">Treasury futures</option><option value="sofr">SOFR futures</option><option value="none" selected>None</option></select></div>
+      <div class="q"><label><span class="dim">Ops</span>Clearing/sponsorship agreements</label><select id="agreements_status"><option value="executed">Executed</option><option value="drafting">Drafting</option><option value="not-started" selected>Not started</option></select></div>
+      <div class="q"><label><span class="dim">Ops</span>CCP/triparty/vendor connectivity</label><select id="connectivity"><option value="live">Live</option><option value="in-progress">In progress</option><option value="none" selected>None</option></select></div>
+      <div class="q"><label><span class="dim">Liquidity</span>Intraday liquidity for margin calls</label><select id="intraday_liquidity"><option value="strong">Strong</option><option value="adequate" selected>Adequate</option><option value="thin">Thin</option></select></div>
+      <div class="q"><label><span class="dim">Deadline</span>Primary in-scope product</label><select id="primary_product"><option value="cash">Cash (Dec 2026)</option><option value="repo">Repo (Jun 2027)</option><option value="both" selected>Both</option></select></div>
+    </div>
+    <button onclick="run()">Run diagnostic →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="grade-hero">
+      <div class="grade-badge" id="gradeBadge">–</div>
+      <div><div class="muted">Overall readiness</div><div style="font-size:1.1rem;color:var(--bright)"><span id="overallScore">–</span> / 100</div><div class="muted">Deadline: <span id="deadline">–</span> · <span id="daysLeft">–</span></div></div>
+    </div>
+    <div class="dims" id="dims"></div>
+    <div class="route" id="route"></div>
+    <div id="checklist"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+</div>
+
+<!-- OpenChainGraph MCP manifest (agent surface) -->
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-48-treasury-clearing-fit-diagnostic",
+  "mcp_name": "run_treasury_clearing_fit",
+  "mandate_type": "agent_guardrail_mandate",
+  "chaingraph_version": "0.4.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "activity_cash": {"enum": ["none","occasional","core"]},
+      "activity_repo": {"enum": ["none","triparty-only","bilateral","both"]},
+      "current_access": {"enum": ["direct-member","sponsored","agent","none"]},
+      "execution_breadth": {"type": "integer", "minimum": 0},
+      "im_funding_ready": {"enum": ["yes-segregated","yes-omnibus","unsure","no"]},
+      "hqla_inventory_pct": {"type": "number", "minimum": 0, "maximum": 100},
+      "capital_constrained": {"enum": ["bank-SLR","non-bank","na"]},
+      "cross_product_hedges": {"enum": ["both","cme-futures","sofr","none"]},
+      "agreements_status": {"enum": ["executed","drafting","not-started"]},
+      "connectivity": {"enum": ["live","in-progress","none"]},
+      "intraday_liquidity": {"enum": ["strong","adequate","thin"]},
+      "primary_product": {"enum": ["cash","repo","both"]}
+    }
+  }
+}
+</script>
+
+<script>
+// --- compute (MUST mirror kernels/art-48-treasury-clearing-fit-diagnostic.kernel.mjs) ---
+const DEADLINE_CASH='2026-12-31', DEADLINE_REPO='2027-06-30';
+const S={activity_cash:{none:4,occasional:2,core:1},activity_repo:{none:4,'triparty-only':2,bilateral:1,both:0},current_access:{'direct-member':4,sponsored:3,agent:3,none:0},im_funding_ready:{'yes-segregated':4,'yes-omnibus':3,unsure:1,no:0},capital_constrained:{'bank-SLR':1,'non-bank':3,na:4},cross_product_hedges:{both:4,'cme-futures':3,sofr:3,none:2},agreements_status:{executed:4,drafting:2,'not-started':0},connectivity:{live:4,'in-progress':2,none:0},intraday_liquidity:{strong:4,adequate:2,thin:0}};
+const pick=(t,v,d=0)=>v in t?t[v]:d;
+const breadthScore=n=>n>=6?4:n>=3?3:n>=1?2:0;
+const letter=s=>s>=85?'A':s>=70?'B':s>=55?'C':s>=40?'D':'F';
+const ROUTE={scope:'tcm-access-model',access:'tcm-access-model',margin:'tcm-repo-margin',capital:'tcm-capital-relief',ops:'tcm-onboarding',liquidity:'tcm-liquidity'};
+const WEIGHTS={scope:.20,access:.20,margin:.15,capital:.15,ops:.15,liquidity:.15};
+const REMED={scope:'Inventory in-scope UST cash and repo activity and quantify cleared vs uncleared notional.',access:'Select an access model (Direct vs Sponsored vs Agent) — run tcm-access-model.',margin:'Establish CCP IM funding capability and HQLA inventory — run tcm-repo-margin.',capital:'Model SA-CCR/QCCP capital and RWA impact — run tcm-capital-relief.',ops:'Execute agreements and stand up connectivity — run tcm-onboarding.',liquidity:'Stress intraday liquidity for CCP margin calls — run tcm-liquidity.'};
+
+function compute(pp){
+  const hqlaScore=Math.max(0,Math.min(4,(Number(pp.hqla_inventory_pct)||0)/25));
+  const sub={scope:[pick(S.activity_cash,pp.activity_cash),pick(S.activity_repo,pp.activity_repo)],access:[pick(S.current_access,pp.current_access),breadthScore(Number(pp.execution_breadth)||0)],margin:[pick(S.im_funding_ready,pp.im_funding_ready),hqlaScore],capital:[pick(S.capital_constrained,pp.capital_constrained),pick(S.cross_product_hedges,pp.cross_product_hedges)],ops:[pick(S.agreements_status,pp.agreements_status),pick(S.connectivity,pp.connectivity)],liquidity:[pick(S.intraday_liquidity,pp.intraday_liquidity)]};
+  const dim_scores={};
+  for(const k in sub){const avg=sub[k].reduce((a,b)=>a+b,0)/sub[k].length;dim_scores[k]={score:+(avg/4*100).toFixed(1),grade:letter(avg/4*100)};}
+  const overall=+Object.keys(WEIGHTS).reduce((a,k)=>a+dim_scores[k].score*WEIGHTS[k],0).toFixed(1);
+  const overall_grade=letter(overall);
+  const ranked=Object.keys(dim_scores).sort((a,b)=>dim_scores[a].score-dim_scores[b].score);
+  const primary_recommendation=ROUTE[ranked[0]];
+  const secondary_recommendations=[];
+  if(pp.cross_product_hedges!=='none')secondary_recommendations.push('tcm-cross-margin');
+  if(pp.activity_repo==='bilateral'||pp.activity_repo==='both')secondary_recommendations.push('tcm-collateral');
+  if(!secondary_recommendations.includes(ROUTE[ranked[1]])&&ROUTE[ranked[1]]!==primary_recommendation)secondary_recommendations.push(ROUTE[ranked[1]]);
+  const remediation_checklist=[];
+  for(const k in dim_scores)if(dim_scores[k].grade==='D'||dim_scores[k].grade==='F')remediation_checklist.push({dimension:k,grade:dim_scores[k].grade,action:REMED[k]});
+  const compliance_deadline=pp.primary_product==='repo'?DEADLINE_REPO:DEADLINE_CASH;
+  const compliance_flags=[];
+  if(pp.current_access==='none')compliance_flags.push('NO_ACCESS_MODEL_SELECTED');
+  if((Number(pp.execution_breadth)||0)>=3)compliance_flags.push('DONE_AWAY_CANDIDATE');
+  if(pp.cross_product_hedges!=='none')compliance_flags.push('CROSS_MARGIN_CANDIDATE');
+  if(overall_grade==='D'||overall_grade==='F')compliance_flags.push('LOW_READINESS');
+  compliance_flags.push(pp.primary_product==='repo'?'DEADLINE_REPO_2027_06_30':'DEADLINE_CASH_2026_12_31');
+  return {output_payload:{overall_score:overall,overall_grade,dim_scores,primary_recommendation,secondary_recommendations,remediation_checklist,compliance_deadline,note:'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.'},compliance_flags};
+}
+
+// Canonical hash — sorted-key JSON of {policy_parameters, output_payload} (OCG §2/§6).
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+const GRADE_COLOR={A:'#22C55E',B:'#2DD4BF',C:'#D4A847',D:'#F59E0B',F:'#EF4444'};
+
+async function run(){
+  const ids=['activity_cash','activity_repo','current_access','execution_breadth','im_funding_ready','hqla_inventory_pct','capital_constrained','cross_product_hedges','agreements_status','connectivity','intraday_liquidity','primary_product'];
+  const pp={};
+  for(const id of ids){const el=document.getElementById(id);pp[id]=el.type==='number'?Number(el.value):el.value;}
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',ap2_version:'1.0.0',mandate_type:'agent_guardrail_mandate',tool_id:'art-48-treasury-clearing-fit-diagnostic',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  document.getElementById('results').classList.add('show');
+  const gb=document.getElementById('gradeBadge');gb.textContent=op.overall_grade;gb.style.color=GRADE_COLOR[op.overall_grade];gb.style.borderColor=GRADE_COLOR[op.overall_grade];
+  document.getElementById('overallScore').textContent=op.overall_score;
+  document.getElementById('deadline').textContent=op.compliance_deadline;
+  const days=Math.ceil((new Date(op.compliance_deadline)-new Date())/864e5);
+  document.getElementById('daysLeft').textContent=days>0?days+' days left':'past deadline';
+  document.getElementById('dims').innerHTML=Object.entries(op.dim_scores).map(([k,v])=>`<div class="dim-card"><div class="n">${k}</div><div class="s" style="color:${GRADE_COLOR[v.grade]}">${v.grade} <span style="font-size:.8rem;color:var(--muted)">${v.score}</span></div></div>`).join('');
+  document.getElementById('route').innerHTML=`Start here: <b>${op.primary_recommendation}</b>`+(op.secondary_recommendations.length?` · then ${op.secondary_recommendations.map(r=>'<b>'+r+'</b>').join(', ')}`:'');
+  document.getElementById('checklist').innerHTML=op.remediation_checklist.length?'<div class="muted" style="margin:10px 0 4px">Remediation:</div>'+op.remediation_checklist.map(c=>`<div class="chk"><b style="color:${GRADE_COLOR[c.grade]}">${c.grade}</b> ${c.dimension} — ${c.action}</div>`).join(''):'';
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+</body>
+</html>
