@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OpenChainGraph Artifact Verifier — AINumbers</title>
+<meta name="description" content="Verify the execution_hash of any OpenChainGraph v0.4 artifact. Client-side SHA-256 verification — no data leaves your browser.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/verify.html">
+<meta property="og:title" content="OpenChainGraph Artifact Verifier — AINumbers">
+<meta property="og:description" content="Verify the cryptographic integrity of any OpenChainGraph v0.4 artifact. Client-side SHA-256, zero egress.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-glow:rgba(20,184,166,.06); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.85rem; line-height:1.6; -webkit-font-smoothing:antialiased; }
+a { color:inherit; text-decoration:none; }
+
+/* NAV */
+nav { position:sticky; top:0; z-index:100; background:rgba(8,14,26,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:1440px; margin:0 auto; display:flex; align-items:center; gap:16px; padding:0 24px; height:58px; }
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.nav-breadcrumb { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.nav-breadcrumb a { color:var(--body); transition:color .15s; }
+.nav-breadcrumb a:hover { color:var(--teal); }
+.nav-breadcrumb-sep { color:var(--muted); }
+.nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
+.nav-pill { background:none; border:1px solid var(--border-2); border-radius:var(--radius); color:var(--body); font-size:.65rem; padding:.3rem .75rem; font-family:'JetBrains Mono',monospace; letter-spacing:.04em; transition:border-color .15s,color .15s; display:inline-block; }
+.nav-pill:hover { border-color:var(--text); color:var(--text); }
+.nav-cta { background:var(--gold); color:#080E1A; border:none; border-radius:var(--radius); font-size:.65rem; font-family:'JetBrains Mono',monospace; font-weight:600; letter-spacing:.06em; padding:.35rem .85rem; display:inline-block; transition:opacity .15s; }
+.nav-cta:hover { opacity:.85; }
+
+/* LAYOUT */
+.page-inner { max-width:820px; margin:0 auto; padding:40px 24px 80px; }
+
+/* HERO */
+.hero-eyebrow { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.hero-title { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--white); margin-bottom:10px; }
+.hero-sub { font-size:.82rem; color:var(--body); line-height:1.75; max-width:620px; margin-bottom:24px; }
+
+/* CARD */
+.card { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; margin-bottom:16px; }
+.card-label { font-family:'JetBrains Mono',monospace; font-size:.48rem; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); margin-bottom:10px; }
+
+/* TEXTAREA */
+textarea {
+  width:100%; background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius);
+  color:var(--text); font-family:'JetBrains Mono',monospace; font-size:.72rem; line-height:1.6;
+  padding:12px 14px; resize:vertical; min-height:180px; outline:none; transition:border-color .15s;
+}
+textarea:focus { border-color:rgba(20,184,166,.5); }
+textarea::placeholder { color:var(--muted); }
+
+/* BUTTONS */
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.btn { font-family:'JetBrains Mono',monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase;
+  padding:.45rem 1.1rem; border-radius:var(--radius); border:1px solid; cursor:pointer; transition:all .15s; }
+.btn-primary { background:var(--teal); color:var(--bg); border-color:var(--teal); }
+.btn-primary:hover { opacity:.85; }
+.btn-ghost { background:transparent; color:var(--body); border-color:var(--border-2); }
+.btn-ghost:hover { border-color:var(--teal); color:var(--teal-lt); }
+
+/* RESULT PANEL */
+#result { display:none; }
+.result-banner {
+  border-radius:var(--radius-lg); padding:18px 22px; margin-bottom:16px;
+  display:flex; align-items:center; gap:14px;
+}
+.result-banner.pass { background:var(--green-dim); border:1px solid rgba(34,197,94,.3); }
+.result-banner.fail { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); }
+.result-icon { font-size:1.4rem; flex-shrink:0; }
+.result-status { font-family:'DM Serif Display',serif; font-size:1.2rem; }
+.result-banner.pass .result-status { color:var(--green); }
+.result-banner.fail .result-status { color:var(--red); }
+.result-detail { font-size:.75rem; color:var(--body); margin-top:3px; }
+
+/* METADATA GRID */
+.meta-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
+.meta-item { background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; }
+.meta-key { font-family:'JetBrains Mono',monospace; font-size:.46rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.meta-val { font-size:.78rem; color:var(--bright); font-family:'JetBrains Mono',monospace; word-break:break-all; }
+
+/* HASH COMPARE */
+.hash-block { background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); padding:14px 16px; }
+.hash-row { margin-bottom:10px; }
+.hash-row:last-child { margin-bottom:0; }
+.hash-lbl { font-family:'JetBrains Mono',monospace; font-size:.46rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.hash-val { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--teal-lt); word-break:break-all; }
+.hash-val.mismatch { color:var(--red); }
+
+/* ERROR */
+.error-box { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); border-radius:var(--radius-lg); padding:14px 18px; font-size:.78rem; color:var(--red); display:none; margin-bottom:16px; }
+
+/* FOOTER */
+footer { border-top:1px solid var(--border); background:var(--bg-2); padding:24px 0; }
+.footer-inner { max-width:1440px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.footer-brand { font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:500; color:var(--bright); }
+.footer-cc { font-size:.65rem; color:var(--muted); margin-top:4px; }
+.footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+.footer-links a { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--body); transition:color .15s; }
+.footer-links a:hover { color:var(--teal); }
+
+@media(max-width:600px) {
+  .meta-grid { grid-template-columns:1fr 1fr; }
+  .hero-title { font-size:1.35rem; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div>
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="chaingraph-hub.html">OpenChainGraph</a>
+      <span class="nav-breadcrumb-sep">/</span>
+      <span style="color:var(--bright)">Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">All Nodes</a>
+      <a href="ocg-integration-guide.html" class="nav-pill">Integration Guide</a>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="hero-eyebrow">OpenChainGraph v0.4 · Compute Binding</div>
+  <h1 class="hero-title">Artifact Verifier</h1>
+  <p class="hero-sub">Paste any OpenChainGraph artifact JSON below. The verifier recomputes the SHA-256 execution hash client-side and tells you whether it matches the stored value. No data leaves your browser.</p>
+
+  <div class="card">
+    <div class="card-label">Artifact JSON</div>
+    <textarea id="artifactInput" placeholder='Paste your OpenChainGraph artifact JSON here — or click "Paste example" to load a sample.'></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runVerify()">Verify</button>
+      <button class="btn btn-ghost" onclick="pasteExample()">Paste example</button>
+      <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div id="result">
+    <div class="result-banner" id="resultBanner">
+      <div class="result-icon" id="resultIcon"></div>
+      <div>
+        <div class="result-status" id="resultStatus"></div>
+        <div class="result-detail" id="resultDetail"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Artifact metadata</div>
+      <div class="meta-grid" id="metaGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Hash comparison</div>
+      <div class="hash-block">
+        <div class="hash-row">
+          <div class="hash-lbl">Stored execution_hash</div>
+          <div class="hash-val" id="storedHash"></div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-lbl">Computed (this browser)</div>
+          <div class="hash-val" id="computedHash"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+      <div class="footer-cc">CC BY 4.0 · Post Oak Labs · Deterministic, client-side fintech tools</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a>
+      <a href="openchain-graph-spec.html">Spec</a>
+      <a href="ocg-integration-guide.html">Integration Guide</a>
+      <a href="../mcp.html">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   OCG CANONICALIZATION + HASH — inlined from kernels/_hash.mjs
+   Source of truth: chaingraph/kernels/_hash.mjs
+   OCG Standard §2 / §6 · RFC 8785 (JCS) alignment
+   ───────────────────────────────────────────────────────────────── */
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53 — not safe I-JSON.');
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') {
+    return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  }
+  return v;
+}
+
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VERIFY LOGIC
+   ───────────────────────────────────────────────────────────────── */
+async function runVerify() {
+  const raw = document.getElementById('artifactInput').value.trim();
+  hideError();
+  hideResult();
+
+  if (!raw) { showError('Paste an artifact JSON first.'); return; }
+
+  let artifact;
+  try {
+    artifact = JSON.parse(raw);
+  } catch (e) {
+    showError('JSON parse error: ' + e.message);
+    return;
+  }
+
+  const { policy_parameters, output_payload, execution_hash: storedHash } = artifact;
+
+  if (!policy_parameters) { showError('Artifact is missing required field: policy_parameters'); return; }
+  if (!output_payload)    { showError('Artifact is missing required field: output_payload'); return; }
+  if (!storedHash)        { showError('Artifact is missing required field: execution_hash'); return; }
+
+  let computedHex;
+  try {
+    computedHex = await executionHash(policy_parameters, output_payload);
+  } catch (e) {
+    showError('Hash computation failed: ' + e.message);
+    return;
+  }
+
+  // Normalize stored hash — strip "sha256:" prefix if present, compare hex only
+  const normalizeHash = h => typeof h === 'string' ? h.replace(/^sha256:/i, '').toLowerCase() : h;
+  const storedHex = normalizeHash(storedHash);
+  const pass = storedHex === computedHex;
+
+  showResult(pass, storedHash, computedHex, artifact);
+}
+
+function showResult(pass, storedRaw, computedHex, artifact) {
+  const banner = document.getElementById('resultBanner');
+  banner.className = 'result-banner ' + (pass ? 'pass' : 'fail');
+  document.getElementById('resultIcon').textContent = pass ? '✓' : '✗';
+  document.getElementById('resultStatus').textContent = pass ? 'Integrity verified' : 'Hash mismatch';
+  document.getElementById('resultDetail').textContent = pass
+    ? 'The execution_hash matches the recomputed SHA-256 of this artifact\'s policy_parameters + output_payload.'
+    : 'The stored execution_hash does not match the recomputed SHA-256. The artifact may have been modified.';
+
+  // Metadata
+  const meta = [
+    { key: 'tool_id',            val: artifact.tool_id            ?? '—' },
+    { key: 'chaingraph_version', val: artifact.chaingraph_version ?? artifact.ap2_version ?? '—' },
+    { key: 'mandate_type',       val: artifact.mandate_type       ?? '—' },
+    { key: 'chain_depth',        val: artifact.chain?.chain_depth ?? '—' },
+    { key: 'generated_at',       val: artifact.generated_at       ?? '—' },
+    { key: 'compute_mode',       val: artifact.compute_mode       ?? '—' },
+  ];
+  document.getElementById('metaGrid').innerHTML = meta.map(m =>
+    `<div class="meta-item"><div class="meta-key">${m.key}</div><div class="meta-val">${String(m.val)}</div></div>`
+  ).join('');
+
+  // Hash rows
+  document.getElementById('storedHash').textContent   = storedRaw;
+  const computedEl = document.getElementById('computedHash');
+  computedEl.textContent  = computedHex;
+  computedEl.className    = 'hash-val' + (pass ? '' : ' mismatch');
+
+  document.getElementById('result').style.display = 'block';
+}
+
+function hideResult() { document.getElementById('result').style.display = 'none'; }
+function showError(msg) { const el = document.getElementById('errorBox'); el.textContent = msg; el.style.display = 'block'; }
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function clearAll() { document.getElementById('artifactInput').value = ''; hideError(); hideResult(); }
+
+/* ─────────────────────────────────────────────────────────────────
+   EXAMPLE ARTIFACT (art-09 DORA major incident)
+   ───────────────────────────────────────────────────────────────── */
+function pasteExample() {
+  const example = {
+    "@context": "https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",
+    "chaingraph_version": "0.4.0",
+    "mandate_type": "infrastructure_mandate",
+    "tool_id": "art-09-dora-incident-classifier",
+    "tool_version": "1.0.0",
+    "generated_at": "2026-06-19T12:00:00.000Z",
+    "compute_mode": "server",
+    "execution_hash": "sha256:COMPUTE_ON_FIRST_RUN",
+    "chain": { "parent_hashes": [], "parent_tool_ids": [], "chain_depth": 0 },
+    "policy_parameters": {
+      "incident_type": "cyber_attack",
+      "entity_type": "credit_institution",
+      "detection_dt": "2026-06-19T08:00:00.000Z",
+      "classification_dt": "2026-06-19T09:00:00.000Z",
+      "resolution_dt": null,
+      "clients_affected": 50000,
+      "total_clients": 200000,
+      "tx_value_eur": 15,
+      "outage_duration_mins": 45,
+      "member_states": 3,
+      "data_loss": true,
+      "critical_fn": true,
+      "cross_border": true,
+      "tp_ict": false
+    },
+    "output_payload": {
+      "major_incident": true,
+      "determination_code": "MAJOR",
+      "qualifying_criteria": ["critical_fn","clients","data_loss","tx_value","duration","geographic"],
+      "criteria_detail": [
+        {"id":"critical_fn","met":true,"not_assessed":false,"value":"Yes","article":"DORA Art. 23(1)(a) / ESA RTS Art. 3"},
+        {"id":"clients","met":true,"not_assessed":false,"value":"50,000 (25.0%)","article":"DORA Art. 23(1)(b) / ESA RTS Art. 4"},
+        {"id":"data_loss","met":true,"not_assessed":false,"value":"Yes","article":"DORA Art. 23(1)(c) / ESA RTS Art. 5"},
+        {"id":"tx_value","met":true,"not_assessed":false,"value":"€15M","article":"DORA Art. 23(1)(d) / ESA RTS Art. 6"},
+        {"id":"duration","met":true,"not_assessed":false,"value":"45 min","article":"DORA Art. 23(1)(e) / ESA RTS Art. 7"},
+        {"id":"geographic","met":true,"not_assessed":false,"value":"3 member states","article":"DORA Art. 23(1)(f) / ESA RTS Art. 8"}
+      ],
+      "reporting_clock": {
+        "detection_datetime": "2026-06-19T08:00:00.000Z",
+        "classification_datetime": "2026-06-19T09:00:00.000Z",
+        "initial_notification_deadline": "2026-06-19T13:00:00.000Z",
+        "intermediate_report_deadline": "2026-06-20T13:00:00.000Z",
+        "final_report_deadline": null
+      },
+      "entity_type": "credit_institution",
+      "incident_type": "cyber_attack",
+      "cross_border": true,
+      "third_party_ict": false,
+      "competent_authority_note": "Report to your national competent authority (NCA) per DORA Art. 19. Cross-border incidents require coordination per Art. 19(6).",
+      "regulatory_framework": "DORA (EU) 2022/2554 Art. 23 · ESA Joint RTS EBA/RTS/2023/11 (published January 2025)"
+    },
+    "compliance_flags": ["DORA_MAJOR_INCIDENT","REPORTING_OBLIGATION_TRIGGERED"],
+    "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.4", "payload": "", "signatures": [] }
+  };
+  document.getElementById('artifactInput').value = JSON.stringify(example, null, 2);
+  hideError();
+  hideResult();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'ocg-verify',
+  version: '1.0.0',
+  title: 'OpenChainGraph Artifact Verifier',
+  description: 'Client-side SHA-256 verifier for OpenChainGraph v0.4 artifacts. Recomputes execution_hash from policy_parameters + output_payload using the OCG canonicalization scheme (RFC 8785 JCS subset) and reports PASS or MISMATCH.',
+  category: 'chaingraph',
+  tags: ['OpenChainGraph','verification','integrity','execution_hash','SHA-256'],
+  chaingraph: false,
+  prefill: false
+};
+</script>
+</body>
+</html>

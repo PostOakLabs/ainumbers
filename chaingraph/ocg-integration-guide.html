@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OpenChainGraph Integration Guide — AINumbers</title>
+<meta name="description" content="How to implement, self-certify, and badge an OpenChainGraph v0.4 tool. Artifact envelope schema, SHA-256 canonicalization, conformance suite, and worked example.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ocg-integration-guide.html">
+<meta property="og:title" content="OpenChainGraph v0.4 Integration Guide — AINumbers">
+<meta property="og:description" content="Step-by-step guide to implementing a conformant OpenChainGraph tool: artifact schema, execution hash, conformance suite, badge.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.85rem; line-height:1.6; -webkit-font-smoothing:antialiased; }
+a { color:inherit; text-decoration:none; }
+
+/* NAV */
+nav { position:sticky; top:0; z-index:100; background:rgba(8,14,26,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:1440px; margin:0 auto; display:flex; align-items:center; gap:16px; padding:0 24px; height:58px; }
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.nav-breadcrumb { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.nav-breadcrumb a { color:var(--body); transition:color .15s; }
+.nav-breadcrumb a:hover { color:var(--teal); }
+.nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
+.nav-pill { background:none; border:1px solid var(--border-2); border-radius:var(--radius); color:var(--body); font-size:.65rem; padding:.3rem .75rem; font-family:'JetBrains Mono',monospace; letter-spacing:.04em; transition:border-color .15s,color .15s; display:inline-block; }
+.nav-pill:hover { border-color:var(--text); color:var(--text); }
+.nav-cta { background:var(--gold); color:#080E1A; border:none; border-radius:var(--radius); font-size:.65rem; font-family:'JetBrains Mono',monospace; font-weight:600; letter-spacing:.06em; padding:.35rem .85rem; display:inline-block; transition:opacity .15s; }
+.nav-cta:hover { opacity:.85; }
+
+/* LAYOUT */
+.page-inner { max-width:860px; margin:0 auto; padding:40px 24px 80px; }
+
+/* HERO */
+.hero-eyebrow { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.hero-title { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--white); margin-bottom:10px; }
+.hero-sub { font-size:.82rem; color:var(--body); line-height:1.75; max-width:660px; margin-bottom:24px; }
+
+/* TOC */
+.toc { background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--teal); border-radius:var(--radius-lg); padding:18px 22px; margin-bottom:32px; }
+.toc-label { font-family:'JetBrains Mono',monospace; font-size:.46rem; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); margin-bottom:10px; }
+.toc ol { padding-left:1.1rem; display:flex; flex-direction:column; gap:.35rem; }
+.toc li { font-size:.78rem; color:var(--body); }
+.toc a { color:var(--teal-lt); border-bottom:1px solid rgba(45,212,191,.25); transition:opacity .15s; }
+.toc a:hover { opacity:.75; }
+
+/* SECTIONS */
+.sec { margin-bottom:40px; }
+.sec-num { font-family:'JetBrains Mono',monospace; font-size:.46rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+.sec-title { font-family:'DM Serif Display',serif; font-size:1.25rem; color:var(--white); margin-bottom:12px; }
+.prose { font-size:.82rem; color:var(--body); line-height:1.85; }
+.prose p { margin-bottom:1rem; }
+.prose p:last-child { margin-bottom:0; }
+.prose strong { color:var(--text); font-weight:500; }
+.prose a { color:var(--teal-lt); border-bottom:1px solid rgba(45,212,191,.3); transition:opacity .15s; }
+.prose a:hover { opacity:.75; }
+.prose code { font-family:'JetBrains Mono',monospace; font-size:.88em; color:var(--teal-lt); background:var(--teal-dim); padding:.05rem .3rem; border-radius:3px; }
+
+/* CODE BLOCKS */
+.code-block { background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius-lg); padding:18px 20px; margin:14px 0; overflow-x:auto; }
+.code-block-label { font-family:'JetBrains Mono',monospace; font-size:.44rem; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+.code-block pre { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text); line-height:1.75; white-space:pre; }
+.k { color:var(--teal); }   /* key */
+.v { color:var(--green); }  /* value */
+.c { color:var(--muted); }  /* comment */
+.t { color:var(--gold); }   /* type */
+
+/* SCHEMA TABLE */
+.schema-table { width:100%; border-collapse:collapse; margin:14px 0; font-size:.75rem; }
+.schema-table th { font-family:'JetBrains Mono',monospace; font-size:.46rem; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); text-align:left; padding:.55rem .75rem; border-bottom:1px solid var(--border-2); background:var(--bg-3); }
+.schema-table td { padding:.55rem .75rem; border-bottom:1px solid var(--border); color:var(--body); vertical-align:top; line-height:1.55; }
+.schema-table tr:last-child td { border-bottom:none; }
+.schema-table td:first-child { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--teal-lt); white-space:nowrap; }
+.schema-table td:nth-child(2) { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--purple); }
+.req { color:var(--red); font-family:'JetBrains Mono',monospace; font-size:.6rem; }
+.opt { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:.6rem; }
+
+/* BADGE DISPLAY */
+.badge-showcase { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 22px; margin:14px 0; }
+.badge-preview { margin-bottom:14px; }
+.badge-copy { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--body); background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); padding:10px 14px; display:block; word-break:break-all; }
+
+/* CALLOUT */
+.callout { background:var(--bg-2); border:1px solid rgba(212,168,71,.25); border-left:3px solid var(--gold); border-radius:var(--radius-lg); padding:14px 18px; margin:14px 0; }
+.callout-label { font-family:'JetBrains Mono',monospace; font-size:.44rem; letter-spacing:.18em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+.callout p { font-size:.78rem; color:var(--body); line-height:1.75; }
+
+/* STEP LIST */
+.steps { display:flex; flex-direction:column; gap:16px; margin:14px 0; }
+.step { display:flex; gap:16px; align-items:flex-start; }
+.step-num { width:28px; height:28px; background:var(--teal-dim); border:1px solid rgba(20,184,166,.3); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:500; color:var(--teal); flex-shrink:0; }
+.step-body { padding-top:2px; }
+.step-title { font-size:.82rem; font-weight:500; color:var(--bright); margin-bottom:3px; }
+.step-desc { font-size:.78rem; color:var(--body); line-height:1.7; }
+.step-desc code { font-family:'JetBrains Mono',monospace; font-size:.88em; color:var(--teal-lt); background:var(--teal-dim); padding:.05rem .3rem; border-radius:3px; }
+
+/* CTA ROW */
+.cta-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:28px; }
+.btn { font-family:'JetBrains Mono',monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; padding:.45rem 1.1rem; border-radius:var(--radius); border:1px solid; transition:all .15s; display:inline-block; }
+.btn-primary { background:var(--teal); color:var(--bg); border-color:var(--teal); }
+.btn-primary:hover { opacity:.85; }
+.btn-ghost { background:transparent; color:var(--body); border-color:var(--border-2); }
+.btn-ghost:hover { border-color:var(--teal); color:var(--teal-lt); }
+
+/* FOOTER */
+footer { border-top:1px solid var(--border); background:var(--bg-2); padding:24px 0; }
+.footer-inner { max-width:1440px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.footer-brand { font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:500; color:var(--bright); }
+.footer-cc { font-size:.65rem; color:var(--muted); margin-top:4px; }
+.footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+.footer-links a { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--body); transition:color .15s; }
+.footer-links a:hover { color:var(--teal); }
+
+@media(max-width:640px){
+  .hero-title { font-size:1.3rem; }
+  .schema-table { display:block; overflow-x:auto; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div>
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="chaingraph-hub.html">OpenChainGraph</a>
+      <span style="color:var(--muted)">/</span>
+      <span style="color:var(--bright)">Integration Guide</span>
+    </div>
+    <div class="nav-right">
+      <a href="verify.html" class="nav-pill">Verifier</a>
+      <a href="chaingraph-hub.html" class="nav-pill">Hub</a>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="hero-eyebrow">OpenChainGraph v0.4 · Compute Binding</div>
+  <h1 class="hero-title">Integration Guide</h1>
+  <p class="hero-sub">How to implement a conformant OpenChainGraph tool, emit a verifiable artifact, self-certify using the conformance suite, and display the Powered by OpenChainGraph badge.</p>
+
+  <div class="toc">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#what">What is OpenChainGraph v0.4?</a></li>
+      <li><a href="#schema">Artifact envelope schema</a></li>
+      <li><a href="#hash">Computing the execution hash</a></li>
+      <li><a href="#certify">Self-certification with the conformance suite</a></li>
+      <li><a href="#badge">Badge</a></li>
+      <li><a href="#example">Worked example — my-kyc-checker</a></li>
+      <li><a href="#links">Further reading</a></li>
+    </ol>
+  </div>
+
+  <!-- §1 -->
+  <div class="sec" id="what">
+    <div class="sec-num">§ 1</div>
+    <h2 class="sec-title">What is OpenChainGraph v0.4?</h2>
+    <div class="prose">
+      <p>OpenChainGraph is an open standard for <strong>verifiable, composable decision artifacts</strong> produced by fintech tools. Every conformant tool takes a <code>policy_parameters</code> object as input, runs a deterministic pure-function kernel, and emits a JSON artifact that includes a cryptographic <code>execution_hash</code> committing to both the inputs and the output.</p>
+      <p>Version 0.4 adds <strong>Compute Binding</strong>: tools can run server-side (via the MCP Apps server at <code>mcp.ainumbers.co/mcp</code>) and return their full artifact — including the hash — directly to an AI agent. The agent, a regulator, or any third party can then verify the hash client-side using the public canonicalization algorithm without trusting any intermediary.</p>
+      <p>The standard is maintained by Post Oak Labs and published at <a href="https://ainumbers.co/chaingraph/openchain-graph-spec.html">ainumbers.co/chaingraph/openchain-graph-spec.html</a>. All reference kernels are open-source under CC BY 4.0.</p>
+    </div>
+  </div>
+
+  <!-- §2 -->
+  <div class="sec" id="schema">
+    <div class="sec-num">§ 2</div>
+    <h2 class="sec-title">Artifact envelope schema</h2>
+    <div class="prose">
+      <p>Every OpenChainGraph artifact must include these top-level fields:</p>
+    </div>
+    <table class="schema-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Req?</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>@context</td><td>string</td><td class="req">required</td><td>JSON-LD context URI — use <code>https://ainumbers.co/chaingraph/context/v0.3/context.jsonld</code></td></tr>
+        <tr><td>chaingraph_version</td><td>string</td><td class="req">required</td><td>Spec version — <code>"0.4.0"</code></td></tr>
+        <tr><td>tool_id</td><td>string</td><td class="req">required</td><td>Stable slug identifying the tool (e.g. <code>"art-09-dora-incident-classifier"</code>)</td></tr>
+        <tr><td>mandate_type</td><td>string</td><td class="req">required</td><td>Semantic type tag (e.g. <code>"infrastructure_mandate"</code>, <code>"payment_mandate"</code>, <code>"compliance_mandate"</code>)</td></tr>
+        <tr><td>policy_parameters</td><td>object</td><td class="req">required</td><td>The exact inputs passed to <code>compute()</code>. Part of the hash preimage.</td></tr>
+        <tr><td>output_payload</td><td>object</td><td class="req">required</td><td>The exact outputs returned by <code>compute()</code>. Part of the hash preimage.</td></tr>
+        <tr><td>execution_hash</td><td>string</td><td class="req">required</td><td>SHA-256 of the canonical preimage. Format: <code>"sha256:&lt;64-hex-chars&gt;"</code></td></tr>
+        <tr><td>chain</td><td>object</td><td class="req">required</td><td><code>{ parent_hashes: string[], parent_tool_ids: string[], chain_depth: number }</code></td></tr>
+        <tr><td>generated_at</td><td>string</td><td class="opt">optional</td><td>ISO 8601 timestamp of artifact generation (not part of hash preimage)</td></tr>
+        <tr><td>compute_mode</td><td>string</td><td class="opt">optional</td><td><code>"server"</code> or <code>"client"</code></td></tr>
+        <tr><td>compliance_flags</td><td>string[]</td><td class="opt">optional</td><td>Machine-readable compliance outcome codes</td></tr>
+        <tr><td>tool_version</td><td>string</td><td class="opt">optional</td><td>Semver of the tool kernel at time of emission</td></tr>
+        <tr><td>audit_signature</td><td>object</td><td class="opt">optional</td><td>JWS / placeholder for audit attestation (<code>payloadType</code>, <code>payload</code>, <code>signatures</code>)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <div class="callout-label">Hash preimage rule</div>
+      <p>Only <code>policy_parameters</code> and <code>output_payload</code> are hashed. All other envelope fields (<code>generated_at</code>, <code>chain</code>, <code>audit_signature</code>, etc.) are framing and excluded from the hash preimage — they may be added by the caller without invalidating the hash.</p>
+    </div>
+  </div>
+
+  <!-- §3 -->
+  <div class="sec" id="hash">
+    <div class="sec-num">§ 3</div>
+    <h2 class="sec-title">Computing the execution hash</h2>
+    <div class="prose">
+      <p>The canonicalization algorithm is RFC 8785 (JSON Canonicalization Scheme) over the I-JSON subset. The exact steps:</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Build preimage object</div>
+          <div class="step-desc">Wrap inputs and outputs: <code>{ policy_parameters, output_payload }</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Recursively sort object keys</div>
+          <div class="step-desc">Sort all object keys (at every nesting level) in ascending Unicode code-point order. Preserve array element order.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Emit minimal-whitespace JSON</div>
+          <div class="step-desc">Call <code>JSON.stringify(canonicalized)</code> with no spacing arguments. This produces the canonical preimage string.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">SHA-256 → lowercase hex</div>
+          <div class="step-desc">UTF-8 encode the preimage string, compute SHA-256, and hex-encode to 64 lowercase characters. Prefix with <code>"sha256:"</code> in the artifact.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-label">JavaScript implementation (copy-paste ready — identical to kernels/_hash.mjs)</div>
+      <pre><span class="c">// Recursively sort object keys (RFC 8785 / JCS — I-JSON subset)</span>
+<span class="t">function</span> cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && <span class="t">typeof</span> v === <span class="v">'object'</span>)
+    return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  return v;
+}
+
+<span class="c">// The canonical string that gets hashed</span>
+<span class="t">function</span> canonicalPreimage(policy_parameters, output_payload) {
+  return JSON.stringify(cgCanon({ policy_parameters, output_payload }));
+}
+
+<span class="c">// Returns lowercase hex (64 chars) — no prefix</span>
+<span class="t">async function</span> executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest(<span class="v">'SHA-256'</span>, bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, <span class="v">'0'</span>)).join(<span class="v">''</span>);
+}
+
+<span class="c">// Usage</span>
+const hash = await executionHash(policy_parameters, output_payload);
+artifact.execution_hash = <span class="v">`sha256:${hash}`</span>;</pre>
+    </div>
+    <div class="prose">
+      <p>This function is available in all environments that expose <code>globalThis.crypto.subtle</code> (browsers, Cloudflare Workers, Node 18+). The reference implementation lives at <code>chaingraph/kernels/_hash.mjs</code> in the AINumbers repo (CC BY 4.0).</p>
+    </div>
+  </div>
+
+  <!-- §4 -->
+  <div class="sec" id="certify">
+    <div class="sec-num">§ 4</div>
+    <h2 class="sec-title">Self-certification with the conformance suite</h2>
+    <div class="prose">
+      <p>The AINumbers conformance suite lives at <code>chaingraph/conformance/</code> and provides three reference test vectors (art-01, art-09, art-34) plus a Node.js runner. To self-certify your own tool:</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Verify parity on reference vectors</div>
+          <div class="step-desc">Run <code>node chaingraph/conformance/run.mjs</code>. All three reference fixtures must pass — this proves your hash implementation is compatible with the standard.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Write a fixture for your tool</div>
+          <div class="step-desc">Create <code>conformance/vectors/your-tool-id.fixture.json</code> following the fixture schema (see <code>conformance/README.md</code>). Set <code>expected_execution_hash</code> to <code>"sha256:COMPUTE_ON_FIRST_RUN"</code>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Verify output, then pin the hash</div>
+          <div class="step-desc">Run <code>node run.mjs</code> to check your <code>expected_output_payload</code> matches kernel output. Then run <code>node run.mjs --update</code> to pin the real hash into the fixture file.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Verify artifacts in the browser</div>
+          <div class="step-desc">Paste any artifact your tool emits into <a href="verify.html">verify.html</a>. The page recomputes the hash client-side and reports PASS or MISMATCH.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- §5 -->
+  <div class="sec" id="badge">
+    <div class="sec-num">§ 5</div>
+    <h2 class="sec-title">Badge</h2>
+    <div class="prose">
+      <p>Once your tool emits conformant artifacts, display the badge in your README or documentation:</p>
+    </div>
+    <div class="badge-showcase">
+      <div class="badge-preview">
+        <img src="badge-ocg.svg" alt="Powered by OpenChainGraph" width="180" height="20">
+      </div>
+      <code class="badge-copy">&lt;img src="https://ainumbers.co/chaingraph/badge-ocg.svg" alt="Powered by OpenChainGraph" width="180" height="20"&gt;</code>
+    </div>
+    <div class="prose" style="margin-top:12px;">
+      <p>Or link the badge to the integration guide: <code>&lt;a href="https://ainumbers.co/chaingraph/ocg-integration-guide.html"&gt;&lt;img src="https://ainumbers.co/chaingraph/badge-ocg.svg" …&gt;&lt;/a&gt;</code></p>
+    </div>
+  </div>
+
+  <!-- §6 -->
+  <div class="sec" id="example">
+    <div class="sec-num">§ 6</div>
+    <h2 class="sec-title">Worked example — my-kyc-checker</h2>
+    <div class="prose">
+      <p>Suppose you have a KYC screening tool with tool_id <code>my-kyc-checker</code>. Its <code>compute()</code> function takes a customer risk profile and returns a risk tier.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-label">Example kernel (simplified)</div>
+      <pre><span class="c">// my-kyc-checker.kernel.mjs</span>
+<span class="t">export function</span> compute(pp) {
+  const score = (pp.pep ? 30 : 0) + (pp.sanctions_hit ? 50 : 0)
+              + (pp.high_risk_jurisdiction ? 20 : 0);
+  const tier = score >= 50 ? <span class="v">'high'</span> : score >= 20 ? <span class="v">'medium'</span> : <span class="v">'low'</span>;
+  return {
+    output_payload: { risk_score: score, risk_tier: tier },
+    compliance_flags: [<span class="v">`KYC_TIER_${tier.toUpperCase()}`</span>],
+  };
+}</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-label">Emitting a conformant artifact</div>
+      <pre><span class="t">import</span> { compute } from <span class="v">'./my-kyc-checker.kernel.mjs'</span>;
+<span class="t">import</span> { executionHash } from <span class="v">'./chaingraph/kernels/_hash.mjs'</span>;
+
+const pp = {
+  entity_name: <span class="v">'ACME Corp'</span>,
+  pep: <span class="t">false</span>,
+  sanctions_hit: <span class="t">false</span>,
+  high_risk_jurisdiction: <span class="t">true</span>,
+};
+
+const { output_payload, compliance_flags } = compute(pp);
+const hash = await executionHash(pp, output_payload);
+
+const artifact = {
+  <span class="k">'@context'</span>:         <span class="v">'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'</span>,
+  <span class="k">chaingraph_version</span>: <span class="v">'0.4.0'</span>,
+  <span class="k">tool_id</span>:           <span class="v">'my-kyc-checker'</span>,
+  <span class="k">mandate_type</span>:      <span class="v">'compliance_mandate'</span>,
+  <span class="k">generated_at</span>:      new Date().toISOString(),
+  <span class="k">execution_hash</span>:    <span class="v">`sha256:${hash}`</span>,
+  <span class="k">chain</span>:             { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+  <span class="k">policy_parameters</span>: pp,
+  <span class="k">output_payload</span>,
+  <span class="k">compliance_flags</span>,
+};</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-label">Resulting artifact (for the inputs above)</div>
+      <pre>{
+  <span class="k">"@context"</span>:         <span class="v">"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld"</span>,
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.4.0"</span>,
+  <span class="k">"tool_id"</span>:           <span class="v">"my-kyc-checker"</span>,
+  <span class="k">"mandate_type"</span>:      <span class="v">"compliance_mandate"</span>,
+  <span class="k">"generated_at"</span>:      <span class="v">"2026-06-19T12:00:00.000Z"</span>,
+  <span class="k">"execution_hash"</span>:    <span class="v">"sha256:&lt;64-hex-chars&gt;"</span>,
+  <span class="k">"chain"</span>:             { <span class="k">"parent_hashes"</span>: [], <span class="k">"parent_tool_ids"</span>: [], <span class="k">"chain_depth"</span>: 0 },
+  <span class="k">"policy_parameters"</span>: {
+    <span class="k">"entity_name"</span>: <span class="v">"ACME Corp"</span>, <span class="k">"pep"</span>: false,
+    <span class="k">"sanctions_hit"</span>: false, <span class="k">"high_risk_jurisdiction"</span>: true
+  },
+  <span class="k">"output_payload"</span>:   { <span class="k">"risk_score"</span>: 20, <span class="k">"risk_tier"</span>: <span class="v">"medium"</span> },
+  <span class="k">"compliance_flags"</span>: [<span class="v">"KYC_TIER_MEDIUM"</span>]
+}</pre>
+    </div>
+
+    <div class="prose">
+      <p>Paste this artifact into <a href="verify.html">verify.html</a> to confirm the hash verifies. Replace <code>"sha256:&lt;64-hex-chars&gt;"</code> with the actual computed value before verifying.</p>
+    </div>
+  </div>
+
+  <!-- §7 -->
+  <div class="sec" id="links">
+    <div class="sec-num">§ 7</div>
+    <h2 class="sec-title">Further reading</h2>
+    <div class="prose">
+      <p>All links open on ainumbers.co — no external dependencies.</p>
+    </div>
+    <div class="cta-row">
+      <a href="verify.html" class="btn btn-primary">Artifact Verifier</a>
+      <a href="chaingraph-hub.html" class="btn btn-ghost">OpenChainGraph Hub</a>
+      <a href="openchain-graph-spec.html" class="btn btn-ghost">OCG Spec</a>
+      <a href="../mcp.html" class="btn btn-ghost">MCP Server</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+      <div class="footer-cc">CC BY 4.0 · Post Oak Labs · OpenChainGraph v0.4</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a>
+      <a href="verify.html">Verifier</a>
+      <a href="openchain-graph-spec.html">Spec</a>
+      <a href="../mcp.html">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'ocg-integration-guide',
+  version: '1.0.0',
+  title: 'OpenChainGraph v0.4 Integration Guide',
+  description: 'Step-by-step guide for implementing an OpenChainGraph v0.4 conformant tool: artifact envelope schema, execution_hash canonicalization, conformance suite self-certification, and badge.',
+  category: 'chaingraph',
+  tags: ['OpenChainGraph','integration','conformance','execution_hash','standard'],
+  chaingraph: false,
+  prefill: false
+};
+</script>
+</body>
+</html>
