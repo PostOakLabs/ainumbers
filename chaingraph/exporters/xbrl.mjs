@@ -161,8 +161,9 @@ export function buildXbrl(artifact, xbrl_taxonomy) {
       const unitAttr = u ? ` unitRef="${u}"` : '';
       facts.push(`  <${tax.prefix}:${c.name} contextRef="${ctxId}"${unitAttr}${decimals}>${factValue(c.type, v)}</${tax.prefix}:${c.name}>`);
     } else {
-      // Unmatched scalar — emit generically so nothing is dropped (ocg-ext only).
-      facts.push(`  <${tax.prefix}:fact contextRef="${ctxId}" name="${xmlEscape(k)}">${xmlEscape(v)}</${tax.prefix}:fact>`);
+      // Unmatched scalar — XBRL 2.1 tuple (Key/Value) so nothing is dropped AND the
+      // instance still validates against ocg-ext-2026.xsd (no non-standard attributes).
+      facts.push(`  <${tax.prefix}:Fact><${tax.prefix}:Key contextRef="${ctxId}">${xmlEscape(k)}</${tax.prefix}:Key><${tax.prefix}:Value contextRef="${ctxId}">${xmlEscape(v)}</${tax.prefix}:Value></${tax.prefix}:Fact>`);
     }
   }
 

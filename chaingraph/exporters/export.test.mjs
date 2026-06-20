@@ -60,6 +60,9 @@ const xtext = Buffer.from(xbrl.bytes_base64, 'base64').toString('utf8');
 ok(xtext.includes('<xbrli:xbrl'), 'xbrl instance has well-formed root');
 ok(xtext.includes(artifact.execution_hash), 'xbrl carries source execution_hash');
 ok(xtext.includes('iso4217:USD'), 'xbrl emits a monetary unit for a USD fact');
+ok(xtext.includes('ocg-ext/ocg-ext-2026.xsd'), 'xbrl schemaRef points to the published ocg-ext schema');
+ok(xtext.includes('<ocg:Fact>') && xtext.includes('<ocg:Key'), 'unmapped scalars emitted as valid Fact (Key/Value) tuples');
+ok(!xtext.includes('name="'), 'no non-standard name="" attribute on facts (valid XBRL)');
 safeWrite('sample-export.xbrl', xtext);
 ok(!exportArtifact({ artifact, format: 'xbrl', xbrl_taxonomy: 'eba-corep-own-funds' }).ok, 'eba-corep pending (no fabricated EBA concepts)');
 

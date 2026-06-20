@@ -16,7 +16,7 @@ EBA taxonomy (core project rule).
 | `csv.mjs` | `buildCsv(artifact)` → manifest + scalars + tables (UTF-8 BOM) |
 | `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer, **QR** of the verify URL (top-right) |
 | `qr.mjs` | `qrMatrix(text)` → boolean module matrix (byte mode, EC-M, v1–7). ⚠ SCAN the sample PDF to confirm |
-| `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1; `ocg-ext` working; `eba-corep-*` loader present but **guarded** until qnames populated |
+| `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1; `ocg-ext` validates against the published `../xbrl/ocg-ext/ocg-ext-2026.xsd`; `eba-corep-*` loader present but **guarded** (optional/pull-driven) |
 | `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` + QR structural check |
 
 **TODOs:** `qr.mjs` is unverified against a scanner in CI — scan `sample-export.pdf` once (the verify URL is
