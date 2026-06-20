@@ -65,6 +65,11 @@ import * as art60  from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mj
 import * as art61  from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62  from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art63  from './art-63-agent-service-metering-modeler.kernel.mjs';
+// ART AI Governance & Conformity (wave 15)
+import * as art64  from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
+import * as art65  from './art-65-ai-conformity-pack-builder.kernel.mjs';
+import * as art66  from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
+import * as art67  from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -165,6 +170,11 @@ export const KERNELS = {
   'art-61-x402-batch-settlement-reconciler':        art61,
   'art-62-ap2-payment-receipt-verifier':            art62,
   'art-63-agent-service-metering-modeler':          art63,
+  // ART AI Governance & Conformity (wave 15)
+  'art-64-ai-act-highrisk-fit-diagnostic':          art64,
+  'art-65-ai-conformity-pack-builder':              art65,
+  'art-66-fria-postmarket-monitoring-builder':      art66,
+  'art-67-agentic-ai-risk-classifier':              art67,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
