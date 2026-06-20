@@ -247,6 +247,15 @@ nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filt
 .real-callout .lab{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:.35rem}
 .real-callout p{color:var(--body);font-size:.87rem;margin:0}
 
+/* BRIDGE INTERLUDE */
+.bridge-interlude{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--bg-2) 0%,var(--bg) 100%)}
+.bridge-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem;display:flex;align-items:center;gap:.8rem}
+.bridge-eyebrow::before{content:'';width:24px;height:1px;background:var(--gold)}
+.bridge-interlude h2{font-size:clamp(1.3rem,2.5vw,1.9rem);color:var(--white);margin-bottom:.6rem}
+.bridge-interlude > .wrap > p{color:var(--body);font-size:.93rem;max-width:740px;margin-bottom:1.2rem;line-height:1.85}
+.bridge-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.75rem 1rem;margin-bottom:1.2rem;font-size:.83rem;color:var(--body)}
+.bridge-note strong{color:var(--gold)}
+
 /* STAGE LINKS */
 .stage-links{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:.9rem}
 .stage-links-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
@@ -715,6 +724,53 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       <a href="ocg-integration-guide.html" class="stage-link">Integration Guide →</a>
       <a href="ocg-chain-builder.html" class="stage-link">Chain Builder →</a>
       <a href="ocg-legacy-vs-ocg.html" class="stage-link">Legacy vs OCG →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PLATFORM INTERLUDE: AIN BRIDGE ═══ -->
+<div class="bridge-interlude">
+  <div class="wrap">
+    <div class="bridge-eyebrow">Platform Integration · AINumbers.co</div>
+    <h2>AIN Bridge — the browser-side wiring layer</h2>
+    <p>OCG defines the artifact format and the hash. <strong style="color:var(--white)">AIN Bridge</strong> is how AINumbers tools actually receive inputs from agents, composers, and prior tool outputs — entirely in the browser, with no server round-trips and no storage writes. Every tool in the suite carries a small Bridge script that listens on three channels and fills form inputs the moment the page loads.</p>
+    <div class="bridge-note"><strong>Why it's not an OCG stage:</strong> the OpenChainGraph standard covers provenance structure, hashing, and cross-vendor chaining. AIN Bridge is the AINumbers implementation of how that chaining reaches a browser tool. The standard doesn't require it — any transport that populates tool inputs works. Bridge is one such transport, designed to be zero-network and zero-egress.</div>
+
+    <div class="scene">
+      <canvas class="scene-canvas" id="cBridge" height="300"></canvas>
+      <div class="scene-caption"><span class="dot"></span>Three channels converge client-side · URL hash fragment, parent postMessage, Policy Mandate JSON · zero network · fields filled, tool ready to run</div>
+    </div>
+
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🔗</div>
+        <div class="concept-label">#in=&lt;b64url&gt;</div>
+        <div class="concept-title">Prefill deep-link</div>
+        <div class="concept-desc">Encode <code>{"elementId": value, …}</code> as base64url and append as a URL hash fragment: <code>tool.html#in=&lt;token&gt;</code>. Add <code>&amp;run=1</code> to auto-execute. The hash is never sent to a server — it lives only in the browser. Agents use this to hand off a pre-configured tool URL to a user with one click.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📨</div>
+        <div class="concept-label">postMessage</div>
+        <div class="concept-title">Composer messaging</div>
+        <div class="concept-desc">Composer pages load tools in <code>&lt;iframe&gt;</code> elements and drive them via <code>window.postMessage</code>. Three message types: <code>AIN_PREFILL</code> (fill inputs), <code>AIN_RUN</code> (trigger execution), <code>AIN_COLLECT</code> (retrieve the output Policy Mandate). Same-origin only — cross-origin composers cannot drive tools.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📄</div>
+        <div class="concept-label">.policy.json</div>
+        <div class="concept-title">Policy Mandate intake</div>
+        <div class="concept-desc">Tools with <code>intake: true</code> render a drop zone. Drag, choose, or paste a <code>.policy.json</code> from any prior tool. Bridge validates <code>mandate_id</code>, <code>tool_id</code>, and <code>payload</code>, then maps <code>payload</code> keys to matching element IDs — the same mechanism as prefill, driven by mandate rather than URL. The <code>execution_hash</code> field in the mandate closes the OCG provenance loop.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🛡️</div>
+        <div class="concept-label">Zero-network · zero-storage</div>
+        <div class="concept-title">No server. No egress. No log.</div>
+        <div class="concept-desc">All three channels decode client-side. URL hash fragments are not included in HTTP requests. postMessage is same-origin only. Policy Mandate JSON never leaves the browser tab. Bridge dispatches <code>input</code> and <code>change</code> events after filling so reactive tool UIs update correctly.</div>
+      </div>
+    </div>
+
+    <div class="stage-links">
+      <span class="stage-links-label">Full explainer:</span>
+      <a href="ain-bridge-explainer.html" class="stage-link">AIN Bridge Explainer →</a>
     </div>
   </div>
 </div>
@@ -2971,6 +3027,125 @@ setTimeout(function(){(function(){
 
     ctx.font=`300 8px ${SANS}`; ctx.fillStyle=ha(C.body,.5); ctx.textAlign='center';
     ctx.fillText('dct:conformsTo is outside the hash preimage — v0.1/v0.2/v0.3 verifiers compute identical hashes on v0.3.1 artifacts', w/2, h-12);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+
+// ─────────────────────────────────────────────────
+// SCENE: AIN Bridge — three-channel convergence
+// Three source nodes (deep-link, postMessage, mandate) → Bridge → TOOL DOM
+// ─────────────────────────────────────────────────
+setTimeout(function(){(function(){
+  const {ctx,w,h} = setupCanvas('cBridge');
+  let lastTs = performance.now(), elapsed = 0;
+
+  const SRCS = [
+    {x:w*.10, y:h*.18, label:'#in=…', sub:'URL fragment', color:C.teal,   off:0},
+    {x:w*.10, y:h*.50, label:'postMsg', sub:'composer',   color:C.purple, off:0.34},
+    {x:w*.10, y:h*.82, label:'.policy', sub:'mandate',    color:C.gold,   off:0.67},
+  ];
+  const BR = {x:w*.50, y:h*.50};
+  const TOOL = {x:w*.86, y:h*.50};
+  const SR=28, BW=84, BH=48, TW=68, TH=80;
+  const CYCLE = 3.2;
+
+  function frame(ts){
+    const dt = Math.min((ts-lastTs)/1000,.05);
+    lastTs=ts; elapsed+=dt;
+    ctx.clearRect(0,0,w,h);
+    const dashOff=(elapsed*16)%12;
+    const bPulse=.1+.06*Math.sin(elapsed*2.6);
+
+    // ── Edges: sources → Bridge
+    for(const s of SRCS){
+      ctx.save(); ctx.strokeStyle=ha(s.color,.28); ctx.lineWidth=1.2; ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+      ctx.beginPath(); ctx.moveTo(s.x+SR, s.y); ctx.lineTo(BR.x-BW/2, BR.y); ctx.stroke(); ctx.restore();
+    }
+    // ── Edge: Bridge → Tool
+    ctx.save(); ctx.strokeStyle=ha(C.gold,.4); ctx.lineWidth=1.5; ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(BR.x+BW/2, BR.y); ctx.lineTo(TOOL.x-TW/2, TOOL.y); ctx.stroke(); ctx.restore();
+    ctx.font=`300 6.5px ${MONO}`; ctx.fillStyle=ha(C.gold,.45); ctx.textAlign='center';
+    ctx.fillText('fills inputs', (BR.x+BW/2+TOOL.x-TW/2)/2, BR.y-12);
+
+    // ── Packets: source → Bridge (staggered per source)
+    for(const s of SRCS){
+      const pk = ((elapsed/CYCLE) + s.off) % 1;
+      const t = pk / .65;
+      if(t <= 1){
+        const px = (s.x+SR) + ((BR.x-BW/2) - (s.x+SR)) * t;
+        const py = s.y + (BR.y - s.y) * t;
+        ctx.fillStyle = ha(s.color, Math.sin(Math.PI*t)*.85);
+        ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    // ── Packet: Bridge → Tool
+    const outPk = (elapsed/CYCLE + .15) % 1;
+    const t2 = outPk / .7;
+    if(t2 <= 1){
+      const px2 = (BR.x+BW/2) + ((TOOL.x-TW/2) - (BR.x+BW/2)) * t2;
+      ctx.fillStyle = ha(C.gold, Math.sin(Math.PI*t2)*.9);
+      ctx.beginPath(); ctx.arc(px2, BR.y, 5.5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // ── Source nodes
+    for(const s of SRCS){
+      const grd = ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,SR*2.4);
+      grd.addColorStop(0,ha(s.color,.12)); grd.addColorStop(1,ha(s.color,0));
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(s.x,s.y,SR*2.4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=C.bg3; ctx.strokeStyle=s.color; ctx.lineWidth=1.4;
+      ctx.beginPath(); ctx.arc(s.x,s.y,SR,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.font=`500 8px ${MONO}`; ctx.fillStyle=s.color; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(s.label, s.x, s.y-6);
+      ctx.font=`300 7px ${SANS}`; ctx.fillStyle=C.body;
+      ctx.fillText(s.sub, s.x, s.y+7);
+      ctx.textBaseline='alphabetic';
+    }
+
+    // ── AIN BRIDGE node
+    const bg = ctx.createRadialGradient(BR.x,BR.y,0,BR.x,BR.y,64);
+    bg.addColorStop(0,ha(C.gold,bPulse*2)); bg.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(BR.x,BR.y,64,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.gold; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(BR.x-BW/2, BR.y-BH/2, BW, BH, 8); ctx.fill(); ctx.stroke();
+    ctx.font=`600 9px ${MONO}`; ctx.fillStyle=C.gold; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('AIN Bridge', BR.x, BR.y-8);
+    ctx.font=`300 7px ${SANS}`; ctx.fillStyle=ha(C.body,.75);
+    ctx.fillText('v1.0 · client-side', BR.x, BR.y+8);
+    ctx.textBaseline='alphabetic';
+    ctx.font=`300 6px ${SANS}`; ctx.fillStyle=ha(C.green,.65); ctx.textAlign='center';
+    ctx.fillText('zero-network · zero-storage', BR.x, BR.y+BH/2+14);
+
+    // ── TOOL DOM node (right)
+    const tg = ctx.createRadialGradient(TOOL.x,TOOL.y,0,TOOL.x,TOOL.y,50);
+    tg.addColorStop(0,ha(C.teal,.1)); tg.addColorStop(1,ha(C.teal,0));
+    ctx.fillStyle=tg; ctx.beginPath(); ctx.arc(TOOL.x,TOOL.y,50,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.teal; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.roundRect(TOOL.x-TW/2, TOOL.y-TH/2, TW, TH, 6); ctx.fill(); ctx.stroke();
+    ctx.font=`500 8.5px ${MONO}`; ctx.fillStyle=C.teal; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('TOOL', TOOL.x, TOOL.y-26);
+    ctx.font=`300 7px ${SANS}`; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('inputs', TOOL.x, TOOL.y-12);
+    // Animated input bars
+    const barCols = [C.teal, C.purple, C.gold];
+    for(let i=0;i<3;i++){
+      const by = TOOL.y+2+i*16;
+      const filled = ((elapsed*0.9+i*0.6)%3) < 2;
+      const bw = TW-16;
+      ctx.fillStyle = ha(C.border,.5);
+      ctx.beginPath(); ctx.roundRect(TOOL.x-TW/2+8, by, bw, 8, 2); ctx.fill();
+      if(filled){
+        ctx.fillStyle = ha(barCols[i],.7);
+        ctx.beginPath(); ctx.roundRect(TOOL.x-TW/2+8, by, bw*.85, 8, 2); ctx.fill();
+      }
+    }
+    ctx.textBaseline='alphabetic';
+
+    // Caption
+    ctx.font=`300 7.5px ${SANS}`; ctx.fillStyle=ha(C.body,.5); ctx.textAlign='center';
+    ctx.fillText('Bridge finds matching element IDs and dispatches input + change events — reactive UIs update automatically', w/2, h-10);
+
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
