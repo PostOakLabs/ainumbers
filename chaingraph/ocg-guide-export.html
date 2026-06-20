@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using OpenChainGraph with Export Profiles — Integration Guide</title>
+<meta name="description" content="Render verified OpenChainGraph artifacts as xlsx, csv, pdf, and xbrl with v0.4 Export Profiles. The chaingraph_export umbrella, the export_artifact MCP tool, and the xlsx workbook convention — generated downstream of execution_hash, never inside it.">
+<meta property="og:title" content="OpenChainGraph + Export Profiles — Integration Guide">
+<meta property="og:description" content="Export Profiles = rendered-for-review (the last-mile view a human, pipeline, or regulator actually opens). OpenChainGraph = provenance-out (the signed artifact the view is generated from). One umbrella, four formats, zero impact on the hash.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.10);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.10); --red-lt:#F87171;
+  --radius:6px; --radius-lg:10px;
+  /* Guide #8 accent: Ledger Sky — distinct from teal (G1), gold (G2), purple (G3), green (G4), red (G5), iso20022 blue (G6), amber (G7 OKF) */
+  --accent:#3E8FE0; --accent-lt:#6BAEF0; --accent-dim:rgba(62,143,224,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px;text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent-lt);border:1px solid rgba(62,143,224,.3);padding:.25rem .65rem;border-radius:20px}
+
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--accent-lt)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--accent-lt)}
+.hero-desc{font-size:1rem;color:var(--body);max-width:680px;margin-bottom:2rem;line-height:1.9}
+.guide-pills{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guide-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border-2);color:var(--muted);text-decoration:none;transition:all .15s}
+.guide-pill:hover{border-color:var(--border-2);color:var(--body);text-decoration:none}
+.guide-pill.active{background:var(--accent-dim);color:var(--accent-lt);border-color:rgba(62,143,224,.35)}
+
+/* SECTIONS */
+.section{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.5rem}
+.section h2{font-size:clamp(1.35rem,2.5vw,1.85rem);color:var(--white);margin-bottom:1rem}
+.section p{color:var(--body);margin-bottom:1rem;max-width:780px;font-size:.94rem;line-height:1.85}
+.section p strong{color:var(--text);font-weight:500}
+
+/* CODE BLOCKS */
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin:1.4rem 0;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);background:var(--accent-dim);border:1px solid rgba(62,143,224,.25);padding:.2rem .55rem;border-radius:4px}
+.code-note{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted)}
+.code-block pre{padding:1.2rem 1.3rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.75;color:var(--text)}
+.k{color:var(--teal-lt)}    /* key/keyword */
+.v{color:var(--gold)}        /* string value */
+.n{color:var(--green)}       /* number/boolean/value */
+.c{color:var(--muted);font-style:italic}  /* comment */
+.a{color:var(--accent-lt)}   /* sky / export-specific */
+.p{color:var(--purple)}      /* purple / resource/attribute names */
+
+/* TABLES */
+.spec-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.spec-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt)}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table tr:hover td{background:rgba(30,47,74,.3)}
+
+/* CALLOUT */
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.2rem;margin:1.3rem 0;max-width:800px}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.35rem}
+.callout p{color:var(--body);font-size:.87rem;margin:0;max-width:none}
+.callout-teal{border-left-color:var(--teal)}
+.callout-teal .lab{color:var(--teal)}
+.callout-gold{border-left-color:var(--gold)}
+.callout-gold .lab{color:var(--gold)}
+.callout-purple{border-left-color:var(--purple)}
+.callout-purple .lab{color:var(--purple)}
+.callout-green{border-left-color:var(--green)}
+.callout-green .lab{color:var(--green)}
+.callout-red{border-left-color:var(--red-lt)}
+.callout-red .lab{color:var(--red-lt)}
+
+/* LAYER DIAGRAM */
+.layer-diagram{border:1px solid var(--border-2);border-radius:var(--radius-lg);overflow:hidden;margin:1.4rem 0;max-width:800px}
+.layer-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border)}
+.layer-row:last-child{border-bottom:none}
+.layer-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:500;width:180px;flex-shrink:0;padding:.9rem 1.1rem;display:flex;align-items:center;border-right:1px solid var(--border)}
+.layer-label.okf{color:var(--accent-lt);background:var(--accent-dim)}
+.layer-label.ocg{color:var(--teal-lt);background:var(--teal-dim)}
+.layer-label.know{color:var(--gold);background:var(--gold-dim)}
+.layer-body{font-size:.83rem;color:var(--body);padding:.9rem 1.1rem;line-height:1.65;flex:1}
+.layer-header{background:var(--bg-3);padding:.5rem 1.1rem;display:flex;gap:0;border-bottom:1px solid var(--border)}
+.layer-header-col{font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.layer-header-col.lbl{width:180px;flex-shrink:0}
+
+/* CHECKLIST TABLE */
+.checklist-table{width:100%;border-collapse:collapse;margin:1.3rem 0;font-size:.84rem}
+.checklist-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:2px solid var(--border);text-align:left;background:var(--bg-3)}
+.checklist-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.checklist-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent-lt);width:48px;text-align:center}
+.checklist-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted)}
+.checklist-table td:nth-child(2){color:var(--text);font-weight:500;font-size:.85rem}
+.checklist-table tr:last-child td{border-bottom:none}
+
+/* WORKBOOK DIAGRAM */
+.workbook{border:1px solid var(--border-2);border-radius:var(--radius-lg);overflow:hidden;margin:1.4rem 0;max-width:800px}
+.sheet-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border)}
+.sheet-row:last-child{border-bottom:none}
+.sheet-tab{font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:500;width:150px;flex-shrink:0;padding:.9rem 1rem;display:flex;align-items:center;border-right:1px solid var(--border);color:var(--accent-lt);background:var(--accent-dim)}
+.sheet-body{font-size:.83rem;color:var(--body);padding:.9rem 1.1rem;line-height:1.65;flex:1}
+.sheet-body code{font-size:.78em}
+
+/* FOOTER */
+footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.75rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+
+@media(max-width:640px){.guide-pills{gap:.4rem}.nav-tag{display:none}.spec-table{font-size:.75rem}.spec-table td,.spec-table th{padding:.5rem .6rem}.layer-diagram{overflow-x:auto}.layer-row{flex-wrap:wrap}.layer-label{width:auto;border-right:none;border-bottom:1px solid var(--border)}.checklist-table{font-size:.75rem}.checklist-table td,.checklist-table th{padding:.5rem .6rem}.workbook{overflow-x:auto}.sheet-row{flex-wrap:wrap}.sheet-tab{width:auto;border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec v0.4</a>
+      <span class="nav-tag">Integration Guide</span>
+      <span class="nav-pill">Export · xlsx</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">OpenChainGraph v0.4 · Integration How-To</div>
+    <h1>Using OpenChainGraph with <em>Export Profiles</em></h1>
+    <p class="hero-desc">OpenChainGraph v0.4 adds <strong>Export Profiles</strong> — generated, non-canonical renderings of an already-verified artifact, produced under one umbrella term: <code>chaingraph_export</code>. The lead profile is <strong>xlsx</strong>: a three-sheet analyst/board workbook built straight from <code>output_payload</code>, with <code>csv</code>, <code>pdf</code>, and <code>xbrl</code> as siblings under the same exporter discipline. Every export is generated <em>after</em> <code>execution_hash</code> is computed and is <strong>excluded from the hash preimage</strong> — the cryptographic anchor travels to the last mile instead of breaking the moment someone hand-copies a number into a spreadsheet.</p>
+    <div class="guide-pills">
+      <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
+      <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
+      <a class="guide-pill" href="guide-intoto.html">in-toto</a>
+      <a class="guide-pill" href="guide-ed25519.html">Ed25519</a>
+      <a class="guide-pill" href="guide-otel.html">OpenTelemetry</a>
+      <a class="guide-pill" href="guide-iso20022.html">ISO 20022</a>
+      <a class="guide-pill" href="guide-okf.html">OKF</a>
+      <span class="guide-pill active">Export · xlsx</span>
+    </div>
+  </div>
+</div>
+
+<!-- §1 Three layers -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§1</div>
+    <h2>Three layers: provenance-out, knowledge-in, rendered-for-review</h2>
+    <p>v0.3 introduced a two-layer framing — OKF (context-in) and OCG (provenance-out). v0.4 extends it to three. Export Profiles are the third layer: a <strong>rendered-for-review</strong> surface that takes an already-verified artifact and produces the file format a human, pipeline, or regulator actually opens. Understanding what this layer does — and does not do — is the foundation of a correct integration.</p>
+
+    <div class="layer-diagram">
+      <div class="layer-header">
+        <div class="layer-header-col lbl">Layer</div>
+        <div class="layer-header-col">What it is · When it is used · What it produces</div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label ocg">OCG<br>provenance-out</div>
+        <div class="layer-body"><strong style="color:var(--teal-lt)">OpenChainGraph v0.4</strong> — a signed, hash-chained decision artifact that a tool produces <em>after</em> execution. Carries <code>execution_hash</code> (SHA-256 over the sorted-key JSON of <code>policy_parameters</code> + <code>output_payload</code>), a <code>chain</code> block, <code>compliance_flags[]</code>, and an <code>audit_signature</code> (Ed25519 / in-toto envelope). This is the only canonical, hash-anchored layer. It answers: <em>what decision was made, on what inputs, by which tool?</em></div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label know">OKF<br>knowledge-in</div>
+        <div class="layer-body"><strong style="color:var(--gold)">Open Knowledge Format companion bundle (§10 of the spec)</strong> — markdown concept files an agent reads <em>before</em> deciding which tools to call. Out of scope for this guide; see the <a href="guide-okf.html">OKF integration guide</a>.</div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-label okf">Export<br>rendered-for-review</div>
+        <div class="layer-body"><strong style="color:var(--accent-lt)">chaingraph_export profiles (§13, new in v0.4)</strong> — generated views of a verified artifact, produced <em>after</em> execution for human, pipeline, or regulator consumption: <code>xlsx</code> (analyst/board spreadsheet), <code>csv</code> (pipeline-tabular sibling), <code>pdf</code> (signed one-pager), <code>xbrl</code> (regulator-submission profile, taxonomy per regime). None of the four carries its own <code>execution_hash</code>; none is independently verifiable. It answers: <em>what does this decision look like to the person or system that has to act on it?</em></div>
+      </div>
+    </div>
+
+    <p>The three layers interlock cleanly and derive from the same source artifact: an agent consults OKF to plan a chain, executes it to receive a signed OCG artifact, and — only when a human, pipeline, or regulator needs to consume that artifact outside a JSON parser — calls <code>export_artifact</code> to render it. The planning surface, the proof surface, and the review surface never overlap.</p>
+
+    <div class="callout callout-gold">
+      <div class="lab">Hard boundary — exports are views, not facts</div>
+      <p>An export file describes a decision. It is <strong style="color:var(--text)">not</strong> a decision artifact in its own right. An exported <code>.xlsx</code>, <code>.csv</code>, <code>.pdf</code>, or <code>.xbrl</code> file must <strong style="color:var(--text)">never</strong> be treated as independently verifiable — it carries no new <code>execution_hash</code>, and verification always routes back to the canonical JSON artifact it was generated from. Putting verification weight on the rendered file would conflate the proof layer with the review layer, making it possible for a tampered spreadsheet to masquerade as ground truth. Keep them strictly, permanently separate: the JSON artifact is the fact; the export is a picture of the fact.</p>
+    </div>
+
+    <p>This separation is also why export profiles are <strong>additive</strong>, not a dependency. Nothing in OCG's verification path reads or depends on the rendered files. The export layer is a convenience for the last mile of consumption; removing it would not affect the cryptographic integrity of any artifact.</p>
+  </div>
+</div>
+
+<!-- §2 The chaingraph_export umbrella -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§2</div>
+    <h2>The chaingraph_export umbrella</h2>
+    <p>In OpenChainGraph v0.4, every export format is a documented sub-profile under one umbrella term: <code>chaingraph_export:&lt;format&gt;</code>. This mirrors the OKF companion bundle's precedent (§10 of the spec) — a generated view, never hand-edited, never independently verifiable, fully swappable, and additive. No existing tool, kernel, or verifier changes to remain v0.4-valid.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">profiles</span>
+        <span class="code-note">chaingraph_export sub-profiles</span>
+      </div>
+      <pre><span class="k">chaingraph_export:xlsx</span>   <span class="c">// analyst / board spreadsheet — this guide's lead profile</span>
+<span class="k">chaingraph_export:csv</span>    <span class="c">// pipeline-tabular sibling of xlsx — near-free once xlsx exists</span>
+<span class="k">chaingraph_export:pdf</span>    <span class="c">// signed board / audit one-pager</span>
+<span class="k">chaingraph_export:xbrl</span>   <span class="c">// regulator-submission profile (taxonomy per regime)</span></pre>
+    </div>
+
+    <p>Every sub-profile, regardless of format, must satisfy the same five conformance rules. These are the rules that make "generated, swappable, additive" actually true rather than aspirational:</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Conformance rule</th>
+          <th>Why it matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Generated solely from the verified artifact's <code>output_payload</code> (+ optionally <code>policy_parameters</code>) — never hand-authored.</td>
+          <td>If a human can edit the rendered file independently of the artifact, the file stops being a faithful view of the decision.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Embed a metadata block: <code>tool_id</code>, <code>execution_hash</code>, <code>chaingraph_version</code>, <code>compute_mode</code>, and (if present) <code>audit_signature.signatures[0].keyid</code>, plus a link or QR to the canonical JSON artifact / verification endpoint.</td>
+          <td>Keeps the cryptographic anchor attached at the last mile — anyone holding the file can trace it back to the signed source.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Not</strong> carry a new <code>execution_hash</code> and <strong>not</strong> be treated as independently verifiable.</td>
+          <td>It is a view, not a fact. Verification always routes back to the canonical JSON — never to the rendered copy.</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Optional and additive — absence of an exporter never invalidates a tool.</td>
+          <td>A node with zero export formats is still a fully valid v0.4 node; JSON-only is always a conforming state.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Deterministic</strong>: same artifact + same exporter version → byte-stable output (static per-<code>mandate_type</code> templates, sorted rows, fixed number formats).</td>
+          <td>Two parties holding the same artifact and exporter version can confirm they hold the identical rendering — no drift, no ambiguity.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-green">
+      <div class="lab">Hash preimage unchanged</div>
+      <p>Export profiles are generated downstream of <code>execution_hash = SHA-256(JCS({policy_parameters, output_payload}))</code> and never alter it. A v0.4 artifact with exports attached remains verifiable by any v0.3 verifier that simply ignores the unknown export-related fields.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §3 Generation: server-side Worker -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§3</div>
+    <h2>Generation: one canonical generator, server-side</h2>
+    <p>Export generation runs in the Cloudflare Worker — the same runtime as the Compute-Binding kernels (§12 of the spec) — as <strong>one canonical generator rather than N drifting client implementations</strong>. The rationale mirrors Compute Binding: agent-native, single round-trip, reproducible. The zero-egress privacy boundary applies unchanged here too: exporters are pure functions over an artifact the caller already holds. No payload is logged, stored, or transmitted beyond the JSON-RPC response.</p>
+
+    <p>Exporters live at <code>repo/chaingraph/exporters/&lt;format&gt;/</code> — parallel to <code>kernels/</code> — each a pure function with the same shape:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">javascript</span>
+        <span class="code-note">Exporter contract — repo/chaingraph/exporters/&lt;format&gt;/index.mjs</span>
+      </div>
+      <pre><span class="c">// buildExport(artifact) → Uint8Array
+// Pure: no DOM, no window, no network, no Date.now().
+// Receives the full verified v0.4 artifact object; returns the rendered bytes.
+// Vendored into the Worker by generate.mjs on the same push (same
+// two-repo discipline as kernels — see Compute Binding §12.3).</span>
+export async function buildExport(artifact) { … }
+
+<span class="c">// Static metadata for the Worker's export registry.</span>
+export const meta = { format: <span class="v">"xlsx"</span>, media_type: <span class="v">"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"</span> };</pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Air-gapped deployments may generate client-side</div>
+      <p>Strict client-side generation remains permissible for an air-gapped deployment using the published exporter spec — nothing about the conformance rules in §2 requires a server. The reference implementation is server-side because it gives one canonical generator instead of drifting reimplementations across browser, CLI, and pipeline consumers. If you build a client-side exporter, it must still satisfy all five conformance rules, especially determinism (rule 5) — your output must be byte-identical to the reference Worker's output for the same artifact and exporter version.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §4 export_artifact MCP tool -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§4</div>
+    <h2>The export_artifact MCP tool</h2>
+    <p>Export Profiles surface through a single new read-only MCP tool — not a <code>format</code> parameter bolted onto every existing tool (which would inflate every schema in the suite), and not an out-of-band HTTP endpoint (which would split the agent-callable story in two). This follows MCP best practice: a focused, domain-aware tool that an agent can reason about on its own, with one tool owning the render concern end-to-end.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">MCP tool</span>
+        <span class="code-note">export_artifact — readOnlyHint: true</span>
+      </div>
+      <pre><span class="c">// Input</span>
+{
+  <span class="k">"artifact"</span>:       <span class="c">// full v0.4 artifact object (REQUIRED — stateless Worker, no cache)</span>
+  <span class="k">"format"</span>:         <span class="v">"xlsx" | "pdf" | "csv" | "xbrl"</span>,
+  <span class="k">"xbrl_taxonomy"</span>:  <span class="v">"&lt;regime id&gt;"</span>   <span class="c">// required only when format = xbrl</span>
+}
+
+<span class="c">// Output</span>
+{
+  <span class="k">"format"</span>:      <span class="v">"xlsx"</span>,
+  <span class="k">"filename"</span>:    <span class="v">"&lt;tool_id&gt;-&lt;short_hash&gt;.xlsx"</span>,
+  <span class="k">"media_type"</span>:  <span class="v">"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"</span>,
+  <span class="k">"bytes_base64"</span>: <span class="v">"…"</span>,           <span class="c">// standard base64 (NOT url-safe) — avoids client decode bugs</span>
+  <span class="k">"metadata"</span>:    { <span class="k">"tool_id"</span>, <span class="k">"execution_hash"</span>, <span class="k">"chaingraph_version"</span>, <span class="k">"compute_mode"</span> }
+}</pre>
+    </div>
+
+    <p>The agent flow stays end-to-end and entirely MCP-native: call a compute tool → receive a JSON artifact with <code>execution_hash</code> → call <code>export_artifact</code> with that artifact → receive the rendered file. Both calls are <code>readOnlyHint:true</code>, so an agent (or a policy layer governing one) can treat the whole sequence as side-effect-free.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Detail</th>
+          <th>Behavior</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Statelessness</td>
+          <td>The Worker holds no cache between calls — <code>artifact</code> is required on every call, even for the same tool_id called twice. There is no implicit "last artifact" state.</td>
+        </tr>
+        <tr>
+          <td>Large outputs</td>
+          <td>For big GPU-batch outputs (e.g. <code>run_liquidity_stress_test</code> at 1,000×250), the Worker returns an <strong>MCP resource</strong> — URI-addressable, read-only — instead of an oversized inline base64 blob.</td>
+        </tr>
+        <tr>
+          <td>Capability mismatch</td>
+          <td>The tool rejects any <code>(tool, format)</code> pair not present in the node's <code>export_capability</code> array (§6 of this guide) — a deterministic, discoverable failure rather than a silent best-effort render.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- §5 xlsx workbook convention -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§5</div>
+    <h2>chaingraph_export:xlsx — workbook convention</h2>
+    <p>xlsx is the lead export profile and the one with the most direct mapping to existing tool output: most OCG tools already produce tabular <code>output_payload</code> shapes (percentile tables, batch rows, distributions), so the exporter's job is largely extraction and layout rather than transformation. Every xlsx export follows a fixed three-sheet convention:</p>
+
+    <div class="workbook">
+      <div class="sheet-row">
+        <div class="sheet-tab">Decision</div>
+        <div class="sheet-body">Verdict, <code>tool_id</code>, <code>mandate_type</code>, timestamp. A metadata block carrying <code>execution_hash</code>, <code>chaingraph_version</code>, <code>compute_mode</code>, and signing <code>keyid</code>. A QR code encoding the verification URL for the canonical JSON artifact.</div>
+      </div>
+      <div class="sheet-row">
+        <div class="sheet-tab">Data / …</div>
+        <div class="sheet-body">Tabular <code>output_payload</code> — percentile tables, batch rows, distributions. One or more sheets depending on how many logical tables the tool's output contains; sheet names follow the payload's own field names where sensible.</div>
+      </div>
+      <div class="sheet-row">
+        <div class="sheet-tab">Provenance</div>
+        <div class="sheet-body">Optional. <code>chain.parent_hashes</code>, <code>chain.parent_tool_ids</code>, <code>compliance_flags[]</code> — included when the artifact carries chain-of-custody data worth surfacing to a reviewer who won't open the raw JSON.</div>
+      </div>
+    </div>
+
+    <p>The workbook is generated with a Workers-compatible OOXML writer — pure JS/WASM, no Node <code>fs</code> dependency. Given the simple, deterministic structure (three fixed sheet roles, no formulas, no macros, no embedded objects beyond the QR image), a minimal hand-rolled OOXML writer is an acceptable implementation choice; nothing about the format requires a full-featured spreadsheet library.</p>
+
+    <div class="callout">
+      <div class="lab">Pilot tools</div>
+      <p>The xlsx profile launches against tools that are already tabular in shape: <code>compute_rwa_scenarios</code>, <code>validate_einvoice_batch</code>, <code>simulate_vop_matching</code>, and <code>run_liquidity_stress_test</code>. These were chosen because their <code>output_payload</code> structures map onto the Data sheet with no reshaping — a percentile table or batch-row array drops in directly. Tools with deeply nested or non-tabular payloads are not excluded by the format, but will need a payload-specific flattening step in the exporter before they're added to the pilot list.</p>
+    </div>
+
+    <p>Determinism (conformance rule 5, §2) applies in full here: sorted rows, fixed number formats, and a static per-<code>mandate_type</code> sheet layout mean the same artifact run through the same exporter version always produces a byte-identical <code>.xlsx</code> file. Two analysts holding the same artifact can confirm — without opening the JSON — that they're looking at the same workbook.</p>
+  </div>
+</div>
+
+<!-- §6 export_capability discovery -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§6</div>
+    <h2>Discovering what a tool can export: export_capability</h2>
+    <p>Mirroring <code>compute_capability</code> from Compute Binding, every live node in <code>chaingraph.json</code> may declare which export profiles it supports — so MCP clients and agents can discover available formats <em>before</em> calling <code>export_artifact</code>, rather than finding out by trial and error.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">JSON</span>
+        <span class="code-note">chaingraph.json — per-node export_capability field</span>
+      </div>
+      <pre>{
+  <span class="k">"tool_id"</span>:            <span class="v">"compute_rwa_scenarios"</span>,
+  <span class="k">"compute_capability"</span>: <span class="v">"server"</span>,
+  <span class="k">"export_capability"</span>:  [<span class="v">"xlsx"</span>, <span class="v">"csv"</span>, <span class="v">"xbrl:eba-corep-own-funds"</span>]
+}</pre>
+    </div>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Field state</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Absent or <code>[]</code></td>
+          <td>JSON-only. Still a fully v0.4-valid node — export support is purely additive (conformance rule 4, §2).</td>
+        </tr>
+        <tr>
+          <td><code>"xlsx"</code> / <code>"csv"</code> / <code>"pdf"</code></td>
+          <td>Format name with no further qualification. The tool supports a direct, single-variant render in that format.</td>
+        </tr>
+        <tr>
+          <td><code>"xbrl:&lt;taxonomy-id&gt;"</code></td>
+          <td>Names a specific taxonomy from the XBRL regime table (§7 of this guide). XBRL is the one format where the umbrella alone is insufficient — a regime selector is required.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>This gives the Graph Index / DCAT surface a discovery signal symmetric with <code>compute_capability</code>: an agent or static-site generator walking <code>chaingraph.json</code> can build a "what can I do with this artifact" menu without a single failed <code>export_artifact</code> call.</p>
+  </div>
+</div>
+
+<!-- §7 csv, pdf, xbrl siblings -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§7</div>
+    <h2>The other three profiles: csv, pdf, xbrl</h2>
+    <p>xlsx is the lead profile for this guide, but the umbrella has three siblings, each tuned to a different consumer. All four share the same <code>export_artifact</code> call shape and the same five conformance rules from §2 — only the rendering differs.</p>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Profile</th>
+          <th>Consumer</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>csv</td>
+          <td>Data-engineering pipelines; large GPU-batch outputs</td>
+          <td>The pipeline-tabular sibling of xlsx — same extraction logic, simpler serialization, near-free once the xlsx exporter exists. One CSV per logical table; a manifest row carries the metadata block (§2 rule 2). Built for volume: <code>run_liquidity_stress_test</code> at 1,000×250 rows, <code>simulate_stablecoin_reserve</code> at 1,000×90.</td>
+        </tr>
+        <tr>
+          <td>pdf</td>
+          <td>Board members, auditors, human reviewers</td>
+          <td>A signed one-pager: verdict headline, key <code>output_payload</code> fields as prose or table, <code>execution_hash</code> and signing <code>keyid</code> in the footer, and a QR encoding the verification URL. Uses a <strong>static template per <code>mandate_type</code></strong> — one layout for <code>attestation_mandate</code>, a different one for <code>compliance_mandate</code> — so output is reproducible artifact-to-artifact with no freeform layout. Best fit: <code>precheck_reserve_attestation</code>, <code>assess_ai_act_conformity</code>, <code>classify_dora_incident</code>.</td>
+        </tr>
+        <tr>
+          <td>xbrl</td>
+          <td>Regulators; submission pipelines</td>
+          <td>The strategic profile: renders artifacts as XBRL/iXBRL so they are <em>submission-ready</em>, not merely analyst-readable. Requires a <strong>taxonomy per regulatory regime</strong> — there is no single universal mapping, which is why <code>xbrl_taxonomy</code> is a required selector on the MCP call (§4). See the regime table below.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The xbrl taxonomy landscape at v0.4:</p>
+    <table class="spec-table">
+      <thead>
+        <tr><th>xbrl_taxonomy</th><th>Regime / taxonomy</th><th>Maps from</th><th>v0.4 status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>eba-corep-own-funds</td><td>EBA COREP (capital / RWA)</td><td><code>compute_basel31_delta</code>, <code>compute_rwa_scenarios</code>, <code>optimize_settlement_capital</code></td><td><strong>Pilot</strong></td></tr>
+        <tr><td>eba-corep-lcr-nsfr</td><td>EBA COREP LCR/NSFR (liquidity)</td><td><code>run_liquidity_stress_test</code></td><td><strong>Pilot</strong></td></tr>
+        <tr><td>eba-dora-ict</td><td>EBA DORA ICT register / incident ITS</td><td><code>classify_dora_incident</code></td><td>Mapped, lower priority</td></tr>
+        <tr><td>ocg-ext:attestation</td><td>OCG extension (no regulator standard yet)</td><td><code>precheck_reserve_attestation</code> (GENIUS); US Treasury clearing tools</td><td><strong>Custom extension</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-purple">
+      <div class="lab">Rule: prefer an established taxonomy; never fabricate one</div>
+      <p>Start with regimes that already have a published taxonomy — EBA COREP for capital and liquidity is the v0.4 pilot. Where no regulator taxonomy exists yet, publish a minimal namespaced <strong>OCG extension taxonomy</strong> (<code>ocg-ext:*</code>) rather than forcing a half-mapped standard one onto data it wasn't designed for. Every XBRL export records its source taxonomy and version in-context, and <strong>no concept may be fabricated</strong> — each one must trace to a published regulator element or an explicitly-declared OCG extension element.</p>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Why Parquet isn't here</div>
+      <p>Parquet is a plausible future columnar option once a concrete pipeline consumer asks for it, but it is deliberately not part of v0.4 — adding it now would pull in Arrow/Parquet Workers-runtime dependency weight for a format with no confirmed v0.4 consumer. csv covers the pipeline-tabular case today at a fraction of the implementation cost.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §8 Integration checklist -->
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§8</div>
+    <h2>Integration checklist</h2>
+    <p>Six steps to wire up Export Profiles end-to-end, from artifact to rendered file. Each step is independently verifiable.</p>
+
+    <table class="checklist-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Action</th>
+          <th>Tool / verification</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Confirm the target node declares <code>export_capability</code> for the format you want. If the array is absent or <code>[]</code>, the node is JSON-only — stop here, or request the exporter be added upstream.</td>
+          <td>Read <code>chaingraph.json</code> for the node's <code>export_capability</code> array (§6); confirm the desired format string is present</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Call the live MCP tool to obtain a fully verified v0.4 artifact — note its <code>execution_hash</code> and <code>chaingraph_version</code> before proceeding.</td>
+          <td>Standard tool call via <code>https://mcp.ainumbers.co/mcp</code>; confirm the response includes <code>execution_hash</code> and <code>chaingraph_version: "0.4.0"</code></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Call <code>export_artifact</code> with the full artifact object and your chosen <code>format</code> (plus <code>xbrl_taxonomy</code> if format is xbrl). Confirm the returned <code>metadata.execution_hash</code> matches the hash from step 2.</td>
+          <td><code>export_artifact</code> response → <code>metadata.execution_hash === </code> the hash captured in step 2</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Decode <code>bytes_base64</code> as standard (non-url-safe) base64 and write to disk using the returned <code>filename</code> and <code>media_type</code>. For oversized responses, follow the returned MCP resource URI instead of expecting an inline blob.</td>
+          <td>Decoded file opens correctly in the target application (Excel/LibreOffice for xlsx, a PDF reader for pdf, etc.)</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Open the rendered file and confirm the embedded metadata block (tool_id, execution_hash, chaingraph_version, compute_mode, keyid) is present and matches the source artifact. Follow the embedded QR / verification link back to the canonical JSON.</td>
+          <td>Visual inspection of the Decision sheet (xlsx) or footer (pdf); QR / link resolves to the verification endpoint for the matching <code>execution_hash</code></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>If verifying provenance, never trust the rendered file's numbers in isolation — re-fetch or recompute the canonical JSON artifact and confirm <code>execution_hash</code> independently. Treat the export strictly as a view.</td>
+          <td>Recompute <code>execution_hash</code> from the canonical artifact's <code>policy_parameters</code> + <code>output_payload</code> per the §2 hash preimage algorithm; confirm it matches the value embedded in the exported file</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="lab">What you do not need</div>
+      <p>Export Profiles require no spreadsheet SDK on the consumer side beyond a standard reader, no special runtime, and no changes to the underlying OCG tool implementations. The Worker-side generator is a pure function with no external npm dependencies beyond a minimal Workers-compatible OOXML writer. Consumers need only the ability to decode base64 and open a standard file format — any HTTP client, any MCP-aware agent, any spreadsheet or PDF application will work. The export layer is an additive last-mile convenience: the entire OCG suite functions identically whether any export profile exists or not.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard v0.4.0 · <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span> <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span> <a href="openchain-graph-spec.html">Technical Spec</a>
+      <span>·</span> <a href="openchain-graph-explainer.html">Interactive Explainer</a>
+      <span>·</span> Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

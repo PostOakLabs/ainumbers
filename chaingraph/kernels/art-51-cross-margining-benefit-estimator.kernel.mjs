@@ -104,7 +104,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.4.0', ap2_version: '1.0.0', mandate_type: meta.mandate_type,
+    chaingraph_version: '0.4.0', mandate_type: meta.mandate_type,
     tool_id: TOOL_ID, tool_version: TOOL_VERSION, generated_at: now ?? null, execution_hash: hash,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp, output_payload, compliance_flags, compute_mode: 'server',

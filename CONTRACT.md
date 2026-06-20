@@ -135,12 +135,11 @@ Missing tool/composer files are **errors** (non-zero exit → block deploy); cha
 ## 📦 3. AINumbers Policy Mandate Schema & UI Contract
 ### 3.1 AINumbers Policy Mandate v1.0 Schema (not AP2)
 
-> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). Real AP2 (see [ap2-protocol.org](https://ap2-protocol.org/)) defines IntentMandate / CartMandate / PaymentMandate for agent-mediated payment flows — a different problem domain. AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability.
+> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). Real AP2 (see [ap2-protocol.org](https://ap2-protocol.org/)) defines IntentMandate / CartMandate / PaymentMandate for agent-mediated payment flows — a different problem domain. AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability. The in-payload `ap2_version` field (value `"1.0"`) is **retired as of v0.4** — it duplicated the schema version under an AP2-implying name and is no longer part of the canonical schema; `chaingraph_version` is the sole envelope version.
 
 Adopted for human-readable audit + machine-agent ingestion. `execution_hash` added as optional audit metadata.
 ```json
 {
-  "ap2_version": "1.0",
   "mandate_id": "UUIDv4",
   "issued_at": "ISO 8601",
   "issued_by": "ainumbers.co",
@@ -352,13 +351,12 @@ The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in an
 
 ### A3.2 · Mandatory chain block + execution_hash (RFC 2119: MUST)
 
-The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1). **v0.3.1:** `chaingraph_version` is the canonical envelope-version field and `@context` the JSON-LD anchor; `ap2_version` is a **deprecated alias** (value `"1.0.0"` — a legacy envelope label, *not* the AP2 standard version, which is v0.2) retained for back-compat and slated for removal in **v0.4**. Tools that genuinely validate AP2 v0.2 structures declare it via `dct:conformsTo` → the AP2 v0.2 spec, not via this field.
+The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1). **v0.4:** `chaingraph_version` is the sole canonical envelope-version field and `@context` the JSON-LD anchor. `ap2_version` is **RETIRED** — it was a misnamed legacy envelope label (value `"1.0"`/`"1.0.0"` = the AINumbers Policy Mandate schema version, *not* the AP2 standard version, which is v0.2) and is **no longer emitted**; the verifier still tolerates it on pre-retirement artifacts for back-compat. Tools that genuinely validate AP2 v0.2 structures declare it via `dct:conformsTo` → the AP2 v0.2 spec, not via this field.
 
 ```json
 {
   "@context": "https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",
-  "chaingraph_version": "0.3.1",
-  "ap2_version": "1.0.0",
+  "chaingraph_version": "0.4.0",
   "mandate_type": "<§4 taxonomy — see A3.5>",
   "tool_id": "<kebab-case>",
   "tool_version": "1.0.0",

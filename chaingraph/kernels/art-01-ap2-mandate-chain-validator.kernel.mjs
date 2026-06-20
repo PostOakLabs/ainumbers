@@ -193,7 +193,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     'dct:conformsTo': ['https://github.com/google-agentic-commerce/AP2/tree/v0.2'],
-    ap2_version: '1.0.0', // deprecated alias, retained for back-compat
+    
     mandate_type: 'payment_mandate',
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,

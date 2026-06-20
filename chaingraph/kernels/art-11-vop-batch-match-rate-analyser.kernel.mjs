@@ -129,7 +129,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     chaingraph_version: '0.4.0',
     semantic_profile: 'iso20022:pacs.008-subset',
     'dct:conformsTo': ['https://ainumbers.co/chaingraph/profiles/iso20022/pacs008-subset.jsonld'],
-    ap2_version: '1.0.0',
     mandate_type: 'compliance_mandate',
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,

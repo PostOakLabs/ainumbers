@@ -84,7 +84,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
-    ap2_version: '1.0.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
