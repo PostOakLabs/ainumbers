@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Settlement-Asset &amp; Legal-Finality Classifier · ART-59 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Classify your settlement asset (CBM token, tokenized deposit, stablecoin, e-money) against its legal-finality regime (SFD, PFMI, UCC Art.12) → finality tier 1–4 + singleness-of-money verdict. Gates the cross-network settlement validator (ART-58).">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-59-settlement-asset-finality-classifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Settlement-Asset &amp; Legal-Finality Classifier · ART-59 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Classify settlement asset against finality regime → tier 1–4 + singleness of money. Gates ART-58 cross-network atomicity check. OpenChainGraph v0.4. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-59-settlement-asset-finality-classifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Settlement-Asset & Legal-Finality Classifier · ART-59 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-59-settlement-asset-finality-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Classify settlement asset (CBM / tokenized deposit / stablecoin / e-money) against finality regime (SFD/PFMI/UCC Art.12) → tier 1–4 + singleness verdict. Gates ART-58. Wave 13 cash-layer distinct from Wave 8 Canton asset layer.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-59 · Wave 13. In-browser compute() stays byte-identical to kernels/art-59-settlement-asset-finality-classifier.kernel.mjs. §13.4: deadline/deadline_note + xbrl:ocg-ext. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:860px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:860px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.tier{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.tier-badge{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700;width:64px;height:64px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.single-badge{font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.3rem .8rem;border-radius:20px;border:1px solid}
+.gap{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:8px 12px;font-size:.8rem;margin:4px 0;color:var(--red)}
+.flag-item{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin:4px 0;color:var(--warn)}
+.rec{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;color:var(--text);margin:10px 0}
+.regime{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:.78rem;color:var(--body);margin:10px 0}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results{display:none}.results.show{display:block}
+.deadline-box{background:rgba(212,168,71,.07);border:1px solid rgba(212,168,71,.3);border-radius:var(--radius);padding:10px 14px;font-size:.8rem;margin:10px 0;color:var(--gold)}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-59</span></div>
+  <a href="guide-wholesale-settlement.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 13 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-59 · Wave 13 · Wholesale Tokenized Settlement · Settlement-Asset Finality</div>
+  <h1>Settlement-Asset &amp; Legal-Finality Classifier</h1>
+  <p class="sub">Map your settlement asset (CBM token, tokenized deposit, regulated stablecoin, e-money token) against its legal-finality regime (EU SFD 98/26/EC, CPMI-IOSCO PFMI Principle 8, UCC Article 12) to receive a finality tier 1–4, a singleness-of-money verdict, and a list of finality gaps. This tool gates <strong>ART-58</strong> (cross-network settlement). Cash/settlement layer — distinct from Wave 8 Canton asset finality.</p>
+  <div class="flag">Educational classifier · not legal or settlement advice · Status: 2026-06-20 — verify EU SFD 98/26/EC, UCC Art.12, CPMI-IOSCO PFMI P.8 against current sources</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="deadline-box">⏱ Hard deadlines: ECB Pontes TARGET-link pilot end-Q3 2026 · DTCC Collateral AppChain full production Oct 2026 · BIS Agorá Phase 2 TBD</div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="q"><label><span class="dim">Asset</span>Settlement asset type</label>
+        <select id="settlement_asset">
+          <option value="CBM-token">CBM token (central bank money, Agorá/Pontes)</option>
+          <option value="commercial-bank-deposit-token">Tokenized commercial bank deposit (JPMD/RLN)</option>
+          <option value="regulated-stablecoin">Regulated stablecoin (GENIUS Act / MiCA)</option>
+          <option value="e-money-token">E-money token (MiCA Art. 48+)</option>
+          <option value="off-chain-RTGS" selected>Off-chain RTGS settlement</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Finality</span>Legal finality designation</label>
+        <select id="finality_designation">
+          <option value="SFD-designated">SFD-designated (EU Dir. 98/26/EC)</option>
+          <option value="PFMI-compliant-FMI">PFMI-compliant FMI (CPMI-IOSCO P.8)</option>
+          <option value="UCC-Art12-control">UCC Article 12 control transfer (US)</option>
+          <option value="contractual-only">Contractual only</option>
+          <option value="none" selected>None</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Issuer</span>Issuer type</label>
+        <select id="issuer">
+          <option value="central-bank">Central bank</option>
+          <option value="regulated-bank" selected>Regulated commercial bank (G-SIB / CRD)</option>
+          <option value="stablecoin-issuer">Reserve-backed stablecoin issuer</option>
+          <option value="e-money-institution">E-money institution</option>
+          <option value="other">Other</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Jurisdiction</span>Primary jurisdiction</label>
+        <select id="jurisdiction">
+          <option value="US">United States</option>
+          <option value="UK">United Kingdom</option>
+          <option value="EU">European Union</option>
+          <option value="other" selected>Other</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Transfer</span>Transfer mechanism</label>
+        <select id="transfer_mechanism">
+          <option value="DvP-conditional">DvP conditional (delivery vs payment)</option>
+          <option value="PvP-locked">PvP locked (payment vs payment)</option>
+          <option value="outright-transfer">Outright transfer</option>
+          <option value="wrapped-bridged">Wrapped / bridged</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Singleness</span>Par relationship with CBM</label>
+        <select id="singleness_test">
+          <option value="par-with-CBM">Par with CBM (redeemable 1:1)</option>
+          <option value="pegged" selected>Pegged (algorithmic / contractual par)</option>
+          <option value="floating">Floating (market price)</option>
+        </select></div>
+    </div>
+    <button onclick="run()">Classify →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="tier">
+      <div class="tier-badge" id="tierBadge">–</div>
+      <div>
+        <div class="muted">Finality tier</div>
+        <div style="font-size:1.05rem;color:var(--bright)" id="tierLabel">–</div>
+        <div id="singlenessBadge" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div id="gaps"></div>
+    <div id="flags"></div>
+    <div class="rec" id="rec"></div>
+    <div class="regime" id="regime"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-59-settlement-asset-finality-classifier",
+  "mcp_name": "classify_settlement_asset_finality",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "deadline": "2026-Q3",
+  "deadline_note": "ECB Pontes pilot end-Q3 2026; DTCC Collateral AppChain production Oct 2026. Verify SFD/PFMI designations against current regulatory status before that date.",
+  "export_capabilities": ["xbrl:ocg-ext"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "settlement_asset":      {"enum":["CBM-token","commercial-bank-deposit-token","regulated-stablecoin","e-money-token","off-chain-RTGS"]},
+      "finality_designation":  {"enum":["SFD-designated","PFMI-compliant-FMI","UCC-Art12-control","contractual-only","none"]},
+      "issuer":                {"enum":["central-bank","regulated-bank","stablecoin-issuer","e-money-institution","other"]},
+      "jurisdiction":          {"enum":["US","UK","EU","other"]},
+      "transfer_mechanism":    {"enum":["DvP-conditional","PvP-locked","outright-transfer","wrapped-bridged"]},
+      "singleness_test":       {"enum":["par-with-CBM","pegged","floating"]}
+    }
+  }
+}
+</script>
+
+<script>
+// compute() — MUST mirror kernels/art-59-settlement-asset-finality-classifier.kernel.mjs
+const ASSET_TIER={'CBM-token':1,'commercial-bank-deposit-token':2,'regulated-stablecoin':3,'e-money-token':3,'off-chain-RTGS':2};
+const FINALITY_MOD={'SFD-designated':-1,'PFMI-compliant-FMI':0,'UCC-Art12-control':0,'contractual-only':+1,'none':+2};
+const SINGLENESS={'par-with-CBM':'SINGLENESS_CONFIRMED','pegged':'SINGLENESS_CONDITIONAL','floating':'SINGLENESS_BROKEN'};
+const REGIME_MAP={US:'US deposit law (commercial bank liability, not a security or e-money); UCC Art.12 controllable electronic record; verify current OCC/Fed guidance',UK:'UK RLN model (tokenised sterling deposit); FCA e-money / payment-services regime for EMTs; verify current FCA/BoE guidance',EU:'EU Settlement Finality Directive 98/26/EC (designated system finality); MiCA EMT/ART (Arts. 48+) for stablecoins; ECB TARGET settlement finality; verify current ECB/EBA guidance',other:'Jurisdiction-specific; verify against applicable central-bank / CSD / legislative framework'};
+const TIER_LABEL={1:'Tier 1 — legally final (CBM / SFD-designated)',2:'Tier 2 — conditional finality (PFMI / on-balance-sheet deposit)',3:'Tier 3 — contractual / reserve-backed finality (stablecoin/EMT)',4:'Tier 4 — finality unclear / none'};
+const TIER_COLOR={1:'#22C55E',2:'#2DD4BF',3:'#D4A847',4:'#EF4444'};
+
+function classifyTier(asset,designation){const base=ASSET_TIER[asset]??4;const mod=FINALITY_MOD[designation]??+1;return Math.min(4,Math.max(1,base+mod));}
+
+function compute(pp){
+  const{settlement_asset='off-chain-RTGS',issuer='regulated-bank',finality_designation='none',jurisdiction='other',governing_law='',transfer_mechanism='DvP-conditional',singleness_test='pegged'}=pp;
+  const finality_tier=classifyTier(settlement_asset,finality_designation);
+  const singleness_verdict=SINGLENESS[singleness_test]??'SINGLENESS_BROKEN';
+  const finality_gaps=[];
+  if(transfer_mechanism==='wrapped-bridged')finality_gaps.push('WRAPPED_ASSET_FINALITY_GAP');
+  if(finality_designation==='none'||finality_designation==='contractual-only')finality_gaps.push('NO_LEGAL_FINALITY_DESIGNATION');
+  if(settlement_asset==='e-money-token'&&finality_designation!=='SFD-designated')finality_gaps.push('EMT_NOT_SFD_DESIGNATED');
+  if(singleness_verdict==='SINGLENESS_BROKEN')finality_gaps.push('SINGLENESS_BROKEN_WITH_CBM');
+  const applicable_regime=REGIME_MAP[jurisdiction]??REGIME_MAP.other;
+  let recommendation='';
+  if(finality_tier===1)recommendation='Tier 1 — legally final (CBM / SFD-designated). Proceed to ART-58 cross-network atomicity check.';
+  else if(finality_tier===2)recommendation='Tier 2 — conditional finality. Confirm SFD designation or PFMI compliance with the relevant CSD/FMI before relying on finality. Run ART-58 with finality_designation upgrade if achievable.';
+  else if(finality_tier===3)recommendation='Tier 3 — contractual / reserve-backed finality. Assess whether the issuer and product qualify as SFD-designated or PFMI-compliant. A regulated stablecoin may satisfy GENIUS Act / MiCA reserve requirements but does not achieve Tier 1 legal finality without a designation. Run wts-settlement-asset.';
+  else recommendation='Tier 4 — finality unclear. Do not use this asset class for wholesale settlement without legal clarification. Obtain SFD designation or PFMI compliance assessment. Run wts-settlement-asset.';
+  const asset_class_labels={'CBM-token':'Central Bank Money (tokenized)','commercial-bank-deposit-token':'Tokenized Commercial Bank Deposit (bank liability, redeemable at par)','regulated-stablecoin':'Regulated Stablecoin (GENIUS Act / MiCA reserve-backed)','e-money-token':'E-Money Token (MiCA Art. 48+)','off-chain-RTGS':'Off-Chain RTGS Settlement'};
+  const settlement_asset_class=asset_class_labels[settlement_asset]??settlement_asset;
+  const output_payload={settlement_asset_class,finality_tier,singleness_verdict,finality_gaps,applicable_regime,recommendation,status_asof:'2026-06-20 — verify EU SFD 98/26/EC, UCC Art.12, CPMI-IOSCO PFMI Principle 8 against current regulatory guidance',note:'Educational classification — not legal or settlement advice. Tier 1=legally final (CBM/SFD); Tier 2=conditional (deposit/PFMI); Tier 3=contractual (stablecoin); Tier 4=unclear. Gates wts-cross-network-dvp atomicity check.'};
+  const compliance_flags=[];
+  if(finality_tier===4)compliance_flags.push('FINALITY_TIER_4_UNCLEAR');
+  if(singleness_verdict==='SINGLENESS_BROKEN')compliance_flags.push('SINGLENESS_BROKEN');
+  if(finality_gaps.includes('WRAPPED_ASSET_FINALITY_GAP'))compliance_flags.push('WRAPPED_ASSET_FINALITY_GAP');
+  if(finality_tier>=3)compliance_flags.push('FINALITY_BELOW_TIER2');
+  return{output_payload,compliance_flags};
+}
+
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst(){const b=document.getElementById('mfstBody');const show=b.style.display==='block';b.style.display=show?'none':'block';if(!show)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+const FIELDS=['settlement_asset','finality_designation','issuer','jurisdiction','transfer_mechanism','singleness_test'];
+function getpp(){const pp={};for(const id of FIELDS){const el=document.getElementById(id);if(el)pp[id]=el.value;}return pp;}
+
+async function run(){
+  const pp=getpp();
+  const{output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-59-settlement-asset-finality-classifier',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,deadline:'2026-Q3',deadline_note:'ECB Pontes pilot end-Q3 2026; DTCC Collateral AppChain production Oct 2026.',export_capabilities:['xbrl:ocg-ext'],chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  document.getElementById('results').classList.add('show');
+  const t=op.finality_tier;
+  const tb=document.getElementById('tierBadge');tb.textContent='T'+t;tb.style.color=TIER_COLOR[t];tb.style.borderColor=TIER_COLOR[t];
+  document.getElementById('tierLabel').textContent=TIER_LABEL[t];
+  const sv=op.singleness_verdict;
+  const sc=sv==='SINGLENESS_CONFIRMED'?'#22C55E':sv==='SINGLENESS_CONDITIONAL'?'#D4A847':'#EF4444';
+  document.getElementById('singlenessBadge').innerHTML=`<span class="single-badge" style="color:${sc};border-color:${sc}">${sv}</span>`;
+  document.getElementById('gaps').innerHTML=op.finality_gaps.length?'<div class="muted" style="margin:10px 0 4px">Finality gaps:</div>'+op.finality_gaps.map(g=>`<div class="gap">${g}</div>`).join(''):'';
+  document.getElementById('flags').innerHTML=compliance_flags.length?'<div class="muted" style="margin:8px 0 4px">Compliance flags:</div>'+compliance_flags.map(f=>`<div class="flag-item">${f}</div>`).join(''):'';
+  document.getElementById('rec').innerHTML=op.recommendation;
+  document.getElementById('regime').innerHTML='<b style="color:var(--text)">Applicable regime:</b> '+op.applicable_regime;
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:860px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-wholesale-settlement.html" style="color:var(--muted)">Wave 13 Guide</a><a href="art-58-cross-network-settlement-validator.html" style="color:var(--teal)">ART-58 Cross-Network →</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body>
+</html>

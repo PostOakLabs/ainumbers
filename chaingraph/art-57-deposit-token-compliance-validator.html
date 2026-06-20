@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Deposit-Token Compliance Validator · ART-57 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate whether a tokenized instrument is a bank-liability deposit token (JPMD/RLN model) or a reserve-backed stablecoin / e-money token (MiCA EMT). Three-test validator: at-par redemption, on-balance-sheet liability, holder eligibility. Jurisdiction notes for US, UK, EU.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-57-deposit-token-compliance-validator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Deposit-Token Compliance Validator · ART-57 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="3-test validator: at-par redemption, on-balance-sheet liability, holder eligibility. Classifies DEPOSIT_TOKEN_CONFIRMED / CBM_TOKEN / EMT_STABLECOIN / MISCLASSIFIED. US/UK/EU regime notes. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-57-deposit-token-compliance-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Deposit-Token Compliance Validator · ART-57 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-57-deposit-token-compliance-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"3-test validator that classifies a tokenized instrument as DEPOSIT_TOKEN_CONFIRMED, CBM_TOKEN, EMT_STABLECOIN, MISCLASSIFIED, or CLASSIFICATION_UNCLEAR. Tests: at-par redemption, on-balance-sheet liability, holder eligibility. Jurisdiction notes for US deposit law, UK RLN, EU MiCA. Wave 13 — distinct from Wave 8 Canton tokenized-asset layer.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-57 · Wave 13. In-browser compute() stays byte-identical to kernels/art-57-deposit-token-compliance-validator.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:860px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:860px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:660px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.class-hero{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.class-badge{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;padding:.5rem 1.1rem;border-radius:20px;border:1.5px solid}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700;width:60px;height:60px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.tests{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+@media(max-width:600px){.tests{grid-template-columns:1fr}}
+.test-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.test-card .tname{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.test-card .tres{font-size:.82rem;font-weight:600}
+.test-card .tnote{font-size:.72rem;color:var(--body);margin-top:4px}
+.rem{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:8px 12px;font-size:.78rem;margin:4px 0}
+.rem .rtest{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red);margin-right:4px}
+.flag-item{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin:4px 0;color:var(--warn)}
+.regime{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:.78rem;color:var(--body);margin:10px 0}
+.capital{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:10px 14px;font-size:.8rem;margin:10px 0}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.results{display:none}.results.show{display:block}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.key-concept{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;font-size:.8rem;margin:10px 0;color:var(--text)}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-57</span></div>
+  <a href="guide-wholesale-settlement.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 13 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-57 · Wave 13 · Wholesale Tokenized Settlement · Deposit-Token</div>
+  <h1>Deposit-Token Compliance Validator</h1>
+  <p class="sub">Determine whether a tokenized instrument qualifies as a <strong>deposit token</strong> (a bank liability redeemable at par, on-balance-sheet, allowlisted-wholesale) or whether it is better characterised as a reserve-backed stablecoin, e-money token, or central bank money token. Provides US / UK / EU regime notes and capital accounting guidance.</p>
+  <div class="key-concept"><strong style="color:var(--teal-lt)">Key concept:</strong> A deposit token is a <em>bank liability</em> — it sits on the issuing bank's balance sheet as a demand deposit. It is NOT reserve-backed e-money. A JPMD Kinexys token or UK RLN tokenised sterling deposit are deposit tokens; a USDC or MiCA EMT is a stablecoin/e-money token.</div>
+  <div class="flag">Educational validator · not legal, capital, or accounting advice · Status: 2026-06-20 — verify US deposit law, MiCA EMT Arts.48+, UK RLN model, FDIC/FCA/EBA guidance against current primary sources</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="q"><label><span class="dim">Token</span>Token class</label>
+        <select id="token_class">
+          <option value="commercial-bank-deposit-token">Commercial bank deposit token (JPMD / RLN)</option>
+          <option value="central-bank-money-token">Central bank money token (Agorá / Pontes)</option>
+          <option value="emt-stablecoin">Reserve-backed stablecoin (GENIUS / MiCA ART)</option>
+          <option value="e-money-token">E-money token (MiCA Art. 48+)</option>
+          <option value="unclear" selected>Unclear</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Issuer</span>Issuer type</label>
+        <select id="issuer_type">
+          <option value="G-SIB-bank" selected>G-SIB or regulated commercial bank</option>
+          <option value="RLN-member">UK RLN member bank</option>
+          <option value="central-bank">Central bank</option>
+          <option value="non-bank">Non-bank / FinTech</option>
+          <option value="other">Other</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Test 1</span>Redemption basis</label>
+        <select id="redemption_basis">
+          <option value="at-par-on-demand" selected>At par on demand</option>
+          <option value="NAV">NAV-based (MMF)</option>
+          <option value="market">Market price</option>
+          <option value="unclear">Unclear</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Test 2</span>Balance-sheet treatment</label>
+        <select id="liability_treatment">
+          <option value="on-balance-sheet-deposit" selected>On-balance-sheet deposit liability</option>
+          <option value="segregated-reserve">Segregated reserve (stablecoin model)</option>
+          <option value="bankruptcy-remote-trust">Bankruptcy-remote trust (e-money)</option>
+          <option value="unclear">Unclear</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Test 3</span>Holder eligibility</label>
+        <select id="holder_eligibility">
+          <option value="allowlisted-wholesale" selected>Allowlisted wholesale (LEI)</option>
+          <option value="KYC-retail">KYC-retail</option>
+          <option value="open">Open / unrestricted</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Deposit</span>Deposit insurance</label>
+        <select id="deposit_insurance">
+          <option value="FDIC-eligible">FDIC-eligible (US)</option>
+          <option value="FSCS">FSCS (UK)</option>
+          <option value="DGS-eligible">EU DGS-eligible</option>
+          <option value="none" selected>None</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Info</span>Primary jurisdiction</label>
+        <select id="jurisdiction">
+          <option value="US">United States</option>
+          <option value="UK">United Kingdom</option>
+          <option value="EU">European Union</option>
+          <option value="other" selected>Other</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Info</span>Interoperability model</label>
+        <select id="interoperability">
+          <option value="single-issuer-closed" selected>Single-issuer closed system</option>
+          <option value="RLN-multi-bank">RLN multi-bank (UK)</option>
+          <option value="open-protocol">Open protocol / cross-issuer</option>
+        </select></div>
+    </div>
+    <button onclick="run()">Validate →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="class-hero">
+      <div class="grade-badge" id="gradeBadge">–</div>
+      <div>
+        <div class="muted">Classification</div>
+        <div class="class-badge" id="classBadge" style="margin-top:6px">–</div>
+      </div>
+    </div>
+    <div class="tests" id="tests"></div>
+    <div id="remediation"></div>
+    <div id="flags"></div>
+    <div class="regime" id="regime"></div>
+    <div class="capital" id="capital"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-57-deposit-token-compliance-validator",
+  "mcp_name": "validate_deposit_token_compliance",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "token_class":         {"enum":["commercial-bank-deposit-token","central-bank-money-token","emt-stablecoin","e-money-token","unclear"]},
+      "issuer_type":         {"enum":["G-SIB-bank","RLN-member","central-bank","non-bank","other"]},
+      "redemption_basis":    {"enum":["at-par-on-demand","NAV","market","unclear"]},
+      "liability_treatment": {"enum":["on-balance-sheet-deposit","segregated-reserve","bankruptcy-remote-trust","unclear"]},
+      "holder_eligibility":  {"enum":["allowlisted-wholesale","KYC-retail","open"]},
+      "deposit_insurance":   {"enum":["FDIC-eligible","FSCS","DGS-eligible","none"]},
+      "jurisdiction":        {"enum":["US","UK","EU","other"]},
+      "interoperability":    {"enum":["single-issuer-closed","RLN-multi-bank","open-protocol"]}
+    }
+  }
+}
+</script>
+
+<script>
+// compute() — MUST mirror kernels/art-57-deposit-token-compliance-validator.kernel.mjs
+function testRedemption(b){
+  if(b==='at-par-on-demand')return{result:'PASS',note:'Redeemable at par on demand — consistent with deposit token (bank liability).'};
+  if(b==='NAV')return{result:'FAIL',note:'NAV-based redemption is characteristic of a money market fund, not a deposit.'};
+  if(b==='market')return{result:'FAIL',note:'Market-price redemption is characteristic of a security or asset-backed token, not a deposit.'};
+  return{result:'UNCLEAR',note:'Redemption basis is unclear — verify with issuer legal counsel.'};
+}
+function testLiability(t){
+  if(t==='on-balance-sheet-deposit')return{result:'PASS',note:'On-balance-sheet deposit liability — consistent with a commercial bank deposit token.'};
+  if(t==='segregated-reserve')return{result:'FAIL',note:'Segregated-reserve structure is characteristic of a reserve-backed stablecoin (MiCA EMT), not a bank deposit.'};
+  if(t==='bankruptcy-remote-trust')return{result:'FAIL',note:'Bankruptcy-remote trust structure indicates an e-money token, not a deposit.'};
+  return{result:'UNCLEAR',note:'Liability treatment unclear — verify issuer balance-sheet classification.'};
+}
+function testEligibility(h){
+  if(h==='allowlisted-wholesale')return{result:'PASS',note:'Allowlisted wholesale holders — consistent with bank deposit token (RLN / JPMD model).'};
+  if(h==='KYC-retail')return{result:'PARTIAL',note:'Retail holders — possible under some models (e.g. future RLN retail tranche) but increases regulatory complexity.'};
+  return{result:'FAIL',note:'Open / unrestricted holders — not consistent with a bank deposit token; assess as e-money token or stablecoin.'};
+}
+const REGIME_MAP={US:{label:'US',note:'A tokenized deposit is a bank liability under US deposit law. Not a security (no UCC Art.8 treatment) or e-money. FDIC insurance may apply per standard deposit rules. Verify with OCC/Fed/FDIC current guidance.'},UK:{label:'UK',note:'UK RLN tokenised-sterling-deposit model (UK Finance 2025 pilot). Deposit sits on issuing bank balance sheet. Governed by PRA/FCA. FCA e-money regime does not apply to on-balance-sheet deposits. Verify with current BoE/FCA/PRA guidance.'},EU:{label:'EU',note:'EU: deposit tokens are NOT e-money tokens under MiCA (MiCA Art. 2(6) carves out deposits held with credit institutions). Deposits remain under CRD/BRRD. An issuer tokenizing deposits does not need a MiCA EMT licence if the token represents a deposit liability. Verify with current EBA/ECB guidance.'},other:{label:'Other',note:'Verify applicable central-bank, deposit-insurance, and e-money/stablecoin legislation in this jurisdiction.'}};
+function classifyToken(tc,rr,lr){
+  if(tc==='commercial-bank-deposit-token'&&rr==='PASS'&&lr==='PASS')return'DEPOSIT_TOKEN_CONFIRMED';
+  if(tc==='central-bank-money-token')return'CBM_TOKEN';
+  if(tc==='emt-stablecoin'||tc==='e-money-token')return'EMT_STABLECOIN';
+  if(lr==='FAIL'||rr==='FAIL')return'DEPOSIT_TOKEN_MISCLASSIFIED';
+  return'CLASSIFICATION_UNCLEAR';
+}
+function compute(pp){
+  const{token_class='unclear',issuer_type='non-bank',redemption_basis='unclear',liability_treatment='segregated-reserve',holder_eligibility='open',deposit_insurance='none',jurisdiction='other',governing_law='',interoperability='single-issuer-closed'}=pp;
+  const test_results={redemption:testRedemption(redemption_basis),liability:testLiability(liability_treatment),eligibility:testEligibility(holder_eligibility)};
+  const insurance_result=(deposit_insurance==='FDIC-eligible'||deposit_insurance==='FSCS'||deposit_insurance==='DGS-eligible')?{result:'PASS',note:'Deposit insurance coverage present.'}:{result:'INFO',note:'No deposit insurance — verify regulatory treatment and investor disclosure.'};
+  test_results.insurance=insurance_result;
+  const classification=classifyToken(token_class,test_results.redemption.result,test_results.liability.result);
+  const passCount=Object.values(test_results).filter(t=>t.result==='PASS').length;
+  const classification_grade=passCount===4?'A':passCount===3?'B':passCount===2?'C':passCount===1?'D':'F';
+  const regime=REGIME_MAP[jurisdiction]??REGIME_MAP.other;
+  const remediation_checklist=[];
+  if(test_results.redemption.result!=='PASS')remediation_checklist.push({test:'redemption',issue:test_results.redemption.note,action:'Confirm at-par-on-demand redemption with issuer legal counsel.'});
+  if(test_results.liability.result!=='PASS')remediation_checklist.push({test:'liability',issue:test_results.liability.note,action:'Confirm on-balance-sheet classification with issuer. If segregated-reserve: token is a stablecoin/EMT, not a deposit.'});
+  if(test_results.eligibility.result!=='PASS')remediation_checklist.push({test:'eligibility',issue:test_results.eligibility.note,action:'Restrict token holders to allowlisted wholesale counterparties or recategorise as EMT.'});
+  const capital_accounting_note=classification==='DEPOSIT_TOKEN_CONFIRMED'?'On-balance-sheet deposit liability — bank risk-weights apply. Not a security; not subject to MiCA. Capital treatment follows CRD/BRRD for EU issuers; standard deposit capital rules for US/UK.':'Classification unclear or misidentified — capital and accounting treatment depends on reclassification result. Stablecoin/EMT = MiCA Art. 48+ regime (EU) or GENIUS Act (US). Verify with current guidance.';
+  const output_payload={token_class,classification,classification_grade,test_results,applicable_regime:regime.label+': '+regime.note,capital_accounting_note,remediation_checklist,status_asof:'2026-06-20 — verify US deposit law, MiCA EMT Arts. 48+, UK RLN model, and FDIC/FCA/EBA guidance against current primary sources',note:'Educational deposit-token compliance validator. A deposit token is a bank liability, NOT a reserve-backed e-money instrument. Distinct from Wave 8 Canton tokenized-asset layer. Not legal, capital, or accounting advice.'};
+  const compliance_flags=[];
+  if(test_results.redemption.result!=='PASS')compliance_flags.push('NOT_AT_PAR_REDEEMABLE');
+  if(classification==='DEPOSIT_TOKEN_MISCLASSIFIED')compliance_flags.push('DEPOSIT_TOKEN_MISCLASSIFIED_AS_STABLECOIN');
+  if(test_results.eligibility.result==='FAIL')compliance_flags.push('HOLDER_ELIGIBILITY_OPEN');
+  if(issuer_type==='non-bank')compliance_flags.push('NON_BANK_ISSUER_DEPOSIT_TOKEN_RISK');
+  return{output_payload,compliance_flags};
+}
+
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+const GRADE_COLOR={A:'#22C55E',B:'#2DD4BF',C:'#D4A847',D:'#F59E0B',F:'#EF4444'};
+const CLASS_COLOR={DEPOSIT_TOKEN_CONFIRMED:'#22C55E',CBM_TOKEN:'#2DD4BF',EMT_STABLECOIN:'#D4A847',DEPOSIT_TOKEN_MISCLASSIFIED:'#EF4444',CLASSIFICATION_UNCLEAR:'#6888A8'};
+const TEST_COLOR={PASS:'#22C55E',FAIL:'#EF4444',PARTIAL:'#D4A847',INFO:'#6888A8',UNCLEAR:'#6888A8'};
+const FIELDS=['token_class','issuer_type','redemption_basis','liability_treatment','holder_eligibility','deposit_insurance','jurisdiction','interoperability'];
+function getpp(){const pp={};for(const id of FIELDS){const el=document.getElementById(id);if(el)pp[id]=el.value;}return pp;}
+
+const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst(){const b=document.getElementById('mfstBody');const show=b.style.display==='block';b.style.display=show?'none':'block';if(!show)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+async function run(){
+  const pp=getpp();
+  const{output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-57-deposit-token-compliance-validator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  document.getElementById('results').classList.add('show');
+  const gc=GRADE_COLOR[op.classification_grade];
+  const gb=document.getElementById('gradeBadge');gb.textContent=op.classification_grade;gb.style.color=gc;gb.style.borderColor=gc;
+  const cc=CLASS_COLOR[op.classification]||'#6888A8';
+  const cb=document.getElementById('classBadge');cb.textContent=op.classification;cb.style.color=cc;cb.style.borderColor=cc;
+  document.getElementById('tests').innerHTML=Object.entries(op.test_results).map(([k,v])=>`<div class="test-card"><div class="tname">${k}</div><div class="tres" style="color:${TEST_COLOR[v.result]}">${v.result}</div><div class="tnote">${v.note}</div></div>`).join('');
+  document.getElementById('remediation').innerHTML=op.remediation_checklist.length?'<div class="muted" style="margin:10px 0 4px">Remediation:</div>'+op.remediation_checklist.map(r=>`<div class="rem"><span class="rtest">${r.test}</span>${r.action}</div>`).join(''):'';
+  document.getElementById('flags').innerHTML=compliance_flags.length?'<div class="muted" style="margin:8px 0 4px">Compliance flags:</div>'+compliance_flags.map(f=>`<div class="flag-item">${f}</div>`).join(''):'';
+  document.getElementById('regime').innerHTML='<b style="color:var(--text)">Applicable regime:</b> '+op.applicable_regime;
+  document.getElementById('capital').innerHTML='<b style="color:var(--teal-lt)">Capital &amp; accounting:</b> '+op.capital_accounting_note;
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:860px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-wholesale-settlement.html" style="color:var(--muted)">Wave 13 Guide</a><a href="art-58-cross-network-settlement-validator.html" style="color:var(--teal)">← ART-58 Cross-Network</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body>
+</html>

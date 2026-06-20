@@ -55,6 +55,11 @@ import * as art52  from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
 import * as art53  from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
 import * as art54  from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art55  from './art-55-trade-document-provenance-verifier.kernel.mjs';
+// ART Wholesale Tokenized Settlement (wave 13)
+import * as art56  from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
+import * as art57  from './art-57-deposit-token-compliance-validator.kernel.mjs';
+import * as art58  from './art-58-cross-network-settlement-validator.kernel.mjs';
+import * as art59  from './art-59-settlement-asset-finality-classifier.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -145,6 +150,11 @@ export const KERNELS = {
   'art-53-mletr-ebl-conformance-validator':         art53,
   'art-54-digital-trade-rules-checker':             art54,
   'art-55-trade-document-provenance-verifier':      art55,
+  // ART Wholesale Tokenized Settlement (wave 13)
+  'art-56-tokenized-settlement-fit-diagnostic':     art56,
+  'art-57-deposit-token-compliance-validator':      art57,
+  'art-58-cross-network-settlement-validator':      art58,
+  'art-59-settlement-asset-finality-classifier':    art59,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,

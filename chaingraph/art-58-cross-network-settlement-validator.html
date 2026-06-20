@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Cross-Network Atomic Settlement Validator · ART-58 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate atomic settlement across two or more networks: cash-leg finality on money ledger, asset-leg delivery on asset ledger, FX-leg PvP. Detects finality mismatch across legs, non-atomic cross-network risk, and PvP gaps. Models BIS Agorá / ECB Pontes / DTCC Collateral AppChain. CPMI-IOSCO PFMI Principles 8 and 12.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-58-cross-network-settlement-validator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cross-Network Atomic Settlement Validator · ART-58 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Validate atomic settlement across 2+ networks. Detect finality mismatch, non-atomic risk, PvP gaps. Models BIS Agorá / ECB Pontes / DTCC. PFMI P.8+P.12. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-58-cross-network-settlement-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Cross-Network Atomic Settlement Validator · ART-58 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-58-cross-network-settlement-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Validates atomic settlement across 2+ networks (cash + asset ± FX). Detects finality mismatch, non-atomic cross-network risk, PvP gaps per CPMI-IOSCO PFMI Principles 8 & 12. Models BIS Agorá unifying ledger / ECB Pontes TARGET-link / DTCC Collateral AppChain. Wave 13 cross-network seam; distinct from Wave 8 Canton single-network DvP (ART-507).","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-58 · Wave 13. In-browser compute() stays byte-identical to kernels/art-58-cross-network-settlement-validator.kernel.mjs. §13.4: xbrl:ocg-ext export profile. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:880px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:680px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.card h2{font-size:.85rem;color:var(--text);margin-bottom:14px;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select,input[type=number],input[type=checkbox]{background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+select,input[type=number]{width:100%}
+input[type=checkbox]{width:auto;margin-right:6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.network-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.network-block h3{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.verdict-hero{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.verdict-badge{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;padding:.5rem 1rem;border-radius:20px;border:1.5px solid}
+.pvp-badge{font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.3rem .75rem;border-radius:20px;border:1px solid;margin-top:6px;display:inline-block}
+.finding{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:8px 12px;font-size:.78rem;margin:4px 0;color:var(--bright)}
+.finding .leg{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red);margin-right:6px}
+.flag-item{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin:4px 0;color:var(--warn)}
+.rec{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;color:var(--text);margin:10px 0}
+.risk-window{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;margin:10px 0}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:360px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.results{display:none}.results.show{display:block}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-58</span></div>
+  <a href="guide-wholesale-settlement.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 13 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-58 · Wave 13 · Wholesale Tokenized Settlement · Cross-Network DvP</div>
+  <h1>Cross-Network Atomic Settlement Validator</h1>
+  <p class="sub">Validate atomic settlement across two or more networks: cash leg final on the money ledger, asset leg delivered on the asset ledger, FX leg PvP where present. Detects finality mismatches between legs, non-atomic cross-network risk, and PvP gaps per CPMI-IOSCO PFMI Principles 8 &amp; 12. Models the BIS Agorá unifying-ledger, ECB Pontes TARGET-link, and DTCC Collateral AppChain coordination patterns. Distinct from Wave 8 Canton single-network DvP — this checks the <em>cross-network seam</em>.</p>
+  <div class="flag">Educational estimator · not a live settlement instruction or legal advice · Verify BIS Agorá / ECB Pontes / DTCC mechanics against current primary sources</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <h2>Coordination</h2>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Mechanism</span>Cross-network coordination mechanism</label>
+        <select id="coordination_mechanism">
+          <option value="shared-ledger">Shared-ledger lock (BIS Agorá / Canton unifying ledger)</option>
+          <option value="HTLC">HTLC (hash time-locked contract)</option>
+          <option value="notary-signature">Notary signature (multi-party notary)</option>
+          <option value="trusted-bridge">Trusted bridge / custodial relay</option>
+          <option value="unsynchronised" selected>Unsynchronised (sequential legs)</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Config</span>HTLC timeout window (seconds)</label>
+        <input type="number" id="timeout_window_sec" value="300" min="0"></div>
+
+      <div class="q"><label><span class="dim">Config</span>Rollback on failure supported</label>
+        <select id="rollback_supported">
+          <option value="true">Yes</option>
+          <option value="false" selected>No</option>
+        </select></div>
+
+      <div class="q"><label><span class="dim">Config</span>PvP required (FX leg present)</label>
+        <select id="pvp_required">
+          <option value="true">Yes — FX leg requires PvP</option>
+          <option value="false" selected>No</option>
+        </select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Networks</h2>
+    <div class="network-block">
+      <h3>Cash leg (money ledger)</h3>
+      <div class="grid">
+        <div class="q"><label>Network name</label><input type="text" id="cash_name" value="Agorá / Pontes" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem"></div>
+        <div class="q"><label>Finality model</label>
+          <select id="cash_finality">
+            <option value="deterministic">Deterministic / SFD-designated</option>
+            <option value="legal-designated" selected>Legal-designated (PFMI)</option>
+            <option value="probabilistic">Probabilistic (PoW / confirmations)</option>
+          </select></div>
+      </div>
+    </div>
+    <div class="network-block">
+      <h3>Asset leg (asset ledger)</h3>
+      <div class="grid">
+        <div class="q"><label>Network name</label><input type="text" id="asset_name" value="DTCC Collateral AppChain" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem"></div>
+        <div class="q"><label>Finality model</label>
+          <select id="asset_finality">
+            <option value="deterministic" selected>Deterministic / SFD-designated</option>
+            <option value="legal-designated">Legal-designated (PFMI)</option>
+            <option value="probabilistic">Probabilistic</option>
+          </select></div>
+      </div>
+    </div>
+    <div class="network-block">
+      <h3>FX leg (optional)</h3>
+      <div class="grid">
+        <div class="q"><label>Network name (leave blank if no FX leg)</label><input type="text" id="fx_name" value="" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem"></div>
+        <div class="q"><label>FX finality model</label>
+          <select id="fx_finality">
+            <option value="deterministic">Deterministic</option>
+            <option value="legal-designated">Legal-designated</option>
+            <option value="probabilistic" selected>Probabilistic</option>
+          </select></div>
+      </div>
+    </div>
+    <button onclick="run()">Validate →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="verdict-hero">
+      <div class="verdict-badge" id="verdictBadge">–</div>
+      <div>
+        <div class="muted">Atomicity verdict</div>
+        <div style="font-size:1rem;color:var(--bright)" id="verdictLabel">–</div>
+        <div id="pvpBadge"></div>
+      </div>
+    </div>
+    <div class="risk-window" id="riskWindow"></div>
+    <div id="findings"></div>
+    <div id="flags"></div>
+    <div class="rec" id="rec"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-58-cross-network-settlement-validator",
+  "mcp_name": "validate_cross_network_settlement",
+  "mandate_type": "settlement_mandate",
+  "chaingraph_version": "0.4.0",
+  "deadline": "2026-Q3",
+  "deadline_note": "ECB Pontes TARGET-link pilot end-Q3 2026; DTCC Collateral AppChain full production Oct 2026. Cross-network coordination patterns may change. Verify against current primary sources.",
+  "export_capabilities": ["xbrl:ocg-ext"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "networks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role":           {"enum":["cash","asset","fx"]},
+            "name":           {"type":"string"},
+            "finality_model": {"enum":["deterministic","legal-designated","probabilistic"]}
+          }
+        }
+      },
+      "coordination_mechanism": {"enum":["shared-ledger","HTLC","notary-signature","trusted-bridge","unsynchronised"]},
+      "timeout_window_sec": {"type":"number"},
+      "rollback_supported": {"type":"boolean"},
+      "pvp_required":       {"type":"boolean"},
+      "legs":               {"type":"array"}
+    }
+  }
+}
+</script>
+
+<script>
+// compute() — MUST mirror kernels/art-58-cross-network-settlement-validator.kernel.mjs
+const ATOMICITY_SCORE={'shared-ledger':4,'HTLC':3,'notary-signature':2,'trusted-bridge':1,'unsynchronised':0};
+const FINALITY_RANK={'deterministic':1,'legal-designated':1,'probabilistic':3};
+function getRank(model){return FINALITY_RANK[model]??2;}
+
+function compute(pp){
+  const{networks=[],coordination_mechanism='unsynchronised',legs=[],timeout_window_sec=300,rollback_supported=false,pvp_required=false}=pp;
+  const nets=Array.isArray(networks)?networks:[];
+  const legsArr=Array.isArray(legs)?legs:[];
+  const atomicity_score=ATOMICITY_SCORE[coordination_mechanism]??0;
+  let atomicity_verdict;
+  if(atomicity_score===4)atomicity_verdict='atomic';
+  else if(atomicity_score>=2)atomicity_verdict='partial';
+  else atomicity_verdict='at-risk';
+  const leg_findings=[];
+  const finality_ranks=nets.map(n=>({role:n.role,rank:getRank(n.finality_model??'probabilistic')}));
+  const cashNet=finality_ranks.find(r=>r.role==='cash');
+  const assetNet=finality_ranks.find(r=>r.role==='asset');
+  const fxNet=finality_ranks.find(r=>r.role==='fx');
+  if(cashNet&&assetNet&&cashNet.rank>assetNet.rank){leg_findings.push({leg:'cash→asset',finality:'mismatch',issue:'Cash leg has weaker finality (rank '+cashNet.rank+') than asset leg (rank '+assetNet.rank+'). Probabilistic cash cannot safely gate legally-final asset delivery.'});}
+  if(fxNet&&cashNet&&fxNet.rank>cashNet.rank){leg_findings.push({leg:'fx→cash',finality:'mismatch',issue:'FX leg finality (rank '+fxNet.rank+') weaker than cash leg (rank '+cashNet.rank+'). PvP safety compromised.'});}
+  for(const leg of legsArr){if(leg.conditional_on&&leg.conditional_on.length===0&&atomicity_verdict!=='atomic'){leg_findings.push({leg:leg.leg_type??'unknown',finality:'unconditional',issue:(leg.leg_type??'unknown')+' leg has no conditional_on dependencies — settlement is not atomic across all legs.'});}}
+  const pvp_check=pvp_required?(coordination_mechanism==='shared-ledger'||coordination_mechanism==='HTLC'?'PVP_SUPPORTED':'PVP_AT_RISK'):'PVP_NOT_REQUIRED';
+  const settlement_risk_window_sec=atomicity_verdict==='atomic'?0:atomicity_verdict==='partial'?timeout_window_sec:timeout_window_sec*10;
+  const residual_exposure=atomicity_verdict==='atomic'?'none':atomicity_verdict==='partial'?'limited (within HTLC/notary timeout window)':'open (unsynchronised — one leg may settle while the other fails)';
+  let coordination_recommendation;
+  if(coordination_mechanism==='shared-ledger')coordination_recommendation='Shared-ledger lock provides strongest atomicity guarantee. Verify SFD designation of the locking ledger.';
+  else if(coordination_mechanism==='HTLC')coordination_recommendation='HTLC achieves conditional atomicity within timeout_window_sec. Ensure timeout is long enough for cross-network confirmation latency and short enough to limit exposure.';
+  else if(coordination_mechanism==='notary-signature')coordination_recommendation='Notary-signature reduces but does not eliminate principal risk. The notary is a trust anchor — ensure multi-party signing and legal finality of the notary confirmation.';
+  else if(coordination_mechanism==='trusted-bridge')coordination_recommendation='Trusted-bridge introduces a custodial intermediary. Assess bridge operator risk, redemption finality, and wrapping/unwrapping finality loss.';
+  else coordination_recommendation='Unsynchronised settlement carries open principal risk. Upgrade to HTLC, shared-ledger lock, or notary-signature coordination. Consider BIS Agorá unifying-ledger / ECB Pontes TARGET-link / DTCC Collateral AppChain pattern.';
+  const output_payload={atomicity_verdict,leg_findings,settlement_risk_window_sec,pvp_check,coordination_recommendation,residual_exposure,note:'Cross-network atomicity and finality-compatibility check per CPMI-IOSCO PFMI Principles 8 + 12. Educational estimator — not a live settlement instruction or legal advice. Verify BIS Agorá / ECB Pontes / DTCC Collateral AppChain coordination mechanics against current primary sources.'};
+  const compliance_flags=[];
+  if(atomicity_verdict==='at-risk')compliance_flags.push('NON_ATOMIC_CROSS_NETWORK');
+  if(leg_findings.some(f=>f.finality==='mismatch'))compliance_flags.push('FINALITY_MISMATCH_ACROSS_LEGS');
+  if(pvp_check==='PVP_AT_RISK')compliance_flags.push('PVP_NOT_GUARANTEED');
+  if(atomicity_verdict==='partial'||atomicity_verdict==='at-risk')compliance_flags.push('PFMI_P12_DVP_RISK');
+  return{output_payload,compliance_flags};
+}
+
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+const VERDICT_COLOR={atomic:'#22C55E',partial:'#D4A847','at-risk':'#EF4444'};
+const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst(){const b=document.getElementById('mfstBody');const show=b.style.display==='block';b.style.display=show?'none':'block';if(!show)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+async function run(){
+  const coord=document.getElementById('coordination_mechanism').value;
+  const twSec=Number(document.getElementById('timeout_window_sec').value)||300;
+  const rollback=document.getElementById('rollback_supported').value==='true';
+  const pvp=document.getElementById('pvp_required').value==='true';
+  const cashFin=document.getElementById('cash_finality').value;
+  const assetFin=document.getElementById('asset_finality').value;
+  const fxName=document.getElementById('fx_name').value.trim();
+  const fxFin=document.getElementById('fx_finality').value;
+  const networks=[{role:'cash',name:document.getElementById('cash_name').value,finality_model:cashFin},{role:'asset',name:document.getElementById('asset_name').value,finality_model:assetFin}];
+  if(fxName)networks.push({role:'fx',name:fxName,finality_model:fxFin});
+  const pp={networks,coordination_mechanism:coord,legs:[],timeout_window_sec:twSec,rollback_supported:rollback,pvp_required:pvp};
+  const{output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'settlement_mandate',tool_id:'art-58-cross-network-settlement-validator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,deadline:'2026-Q3',deadline_note:'ECB Pontes pilot end-Q3 2026; DTCC Collateral AppChain production Oct 2026.',export_capabilities:['xbrl:ocg-ext'],chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  document.getElementById('results').classList.add('show');
+  const vc=VERDICT_COLOR[op.atomicity_verdict];
+  const vb=document.getElementById('verdictBadge');vb.textContent=op.atomicity_verdict.toUpperCase();vb.style.color=vc;vb.style.borderColor=vc;
+  document.getElementById('verdictLabel').textContent=op.residual_exposure;
+  const pvc=op.pvp_check==='PVP_SUPPORTED'?'#22C55E':op.pvp_check==='PVP_AT_RISK'?'#EF4444':'#6888A8';
+  document.getElementById('pvpBadge').innerHTML=`<span class="pvp-badge" style="color:${pvc};border-color:${pvc}">${op.pvp_check}</span>`;
+  document.getElementById('riskWindow').innerHTML=`<b style="color:var(--text)">Settlement risk window:</b> <span style="font-family:'JetBrains Mono',monospace;color:${op.settlement_risk_window_sec===0?'var(--green)':'var(--warn)'}">${op.settlement_risk_window_sec.toLocaleString()} sec</span>`;
+  document.getElementById('findings').innerHTML=op.leg_findings.length?'<div class="muted" style="margin:10px 0 4px">Leg findings:</div>'+op.leg_findings.map(f=>`<div class="finding"><span class="leg">${f.leg}</span>${f.issue}</div>`).join(''):'';
+  document.getElementById('flags').innerHTML=compliance_flags.length?'<div class="muted" style="margin:8px 0 4px">Compliance flags:</div>'+compliance_flags.map(f=>`<div class="flag-item">${f}</div>`).join(''):'';
+  document.getElementById('rec').textContent=op.coordination_recommendation;
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:880px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-wholesale-settlement.html" style="color:var(--muted)">Wave 13 Guide</a><a href="art-59-settlement-asset-finality-classifier.html" style="color:var(--teal)">← ART-59 Finality Classifier</a><a href="art-57-deposit-token-compliance-validator.html" style="color:var(--teal)">ART-57 Deposit Token →</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body>
+</html>
