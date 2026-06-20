@@ -1276,7 +1276,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="faq-eyebrow">Frequently Asked Questions</div>
     <h2>Questions we keep hearing</h2>
-    <p>Five questions that come up every time someone encounters OpenChainGraph for the first time.</p>
+    <p>Ten questions that come up every time someone encounters OpenChainGraph for the first time — covering the core standard, v0.4 additions, and the AIN Bridge integration layer.</p>
 
     <div class="faq-list">
 
@@ -1341,6 +1341,71 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
           <div class="faq-a-inner">
             <p>The DRAFT label is an honest characterization of <strong>ecosystem readiness</strong>, not technical readiness. The hash construction, the artifact envelope, and the verification procedure are stable and implementable today — the reference implementation exists and works. What isn't ready is the ecosystem: most MCP tool catalogs don't yet exist, most vendors don't yet emit structured JSON artifacts at all, and cross-vendor chaining requires two parties who both follow the spec.</p>
             <p>The recommended posture: <strong>implement the artifact envelope now</strong> in any tool that produces decisions your team (or regulators) will need to audit later. The lift is small — one SHA-256 call and a JSON wrapper. When the ecosystem catches up — agentic payment stacks go mainstream, MCP tool catalogs proliferate, regulators start asking for machine-verifiable decision trails — you'll already be producing conformant artifacts. <strong>Standards that arrive late to adoption cycles rarely win.</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">What's the difference between a Policy Mandate (.policy.json) and an OCG artifact? Both seem to carry an execution_hash.</span>
+          <span class="faq-chevron">▶</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>They serve different layers of the stack. An <strong>OCG artifact</strong> is the canonical provenance record — the tamper-evident envelope whose <code>execution_hash</code> is the SHA-256 of <code>{policy_parameters, output_payload}</code>. It's designed for auditors, regulators, and downstream tools that need to independently verify a decision. The artifact is the source of truth.</p>
+            <p>A <strong>Policy Mandate</strong> (<code>.policy.json</code>) is a browser-side handoff format. AIN Bridge produces one when a tool finishes — it packages the tool's inputs and key outputs into a file the user can drop into the <em>next</em> tool's intake zone. The <code>execution_hash</code> field in the mandate is inherited from the artifact; it's there for traceability, not for the mandate itself to be hashed. Mandates are ephemeral transit containers. Artifacts are the permanent record. If they conflict, the artifact wins.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">If Excel and PDF exports are excluded from the execution_hash preimage, how do I know the exported file wasn't tampered with after it left the server?</span>
+          <span class="faq-chevron">▶</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>The export itself doesn't carry a hash of the export — but it embeds the original <code>execution_hash</code> as metadata. That's enough to anchor it. If someone alters the numbers in the Excel file, the <code>execution_hash</code> in the Provenance sheet no longer matches what you get when you re-run the tool with the recorded <code>policy_parameters</code> and verify the output. The mismatch is the tamper signal.</p>
+            <p>For high-stakes auditing, the correct workflow is: go back to the canonical JSON artifact (not the xlsx), re-run <code>verify_execution_hash</code>, confirm the <code>output_payload</code> matches what the exported file shows. The export is a rendering for humans. The artifact is the thing that's actually tamper-evident. This is the three-layer model: <strong>provenance-out</strong> (canonical JSON) → <strong>knowledge-in</strong> (OKF) → <strong>rendered-for-review</strong> (exports). Only the first layer is in the verification chain.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">Does compute_mode:"server" change how I verify the hash? Do I need access to the original server or kernel to reproduce it?</span>
+          <span class="faq-chevron">▶</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>No — <code>compute_mode</code> is completely outside the hash preimage. The hash computation hasn't changed since v0.1: SHA-256 over the RFC 8785 canonical serialization of <code>{policy_parameters, output_payload}</code> with keys sorted. It doesn't matter whether a server ran the kernel, a browser ran the tool, or someone computed the artifact by hand. The math is the same.</p>
+            <p>What <code>compute_mode: "server"</code> tells you is how the tool was executed, not what was hashed. A verifier that ignores the field entirely will still compute an identical hash. This is intentional: every v0.4 field outside the preimage is strictly informational — it annotates the artifact without affecting its verifiability. A v0.1 verifier from 2025 produces the same result on a v0.4 artifact from 2026.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">Is OpenChainGraph only for financial decisions? We're building in healthcare, logistics, or legal.</span>
+          <span class="faq-chevron">▶</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>No. The core spec is entirely domain-agnostic. The <code>mandate_type</code> field is a free string — you can use <code>"diagnostic_result"</code>, <code>"routing_decision"</code>, <code>"eligibility_check"</code>, or anything else. The hash construction, the chain model, the MCP integration layer, and Compute Binding work identically regardless of domain.</p>
+            <p>The ISO 20022 semantic profile (Stage 8) and the LEI / did:key identity model (Stage 9) are <strong>optional addenda</strong> for payment tool vendors — they don't affect the core hash preimage and aren't required for conformance. The fintech examples throughout this explainer reflect where the spec authors work, not a constraint on who can implement it. If your tool takes structured inputs, runs a deterministic computation, and produces outputs that someone might later need to audit or dispute — OpenChainGraph is applicable.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">Can I adopt Compute Binding (§12) without Export Profiles (§13), or vice versa? Do I need both for v0.4 conformance?</span>
+          <span class="faq-chevron">▶</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>They're fully independent. §12 and §13 address different integration points — §12 is about where computation runs (server vs. browser); §13 is about how verified results are rendered for human consumption. You can ship a <code>gpu:false</code> server-side kernel without ever implementing <code>export_artifact</code>, and you can implement the xlsx/pdf/xbrl export profiles for browser-computed tools without touching Compute Binding.</p>
+            <p>Capability discovery in <code>chaingraph.json</code> is per-node: <code>compute_capability: "server"</code> and <code>export_capability: ["xlsx","pdf"]</code> are separate fields. An agent calling <code>list_ainumbers_tools</code> sees exactly which capabilities each node advertises and routes accordingly. The <code>chaingraph_version: "v0.4"</code> field in the artifact envelope just signals that the emitting tool understands the v0.4 schema — it doesn't imply both features are implemented.</p>
           </div>
         </div>
       </div>
