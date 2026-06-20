@@ -48,6 +48,10 @@ const APPLY = process.argv.includes('--apply');
 const LINE_START = /^([ \t]*)ap2_version:[ \t]*(['"])\d+\.\d+(?:\.\d+)?\2,[ \t]*(?:\/\/[^\n]*)?/gm;
 // B) mid-line emission preceded by , or { (fully-minified single-line artifact objects).
 const INLINE = /([,{])[ \t]*ap2_version:[ \t]*(['"])\d+\.\d+(?:\.\d+)?\2,/g;
+// C) minified JSON-style emission: ...,"ap2_version":"1.0.0",...  (quoted-key, NO space).
+//    Restricted to a 3-part value so it can NEVER match art-17's spaced 2-part input placeholder
+//    `"ap2_version": "1.0"`. Targets the art-38/39/40 Tempo pages' minified artifact objects.
+const JSON_INLINE = /,"ap2_version":"\d+\.\d+\.\d+"/g;
 
 const SKIP_DIRS = new Set(['okf', 'node_modules', '.git', 'exporters', 'fixtures', 'taxonomies']);
 function walk(dir, out = []) {
@@ -75,11 +79,13 @@ for (const f of targets) {
 
   // Record exactly what will be removed (for dry-run review — especially art-17).
   const hits = [];
-  for (const m of text.matchAll(LINE_START)) hits.push(m[0].trim());
-  for (const m of text.matchAll(INLINE))     hits.push(m[0].replace(/^[,{]/, '').trim());
+  for (const m of text.matchAll(LINE_START))  hits.push(m[0].trim());
+  for (const m of text.matchAll(INLINE))      hits.push(m[0].replace(/^[,{]/, '').trim());
+  for (const m of text.matchAll(JSON_INLINE)) hits.push(m[0].replace(/^,/, '').trim());
 
   text = text.replace(LINE_START, '$1');
   text = text.replace(INLINE, '$1');
+  text = text.replace(JSON_INLINE, '');
 
   // Anomaly guard: any bare-key ap2_version emission left behind in an UNHANDLED value/form.
   const residue = /(^|[,{])\s*ap2_version:\s*['"][^'"]*['"]/m.test(text);
