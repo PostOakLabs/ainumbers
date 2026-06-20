@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clearing Access Model Selector — ART-49 | AINumbers OpenChainGraph</title>
+<meta name="description" content="Direct vs Sponsored (done-with) vs Agent (done-away) FICC access-model selector & economics for the US Treasury clearing mandate. Client-side, hash-anchored.">
+<meta name="robots" content="index, follow">
+<!-- ART-49 Wave 11. v1 functional build; reconcile against reconciled/152 template before audit.
+     Inline compute() MUST stay byte-identical to kernels/art-49-clearing-access-model-selector.kernel.mjs. -->
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+select,input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--body);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:6px}
+.results{display:none}.results.show{display:block}
+table{width:100%;border-collapse:collapse;font-size:.78rem;margin:10px 0}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.rec{color:var(--teal-lt);font-weight:600}
+.memo{background:var(--bg3);border-left:3px solid var(--teal);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;color:var(--bright);margin:8px 0}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin-top:10px;max-height:320px}
+.muted{color:var(--muted);font-size:.72rem}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><b>AI</b>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-49 · Wave 11 · US Treasury Clearing · W-A flagship</div>
+  <h1>Clearing Access Model Selector</h1>
+  <p class="sub">Score <b>Direct</b> vs <b>Sponsored (done-with)</b> vs <b>Sponsored / Agent (done-away)</b> FICC access across cost, execution-access, margin/netting efficiency, and ops. Emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
+  <div class="flag">Educational CFO model — not clearing advice</div>
+
+  <div class="card"><div class="grid" id="form">
+    <div class="q"><label>Firm type</label><select id="firm_type"><option value="bank-dealer">Bank dealer</option><option value="nonbank-dealer">Non-bank dealer</option><option value="hedge-fund" selected>Hedge fund</option><option value="asset-manager">Asset manager</option><option value="mmf">Money-market fund</option><option value="ptf">Principal trading firm</option><option value="pension-insurer">Pension / insurer</option></select></div>
+    <div class="q"><label>Current FICC access</label><select id="current_access"><option value="none" selected>None</option><option value="direct">Direct</option><option value="sponsored">Sponsored</option><option value="agent">Agent</option></select></div>
+    <div class="q"><label>Annual cash notional ($)</label><input type="number" id="cash_notional_annual" value="10000000000"></div>
+    <div class="q"><label>Daily repo outstanding ($)</label><input type="number" id="repo_notional_daily" value="5000000000"></div>
+    <div class="q"><label># executing dealers/venues</label><input type="number" id="num_executing_dealers" value="6" min="1"></div>
+    <div class="q"><label>Want multi-dealer execution flexibility?</label><select id="want_execution_flexibility"><option value="true" selected>Yes</option><option value="false">No</option></select></div>
+    <div class="q"><label>Capital (SLR) constrained?</label><select id="capital_constrained"><option value="false" selected>No</option><option value="true">Yes</option></select></div>
+    <div class="q"><label>Margin segregation preference</label><select id="margin_segregation_pref"><option value="no-pref" selected>No preference</option><option value="segregated">Segregated</option><option value="non-segregated">Non-segregated</option></select></div>
+    <div class="q"><label>IM funding rate (annual)</label><input type="number" id="im_funding_rate" value="0.05" step="0.01"></div>
+    <div class="q"><label>Capital charge rate (of notional)</label><input type="number" id="capital_charge_rate" value="0.005" step="0.001"></div>
+  </div><button onclick="run()">Run model →</button></div>
+
+  <div class="card results" id="results">
+    <div class="memo" id="memo"></div>
+    <table id="costTable"><thead><tr><th>Access model</th><th>Annual cost</th><th>Est. IM</th><th>Blended score</th><th>Eligible</th></tr></thead><tbody></tbody></table>
+    <div class="muted">Exec-access score <span id="execScore" style="color:var(--teal-lt)"></span> · Netting efficiency <span id="netPct" style="color:var(--teal-lt)"></span> · Segregation: <span id="seg" style="color:var(--bright)"></span></div>
+    <div class="muted" style="margin-top:12px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash"></div>
+    <pre id="artifact"></pre>
+  </div>
+</div>
+
+<script type="application/json" id="manifest">
+{"tool_id":"art-49-clearing-access-model-selector","mcp_name":"model_clearing_access_economics","mandate_type":"treasury_mandate","chaingraph_version":"0.4.0",
+"inputSchema":{"type":"object","properties":{"firm_type":{"enum":["bank-dealer","nonbank-dealer","hedge-fund","asset-manager","mmf","ptf","pension-insurer"]},"cash_notional_annual":{"type":"number"},"repo_notional_daily":{"type":"number"},"current_access":{"enum":["none","direct","sponsored","agent"]},"num_executing_dealers":{"type":"integer"},"want_execution_flexibility":{"type":"boolean"},"capital_constrained":{"type":"boolean"},"margin_segregation_pref":{"enum":["segregated","non-segregated","no-pref"]},"im_funding_rate":{"type":"number"},"capital_charge_rate":{"type":"number"}}}}
+</script>
+
+<script>
+const MODELS=['direct','sponsored_done_with','sponsored_done_away','agent_done_away'];
+const PARAMS={direct:{fee_bps:0.10,im_mult:1.00,capital_mult:0.10,ops_fixed:2000000,exec:1.00,net:0.00},sponsored_done_with:{fee_bps:0.30,im_mult:1.00,capital_mult:0.10,ops_fixed:150000,exec:0.40,net:0.00},sponsored_done_away:{fee_bps:0.28,im_mult:0.85,capital_mult:0.10,ops_fixed:250000,exec:0.90,net:0.15},agent_done_away:{fee_bps:0.25,im_mult:0.80,capital_mult:0.10,ops_fixed:400000,exec:0.95,net:0.20}};
+const IM_RATE=0.010, W={cost:0.40,exec:0.25,margin:0.25,ops:0.10};
+function compute(pp){
+  const feeBase=(+pp.cash_notional_annual||0)+(+pp.repo_notional_daily||0)*250;
+  const imNotional=(+pp.repo_notional_daily||0)+(+pp.cash_notional_annual||0)/250;
+  const dealers=Math.max(1,+pp.num_executing_dealers||1);
+  const dealerNet=Math.min(0.30,dealers*0.05);
+  const eligibility_gates=[];
+  const directEligible=(pp.firm_type==='bank-dealer'||pp.firm_type==='nonbank-dealer')&&feeBase>50e9;
+  if(!directEligible)eligibility_gates.push('DIRECT_MEMBERSHIP_INELIGIBLE');
+  const annual_cost_by_model={},im_estimate_by_model={},model_scores={};
+  for(const mdl of MODELS){const p=PARAMS[mdl];const netting=p.net+(mdl.includes('done_away')?dealerNet:0);const im=imNotional*IM_RATE*p.im_mult*(1-netting);const fees=feeBase*(p.fee_bps/10000);const imFunding=im*(+pp.im_funding_rate||0.05);const capital=(pp.capital_constrained===true||pp.capital_constrained==='true')?feeBase*(+pp.capital_charge_rate||0.005)*p.capital_mult:0;const total=fees+imFunding+capital+p.ops_fixed;annual_cost_by_model[mdl]=Math.round(total);im_estimate_by_model[mdl]=Math.round(im);model_scores[mdl]={_cost:total,_exec:p.exec,_margin:1-p.im_mult*(1-netting),_ops:p.ops_fixed};}
+  const costs=MODELS.map(m=>model_scores[m]._cost),minC=Math.min(...costs),maxC=Math.max(...costs);
+  const opsv=MODELS.map(m=>model_scores[m]._ops),minO=Math.min(...opsv),maxO=Math.max(...opsv);
+  const norm=(v,lo,hi,inv)=>{if(hi===lo)return 100;const t=(v-lo)/(hi-lo);return Math.round((inv?1-t:t)*100);};
+  const wantFlex=(pp.want_execution_flexibility===true||pp.want_execution_flexibility==='true');
+  let best=null,bestScore=-1;
+  for(const mdl of MODELS){const s=model_scores[mdl];const execAdj=s._exec*(wantFlex?1:0.7)*(dealers>=3?1:0.85);const blended=W.cost*norm(s._cost,minC,maxC,true)+W.exec*Math.round(execAdj*100)+W.margin*Math.round(s._margin/0.30*100)+W.ops*norm(s._ops,minO,maxO,true);model_scores[mdl]={blended:+blended.toFixed(1),cost_score:norm(s._cost,minC,maxC,true),exec_score:Math.round(execAdj*100),eligible:mdl==='direct'?directEligible:true};if(model_scores[mdl].eligible&&blended>bestScore){bestScore=blended;best=mdl;}}
+  const segregation_recommendation=pp.firm_type==='mmf'?'segregated':(pp.margin_segregation_pref!=='no-pref'?pp.margin_segregation_pref:(best==='agent_done_away'?'non-segregated (net CCP margining)':'segregated'));
+  const compliance_flags=[];
+  if(!directEligible)compliance_flags.push('DIRECT_MEMBERSHIP_INELIGIBLE');
+  if(best&&best.includes('done_away'))compliance_flags.push('DONE_AWAY_RECOMMENDED');
+  if(pp.firm_type==='mmf')compliance_flags.push('SEGREGATED_MARGIN_REQUIRED_2A7');
+  const cfo_memo=`Recommended access model: ${best}. Est. annual cost $${(annual_cost_by_model[best]/1e6).toFixed(2)}M (vs Direct $${(annual_cost_by_model.direct/1e6).toFixed(2)}M). Done-away netting uplift from ${dealers} dealer(s): ${(dealerNet*100).toFixed(0)}%. Segregation: ${segregation_recommendation}. Educational estimate; confirm with the CCP and sponsor.`;
+  return {output_payload:{recommended_model:best,model_scores,annual_cost_by_model,im_estimate_by_model,execution_access_score:Math.round(PARAMS[best].exec*100),netting_efficiency_pct:+((PARAMS[best].net+(best.includes('done_away')?dealerNet:0))*100).toFixed(1),segregation_recommendation,eligibility_gates,cfo_memo,note:'Educational access-model economics for the SEC US Treasury clearing mandate. Assumptions documented in-kernel; not clearing advice.'},compliance_flags};
+}
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+const fmt=n=>'$'+(n/1e6).toFixed(2)+'M';
+async function run(){
+  const num=['cash_notional_annual','repo_notional_daily','num_executing_dealers','im_funding_rate','capital_charge_rate'];
+  const pp={};['firm_type','current_access','cash_notional_annual','repo_notional_daily','num_executing_dealers','want_execution_flexibility','capital_constrained','margin_segregation_pref','im_funding_rate','capital_charge_rate'].forEach(id=>{const el=document.getElementById(id);pp[id]=num.includes(id)?Number(el.value):el.value;});
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',ap2_version:'1.0.0',mandate_type:'treasury_mandate',tool_id:'art-49-clearing-access-model-selector',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('results').classList.add('show');
+  document.getElementById('memo').textContent=op.cfo_memo;
+  document.querySelector('#costTable tbody').innerHTML=MODELS.map(m=>`<tr><td class="${m===op.recommended_model?'rec':''}">${m.replace(/_/g,' ')}${m===op.recommended_model?' ◄':''}</td><td>${fmt(op.annual_cost_by_model[m])}</td><td>${fmt(op.im_estimate_by_model[m])}</td><td>${op.model_scores[m].blended}</td><td>${op.model_scores[m].eligible?'✓':'—'}</td></tr>`).join('');
+  document.getElementById('execScore').textContent=op.execution_access_score;
+  document.getElementById('netPct').textContent=op.netting_efficiency_pct+'%';
+  document.getElementById('seg').textContent=op.segregation_recommendation;
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+</body>
+</html>

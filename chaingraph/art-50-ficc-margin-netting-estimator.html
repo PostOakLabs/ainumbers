@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FICC Margin & Netting Estimator — ART-50 | AINumbers OpenChainGraph</title>
+<meta name="description" content="FICC VaR-based-margin (VBM) proxy + netting benefit of central clearing for UST/repo. DV01-bucket VaR. Client-side, hash-anchored.">
+<meta name="robots" content="index, follow">
+<!-- ART-50 Wave 11. v1 functional build; reconcile vs reconciled/152 before audit.
+     Inline compute() MUST stay byte-identical to kernels/art-50-ficc-margin-netting-estimator.kernel.mjs. -->
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr 1fr}}
+label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+select,input,textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--body);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.76rem}
+textarea{min-height:120px;line-height:1.5}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:10px}
+.results{display:none}.results.show{display:block}
+.big{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px}
+.stat .n{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:1.2rem;color:var(--bright);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:.78rem;margin:8px 0}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin-top:10px;max-height:300px}
+.muted{color:var(--muted);font-size:.72rem}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><b>AI</b>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-50 · Wave 11 · US Treasury Clearing · W-B</div>
+  <h1>FICC Margin &amp; Netting Estimator</h1>
+  <p class="sub">DV01-bucket VaR proxy of the FICC VaR-based margin (VBM), the netting benefit of central vs bilateral clearing, and the done-away uplift. Emits a hash-anchored v0.4 artifact.</p>
+  <div class="flag">Educational proxy — NOT the official FICC VBM calculator</div>
+
+  <div class="card">
+    <label>Positions (JSON array)</label>
+    <textarea id="positions">[
+  {"instrument":"ust-note","notional":1000000000,"tenor_years":10,"direction":"long"},
+  {"instrument":"ust-bond","notional":400000000,"tenor_years":30,"direction":"short"},
+  {"instrument":"repo","notional":800000000,"tenor_years":0.1,"direction":"short"}
+]</textarea>
+    <div class="grid" style="margin-top:12px">
+      <div><label>Clearing model</label><select id="clearing_model"><option value="cleared-done-away" selected>Cleared — done-away</option><option value="cleared-done-with">Cleared — done-with</option><option value="bilateral">Bilateral</option></select></div>
+      <div><label>Confidence level</label><select id="confidence_level"><option>0.9</option><option>0.95</option><option selected>0.99</option><option>0.999</option></select></div>
+      <div><label>MPOR (days)</label><input type="number" id="mpor_days" value="1" min="1"></div>
+      <div><label>Cross-product netting</label><select id="include_cross_product"><option value="true" selected>On</option><option value="false">Off</option></select></div>
+    </div>
+    <button onclick="run()">Estimate margin →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="big">
+      <div class="stat"><div class="n">Estimated VBM</div><div class="v" id="vbm"></div></div>
+      <div class="stat"><div class="n">Gross bilateral IM</div><div class="v" id="gross"></div></div>
+      <div class="stat"><div class="n">Netting benefit</div><div class="v" id="benefit"></div></div>
+      <div class="stat"><div class="n">Done-away uplift</div><div class="v" id="uplift"></div></div>
+    </div>
+    <table id="bktTable"><thead><tr><th>Tenor bucket</th><th>Net DV01 ($/bp)</th><th>Bucket VaR</th></tr></thead><tbody></tbody></table>
+    <div class="muted" id="minchg"></div>
+    <div class="muted" style="margin-top:12px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash"></div>
+    <pre id="artifact"></pre>
+  </div>
+</div>
+
+<script type="application/json" id="manifest">
+{"tool_id":"art-50-ficc-margin-netting-estimator","mcp_name":"estimate_ficc_margin_netting","mandate_type":"risk_parameter","chaingraph_version":"0.4.0",
+"inputSchema":{"type":"object","properties":{"positions":{"type":"array","items":{"type":"object"}},"clearing_model":{"enum":["bilateral","cleared-done-with","cleared-done-away"]},"confidence_level":{"type":"number"},"mpor_days":{"type":"integer"},"include_cross_product":{"type":"boolean"}}}}
+</script>
+
+<script>
+const Z={0.9:1.282,0.95:1.645,0.99:2.326,0.999:3.090};
+const BUCKETS=['0-2y','2-5y','5-10y','10-30y'];
+const DAILY_VOL_BP={'0-2y':3,'2-5y':5,'5-10y':6,'10-30y':7};
+const BUCKET_CORR=0.80, MIN_CHARGE_RATE=0.001;
+const bucketOf=t=>t<=2?'0-2y':t<=5?'2-5y':t<=10?'5-10y':'10-30y';
+const modDur=t=>t/1.04;
+function compute(pp){
+  const positions=pp.positions||[];
+  const z=Z[pp.confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+pp.mpor_days||1));
+  const xprod=(pp.include_cross_product===true||pp.include_cross_product==='true');
+  let grossNotional=0; const netDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0}; let grossBilateralIM=0;
+  for(const p of positions){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;const dv01=notional*modDur(tenor)*0.0001;grossNotional+=Math.abs(notional);const b=bucketOf(tenor);const isRepo=p.instrument==='repo'||p.instrument==='reverse-repo';const offsets=xprod||!isRepo;netDV01[b]+=offsets?sign*dv01:Math.abs(dv01);grossBilateralIM+=Math.abs(dv01)*z*DAILY_VOL_BP[b]*sq;}
+  const bucketVaR={}; for(const b of BUCKETS)bucketVaR[b]=Math.abs(netDV01[b])*z*DAILY_VOL_BP[b]*sq;
+  let varSq=0; for(const a of BUCKETS)for(const c of BUCKETS)varSq+=bucketVaR[a]*bucketVaR[c]*(a===c?1:BUCKET_CORR);
+  let netClearedIM=Math.sqrt(varSq);
+  const doneAway=pp.clearing_model==='cleared-done-away'; const done_away_uplift=doneAway?0.10:0;
+  netClearedIM*=(1-done_away_uplift);
+  const minCharge=grossNotional*MIN_CHARGE_RATE; const minimum_charge_applied=netClearedIM<minCharge;
+  const estimated_vbm=Math.max(netClearedIM,minCharge);
+  const netting_benefit_usd=Math.max(0,grossBilateralIM-estimated_vbm);
+  const netting_benefit_pct=grossBilateralIM>0?+((netting_benefit_usd/grossBilateralIM)*100).toFixed(1):0;
+  const margin_by_bucket=BUCKETS.map(b=>({bucket:b,net_dv01:+netDV01[b].toFixed(2),var:Math.round(bucketVaR[b])}));
+  const compliance_flags=['ESTIMATE_NOT_OFFICIAL_FICC_VBM'];
+  if(minimum_charge_applied)compliance_flags.push('MINIMUM_CHARGE_BINDING');
+  if(netting_benefit_pct>=40)compliance_flags.push('LARGE_NETTING_BENEFIT');
+  return {output_payload:{estimated_vbm:Math.round(estimated_vbm),gross_bilateral_im:Math.round(grossBilateralIM),net_cleared_im:Math.round(estimated_vbm),netting_benefit_usd:Math.round(netting_benefit_usd),netting_benefit_pct,done_away_uplift_pct:+(done_away_uplift*100).toFixed(1),margin_by_bucket,minimum_charge_applied,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,daily_vol_bp:DAILY_VOL_BP,bucket_corr:BUCKET_CORR},note:'Educational VaR-based-margin proxy for FICC-cleared UST/repo. Not the official FICC VBM; for indicative netting economics only.'},compliance_flags};
+}
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+const fmt=n=>'$'+(n/1e6).toFixed(2)+'M';
+async function run(){
+  let positions; try{positions=JSON.parse(document.getElementById('positions').value);}catch(e){alert('Positions must be valid JSON');return;}
+  const pp={positions,clearing_model:document.getElementById('clearing_model').value,confidence_level:Number(document.getElementById('confidence_level').value),mpor_days:Number(document.getElementById('mpor_days').value),include_cross_product:document.getElementById('include_cross_product').value};
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',ap2_version:'1.0.0',mandate_type:'risk_parameter',tool_id:'art-50-ficc-margin-netting-estimator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('results').classList.add('show');
+  document.getElementById('vbm').textContent=fmt(op.estimated_vbm);
+  document.getElementById('gross').textContent=fmt(op.gross_bilateral_im);
+  document.getElementById('benefit').textContent=op.netting_benefit_pct+'%';
+  document.getElementById('uplift').textContent=op.done_away_uplift_pct+'%';
+  document.querySelector('#bktTable tbody').innerHTML=op.margin_by_bucket.map(b=>`<tr><td>${b.bucket}</td><td>${b.net_dv01.toLocaleString()}</td><td>${fmt(b.var)}</td></tr>`).join('');
+  document.getElementById('minchg').textContent=op.minimum_charge_applied?'⚠ Minimum charge floor binding':'Minimum charge floor not binding';
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+</body>
+</html>

@@ -46,6 +46,10 @@ import * as art44  from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art45  from './art-45-arc-xreserve-linter.kernel.mjs';
 import * as art46  from './art-46-arc-paymaster-model.kernel.mjs';
 import * as art47  from './art-47-arc-cctp-transfer.kernel.mjs';
+import * as art48  from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
+import * as art49  from './art-49-clearing-access-model-selector.kernel.mjs';
+import * as art50  from './art-50-ficc-margin-netting-estimator.kernel.mjs';
+import * as art51  from './art-51-cross-margining-benefit-estimator.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -126,6 +130,11 @@ export const KERNELS = {
   'art-45-arc-xreserve-linter':                     art45,
   'art-46-arc-paymaster-model':                     art46,
   'art-47-arc-cctp-transfer':                       art47,
+  // ART Treasury Clearing / FICC (wave 11)
+  'art-48-treasury-clearing-fit-diagnostic':        art48,
+  'art-49-clearing-access-model-selector':          art49,
+  'art-50-ficc-margin-netting-estimator':           art50,
+  'art-51-cross-margining-benefit-estimator':       art51,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,

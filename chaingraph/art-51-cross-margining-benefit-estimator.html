@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FICC–CME Cross-Margining Estimator — ART-51 | AINumbers OpenChainGraph</title>
+<meta name="description" content="FICC–CME cross-margining IM-reduction estimator: offset UST cash/repo against CME Treasury/SOFR futures. Customer expansion Dec 2025. Client-side, hash-anchored.">
+<meta name="robots" content="index, follow">
+<!-- ART-51 Wave 11. v1 functional build; reconcile vs reconciled/152 before audit.
+     Inline compute() MUST stay byte-identical to kernels/art-51-cross-margining-benefit-estimator.kernel.mjs. -->
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{max-width:660px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.cols{grid-template-columns:1fr}}
+label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+select,input,textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--body);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.76rem}
+textarea{min-height:96px;line-height:1.5}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:10px}
+.results{display:none}.results.show{display:block}
+.big{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px}
+.stat .n{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:1.2rem;color:var(--bright);font-weight:600}
+.note{background:var(--bg3);border-left:3px solid var(--gold);border-radius:var(--radius);padding:10px 14px;font-size:.8rem;margin:8px 0}
+table{width:100%;border-collapse:collapse;font-size:.78rem;margin:8px 0}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin-top:10px;max-height:300px}
+.muted{color:var(--muted);font-size:.72rem}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><b>AI</b>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-51 · Wave 11 · US Treasury Clearing · W-C</div>
+  <h1>FICC–CME Cross-Margining Estimator</h1>
+  <p class="sub">Offset UST cash/repo DV01 against CME Treasury / SOFR futures DV01 in a combined netting set — standalone vs cross-margined IM, and the reduction. Customer cross-margining was expanded via the SEC notice published 2025-12-22.</p>
+  <div class="flag">Educational proxy — CME DV01s approximate</div>
+
+  <div class="card">
+    <div class="cols">
+      <div><label>UST positions (JSON)</label><textarea id="ust_positions">[
+  {"instrument":"ust-note","notional":1000000000,"tenor_years":10,"direction":"long"}
+]</textarea></div>
+      <div><label>CME positions (JSON) — ZT/ZF/ZN/ZB/UB/SR1/SR3</label><textarea id="cme_positions">[
+  {"contract":"ZN","num_contracts":1500,"direction":"short"}
+]</textarea></div>
+    </div>
+    <div class="row3">
+      <div><label>Account type</label><select id="account_type"><option value="house" selected>House (member)</option><option value="customer">Customer</option></select></div>
+      <div><label>Confidence level</label><select id="confidence_level"><option>0.9</option><option>0.95</option><option selected>0.99</option><option>0.999</option></select></div>
+      <div><label>MPOR (days)</label><input type="number" id="mpor_days" value="1" min="1"></div>
+    </div>
+    <button onclick="run()">Estimate offset →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="big">
+      <div class="stat"><div class="n">Standalone IM</div><div class="v" id="standalone"></div></div>
+      <div class="stat"><div class="n">Cross-margined IM</div><div class="v" id="cross"></div></div>
+      <div class="stat"><div class="n">IM reduction</div><div class="v" id="reduction"></div></div>
+    </div>
+    <div class="note" id="acctNote"></div>
+    <table id="offTable"><thead><tr><th>Bucket</th><th>UST DV01</th><th>CME DV01</th><th>Status</th></tr></thead><tbody></tbody></table>
+    <div class="muted" style="margin-top:12px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash"></div>
+    <pre id="artifact"></pre>
+  </div>
+</div>
+
+<script type="application/json" id="manifest">
+{"tool_id":"art-51-cross-margining-benefit-estimator","mcp_name":"estimate_cross_margin_benefit","mandate_type":"risk_parameter","chaingraph_version":"0.4.0",
+"inputSchema":{"type":"object","properties":{"ust_positions":{"type":"array","items":{"type":"object"}},"cme_positions":{"type":"array","items":{"type":"object"}},"account_type":{"enum":["house","customer"]},"confidence_level":{"type":"number"},"mpor_days":{"type":"integer"}}}}
+</script>
+
+<script>
+const Z={0.9:1.282,0.95:1.645,0.99:2.326,0.999:3.090};
+const BUCKETS=['0-2y','2-5y','5-10y','10-30y'];
+const DAILY_VOL_BP={'0-2y':3,'2-5y':5,'5-10y':6,'10-30y':7};
+const BUCKET_CORR=0.80;
+const CME={ZT:{dv01:38,bucket:'0-2y'},ZF:{dv01:47,bucket:'2-5y'},ZN:{dv01:65,bucket:'5-10y'},ZB:{dv01:130,bucket:'10-30y'},UB:{dv01:200,bucket:'10-30y'},SR1:{dv01:41.67,bucket:'0-2y'},SR3:{dv01:25,bucket:'0-2y'}};
+const modDur=t=>t/1.04, bucketOf=t=>t<=2?'0-2y':t<=5?'2-5y':t<=10?'5-10y':'10-30y';
+function bucketVaRtotal(netDV01,z,sq){const bv={};for(const b of BUCKETS)bv[b]=Math.abs(netDV01[b]||0)*z*DAILY_VOL_BP[b]*sq;let s=0;for(const a of BUCKETS)for(const c of BUCKETS)s+=bv[a]*bv[c]*(a===c?1:BUCKET_CORR);return Math.sqrt(s);}
+function compute(pp){
+  const z=Z[pp.confidence_level]??2.326, sq=Math.sqrt(Math.max(1,+pp.mpor_days||1));
+  const ustDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0};
+  for(const p of (pp.ust_positions||[])){const notional=+p.notional||0;const tenor=+p.tenor_years||((p.instrument==='repo'||p.instrument==='reverse-repo')?0.1:5);const sign=(p.direction==='short'||p.instrument==='reverse-repo')?-1:1;ustDV01[bucketOf(tenor)]+=sign*notional*modDur(tenor)*0.0001;}
+  const cmeDV01={'0-2y':0,'2-5y':0,'5-10y':0,'10-30y':0}; const eligible_offsets=[],ineligible_offsets=[];
+  for(const p of (pp.cme_positions||[])){const spec=CME[p.contract];if(!spec){ineligible_offsets.push({contract:p.contract,reason:'unknown CME contract'});continue;}const sign=p.direction==='short'?-1:1;cmeDV01[spec.bucket]+=sign*(+p.num_contracts||0)*spec.dv01;}
+  for(const b of BUCKETS){if(ustDV01[b]!==0&&cmeDV01[b]!==0){if(Math.sign(ustDV01[b])!==Math.sign(cmeDV01[b]))eligible_offsets.push({bucket:b,ust_dv01:+ustDV01[b].toFixed(1),cme_dv01:+cmeDV01[b].toFixed(1)});else ineligible_offsets.push({bucket:b,reason:'same-direction risk — no offset'});}}
+  const imUST=bucketVaRtotal(ustDV01,z,sq), imCME=bucketVaRtotal(cmeDV01,z,sq), standalone_im_total=imUST+imCME;
+  const combined={}; for(const b of BUCKETS)combined[b]=(ustDV01[b]||0)+(cmeDV01[b]||0);
+  const cross_margined_im=bucketVaRtotal(combined,z,sq);
+  const im_reduction_usd=Math.max(0,standalone_im_total-cross_margined_im);
+  const im_reduction_pct=standalone_im_total>0?+((im_reduction_usd/standalone_im_total)*100).toFixed(1):0;
+  const compliance_flags=[];
+  if(pp.account_type==='customer')compliance_flags.push('CUSTOMER_CROSS_MARGIN_PENDING_GO_LIVE');
+  if(ineligible_offsets.length)compliance_flags.push('OFFSET_OUTSIDE_ELIGIBLE_SCOPE');
+  if(im_reduction_pct>=30)compliance_flags.push('MATERIAL_CROSS_MARGIN_BENEFIT');
+  const account_type_note=pp.account_type==='customer'?'Customer cross-margining expanded via SEC notice published 2025-12-22; confirm operational go-live before relying on it.':'House (member) cross-margining — established FICC–CME arrangement.';
+  return {output_payload:{standalone_im_total:Math.round(standalone_im_total),cross_margined_im:Math.round(cross_margined_im),im_reduction_usd:Math.round(im_reduction_usd),im_reduction_pct,eligible_offsets,ineligible_offsets,account_type_note,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,cme_dv01_table:'approx per-contract $/bp',bucket_corr:BUCKET_CORR},note:'Educational FICC–CME cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.'},compliance_flags};
+}
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+const fmt=n=>'$'+(n/1e6).toFixed(2)+'M';
+async function run(){
+  let ust,cme; try{ust=JSON.parse(document.getElementById('ust_positions').value);cme=JSON.parse(document.getElementById('cme_positions').value);}catch(e){alert('Positions must be valid JSON');return;}
+  const pp={ust_positions:ust,cme_positions:cme,account_type:document.getElementById('account_type').value,confidence_level:Number(document.getElementById('confidence_level').value),mpor_days:Number(document.getElementById('mpor_days').value)};
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',ap2_version:'1.0.0',mandate_type:'risk_parameter',tool_id:'art-51-cross-margining-benefit-estimator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('results').classList.add('show');
+  document.getElementById('standalone').textContent=fmt(op.standalone_im_total);
+  document.getElementById('cross').textContent=fmt(op.cross_margined_im);
+  document.getElementById('reduction').textContent=op.im_reduction_pct+'%';
+  document.getElementById('acctNote').textContent=op.account_type_note;
+  const rows=[...op.eligible_offsets.map(o=>`<tr><td>${o.bucket}</td><td>${o.ust_dv01.toLocaleString()}</td><td>${o.cme_dv01.toLocaleString()}</td><td style="color:var(--green)">eligible offset</td></tr>`),...op.ineligible_offsets.map(o=>`<tr><td>${o.bucket||o.contract||''}</td><td colspan="2"></td><td style="color:#F59E0B">${o.reason}</td></tr>`)];
+  document.querySelector('#offTable tbody').innerHTML=rows.join('')||'<tr><td colspan="4" class="muted">No overlapping buckets</td></tr>';
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+</body>
+</html>
