@@ -50,6 +50,11 @@ import * as art48  from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49  from './art-49-clearing-access-model-selector.kernel.mjs';
 import * as art50  from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art51  from './art-51-cross-margining-benefit-estimator.kernel.mjs';
+// ART Digital Trade / MLETR (wave 12)
+import * as art52  from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
+import * as art53  from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
+import * as art54  from './art-54-digital-trade-rules-checker.kernel.mjs';
+import * as art55  from './art-55-trade-document-provenance-verifier.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -135,6 +140,11 @@ export const KERNELS = {
   'art-49-clearing-access-model-selector':          art49,
   'art-50-ficc-margin-netting-estimator':           art50,
   'art-51-cross-margining-benefit-estimator':       art51,
+  // ART Digital Trade / MLETR (wave 12)
+  'art-52-digital-trade-fit-diagnostic':            art52,
+  'art-53-mletr-ebl-conformance-validator':         art53,
+  'art-54-digital-trade-rules-checker':             art54,
+  'art-55-trade-document-provenance-verifier':      art55,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
