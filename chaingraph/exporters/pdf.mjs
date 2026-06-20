@@ -166,9 +166,10 @@ export function buildPdf(artifact) {
   for (const pl of pages) {
     const contentNum = objNum++, pageNum = objNum++;
     let stream = pageContent(pl);
-    // QR DISABLED (deferred — see PUNCHLIST). The hand-rolled qr.mjs doesn't reliably
-    // scan yet; the verify URL is printed as text in the provenance block, so nothing
-    // is lost. Re-enable by restoring: if (pageIdx === 0) stream += qrOps(artifact);
+    // QR PARKED (see PUNCHLIST). Two encoder attempts (hand-rolled + Nayuki port) didn't
+    // reliably scan in testing; the verify URL is printed as text, so nothing is lost.
+    // To retry: validate qr.mjs against a reference encoder in a runnable env, then restore
+    //   if (pageIdx === 0) stream += qrOps(artifact);
     pageIdx++;
     all[contentNum] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;
     all[pageNum] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] ` +
