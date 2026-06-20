@@ -60,6 +60,11 @@ import * as art56  from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs
 import * as art57  from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58  from './art-58-cross-network-settlement-validator.kernel.mjs';
 import * as art59  from './art-59-settlement-asset-finality-classifier.kernel.mjs';
+// ART Agent Economy Runtime (wave 14)
+import * as art60  from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
+import * as art61  from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
+import * as art62  from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
+import * as art63  from './art-63-agent-service-metering-modeler.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -155,6 +160,11 @@ export const KERNELS = {
   'art-57-deposit-token-compliance-validator':      art57,
   'art-58-cross-network-settlement-validator':      art58,
   'art-59-settlement-asset-finality-classifier':    art59,
+  // ART Agent Economy Runtime (wave 14)
+  'art-60-agent-economy-runtime-fit-diagnostic':    art60,
+  'art-61-x402-batch-settlement-reconciler':        art61,
+  'art-62-ap2-payment-receipt-verifier':            art62,
+  'art-63-agent-service-metering-modeler':          art63,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,

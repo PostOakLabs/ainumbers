@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AP2 PaymentReceipt Verifier &amp; HNP Guardrail · ART-62 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Verify an AP2 v0.2 PaymentReceipt against its signed mandate chain (Intent → Cart → Payment) and apply the Human-Not-Present autonomy guardrail. Post-trade runtime verification — distinct from art-01 pre-trade mandate validation. OpenChainGraph v0.4. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="AP2 PaymentReceipt Verifier &amp; HNP Guardrail · ART-62 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Post-trade AP2 v0.2 receipt verification + Human-Not-Present autonomy gate. OpenChainGraph v0.4. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"AP2 PaymentReceipt Verifier & HNP Guardrail · ART-62 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Verifies an AP2 v0.2 PaymentReceipt against its signed Intent/Cart/Payment mandate chain and applies the Human-Not-Present (HNP) autonomy guardrail. Runtime/post-trade — distinct from art-01 pre-trade mandate validation. AP2 v0.2 donated to FIDO Alliance by Google, Apr 2026.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-62 · Wave 14. In-browser compute() stays byte-identical to kernels/art-62-ap2-payment-receipt-verifier.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 0}
+.reframe{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.06);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.3rem .7rem;border-radius:4px;margin:6px 0 10px;display:inline-block}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.section{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+.qrow{margin-bottom:12px}
+label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:4px}
+.qlabel{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=checkbox]{width:auto;margin-right:6px}
+.checkbox-label{display:flex;align-items:center;font-size:.82rem;color:var(--bright);cursor:pointer}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}
+.results.show{display:block}
+.verdict-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.vbadge{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;padding:.3rem .75rem;border-radius:var(--radius);border:1px solid}
+.v-valid{color:var(--green);background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3)}
+.v-invalid{color:var(--red);background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
+.v-authorized{color:var(--teal-lt);background:var(--teal-dim);border-color:rgba(20,184,166,.3)}
+.v-blocked{color:var(--warn);background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)}
+.v-na{color:var(--muted);background:var(--bg3);border-color:var(--border)}
+.findings-table{width:100%;border-collapse:collapse;font-size:.76rem;margin:8px 0}
+.findings-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:4px 8px;border-bottom:1px solid var(--border)}
+.findings-table td{padding:4px 8px;border-bottom:1px solid var(--bg3);color:var(--body)}
+.findings-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text)}
+.fr-PASS{color:var(--green)}
+.fr-FAIL{color:var(--red)}
+.fr-WARN{color:var(--warn)}
+.flag-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.25);padding:.15rem .45rem;border-radius:20px;display:inline-block;margin:2px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <span><b>AI</b>Numbers · OpenChainGraph</span>
+  <div style="display:flex;gap:.5rem;font-size:.55rem;color:var(--muted)"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-62</span></div>
+  <a href="guide-agent-economy-runtime.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 14 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-62 · Wave 14 · Agent Economy Runtime · W-B flagship</div>
+  <h1>AP2 PaymentReceipt Verifier &amp; HNP Guardrail</h1>
+  <p class="sub">Verify an <strong>AP2 v0.2 PaymentReceipt</strong> against its signed mandate chain (Intent → Cart → Payment) and apply the <strong>Human-Not-Present (HNP) autonomy guardrail</strong>. Answers the runtime trust question AP2 v0.2 opened: <em>"this agent paid with no human present — was the receipt valid and the autonomy authorized?"</em> Client-side, zero-egress; emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
+  <div class="reframe">Runtime/post-trade — ART-62 verifies the receipt AFTER an executed payment + gates HNP autonomy. art-01 validates the mandate chain BEFORE the buy (pre-trade). AP2 v0.2 PaymentReceipt + HNP is a new primitive (FIDO Alliance, Apr 2026).</div>
+  <div class="flag">Educational verifier — not legal or payment advice · AP2 v0.2: FIDO Alliance (donated by Google Apr 2026) · Verify rules against current ap2-protocol.org primary sources</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Valid receipt, HNP authorized (in-policy)</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — HNP blocked (amount exceeds cap)</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Invalid receipt (mandate ref mismatch)</button>
+  </div>
+
+  <div class="card">
+    <div class="section">Payment receipt</div>
+    <div class="grid2">
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Receipt ID</label>
+        <input type="text" id="receipt_id" value="rcpt-2026-06-20-001"></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Payment mandate reference</label>
+        <input type="text" id="payment_mandate_ref" value="pmnd-2026-06-20-001"></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Amount (minor units)</label>
+        <input type="number" id="amount" value="500" min="0"></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Currency</label>
+        <input type="text" id="currency" value="USD"></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Executed at (ISO 8601)</label>
+        <input type="text" id="executed_at" value="2026-06-20T12:00:00Z"></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Signature type</label>
+        <select id="signature_type">
+          <option value="VC-signed">W3C Verifiable Credential (VC-signed)</option>
+          <option value="API-asserted">API-asserted (no signature)</option>
+          <option value="none">None</option>
+        </select></div>
+      <div class="qrow"><label><span class="qlabel">Receipt</span>Key ID (optional)</label>
+        <input type="text" id="keyid" value="did:key:z6Mk…synthetic"></div>
+      <div class="qrow" style="display:flex;align-items:flex-end;padding-bottom:6px">
+        <label class="checkbox-label"><input type="checkbox" id="human_present" checked> Human present at time of payment</label>
+      </div>
+    </div>
+
+    <div class="section">Mandate chain</div>
+    <div class="grid2">
+      <div class="qrow"><label><span class="qlabel">Chain</span>Intent mandate ID</label>
+        <input type="text" id="intent_mandate_id" value="imnd-2026-06-20-001"></div>
+      <div class="qrow"><label><span class="qlabel">Chain</span>Cart mandate ID</label>
+        <input type="text" id="cart_mandate_id" value="cmnd-2026-06-20-001"></div>
+      <div class="qrow"><label><span class="qlabel">Chain</span>Payment mandate ID</label>
+        <input type="text" id="payment_mandate_id" value="pmnd-2026-06-20-001"></div>
+      <div class="qrow"><label><span class="qlabel">Chain</span>Mandate issued at (ISO 8601)</label>
+        <input type="text" id="mandate_issued_at" value="2026-06-20T11:00:00Z"></div>
+      <div class="qrow"><label><span class="qlabel">Chain</span>Cart updated at (ISO 8601)</label>
+        <input type="text" id="cart_updated_at" value="2026-06-20T11:30:00Z"></div>
+    </div>
+
+    <div class="section">HNP policy (applies when human not present)</div>
+    <div class="grid2">
+      <div class="qrow"><label><span class="qlabel">HNP</span>Max autonomous amount (minor units)</label>
+        <input type="number" id="max_autonomous_amount" value="1000" min="0"></div>
+      <div class="qrow"><label><span class="qlabel">HNP</span>Payment category</label>
+        <input type="text" id="payment_category" value="compute-api"></div>
+      <div class="qrow"><label><span class="qlabel">HNP</span>Allowed categories (comma-separated)</label>
+        <input type="text" id="allowed_categories" value="compute-api,data-feed,storage"></div>
+      <div class="qrow"><label><span class="qlabel">HNP</span>Mandate max age (seconds)</label>
+        <input type="number" id="mandate_max_age_sec" value="3600" min="0"></div>
+      <div class="qrow" style="display:flex;align-items:flex-end;padding-bottom:6px">
+        <label class="checkbox-label"><input type="checkbox" id="require_fresh_cart" checked> Require fresh cart mandate</label>
+      </div>
+    </div>
+    <button onclick="run()">Verify receipt →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="verdict-row">
+      <div><div class="muted" style="margin-bottom:3px">Receipt verdict</div><span class="vbadge" id="receiptVerdict">–</span></div>
+      <div><div class="muted" style="margin-bottom:3px">HNP verdict</div><span class="vbadge" id="hnpVerdict">–</span></div>
+      <div><div class="muted" style="margin-bottom:3px">Mandate chain</div><span class="vbadge" id="chainIntact">–</span></div>
+    </div>
+    <div id="headroomRow" style="margin:6px 0"></div>
+    <div id="flagsRow" style="margin:8px 0"></div>
+    <div id="findingsSection" style="margin-top:10px"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-62-ap2-payment-receipt-verifier",
+  "mcp_name": "verify_ap2_payment_receipt",
+  "mandate_type": "attestation_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "payment_receipt": {
+        "type": "object",
+        "properties": {
+          "receipt_id": {"type":"string"},
+          "payment_mandate_ref": {"type":"string"},
+          "amount": {"type":"number"},
+          "currency": {"type":"string"},
+          "executed_at": {"type":"string"},
+          "human_present": {"type":"boolean"},
+          "signature_type": {"enum":["VC-signed","API-asserted","none"]},
+          "keyid": {"type":"string"}
+        }
+      },
+      "mandate_chain": {
+        "type": "object",
+        "properties": {
+          "intent_mandate_id": {"type":"string"},
+          "cart_mandate_id": {"type":"string"},
+          "payment_mandate_id": {"type":"string"},
+          "mandate_issued_at": {"type":"string"},
+          "cart_updated_at": {"type":"string"}
+        }
+      },
+      "hnp_policy": {
+        "type": "object",
+        "properties": {
+          "max_autonomous_amount": {"type":"number","minimum":0},
+          "allowed_categories": {"type":"array","items":{"type":"string"}},
+          "mandate_max_age_sec": {"type":"number","minimum":0},
+          "require_fresh_cart": {"type":"boolean"},
+          "payment_category": {"type":"string"}
+        }
+      }
+    }
+  }
+}
+</script>
+
+<script>
+// compute() — MUST mirror kernels/art-62-ap2-payment-receipt-verifier.kernel.mjs
+const SIG_LEVELS={'VC-signed':{score:4,label:'W3C Verifiable Credential — signed mandate chain'},'API-asserted':{score:2,label:'API-asserted — no cryptographic signature'},'none':{score:0,label:'No signature present'}};
+
+function compute(pp){
+  const {payment_receipt={},mandate_chain={},hnp_policy={}}=pp;
+  const {receipt_id='',payment_mandate_ref='',amount=0,currency='USD',executed_at='',human_present=true,signature_type='none',keyid=''}=payment_receipt;
+  const {intent_mandate_id='',cart_mandate_id='',payment_mandate_id='',mandate_issued_at='',cart_updated_at=''}=mandate_chain;
+  const {max_autonomous_amount=0,allowed_categories=[],mandate_max_age_sec=3600,require_fresh_cart=true,payment_category=''}=hnp_policy;
+  const findings=[];
+  const mandate_chain_intact=!!(intent_mandate_id&&cart_mandate_id&&payment_mandate_id);
+  if(!mandate_chain_intact)findings.push({check:'mandate_chain_intact',result:'FAIL',detail:'One or more mandate chain IDs missing.'});
+  else findings.push({check:'mandate_chain_intact',result:'PASS',detail:'Intent, Cart, and Payment mandate IDs all present.'});
+  const mandate_ref_matches=!!payment_mandate_ref&&payment_mandate_ref===payment_mandate_id;
+  if(mandate_chain_intact){
+    if(mandate_ref_matches)findings.push({check:'receipt_mandate_ref',result:'PASS',detail:'Receipt payment_mandate_ref matches mandate chain payment_mandate_id.'});
+    else findings.push({check:'receipt_mandate_ref',result:'FAIL',detail:'Receipt payment_mandate_ref does not match mandate chain payment_mandate_id.'});
+  }
+  const sig_level=SIG_LEVELS[signature_type]||SIG_LEVELS['none'];
+  const signature_check=sig_level.label;
+  if(sig_level.score===4)findings.push({check:'signature',result:'PASS',detail:signature_check});
+  else if(sig_level.score===2)findings.push({check:'signature',result:'WARN',detail:signature_check+' — VC-signed recommended for production.'});
+  else findings.push({check:'signature',result:'FAIL',detail:'No signature on receipt or mandate chain.'});
+  const receipt_valid=mandate_chain_intact&&mandate_ref_matches&&sig_level.score>=2;
+  const receipt_verdict=receipt_valid?'valid':'invalid';
+  let hnp_verdict='na',authorized_amount_headroom=null;
+  if(!human_present){
+    const hnp_checks=[];
+    if(max_autonomous_amount>0){
+      const amt=Number(amount);
+      if(amt<=max_autonomous_amount){hnp_checks.push({check:'hnp_amount',result:'PASS',detail:`Amount ${amt} ${currency} ≤ max ${max_autonomous_amount}`});authorized_amount_headroom=max_autonomous_amount-amt;}
+      else hnp_checks.push({check:'hnp_amount',result:'FAIL',detail:`Amount ${amt} ${currency} exceeds max_autonomous_amount ${max_autonomous_amount}`});
+    } else hnp_checks.push({check:'hnp_amount',result:'FAIL',detail:'max_autonomous_amount is 0 — HNP not permitted.'});
+    if(allowed_categories.length>0){
+      if(allowed_categories.includes(payment_category))hnp_checks.push({check:'hnp_category',result:'PASS',detail:`Category "${payment_category}" in allowed_categories.`});
+      else hnp_checks.push({check:'hnp_category',result:'FAIL',detail:`Category "${payment_category}" NOT in allowed_categories [${allowed_categories.join(', ')}].`});
+    } else hnp_checks.push({check:'hnp_category',result:'WARN',detail:'No allowed_categories configured — all categories permitted.'});
+    if(mandate_issued_at&&mandate_max_age_sec>0){
+      let mandate_age_sec=null;
+      try{const issued=new Date(mandate_issued_at).getTime();const exec=executed_at?new Date(executed_at).getTime():null;if(!isNaN(issued)&&exec!==null&&!isNaN(exec))mandate_age_sec=Math.round((exec-issued)/1000);}catch(_){}
+      if(mandate_age_sec!==null){if(mandate_age_sec<=mandate_max_age_sec)hnp_checks.push({check:'hnp_mandate_age',result:'PASS',detail:`Mandate age ${mandate_age_sec}s ≤ max ${mandate_max_age_sec}s`});else hnp_checks.push({check:'hnp_mandate_age',result:'FAIL',detail:`Mandate age ${mandate_age_sec}s exceeds max ${mandate_max_age_sec}s — STALE_MANDATE.`});}
+      else hnp_checks.push({check:'hnp_mandate_age',result:'WARN',detail:'Cannot compute mandate age — timestamps missing/unparseable.'});
+    }
+    if(require_fresh_cart){
+      if(cart_updated_at&&executed_at){try{const cu=new Date(cart_updated_at).getTime();const et=new Date(executed_at).getTime();if(!isNaN(cu)&&!isNaN(et)&&cu<=et)hnp_checks.push({check:'hnp_cart_fresh',result:'PASS',detail:'Cart updated before execution.'});else hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'Cart freshness check inconclusive.'});}catch(_){hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'Timestamp parse error.'});}}
+      else hnp_checks.push({check:'hnp_cart_fresh',result:'WARN',detail:'require_fresh_cart=true but timestamps missing.'});
+    }
+    findings.push(...hnp_checks);
+    hnp_verdict=hnp_checks.filter(c=>c.result==='FAIL').length===0?'authorized':'blocked';
+  }
+  const compliance_flags=[];
+  if(receipt_verdict==='invalid'){if(!mandate_ref_matches)compliance_flags.push('RECEIPT_MANDATE_MISMATCH');if(sig_level.score===0)compliance_flags.push('SIGNATURE_INVALID');}
+  if(!human_present&&hnp_verdict==='blocked')compliance_flags.push('HNP_OUT_OF_POLICY');
+  if(findings.find(f=>f.check==='hnp_mandate_age'&&f.result==='FAIL'))compliance_flags.push('STALE_MANDATE');
+  return {output_payload:{receipt_verdict,mandate_chain_intact,hnp_verdict,findings,signature_check,authorized_amount_headroom,receipt_id:receipt_id||null,human_present,note:'Educational AP2 v0.2 PaymentReceipt verifier and HNP guardrail. Runtime/post-trade — verifies the receipt AFTER an executed payment. art-01 validates the mandate chain BEFORE the buy (pre-trade). Signature verification is an educational approximation. Verify AP2 v0.2 rules against current FIDO Alliance / ap2-protocol.org primary sources (2026-06-20).',status_asof:'2026-06-20 — verify AP2 v0.2: https://ap2-protocol.org/'},compliance_flags};
+}
+
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+const PRESETS={
+  A:{payment_receipt:{receipt_id:'rcpt-A',payment_mandate_ref:'pmnd-A',amount:500,currency:'USD',executed_at:'2026-06-20T12:00:00Z',human_present:false,signature_type:'VC-signed',keyid:'did:key:z6Mk'},mandate_chain:{intent_mandate_id:'imnd-A',cart_mandate_id:'cmnd-A',payment_mandate_id:'pmnd-A',mandate_issued_at:'2026-06-20T11:00:00Z',cart_updated_at:'2026-06-20T11:30:00Z'},hnp_policy:{max_autonomous_amount:1000,allowed_categories:['compute-api','data-feed'],mandate_max_age_sec:3600,require_fresh_cart:true,payment_category:'compute-api'}},
+  B:{payment_receipt:{receipt_id:'rcpt-B',payment_mandate_ref:'pmnd-B',amount:5000,currency:'USD',executed_at:'2026-06-20T12:00:00Z',human_present:false,signature_type:'VC-signed',keyid:'did:key:z6Mk'},mandate_chain:{intent_mandate_id:'imnd-B',cart_mandate_id:'cmnd-B',payment_mandate_id:'pmnd-B',mandate_issued_at:'2026-06-20T11:00:00Z',cart_updated_at:'2026-06-20T11:30:00Z'},hnp_policy:{max_autonomous_amount:1000,allowed_categories:['compute-api'],mandate_max_age_sec:3600,require_fresh_cart:true,payment_category:'compute-api'}},
+  C:{payment_receipt:{receipt_id:'rcpt-C',payment_mandate_ref:'pmnd-WRONG',amount:200,currency:'USD',executed_at:'2026-06-20T12:00:00Z',human_present:true,signature_type:'API-asserted',keyid:''},mandate_chain:{intent_mandate_id:'imnd-C',cart_mandate_id:'cmnd-C',payment_mandate_id:'pmnd-C',mandate_issued_at:'2026-06-20T11:00:00Z',cart_updated_at:'2026-06-20T11:30:00Z'},hnp_policy:{max_autonomous_amount:0,allowed_categories:[],mandate_max_age_sec:3600,require_fresh_cart:false,payment_category:''}},
+};
+
+function setField(id,val){const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=val;else el.value=val;}
+function loadPreset(p){
+  const d=PRESETS[p];
+  const r=d.payment_receipt,m=d.mandate_chain,h=d.hnp_policy;
+  setField('receipt_id',r.receipt_id);setField('payment_mandate_ref',r.payment_mandate_ref);
+  setField('amount',r.amount);setField('currency',r.currency);
+  setField('executed_at',r.executed_at);setField('human_present',r.human_present);
+  setField('signature_type',r.signature_type);setField('keyid',r.keyid||'');
+  setField('intent_mandate_id',m.intent_mandate_id);setField('cart_mandate_id',m.cart_mandate_id);
+  setField('payment_mandate_id',m.payment_mandate_id);setField('mandate_issued_at',m.mandate_issued_at);
+  setField('cart_updated_at',m.cart_updated_at||'');
+  setField('max_autonomous_amount',h.max_autonomous_amount);
+  setField('payment_category',h.payment_category||'');
+  setField('allowed_categories',(h.allowed_categories||[]).join(','));
+  setField('mandate_max_age_sec',h.mandate_max_age_sec);
+  setField('require_fresh_cart',h.require_fresh_cart);
+}
+
+const MANIFEST=JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst(){const b=document.getElementById('mfstBody');const show=b.style.display==='block';b.style.display=show?'none':'block';if(!show)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+async function run(){
+  const cats=document.getElementById('allowed_categories').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const pp={
+    payment_receipt:{receipt_id:document.getElementById('receipt_id').value,payment_mandate_ref:document.getElementById('payment_mandate_ref').value,amount:Number(document.getElementById('amount').value),currency:document.getElementById('currency').value,executed_at:document.getElementById('executed_at').value,human_present:document.getElementById('human_present').checked,signature_type:document.getElementById('signature_type').value,keyid:document.getElementById('keyid').value},
+    mandate_chain:{intent_mandate_id:document.getElementById('intent_mandate_id').value,cart_mandate_id:document.getElementById('cart_mandate_id').value,payment_mandate_id:document.getElementById('payment_mandate_id').value,mandate_issued_at:document.getElementById('mandate_issued_at').value,cart_updated_at:document.getElementById('cart_updated_at').value},
+    hnp_policy:{max_autonomous_amount:Number(document.getElementById('max_autonomous_amount').value),allowed_categories:cats,mandate_max_age_sec:Number(document.getElementById('mandate_max_age_sec').value),require_fresh_cart:document.getElementById('require_fresh_cart').checked,payment_category:document.getElementById('payment_category').value},
+  };
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-62-ap2-payment-receipt-verifier',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+
+  document.getElementById('results').classList.add('show');
+  const rv=document.getElementById('receiptVerdict');rv.textContent=op.receipt_verdict.toUpperCase();rv.className='vbadge '+(op.receipt_verdict==='valid'?'v-valid':'v-invalid');
+  const hv=document.getElementById('hnpVerdict');hv.textContent=op.hnp_verdict.toUpperCase();hv.className='vbadge '+(op.hnp_verdict==='authorized'?'v-authorized':op.hnp_verdict==='blocked'?'v-blocked':'v-na');
+  const ci=document.getElementById('chainIntact');ci.textContent=op.mandate_chain_intact?'INTACT':'BROKEN';ci.className='vbadge '+(op.mandate_chain_intact?'v-valid':'v-invalid');
+  document.getElementById('headroomRow').innerHTML=op.authorized_amount_headroom!==null?`<div class="muted">HNP authorized · remaining headroom: <b style="color:var(--teal-lt)">${op.authorized_amount_headroom} ${pp.payment_receipt.currency}</b></div>`:'';
+  document.getElementById('flagsRow').innerHTML=compliance_flags.length?compliance_flags.map(f=>`<span class="flag-pill">${f}</span>`).join(' '):'';
+  document.getElementById('findingsSection').innerHTML=op.findings&&op.findings.length?'<table class="findings-table"><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>'+op.findings.map(f=>`<tr><td>${f.check}</td><td class="fr-${f.result}">${f.result}</td><td>${f.detail}</td></tr>`).join('')+'</tbody></table>':'';
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-agent-economy-runtime.html" style="color:var(--muted)">Wave 14 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>
