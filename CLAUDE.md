@@ -33,6 +33,8 @@ ainumbers/
 
 ## 🤖 MCP / tool-registration invariants (CONTRACT §A4 — MUST)
 
+> **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). Build rules live in `CONTRACT.md`. "v0.4-compliant" = passes the SPEC.md §15 gate suite (Amendment A5) — cite SPEC.md section numbers, don't restate the envelope/hash/taxonomy. Run the SSOT gates before any push that touches `chaingraph.json`, spec/hub HTML, `standard/`, or a kernel: `node chaingraph/standard/{schema-validate,spec-version-consistency,spec-gate-coverage}.mjs`.
+
 Before adding or renaming any tool, ChainGraph node, chain, or kernel:
 - **Unique `mcp_name`** across live `chaingraph.json` nodes + PILOT widgets + the 6 utility tools — a duplicate 500s the live `/mcp` handshake. Check: `node ../mcp-apps-poc/scripts/check-tool-names.mjs`.
 - **Canonical `execution_hash` only** via the shared `chaingraph/kernels/_hash.mjs` (real WebCrypto SHA-256 over RFC 8785/JCS `{policy_parameters, output_payload}`). Forbidden: array-replacer canon (`JSON.stringify(x, Object.keys(x).sort())`), `simpleHash`/fake `sha256:`, hashing a reduced payload. Gates: `chaingraph/kernels/{lint-forbidden-hash,golden-parity,parity-art-01,syntax-check}.mjs`.
