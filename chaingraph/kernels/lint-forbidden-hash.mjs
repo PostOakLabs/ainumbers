@@ -22,7 +22,12 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 // execution_hash as "sha256:"+hex, and the verifier normalizes it), so it is NOT
 // banned. We ban only the two patterns that produce a WRONG hash.
 const BANNED = [
-  { re: /JSON\.stringify\(\s*([A-Za-z_$][\w$]*)\s*,\s*Object\.keys\(\s*\1\s*\)\.sort\(\)\s*\)/, why: 'Scheme A: array-replacer collapses nested data (input-independent hash). Use __ocgCanonStr / __ocgHash.' },
+  // Scheme A (array-replacer): JSON.stringify(<anything>, Object.keys(<anything>).sort()) — the 2nd arg is a
+  // recursive-property allowlist, NOT a sort, so it collapses nested data into an input-independent hash.
+  // Broadened 2026-06-21 to catch the inline-object form `JSON.stringify({...a,...b}, Object.keys({...a,...b}).sort())`
+  // (the cry-04 variant the identifier-only regex missed). There is no legitimate use of Object.keys().sort()
+  // as a JSON.stringify replacer — canonical OCG sorts INSIDE cgCanon, then JSON.stringify(canon) with no replacer.
+  { re: /JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)\s*\)/, why: 'Scheme A: array-replacer collapses nested data (input-independent hash). Use cgCanon/_hash.mjs: JSON.stringify(cgCanon({policy_parameters, output_payload})).' },
   { re: /function\s+simpleHash\s*\(/, why: 'Scheme C: simpleHash is a 32-bit FNV mislabeled "sha256:". Not SHA-256. Use real crypto.subtle SHA-256 via __ocgHash.' },
 ];
 
