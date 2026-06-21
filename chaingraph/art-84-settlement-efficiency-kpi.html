@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Settlement Efficiency KPI Aggregator · ART-84 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Aggregates CSDR/T+1 settlement KPIs from an instruction batch: settlement rate, fail rate, on-time allocation, SSI golden-source coverage, penalty cost, and fail-duration distribution. Benchmark vs ESMA 97.5%. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-84-settlement-efficiency-kpi.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Settlement Efficiency KPI Aggregator · ART-84 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="CSDR/T+1 settlement KPIs — settlement rate, fail rate, on-time allocation, SSI golden coverage, CSDR penalties. Graded A–F vs ESMA 97.5% benchmark. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-84-settlement-efficiency-kpi.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-84 · Wave 17. In-browser compute() stays byte-identical to kernels/art-84-settlement-efficiency-kpi.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.bench-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.grid6{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr 1fr}.grid6{grid-template-columns:1fr 1fr 1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;flex:1;min-width:110px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:700;display:inline-block;padding:.1rem .6rem;border-radius:var(--radius);line-height:1.2}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+@media(max-width:620px){.kpi-grid{grid-template-columns:1fr 1fr}}
+.kpi-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.kpi-card .kn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.kpi-card .kv{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600}
+.dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.dur-grid{grid-template-columns:1fr 1fr}}
+.dur-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.dur-card .dn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dur-card .dv{font-family:'JetBrains Mono',monospace;font-size:1.2rem;font-weight:600}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem;margin-top:8px}
+.tbl th{text-align:left;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;padding:6px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-84</span></div>
+  <a href="guide-settlement-discipline.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 17 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-84 · Wave 17 · Settlement Discipline · Efficiency KPIs</div>
+  <h1>Settlement Efficiency KPI Aggregator</h1>
+  <p class="sub">Aggregates batch-level settlement data into <strong>CSDR/T+1-relevant KPIs</strong>: settlement rate (graded A–F), fail rate, on-time allocation, SSI golden-source coverage, CSDR penalty cost, buy-in triggered count, and fail-duration distribution. Benchmarked against ESMA 97.5% settlement rate. Part of the <code>sd-audit-pack</code> chain.</p>
+  <div>
+    <span class="flag">ESMA Benchmark 97.5%</span>
+    <span class="flag">T+1 Industry Target ≥99.5%</span>
+    <span class="flag warn">CSDR Reg. (EU) 909/2014 Art 7</span>
+    <span class="flag warn">EU T+1 Go-Live 11 Oct 2027</span>
+  </div>
+  <div class="bench-note">ℹ ESMA BENCHMARK: ~97.5% EU average settlement rate (ESMA CSDR Annual Settlement Efficiency Statistics — verify current edition). T+1 industry ambition: ≥99.5% (ESMA T+1 roadmap Jun 2025, not a regulatory threshold). Grade A ≥99% · B ≥97.5% · C ≥95% · D ≥90% · F &lt;90%.</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Stress: 4/6 settled, fails and penalties</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Clean: 6/6 settled, all on-time (Grade A)</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Partial: 5/6 settled, one penalty</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Period label</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Label</span>Period / batch identifier</label>
+        <input type="text" id="period_label" value="Q2-2026-batch" placeholder="e.g. Q2-2026-batch"></div>
+    </div>
+
+    <div class="section-head">Instructions (enter one per row — leave qty=0 rows blank)</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+        <thead><tr>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">#</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">Settled?</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">Fail Days</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">Penalty (EUR)</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">On-Time Alloc?</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">SSI Golden?</th>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap">Buy-In Triggered?</th>
+        </tr></thead>
+        <tbody id="instrRows"></tbody>
+      </table>
+    </div>
+    <button onclick="run()" style="margin-top:14px">Compute Settlement KPIs →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="settlementRateVal" style="color:var(--green)">–</div>
+        <div class="hero-lbl">Settlement Rate</div>
+      </div>
+      <div class="hero-stat" style="display:flex;align-items:center;justify-content:center">
+        <div>
+          <div id="gradeVal" class="grade-badge" style="color:var(--green)">–</div>
+          <div class="hero-lbl" style="margin-top:4px">Grade</div>
+        </div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="failRateVal" style="color:var(--red)">–</div>
+        <div class="hero-lbl">Fail Rate</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="vsBenchmarkVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">vs. ESMA (bps)</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kn">On-Time Allocation</div><div class="kv" id="onTimeAllocVal" style="color:var(--teal-lt)">–</div></div>
+      <div class="kpi-card"><div class="kn">SSI Golden Coverage</div><div class="kv" id="ssiGoldenVal" style="color:var(--teal-lt)">–</div></div>
+      <div class="kpi-card"><div class="kn">Total Penalty Cost</div><div class="kv" id="penaltyVal" style="color:var(--warn)">–</div></div>
+      <div class="kpi-card"><div class="kn">Buy-In Triggered</div><div class="kv" id="buyinTriggeredVal" style="color:var(--body)">–</div></div>
+    </div>
+
+    <div id="overallVerdict"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Fail-duration distribution</div>
+    <div class="dur-grid">
+      <div class="dur-card"><div class="dn">1 day</div><div class="dv" id="dur1" style="color:var(--warn)">–</div></div>
+      <div class="dur-card"><div class="dn">2–5 days</div><div class="dv" id="dur2to5" style="color:var(--warn)">–</div></div>
+      <div class="dur-card"><div class="dn">6–10 days</div><div class="dv" id="dur6to10" style="color:var(--red)">–</div></div>
+      <div class="dur-card"><div class="dn">&gt;10 days</div><div class="dv" id="durOver10" style="color:var(--red)">–</div></div>
+    </div>
+
+    <div class="verdict info" style="margin-top:8px;font-size:.74rem">
+      <b>Benchmark:</b> ~97.5% EU average (ESMA CSDR Annual Settlement Efficiency Statistics — verify current edition) · <b>T+1 industry ambition:</b> ≥99.5% (ESMA T+1 roadmap Jun 2025 — not a regulatory threshold) · <b>T+1 go-live:</b> 11 Oct 2027 (EU/UK/CH coordinated) — verify current. Grading: A ≥99% · B ≥97.5% · C ≥95% · D ≥90% · F &lt;90%.
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Instruction detail</div>
+    <div id="instrTable"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-84-settlement-efficiency-kpi",
+  "mcp_name": "compute_settlement_efficiency_kpi",
+  "mandate_type": "model_governance",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "instructions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "settled": {"type":"boolean"},
+            "fail_days": {"type":"number","default":0},
+            "penalty_amount": {"type":"number","default":0},
+            "on_time_allocation": {"type":"boolean"},
+            "ssi_golden": {"type":"boolean"},
+            "buyin_triggered": {"type":"boolean"}
+          }
+        }
+      },
+      "period_label": {"type":"string","default":"batch"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_META = {
+  tool_id: 'art-84-settlement-efficiency-kpi',
+  mandate_type: 'model_governance',
+};
+
+const ESMA_EU_BENCHMARK = 97.5;
+const NUM_ROWS = 6;
+
+function grade(r) {
+  return r >= 99 ? 'A' : r >= 97.5 ? 'B' : r >= 95 ? 'C' : r >= 90 ? 'D' : 'F';
+}
+function gradeColor(g) {
+  return g === 'A' ? 'var(--green)' : g === 'B' ? 'var(--teal-lt)' : g === 'C' ? 'var(--warn)' : g === 'D' ? '#e07020' : 'var(--red)';
+}
+
+function buildRows() {
+  const tb = document.getElementById('instrRows');
+  let html = '';
+  for (let i = 1; i <= NUM_ROWS; i++) {
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="font-family:'JetBrains Mono',monospace;padding:5px 6px;color:var(--muted)">${i}</td>
+      <td style="padding:4px 6px"><select id="i${i}_settled" style="width:80px;padding:.3rem .4rem;font-size:.75rem"><option value="yes">Yes</option><option value="no">No</option></select></td>
+      <td style="padding:4px 6px"><input type="number" id="i${i}_faildays" value="0" min="0" style="width:70px;padding:.3rem .4rem;font-size:.75rem"></td>
+      <td style="padding:4px 6px"><input type="number" id="i${i}_penalty" value="0" min="0" step="0.01" style="width:90px;padding:.3rem .4rem;font-size:.75rem"></td>
+      <td style="padding:4px 6px"><select id="i${i}_ontimealloc" style="width:70px;padding:.3rem .4rem;font-size:.75rem"><option value="yes">Yes</option><option value="no">No</option></select></td>
+      <td style="padding:4px 6px"><select id="i${i}_ssigolden" style="width:70px;padding:.3rem .4rem;font-size:.75rem"><option value="yes">Yes</option><option value="no">No</option></select></td>
+      <td style="padding:4px 6px"><select id="i${i}_buyin" style="width:70px;padding:.3rem .4rem;font-size:.75rem"><option value="no">No</option><option value="yes">Yes</option></select></td>
+    </tr>`;
+  }
+  tb.innerHTML = html;
+}
+
+function setRow(i, settled, faildays, penalty, ontimealloc, ssigolden, buyin) {
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  s(`i${i}_settled`, settled);
+  s(`i${i}_faildays`, faildays);
+  s(`i${i}_penalty`, penalty);
+  s(`i${i}_ontimealloc`, ontimealloc);
+  s(`i${i}_ssigolden`, ssigolden);
+  s(`i${i}_buyin`, buyin);
+}
+
+function loadPreset(p) {
+  if (p === 'A') {
+    document.getElementById('period_label').value = 'Q2-2026-stress';
+    setRow(1,'yes',0,0,'yes','yes','no');
+    setRow(2,'yes',0,0,'yes','yes','no');
+    setRow(3,'yes',0,0,'yes','no','no');
+    setRow(4,'yes',0,150,'no','no','no');
+    setRow(5,'no',3,220,'no','no','no');
+    setRow(6,'no',8,420,'no','no','yes');
+  } else if (p === 'B') {
+    document.getElementById('period_label').value = 'Q2-2026-clean';
+    for (let i = 1; i <= 6; i++) setRow(i,'yes',0,0,'yes','yes','no');
+  } else if (p === 'C') {
+    document.getElementById('period_label').value = 'Q2-2026-partial';
+    setRow(1,'yes',0,0,'yes','yes','no');
+    setRow(2,'yes',0,0,'yes','yes','no');
+    setRow(3,'yes',0,0,'yes','yes','no');
+    setRow(4,'yes',0,0,'yes','yes','no');
+    setRow(5,'yes',0,80,'yes','yes','no');
+    setRow(6,'no',2,120,'no','no','no');
+  }
+}
+
+function getPP() {
+  const instructions = [];
+  for (let i = 1; i <= NUM_ROWS; i++) {
+    instructions.push({
+      settled:             document.getElementById(`i${i}_settled`).value === 'yes',
+      fail_days:           +(document.getElementById(`i${i}_faildays`).value ?? 0),
+      penalty_amount:      +(document.getElementById(`i${i}_penalty`).value ?? 0),
+      on_time_allocation:  document.getElementById(`i${i}_ontimealloc`).value === 'yes',
+      ssi_golden:          document.getElementById(`i${i}_ssigolden`).value === 'yes',
+      buyin_triggered:     document.getElementById(`i${i}_buyin`).value === 'yes',
+    });
+  }
+  return {
+    instructions,
+    period_label: document.getElementById('period_label').value || 'batch',
+  };
+}
+
+function compute(pp) {
+  const { instructions = [], period_label = 'batch' } = pp;
+  const total = instructions.length;
+
+  if (total === 0) {
+    const output_payload = {
+      period_label, total_instructions: 0,
+      settlement_rate: 100, fail_rate: 0, settlement_grade: 'A',
+      vs_benchmark_bps: +(( 100 - ESMA_EU_BENCHMARK) * 100).toFixed(1),
+      on_time_allocation_rate: 100, ssi_golden_coverage_pct: 100,
+      total_penalty_cost: 0, buyin_triggered_count: 0,
+      fail_duration_distribution: { '1_day': 0, '2_to_5_days': 0, '6_to_10_days': 0, 'over_10_days': 0 },
+      benchmark: { esma_settlement_rate_pct: ESMA_EU_BENCHMARK, source: 'ESMA CSDR Annual Stats (verify current edition)' },
+      note: 'No instructions provided — KPIs default to 100% (zero trades).',
+    };
+    return { output_payload, compliance_flags: [] };
+  }
+
+  let settled_count = 0, total_penalty = 0, on_time_alloc = 0, golden_ssi = 0, buyin_trig = 0;
+  const dur_dist = { '1_day': 0, '2_to_5_days': 0, '6_to_10_days': 0, 'over_10_days': 0 };
+
+  for (const inst of instructions) {
+    if (inst.settled) settled_count++;
+    total_penalty   += +(inst.penalty_amount ?? 0);
+    if (inst.on_time_allocation) on_time_alloc++;
+    if (inst.ssi_golden)         golden_ssi++;
+    if (inst.buyin_triggered)    buyin_trig++;
+    const fd = +(inst.fail_days ?? 0);
+    if (fd === 1)      dur_dist['1_day']++;
+    else if (fd <= 5)  dur_dist['2_to_5_days']++;
+    else if (fd <= 10) dur_dist['6_to_10_days']++;
+    else if (fd > 10)  dur_dist['over_10_days']++;
+  }
+
+  const settlement_rate             = +(settled_count / total * 100).toFixed(2);
+  const fail_rate                   = +(100 - settlement_rate).toFixed(2);
+  const on_time_allocation_rate     = +(on_time_alloc / total * 100).toFixed(1);
+  const ssi_golden_coverage_pct     = +(golden_ssi    / total * 100).toFixed(1);
+  const settlement_grade            = grade(settlement_rate);
+  const vs_benchmark                = +(settlement_rate - ESMA_EU_BENCHMARK).toFixed(2);
+
+  const compliance_flags = [];
+  if (settlement_rate < 95)                       compliance_flags.push('SETTLEMENT_RATE_CRITICAL');
+  else if (settlement_rate < ESMA_EU_BENCHMARK)   compliance_flags.push('SETTLEMENT_RATE_BELOW_BENCHMARK');
+  if (on_time_allocation_rate < 90)               compliance_flags.push('ON_TIME_ALLOCATION_LOW');
+  if (ssi_golden_coverage_pct < 80)               compliance_flags.push('SSI_GOLDEN_COVERAGE_LOW');
+  if (buyin_trig > 0)                             compliance_flags.push('BUYIN_TRIGGERED');
+
+  const output_payload = {
+    period_label, total_instructions: total,
+    settlement_rate, fail_rate, settlement_grade,
+    vs_benchmark_bps: +(vs_benchmark * 100).toFixed(1),
+    on_time_allocation_rate, ssi_golden_coverage_pct,
+    total_penalty_cost: +total_penalty.toFixed(2),
+    buyin_triggered_count: buyin_trig,
+    fail_duration_distribution: dur_dist,
+    benchmark: {
+      esma_settlement_rate_pct: ESMA_EU_BENCHMARK,
+      source: 'ESMA CSDR Annual Settlement Efficiency Statistics (verify current edition year)',
+      t1_target: '≥99.5% settlement rate (T+1 industry ambition — ESMA T+1 roadmap Jun 2025)',
+    },
+    note: 'DECISION-SUPPORT DRAFT — KPIs are computed from the provided instruction batch. Verify ESMA benchmark settlement rate against the current edition of ESMA CSDR annual settlement efficiency statistics. T+1 target rate is an industry ambition (ESMA T+1 roadmap); no regulatory threshold set as of Jun 2026.',
+  };
+  return { output_payload, compliance_flags };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const op = output_payload;
+  const hash = await execHash(pp, op);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: op, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+
+  const gc = gradeColor(op.settlement_grade);
+  const srColor = op.settlement_grade === 'A' ? 'var(--green)' : op.settlement_grade === 'B' ? 'var(--teal-lt)' : op.settlement_grade === 'C' ? 'var(--warn)' : op.settlement_grade === 'D' ? '#e07020' : 'var(--red)';
+  document.getElementById('settlementRateVal').textContent = op.settlement_rate + '%';
+  document.getElementById('settlementRateVal').style.color = srColor;
+  document.getElementById('gradeVal').textContent = op.settlement_grade;
+  document.getElementById('gradeVal').style.color = gc;
+  document.getElementById('failRateVal').textContent = op.fail_rate + '%';
+  document.getElementById('failRateVal').style.color = op.fail_rate > 5 ? 'var(--red)' : op.fail_rate > 2.5 ? 'var(--warn)' : 'var(--green)';
+  const bpsSign = op.vs_benchmark_bps >= 0 ? '+' : '';
+  document.getElementById('vsBenchmarkVal').textContent = bpsSign + op.vs_benchmark_bps;
+  document.getElementById('vsBenchmarkVal').style.color = op.vs_benchmark_bps >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('onTimeAllocVal').textContent = op.on_time_allocation_rate + '%';
+  document.getElementById('onTimeAllocVal').style.color = op.on_time_allocation_rate >= 90 ? 'var(--green)' : 'var(--warn)';
+  document.getElementById('ssiGoldenVal').textContent = op.ssi_golden_coverage_pct + '%';
+  document.getElementById('ssiGoldenVal').style.color = op.ssi_golden_coverage_pct >= 80 ? 'var(--green)' : 'var(--warn)';
+  document.getElementById('penaltyVal').textContent = op.total_penalty_cost > 0 ? op.total_penalty_cost.toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2}) : '0.00';
+  document.getElementById('penaltyVal').style.color = op.total_penalty_cost > 0 ? 'var(--warn)' : 'var(--green)';
+  document.getElementById('buyinTriggeredVal').textContent = op.buyin_triggered_count;
+  document.getElementById('buyinTriggeredVal').style.color = op.buyin_triggered_count > 0 ? 'var(--red)' : 'var(--body)';
+
+  const dd = op.fail_duration_distribution;
+  document.getElementById('dur1').textContent = dd['1_day'];
+  document.getElementById('dur2to5').textContent = dd['2_to_5_days'];
+  document.getElementById('dur6to10').textContent = dd['6_to_10_days'];
+  document.getElementById('durOver10').textContent = dd['over_10_days'];
+
+  const flagsHtml = compliance_flags.length > 0
+    ? compliance_flags.map(f => `<span class="badge ${f.includes('CRITICAL') ? 'err' : f.includes('BELOW') ? 'warn' : f === 'BUYIN_TRIGGERED' ? 'err' : 'warn'}">${f}</span>`).join(' ')
+    : '<span class="badge ok">CONFORMANT</span>';
+
+  const verdictCls = op.settlement_grade === 'A' || op.settlement_grade === 'B' ? 'pass' : op.settlement_grade === 'C' ? 'warn' : 'fail';
+  const verdictMsg = `Settlement rate ${op.settlement_rate}% · Grade ${op.settlement_grade} · ${op.total_instructions} instructions (${op.total_instructions - (op.total_instructions * op.fail_rate / 100).toFixed(0) | 0} settled, ${(op.total_instructions * op.fail_rate / 100).toFixed(0) | 0} failed) · ${op.vs_benchmark_bps >= 0 ? '+' : ''}${op.vs_benchmark_bps} bps vs. ESMA 97.5% benchmark`;
+  document.getElementById('overallVerdict').innerHTML = `<div class="verdict ${verdictCls}">${verdictMsg}</div><div style="margin:4px 0">${flagsHtml}</div>`;
+
+  let iHtml = '<table class="tbl"><thead><tr><th>#</th><th>Settled</th><th>Fail Days</th><th>Penalty</th><th>On-Time Alloc</th><th>SSI Golden</th><th>Buy-In</th></tr></thead><tbody>';
+  pp.instructions.forEach((inst, idx) => {
+    const setCell = inst.settled ? '<span class="badge ok">Yes</span>' : '<span class="badge err">No</span>';
+    const onCell  = inst.on_time_allocation ? '<span class="badge ok">Yes</span>' : '<span class="badge warn">No</span>';
+    const ssiCell = inst.ssi_golden ? '<span class="badge ok">Yes</span>' : '<span class="badge warn">No</span>';
+    const biCell  = inst.buyin_triggered ? '<span class="badge err">Yes</span>' : '<span class="badge info">No</span>';
+    const fdCell  = inst.fail_days > 0 ? `<span style="font-family:'JetBrains Mono',monospace">${inst.fail_days}</span>` : '—';
+    const penCell = inst.penalty_amount > 0 ? `<span style="font-family:'JetBrains Mono',monospace;color:var(--warn)">${inst.penalty_amount.toLocaleString('en-US',{minimumFractionDigits:2})}</span>` : '—';
+    iHtml += `<tr><td style="font-family:'JetBrains Mono',monospace">${idx+1}</td><td>${setCell}</td><td>${fdCell}</td><td>${penCell}</td><td>${onCell}</td><td>${ssiCell}</td><td>${biCell}</td></tr>`;
+  });
+  iHtml += '</tbody></table>';
+  document.getElementById('instrTable').innerHTML = iHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+
+// Initialise the instruction rows on page load
+buildRows();
+loadPreset('A');
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-settlement-discipline.html" style="color:var(--muted)">Wave 17 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EU Taxonomy Alignment Scorer · ART-73 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Scores an economic activity against the EU Taxonomy's three-gate test: Substantial Contribution (SC), Do No Significant Harm (DNSH), and Minimum Safeguards. All three required for alignment. Omnibus I revisions in force 28 Jan 2026. Reg. (EU) 2020/852.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-73-taxonomy-alignment-scorer.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="EU Taxonomy Alignment Scorer · ART-73 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="EU Taxonomy three-gate scorer: SC + DNSH + Minimum Safeguards. Omnibus I in force 28 Jan 2026. 6 environmental objectives. ALIGNED / ELIGIBLE_NOT_ALIGNED / NOT_ELIGIBLE. OpenChainGraph v0.4. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-73-taxonomy-alignment-scorer.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"EU Taxonomy Alignment Scorer · ART-73 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-73-taxonomy-alignment-scorer.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Scores an economic activity against the EU Taxonomy three-gate test (SC, DNSH, Minimum Safeguards). Omnibus I revisions in force 28 Jan 2026. 6 environmental objectives. Returns ALIGNED, ELIGIBLE_NOT_ALIGNED, or NOT_ELIGIBLE with reasoning.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-73 · Wave 16. In-browser compute() stays byte-identical to kernels/art-73-taxonomy-alignment-scorer.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.grade-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:600;width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.tier-box{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.obl-item{margin:6px 0;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:4px}
+.obl-item .art{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);font-weight:600}
+.obl-item .status{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);margin-left:8px}
+.obl-item .status.warn{color:var(--gold)}
+.obl-item .req{font-size:.78rem;color:var(--body);margin-top:3px}
+.dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.dim-grid{grid-template-columns:1fr 1fr}}
+.dim-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.dim-card .dn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dim-card .dg{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+.verdict-hero{padding:16px 20px;border-radius:var(--radius-lg);margin:10px 0;border:2px solid}
+.verdict-hero.aligned{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.35);color:var(--green)}
+.verdict-hero.eligible-not-aligned{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.35);color:var(--warn)}
+.verdict-hero.not-eligible{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.35);color:var(--red)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:1.35rem;font-weight:700;letter-spacing:.04em}
+.verdict-reason{font-size:.82rem;margin-top:6px;opacity:.9}
+.gate-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
+@media(max-width:540px){.gate-grid{grid-template-columns:1fr}}
+.gate-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
+.gate-card.pass{border-color:rgba(34,197,94,.3)}
+.gate-card.fail{border-color:rgba(239,68,68,.3)}
+.gate-card.warn{border-color:rgba(245,158,11,.3)}
+.gate-name{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
+.gate-status{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600}
+.gate-status.pass{color:var(--green)}
+.gate-status.fail{color:var(--red)}
+.gate-status.partial{color:var(--warn)}
+.dnsh-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.dnsh-table th{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px;text-align:left}
+.dnsh-table td{padding:6px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text)}
+.obj-label{font-size:.78rem;color:var(--body)}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-73</span></div>
+  <a href="guide-carbon-compliance.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 16 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-73 · Wave 16 · Carbon Compliance · EU Taxonomy Alignment Scorer</div>
+  <h1>EU Taxonomy Alignment Scorer</h1>
+  <p class="sub">Scores an economic activity against the EU Taxonomy's three-gate test: Substantial Contribution (SC) to an environmental objective, Do No Significant Harm (DNSH) to the other five objectives, and Minimum Safeguards — all three required for alignment. Omnibus I revisions in force 28 Jan 2026. Part of the taxonomy-align, taxonomy-kpi, and eugb-conformance chains.</p>
+  <div>
+    <span class="flag">Omnibus I Taxonomy revisions in force 28 Jan 2026</span>
+    <span class="flag">6 environmental objectives</span>
+    <span class="flag warn">SC + DNSH + Safeguards = Alignment</span>
+  </div>
+  <div class="force-note">✅ IN FORCE: Omnibus I (Reg. (EU) 2025/XX) Taxonomy revisions entered into force 28 Jan 2026. Verify current technical screening criteria for the specific NACE code against up-to-date Delegated Acts before filing KPIs or green bond declarations.</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Climate-mitigation SC met, DNSH gap biodiversity → eligible-not-aligned</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — All gates met → aligned</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — SC not met → not-eligible</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Activity &amp; primary objective</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">NACE</span>NACE code (optional, e.g. D35.11)</label>
+        <input type="text" id="nace_code" placeholder="e.g. D35.11 — Electricity generation from solar"></div>
+      <div class="q"><label><span class="dim">Objective</span>Primary environmental objective (SC assessed against)</label>
+        <select id="primary_objective">
+          <option value="climate_mitigation">Climate mitigation</option>
+          <option value="climate_adaptation">Climate adaptation</option>
+          <option value="water">Water &amp; marine resources</option>
+          <option value="circular_economy">Circular economy</option>
+          <option value="pollution_prevention">Pollution prevention &amp; control</option>
+          <option value="biodiversity">Biodiversity &amp; ecosystems</option>
+        </select></div>
+    </div>
+
+    <div class="section-head">Gate 1 — Substantial Contribution</div>
+    <div class="q"><label><span class="dim">SC</span>Substantial contribution status for the primary objective</label>
+      <select id="substantial_contribution">
+        <option value="met">Met — activity meets SC technical screening criteria</option>
+        <option value="partial">Partial — criteria partially met</option>
+        <option value="not-met">Not met — criteria not satisfied</option>
+      </select></div>
+
+    <div class="section-head">Gate 2 — Do No Significant Harm (DNSH) for all other objectives</div>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:10px">Assess DNSH against each objective that is NOT the primary objective above. Select "not-applicable" only if the activity has no plausible pathway to harm that objective.</p>
+    <div class="grid">
+      <div class="q"><label><span class="dim">DNSH</span>Climate mitigation</label>
+        <select id="dnsh_climate_mitigation"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+      <div class="q"><label><span class="dim">DNSH</span>Climate adaptation</label>
+        <select id="dnsh_climate_adaptation"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+      <div class="q"><label><span class="dim">DNSH</span>Water &amp; marine resources</label>
+        <select id="dnsh_water"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+      <div class="q"><label><span class="dim">DNSH</span>Circular economy</label>
+        <select id="dnsh_circular_economy"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+      <div class="q"><label><span class="dim">DNSH</span>Pollution prevention &amp; control</label>
+        <select id="dnsh_pollution_prevention"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+      <div class="q"><label><span class="dim">DNSH</span>Biodiversity &amp; ecosystems</label>
+        <select id="dnsh_biodiversity"><option value="met">Met</option><option value="not-met">Not met</option><option value="not-applicable">Not applicable</option></select></div>
+    </div>
+
+    <div class="section-head">Gate 3 — Minimum Safeguards</div>
+    <div class="q"><label><span class="dim">Safeguards</span>Minimum safeguards status (OECD MNE Guidelines, UN Guiding Principles, ILO core conventions, tax transparency)</label>
+      <select id="minimum_safeguards">
+        <option value="in-place">In place — processes and due diligence documented</option>
+        <option value="partial">Partial — some gaps identified</option>
+        <option value="none">None — not yet assessed or implemented</option>
+      </select></div>
+
+    <button onclick="run()">Score taxonomy alignment →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div id="verdictHero"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Three-gate summary</div>
+    <div class="gate-grid" id="gateGrid"></div>
+
+    <div id="dnshGapsBox" style="margin-top:10px"></div>
+    <div id="flagsBox" style="margin-top:10px"></div>
+
+    <div style="margin:12px 0 4px;font-size:.78rem;color:var(--bright)">DNSH detail by objective</div>
+    <table class="dnsh-table" id="dnshTable">
+      <thead><tr><th>Objective</th><th>Role</th><th>DNSH status</th></tr></thead>
+      <tbody id="dnshBody"></tbody>
+    </table>
+
+    <div style="margin:12px 0 4px;font-size:.78rem;color:var(--bright)">Recommendation</div>
+    <div id="recBox"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-73-taxonomy-alignment-scorer",
+  "mcp_name": "score_taxonomy_alignment",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["primary_objective","substantial_contribution","minimum_safeguards"],
+    "properties": {
+      "nace_code": {"type": "string"},
+      "primary_objective": {"enum": ["climate_mitigation","climate_adaptation","water","circular_economy","pollution_prevention","biodiversity"]},
+      "substantial_contribution": {"enum": ["met","partial","not-met"]},
+      "dnsh_climate_mitigation": {"enum": ["met","not-met","not-applicable"]},
+      "dnsh_climate_adaptation": {"enum": ["met","not-met","not-applicable"]},
+      "dnsh_water": {"enum": ["met","not-met","not-applicable"]},
+      "dnsh_circular_economy": {"enum": ["met","not-met","not-applicable"]},
+      "dnsh_pollution_prevention": {"enum": ["met","not-met","not-applicable"]},
+      "dnsh_biodiversity": {"enum": ["met","not-met","not-applicable"]},
+      "minimum_safeguards": {"enum": ["in-place","partial","none"]}
+    }
+  }
+}
+</script>
+
+<script>
+const ALL_OBJ = ['climate_mitigation','climate_adaptation','water','circular_economy','pollution_prevention','biodiversity'];
+const OBJ_LABELS = {
+  climate_mitigation: 'Climate mitigation',
+  climate_adaptation: 'Climate adaptation',
+  water: 'Water & marine resources',
+  circular_economy: 'Circular economy',
+  pollution_prevention: 'Pollution prevention & control',
+  biodiversity: 'Biodiversity & ecosystems',
+};
+
+function getpp() {
+  return {
+    nace_code: document.getElementById('nace_code').value.trim(),
+    primary_objective: document.getElementById('primary_objective').value,
+    substantial_contribution: document.getElementById('substantial_contribution').value,
+    dnsh_climate_mitigation: document.getElementById('dnsh_climate_mitigation').value,
+    dnsh_climate_adaptation: document.getElementById('dnsh_climate_adaptation').value,
+    dnsh_water: document.getElementById('dnsh_water').value,
+    dnsh_circular_economy: document.getElementById('dnsh_circular_economy').value,
+    dnsh_pollution_prevention: document.getElementById('dnsh_pollution_prevention').value,
+    dnsh_biodiversity: document.getElementById('dnsh_biodiversity').value,
+    minimum_safeguards: document.getElementById('minimum_safeguards').value,
+  };
+}
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('nace_code','D35.11'); setField('primary_objective','climate_mitigation'); setField('substantial_contribution','met');
+    setField('dnsh_climate_mitigation','not-applicable'); setField('dnsh_climate_adaptation','met'); setField('dnsh_water','met');
+    setField('dnsh_circular_economy','met'); setField('dnsh_pollution_prevention','met'); setField('dnsh_biodiversity','not-met');
+    setField('minimum_safeguards','in-place');
+  } else if (p === 'B') {
+    setField('nace_code','A3.1'); setField('primary_objective','biodiversity'); setField('substantial_contribution','met');
+    setField('dnsh_climate_mitigation','met'); setField('dnsh_climate_adaptation','met'); setField('dnsh_water','met');
+    setField('dnsh_circular_economy','met'); setField('dnsh_pollution_prevention','met'); setField('dnsh_biodiversity','not-applicable');
+    setField('minimum_safeguards','in-place');
+  } else if (p === 'C') {
+    setField('nace_code','C24.10'); setField('primary_objective','climate_mitigation'); setField('substantial_contribution','not-met');
+    setField('dnsh_climate_mitigation','not-applicable'); setField('dnsh_climate_adaptation','met'); setField('dnsh_water','met');
+    setField('dnsh_circular_economy','met'); setField('dnsh_pollution_prevention','met'); setField('dnsh_biodiversity','met');
+    setField('minimum_safeguards','in-place');
+  }
+}
+
+function compute(pp) {
+  const dnsh_other = ALL_OBJ.filter(o => o !== pp.primary_objective);
+  const dnsh_results = {};
+  for (const obj of dnsh_other) {
+    dnsh_results[obj] = pp[`dnsh_${obj}`] || 'met';
+  }
+  const dnsh_gaps = Object.entries(dnsh_results).filter(([, v]) => v === 'not-met').map(([k]) => k);
+  const sc_met = pp.substantial_contribution === 'met';
+  const dnsh_met = dnsh_gaps.length === 0;
+  const safeguards_met = pp.minimum_safeguards === 'in-place';
+
+  let alignment_verdict, verdict_reason;
+  if (!sc_met) {
+    alignment_verdict = 'NOT_ELIGIBLE';
+    verdict_reason = 'Substantial contribution criteria not met — activity is not Taxonomy-eligible for this objective.';
+  } else if (!dnsh_met) {
+    alignment_verdict = 'ELIGIBLE_NOT_ALIGNED';
+    verdict_reason = `DNSH failure on: ${dnsh_gaps.map(g => OBJ_LABELS[g]).join(', ')}. Activity is eligible but not aligned.`;
+  } else if (!safeguards_met) {
+    alignment_verdict = 'ELIGIBLE_NOT_ALIGNED';
+    verdict_reason = 'Minimum safeguards not in place. Activity is eligible but not aligned.';
+  } else {
+    alignment_verdict = 'ALIGNED';
+    verdict_reason = 'All three gates met: substantial contribution, DNSH, and minimum safeguards.';
+  }
+
+  const compliance_flags = [];
+  if (!dnsh_met) compliance_flags.push('DNSH_FAILURE');
+  if (!safeguards_met && sc_met) compliance_flags.push('SAFEGUARDS_INCOMPLETE');
+  if (alignment_verdict === 'ELIGIBLE_NOT_ALIGNED') compliance_flags.push('ELIGIBLE_NOT_ALIGNED');
+
+  const output_payload = {
+    alignment_verdict,
+    verdict_reason,
+    substantial_contribution_status: pp.substantial_contribution,
+    primary_objective: pp.primary_objective,
+    dnsh_gaps,
+    dnsh_results,
+    safeguards_status: pp.minimum_safeguards,
+    nace_code: pp.nace_code || 'unspecified',
+    reference: {
+      regulation: 'EU Taxonomy Reg. (EU) 2020/852; Climate + Environmental Delegated Acts. Omnibus I revisions in force 28 Jan 2026.',
+      note: 'Verify SC technical screening criteria for the specific NACE code and environmental objective against the current Delegated Acts. DNSH criteria are objective- and activity-specific.',
+    },
+    note: 'DECISION-SUPPORT DRAFT — not an auditor opinion. Taxonomy alignment determination depends on the specific technical screening criteria for the activity and objective. Verify against current Delegated Acts.',
+  };
+
+  return { output_payload, compliance_flags, alignment_verdict, verdict_reason, sc_met, dnsh_met, safeguards_met, dnsh_gaps, dnsh_results, dnsh_other };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+async function run() {
+  const pp = getpp();
+  const { output_payload, compliance_flags, alignment_verdict, verdict_reason, sc_met, dnsh_met, safeguards_met, dnsh_gaps, dnsh_results, dnsh_other } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'server',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-73-taxonomy-alignment-scorer',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: 'sha256:' + hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+
+  // Verdict hero
+  const verdictClass = alignment_verdict === 'ALIGNED' ? 'aligned' : alignment_verdict === 'ELIGIBLE_NOT_ALIGNED' ? 'eligible-not-aligned' : 'not-eligible';
+  const verdictEmoji = alignment_verdict === 'ALIGNED' ? '✅' : alignment_verdict === 'ELIGIBLE_NOT_ALIGNED' ? '⚠️' : '✗';
+  document.getElementById('verdictHero').innerHTML = `
+    <div class="verdict-hero ${verdictClass}">
+      <div class="verdict-label">${verdictEmoji} ${alignment_verdict.replace(/_/g, ' ')}</div>
+      <div class="verdict-reason">${verdict_reason}</div>
+    </div>`;
+
+  // Three-gate summary
+  const scCls = sc_met ? 'pass' : 'fail';
+  const dnshCls = dnsh_met ? 'pass' : 'fail';
+  const safeCls = safeguards_met ? 'pass' : pp.minimum_safeguards === 'partial' ? 'warn' : 'fail';
+  document.getElementById('gateGrid').innerHTML = `
+    <div class="gate-card ${scCls}">
+      <div class="gate-name">Gate 1 · Substantial Contribution</div>
+      <div class="gate-status ${scCls}">${sc_met ? 'PASS' : pp.substantial_contribution === 'partial' ? 'PARTIAL' : 'FAIL'}</div>
+      <div style="font-size:.72rem;color:var(--body);margin-top:4px">${OBJ_LABELS[pp.primary_objective]}</div>
+    </div>
+    <div class="gate-card ${dnshCls}">
+      <div class="gate-name">Gate 2 · DNSH</div>
+      <div class="gate-status ${dnshCls}">${dnsh_met ? 'PASS' : 'FAIL'}</div>
+      <div style="font-size:.72rem;color:var(--body);margin-top:4px">${dnsh_met ? 'No DNSH failures' : dnsh_gaps.length + ' objective(s) failing'}</div>
+    </div>
+    <div class="gate-card ${safeCls}">
+      <div class="gate-name">Gate 3 · Minimum Safeguards</div>
+      <div class="gate-status ${safeCls}">${safeguards_met ? 'PASS' : pp.minimum_safeguards === 'partial' ? 'PARTIAL' : 'FAIL'}</div>
+      <div style="font-size:.72rem;color:var(--body);margin-top:4px">OECD MNE / UN GPs / ILO</div>
+    </div>`;
+
+  // DNSH gaps
+  document.getElementById('dnshGapsBox').innerHTML = dnsh_gaps.length
+    ? `<div class="verdict fail"><b>DNSH failures:</b> ${dnsh_gaps.map(g => OBJ_LABELS[g]).join(' · ')}</div>`
+    : '';
+
+  // Flags
+  const flagHtml = compliance_flags.length
+    ? compliance_flags.map(f => `<div class="verdict warn"><b>Flag:</b> ${f}</div>`).join('')
+    : '<div class="verdict pass">No compliance flags raised.</div>';
+  document.getElementById('flagsBox').innerHTML = flagHtml;
+
+  // DNSH detail table
+  const primary = pp.primary_objective;
+  document.getElementById('dnshBody').innerHTML = ALL_OBJ.map(obj => {
+    const isPrimary = obj === primary;
+    if (isPrimary) {
+      return `<tr><td>${OBJ_LABELS[obj]}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt)">PRIMARY (SC)</td><td style="color:var(--muted)">N/A — assessed as SC</td></tr>`;
+    }
+    const status = dnsh_results[obj] || 'met';
+    const statusColor = status === 'met' ? 'var(--green)' : status === 'not-met' ? 'var(--red)' : 'var(--muted)';
+    return `<tr><td>${OBJ_LABELS[obj]}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">DNSH</td><td style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:${statusColor}">${status.toUpperCase()}</td></tr>`;
+  }).join('');
+
+  // Recommendation
+  const recText = alignment_verdict === 'ALIGNED'
+    ? 'Activity is Taxonomy-aligned. Document the SC criteria met, DNSH assessments, and safeguards procedures. Run taxonomy-kpi chain to calculate KPI percentages for CSRD/SFDR reporting. Verify against current Delegated Acts before filing.'
+    : alignment_verdict === 'ELIGIBLE_NOT_ALIGNED'
+    ? `Activity is Taxonomy-eligible but NOT aligned. ${dnsh_gaps.length > 0 ? 'Resolve DNSH failures for: ' + dnsh_gaps.map(g => OBJ_LABELS[g]).join(', ') + '. ' : ''}${!safeguards_met ? 'Implement minimum safeguards processes. ' : ''}Run taxonomy-align chain for a remediation roadmap.`
+    : 'Activity is NOT Taxonomy-eligible for the selected primary objective. Verify the NACE code mapping and SC technical screening criteria. Consider whether a different environmental objective or enabling/transitional activity classification applies. Run taxonomy-align chain.';
+  const recCls = alignment_verdict === 'ALIGNED' ? 'pass' : alignment_verdict === 'ELIGIBLE_NOT_ALIGNED' ? 'warn' : 'fail';
+  document.getElementById('recBox').innerHTML = `<div class="verdict ${recCls}">${recText}</div>`;
+
+  document.getElementById('hash').textContent = 'sha256:' + hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-carbon-compliance.html" style="color:var(--muted)">Wave 16 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

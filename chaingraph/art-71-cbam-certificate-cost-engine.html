@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CBAM Certificate Cost & Free-Allocation Engine · ART-71 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Converts embedded emissions into a CBAM certificate liability: applies CBAM factor (free-allocation phase-out 2.5% 2026 → 100% 2034), deducts origin carbon price, prices certificates against EUA reference, projects quarterly holding schedule. CBAM Reg. (EU) 2023/956.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CBAM Certificate Cost & Free-Allocation Engine · ART-71 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="CBAM certificate liability engine. CBAM factor 2.5% (2026) → 100% (2034). EUA pricing, origin credit deduction, quarterly holding schedule. OpenChainGraph v0.4. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"CBAM Certificate Cost & Free-Allocation Engine · ART-71 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Converts embedded emissions into a CBAM certificate liability applying the phase-out factor schedule (2.5% 2026 to 100% 2034), deducts origin carbon price, prices against EUA reference, projects quarterly holding and surrender schedule. CBAM Reg. (EU) 2023/956.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-71 · Wave 16. In-browser compute() stays byte-identical to kernels/art-71-cbam-certificate-cost-engine.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.grade-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:600;width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.tier-box{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.obl-item{margin:6px 0;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:4px}
+.obl-item .art{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);font-weight:600}
+.obl-item .status{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);margin-left:8px}
+.obl-item .status.warn{color:var(--gold)}
+.obl-item .req{font-size:.78rem;color:var(--body);margin-top:3px}
+.dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.dim-grid{grid-template-columns:1fr 1fr}}
+.dim-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.dim-card .dn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dim-card .dg{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+.big-num{font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:600;color:var(--teal-lt)}
+.big-label{font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+@media(max-width:540px){.stat-grid{grid-template-columns:1fr 1fr}}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.stat-card .sv{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--bright)}
+.stat-card .sk{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px;text-align:left}
+td{padding:6px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text)}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-71</span></div>
+  <a href="guide-carbon-compliance.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 16 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-71 · Wave 16 · Carbon Compliance · CBAM Certificate Cost Engine</div>
+  <h1>CBAM Certificate Cost &amp; Free-Allocation Engine</h1>
+  <p class="sub">Converts embedded emissions into a CBAM certificate liability: applies the CBAM factor (free-allocation phase-out 2.5% in 2026 rising to 100% in 2034), deducts any carbon price already paid in the country of origin, prices certificates against the EUA reference, and projects the quarterly holding and surrender schedule. Part of the cbm-liability chain.</p>
+  <div>
+    <span class="flag">CBAM factor 2.5% (2026) → 100% (2034)</span>
+    <span class="flag">Surrender deadline 30 Sep each year</span>
+    <span class="flag warn">Verify EUA price source</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — 1000 tCO₂e, 2026, no origin price, EUA €50</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — 500 tCO₂e, 2028, origin credit €15/t, EUA €65</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — 2000 tCO₂e, 2030, EUA €80</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Emissions &amp; year</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Input</span>Embedded emissions (tCO₂e)</label>
+        <input type="number" id="embedded_emissions_tco2e" value="1000" min="0" step="any"></div>
+      <div class="q"><label><span class="dim">CBAM</span>CBAM factor year</label>
+        <input type="number" id="cbam_factor_year" value="2026" min="2026" max="2034" step="1"></div>
+    </div>
+    <div class="section-head">Pricing</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Origin</span>Carbon price already paid in country of origin (EUR/t)</label>
+        <input type="number" id="origin_carbon_price_eur_per_t" value="0" min="0" step="any"></div>
+      <div class="q"><label><span class="dim">EUA</span>EUA reference price (EUR)</label>
+        <input type="number" id="eua_reference_price_eur" value="50" min="0" step="any"></div>
+    </div>
+    <button onclick="run()">Calculate CBAM certificate liability →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="grade-hero">
+      <div>
+        <div class="big-label">Certificate liability</div>
+        <div class="big-num" id="liabilityNum">–</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted)" id="liabilityEur">–</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div class="big-label">CBAM factor</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;color:var(--gold)" id="factorBadge">–</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)" id="factorYear">–</div>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Quarterly holding schedule (≥80% by end of each quarter)</div>
+    <table id="quarterTable">
+      <thead><tr><th>Quarter</th><th>Min holding (tCO₂e certificates)</th></tr></thead>
+      <tbody id="quarterBody"></tbody>
+    </table>
+
+    <div style="margin:12px 0 4px;font-size:.78rem;color:var(--bright)">Surrender deadline</div>
+    <div class="tier-box" id="surrenderBox">–</div>
+
+    <div id="flagsBox" style="margin-top:10px"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-71-cbam-certificate-cost-engine",
+  "mcp_name": "model_cbam_certificate_cost",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["embedded_emissions_tco2e","cbam_factor_year","eua_reference_price_eur"],
+    "properties": {
+      "embedded_emissions_tco2e": {"type": "number", "exclusiveMinimum": 0},
+      "cbam_factor_year": {"type": "integer", "minimum": 2026, "maximum": 2034},
+      "origin_carbon_price_eur_per_t": {"type": "number", "minimum": 0, "default": 0},
+      "eua_reference_price_eur": {"type": "number", "exclusiveMinimum": 0}
+    }
+  }
+}
+</script>
+
+<script>
+const CBAM_FACTOR = {2026:0.025,2027:0.050,2028:0.100,2029:0.225,2030:0.485,2031:0.610,2032:0.735,2033:0.860,2034:1.000};
+function getCbamFactor(yr) { return CBAM_FACTOR[+yr] ?? (+yr > 2034 ? 1.000 : 0.025); }
+
+function getpp() {
+  return {
+    embedded_emissions_tco2e: parseFloat(document.getElementById('embedded_emissions_tco2e').value) || 0,
+    cbam_factor_year: parseInt(document.getElementById('cbam_factor_year').value) || 2026,
+    origin_carbon_price_eur_per_t: parseFloat(document.getElementById('origin_carbon_price_eur_per_t').value) || 0,
+    eua_reference_price_eur: parseFloat(document.getElementById('eua_reference_price_eur').value) || 50,
+  };
+}
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') { setField('embedded_emissions_tco2e', 1000); setField('cbam_factor_year', 2026); setField('origin_carbon_price_eur_per_t', 0); setField('eua_reference_price_eur', 50); }
+  else if (p === 'B') { setField('embedded_emissions_tco2e', 500); setField('cbam_factor_year', 2028); setField('origin_carbon_price_eur_per_t', 15); setField('eua_reference_price_eur', 65); }
+  else if (p === 'C') { setField('embedded_emissions_tco2e', 2000); setField('cbam_factor_year', 2030); setField('origin_carbon_price_eur_per_t', 0); setField('eua_reference_price_eur', 80); }
+}
+
+function compute(pp) {
+  const emissions = +(pp.embedded_emissions_tco2e ?? 0);
+  const year = +(pp.cbam_factor_year ?? 2026);
+  const factor = getCbamFactor(year);
+  const freeAllocationPct = +(100 - factor * 100).toFixed(1);
+  const euaPrice = +(pp.eua_reference_price_eur ?? 50);
+  const originCredit = Math.min(+(pp.origin_carbon_price_eur_per_t ?? 0), euaPrice);
+  const liabilityEmissions = +(emissions * factor).toFixed(3);
+  const originCreditTotal = +(originCredit * liabilityEmissions).toFixed(2);
+  const certificateLiabilityEur = Math.max(0, +(euaPrice * liabilityEmissions - originCreditTotal)).toFixed(2);
+  const certificatesRequired = +(liabilityEmissions).toFixed(3);
+
+  const quarters = ['Q1','Q2','Q3','Q4'];
+  const quarterlyHolding = quarters.map((q, i) => ({
+    quarter: q,
+    min_holding: +(liabilityEmissions * 0.80 / 4 * (i + 1)).toFixed(3),
+  }));
+
+  const compliance_flags = [];
+  if (+(pp.origin_carbon_price_eur_per_t ?? 0) > euaPrice) compliance_flags.push('ORIGIN_PRICE_UNVERIFIED');
+  if (factor < 1) compliance_flags.push('FREE_ALLOCATION_STILL_ACTIVE');
+
+  const output_payload = {
+    certificate_liability_eur: +certificateLiabilityEur,
+    certificates_required: certificatesRequired,
+    cbam_factor_applied: factor,
+    cbam_factor_pct: +(factor * 100).toFixed(1),
+    free_allocation_remaining_pct: freeAllocationPct,
+    origin_price_credit_eur: +originCreditTotal,
+    embedded_emissions_tco2e: emissions,
+    liability_emissions_tco2e: +liabilityEmissions,
+    eua_reference_price: euaPrice,
+    quarterly_holding_schedule: quarterlyHolding,
+    surrender_deadline: `30 Sep ${year + 1}`,
+    reference: {
+      regulation: 'CBAM Reg. (EU) 2023/956 Arts 21-22 (certificates); EU-ETS free-allocation phase-out schedule',
+      cbam_factor_note: 'CBAM factor schedule: 2.5% (2026), 5% (2027), 10% (2028), 22.5% (2029), 48.5% (2030), 61% (2031), 73.5% (2032), 86% (2033), 100% (2034). Verify against current EU-ETS free-allocation acts.',
+    },
+    note: 'DECISION-SUPPORT DRAFT — not a filed CBAM declaration. Certificate prices are inputs; verify EUA reference price against CBAM authority pricing methodology.',
+  };
+
+  return { output_payload, compliance_flags, factor, freeAllocationPct, liabilityEmissions: +liabilityEmissions, certificateLiabilityEur: +certificateLiabilityEur, certificatesRequired, originCreditTotal: +originCreditTotal, euaPrice, year, quarterlyHolding };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+async function run() {
+  const pp = getpp();
+  const { output_payload, compliance_flags, factor, freeAllocationPct, liabilityEmissions, certificateLiabilityEur, certificatesRequired, originCreditTotal, euaPrice, year, quarterlyHolding } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'server',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-71-cbam-certificate-cost-engine',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: 'sha256:' + hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('liabilityNum').textContent = '€' + certificateLiabilityEur.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('liabilityEur').textContent = certificatesRequired + ' certificates required';
+  document.getElementById('factorBadge').textContent = (factor * 100).toFixed(1) + '%';
+  document.getElementById('factorYear').textContent = 'Year ' + year;
+
+  const stats = [
+    { k: 'Liability tCO₂e', v: liabilityEmissions.toFixed(3) },
+    { k: 'Free alloc. remaining', v: freeAllocationPct + '%' },
+    { k: 'Origin credit (EUR)', v: '€' + originCreditTotal.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+    { k: 'EUA reference', v: '€' + euaPrice + '/t' },
+    { k: 'Embedded emissions', v: pp.embedded_emissions_tco2e + ' tCO₂e' },
+    { k: 'Surrender deadline', v: '30 Sep ' + (year + 1) },
+  ];
+  document.getElementById('statGrid').innerHTML = stats.map(s => `<div class="stat-card"><div class="sk">${s.k}</div><div class="sv">${s.v}</div></div>`).join('');
+
+  document.getElementById('quarterBody').innerHTML = quarterlyHolding.map(q => `<tr><td>${q.quarter}</td><td>${q.min_holding}</td></tr>`).join('');
+  document.getElementById('surrenderBox').textContent = '30 Sep ' + (year + 1) + ' — Annual CBAM certificate surrender deadline';
+
+  const flagHtml = compliance_flags.length
+    ? compliance_flags.map(f => `<div class="verdict warn"><b>Flag:</b> ${f}</div>`).join('')
+    : '<div class="verdict pass">No compliance flags raised.</div>';
+  document.getElementById('flagsBox').innerHTML = flagHtml;
+
+  document.getElementById('hash').textContent = 'sha256:' + hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-carbon-compliance.html" style="color:var(--muted)">Wave 16 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

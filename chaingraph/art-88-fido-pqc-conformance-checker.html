@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FIDO2 / WebAuthn PQC Conformance Checker · ART-88 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validates FIDO2/WebAuthn authenticator support for ML-DSA (FIDO Alliance CTAP2.3) vs IANA COSE algorithm registry. Checks COSE identifier presence and CTAP version for PQC credential migration. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-88-fido-pqc-conformance-checker.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FIDO2 / WebAuthn PQC Conformance Checker · ART-88 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="FIDO2/WebAuthn ML-DSA COSE conformance. CTAP2.3 version check. IANA COSE Registry IDs. PQC credential migration. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-88-fido-pqc-conformance-checker.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-88 · Wave 18. In-browser compute() stays byte-identical to kernels/art-88-fido-pqc-conformance-checker.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--orange:#F97316;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.scope-guard{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3);border-left:4px solid var(--warn);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.cose-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+@media(max-width:520px){.cose-grid{grid-template-columns:1fr}}
+.cose-item{display:flex;align-items:center;gap:8px;padding:.35rem .65rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;transition:border-color .15s}
+.cose-item:hover{border-color:var(--teal)}
+.cose-item input[type=checkbox]{accent-color:var(--teal);width:13px;height:13px;flex-shrink:0}
+.cose-label{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);flex:1}
+.cose-tag{font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.1rem .35rem;border-radius:8px;white-space:nowrap}
+.cose-tag.pqc{background:rgba(20,184,166,.1);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.cose-tag.legacy{background:rgba(58,82,112,.15);color:var(--muted);border:1px solid var(--border)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict-hero{border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:14px;font-size:1rem;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;letter-spacing:.06em}
+.verdict-hero.conformant{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.verdict-hero.nonconformant{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.hybrid{background:rgba(212,168,71,.1);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.check-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:.8rem}
+.check-row:last-child{border-bottom:none}
+.check-icon{font-size:.9rem;width:18px;text-align:center}
+.gap-item{padding:6px 10px;margin:4px 0;background:rgba(239,68,68,.04);border-left:2px solid rgba(239,68,68,.3);border-radius:2px;font-size:.76rem;color:var(--text)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-88</span></div>
+  <a href="guide-pqc.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 18 →</a>
+</div></nav>
+<div class="wrap">
+
+  <div class="scope-guard">⚠ SCOPE: Credential crypto-suite migration ONLY. Checks COSE algorithm IDs and CTAP version for PQC conformance. Does NOT cover credential format or protocol conformance (EUDI scope).</div>
+
+  <div class="eyebrow">ART-88 · Wave 18 · Post-Quantum Cryptography · FIDO2/WebAuthn</div>
+  <h1>FIDO2 / WebAuthn PQC Conformance Checker</h1>
+  <p class="sub">Validates FIDO2/WebAuthn authenticator support for ML-DSA (FIDO Alliance CTAP2.3) vs IANA COSE algorithm registry. Checks COSE identifier presence and CTAP version. Scoped to credential crypto-suite migration — not credential FORMAT/protocol conformance (EUDI scope).</p>
+  <div>
+    <span class="flag">FIDO CTAP2.3</span>
+    <span class="flag warn">IANA COSE Registry</span>
+    <span class="flag red">NOT EUDI credential format</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Legacy only (ES256+RS256, CTAP 2.0): NOT CONFORMANT</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Hybrid (ES256+ML-DSA-65, CTAP 2.3): CONFORMANT hybrid</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Full PQC (ML-DSA-65 only, CTAP 2.3): CONFORMANT pqc_only</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Authenticator Configuration</div>
+    <div class="q">
+      <label>COSE algorithms supported <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">(select all that apply)</span></label>
+      <div class="cose-grid" id="coseGroup">
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-7"> <span class="cose-label">-7 · ES256 / ECDSA-SHA-256</span> <span class="cose-tag legacy">legacy</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-35"> <span class="cose-label">-35 · ES384</span> <span class="cose-tag legacy">legacy</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-8"> <span class="cose-label">-8 · EdDSA</span> <span class="cose-tag legacy">legacy</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-257"> <span class="cose-label">-257 · RS256</span> <span class="cose-tag legacy">legacy</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-48"> <span class="cose-label">-48 · ML-DSA-44 / COSE</span> <span class="cose-tag pqc">PQC</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-49"> <span class="cose-label">-49 · ML-DSA-65 / COSE</span> <span class="cose-tag pqc">PQC</span></label>
+        <label class="cose-item"><input type="checkbox" name="cose_alg" value="-50"> <span class="cose-label">-50 · ML-DSA-87 / COSE</span> <span class="cose-tag pqc">PQC</span></label>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="q"><label>Attestation format</label>
+        <select id="attestation_format">
+          <option value="packed" selected>packed</option>
+          <option value="tpm">tpm</option>
+          <option value="fido-u2f">fido-u2f</option>
+          <option value="none">none</option>
+        </select></div>
+      <div class="q"><label>CTAP version</label>
+        <select id="ctap_version">
+          <option value="2.0">2.0</option>
+          <option value="2.1">2.1</option>
+          <option value="2.2">2.2</option>
+          <option value="2.3">2.3</option>
+        </select></div>
+    </div>
+    <div class="section-head">PQC Target</div>
+    <div class="q" style="max-width:300px"><label>Target PQC algorithm</label>
+      <select id="target_pqc">
+        <option value="ML-DSA-44">ML-DSA-44 (COSE -48)</option>
+        <option value="ML-DSA-65" selected>ML-DSA-65 (COSE -49)</option>
+        <option value="ML-DSA-87">ML-DSA-87 (COSE -50)</option>
+      </select></div>
+
+    <button onclick="run()">Check PQC Conformance →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div id="verdictHero"></div>
+
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="hybridVal" style="color:var(--gold)">–</div>
+        <div class="hero-lbl">Mode</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="ctapVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">CTAP Version</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="pqcCountVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">PQC COSE IDs</div>
+      </div>
+    </div>
+
+    <div class="section-head">Conformance Checks</div>
+    <div id="checkRows"></div>
+
+    <div class="section-head">PQC COSE Algorithms Found</div>
+    <div id="rPqcAlgs" style="font-size:.78rem">–</div>
+
+    <div id="gapsSection" style="display:none">
+      <div class="section-head">Gaps</div>
+      <div id="rGaps"></div>
+    </div>
+
+    <div class="section-head">Flags</div>
+    <div id="rFlags">–</div>
+
+    <div class="verdict info" style="margin-top:12px;font-size:.74rem">
+      <b>References:</b> IANA COSE Algorithms Registry — ML-DSA COSE IDs (verify current IANA assignments) · FIDO Alliance CTAP2.3 specification — minimum version for native PQC (verify current). DECISION-SUPPORT DRAFT — not a FIDO certification.
+    </div>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()">⬇ Export AP2 JSON</button>
+    </div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-88-fido-pqc-conformance-checker",
+  "mcp_name": "check_fido_pqc_conformance",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "wave": 18
+}
+</script>
+
+<script>
+const TOOL_META = {
+  tool_id: 'art-88-fido-pqc-conformance-checker',
+  tool_version: '1.0.0',
+  mandate_type: 'compliance_mandate',
+};
+
+// Mirror of kernel constants
+const COSE_PQC_IDS = { 'ML-DSA-44': -48, 'ML-DSA-65': -49, 'ML-DSA-87': -50 };
+const CTAP_23_REQUIRED = '2.3';
+const LEGACY_COSE_ALGS = [-7, -35, -36, -257, -258, -259];
+
+function getCheckedCoseAlgs() {
+  return Array.from(document.querySelectorAll('input[name="cose_alg"]:checked')).map(c => +c.value);
+}
+function setCheckedCose(vals) {
+  document.querySelectorAll('input[name="cose_alg"]').forEach(c => { c.checked = vals.includes(+c.value); });
+}
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setCheckedCose([-7, -257]);
+    setField('attestation_format','packed');
+    setField('ctap_version','2.0');
+    setField('target_pqc','ML-DSA-65');
+  } else if (p === 'B') {
+    setCheckedCose([-7, -49]);
+    setField('attestation_format','packed');
+    setField('ctap_version','2.3');
+    setField('target_pqc','ML-DSA-65');
+  } else if (p === 'C') {
+    setCheckedCose([-49]);
+    setField('attestation_format','packed');
+    setField('ctap_version','2.3');
+    setField('target_pqc','ML-DSA-65');
+  }
+}
+
+function getPP() {
+  return {
+    authenticator: {
+      cose_algorithms: getCheckedCoseAlgs(),
+      attestation_format: document.getElementById('attestation_format').value,
+      ctap_version: document.getElementById('ctap_version').value,
+    },
+    target_pqc: document.getElementById('target_pqc').value,
+  };
+}
+
+// Inline compute — mirrors kernel exactly
+function compute(pp) {
+  const {
+    authenticator = { cose_algorithms: [], attestation_format: 'packed', ctap_version: '2.0' },
+    target_pqc = 'ML-DSA-65',
+  } = pp;
+
+  const {
+    cose_algorithms = [],
+    attestation_format = 'packed',
+    ctap_version = '2.0',
+  } = authenticator;
+
+  const target_cose_id = COSE_PQC_IDS[target_pqc] ?? null;
+  const pqc_values = Object.values(COSE_PQC_IDS);
+  const supported_pqc_cose_ids = cose_algorithms.filter(id => pqc_values.includes(id));
+  const legacy_algs_present = cose_algorithms.some(id => LEGACY_COSE_ALGS.includes(id));
+  const ctap_pqc_ready = ctap_version >= CTAP_23_REQUIRED;
+  const target_supported = target_cose_id !== null && supported_pqc_cose_ids.includes(target_cose_id);
+  const conformant = target_supported && ctap_pqc_ready;
+
+  const gaps = [];
+  if (!target_supported) gaps.push('Target COSE algorithm (' + target_pqc + ', ID ' + target_cose_id + ') not in supported list');
+  if (!ctap_pqc_ready) gaps.push('CTAP version ' + ctap_version + ' < ' + CTAP_23_REQUIRED + ' — CTAP2.3 required for native PQC support');
+  if (attestation_format === 'none') gaps.push('Attestation format "none" — cannot verify PQC algorithm support chain');
+
+  let hybrid_status;
+  if (supported_pqc_cose_ids.length > 0 && legacy_algs_present) {
+    hybrid_status = 'hybrid';
+  } else if (supported_pqc_cose_ids.length > 0) {
+    hybrid_status = 'pqc_only';
+  } else {
+    hybrid_status = 'legacy_only';
+  }
+
+  const compliance_flags = [];
+  if (supported_pqc_cose_ids.length === 0) compliance_flags.push('NO_PQC_COSE_SUPPORT');
+  if (!ctap_pqc_ready) compliance_flags.push('PRE_CTAP23');
+
+  const output_payload = {
+    conformant,
+    target_pqc,
+    target_cose_id,
+    supported_pqc_cose_ids,
+    gaps,
+    hybrid_status,
+    ctap_pqc_ready,
+    attestation_format,
+    ctap_version,
+    cose_pqc_registry: COSE_PQC_IDS,
+    reference_version: '2026-06',
+    note: 'DECISION-SUPPORT DRAFT. COSE PQC algorithm IDs from IANA COSE Algorithms Registry — verify current assignments. CTAP2.3 PQC requirement from FIDO Alliance CTAP2.3 specification — verify current version. ML-DSA COSE IDs may be updated as IANA registration progresses.',
+  };
+
+  return { output_payload, compliance_flags };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+let _lastArtifact = null;
+
+const HYBRID_LABELS = { hybrid: 'HYBRID', pqc_only: 'PQC ONLY', legacy_only: 'LEGACY ONLY' };
+const HYBRID_COLORS = { hybrid: 'var(--gold)', pqc_only: 'var(--teal-lt)', legacy_only: 'var(--muted)' };
+
+async function run() {
+  const pp = getPP();
+  if (pp.authenticator.cose_algorithms.length === 0) { alert('Select at least one COSE algorithm.'); return; }
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: TOOL_META.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact;
+
+  const { conformant, hybrid_status, ctap_pqc_ready, target_supported, supported_pqc_cose_ids, gaps, target_cose_id, target_pqc } = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  // Hero verdict
+  document.getElementById('verdictHero').innerHTML = conformant
+    ? `<div class="verdict-hero conformant">CONFORMANT — ${pp.target_pqc} (COSE ${target_cose_id}) supported · CTAP ${pp.authenticator.ctap_version}</div>`
+    : `<div class="verdict-hero nonconformant">NOT CONFORMANT — ${gaps.length} gap${gaps.length !== 1 ? 's' : ''} found</div>`;
+
+  // Hero stats
+  const hybridEl = document.getElementById('hybridVal');
+  hybridEl.textContent = HYBRID_LABELS[hybrid_status] || hybrid_status;
+  hybridEl.style.color = HYBRID_COLORS[hybrid_status] || 'var(--body)';
+
+  const ctapEl = document.getElementById('ctapVal');
+  ctapEl.textContent = pp.authenticator.ctap_version;
+  ctapEl.style.color = ctap_pqc_ready ? 'var(--green)' : 'var(--red)';
+
+  const pqcCountEl = document.getElementById('pqcCountVal');
+  pqcCountEl.textContent = supported_pqc_cose_ids.length;
+  pqcCountEl.style.color = supported_pqc_cose_ids.length > 0 ? 'var(--teal-lt)' : 'var(--red)';
+
+  // Check rows
+  const checkData = [
+    { label: `Target COSE ID (${target_pqc} = ${target_cose_id})`, pass: target_supported, detail: target_supported ? 'Present in supported list' : 'Not found — add COSE ' + target_cose_id },
+    { label: `CTAP version ≥ 2.3 (current: ${pp.authenticator.ctap_version})`, pass: ctap_pqc_ready, detail: ctap_pqc_ready ? 'Meets CTAP2.3 requirement' : 'Upgrade to CTAP2.3 required' },
+    { label: `Attestation format (${pp.authenticator.attestation_format})`, pass: pp.authenticator.attestation_format !== 'none', detail: pp.authenticator.attestation_format !== 'none' ? 'Attestation chain verifiable' : 'Format "none" cannot verify PQC chain' },
+  ];
+  document.getElementById('checkRows').innerHTML = checkData.map(c =>
+    `<div class="check-row"><span class="check-icon">${c.pass ? '✓' : '✗'}</span><span style="flex:1;font-size:.8rem;color:${c.pass ? 'var(--text)' : 'var(--bright)'}">${c.label}</span><span style="font-size:.76rem;color:${c.pass ? 'var(--green)' : 'var(--red)'}">${c.detail}</span></div>`
+  ).join('');
+
+  // PQC COSE found
+  const pqcMap = { '-48': 'ML-DSA-44', '-49': 'ML-DSA-65', '-50': 'ML-DSA-87' };
+  document.getElementById('rPqcAlgs').innerHTML = supported_pqc_cose_ids.length > 0
+    ? supported_pqc_cose_ids.map(id => `<span class="badge info" style="margin:2px">${id} · ${pqcMap[id] || id}</span>`).join(' ')
+    : '<span style="color:var(--muted);font-size:.76rem">None detected</span>';
+
+  // Gaps
+  if (gaps.length > 0) {
+    document.getElementById('gapsSection').style.display = 'block';
+    document.getElementById('rGaps').innerHTML = gaps.map(g => `<div class="gap-item">${g}</div>`).join('');
+  } else {
+    document.getElementById('gapsSection').style.display = 'none';
+  }
+
+  // Flags
+  document.getElementById('rFlags').innerHTML = compliance_flags.length > 0
+    ? compliance_flags.map(f => `<span class="badge err" style="margin:2px">${f}</span>`).join(' ')
+    : '<span class="badge ok">NONE</span>';
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'art-88-fido-pqc-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-pqc.html" style="color:var(--muted)">Wave 18 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

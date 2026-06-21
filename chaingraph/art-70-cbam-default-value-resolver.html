@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CBAM Default-Value Resolver · ART-70 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Resolves the Commission default embedded-emissions value for a CN code × country-of-origin pair, applies year-dependent markup (+10% 2026, +20% 2027, +30% 2028+), and returns the value with provenance. Part of the cbm-liability chain. Decision-support draft.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CBAM Default-Value Resolver · ART-70 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Resolves Commission CBAM default embedded-emissions values with year-dependent markup (+10%/+20%/+30%). Provenance-anchored. OpenChainGraph v0.4. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"CBAM Default-Value Resolver · ART-70 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Resolves the Commission default embedded-emissions value for a (CN code × country-of-origin) pair, applies year-dependent markup over the actual-data path, and returns the value with provenance. Answers: if you don't have actual installation data, what default applies and what does it cost to use it? Part of the cbm-liability chain. Decision-support draft.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-70 · Wave 16. In-browser compute() stays byte-identical to kernels/art-70-cbam-default-value-resolver.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.value-hero{display:flex;align-items:flex-end;gap:12px;margin-bottom:6px}
+.value-big{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:600;color:var(--warn);line-height:1}
+.value-unit{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--muted);margin-bottom:6px}
+.value-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:14px;text-transform:uppercase;letter-spacing:.1em}
+.compare-row{display:flex;gap:12px;align-items:stretch;margin:12px 0}
+.compare-box{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.compare-box .cb-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
+.compare-box .cb-value{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600}
+.compare-box .cb-note{font-size:.7rem;color:var(--muted);margin-top:4px}
+.markup-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:600;padding:.3rem .8rem;border-radius:20px;background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.markup-schedule{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.markup-year{flex:1;min-width:90px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;text-align:center}
+.markup-year .my-year{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)}
+.markup-year .my-pct{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600}
+.markup-year.active{border-color:var(--warn);background:rgba(245,158,11,.06)}
+.markup-year.active .my-year{color:var(--warn)}
+.provenance-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-70</span></div>
+  <a href="guide-carbon-compliance.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 16 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-70 · Wave 16 · Carbon &amp; Climate Compliance · Default-Value Resolver</div>
+  <h1>CBAM Default-Value Resolver</h1>
+  <p class="sub">Resolves the Commission default embedded-emissions value for a (CN code × country-of-origin) pair, applies the year-dependent markup over the actual-data path, and returns the value with provenance. Answers: if you don't have actual installation data, what default applies and what does it cost to use it? Part of the cbm-liability chain.</p>
+  <div>
+    <span class="flag warn">Default markup +10% (2026) · +20% (2027) · +30% (2028+)</span>
+    <span class="flag warn">Verify Implementing Regulation edition</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Cement, China, 2026, no actual data</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Iron &amp; Steel, India, 2027, no actual data</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Hydrogen, Turkey, 2028, actual data available</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Goods &amp; origin</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">CBAM</span>Good category</label>
+        <select id="good_category">
+          <option value="cement">Cement (CN 2523)</option>
+          <option value="iron_steel">Iron &amp; Steel (CN 72/73)</option>
+          <option value="aluminium">Aluminium (CN 76)</option>
+          <option value="fertiliser">Fertilisers (CN 28/31)</option>
+          <option value="hydrogen">Hydrogen (CN 2804 10)</option>
+          <option value="electricity">Electricity</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Origin</span>Country of origin</label>
+        <select id="country_of_origin">
+          <option value="China">China</option>
+          <option value="India">India</option>
+          <option value="Turkey">Turkey</option>
+          <option value="Ukraine">Ukraine</option>
+          <option value="Russia">Russia</option>
+          <option value="USA">USA</option>
+          <option value="EU">EU</option>
+          <option value="Other">Other</option>
+        </select></div>
+    </div>
+
+    <div class="section-head">Reporting &amp; data availability</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Year</span>Reporting year</label>
+        <input type="number" id="reporting_year" value="2026" min="2024" max="2035"></div>
+      <div class="q"><label><span class="dim">Data</span>Is actual installation data available?</label>
+        <select id="actual_data_available">
+          <option value="no">No — will use default values</option>
+          <option value="yes">Yes — actual data from installation</option>
+        </select></div>
+    </div>
+    <button onclick="run()">Resolve default value →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div style="margin-bottom:18px">
+      <div class="muted" style="margin-bottom:4px">Effective default (with markup) · tCO₂e per tonne</div>
+      <div class="value-hero">
+        <div class="value-big" id="effectiveValue">–</div>
+        <div class="value-unit">tCO₂e / t</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <div class="markup-badge" id="markupBadge">+0%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)" id="goodLabel">–</div>
+      </div>
+    </div>
+
+    <div class="compare-row">
+      <div class="compare-box">
+        <div class="cb-label">Base default value</div>
+        <div class="cb-value" style="color:var(--text)" id="baseValue">–</div>
+        <div class="cb-note">tCO₂e/t · before markup</div>
+      </div>
+      <div class="compare-box" style="border-color:var(--warn);background:rgba(245,158,11,.04)">
+        <div class="cb-label" style="color:var(--warn)">Effective (with markup)</div>
+        <div class="cb-value" style="color:var(--warn)" id="effectiveValue2">–</div>
+        <div class="cb-note">tCO₂e/t · penalty for using defaults</div>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Markup schedule</div>
+    <div class="markup-schedule" id="markupSchedule"></div>
+
+    <div id="actualAdviceBox" style="margin-top:10px"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Compliance flags</div>
+    <div id="flagsBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Provenance</div>
+    <div class="provenance-box" id="provenanceBox"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-70-cbam-default-value-resolver",
+  "mcp_name": "resolve_cbam_default_value",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["good_category","reporting_year"],
+    "properties": {
+      "good_category": {"enum": ["cement","iron_steel","aluminium","fertiliser","hydrogen","electricity"]},
+      "country_of_origin": {"type": "string"},
+      "reporting_year": {"type": "integer", "default": 2026},
+      "actual_data_available": {"enum": ["yes","no"]}
+    }
+  }
+}
+</script>
+
+<script>
+const DEFAULT_VALUES = {
+  cement:      { base: 0.766,  name: 'Cement (CN 2523)' },
+  iron_steel:  { base: 1.894,  name: 'Iron & Steel (CN 72/73)' },
+  aluminium:   { base: 1.503,  name: 'Aluminium (CN 76)' },
+  fertiliser:  { base: 2.340,  name: 'Fertilisers (CN 28/31)' },
+  hydrogen:    { base: 10.90,  name: 'Hydrogen (CN 2804 10)' },
+  electricity: { base: 0.000,  name: 'Electricity' },
+};
+const MARKUP = { 2026: 0.10, 2027: 0.20 };
+function getMarkup(yr) { return MARKUP[+yr] !== undefined ? MARKUP[+yr] : 0.30; }
+
+const MARKUP_SCHEDULE = [
+  { year: 2026, pct: 10, label: '+10%' },
+  { year: 2027, pct: 20, label: '+20%' },
+  { year: '2028+', pct: 30, label: '+30%' },
+];
+
+function getpp() {
+  return {
+    good_category: document.getElementById('good_category').value,
+    country_of_origin: document.getElementById('country_of_origin').value,
+    reporting_year: parseInt(document.getElementById('reporting_year').value, 10) || 2026,
+    actual_data_available: document.getElementById('actual_data_available').value,
+  };
+}
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('good_category', 'cement');
+    setField('country_of_origin', 'China');
+    setField('reporting_year', '2026');
+    setField('actual_data_available', 'no');
+  } else if (p === 'B') {
+    setField('good_category', 'iron_steel');
+    setField('country_of_origin', 'India');
+    setField('reporting_year', '2027');
+    setField('actual_data_available', 'no');
+  } else if (p === 'C') {
+    setField('good_category', 'hydrogen');
+    setField('country_of_origin', 'Turkey');
+    setField('reporting_year', '2028');
+    setField('actual_data_available', 'yes');
+  }
+}
+
+function compute(pp) {
+  const cat = DEFAULT_VALUES[pp.good_category] ?? DEFAULT_VALUES.cement;
+  const base = cat.base;
+  const markup = getMarkup(pp.reporting_year ?? 2026);
+  const effective_default = +(base * (1 + markup)).toFixed(4);
+  const actual_path_recommended = pp.actual_data_available === 'yes';
+
+  const compliance_flags = [];
+  compliance_flags.push('DEFAULT_MARKUP_PENALTY');
+  if (actual_path_recommended) compliance_flags.push('ACTUAL_DATA_RECOMMENDED');
+
+  const output_payload = {
+    default_value_tco2e_per_t: base,
+    markup_pct: +(markup * 100).toFixed(0),
+    effective_default_tco2e_per_t: effective_default,
+    actual_path_recommended,
+    good_category: pp.good_category,
+    good_name: cat.name,
+    country_of_origin: pp.country_of_origin ?? 'unspecified',
+    reporting_year: +(pp.reporting_year ?? 2026),
+    reference_version: 'CBAM-IR-v1.0-2024-Q4',
+    provenance: 'CBAM Implementing Regulation (Commission) — default embedded-emissions values; verify current edition. Markup schedule: +10% (2026), +20% (2027), +30% (2028+) per CBAM Reg. (EU) 2023/956.',
+    note: 'DECISION-SUPPORT DRAFT — default values are indicative placeholders from the versioned reference table. Verify against the current CBAM Implementing Regulation edition before use.',
+  };
+
+  return { output_payload, compliance_flags, base, markup, effective_default, actual_path_recommended, cat };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+async function run() {
+  const pp = getpp();
+  const { output_payload, compliance_flags, base, markup, effective_default, actual_path_recommended, cat } = compute(pp);
+
+  const hash = await execHash(pp, output_payload);
+  const executionHash = 'sha256:' + hash;
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'server',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-70-cbam-default-value-resolver',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: executionHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('effectiveValue').textContent = effective_default.toFixed(4);
+  document.getElementById('effectiveValue2').textContent = effective_default.toFixed(4);
+  document.getElementById('baseValue').textContent = base.toFixed(4);
+  document.getElementById('markupBadge').textContent = '+' + (markup * 100).toFixed(0) + '% markup (reporting year ' + pp.reporting_year + ')';
+  document.getElementById('goodLabel').textContent = cat.name + ' · ' + pp.country_of_origin;
+
+  // Markup schedule cards
+  const yr = pp.reporting_year;
+  document.getElementById('markupSchedule').innerHTML = MARKUP_SCHEDULE.map(m => {
+    const isActive = (m.year === yr) || (m.year === '2028+' && yr >= 2028);
+    return `<div class="markup-year${isActive ? ' active' : ''}">
+      <div class="my-year">${m.year}</div>
+      <div class="my-pct" style="color:${isActive ? 'var(--warn)' : 'var(--body)'}">${m.label}</div>
+    </div>`;
+  }).join('');
+
+  // Actual-path advice
+  if (actual_path_recommended) {
+    document.getElementById('actualAdviceBox').innerHTML = `<div class="verdict pass"><b>Actual data available:</b> Switch to the actual-data path (ART-69 CBAM Embedded-Emissions Calculator) to avoid the +${(markup * 100).toFixed(0)}% default markup penalty. Actual-path data must be verified against CBAM Implementing Regulation system boundary definitions.</div>`;
+  } else {
+    document.getElementById('actualAdviceBox').innerHTML = `<div class="verdict warn"><b>Using default values:</b> A +${(markup * 100).toFixed(0)}% markup applies for reporting year ${pp.reporting_year}. Obtain actual installation data to reduce this penalty. The markup increases to +20% in 2027 and +30% from 2028 onwards.</div>`;
+  }
+
+  // Flags
+  const flagsEl = document.getElementById('flagsBox');
+  flagsEl.innerHTML = compliance_flags.map(f => `<span style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.55rem;background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25);padding:.15rem .5rem;border-radius:10px;margin:3px 2px">${f}</span>`).join('');
+
+  document.getElementById('provenanceBox').textContent = output_payload.provenance;
+
+  document.getElementById('hash').textContent = executionHash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-carbon-compliance.html" style="color:var(--muted)">Wave 16 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

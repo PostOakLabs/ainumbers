@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CSDR Cash-Penalty Calculator · ART-78 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Flagship. Computes the CSDR cash penalty for a settlement fail: selects the asset-class daily rate (Oct-2025 RTS increases), applies fail duration and notional, credits partial settlement. ESMA RTS 13 Oct 2025. Decision-support draft.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-78-csdr-penalty-calculator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CSDR Cash-Penalty Calculator · ART-78 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="W-A Flagship. CSDR settlement fail penalty calculator. Equities 1 bp/day · SSA bonds 0.50 bp/day. ESMA RTS 13 Oct 2025. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-78-csdr-penalty-calculator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-78 · Wave 17. In-browser compute() stays byte-identical to kernels/art-78-csdr-penalty-calculator.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.flagship{background:rgba(20,184,166,.1);color:var(--teal-lt);border-color:rgba(20,184,166,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.penalty-hero{text-align:center;padding:24px 20px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px}
+.penalty-amount{font-family:'JetBrains Mono',monospace;font-size:2.8rem;font-weight:600;margin:6px 0}
+.penalty-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.penalty-sub{font-size:.78rem;color:var(--body);margin-top:4px}
+.rate-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;padding:.3rem .7rem;border-radius:4px;background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt);margin:4px 4px 0}
+.calc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+@media(max-width:560px){.calc-grid{grid-template-columns:1fr 1fr}}
+.calc-cell{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.calc-cell .cc-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.calc-cell .cc-val{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;color:var(--bright);margin-top:3px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.ref-block{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:4px;padding:.6rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);line-height:1.6}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-78</span></div>
+  <a href="guide-settlement-discipline.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 17 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-78 · Wave 17 · Settlement Discipline · W-A Flagship</div>
+  <h1>CSDR Cash-Penalty Calculator</h1>
+  <p class="sub">Flagship. Computes the CSDR cash penalty for a settlement fail: selects the asset-class daily rate (including Oct-2025 RTS increases), applies fail duration and reference notional, credits partial settlement, and projects forward penalty exposure. Part of the sd-penalty and sd-buyin chains.</p>
+  <div>
+    <span class="flag flagship">W-A FLAGSHIP</span>
+    <span class="flag">Equities 1 bp/day · SSA bonds 0.50 bp/day</span>
+    <span class="flag">ESMA RTS 13 Oct 2025</span>
+    <span class="flag warn">Verify current rates</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — 100 equity fail, 5 days, EUR 50,000</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — SSA bond, 3 days, EUR 500,000</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Illiquid, 10 days, EUR 200,000, 50% partial</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Fail details</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">CSDR</span>Asset class</label>
+        <select id="asset_class">
+          <option value="equity" selected>Equity</option>
+          <option value="ssa_bond">SSA bond (sovereign/supra/agency)</option>
+          <option value="non_ssa_bond">Non-SSA bond / corporate</option>
+          <option value="etf">ETF</option>
+          <option value="illiquid">Illiquid instrument</option>
+        </select></div>
+      <div class="q"><label><span class="dim">EUR</span>Notional (EUR)</label>
+        <input type="number" id="notional_eur" value="50000" min="0" step="1" placeholder="e.g. 50000"></div>
+      <div class="q"><label><span class="dim">Days</span>Fail duration (days)</label>
+        <input type="number" id="fail_days" value="1" min="1" step="1" placeholder="e.g. 5"></div>
+      <div class="q"><label><span class="dim">Partial</span>Partial settled (0–1, e.g. 0.5 for 50% partial)</label>
+        <input type="number" id="partial_settled_pct" value="0" min="0" max="1" step="0.01" placeholder="0–1, e.g. 0.5"></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:6px">RATE TABLE · CSDR-RTS-2025-10</div>
+      <div>
+        <span class="rate-badge">Equity: 1.00 bp/day</span>
+        <span class="rate-badge">SSA bond: 0.50 bp/day</span>
+        <span class="rate-badge">Non-SSA bond: 0.50 bp/day</span>
+        <span class="rate-badge">ETF: 0.50 bp/day</span>
+        <span class="rate-badge">Illiquid: 1.00 bp/day</span>
+      </div>
+    </div>
+    <button onclick="run()">Calculate CSDR penalty →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="penalty-hero">
+      <div class="penalty-label">CSDR cash penalty</div>
+      <div class="penalty-amount" id="penaltyAmount">–</div>
+      <div class="penalty-sub" id="penaltySub">–</div>
+    </div>
+
+    <div class="calc-grid" id="calcGrid"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Penalty breakdown</div>
+    <div id="breakdownBox"></div>
+
+    <div style="margin:12px 0 4px;font-size:.78rem;color:var(--bright)">Compliance flags</div>
+    <div id="flagsBox"></div>
+
+    <div class="ref-block" id="refBlock"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-78-csdr-penalty-calculator",
+  "mcp_name": "calculate_csdr_penalty",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["asset_class","notional_eur","fail_days"],
+    "properties": {
+      "fail": {
+        "type": "object",
+        "properties": {
+          "asset_class": {"enum": ["equity","ssa_bond","non_ssa_bond","etf","illiquid"]},
+          "notional": {"type": "number"},
+          "fail_days": {"type": "integer", "minimum": 1},
+          "partial_settled_pct": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      },
+      "rate_table_version": {"type": "string", "default": "CSDR-RTS-2025-10"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_META = {
+  mandate_type: 'compliance_mandate',
+  tool_id: 'art-78-csdr-penalty-calculator',
+};
+
+const PENALTY_RATES_BPS = { equity: 1.00, ssa_bond: 0.50, non_ssa_bond: 0.50, etf: 0.50, illiquid: 1.00 };
+const RATE_TABLE_VERSION = 'CSDR-RTS-2025-10';
+const AC_LABELS = { equity: 'Equity', ssa_bond: 'SSA Bond', non_ssa_bond: 'Non-SSA Bond', etf: 'ETF', illiquid: 'Illiquid' };
+
+function getpp() {
+  return {
+    asset_class: document.getElementById('asset_class').value,
+    notional_eur: parseFloat(document.getElementById('notional_eur').value) || 0,
+    fail_days: parseInt(document.getElementById('fail_days').value) || 1,
+    partial_settled_pct: Math.min(1, Math.max(0, parseFloat(document.getElementById('partial_settled_pct').value) || 0)),
+  };
+}
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('asset_class', 'equity'); setField('notional_eur', '50000');
+    setField('fail_days', '5'); setField('partial_settled_pct', '0');
+  } else if (p === 'B') {
+    setField('asset_class', 'ssa_bond'); setField('notional_eur', '500000');
+    setField('fail_days', '3'); setField('partial_settled_pct', '0');
+  } else if (p === 'C') {
+    setField('asset_class', 'illiquid'); setField('notional_eur', '200000');
+    setField('fail_days', '10'); setField('partial_settled_pct', '0.5');
+  }
+}
+
+async function computeHash(pp, op) {
+  const msg = JSON.stringify({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+function fmtEur(v) {
+  return 'EUR ' + v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function run() {
+  const pp = getpp();
+
+  const ac = pp.asset_class ?? 'equity';
+  const rate = (PENALTY_RATES_BPS[ac] ?? 1.00) / 10000;
+  const notional = +(pp.notional_eur ?? 0);
+  const days = +(pp.fail_days ?? 1);
+  const partial = Math.min(1, Math.max(0, +(pp.partial_settled_pct ?? 0)));
+  const adj_notional = notional * (1 - partial);
+  const penalty_amount = +(rate * adj_notional * days).toFixed(2);
+  const rate_bps = PENALTY_RATES_BPS[ac] ?? 1.00;
+
+  const compliance_flags = [];
+  if (days > 5) compliance_flags.push('LONG_DURATION_FAIL');
+  if (ac === 'illiquid') compliance_flags.push('ILLIQUID_INSTRUMENT_TIER');
+  compliance_flags.push('RATE_INCREASE_APPLIED');
+
+  const output_payload = {
+    penalty_amount, daily_rate_bps: rate_bps,
+    asset_class: ac, fail_days: days,
+    partial_settled_pct: partial, partial_credit_eur: +(notional * partial).toFixed(2),
+    notional_eur: notional, adj_notional_eur: +adj_notional.toFixed(2),
+    rate_table_version: RATE_TABLE_VERSION,
+    reference: {
+      regulation: 'CSDR Reg. (EU) 909/2014 Art 7; Delegated Reg. 2017/389 as amended',
+      rts: 'ESMA CSDR SDR RTS — Final Report 13 Oct 2025 (ESMA74-2119945926-3430)',
+      note: 'Penalty rates: verify current edition. RTS Oct 2025 updated rate schedule — confirm rates in force.',
+    },
+    note: 'DECISION-SUPPORT DRAFT — not a regulatory penalty notice. Verify penalty rates against current CSDR Delegated Reg. and ESMA RTS.',
+  };
+
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'server',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('hash').textContent = hash;
+
+  document.getElementById('results').classList.add('show');
+
+  // Penalty hero — color by severity
+  const penaltyEl = document.getElementById('penaltyAmount');
+  const isPenaltyHigh = penalty_amount > 1000;
+  const isPenaltyMed = penalty_amount > 100;
+  penaltyEl.textContent = fmtEur(penalty_amount);
+  penaltyEl.style.color = isPenaltyHigh ? '#EF4444' : isPenaltyMed ? '#F59E0B' : '#22C55E';
+  document.getElementById('penaltySub').textContent =
+    `${AC_LABELS[ac] || ac} · ${rate_bps} bp/day · ${days} day${days !== 1 ? 's' : ''} · Rate table: ${RATE_TABLE_VERSION}`;
+
+  // Calc grid
+  document.getElementById('calcGrid').innerHTML = `
+    <div class="calc-cell"><div class="cc-label">Rate</div><div class="cc-val">${rate_bps} bp/day</div></div>
+    <div class="calc-cell"><div class="cc-label">Notional</div><div class="cc-val">${fmtEur(notional)}</div></div>
+    <div class="calc-cell"><div class="cc-label">Fail days</div><div class="cc-val">${days}</div></div>
+    <div class="calc-cell"><div class="cc-label">Partial credit</div><div class="cc-val">${partial > 0 ? fmtEur(notional * partial) : '—'}</div></div>
+    <div class="calc-cell"><div class="cc-label">Adj. notional</div><div class="cc-val">${fmtEur(adj_notional)}</div></div>
+    <div class="calc-cell"><div class="cc-label">Daily penalty</div><div class="cc-val">${fmtEur(+(rate * adj_notional).toFixed(2))}</div></div>
+  `;
+
+  // Breakdown
+  const breakdown = `<div class="verdict info">
+    <b>Formula:</b> ${rate_bps} bp/day × ${fmtEur(adj_notional)} adj. notional × ${days} days
+    = <b>${fmtEur(penalty_amount)}</b>${partial > 0 ? ` (${(partial * 100).toFixed(0)}% partial settlement credited — ${fmtEur(notional * partial)} deducted from notional)` : ''}
+  </div>`;
+  document.getElementById('breakdownBox').innerHTML = breakdown;
+
+  // Flags
+  const flagsHtml = compliance_flags.map(f => {
+    const cls = f === 'LONG_DURATION_FAIL' ? 'warn' : f === 'ILLIQUID_INSTRUMENT_TIER' ? 'warn' : 'info';
+    const msg = f === 'LONG_DURATION_FAIL' ? `LONG_DURATION_FAIL — ${days} days. Escalation and buy-in notice review recommended.`
+      : f === 'ILLIQUID_INSTRUMENT_TIER' ? 'ILLIQUID_INSTRUMENT_TIER — higher penalty rate applies (1.00 bp/day). Verify instrument eligibility for partial settlement.'
+      : 'RATE_INCREASE_APPLIED — ESMA RTS Oct 2025 updated rate schedule applied. Confirm rates in force.';
+    return `<div class="verdict ${cls}">${msg}</div>`;
+  }).join('');
+  document.getElementById('flagsBox').innerHTML = flagsHtml;
+
+  // Reference
+  document.getElementById('refBlock').innerHTML =
+    `<b>Regulation:</b> ${output_payload.reference.regulation}<br>` +
+    `<b>RTS:</b> ${output_payload.reference.rts}<br>` +
+    `<b>Note:</b> ${output_payload.reference.note}`;
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-settlement-discipline.html" style="color:var(--muted)">Wave 17 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

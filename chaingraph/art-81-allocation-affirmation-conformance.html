@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Allocation/Affirmation Conformance Checker · ART-81 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR RTS 23:00 CET trade-date rule and the machine-readable-format mandate (binding Dec 2026). Computes per-event pass/fail and batch on-time rate. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Allocation/Affirmation Conformance Checker · ART-81 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="ESMA CSDR SDR RTS 23:00 CET cutoff + machine-readable format check. Binding Dec 2026. Per-event pass/fail, batch on-time rate. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-81 · Wave 17. In-browser compute() stays byte-identical to kernels/art-81-allocation-affirmation-conformance.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem;margin-top:8px}
+.tbl th{text-align:left;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;padding:6px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.count-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.count-grid{grid-template-columns:1fr 1fr}}
+.count-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.count-card .cn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.count-card .cv{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-81</span></div>
+  <a href="guide-settlement-discipline.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 17 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-81 · Wave 17 · Settlement Discipline · Allocation/Affirmation</div>
+  <h1>Allocation / Affirmation Conformance Checker</h1>
+  <p class="sub">Checks allocation and confirmation/affirmation events against the <strong>ESMA CSDR SDR RTS 23:00 CET trade-date rule</strong> and the machine-readable-format mandate (binding Dec 2026). Computes per-event pass/fail and batch on-time rate. Part of the <code>sd-alloc-affirm</code> chain.</p>
+  <div>
+    <span class="flag">Dec 2026 binding — 23:00 CET trade-date cutoff</span>
+    <span class="flag warn">Machine-readable format mandate</span>
+    <span class="flag warn">ESMA CSDR SDR RTS 13 Oct 2025</span>
+  </div>
+  <div class="force-note">✅ BINDING DEC 2026: Same-day allocation/confirmation by 23:00 CET trade-date + machine-readable formats from December 2026. Verify applicability date against ESMA CSDR SDR RTS (13 Oct 2025, ESMA74-2119945926-3430).</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — 3 events: 1 on-time/MR, 2 late/manual</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — All on time, all machine-readable (100%)</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Single late confirmation</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Event 1</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Ev 1</span>Event type</label>
+        <select id="ev_1_type"><option value="">— select —</option><option value="allocation">Allocation</option><option value="confirmation">Confirmation</option><option value="affirmation">Affirmation</option></select></div>
+      <div class="q"><label><span class="dim">Ev 1</span>Time (HH:MM CET)</label>
+        <input type="text" id="ev_1_time" placeholder="e.g. 22:30"></div>
+      <div class="q"><label><span class="dim">Ev 1</span>Trade-date match</label>
+        <select id="ev_1_date"><option value="same-day">Same-day</option><option value="next-day">Next-day</option></select></div>
+      <div class="q"><label><span class="dim">Ev 1</span>Format</label>
+        <select id="ev_1_format"><option value="machine-readable">Machine-readable</option><option value="manual">Manual</option></select></div>
+    </div>
+
+    <div class="section-head">Event 2</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Ev 2</span>Event type</label>
+        <select id="ev_2_type"><option value="">— select —</option><option value="allocation">Allocation</option><option value="confirmation">Confirmation</option><option value="affirmation">Affirmation</option></select></div>
+      <div class="q"><label><span class="dim">Ev 2</span>Time (HH:MM CET)</label>
+        <input type="text" id="ev_2_time" placeholder="e.g. 23:15"></div>
+      <div class="q"><label><span class="dim">Ev 2</span>Trade-date match</label>
+        <select id="ev_2_date"><option value="same-day">Same-day</option><option value="next-day">Next-day</option></select></div>
+      <div class="q"><label><span class="dim">Ev 2</span>Format</label>
+        <select id="ev_2_format"><option value="machine-readable">Machine-readable</option><option value="manual">Manual</option></select></div>
+    </div>
+
+    <div class="section-head">Event 3</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Ev 3</span>Event type</label>
+        <select id="ev_3_type"><option value="">— select —</option><option value="allocation">Allocation</option><option value="confirmation">Confirmation</option><option value="affirmation">Affirmation</option></select></div>
+      <div class="q"><label><span class="dim">Ev 3</span>Time (HH:MM CET)</label>
+        <input type="text" id="ev_3_time" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Ev 3</span>Trade-date match</label>
+        <select id="ev_3_date"><option value="same-day">Same-day</option><option value="next-day">Next-day</option></select></div>
+      <div class="q"><label><span class="dim">Ev 3</span>Format</label>
+        <select id="ev_3_format"><option value="machine-readable">Machine-readable</option><option value="manual">Manual</option></select></div>
+    </div>
+
+    <div class="section-head">Event 4</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Ev 4</span>Event type</label>
+        <select id="ev_4_type"><option value="">— select —</option><option value="allocation">Allocation</option><option value="confirmation">Confirmation</option><option value="affirmation">Affirmation</option></select></div>
+      <div class="q"><label><span class="dim">Ev 4</span>Time (HH:MM CET)</label>
+        <input type="text" id="ev_4_time" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Ev 4</span>Trade-date match</label>
+        <select id="ev_4_date"><option value="same-day">Same-day</option><option value="next-day">Next-day</option></select></div>
+      <div class="q"><label><span class="dim">Ev 4</span>Format</label>
+        <select id="ev_4_format"><option value="machine-readable">Machine-readable</option><option value="manual">Manual</option></select></div>
+    </div>
+
+    <div class="section-head">Event 5</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Ev 5</span>Event type</label>
+        <select id="ev_5_type"><option value="">— select —</option><option value="allocation">Allocation</option><option value="confirmation">Confirmation</option><option value="affirmation">Affirmation</option></select></div>
+      <div class="q"><label><span class="dim">Ev 5</span>Time (HH:MM CET)</label>
+        <input type="text" id="ev_5_time" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Ev 5</span>Trade-date match</label>
+        <select id="ev_5_date"><option value="same-day">Same-day</option><option value="next-day">Next-day</option></select></div>
+      <div class="q"><label><span class="dim">Ev 5</span>Format</label>
+        <select id="ev_5_format"><option value="machine-readable">Machine-readable</option><option value="manual">Manual</option></select></div>
+    </div>
+
+    <button onclick="run()">Check Allocation/Affirmation Conformance →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="onTimeRateVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">On-Time Rate</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="totalEvVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Total Events</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="formatNcVal" style="color:var(--warn)">–</div>
+        <div class="hero-lbl">Format Non-Conf.</div>
+      </div>
+    </div>
+
+    <div class="count-grid">
+      <div class="count-card"><div class="cn">On-Time</div><div class="cv" id="onTimeCount" style="color:var(--green)">–</div></div>
+      <div class="count-card"><div class="cn">Late</div><div class="cv" id="lateCount" style="color:var(--red)">–</div></div>
+      <div class="count-card"><div class="cn">Manual Format</div><div class="cv" id="manualCount" style="color:var(--warn)">–</div></div>
+    </div>
+
+    <div id="overallVerdict"></div>
+
+    <div class="verdict info" style="margin-top:8px;font-size:.74rem">
+      <b>Cutoff applied:</b> 23:00 CET (trade-date) · <b>Mandate:</b> Same-day allocation/confirmation + machine-readable formats binding Dec 2026 · <b>Verify:</b> ESMA CSDR SDR RTS (13 Oct 2025, ESMA74-2119945926-3430). Allocation/confirmation timing rules binding DEC 2026 · T+1 go-live 11 OCT 2027 — verify current.
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Events breakdown</div>
+    <div id="eventsTable"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-81-allocation-affirmation-conformance",
+  "mcp_name": "check_allocation_affirmation",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "events": {"type": "array", "items": {"type": "object", "properties": {"event_type": {"enum":["allocation","confirmation","affirmation"]}, "timestamp_ct": {"type":"string"}, "trade_date": {"type":"string"}, "format": {"enum":["machine-readable","manual"]}}}},
+      "cutoff_local": {"type": "string", "default": "23:00"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_META = {
+  tool_id: 'art-81-allocation-affirmation-conformance',
+  mandate_type: 'compliance_mandate',
+};
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  // clear all
+  for (let i = 1; i <= 5; i++) { setField(`ev_${i}_type`, ''); setField(`ev_${i}_time`, ''); setField(`ev_${i}_date`, 'same-day'); setField(`ev_${i}_format`, 'machine-readable'); }
+  if (p === 'A') {
+    setField('ev_1_type','allocation'); setField('ev_1_time','22:30'); setField('ev_1_date','same-day'); setField('ev_1_format','machine-readable');
+    setField('ev_2_type','confirmation'); setField('ev_2_time','23:45'); setField('ev_2_date','same-day'); setField('ev_2_format','manual');
+    setField('ev_3_type','affirmation'); setField('ev_3_time','08:00'); setField('ev_3_date','next-day'); setField('ev_3_format','manual');
+  } else if (p === 'B') {
+    setField('ev_1_type','allocation'); setField('ev_1_time','14:00'); setField('ev_1_date','same-day'); setField('ev_1_format','machine-readable');
+    setField('ev_2_type','confirmation'); setField('ev_2_time','16:30'); setField('ev_2_date','same-day'); setField('ev_2_format','machine-readable');
+    setField('ev_3_type','affirmation'); setField('ev_3_time','18:00'); setField('ev_3_date','same-day'); setField('ev_3_format','machine-readable');
+  } else if (p === 'C') {
+    setField('ev_1_type','confirmation'); setField('ev_1_time','23:15'); setField('ev_1_date','same-day'); setField('ev_1_format','machine-readable');
+  }
+}
+
+function getPP() {
+  const pp = { events: [], cutoff_local: '23:00' };
+  for (let i = 1; i <= 5; i++) {
+    const evType = document.getElementById(`ev_${i}_type`)?.value;
+    if (!evType) continue;
+    pp.events.push({
+      event_type: evType,
+      timestamp_ct: document.getElementById(`ev_${i}_time`)?.value ?? '',
+      trade_date_match: document.getElementById(`ev_${i}_date`)?.value ?? 'same-day',
+      format: document.getElementById(`ev_${i}_format`)?.value ?? 'manual',
+    });
+  }
+  return pp;
+}
+
+function compute(pp) {
+  const cutoff = 23 * 60; // 23:00 CET in minutes
+  const events = [];
+  for (const ev of (pp.events || [])) {
+    const timeStr = ev.timestamp_ct || '23:59';
+    const parts = timeStr.split(':').map(Number);
+    const h = isNaN(parts[0]) ? 23 : parts[0];
+    const m = isNaN(parts[1]) ? 0 : parts[1];
+    const mins = h * 60 + m;
+    const same_day = ev.trade_date_match !== 'next-day';
+    const format = ev.format ?? 'manual';
+    const late = !same_day || mins > cutoff;
+    const issues = [];
+    if (!same_day) issues.push({ rule: 'NEXT_DAY', reason: 'Event on next day (not trade-date). Must be same trade-date per ESMA CSDR SDR RTS.' });
+    else if (mins > cutoff) issues.push({ rule: `LATE_${ev.event_type.toUpperCase()}`, reason: `${timeStr} CET exceeds 23:00 CET cutoff (${mins - cutoff} min late).` });
+    if (format !== 'machine-readable') issues.push({ rule: 'MANUAL_FORMAT', reason: 'ESMA RTS Dec 2026 mandate requires machine-readable format.' });
+    events.push({ event_type: ev.event_type, time_cet: timeStr, format, same_day, late, issues });
+  }
+  const on_time_count = events.filter(e => !e.late).length;
+  const on_time_rate = events.length > 0 ? +(on_time_count / events.length * 100).toFixed(1) : 100;
+  const format_noncompliant = events.filter(e => e.format !== 'machine-readable').length;
+  const events_flagged = events.filter(e => e.issues.length > 0);
+  const compliance_flags = [];
+  if (events.some(e => e.late && e.event_type === 'allocation')) compliance_flags.push('LATE_ALLOCATION');
+  if (events.some(e => e.late && e.event_type !== 'allocation')) compliance_flags.push('LATE_CONFIRMATION');
+  if (format_noncompliant > 0) compliance_flags.push('MANUAL_FORMAT');
+  const output_payload = {
+    on_time_rate, total_events: events.length, on_time_events: on_time_count,
+    late_events: events.length - on_time_count,
+    events_detail: events, events_flagged,
+    format_nonconformance_count: format_noncompliant,
+    cutoff_applied: '23:00', cutoff_timezone: 'CET',
+    reference: {
+      rts: 'ESMA CSDR SDR RTS — Final Report 13 Oct 2025 (ESMA74-2119945926-3430)',
+      rule: 'Same-day allocation/confirmation by 23:00 CET + machine-readable formats from December 2026',
+      note: 'Verify current applicability date.',
+    },
+    dual_date_note: 'Allocation/confirmation timing rules binding DEC 2026 · T+1 go-live 11 OCT 2027 — verify current',
+    note: 'DECISION-SUPPORT DRAFT — timestamps are compared in CET. Verify event timestamps are in CET/CEST as applicable.',
+  };
+  return { on_time_rate, on_time_count, format_noncompliant, events, events_flagged, compliance_flags, output_payload };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+async function run() {
+  const pp = getPP();
+  if (pp.events.length === 0) { alert('Select at least one event type.'); return; }
+  const { on_time_rate, on_time_count, format_noncompliant, events, events_flagged, compliance_flags, output_payload } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+  const rateColor = on_time_rate >= 100 ? 'var(--green)' : on_time_rate >= 80 ? 'var(--warn)' : 'var(--red)';
+  document.getElementById('onTimeRateVal').textContent = on_time_rate + '%';
+  document.getElementById('onTimeRateVal').style.color = rateColor;
+  document.getElementById('totalEvVal').textContent = events.length;
+  document.getElementById('formatNcVal').textContent = format_noncompliant;
+  document.getElementById('onTimeCount').textContent = on_time_count;
+  document.getElementById('lateCount').textContent = events.length - on_time_count;
+  document.getElementById('manualCount').textContent = format_noncompliant;
+
+  const cls = compliance_flags.length === 0 ? 'pass' : 'fail';
+  const msg = compliance_flags.length === 0
+    ? `All ${events.length} events conform to the 23:00 CET cutoff and machine-readable format requirement.`
+    : `Non-conformance detected: ${compliance_flags.join(', ')}. On-time rate: ${on_time_rate}%. ${format_noncompliant} event(s) use manual format (non-compliant from Dec 2026).`;
+  document.getElementById('overallVerdict').innerHTML = `<div class="verdict ${cls}">${msg}</div>`;
+
+  let html = '<table class="tbl"><thead><tr><th>#</th><th>Type</th><th>Time CET</th><th>Trade-date</th><th>Format</th><th>Status</th><th>Issues</th></tr></thead><tbody>';
+  events.forEach((ev, idx) => {
+    const status = ev.issues.length === 0 ? '<span class="badge ok">PASS</span>' : ev.late ? '<span class="badge err">LATE</span>' : '<span class="badge warn">FORMAT</span>';
+    const issueHtml = ev.issues.length === 0 ? '—' : ev.issues.map(i => `<div style="font-size:.7rem;color:var(--body);margin:1px 0"><span class="badge err" style="font-size:.55rem">${i.rule}</span> ${i.reason}</div>`).join('');
+    const dateCell = ev.same_day ? '<span class="badge ok">Same-day</span>' : '<span class="badge err">Next-day</span>';
+    const fmtCell = ev.format === 'machine-readable' ? '<span class="badge ok">MR</span>' : '<span class="badge warn">Manual</span>';
+    html += `<tr><td style="font-family:'JetBrains Mono',monospace">${idx+1}</td><td>${ev.event_type}</td><td style="font-family:'JetBrains Mono',monospace">${ev.time_cet}</td><td>${dateCell}</td><td>${fmtCell}</td><td>${status}</td><td>${issueHtml}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('eventsTable').innerHTML = html;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-settlement-discipline.html" style="color:var(--muted)">Wave 17 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

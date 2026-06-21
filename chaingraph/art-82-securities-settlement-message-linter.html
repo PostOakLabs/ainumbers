@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Securities-Settlement Message Linter (ISO 20022 sese/semt) · ART-82 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validates ISO 20022 securities-settlement messages (sese.023, sese.024, semt.044) for schema conformance, mandatory-field presence, ISIN (ISO 6166), and BIC (ISO 9362) validity. Scoped strictly to sese/semt — NOT pacs/camt. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-82-securities-settlement-message-linter.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Securities-Settlement Message Linter · ART-82 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="ISO 20022 sese/semt linter. sese.023/024/semt.044 only. ISIN ISO 6166, BIC ISO 9362. NOT pacs/camt. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-82-securities-settlement-message-linter.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-82 · Wave 17. In-browser compute() stays byte-identical to kernels/art-82-securities-settlement-message-linter.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--orange:#F97316;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.scope-guard{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3);border-left:4px solid var(--warn);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.oos{background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.25)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.msg-result{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+.msg-result-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.msg-type-label{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--bright);font-weight:600}
+.issue-row{margin:5px 0;padding:6px 8px;background:rgba(239,68,68,.04);border-left:2px solid rgba(239,68,68,.3);border-radius:2px;font-size:.76rem}
+.issue-row.warn-row{background:rgba(245,158,11,.04);border-left-color:rgba(245,158,11,.35)}
+.issue-field{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);margin-right:6px}
+.issue-detail{color:var(--body)}
+.count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.count-grid{grid-template-columns:1fr 1fr}}
+.count-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.count-card .cn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.count-card .cv{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-82</span></div>
+  <a href="guide-settlement-discipline.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 17 →</a>
+</div></nav>
+<div class="wrap">
+
+  <div class="scope-guard">⚠ SCOPE: sese/semt messages ONLY. This linter validates sese.023, sese.024, and semt.044. It does NOT cover payments messages (pacs/camt) — those are owned by the cbpr-cutover/rca-03 tools.</div>
+
+  <div class="eyebrow">ART-82 · Wave 17 · Settlement Discipline · ISO 20022 Message Linter</div>
+  <h1>Securities-Settlement Message Linter</h1>
+  <p class="sub">Validates ISO 20022 securities-settlement messages (<strong>sese.023</strong> settlement instruction, <strong>sese.024</strong> status advice, <strong>semt.044</strong> account statement) for schema conformance, mandatory-field presence, ISIN (ISO 6166), and BIC (ISO 9362) validity. Scoped strictly to the sese/semt securities family — NOT the payments pacs/camt work in cbpr-cutover/rca-03. Part of the <code>sd-alloc-affirm</code> and <code>sd-message-conformance</code> chains.</p>
+  <div>
+    <span class="flag">sese.023 / sese.024 / semt.044 only</span>
+    <span class="flag warn">ISO 6166 ISIN · ISO 9362 BIC</span>
+    <span class="flag red">NOT pacs/camt</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — sese.023: missing TxId, invalid ISIN → FAIL</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — sese.024: all fields present → PASS</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — pacs.008 (out-of-scope) → REJECTED</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Message 1</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 1</span>Message type</label>
+        <select id="msg_1_type">
+          <option value="">— select —</option>
+          <option value="sese.023">sese.023 — Settlement Instruction</option>
+          <option value="sese.024">sese.024 — Status Advice</option>
+          <option value="semt.044">semt.044 — Account Statement</option>
+          <option value="pacs.008">pacs.008 (will be REJECTED)</option>
+          <option value="other">other (will be REJECTED)</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Msg 1</span>TxId / Ref</label><input type="text" id="msg_1_TxId" placeholder="e.g. TXN-20260621-001"></div>
+      <div class="q"><label><span class="dim">Msg 1</span>ISIN (ISO 6166)</label><input type="text" id="msg_1_ISIN" placeholder="e.g. DE000ABC1234"></div>
+      <div class="q"><label><span class="dim">Msg 1</span>Qty</label><input type="number" id="msg_1_Qty" placeholder="e.g. 1000" min="0"></div>
+    </div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 1</span>Trade date</label><input type="text" id="msg_1_TradDt" placeholder="e.g. 2026-06-21"></div>
+      <div class="q"><label><span class="dim">Msg 1</span>Settlement date</label><input type="text" id="msg_1_SttlmDt" placeholder="e.g. 2026-06-23"></div>
+      <div class="q"><label><span class="dim">Msg 1</span>Delivering BIC</label><input type="text" id="msg_1_BIC_dlvr" placeholder="e.g. MGTCBEBE"></div>
+      <div class="q"><label><span class="dim">Msg 1</span>Receiving BIC</label><input type="text" id="msg_1_BIC_rcvr" placeholder="e.g. CEDELULL"></div>
+    </div>
+
+    <div class="section-head">Message 2</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 2</span>Message type</label>
+        <select id="msg_2_type">
+          <option value="">— select —</option>
+          <option value="sese.023">sese.023 — Settlement Instruction</option>
+          <option value="sese.024">sese.024 — Status Advice</option>
+          <option value="semt.044">semt.044 — Account Statement</option>
+          <option value="pacs.008">pacs.008 (will be REJECTED)</option>
+          <option value="other">other (will be REJECTED)</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Msg 2</span>TxId / Ref</label><input type="text" id="msg_2_TxId" placeholder="e.g. TXN-20260621-002"></div>
+      <div class="q"><label><span class="dim">Msg 2</span>ISIN (ISO 6166)</label><input type="text" id="msg_2_ISIN" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 2</span>Qty</label><input type="number" id="msg_2_Qty" placeholder="Optional" min="0"></div>
+    </div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 2</span>Trade date</label><input type="text" id="msg_2_TradDt" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 2</span>Settlement date</label><input type="text" id="msg_2_SttlmDt" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 2</span>Delivering BIC</label><input type="text" id="msg_2_BIC_dlvr" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 2</span>Receiving BIC</label><input type="text" id="msg_2_BIC_rcvr" placeholder="Optional"></div>
+    </div>
+
+    <div class="section-head">Message 3</div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 3</span>Message type</label>
+        <select id="msg_3_type">
+          <option value="">— select —</option>
+          <option value="sese.023">sese.023 — Settlement Instruction</option>
+          <option value="sese.024">sese.024 — Status Advice</option>
+          <option value="semt.044">semt.044 — Account Statement</option>
+          <option value="pacs.008">pacs.008 (will be REJECTED)</option>
+          <option value="other">other (will be REJECTED)</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Msg 3</span>TxId / Ref</label><input type="text" id="msg_3_TxId" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 3</span>ISIN (ISO 6166)</label><input type="text" id="msg_3_ISIN" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 3</span>Qty</label><input type="number" id="msg_3_Qty" placeholder="Optional" min="0"></div>
+    </div>
+    <div class="grid4">
+      <div class="q"><label><span class="dim">Msg 3</span>Trade date</label><input type="text" id="msg_3_TradDt" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 3</span>Settlement date</label><input type="text" id="msg_3_SttlmDt" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 3</span>Delivering BIC</label><input type="text" id="msg_3_BIC_dlvr" placeholder="Optional"></div>
+      <div class="q"><label><span class="dim">Msg 3</span>Receiving BIC</label><input type="text" id="msg_3_BIC_rcvr" placeholder="Optional"></div>
+    </div>
+
+    <button onclick="run()">Lint ISO 20022 Messages →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="passRateVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Pass Rate</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="totalMsgVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Messages</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="oosVal" style="color:var(--orange)">–</div>
+        <div class="hero-lbl">Out-of-Scope</div>
+      </div>
+    </div>
+
+    <div class="count-grid">
+      <div class="count-card"><div class="cn">PASS</div><div class="cv" id="passCount" style="color:var(--green)">–</div></div>
+      <div class="count-card"><div class="cn">FAIL</div><div class="cv" id="failCount" style="color:var(--red)">–</div></div>
+      <div class="count-card"><div class="cn">WARN</div><div class="cv" id="warnCount" style="color:var(--warn)">–</div></div>
+      <div class="count-card"><div class="cn">REJECTED</div><div class="cv" id="rejCount" style="color:var(--orange)">–</div></div>
+    </div>
+
+    <div id="overallVerdict"></div>
+
+    <div class="scope-guard" style="margin:10px 0;font-size:.6rem">
+      ⚠ SCOPE GUARD: ISO 20022 scope is sese/semt ONLY. pacs/camt payments messages are out of scope — owned by cbpr-cutover/rca-03. Any pacs/camt message submitted here is REJECTED and flagged OUT_OF_SCOPE_MESSAGE_TYPE.
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Per-message results</div>
+    <div id="msgResults"></div>
+
+    <div class="verdict info" style="margin-top:12px;font-size:.74rem">
+      <b>Standard:</b> ISO 20022 (iso20022.org) — verify current MX catalogue · <b>sese.023:</b> SecuritiesSettlementTransactionInstruction · <b>sese.024:</b> SecuritiesSettlementTransactionStatusAdvice · <b>semt.044:</b> SecuritiesAccountStatementV04 · <b>BIC:</b> ISO 9362:2022 · <b>ISIN:</b> ISO 6166. DECISION-SUPPORT DRAFT — not an ISO 20022 conformance certificate.
+    </div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-82-securities-settlement-message-linter",
+  "mcp_name": "lint_securities_settlement_message",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "msg_type": {"enum": ["sese.023","sese.024","semt.044"]},
+            "body": {"type": "object"},
+            "msg_ref": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_META = {
+  tool_id: 'art-82-securities-settlement-message-linter',
+  mandate_type: 'compliance_mandate',
+};
+
+const IN_SCOPE = new Set(['sese.023','sese.024','semt.044']);
+
+function isValidISIN(s) { return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(String(s ?? '')); }
+function isValidBIC(s)  { return /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(String(s ?? '')); }
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  // clear all
+  for (let i = 1; i <= 3; i++) {
+    setField(`msg_${i}_type`,''); setField(`msg_${i}_TxId`,''); setField(`msg_${i}_ISIN`,'');
+    setField(`msg_${i}_Qty`,''); setField(`msg_${i}_TradDt`,''); setField(`msg_${i}_SttlmDt`,'');
+    setField(`msg_${i}_BIC_dlvr`,''); setField(`msg_${i}_BIC_rcvr`,'');
+  }
+  if (p === 'A') {
+    // sese.023: missing TxId, invalid ISIN
+    setField('msg_1_type','sese.023');
+    setField('msg_1_TxId',''); // missing
+    setField('msg_1_ISIN','INVALID99'); // invalid ISIN
+    setField('msg_1_Qty','500');
+    setField('msg_1_TradDt','2026-06-21');
+    setField('msg_1_SttlmDt','2026-06-23');
+    setField('msg_1_BIC_dlvr','MGTCBEBE');
+    setField('msg_1_BIC_rcvr','CEDELULL');
+  } else if (p === 'B') {
+    // sese.024: all present
+    setField('msg_1_type','sese.024');
+    setField('msg_1_TxId','TXN-20260621-002');
+    setField('msg_1_ISIN','DE000ABC12340');
+    setField('msg_1_Qty','1000');
+    setField('msg_1_SttlmDt','2026-06-23');
+  } else if (p === 'C') {
+    // pacs.008 — out of scope
+    setField('msg_1_type','pacs.008');
+    setField('msg_1_TxId','PAY-20260621-WIRE');
+    setField('msg_1_ISIN','');
+    setField('msg_1_Qty','');
+  }
+}
+
+function getPP() {
+  const pp = { messages: [] };
+  for (let i = 1; i <= 3; i++) {
+    const mtype = document.getElementById(`msg_${i}_type`)?.value;
+    if (!mtype) continue;
+    pp.messages.push({
+      msg_ref: `msg_${i}`,
+      msg_type: mtype,
+      TxId: document.getElementById(`msg_${i}_TxId`)?.value?.trim() || null,
+      ISIN: document.getElementById(`msg_${i}_ISIN`)?.value?.trim()?.toUpperCase() || null,
+      Qty: +(document.getElementById(`msg_${i}_Qty`)?.value ?? 0) || 0,
+      TradDt: document.getElementById(`msg_${i}_TradDt`)?.value || null,
+      SttlmDt: document.getElementById(`msg_${i}_SttlmDt`)?.value || null,
+      DlvrgBIC: document.getElementById(`msg_${i}_BIC_dlvr`)?.value?.trim()?.toUpperCase() || null,
+      RcvgBIC: document.getElementById(`msg_${i}_BIC_rcvr`)?.value?.trim()?.toUpperCase() || null,
+    });
+  }
+  return pp;
+}
+
+function compute(pp) {
+  const results = [];
+  let total_issues = 0, out_of_scope = 0;
+  for (const msg of (pp.messages || [])) {
+    const mtype = msg.msg_type;
+    const issues = [];
+    if (!IN_SCOPE.has(mtype)) {
+      out_of_scope++;
+      issues.push({ rule: 'OUT_OF_SCOPE_MESSAGE_TYPE', field: 'msg_type', detail: `"${mtype}" is out of scope. Only sese.023/sese.024/semt.044 accepted. Use cbpr-cutover/rca-03 for pacs/camt.`, severity: 'ERROR' });
+      results.push({ msg_ref: msg.msg_ref, msg_type: mtype, issues, status: 'REJECTED' });
+      total_issues += issues.length;
+      continue;
+    }
+
+    // sese.023 and sese.024 share these checks
+    if (mtype === 'sese.023' || mtype === 'sese.024') {
+      if (!msg.TxId) issues.push({ rule: 'MISSING_MANDATORY_FIELD', field: 'TxId', severity: 'ERROR', detail: `TxId is mandatory for ${mtype}.` });
+      if (!msg.ISIN) {
+        issues.push({ rule: 'MISSING_MANDATORY_FIELD', field: 'FinInstrmId.ISIN', severity: 'ERROR', detail: 'ISIN is mandatory.' });
+      } else if (!isValidISIN(msg.ISIN)) {
+        issues.push({ rule: 'INVALID_ISIN', field: 'FinInstrmId.ISIN', severity: 'ERROR', detail: `"${msg.ISIN}" is not valid ISO 6166 (must be 2-letter country + 9 alphanumeric + 1 check digit).` });
+      }
+      if (!msg.Qty || msg.Qty === 0) issues.push({ rule: 'MISSING_QUANTITY', field: 'Qty', severity: 'WARNING', detail: 'Settlement quantity is absent or zero.' });
+    }
+
+    // sese.023-specific checks
+    if (mtype === 'sese.023') {
+      if (!msg.TradDt) issues.push({ rule: 'MISSING_MANDATORY_FIELD', field: 'TradDt', severity: 'ERROR', detail: 'TradDt is mandatory for sese.023.' });
+      if (!msg.SttlmDt) issues.push({ rule: 'MISSING_MANDATORY_FIELD', field: 'SttlmDt', severity: 'ERROR', detail: 'SttlmDt is mandatory for sese.023.' });
+      if (msg.TradDt && msg.SttlmDt && msg.SttlmDt < msg.TradDt) {
+        issues.push({ rule: 'SETTLEMENT_DATE_BEFORE_TRADE_DATE', field: 'SttlmDt', severity: 'ERROR', detail: `SttlmDt "${msg.SttlmDt}" is before TradDt "${msg.TradDt}".` });
+      }
+      if (msg.DlvrgBIC && !isValidBIC(msg.DlvrgBIC)) issues.push({ rule: 'INVALID_BIC', field: 'DlvrgBIC', severity: 'ERROR', detail: `"${msg.DlvrgBIC}" is not valid ISO 9362.` });
+      if (msg.RcvgBIC && !isValidBIC(msg.RcvgBIC)) issues.push({ rule: 'INVALID_BIC', field: 'RcvgBIC', severity: 'ERROR', detail: `"${msg.RcvgBIC}" is not valid ISO 9362.` });
+    }
+
+    // semt.044: just check a basic ref present (simplified — real would need AcctId/BalDt)
+    if (mtype === 'semt.044') {
+      if (!msg.TxId) issues.push({ rule: 'MISSING_ACCOUNT_REF', field: 'AcctId/Ref', severity: 'WARNING', detail: 'Account or statement reference not provided (simplified check).' });
+    }
+
+    const status = issues.some(i => i.severity === 'ERROR') ? 'FAIL' : issues.length > 0 ? 'WARN' : 'PASS';
+    results.push({ msg_ref: msg.msg_ref, msg_type: mtype, issues, status, fields_checked: { TxId: msg.TxId, ISIN: msg.ISIN, Qty: msg.Qty, TradDt: msg.TradDt, SttlmDt: msg.SttlmDt, DlvrgBIC: msg.DlvrgBIC, RcvgBIC: msg.RcvgBIC } });
+    total_issues += issues.length;
+  }
+
+  const pass_count  = results.filter(r => r.status === 'PASS').length;
+  const fail_count  = results.filter(r => r.status === 'FAIL').length;
+  const warn_count  = results.filter(r => r.status === 'WARN').length;
+  const rej_count   = results.filter(r => r.status === 'REJECTED').length;
+  const in_scope_processed = results.length - out_of_scope;
+  const pass_rate   = in_scope_processed > 0 ? +(pass_count / in_scope_processed * 100).toFixed(1) : (out_of_scope > 0 ? 0 : 100);
+
+  const compliance_flags = [];
+  if (fail_count > 0)  compliance_flags.push('ISO20022_LINT_FAILURES');
+  if (warn_count > 0)  compliance_flags.push('ISO20022_LINT_WARNINGS');
+  if (out_of_scope > 0) compliance_flags.push('OUT_OF_SCOPE_MESSAGES_REJECTED');
+
+  const output_payload = {
+    pass_rate, total_messages: results.length, pass_count, fail_count, warn_count,
+    out_of_scope_count: out_of_scope, rejected_count: rej_count, total_issues,
+    results,
+    in_scope_message_types: ['sese.023','sese.024','semt.044'],
+    scope_guard_note: 'ISO 20022 scope: sese/semt ONLY. pacs/camt payments messages are out of scope — owned by cbpr-cutover/rca-03.',
+    reference: {
+      standard: 'ISO 20022 (iso20022.org) — verify current MX catalogue',
+      sese_023: 'SecuritiesSettlementTransactionInstruction',
+      sese_024: 'SecuritiesSettlementTransactionStatusAdvice',
+      semt_044: 'SecuritiesAccountStatementV04',
+      bic: 'ISO 9362:2022',
+      isin: 'ISO 6166',
+    },
+    note: 'DECISION-SUPPORT DRAFT — not an ISO 20022 conformance certificate. Scope: sese/semt only. pacs/camt owned by cbpr-cutover/rca-03.',
+  };
+  return { pass_rate, pass_count, fail_count, warn_count, rej_count, out_of_scope, results, compliance_flags, output_payload };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+function statusBadge(status) {
+  if (status === 'PASS') return '<span class="badge ok">PASS</span>';
+  if (status === 'FAIL') return '<span class="badge err">FAIL</span>';
+  if (status === 'WARN') return '<span class="badge warn-b">WARN</span>';
+  if (status === 'REJECTED') return '<span class="badge oos">REJECTED</span>';
+  return '<span class="badge info">' + status + '</span>';
+}
+
+async function run() {
+  const pp = getPP();
+  if (pp.messages.length === 0) { alert('Select at least one message type.'); return; }
+  const { pass_rate, pass_count, fail_count, warn_count, rej_count, out_of_scope, results, compliance_flags, output_payload } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+  const rateColor = pass_rate >= 100 ? 'var(--green)' : pass_rate >= 60 ? 'var(--warn)' : 'var(--red)';
+  document.getElementById('passRateVal').textContent = pass_rate + '%';
+  document.getElementById('passRateVal').style.color = rateColor;
+  const inScope = results.length - out_of_scope;
+  document.getElementById('totalMsgVal').textContent = results.length;
+  document.getElementById('oosVal').textContent = out_of_scope;
+  document.getElementById('passCount').textContent = pass_count;
+  document.getElementById('failCount').textContent = fail_count;
+  document.getElementById('warnCount').textContent = warn_count;
+  document.getElementById('rejCount').textContent = rej_count;
+
+  const allPass = fail_count === 0 && warn_count === 0 && out_of_scope === 0;
+  const cls = allPass ? 'pass' : fail_count > 0 || out_of_scope > 0 ? 'fail' : 'warn';
+  const msg = allPass
+    ? `All ${inScope} in-scope message(s) passed. No mandatory-field, ISIN, or BIC issues detected.`
+    : `${fail_count} FAIL, ${warn_count} WARN, ${rej_count} REJECTED out-of-scope. Flags: ${compliance_flags.join(', ') || 'none'}.`;
+  document.getElementById('overallVerdict').innerHTML = `<div class="verdict ${cls}">${msg}</div>`;
+
+  let html = '';
+  results.forEach((r, idx) => {
+    const badge = statusBadge(r.status);
+    let issueHtml = '';
+    if (r.issues.length === 0) {
+      issueHtml = '<div style="font-size:.76rem;color:var(--green)">No issues — all checked fields conform.</div>';
+    } else {
+      issueHtml = r.issues.map(i => {
+        const rowCls = i.severity === 'ERROR' ? 'issue-row' : 'issue-row warn-row';
+        const sevBadge = i.severity === 'ERROR' ? '<span class="badge err">ERROR</span>' : '<span class="badge warn-b">WARNING</span>';
+        return `<div class="${rowCls}"><span class="issue-field">${i.field}</span>${sevBadge} <span class="badge info" style="font-size:.54rem">${i.rule}</span> <span class="issue-detail">${i.detail}</span></div>`;
+      }).join('');
+    }
+    html += `<div class="msg-result">
+      <div class="msg-result-head">
+        <span class="msg-type-label">${r.msg_type}</span>
+        ${badge}
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)">${r.msg_ref}</span>
+      </div>
+      ${issueHtml}
+    </div>`;
+  });
+  document.getElementById('msgResults').innerHTML = html;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-settlement-discipline.html" style="color:var(--muted)">Wave 17 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T+1 Settlement Readiness Diagnostic · ART-77 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Scores T+1 settlement readiness across 6 dimensions (allocation timing, SSI, matching, FX funding, corporate actions, penalty monitoring) against the dual EU/UK/CH deadlines: allocation/confirmation Dec 2026 and T+1 go-live 11 Oct 2027. Decision-support draft.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-77-t1-settlement-readiness-diagnostic.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="T+1 Settlement Readiness Diagnostic · ART-77 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="T+1 settlement readiness diagnostic. Dual deadlines: allocation/confirmation Dec 2026 · T+1 go-live 11 Oct 2027 (EU/UK/CH). CSDR Refit. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-77-t1-settlement-readiness-diagnostic.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-77 · Wave 17. In-browser compute() stays byte-identical to kernels/art-77-t1-settlement-readiness-diagnostic.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.grade-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:600;width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:2px solid}
+.tier-box{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.deadline-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+@media(max-width:540px){.deadline-grid{grid-template-columns:1fr}}
+.deadline-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.deadline-card .dl-date{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);font-weight:600}
+.deadline-card .dl-rule{font-size:.72rem;color:var(--body);margin:3px 0}
+.deadline-card .dl-status{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;display:inline-block;margin-top:4px}
+.dl-status.ready{background:rgba(34,197,94,.12);color:var(--green)}
+.dl-status.notready{background:rgba(239,68,68,.1);color:var(--red)}
+.dl-status.ontrack{background:rgba(34,197,94,.12);color:var(--green)}
+.dl-status.partial{background:rgba(245,158,11,.1);color:var(--warn)}
+.dl-status.atrisk{background:rgba(239,68,68,.1);color:var(--red)}
+.gap-item{margin:6px 0;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;display:flex;align-items:flex-start;gap:10px}
+.gap-item .pri{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:600;padding:.15rem .4rem;border-radius:3px;white-space:nowrap;margin-top:2px}
+.pri.critical{background:rgba(239,68,68,.12);color:var(--red)}
+.pri.high{background:rgba(245,158,11,.12);color:var(--warn)}
+.pri.medium{background:rgba(212,168,71,.1);color:var(--gold)}
+.gap-info .gap-name{font-size:.82rem;color:var(--bright)}
+.gap-info .gap-dl{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:2px}
+.gap-info .gap-chain{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal);margin-top:1px}
+.dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+@media(max-width:540px){.dim-grid{grid-template-columns:1fr 1fr}}
+.dim-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.dim-card .dn{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dim-card .dg{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-77</span></div>
+  <a href="guide-settlement-discipline.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 17 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-77 · Wave 17 · Settlement Discipline · T+1 Readiness</div>
+  <h1>T+1 Settlement Readiness Diagnostic</h1>
+  <p class="sub">Scores readiness across 6 settlement dimensions against the dual EU/UK/CH deadlines: allocation/confirmation timing rules binding <strong>Dec 2026</strong> and coordinated T+1 go-live <strong>11 Oct 2027</strong>. Maps gaps to priority remediation chains. Decision-support draft.</p>
+  <div>
+    <span class="flag">Dec 2026 — Allocation/confirmation 23:00 CET binding</span>
+    <span class="flag">11 Oct 2027 — EU/UK/CH T+1 go-live</span>
+    <span class="flag warn">Verify CSDR Refit/RTS still finalising</span>
+  </div>
+  <div class="force-note">✅ DUAL DEADLINES: Allocation/confirmation timing rules (23:00 CET trade-date, machine-readable formats) binding DEC 2026. Coordinated EU/UK/CH T+1 go-live 11 OCT 2027 (CSDR amending text OJ 14 Oct 2025; UK-AST; Swiss SSPTC). Verify current CSDR Refit final text and ESMA RTS.</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Buy-side, manual allocation, manual SSI, no penalty monitoring → grade F</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Sell-side custodian, partial readiness</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — CSD participant, mostly ready</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Firm profile</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Scope</span>Jurisdiction(s)</label>
+        <select id="jurisdictions">
+          <option value="EU">EU</option>
+          <option value="UK">UK</option>
+          <option value="CH">CH</option>
+          <option value="EU+UK" selected>EU + UK</option>
+          <option value="EU+UK+CH">EU + UK + CH</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Firm</span>Firm type</label>
+        <select id="firm_type">
+          <option value="buy-side" selected>Buy-side</option>
+          <option value="sell-side">Sell-side</option>
+          <option value="custodian">Custodian</option>
+          <option value="csd-participant">CSD participant</option>
+        </select></div>
+    </div>
+
+    <div class="section-head">Settlement process readiness</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Dec 2026</span>Allocation / confirmation timing</label>
+        <select id="allocation_confirmation_timing">
+          <option value="same-day-automated">Same-day automated (STP, &lt; 23:00 CET)</option>
+          <option value="partial">Partial — some manual steps remain</option>
+          <option value="T+1-manual" selected>T+1-manual — allocation/confirmation next day</option>
+        </select></div>
+      <div class="q"><label><span class="dim">~30% of fails</span>SSI automation</label>
+        <select id="ssi_automation">
+          <option value="golden-source">Golden-source — centralised, auto-enriched</option>
+          <option value="partial">Partial — some manual SSI lookup</option>
+          <option value="manual" selected>Manual — SSI looked up per trade</option>
+        </select></div>
+      <div class="q"><label><span class="dim">STP</span>Matching method</label>
+        <select id="matching_method">
+          <option value="auto">Automated — straight-through matching</option>
+          <option value="partial">Partial — automated with exceptions</option>
+          <option value="manual" selected>Manual — trade-by-trade confirmation</option>
+        </select></div>
+      <div class="q"><label><span class="dim">FX</span>FX funding / compression readiness</label>
+        <select id="fx_funding_compression">
+          <option value="ready">Ready — intraday FX + compression live</option>
+          <option value="partial" selected>Partial — some FX optimisation</option>
+          <option value="none">None — end-of-day FX, no compression</option>
+        </select></div>
+      <div class="q"><label><span class="dim">CA</span>Corporate actions readiness</label>
+        <select id="corporate_actions_readiness">
+          <option value="ready">Ready — CA processed T+0 with STP</option>
+          <option value="partial" selected>Partial — some manual CA handling</option>
+          <option value="none">None — CA fully manual</option>
+        </select></div>
+      <div class="q"><label><span class="dim">CSDR</span>Penalty exposure monitoring</label>
+        <select id="penalty_exposure_monitoring">
+          <option value="live">Live — real-time fail/penalty dashboard</option>
+          <option value="partial">Partial — periodic reporting</option>
+          <option value="none" selected>None — no penalty monitoring</option>
+        </select></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">CSDR</span>Partial settlement enabled</label>
+        <select id="partial_settlement_enabled">
+          <option value="yes">Yes</option>
+          <option value="no" selected>No</option>
+        </select></div>
+    </div>
+    <button onclick="run()">Run T+1 readiness diagnostic →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="grade-hero">
+      <div class="grade-badge" id="gradeBadge">–</div>
+      <div>
+        <div class="muted">Overall T+1 readiness grade</div>
+        <div style="font-size:1.1rem;color:var(--bright)" id="gradeLabel">–</div>
+        <div style="font-size:.78rem;color:var(--muted)" id="scoreLabel">–</div>
+      </div>
+    </div>
+
+    <div style="margin:10px 0 6px;font-size:.78rem;color:var(--bright)">Deadline status</div>
+    <div class="deadline-grid" id="deadlineGrid"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Gap checklist</div>
+    <div id="gapList"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Dimension scores</div>
+    <div class="dim-grid" id="dimGrid"></div>
+
+    <div style="margin:12px 0 4px;font-size:.78rem;color:var(--bright)">Primary recommendation</div>
+    <div id="rec"></div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-77-t1-settlement-readiness-diagnostic",
+  "mcp_name": "run_t1_readiness_diagnostic",
+  "mandate_type": "agent_guardrail_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "jurisdictions": {"type": "array", "items": {"enum": ["EU","UK","CH"]}},
+      "allocation_confirmation_timing": {"enum": ["same-day-automated","partial","T+1-manual"]},
+      "ssi_automation": {"enum": ["golden-source","partial","manual"]},
+      "matching_method": {"enum": ["auto","partial","manual"]},
+      "fx_funding_compression": {"enum": ["ready","partial","none"]},
+      "corporate_actions_readiness": {"enum": ["ready","partial","none"]},
+      "penalty_exposure_monitoring": {"enum": ["live","partial","none"]},
+      "partial_settlement_enabled": {"enum": ["yes","no"]},
+      "firm_type": {"enum": ["buy-side","sell-side","custodian","csd-participant"]}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_META = {
+  mandate_type: 'agent_guardrail_mandate',
+  tool_id: 'art-77-t1-settlement-readiness-diagnostic',
+};
+
+const WEIGHTS = { timing: 0.25, ssi: 0.25, matching: 0.15, funding: 0.15, corp_actions: 0.10, penalty: 0.10 };
+const S = {
+  allocation_confirmation_timing: { 'same-day-automated': 4, partial: 2, 'T+1-manual': 0 },
+  ssi_automation: { 'golden-source': 4, partial: 2, manual: 0 },
+  matching_method: { auto: 4, partial: 2, manual: 0 },
+  fx_funding_compression: { ready: 4, partial: 2, none: 0 },
+  corporate_actions_readiness: { ready: 4, partial: 2, none: 0 },
+  penalty_exposure_monitoring: { live: 4, partial: 2, none: 0 },
+};
+const pick = (t, v, d = 0) => v in t ? t[v] : d;
+const letter = s => s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F';
+const GRADE_COLOR = { A: '#22C55E', B: '#2DD4BF', C: '#D4A847', D: '#F59E0B', F: '#EF4444' };
+const DIM_LABELS = { timing: 'Alloc/Timing', ssi: 'SSI', matching: 'Matching', funding: 'FX Funding', corp_actions: 'Corp Actions', penalty: 'Penalty Mon.' };
+
+function getpp() {
+  return {
+    jurisdictions: document.getElementById('jurisdictions').value,
+    firm_type: document.getElementById('firm_type').value,
+    allocation_confirmation_timing: document.getElementById('allocation_confirmation_timing').value,
+    ssi_automation: document.getElementById('ssi_automation').value,
+    matching_method: document.getElementById('matching_method').value,
+    fx_funding_compression: document.getElementById('fx_funding_compression').value,
+    corporate_actions_readiness: document.getElementById('corporate_actions_readiness').value,
+    penalty_exposure_monitoring: document.getElementById('penalty_exposure_monitoring').value,
+    partial_settlement_enabled: document.getElementById('partial_settlement_enabled').value,
+  };
+}
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('jurisdictions', 'EU+UK'); setField('firm_type', 'buy-side');
+    setField('allocation_confirmation_timing', 'T+1-manual'); setField('ssi_automation', 'manual');
+    setField('matching_method', 'manual'); setField('fx_funding_compression', 'none');
+    setField('corporate_actions_readiness', 'none'); setField('penalty_exposure_monitoring', 'none');
+    setField('partial_settlement_enabled', 'no');
+  } else if (p === 'B') {
+    setField('jurisdictions', 'EU'); setField('firm_type', 'custodian');
+    setField('allocation_confirmation_timing', 'partial'); setField('ssi_automation', 'partial');
+    setField('matching_method', 'partial'); setField('fx_funding_compression', 'partial');
+    setField('corporate_actions_readiness', 'partial'); setField('penalty_exposure_monitoring', 'partial');
+    setField('partial_settlement_enabled', 'yes');
+  } else if (p === 'C') {
+    setField('jurisdictions', 'EU+UK+CH'); setField('firm_type', 'csd-participant');
+    setField('allocation_confirmation_timing', 'same-day-automated'); setField('ssi_automation', 'golden-source');
+    setField('matching_method', 'auto'); setField('fx_funding_compression', 'ready');
+    setField('corporate_actions_readiness', 'partial'); setField('penalty_exposure_monitoring', 'live');
+    setField('partial_settlement_enabled', 'yes');
+  }
+}
+
+async function computeHash(pp, op) {
+  const msg = JSON.stringify({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+async function run() {
+  const pp = getpp();
+
+  const dim_scores = {
+    timing: { score: +(pick(S.allocation_confirmation_timing, pp.allocation_confirmation_timing) / 4 * 100).toFixed(1) },
+    ssi: { score: +(pick(S.ssi_automation, pp.ssi_automation) / 4 * 100).toFixed(1) },
+    matching: { score: +(pick(S.matching_method, pp.matching_method) / 4 * 100).toFixed(1) },
+    funding: { score: +(pick(S.fx_funding_compression, pp.fx_funding_compression) / 4 * 100).toFixed(1) },
+    corp_actions: { score: +(pick(S.corporate_actions_readiness, pp.corporate_actions_readiness) / 4 * 100).toFixed(1) },
+    penalty: { score: +(pick(S.penalty_exposure_monitoring, pp.penalty_exposure_monitoring) / 4 * 100).toFixed(1) },
+  };
+  Object.keys(dim_scores).forEach(k => dim_scores[k].grade = letter(dim_scores[k].score));
+  const overall = +(Object.keys(WEIGHTS).reduce((acc, k) => acc + dim_scores[k].score * WEIGHTS[k], 0)).toFixed(1);
+  const readiness_grade = letter(overall);
+
+  const binding_deadline = {
+    allocation_confirmation: { date: 'Dec 2026', rule: '23:00 CET trade-date + machine-readable formats', status: pp.allocation_confirmation_timing === 'same-day-automated' ? 'READY' : 'NOT_READY' },
+    t1_go_live: { date: '11 Oct 2027', status: overall >= 70 ? 'ON_TRACK' : overall >= 40 ? 'PARTIAL' : 'AT_RISK' },
+  };
+
+  const gap_checklist = [];
+  if (pp.allocation_confirmation_timing !== 'same-day-automated') gap_checklist.push({ gap: 'Same-day automated allocation/confirmation', priority: 'CRITICAL', deadline: 'Dec 2026', chain: 'sd-alloc-affirm' });
+  if (pp.ssi_automation !== 'golden-source') gap_checklist.push({ gap: 'SSI golden-source automation (~30% of fails)', priority: 'HIGH', deadline: '11 Oct 2027', chain: 'sd-ssi-hygiene' });
+  if (pp.matching_method !== 'auto') gap_checklist.push({ gap: 'Automated matching / STP', priority: 'HIGH', deadline: '11 Oct 2027', chain: 'sd-failpredict' });
+  if (pp.penalty_exposure_monitoring !== 'live') gap_checklist.push({ gap: 'Live CSDR penalty monitoring', priority: 'MEDIUM', deadline: 'NOW', chain: 'sd-penalty' });
+
+  let primary_recommendation;
+  if (pp.allocation_confirmation_timing !== 'same-day-automated') primary_recommendation = 'sd-alloc-affirm';
+  else if (pp.ssi_automation === 'manual') primary_recommendation = 'sd-ssi-hygiene';
+  else if (pp.penalty_exposure_monitoring !== 'live') primary_recommendation = 'sd-penalty';
+  else primary_recommendation = 'sd-audit-pack';
+
+  const compliance_flags = [];
+  if (pp.allocation_confirmation_timing !== 'same-day-automated') compliance_flags.push('ALLOCATION_TIMING_NOT_READY');
+  if (pp.ssi_automation === 'manual') compliance_flags.push('SSI_MANUAL');
+  if (pp.penalty_exposure_monitoring === 'none') compliance_flags.push('NO_PENALTY_MONITORING');
+  if (pp.matching_method === 'manual') compliance_flags.push('MANUAL_MATCHING');
+
+  const output_payload = {
+    readiness_grade, overall_score: overall, dim_scores, binding_deadline, gap_checklist,
+    primary_recommendation,
+    secondary_recommendations: ['sd-ssi-hygiene', 'sd-failpredict', 'sd-penalty', 'sd-audit-pack'].filter(r => r !== primary_recommendation),
+    firm_type: pp.firm_type,
+    dual_date_note: 'Allocation/confirmation DEC 2026 · T+1 go-live 11 OCT 2027 — verify current (CSDR Refit/RTS still finalising)',
+    note: 'DECISION-SUPPORT DRAFT — not a regulatory assessment. Verify deadlines against ESMA CSDR SDR RTS (13 Oct 2025) and current CSDR Refit final text.',
+  };
+
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'server',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('hash').textContent = hash;
+
+  document.getElementById('results').classList.add('show');
+
+  const gb = document.getElementById('gradeBadge');
+  gb.textContent = readiness_grade;
+  gb.style.color = GRADE_COLOR[readiness_grade];
+  gb.style.borderColor = GRADE_COLOR[readiness_grade];
+  document.getElementById('gradeLabel').textContent = 'T+1 Readiness: Grade ' + readiness_grade;
+  document.getElementById('scoreLabel').textContent = 'Overall score: ' + overall + '% · ' + pp.firm_type + ' · ' + pp.jurisdictions;
+
+  // Deadline grid
+  const dlGrid = document.getElementById('deadlineGrid');
+  const dlAllocStatus = binding_deadline.allocation_confirmation.status;
+  const dlT1Status = binding_deadline.t1_go_live.status;
+  dlGrid.innerHTML = `
+    <div class="deadline-card">
+      <div class="dl-date">Dec 2026 — Allocation/Confirmation</div>
+      <div class="dl-rule">${binding_deadline.allocation_confirmation.rule}</div>
+      <span class="dl-status ${dlAllocStatus === 'READY' ? 'ready' : 'notready'}">${dlAllocStatus}</span>
+    </div>
+    <div class="deadline-card">
+      <div class="dl-date">11 Oct 2027 — T+1 Go-Live (EU/UK/CH)</div>
+      <div class="dl-rule">Coordinated CSDR amending text OJ 14 Oct 2025; UK-AST; Swiss SSPTC</div>
+      <span class="dl-status ${dlT1Status === 'ON_TRACK' ? 'ontrack' : dlT1Status === 'PARTIAL' ? 'partial' : 'atrisk'}">${dlT1Status}</span>
+    </div>
+  `;
+
+  // Gap checklist
+  const gapEl = document.getElementById('gapList');
+  if (gap_checklist.length === 0) {
+    gapEl.innerHTML = '<div class="verdict pass">No critical gaps detected. Maintain monitoring cadence.</div>';
+  } else {
+    gapEl.innerHTML = gap_checklist.map(g => {
+      const priCls = g.priority === 'CRITICAL' ? 'critical' : g.priority === 'HIGH' ? 'high' : 'medium';
+      return `<div class="gap-item"><span class="pri ${priCls}">${g.priority}</span><div class="gap-info"><div class="gap-name">${g.gap}</div><div class="gap-dl">Deadline: ${g.deadline}</div><div class="gap-chain">→ chain: ${g.chain}</div></div></div>`;
+    }).join('');
+  }
+
+  // Dim grid
+  const dimEl = document.getElementById('dimGrid');
+  dimEl.innerHTML = '';
+  for (const [k, v] of Object.entries(dim_scores)) {
+    const g = v.grade;
+    const c = GRADE_COLOR[g];
+    const d = document.createElement('div');
+    d.className = 'dim-card';
+    d.innerHTML = `<div class="dn">${DIM_LABELS[k] || k}</div><div class="dg" style="color:${c}">${g}</div><div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)">${v.score}%</div>`;
+    dimEl.appendChild(d);
+  }
+
+  // Rec
+  const recCls = compliance_flags.length >= 3 ? 'fail' : compliance_flags.length > 0 ? 'warn' : 'pass';
+  document.getElementById('rec').innerHTML = `<div class="verdict ${recCls}"><b>Primary chain: ${primary_recommendation}</b> — ${primary_recommendation === 'sd-alloc-affirm' ? 'Prioritise same-day automated allocation/confirmation — this is the Dec 2026 binding deadline.' : primary_recommendation === 'sd-ssi-hygiene' ? 'Address SSI golden-source automation — SSI failures drive ~30% of settlement fails.' : primary_recommendation === 'sd-penalty' ? 'Implement live CSDR penalty monitoring — exposure visibility is required now.' : 'Compile settlement audit pack — run sd-audit-pack chain for governance record.'}</div>`;
+}
+</script>
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-settlement-discipline.html" style="color:var(--muted)">Wave 17 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CBAM Embedded-Emissions Calculator · ART-69 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Flagship CBAM importer tool. Computes embedded emissions (direct + indirect, tCO₂e) for a consignment of CBAM goods using actual data or Commission default values with year-dependent markup. Handles precursor emissions. Decision-support draft.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-69-cbam-embedded-emissions-calculator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CBAM Embedded-Emissions Calculator · ART-69 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="W-A Flagship. Computes embedded tCO₂e for CBAM goods. Actual data or Commission defaults (+10%/+20%/+30% markup). Precursor emissions (ART-72). OpenChainGraph v0.4. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-69-cbam-embedded-emissions-calculator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"CBAM Embedded-Emissions Calculator · ART-69 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-69-cbam-embedded-emissions-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"W-A Flagship importer tool. Computes embedded emissions (direct + indirect, tCO₂e) for CBAM goods from actual installation data or Commission default values. Applies year-dependent markup over actual-data path. Handles precursor emissions from ART-72. Part of cbm-liability and cbm-precursor chains. Decision-support draft.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-69 · Wave 16. In-browser compute() stays byte-identical to kernels/art-69-cbam-embedded-emissions-calculator.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.force-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:4px;padding:.45rem .75rem;margin:10px 0;line-height:1.5}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.grade-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.emission-hero{font-family:'JetBrains Mono',monospace;font-size:2.8rem;font-weight:600;color:var(--teal-lt);line-height:1}
+.emission-unit{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--muted);margin-top:4px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.data-table{width:100%;border-collapse:collapse;margin:10px 0}
+.data-table th{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.data-table td{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text);padding:7px 10px;border-bottom:1px solid var(--border)}
+.data-table td:last-child{color:var(--bright);text-align:right}
+.data-table tr:last-child td{border-bottom:none}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+.flag-chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.55rem;background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2);padding:.15rem .5rem;border-radius:10px;margin:3px 2px}
+.actual-only{display:none}
+.basis-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.2rem .6rem;border-radius:10px;font-weight:600}
+.basis-actual{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.basis-default{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-69</span></div>
+  <a href="guide-carbon-compliance.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 16 →</a>
+</div></nav>
+<div class="wrap">
+  <div class="eyebrow">ART-69 · Wave 16 · Carbon &amp; Climate Compliance · W-A Flagship — IN FORCE</div>
+  <h1>CBAM Embedded-Emissions Calculator</h1>
+  <p class="sub">Flagship importer tool. Computes embedded emissions (direct + indirect, tCO₂e) for a consignment of CBAM goods from actual installation data or Commission default values, applying the system boundaries of the Implementing Regulation. Deduct any carbon price already paid in the country of origin. Handles precursor emissions from ART-72. Part of the cbm-liability and cbm-precursor chains.</p>
+  <div>
+    <span class="flag">W-A FLAGSHIP — CBAM definitive liability in force 1 Jan 2026</span>
+    <span class="flag warn">First declaration 30 Sep 2027</span>
+    <span class="flag warn">Verify Implementing Regulation edition</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Cement, 500 t, default values, China origin</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Iron/steel, 200 t, actual data provided</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — Aluminium, 100 t, default, EU origin</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Consignment details</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">CBAM</span>Good category</label>
+        <select id="good_category" onchange="toggleActualFields()">
+          <option value="cement">Cement (CN 2523)</option>
+          <option value="iron_steel">Iron &amp; Steel (CN 72/73)</option>
+          <option value="aluminium">Aluminium (CN 76)</option>
+          <option value="fertiliser">Fertilisers (CN 28/31)</option>
+          <option value="hydrogen">Hydrogen (CN 2804 10)</option>
+          <option value="electricity">Electricity</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Quantity</span>Consignment quantity (tonnes)</label>
+        <input type="number" id="quantity_tonnes" value="100" min="0.001" step="0.001"></div>
+      <div class="q"><label><span class="dim">Origin</span>Country of origin</label>
+        <select id="country_of_origin">
+          <option value="China">China</option>
+          <option value="India">India</option>
+          <option value="Turkey">Turkey</option>
+          <option value="Ukraine">Ukraine</option>
+          <option value="Russia">Russia</option>
+          <option value="USA">USA</option>
+          <option value="EU">EU</option>
+          <option value="Other">Other</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Basis</span>Emissions data basis</label>
+        <select id="emissions_basis" onchange="toggleActualFields()">
+          <option value="default">Default — Commission default values</option>
+          <option value="actual">Actual — installation-level data</option>
+        </select></div>
+    </div>
+
+    <div class="section-head actual-only" id="actualHead">Actual installation data (tCO₂e per tonne)</div>
+    <div class="grid actual-only" id="actualFields">
+      <div class="q"><label><span class="dim">Direct</span>Direct emissions factor (tCO₂e/t)</label>
+        <input type="number" id="direct_emissions_factor_tco2e_per_t" value="0" min="0" step="0.001"></div>
+      <div class="q"><label><span class="dim">Indirect</span>Indirect emissions factor (tCO₂e/t)</label>
+        <input type="number" id="indirect_emissions_factor_tco2e_per_t" value="0" min="0" step="0.001"></div>
+    </div>
+
+    <div class="section-head">Precursor &amp; reporting</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">ART-72</span>Precursor emissions (tCO₂e, optional)</label>
+        <input type="number" id="precursor_emissions_tco2e" value="0" min="0" step="0.001">
+        <div style="font-size:.65rem;color:var(--muted);margin-top:4px">From upstream precursor goods per ART-72. Leave 0 if not applicable.</div></div>
+      <div class="q"><label><span class="dim">Year</span>Reporting year</label>
+        <input type="number" id="reporting_year" value="2026" min="2024" max="2035"></div>
+    </div>
+    <button onclick="run()">Calculate embedded emissions →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div style="margin-bottom:18px">
+      <div class="muted" style="margin-bottom:6px">Total embedded emissions</div>
+      <div class="emission-hero" id="totalEmissions">–</div>
+      <div class="emission-unit">tCO₂e (tonnes of CO₂ equivalent)</div>
+      <div style="margin-top:10px" id="basisBadge"></div>
+    </div>
+    <div id="verdictBox"></div>
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Emissions breakdown</div>
+    <table class="data-table" id="breakdownTable">
+      <thead><tr><th>Component</th><th>Value</th></tr></thead>
+      <tbody id="breakdownBody"></tbody>
+    </table>
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Compliance flags</div>
+    <div id="flagsBox"></div>
+    <div style="margin:12px 0 4px;font-size:.72rem;color:var(--muted)" id="referenceNote"></div>
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-69-cbam-embedded-emissions-calculator",
+  "mcp_name": "calculate_cbam_embedded_emissions",
+  "mandate_type": "compliance_mandate",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["good_category","quantity_tonnes","emissions_basis"],
+    "properties": {
+      "good_category": {"enum": ["cement","iron_steel","aluminium","fertiliser","hydrogen","electricity"]},
+      "quantity_tonnes": {"type": "number", "exclusiveMinimum": 0},
+      "country_of_origin": {"type": "string"},
+      "emissions_basis": {"enum": ["actual","default"]},
+      "direct_emissions_factor_tco2e_per_t": {"type": "number"},
+      "indirect_emissions_factor_tco2e_per_t": {"type": "number"},
+      "precursor_emissions_tco2e": {"type": "number", "default": 0},
+      "reporting_year": {"type": "integer", "default": 2026}
+    }
+  }
+}
+</script>
+
+<script>
+const CBAM_GOODS_CATEGORIES = {
+  cement:      { default_see_tco2e_per_t: 0.766,  name: 'Cement (CN 2523)' },
+  iron_steel:  { default_see_tco2e_per_t: 1.894,  name: 'Iron & Steel (CN 72/73)' },
+  aluminium:   { default_see_tco2e_per_t: 1.503,  name: 'Aluminium (CN 76)' },
+  fertiliser:  { default_see_tco2e_per_t: 2.340,  name: 'Fertilisers (CN 28/31)' },
+  hydrogen:    { default_see_tco2e_per_t: 10.90,  name: 'Hydrogen (CN 2804 10)' },
+  electricity: { default_see_tco2e_per_t: 0.000,  name: 'Electricity' },
+};
+const MARKUP_BY_YEAR = { 2026: 0.10, 2027: 0.20 };
+function getMarkup(year) { return MARKUP_BY_YEAR[+year] !== undefined ? MARKUP_BY_YEAR[+year] : 0.30; }
+
+function toggleActualFields() {
+  const isActual = document.getElementById('emissions_basis').value === 'actual';
+  const els = document.querySelectorAll('.actual-only');
+  els.forEach(el => el.style.display = isActual ? '' : 'none');
+}
+
+function getpp() {
+  return {
+    good_category: document.getElementById('good_category').value,
+    quantity_tonnes: parseFloat(document.getElementById('quantity_tonnes').value) || 0,
+    country_of_origin: document.getElementById('country_of_origin').value,
+    emissions_basis: document.getElementById('emissions_basis').value,
+    direct_emissions_factor_tco2e_per_t: parseFloat(document.getElementById('direct_emissions_factor_tco2e_per_t').value) || 0,
+    indirect_emissions_factor_tco2e_per_t: parseFloat(document.getElementById('indirect_emissions_factor_tco2e_per_t').value) || 0,
+    precursor_emissions_tco2e: parseFloat(document.getElementById('precursor_emissions_tco2e').value) || 0,
+    reporting_year: parseInt(document.getElementById('reporting_year').value, 10) || 2026,
+  };
+}
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('good_category', 'cement');
+    setField('quantity_tonnes', '500');
+    setField('country_of_origin', 'China');
+    setField('emissions_basis', 'default');
+    setField('direct_emissions_factor_tco2e_per_t', '0');
+    setField('indirect_emissions_factor_tco2e_per_t', '0');
+    setField('precursor_emissions_tco2e', '0');
+    setField('reporting_year', '2026');
+  } else if (p === 'B') {
+    setField('good_category', 'iron_steel');
+    setField('quantity_tonnes', '200');
+    setField('country_of_origin', 'India');
+    setField('emissions_basis', 'actual');
+    setField('direct_emissions_factor_tco2e_per_t', '1.620');
+    setField('indirect_emissions_factor_tco2e_per_t', '0.210');
+    setField('precursor_emissions_tco2e', '45.0');
+    setField('reporting_year', '2026');
+  } else if (p === 'C') {
+    setField('good_category', 'aluminium');
+    setField('quantity_tonnes', '100');
+    setField('country_of_origin', 'EU');
+    setField('emissions_basis', 'default');
+    setField('direct_emissions_factor_tco2e_per_t', '0');
+    setField('indirect_emissions_factor_tco2e_per_t', '0');
+    setField('precursor_emissions_tco2e', '0');
+    setField('reporting_year', '2026');
+  }
+  toggleActualFields();
+}
+
+function compute(pp) {
+  const cat = CBAM_GOODS_CATEGORIES[pp.good_category] ?? CBAM_GOODS_CATEGORIES.cement;
+  let see_direct, see_indirect, default_markup_applied = false;
+
+  if (pp.emissions_basis === 'actual') {
+    see_direct = +(pp.direct_emissions_factor_tco2e_per_t ?? 0);
+    see_indirect = +(pp.indirect_emissions_factor_tco2e_per_t ?? 0);
+  } else {
+    see_direct = cat.default_see_tco2e_per_t;
+    see_indirect = 0;
+    default_markup_applied = true;
+  }
+
+  const markup = default_markup_applied ? getMarkup(pp.reporting_year ?? 2026) : 0;
+  const effective_see = (see_direct + see_indirect) * (1 + markup);
+  const precursor = +(pp.precursor_emissions_tco2e ?? 0);
+  const total_embedded = +(effective_see * +(pp.quantity_tonnes ?? 0) + precursor).toFixed(3);
+
+  const compliance_flags = [];
+  if (default_markup_applied) compliance_flags.push('DEFAULT_VALUES_USED');
+  if (see_indirect > 0) compliance_flags.push('INDIRECT_EMISSIONS_INCLUDED');
+  if (precursor === 0 && (pp.good_category === 'iron_steel' || pp.good_category === 'aluminium')) {
+    compliance_flags.push('PRECURSOR_DATA_MISSING');
+  }
+
+  const output_payload = {
+    total_embedded_emissions_tco2e: total_embedded,
+    see_direct,
+    see_indirect,
+    basis: pp.emissions_basis,
+    default_markup_applied,
+    default_markup_pct: +(markup * 100).toFixed(0),
+    effective_see_per_t: +effective_see.toFixed(4),
+    precursor_contribution_tco2e: precursor,
+    quantity_tonnes: +(pp.quantity_tonnes ?? 0),
+    good_category: pp.good_category,
+    good_name: cat.name,
+    country_of_origin: pp.country_of_origin,
+    reporting_year: pp.reporting_year ?? 2026,
+    reference: {
+      regulation: 'CBAM Reg. (EU) 2023/956 Annexes III/IV; CBAM Implementing Reg. default values',
+      note: 'Default values are indicative placeholders — verify against current CBAM Implementing Regulation edition.',
+    },
+    note: 'DECISION-SUPPORT DRAFT — not a filed CBAM declaration. Verify embedded-emissions methodology and default values against current CBAM Implementing Regulation.',
+  };
+
+  return { output_payload, compliance_flags, total_embedded, see_direct, see_indirect, effective_see, default_markup_applied, markup, precursor, cat };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+async function run() {
+  const pp = getpp();
+  const { output_payload, compliance_flags, total_embedded, see_direct, see_indirect, effective_see, default_markup_applied, markup, precursor, cat } = compute(pp);
+
+  const hash = await execHash(pp, output_payload);
+  const executionHash = 'sha256:' + hash;
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'server',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-69-cbam-embedded-emissions-calculator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: executionHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('totalEmissions').textContent = total_embedded.toLocaleString('en-GB', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+  const markupLabel = default_markup_applied ? ` + ${(markup * 100).toFixed(0)}% default markup` : '';
+  const basisCls = default_markup_applied ? 'basis-default' : 'basis-actual';
+  const basisText = default_markup_applied ? `DEFAULT${markupLabel}` : 'ACTUAL DATA';
+  document.getElementById('basisBadge').innerHTML = `<span class="basis-badge ${basisCls}">${basisText}</span><span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-left:10px">${cat.name} · ${pp.quantity_tonnes} t · ${pp.country_of_origin}</span>`;
+
+  const hasIssues = compliance_flags.includes('PRECURSOR_DATA_MISSING') || default_markup_applied;
+  document.getElementById('verdictBox').innerHTML = hasIssues
+    ? `<div class="verdict warn">⚠ ${default_markup_applied ? `Default values carry a +${(markup * 100).toFixed(0)}% markup over the actual-data path (reporting year ${pp.reporting_year}). ` : ''}${compliance_flags.includes('PRECURSOR_DATA_MISSING') ? `Precursor emission data missing for ${pp.good_category} — check ART-72 upstream data. ` : ''}Consider switching to actual installation data to reduce markup penalty.</div>`
+    : `<div class="verdict pass">Actual installation data used — no default markup applied. Ensure data is verified against CBAM Implementing Regulation system boundary.</div>`;
+
+  const rows = [
+    { label: 'SEE direct (tCO₂e/t)', value: see_direct.toFixed(4) },
+    { label: 'SEE indirect (tCO₂e/t)', value: see_indirect.toFixed(4) },
+    { label: `Effective SEE (tCO₂e/t)${default_markup_applied ? ` incl. +${(markup * 100).toFixed(0)}% markup` : ''}`, value: effective_see.toFixed(4) },
+    { label: 'Quantity (t)', value: pp.quantity_tonnes.toLocaleString('en-GB') },
+    { label: 'Consignment emissions (tCO₂e)', value: (effective_see * pp.quantity_tonnes).toFixed(3) },
+    { label: 'Precursor contribution (tCO₂e)', value: precursor.toFixed(3) },
+    { label: 'Total embedded emissions (tCO₂e)', value: total_embedded.toFixed(3) },
+  ];
+  document.getElementById('breakdownBody').innerHTML = rows.map(r => `<tr><td>${r.label}</td><td>${r.value}</td></tr>`).join('');
+
+  const flagsEl = document.getElementById('flagsBox');
+  if (compliance_flags.length === 0) {
+    flagsEl.innerHTML = '<span style="font-size:.75rem;color:var(--muted)">No compliance flags raised.</span>';
+  } else {
+    flagsEl.innerHTML = compliance_flags.map(f => `<span style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.55rem;background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2);padding:.15rem .5rem;border-radius:10px;margin:3px 2px">${f}</span>`).join('');
+  }
+
+  document.getElementById('referenceNote').textContent = output_payload.reference.regulation + ' — ' + output_payload.reference.note;
+  document.getElementById('hash').textContent = executionHash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+}
+</script>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-carbon-compliance.html" style="color:var(--muted)">Wave 16 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

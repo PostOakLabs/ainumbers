@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Blockchain / Stablecoin Quantum-Risk Classifier · ART-89 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Classifies quantum-exposure risk for blockchain/stablecoin assets: exposed public-key percentage, address reuse, and migration-path maturity. References BIP-360, XRPL and Ethereum quantum roadmaps. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-89-blockchain-quantum-risk-classifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Blockchain / Stablecoin Quantum-Risk Classifier · ART-89 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Blockchain quantum risk tiering — exposed pubkey %, address reuse, migration roadmap. BIP-360, Ethereum, XRPL. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-89-blockchain-quantum-risk-classifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-89 · Wave 18. In-browser compute() stays byte-identical to kernels/art-89-blockchain-quantum-risk-classifier.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--orange:#F97316;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.scope-guard{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3);border-left:4px solid var(--warn);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:10px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .hint{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-left:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number],input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg3);color:var(--body);border:1px solid var(--border2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.tier-hero{border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:16px;text-align:center}
+.tier-hero .tier-label{font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:700;letter-spacing:.06em;line-height:1}
+.tier-hero .tier-sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;margin-top:6px;opacity:.8}
+.tier-critical{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);color:var(--red)}
+.tier-high{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.tier-medium{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.tier-low{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.tier-none{background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt)}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:120px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.kv-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.kv-table td{padding:5px 10px;border-bottom:1px solid var(--border)}
+.kv-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);width:44%;white-space:nowrap}
+.kv-table td:last-child{color:var(--bright)}
+.roadmap-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin:10px 0;font-size:.76rem}
+.roadmap-box .rh{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.roadmap-ref{margin:3px 0;display:flex;gap:8px;align-items:baseline}
+.roadmap-ref .rk{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);min-width:80px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border2)}
+#mfstBody{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-89</span></div>
+  <a href="guide-pqc.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 18 →</a>
+</div></nav>
+<div class="wrap">
+
+  <div class="scope-guard">⚠ NOTE: BIP-360, XRPL, and Ethereum PQC roadmaps are evolving — verify current status at BIP tracker and respective chain governance forums before citing outputs.</div>
+
+  <div class="eyebrow">ART-89 · Wave 18 · Post-Quantum Cryptography · Blockchain Risk</div>
+  <h1>Blockchain / Stablecoin Quantum-Risk Classifier</h1>
+  <p class="sub">Classifies quantum-exposure risk for blockchain/stablecoin assets: exposed public-key percentage, address reuse, and migration-path maturity. References BIP-360 (Bitcoin), XRPL and Ethereum quantum roadmaps. Part of the <code>pqc-blockchain-risk</code> chain.</p>
+  <div>
+    <span class="flag">BIP-360 · Ethereum · XRPL</span>
+    <span class="flag warn">Exposed pubkey tiering</span>
+    <span class="flag">Citi Digital Assets Research</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('A')">Preset A — Bitcoin (ECDSA, 22% exposed, 35% reuse, BIP-360 proposed): HIGH</button>
+    <button class="preset-btn" onclick="loadPreset('B')">Preset B — Ethereum (ECDSA, 10% exposed, 12% reuse, roadmap proposed): MEDIUM</button>
+    <button class="preset-btn" onclick="loadPreset('C')">Preset C — ML-DSA chain (already PQC): NONE</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Chain Configuration</div>
+    <div class="grid">
+      <div class="q"><label>Current signature scheme</label>
+        <select id="signature_scheme">
+          <option value="ECDSA" selected>ECDSA</option>
+          <option value="EdDSA">EdDSA</option>
+          <option value="Schnorr">Schnorr</option>
+          <option value="ML-DSA">ML-DSA (already PQC)</option>
+        </select></div>
+      <div class="q"><label>Migration roadmap</label>
+        <select id="migration_roadmap">
+          <option value="none" selected>None</option>
+          <option value="proposed">Proposed</option>
+          <option value="defined">Defined</option>
+        </select></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label>Exposed public-key addresses (%)<span class="hint">addresses where pubkey is on-chain</span></label>
+        <input type="number" id="exposed_pubkey_pct" min="0" max="100" step="0.1" placeholder="e.g. 15"></div>
+      <div class="q"><label>Address reuse (%)<span class="hint">addresses used more than once</span></label>
+        <input type="number" id="address_reuse_pct" min="0" max="100" step="0.1" placeholder="e.g. 40"></div>
+    </div>
+    <div class="section-head">Asset</div>
+    <div class="q" style="max-width:280px"><label>Asset type</label>
+      <select id="asset_type">
+        <option value="L1" selected>L1 (Layer 1 blockchain)</option>
+        <option value="stablecoin">Stablecoin</option>
+        <option value="token">Token</option>
+      </select></div>
+
+    <button onclick="run()">Classify Quantum Risk →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div id="tierHero"></div>
+
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="exposedVal" style="color:var(--warn)">–</div>
+        <div class="hero-lbl">Exposed Keys %</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="reuseVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Reuse Risk</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="migrationVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Migration</div>
+      </div>
+    </div>
+
+    <div class="section-head">Chain Details</div>
+    <table class="kv-table">
+      <tr><td>Signature scheme</td><td id="rScheme">–</td></tr>
+      <tr><td>Asset type</td><td id="rAssetType">–</td></tr>
+      <tr><td>Migration roadmap</td><td id="rRoadmapStatus">–</td></tr>
+      <tr><td>Exposure thresholds (high / medium)</td><td><span style="font-family:'JetBrains Mono',monospace">≥25% = high · ≥10% = medium</span> <span class="badge info" style="margin-left:4px">Citi Digital Assets Research May 2026 — verify current</span></td></tr>
+    </table>
+
+    <div class="section-head">Roadmap References</div>
+    <div class="roadmap-box" id="roadmapBox">
+      <div class="rh">Quantum migration references for this scheme</div>
+      <div id="roadmapRefs">–</div>
+    </div>
+
+    <div class="section-head">Flags</div>
+    <div id="rFlags">–</div>
+
+    <div class="verdict warn" style="margin-top:10px;font-size:.74rem">
+      ⚠ Milestone note: verify BIP-360, XRPL, and Ethereum roadmap status against current sources. Exposure thresholds derived from Citi Digital Assets Research (May 2026) analysis approach — verify current publication.
+    </div>
+
+    <div class="verdict info" style="font-size:.74rem">
+      <b>References:</b> Citi Digital Assets Research (May 2026) · Bitcoin BIP-360 (verify current BIP status) · XRPL quantum roadmap discussions · Ethereum EIP tracker. DECISION-SUPPORT DRAFT — not a risk certification.
+    </div>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()">⬇ Export AP2 JSON</button>
+    </div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-89-blockchain-quantum-risk-classifier",
+  "mcp_name": "classify_blockchain_quantum_risk",
+  "mandate_type": "model_governance",
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "wave": 18
+}
+</script>
+
+<script>
+const TOOL_META = {
+  tool_id: 'art-89-blockchain-quantum-risk-classifier',
+  tool_version: '1.0.0',
+  mandate_type: 'model_governance',
+};
+
+// Mirror of kernel constants
+const EXPOSURE_THRESHOLDS = { high: 25, medium: 10 };
+const BIP360_STATUS = 'proposed';
+const SCHEME_ROADMAP = {
+  'ECDSA':   { bitcoin: 'BIP-360 proposed', ethereum: 'EIP proposed', xrpl: 'roadmap discussed' },
+  'EdDSA':   { solana: 'no roadmap', xrpl: 'roadmap discussed' },
+  'Schnorr': { bitcoin: 'BIP-360 proposed' },
+  'ML-DSA':  { status: 'already_pqc' },
+};
+
+function setField(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  if (p === 'A') {
+    setField('signature_scheme','ECDSA');
+    setField('exposed_pubkey_pct','22');
+    setField('address_reuse_pct','35');
+    setField('migration_roadmap','proposed');
+    setField('asset_type','L1');
+  } else if (p === 'B') {
+    setField('signature_scheme','ECDSA');
+    setField('exposed_pubkey_pct','10');
+    setField('address_reuse_pct','12');
+    setField('migration_roadmap','proposed');
+    setField('asset_type','L1');
+  } else if (p === 'C') {
+    setField('signature_scheme','ML-DSA');
+    setField('exposed_pubkey_pct','0');
+    setField('address_reuse_pct','0');
+    setField('migration_roadmap','defined');
+    setField('asset_type','L1');
+  }
+}
+
+function getPP() {
+  return {
+    chain: {
+      signature_scheme:   document.getElementById('signature_scheme').value,
+      exposed_pubkey_pct: +(document.getElementById('exposed_pubkey_pct').value) || 0,
+      address_reuse_pct:  +(document.getElementById('address_reuse_pct').value) || 0,
+      migration_roadmap:  document.getElementById('migration_roadmap').value,
+    },
+    asset_type: document.getElementById('asset_type').value,
+  };
+}
+
+// Inline compute — mirrors kernel exactly
+function compute(pp) {
+  const {
+    chain = { signature_scheme: 'ECDSA', exposed_pubkey_pct: 0, address_reuse_pct: 0, migration_roadmap: 'none' },
+    asset_type = 'L1',
+  } = pp;
+
+  const {
+    signature_scheme   = 'ECDSA',
+    exposed_pubkey_pct = 0,
+    address_reuse_pct  = 0,
+    migration_roadmap  = 'none',
+  } = chain;
+
+  if (signature_scheme === 'ML-DSA') {
+    const output_payload = {
+      quantum_risk_tier:   'none',
+      exposed_pct:         exposed_pubkey_pct,
+      reuse_risk:          'low',
+      migration_readiness: 'complete',
+      roadmap_ref:         SCHEME_ROADMAP['ML-DSA'] || {},
+      asset_type,
+      signature_scheme,
+      bip360_status:       BIP360_STATUS,
+      reference_version:   '2026-06',
+      note: 'ML-DSA signature scheme is post-quantum — no classical quantum risk. Verify implementation follows NIST FIPS 204 (Aug 2024).',
+    };
+    return { output_payload, compliance_flags: [] };
+  }
+
+  const exposed_pct = exposed_pubkey_pct;
+  let quantum_risk_tier;
+  if (exposed_pct >= EXPOSURE_THRESHOLDS.high && migration_roadmap === 'none') {
+    quantum_risk_tier = 'critical';
+  } else if (exposed_pct >= EXPOSURE_THRESHOLDS.high) {
+    quantum_risk_tier = 'high';
+  } else if (exposed_pct >= EXPOSURE_THRESHOLDS.medium) {
+    quantum_risk_tier = 'medium';
+  } else {
+    quantum_risk_tier = 'low';
+  }
+
+  const migration_readiness =
+    migration_roadmap === 'defined'  ? 'roadmap_defined' :
+    migration_roadmap === 'proposed' ? 'roadmap_proposed' :
+    'no_roadmap';
+
+  const reuse_risk =
+    address_reuse_pct > 30 ? 'high' :
+    address_reuse_pct > 10 ? 'medium' :
+    'low';
+
+  const roadmap_ref = SCHEME_ROADMAP[signature_scheme] || {};
+
+  const compliance_flags = [];
+  if (exposed_pct >= EXPOSURE_THRESHOLDS.high) compliance_flags.push('HIGH_EXPOSED_PUBKEY_SHARE');
+  if (migration_roadmap === 'none') compliance_flags.push('NO_MIGRATION_ROADMAP');
+
+  const output_payload = {
+    quantum_risk_tier,
+    exposed_pct,
+    reuse_risk,
+    migration_readiness,
+    roadmap_ref,
+    asset_type,
+    signature_scheme,
+    address_reuse_pct,
+    exposure_thresholds: EXPOSURE_THRESHOLDS,
+    bip360_status:       BIP360_STATUS,
+    reference_version:   '2026-06',
+    note: 'DECISION-SUPPORT DRAFT. Exposure thresholds derived from Citi Digital Assets Research (May 2026) analysis approach — verify current publication. BIP-360 and chain-specific PQC proposals are evolving; verify current status at BIP tracker and respective chain governance forums.',
+  };
+
+  return { output_payload, compliance_flags };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) {
+  const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+function toggleMfst() { const b = document.getElementById('mfstBody'); const show = b.style.display === 'block'; b.style.display = show ? 'none' : 'block'; if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+
+const TIER_CONFIG = {
+  critical: { cls: 'tier-critical', label: 'CRITICAL',  sub: 'Immediate quantum migration action required' },
+  high:     { cls: 'tier-high',     label: 'HIGH',      sub: 'Significant quantum exposure — migration roadmap needed' },
+  medium:   { cls: 'tier-medium',   label: 'MEDIUM',    sub: 'Moderate quantum exposure — monitor roadmap progress' },
+  low:      { cls: 'tier-low',      label: 'LOW',       sub: 'Low quantum exposure — continue monitoring' },
+  none:     { cls: 'tier-none',     label: 'NONE',      sub: 'ML-DSA scheme — post-quantum secure' },
+};
+
+const REUSE_COLORS = { high: 'var(--red)', medium: 'var(--warn)', low: 'var(--green)' };
+const MIGRATION_LABELS = {
+  complete:          'COMPLETE',
+  roadmap_defined:   'DEFINED',
+  roadmap_proposed:  'PROPOSED',
+  no_roadmap:        'NONE',
+};
+const MIGRATION_COLORS = {
+  complete:         'var(--teal-lt)',
+  roadmap_defined:  'var(--green)',
+  roadmap_proposed: 'var(--warn)',
+  no_roadmap:       'var(--red)',
+};
+
+let _lastArtifact = null;
+
+async function run() {
+  const pp = getPP();
+  const exposed = pp.chain.exposed_pubkey_pct;
+  const reuse = pp.chain.address_reuse_pct;
+  if (isNaN(exposed) || exposed < 0 || exposed > 100) { alert('Exposed public-key % must be 0–100.'); return; }
+  if (isNaN(reuse) || reuse < 0 || reuse > 100) { alert('Address reuse % must be 0–100.'); return; }
+
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await execHash(pp, output_payload);
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: TOOL_META.mandate_type, tool_id: TOOL_META.tool_id, tool_version: TOOL_META.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact;
+
+  const { quantum_risk_tier, exposed_pct, reuse_risk, migration_readiness, roadmap_ref } = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  // Tier hero
+  const tc = TIER_CONFIG[quantum_risk_tier] || TIER_CONFIG.low;
+  document.getElementById('tierHero').innerHTML =
+    `<div class="tier-hero ${tc.cls}"><div class="tier-label">${tc.label}</div><div class="tier-sub">${tc.sub}</div></div>`;
+
+  // Hero stats
+  const exposedEl = document.getElementById('exposedVal');
+  exposedEl.textContent = exposed_pct + '%';
+  exposedEl.style.color = exposed_pct >= EXPOSURE_THRESHOLDS.high ? 'var(--red)' : exposed_pct >= EXPOSURE_THRESHOLDS.medium ? 'var(--warn)' : 'var(--green)';
+
+  const reuseEl = document.getElementById('reuseVal');
+  reuseEl.textContent = reuse_risk.toUpperCase();
+  reuseEl.style.color = REUSE_COLORS[reuse_risk] || 'var(--body)';
+
+  const migrationEl = document.getElementById('migrationVal');
+  migrationEl.textContent = MIGRATION_LABELS[migration_readiness] || migration_readiness;
+  migrationEl.style.color = MIGRATION_COLORS[migration_readiness] || 'var(--body)';
+  migrationEl.style.fontSize = '1.1rem';
+
+  // Details table
+  document.getElementById('rScheme').textContent = pp.chain.signature_scheme;
+  document.getElementById('rAssetType').textContent = pp.asset_type;
+  const roadmapMap = { none: 'None defined', proposed: 'Proposed', defined: 'Defined' };
+  document.getElementById('rRoadmapStatus').innerHTML =
+    `${roadmapMap[pp.chain.migration_roadmap] || pp.chain.migration_roadmap} <span class="badge ${pp.chain.migration_roadmap === 'none' ? 'err' : pp.chain.migration_roadmap === 'proposed' ? 'warn-b' : 'ok'}" style="margin-left:4px">${pp.chain.migration_roadmap.toUpperCase()}</span>`;
+
+  // Roadmap references
+  const refs = Object.entries(roadmap_ref);
+  if (refs.length > 0) {
+    document.getElementById('roadmapRefs').innerHTML = refs.map(([k, v]) =>
+      `<div class="roadmap-ref"><span class="rk">${k}</span><span style="font-size:.76rem;color:var(--text)">${v}</span></div>`
+    ).join('');
+  } else {
+    document.getElementById('roadmapRefs').innerHTML = '<span style="color:var(--muted);font-size:.76rem">No roadmap references for this scheme</span>';
+  }
+
+  // Flags
+  document.getElementById('rFlags').innerHTML = compliance_flags.length > 0
+    ? compliance_flags.map(f => `<span class="badge err" style="margin:2px">${f}</span>`).join(' ')
+    : '<span class="badge ok">NONE</span>';
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'art-89-blockchain-quantum-risk-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="guide-pqc.html" style="color:var(--muted)">Wave 18 Guide</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

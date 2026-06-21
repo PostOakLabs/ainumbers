@@ -70,6 +70,31 @@ import * as art64  from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
 import * as art65  from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art66  from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
 import * as art67  from './art-67-agentic-ai-risk-classifier.kernel.mjs';
+// ART Carbon & Climate Compliance (wave 16)
+import * as art68  from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
+import * as art69  from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
+import * as art70  from './art-70-cbam-default-value-resolver.kernel.mjs';
+import * as art71  from './art-71-cbam-certificate-cost-engine.kernel.mjs';
+import * as art72  from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
+import * as art73  from './art-73-taxonomy-alignment-scorer.kernel.mjs';
+import * as art74  from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
+import * as art75  from './art-75-eugb-factsheet-validator.kernel.mjs';
+import * as art76  from './art-76-climate-scenario-applicator.kernel.mjs';
+// ART T+1 & CSDR Settlement Discipline (wave 17)
+import * as art77  from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
+import * as art78  from './art-78-csdr-penalty-calculator.kernel.mjs';
+import * as art79  from './art-79-settlement-fail-predictor.kernel.mjs';
+import * as art80  from './art-80-ssi-conformance-checker.kernel.mjs';
+import * as art81  from './art-81-allocation-affirmation-conformance.kernel.mjs';
+import * as art82  from './art-82-securities-settlement-message-linter.kernel.mjs';
+import * as art83  from './art-83-buy-in-exposure-modeler.kernel.mjs';
+import * as art84  from './art-84-settlement-efficiency-kpi.kernel.mjs';
+// ART Post-Quantum Cryptography — Protocol Migration (wave 18)
+import * as art85  from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
+import * as art86  from './art-86-tls-pki-migration-planner.kernel.mjs';
+import * as art87  from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
+import * as art88  from './art-88-fido-pqc-conformance-checker.kernel.mjs';
+import * as art89  from './art-89-blockchain-quantum-risk-classifier.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -175,6 +200,31 @@ export const KERNELS = {
   'art-65-ai-conformity-pack-builder':              art65,
   'art-66-fria-postmarket-monitoring-builder':      art66,
   'art-67-agentic-ai-risk-classifier':              art67,
+  // ART Carbon & Climate Compliance (wave 16)
+  'art-68-carbon-compliance-fit-diagnostic':        art68,
+  'art-69-cbam-embedded-emissions-calculator':      art69,
+  'art-70-cbam-default-value-resolver':             art70,
+  'art-71-cbam-certificate-cost-engine':            art71,
+  'art-72-cbam-precursor-emissions-aggregator':     art72,
+  'art-73-taxonomy-alignment-scorer':               art73,
+  'art-74-taxonomy-kpi-gar-aggregator':             art74,
+  'art-75-eugb-factsheet-validator':                art75,
+  'art-76-climate-scenario-applicator':             art76,
+  // ART T+1 & CSDR Settlement Discipline (wave 17)
+  'art-77-t1-settlement-readiness-diagnostic':      art77,
+  'art-78-csdr-penalty-calculator':                 art78,
+  'art-79-settlement-fail-predictor':               art79,
+  'art-80-ssi-conformance-checker':                 art80,
+  'art-81-allocation-affirmation-conformance':      art81,
+  'art-82-securities-settlement-message-linter':    art82,
+  'art-83-buy-in-exposure-modeler':                 art83,
+  'art-84-settlement-efficiency-kpi':               art84,
+  // ART Post-Quantum Cryptography — Protocol Migration (wave 18)
+  'art-85-pqc-timeline-fit-diagnostic':             art85,
+  'art-86-tls-pki-migration-planner':               art86,
+  'art-87-iso20022-pqc-readiness-checker':          art87,
+  'art-88-fido-pqc-conformance-checker':            art88,
+  'art-89-blockchain-quantum-risk-classifier':      art89,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
