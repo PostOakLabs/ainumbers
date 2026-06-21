@@ -417,6 +417,13 @@ async function sha256hex(data) {
   const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
   return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)));
 }
+// Canonicalizer — byte-identical to kernels/_hash.mjs cgCanon (recursive key sort, array order preserved).
+// The execution_hash preimage is JSON.stringify(cgCanon({policy_parameters, output_payload})) and nothing else.
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {});
+  return v;
+}
 
 async function merkleHash(left, right) {
   // Standard: SHA-256(leftBytes || rightBytes)
@@ -637,8 +644,9 @@ async function buildAP2(root, results) {
     failed_indices: results.filter(r => r.status !== 'verified').map(r => r.index)
   };
 
-  // Compute execution_hash
-  const hashInput = JSON.stringify({ ...params, ...payload }, Object.keys({ ...params, ...payload }).sort());
+  // Compute execution_hash — canonical preimage {policy_parameters, output_payload} via recursive cgCanon
+  // (matches kernels/_hash.mjs + the worker, so the browser hash equals the server's). NOT a flat array-replacer.
+  const hashInput = JSON.stringify(cgCanon({ policy_parameters: params, output_payload: payload }));
   const execHash = 'sha256:' + await sha256hex(hashInput);
   const auditSig = {
     payloadType: 'application/vnd.openchain.graph+json;version=0.2',
