@@ -1,5 +1,7 @@
-# 📜 AINumbers.co — Unified Build Contract v1.3
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.5
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026  
+
+> **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
 **Target Audience:** AI Build Instances (Claude/LLMs), Frontend Engineers, Compliance QA  
 
@@ -266,6 +268,15 @@ When MCP server chains change (`mcp-apps-poc/worker.mjs`), also run the chain-in
 ```bash
 cd mcp-apps-poc && npm run validate:chains
 ```
+**SSOT conformance gates (Amendment A5)** — run from the site repo root before any push that touches `chaingraph.json`, the spec/hub HTML, `standard/`, or a kernel:
+```bash
+node chaingraph/standard/schema-validate.mjs          # envelope + node object vs the v0.4 schema (strict)
+node chaingraph/standard/spec-version-consistency.mjs  # one version of record across SPEC.md/schema/spec page/hub
+node chaingraph/standard/spec-gate-coverage.mjs        # every §15 rule names a wired gate (meta)
+node chaingraph/standard/surface-parity.mjs            # displayed counts == counts.json
+node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.json (both ways)
+# worker repo post-deploy (mcp-apps-poc/.github/workflows/ci.yml): hash-sweep.mjs · verify-mcp-registered.mjs --all
+```
 
 ### 6.3 Global Quality Checklist
 **Per-Hub:**
@@ -353,28 +364,7 @@ The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in an
 
 The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGraph node tool and chain page MUST emit it; `execution_hash` and the `chain` block are **REQUIRED** (they were optional under §3.1). **v0.4:** `chaingraph_version` is the sole canonical envelope-version field and `@context` the JSON-LD anchor. `ap2_version` is **RETIRED** — it was a misnamed legacy envelope label (value `"1.0"`/`"1.0.0"` = the AINumbers Policy Mandate schema version, *not* the AP2 standard version, which is v0.2) and is **no longer emitted**; the verifier still tolerates it on pre-retirement artifacts for back-compat. Tools that genuinely validate AP2 v0.2 structures declare it via `dct:conformsTo` → the AP2 v0.2 spec, not via this field.
 
-```json
-{
-  "@context": "https://ainumbers.co/chaingraph/context/v0.3/context.jsonld",
-  "chaingraph_version": "0.4.0",
-  "mandate_type": "<§4 taxonomy — see A3.5>",
-  "tool_id": "<kebab-case>",
-  "tool_version": "1.0.0",
-  "generated_at": "<ISO 8601>",
-  "execution_hash": "<SHA-256 over canonicalized policy_parameters + output_payload>",
-  "chain": {
-    "parent_hashes": ["sha256:<upstream execution_hash>"],
-    "parent_tool_ids": ["<tool_id of each parent>"],
-    "chain_depth": 0
-  },
-  "policy_parameters": { "execution_backend": "webgpu|cpu-fallback|js", "input_parameters": {} },
-  "output_payload": {},
-  "compliance_flags": [],
-  "audit_signature": { "client_side_executed": true, "zero_pii_verified": true, "deterministic_run": true }
-}
-```
-
-**Rules (MUST):** `execution_hash` = WebCrypto `crypto.subtle.digest('SHA-256', …)` over **canonicalized** (sorted-key, whitespace-stripped) JSON of `policy_parameters` + `output_payload`; no library. Root artifacts use `parent_hashes: []`, `chain_depth: 0`. A consuming tool MUST copy each parent's `execution_hash` into `parent_hashes` and set `chain_depth = max(parent depths)+1`. Any chain MUST be independently re-verifiable: re-run the parent with the same inputs, recompute the hash, confirm the citation.
+**The canonical §4 artifact envelope and the `execution_hash` preimage rule are normative in `repo/chaingraph/standard/SPEC.md` §1/§4** and machine-checked by `openchain-graph-v0.4.schema.json` (`schema-validate`) — **they are not restated here** (Amendment A5; the prior inline copy is retired to avoid a second, drift-prone definition). In brief, for build authors: `execution_hash` = WebCrypto SHA-256 over the **RFC 8785 / JCS-canonical** JSON of exactly `{policy_parameters, output_payload}`, produced via the shared `kernels/_hash.mjs` (no other canonicalizer — see SPEC.md §4 FORBIDDEN list). Root artifacts use `parent_hashes: []`, `chain_depth: 0`; a consuming tool copies each parent's `execution_hash` into `parent_hashes` and sets `chain_depth = max(parent depths)+1`. Every chain MUST be independently re-verifiable (enforced live by `hash-sweep`).
 
 ### A3.3 · Single surface; deprecations (RFC 2119: MUST)
 
@@ -388,7 +378,7 @@ A capability MUST exist in exactly one place. When a chain step is already serve
 
 ### A3.5 · mandate_type taxonomy + crosswalk (RFC 2119: MUST)
 
-ChainGraph artifacts use the **§4 internal taxonomy** (`prompt_template`, `payment_mandate`, `payment_policy`, `compliance_mandate`, `liquidity_mandate`, `capital_assessment`, `risk_control`, `settlement_mandate`, `infrastructure_mandate`, `credit_assessment`, `treasury_mandate`, `account_mandate`, `model_governance`, `attestation_mandate`, `cryptographic_mandate`, `aml_rule`, `risk_parameter`). This is an **internal AINumbers taxonomy, not AP2 v0.2 spec vocabulary** — state that on the hub and in any tool whose name includes "AP2."
+ChainGraph artifacts use the **§4 internal `mandate_type` taxonomy, which is normative in `repo/chaingraph/standard/SPEC.md` §5** (not restated here — Amendment A5). It is an **internal AINumbers taxonomy, not AP2 v0.2 spec vocabulary** — state that on the hub and in any tool whose name includes "AP2."
 
 Promoted tools switch from the §3.1 Policy Mandate set to the §4 set. A documented **Policy-Mandate ↔ §4 crosswalk** MUST live in `data/ap2-templates.json` (with changelog + semver). The §3.1 Policy Mandate v1.0 schema **remains valid for un-promoted catalog tools** only.
 
@@ -430,6 +420,27 @@ The MCP Worker deploys **solely via the gated GitHub Actions workflow** (`mcp-ap
 
 ### A4.5 · CI gates are mandatory and MUST NOT be removed (MUST)
 The pipeline runs — and MUST keep running — `check-tool-names.mjs` (no name collisions), `wrangler deploy --dry-run` (bundle resolves), and the post-deploy `scripts/smoke-mcp.mjs` (a real `/mcp` `initialize`). **A green bundle does NOT prove the handshake works — only the smoke test does.** After any worker-affecting push, confirm Actions is green AND the smoke step passed AND `/mcp` `initialize` returns HTTP 200 before considering the build done. History + rationale: memory `feedback_wrangler_deploy_in_commit_block`.
+
+---
+
+## 🧭 Amendment A5 — Single Source of Truth + conformance-by-construction (v1.4 → v1.5)
+
+**Date:** June 2026. **RFC 2119: MUST.**
+
+### A5.1 · The standard lives in one place
+The normative OpenChainGraph standard is **`repo/chaingraph/standard/SPEC.md`** + **`openchain-graph-v0.4.schema.json`** (the machine schema). The published `openchain-graph-spec.html` renders it, the GitHub Pages mirror copies it, `chaingraph.json` + kernels validate against the schema, and **this contract references it — it does not restate it.** When any surface disagrees with SPEC.md, **SPEC.md wins and the disagreement is a CI failure.** The single version of record is `chaingraph.json.spec_version`.
+
+### A5.2 · "Compliant" has a runnable definition
+A tool, node, chain, kernel, or surface is **v0.4-compliant iff it passes the SPEC.md §15 conformance-gate suite** — not "matches someone's reading of the docs." The gates (CI-blocking): `kernel-hash-integrity` · `lint-forbidden-hash` · `golden-parity` · `kernel-coverage --strict` · `kernel-contract` · **`hash-sweep`** (post-deploy) · **`verify-mcp-registered`** (post-deploy) · `check-tool-names` · `validate-chains` · `smoke-mcp` · **`schema-validate`** · **`spec-version-consistency`** · **`surface-parity`** · **`catalog-parity`** · **`spec-gate-coverage`** (meta).
+
+### A5.3 · Surfaces are generated, never hand-typed (Addendum A)
+`mcp.html`, `chaingraph-hub.html`, sitemap, `llms.txt`, and the MCP tool/resource/prompt registrations are **generated from `chaingraph.json`** (+ `counts.json`). Displayed counts MUST be injected from `counts.json` (`data-ocg-count` tokens); hand-typing a count is a `surface-parity` failure. The three access layers map to MCP primitives: browser tools = **Resources**, compute kernels = **Tools**, named chains = **Prompts**.
+
+### A5.4 · No rule without a gate (meta)
+A normative MUST may not be added to SPEC.md without a referenced gate in the §15 matrix; `spec-gate-coverage` enforces this. This is the institutional fix for the recurring "documented but not enforced" drift (the hash-remediation and Wave-14/15-registration incidents).
+
+### A5.5 · This contract's scope
+CONTRACT.md now covers **AINumbers-specific build/deploy** rules only — file layout (§0–§1, §5), UI/PII (§1–§3), export tiers (§4), QA pipeline (§6), and deploy invariants (§A4). The **artifact envelope, execution_hash rule, mandate_type taxonomy, Compute Binding, and Export Profiles are normative in SPEC.md** (§A5.1), referenced here, not duplicated.
 
 ---
 

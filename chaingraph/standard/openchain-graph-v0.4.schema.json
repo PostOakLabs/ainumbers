@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
+  "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
+  "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
+  "spec_version": "0.4.0",
+  "$defs": {
+    "sha256ref": {
+      "type": "string",
+      "description": "Either a bare 64-char hex digest or a sha256:-prefixed digest.",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "description": "A v0.4 OpenChainGraph artifact. execution_hash = SHA-256(JCS({policy_parameters, output_payload})); the hash preimage is exactly those two members and nothing else.",
+      "additionalProperties": false,
+      "required": [
+        "@context",
+        "chaingraph_version",
+        "tool_id",
+        "tool_version",
+        "generated_at",
+        "execution_hash",
+        "chain",
+        "policy_parameters",
+        "output_payload",
+        "audit_signature"
+      ],
+      "properties": {
+        "@context": {
+          "description": "JSON-LD context. NOT version-locked to the spec number — v0.3 context is valid under v0.4 (export profiles are hash-excluded and add no PROV vocabulary).",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "chaingraph_version": {
+          "type": "string",
+          "pattern": "^0\\.4\\.[0-9]+$",
+          "description": "MUST be 0.4.x for a v0.4 artifact."
+        },
+        "compute_mode": {
+          "type": "string",
+          "enum": ["server", "browser"],
+          "description": "New in v0.4 (§12). Excluded from the hash preimage."
+        },
+        "mandate_type": {
+          "type": "string",
+          "description": "§4 taxonomy (recommended) — prompt_template, payment_mandate, payment_policy, compliance_mandate, liquidity_mandate, capital_assessment, risk_control, settlement_mandate, infrastructure_mandate, credit_assessment, treasury_mandate, account_mandate, model_governance, attestation_mandate, cryptographic_mandate, aml_rule, risk_parameter. NOT a hard enum: live nodes also use agent_guardrail_mandate / scheme_rule (the enum is not CI-enforced)."
+        },
+        "tool_id": { "type": "string", "minLength": 1 },
+        "tool_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "generated_at": { "type": "string", "description": "ISO 8601." },
+        "buildType": { "type": "string", "description": "Version-independent algorithm URI (e.g. …/v0.2#WebCryptoSHA256)." },
+        "semantic_profile": { "type": "string", "description": "Optional ISO 20022 alignment (§8)." },
+        "dct:conformsTo": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "execution_hash": { "$ref": "#/$defs/sha256ref" },
+        "chain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parent_hashes", "parent_tool_ids", "chain_depth"],
+          "properties": {
+            "parent_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" } },
+            "parent_tool_ids": { "type": "array", "items": { "type": "string" } },
+            "chain_depth": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "policy_parameters": {
+          "type": "object",
+          "description": "Half of the hash preimage. Fold all decision inputs in here.",
+          "properties": {
+            "execution_backend": { "type": "string", "enum": ["webgpu", "cpu-fallback", "js", "server"] },
+            "input_parameters": { "type": "object" }
+          }
+        },
+        "output_payload": { "type": "object", "description": "Half of the hash preimage." },
+        "compliance_flags": { "type": "array", "items": { "type": "string" } },
+        "audit_signature": {
+          "type": "object",
+          "required": ["client_side_executed", "zero_pii_verified", "deterministic_run"],
+          "properties": {
+            "client_side_executed": { "type": "boolean" },
+            "zero_pii_verified": { "type": "boolean" },
+            "deterministic_run": { "type": "boolean" },
+            "signatures": { "type": "array" }
+          }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "description": "A chaingraph.json nodes[] entry. STRICT (additionalProperties:false): every key a node uses MUST be declared here, so a typo field (e.g. gpu_fallbck) fails CI. Adding a new node field = a one-line schema update in the same PR (the §4 meta-rule applied to fields). Single-producer internal catalog — the forward-compat argument for permissive request bodies does not apply.",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "tool_version",
+        "display_name",
+        "mcp_name",
+        "mandate_type",
+        "wave",
+        "gpu",
+        "url",
+        "description",
+        "input_schema_ref",
+        "consumes",
+        "feeds",
+        "status",
+        "compute_capability"
+      ],
+      "properties": {
+        "tool_id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "tool_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "display_name": { "type": "string", "minLength": 1 },
+        "mcp_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "mandate_type": { "type": "string", "minLength": 1 },
+        "wave": { "description": "int or string label (e.g. 14 or \"A\")." },
+        "gpu": { "type": "boolean" },
+        "url": { "type": "string", "pattern": "^https://" },
+        "description": { "type": "string", "minLength": 1 },
+        "input_schema_ref": { "type": "string", "minLength": 1 },
+        "consumes": { "type": "array", "items": { "type": "string" } },
+        "feeds": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["live", "planned", "deprecated"] },
+        "compute_capability": { "type": "string", "enum": ["server", "browser", "client"] },
+        "export_capability": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^(pdf|xlsx|csv|xbrl(:[a-z0-9:-]+)?)$" }
+        },
+        "conformance_fixtures": { "type": "boolean" },
+        "deadline": { "type": ["string", "null"], "description": "ISO date, or null when N/A. Catalog convention: present-as-null rather than omitted." },
+        "deadline_note": { "type": "string" },
+        "semantic_profile": { "type": "string", "description": "ISO 20022 alignment label (e.g. iso20022:pacs.008-subset) (§8)." },
+        "dct:conformsTo": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "feeds_stub": { "type": "array", "items": { "type": "string" }, "description": "Planned downstream tool_ids not yet live." },
+        "chain_depth": { "type": "integer", "minimum": 0 },
+        "protocols": { "type": "object", "description": "Free-form protocol label map (display metadata)." },
+        "educational_note": { "type": "string" }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "description": "A chaingraph.json chains[] entry (live shape — the old A3 node_id/page_url schema was never adopted).",
+      "additionalProperties": true,
+      "required": ["name", "steps"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "composer_url": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["tool_id"],
+            "properties": {
+              "tool_id": { "type": "string", "minLength": 1 },
+              "handoff": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/artifact" },
+    {
+      "type": "object",
+      "description": "A chaingraph.json catalog document.",
+      "required": ["spec_version", "nodes", "chains"],
+      "properties": {
+        "spec_version": { "type": "string", "pattern": "^0\\.4\\.[0-9]+$" },
+        "version": { "type": "string" },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }
+      }
+    }
+  ]
+}
