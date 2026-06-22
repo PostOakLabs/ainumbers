@@ -369,6 +369,7 @@ The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGr
 ### A3.3 · Single surface; deprecations (RFC 2119: MUST)
 
 - `/chaingraph/` is the **sole** orchestration namespace. Chain pages at `/chaingraph/chains/<id>.html`; nodes at `/chaingraph/<code>-<slug>.html`; hub at `/chaingraph/chaingraph-hub.html`.
+- **Chain slug convention (normative, 2026-06-22):** `<domain-word>-<specifics>`, lowercase-kebab, spelled-out domain — NO invented initialisms (bad: `aer-fit`, `tcm-collateral`; good: `agent-economy-fit`, `treasury-clearing-collateral`). Proper-noun product/regulation names are allowed lowercase (mica, arc, canton, cbam, pqc). `mcp_name` stays `verb_object` snake_case and is NEVER renamed to match the slug. Add `.htaccess 301`s when renaming existing slugs.
 - **DEPRECATED and removed** on conversion: page architecture #4 (Composer Runner), the Scenario Guide type, the Live Workflow type, and the 3 Diagnostic pages (rebuilt as single-node ChainGraphs). **Hubs are retained** as category navigation.
 - Deprecated pages are **hard-removed** (no 301 redirects). The `guides/` directory retains only hubs + explicitly-kept utility/demo pages (`regression-replayer.html`, `mcp-agent-demo.html`).
 
