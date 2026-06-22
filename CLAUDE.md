@@ -69,6 +69,7 @@ Run after every batch of new tools, before committing:
 5. **AP2 export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have `id="ap2ExportBtn"`. Check each new in-scope tool.
 6. **index.html** — card entry present with correct `data-cat`, `data-tags`, `data-name`, and updated `<span class="cat-n">` count.
 7. **Stat sync** — `node scripts/sync-stats.mjs` — verifies workflow recipe count (mcp.html) and OCG tool count (chaingraph-hub.html) match their static fallback numbers. Run `--fix` to auto-patch. Exit 0 required before commit.
+8. **Count-drift gate** — `node scripts/verify-counts.mjs --check` — verifies every published count sentinel (`<!--COUNT:key-->N<!--/COUNT-->`, `data-count="key"`) matches `deriveCounts()` from `scripts/counts.mjs`. Run `--fix` to repair. Exit 0 required before commit. **Never hardcode a count to make this pass — fix the sentinel or the source.**
 
 ## 📊 Current Scale
 
