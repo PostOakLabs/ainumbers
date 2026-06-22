@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Fuzzy-Match Calibration Scorer · ART-93 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Computes FPR/recall/F1 and recommends threshold calibration for sanctions fuzzy-match engines. Synthetic name pairs only. OpenChainGraph v0.4.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Fuzzy-Match Calibration Scorer · ART-93 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="FPR/recall/F1 scoring and threshold calibration for sanctions fuzzy-match engines. Synthetic name pairs only. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-93 · Wave 19 · Sanctions · Fuzzy-Match Calibration. In-browser compute() stays byte-identical to kernels/art-93-fuzzy-match-calibration-scorer.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.5;resize:vertical}
+textarea:focus,select:focus,input:focus{outline:1px solid var(--teal);border-color:var(--teal)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.confusion-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:340px;margin:10px 0}
+.conf-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+.conf-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.conf-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:2px}
+.conf-cell.tp .conf-val{color:var(--green)}
+.conf-cell.fp .conf-val{color:var(--red)}
+.conf-cell.fn .conf-val{color:var(--warn)}
+.conf-cell.tn .conf-val{color:var(--teal-lt)}
+.threshold-rec{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);margin:8px 0;font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.threshold-val{font-size:1.4rem;font-weight:600;color:var(--gold)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.json-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:4px;padding:.5rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--red);margin:6px 0;display:none}
+.pairs-count{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center"><a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span><a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph</a><span>/</span><span style="color:var(--text)">ART-93</span></div>
+  <a href="guide-sanctions-screening.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 19 →</a>
+</div></nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-93 · Wave 19 · Sanctions · Fuzzy-Match Calibration</div>
+  <h1>Fuzzy-Match Calibration Scorer</h1>
+  <p class="sub">Given an engine config (algorithm, threshold) and a synthetic labelled name-pair set, computes FPR/recall/F1 and recommends threshold calibration. No real names — synthetic fixtures only. Part of the <code>sanc-fuzzy-calibration</code> chain.</p>
+  <div>
+    <span class="flag">F1 · Recall · FPR</span>
+    <span class="flag warn">Threshold Calibration · Wolfsberg</span>
+    <span class="flag red">Synthetic Pairs Only</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('low')">Low Threshold (0.60) Demo</button>
+    <button class="preset-btn" onclick="loadPreset('high')">High Threshold (0.95) Demo</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Engine Configuration</div>
+    <div class="grid">
+      <div class="q">
+        <label><span class="dim">Field</span>Algorithm</label>
+        <select id="algorithm">
+          <option value="levenshtein">Levenshtein (edit distance)</option>
+          <option value="jaro-winkler">Jaro-Winkler</option>
+          <option value="phonetic">Phonetic (Soundex-style)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label><span class="dim">Field</span>Threshold (0.00 – 1.00)</label>
+        <input type="number" id="threshold" value="0.80" min="0" max="1" step="0.01">
+      </div>
+    </div>
+
+    <div class="section-head">Synthetic Name Pairs</div>
+    <div class="q">
+      <label><span class="dim">JSON Array</span>Name pairs — <code>&#91;{"name_a":"...","name_b":"...","is_match":true}&#93;</code></label>
+      <textarea id="pairs_json" rows="14" spellcheck="false"></textarea>
+      <div class="pairs-count" id="pairsCount"></div>
+      <div class="json-err" id="jsonErr">Invalid JSON — check syntax and try again.</div>
+    </div>
+
+    <button onclick="run()">Score Calibration →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="f1Val" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">F1 Score</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="fprVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">FPR</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="recallVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Recall</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="gradeVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Calibration Grade</div>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Confusion matrix</div>
+    <div class="confusion-grid">
+      <div class="conf-cell tp">
+        <div class="conf-val" id="tpVal">–</div>
+        <div class="conf-lbl">TP — True Positives</div>
+      </div>
+      <div class="conf-cell fp">
+        <div class="conf-val" id="fpVal">–</div>
+        <div class="conf-lbl">FP — False Positives</div>
+      </div>
+      <div class="conf-cell fn">
+        <div class="conf-val" id="fnVal">–</div>
+        <div class="conf-lbl">FN — False Negatives</div>
+      </div>
+      <div class="conf-cell tn">
+        <div class="conf-val" id="tnVal">–</div>
+        <div class="conf-lbl">TN — True Negatives</div>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Threshold recommendation</div>
+    <div class="threshold-rec">
+      <div>
+        <div class="threshold-val" id="threshRecVal">–</div>
+        <div style="font-size:.58rem;color:var(--muted);margin-top:2px">RECOMMENDED THRESHOLD</div>
+      </div>
+      <div style="color:var(--body);font-size:.72rem" id="threshRecNote"></div>
+    </div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Pairs evaluated</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);margin-bottom:10px" id="pairsEvalRow"></div>
+
+    <div class="verdict info" style="margin-top:10px;font-size:.74rem" id="wolfsbergNote"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="verdict info" style="margin-top:10px;font-size:.74rem">
+      <b>References (verify current):</b> Wolfsberg Sanctions Screening Guidance (2019) — scoring/calibration benchmarks · FATF Guidance on Sanctions-Related Due Diligence (2021). SYNTHETIC NAME PAIRS ONLY — outputs are decision-support drafts, not regulatory advice.
+    </div>
+
+    <div class="muted-txt" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hashOut">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button onclick="exportMarkdown()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.65rem">↓ Markdown</button>
+      <button onclick="window.print()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.65rem">↓ PDF (Print)</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script type="application/json" id="manifest">
+{
+  "tool_id": "art-93-fuzzy-match-calibration-scorer",
+  "tool_version": "1.0.0",
+  "mcp_name": "score_fuzzy_match_calibration",
+  "mandate_type": "model_governance",
+  "wave": 19,
+  "chaingraph_version": "0.4.0",
+  "compute_capability": "server",
+  "export_capability": ["pdf","xlsx"],
+  "description": "Fuzzy-match FPR/recall/F1 scoring and threshold calibration on synthetic labelled name-pair sets.",
+  "chain": "sanc-fuzzy-calibration",
+  "url": "https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "engine": {
+        "type": "object",
+        "properties": {
+          "algorithm": {"enum": ["levenshtein","jaro-winkler","phonetic"]},
+          "threshold": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      },
+      "synthetic_pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name_a": {"type": "string"},
+            "name_b": {"type": "string"},
+            "is_match": {"type": "boolean"}
+          },
+          "required": ["name_a","name_b","is_match"]
+        }
+      }
+    }
+  }
+}
+</script>
+
+<script>
+const MANIFEST = JSON.parse(document.getElementById('manifest').textContent);
+
+// Default synthetic name-pair set — 10 pairs, no real persons or entities
+const DEFAULT_PAIRS = [
+  {"name_a":"Acme Trading Ltd","name_b":"ACME Trading Limited","is_match":true},
+  {"name_a":"Global Exports Inc","name_b":"Globl Exports Inc","is_match":true},
+  {"name_a":"Meridian Capital Group","name_b":"Meridian Capital Grp","is_match":true},
+  {"name_a":"Zenith Logistics SA","name_b":"Zenith Logistix SA","is_match":true},
+  {"name_a":"Northern Commodities BV","name_b":"Northern Commodities NV","is_match":true},
+  {"name_a":"Apex Financial Services LLC","name_b":"Apex Financial Svcs LLC","is_match":true},
+  {"name_a":"Acme Trading Ltd","name_b":"Atlantic Trading Partners","is_match":false},
+  {"name_a":"Global Exports Inc","name_b":"Greenfield Export Corp","is_match":false},
+  {"name_a":"Meridian Capital Group","name_b":"Maritime Capital Holdings","is_match":false},
+  {"name_a":"Zenith Logistics SA","name_b":"Zephyr Transport GmbH","is_match":false}
+];
+
+// --- Fuzzy algorithms — byte-identical to art-93-fuzzy-match-calibration-scorer.kernel.mjs ---
+
+function levenshteinSim(a, b) {
+  const al = a.toLowerCase(), bl = b.toLowerCase();
+  const m = al.length, n = bl.length;
+  if (m === 0 && n === 0) return 1;
+  if (m === 0 || n === 0) return 0;
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = al[i-1] === bl[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return 1 - dp[m][n] / Math.max(m, n);
+}
+
+function jaroSim(a, b) {
+  const s1 = a.toLowerCase(), s2 = b.toLowerCase();
+  if (s1 === s2) return 1;
+  const len1 = s1.length, len2 = s2.length;
+  if (len1 === 0 || len2 === 0) return 0;
+  const matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+  const s1m = new Array(len1).fill(false), s2m = new Array(len2).fill(false);
+  let matches = 0, t = 0;
+  for (let i = 0; i < len1; i++) {
+    const lo = Math.max(0, i - matchDist), hi = Math.min(i + matchDist + 1, len2);
+    for (let j = lo; j < hi; j++) {
+      if (!s2m[j] && s1[i] === s2[j]) { s1m[i] = s2m[j] = true; matches++; break; }
+    }
+  }
+  if (matches === 0) return 0;
+  let k = 0;
+  for (let i = 0; i < len1; i++) {
+    if (s1m[i]) {
+      while (!s2m[k]) k++;
+      if (s1[i] !== s2[k]) t++;
+      k++;
+    }
+  }
+  return (matches/len1 + matches/len2 + (matches - t/2)/matches) / 3;
+}
+
+function jaroWinklerSim(a, b, p = 0.1) {
+  const jaro = jaroSim(a, b);
+  const s1 = a.toLowerCase(), s2 = b.toLowerCase();
+  let prefix = 0;
+  for (let i = 0; i < Math.min(s1.length, s2.length, 4); i++) {
+    if (s1[i] === s2[i]) prefix++; else break;
+  }
+  return jaro + prefix * p * (1 - jaro);
+}
+
+function soundexCode(s) {
+  const map = { b:1,f:1,p:1,v:1, c:2,g:2,j:2,k:2,q:2,s:2,x:2,z:2, d:3,t:3, l:4, m:5,n:5, r:6 };
+  const w = s.toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return '0000';
+  let code = w[0].toUpperCase();
+  let prev = map[w[0]] ?? 0;
+  for (let i = 1; i < w.length && code.length < 4; i++) {
+    const c = map[w[i]] ?? 0;
+    if (c && c !== prev) code += c;
+    prev = c;
+  }
+  return code.padEnd(4, '0');
+}
+
+function phoneticSim(a, b) {
+  return soundexCode(a) === soundexCode(b) ? 1 : levenshteinSim(a, b) * 0.6;
+}
+
+function computeSim(algorithm, a, b) {
+  switch (algorithm) {
+    case 'jaro-winkler': return jaroWinklerSim(a, b);
+    case 'phonetic':     return phoneticSim(a, b);
+    default:             return levenshteinSim(a, b);
+  }
+}
+
+function gradeCalibration(f1) {
+  if (f1 >= 0.90) return 'A';
+  if (f1 >= 0.80) return 'B';
+  if (f1 >= 0.65) return 'C';
+  if (f1 >= 0.50) return 'D';
+  return 'F';
+}
+
+// compute() — byte-identical to art-93-fuzzy-match-calibration-scorer.kernel.mjs
+function compute(pp) {
+  const {
+    engine          = { algorithm: 'levenshtein', threshold: 0.80 },
+    synthetic_pairs = [],
+  } = pp;
+
+  const { algorithm = 'levenshtein', threshold = 0.80 } = engine;
+  const thresh = Math.max(0, Math.min(1, threshold));
+
+  if (synthetic_pairs.length === 0) {
+    return {
+      output_payload: {
+        fpr: null, recall: null, f1: null,
+        threshold_recommendation: thresh,
+        calibration_grade: 'F',
+        pairs_evaluated: 0,
+        note: 'No synthetic pairs provided — cannot calibrate.',
+        reference_version: '2026-06',
+      },
+      compliance_flags: ['LOW_RECALL'],
+    };
+  }
+
+  let tp = 0, fp = 0, tn = 0, fn = 0;
+  const scored_pairs = [];
+  for (const pair of synthetic_pairs) {
+    const { name_a, name_b, is_match } = pair;
+    if (typeof name_a !== 'string' || typeof name_b !== 'string') continue;
+    const sim = computeSim(algorithm, name_a, name_b);
+    const predicted_match = sim >= thresh;
+    const actual_match    = is_match === true || is_match === 1;
+    if (predicted_match && actual_match)  tp++;
+    if (predicted_match && !actual_match) fp++;
+    if (!predicted_match && !actual_match) tn++;
+    if (!predicted_match && actual_match)  fn++;
+    scored_pairs.push({ name_a, name_b, sim: +sim.toFixed(4), predicted_match, actual_match });
+  }
+
+  const total_pos = tp + fn;
+  const total_neg = fp + tn;
+  const fpr       = total_neg > 0 ? +(fp / total_neg).toFixed(4) : 0;
+  const recall    = total_pos > 0 ? +(tp / total_pos).toFixed(4) : 0;
+  const precision = (tp + fp) > 0 ? +(tp / (tp + fp)).toFixed(4) : 0;
+  const f1        = (precision + recall) > 0 ? +(2 * precision * recall / (precision + recall)).toFixed(4) : 0;
+
+  // Threshold recommendation: search [0.60, 0.95] in 0.05 steps for best F1
+  let best_f1 = -1, best_thresh = thresh;
+  for (let t2 = 0.60; t2 <= 0.95; t2 = +(t2 + 0.05).toFixed(2)) {
+    let tp2 = 0, fp2 = 0, tn2 = 0, fn2 = 0;
+    for (const sp of scored_pairs) {
+      const pm = sp.sim >= t2;
+      if (pm && sp.actual_match)  tp2++;
+      if (pm && !sp.actual_match) fp2++;
+      if (!pm && !sp.actual_match) tn2++;
+      if (!pm && sp.actual_match)  fn2++;
+    }
+    const prec2 = (tp2+fp2) > 0 ? tp2/(tp2+fp2) : 0;
+    const rec2  = (tp2+fn2) > 0 ? tp2/(tp2+fn2) : 0;
+    const f12   = (prec2+rec2) > 0 ? 2*prec2*rec2/(prec2+rec2) : 0;
+    if (f12 > best_f1) { best_f1 = f12; best_thresh = t2; }
+  }
+
+  const calibration_grade = gradeCalibration(f1);
+
+  const compliance_flags = [];
+  if (fpr > 0.20)    compliance_flags.push('HIGH_FALSE_POSITIVE_RATE');
+  if (recall < 0.80) compliance_flags.push('LOW_RECALL');
+
+  const output_payload = {
+    fpr,
+    recall,
+    precision,
+    f1,
+    confusion_matrix: { tp, fp, tn, fn },
+    threshold_assessed: thresh,
+    threshold_recommendation: best_thresh,
+    calibration_grade,
+    pairs_evaluated: scored_pairs.length,
+    algorithm_assessed: algorithm,
+    wolfsberg_note: 'Wolfsberg Guidance targets high recall with acceptable FPR; calibrate threshold to minimise missed matches (fn) before false positives (fp) in sanctions context.',
+    reference_version: '2026-06',
+    note: 'SYNTHETIC NAME PAIRS ONLY. No real persons or entities assessed. Calibration scores are illustrative decision-support outputs.',
+  };
+
+  return { output_payload, compliance_flags };
+}
+
+// JCS canonical JSON + SHA-256
+const cgCanon = v =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o,k)=>(o[k]=cgCanon(v[k]),o),{})
+  : v;
+async function executionHash(pp, op) {
+  const s = JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Init textarea with default pairs
+document.getElementById('pairs_json').value = JSON.stringify(DEFAULT_PAIRS, null, 2);
+updatePairsCount();
+
+function updatePairsCount() {
+  const ta = document.getElementById('pairs_json');
+  const errEl = document.getElementById('jsonErr');
+  const countEl = document.getElementById('pairsCount');
+  try {
+    const arr = JSON.parse(ta.value);
+    errEl.style.display = 'none';
+    countEl.textContent = Array.isArray(arr) ? arr.length + ' pair(s) loaded' : 'Not an array';
+  } catch (e) {
+    errEl.style.display = 'block';
+    countEl.textContent = '';
+  }
+}
+document.getElementById('pairs_json').addEventListener('input', updatePairsCount);
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+function loadPreset(p) {
+  if (p === 'low') {
+    document.getElementById('algorithm').value = 'levenshtein';
+    document.getElementById('threshold').value = '0.60';
+  } else if (p === 'high') {
+    document.getElementById('algorithm').value = 'jaro-winkler';
+    document.getElementById('threshold').value = '0.95';
+  }
+  document.getElementById('pairs_json').value = JSON.stringify(DEFAULT_PAIRS, null, 2);
+  updatePairsCount();
+}
+
+function getPP() {
+  const raw = document.getElementById('pairs_json').value.trim();
+  let pairs = [];
+  try { pairs = JSON.parse(raw); } catch (e) { pairs = []; }
+  if (!Array.isArray(pairs)) pairs = [];
+  return {
+    engine: {
+      algorithm: document.getElementById('algorithm').value,
+      threshold: parseFloat(document.getElementById('threshold').value) || 0.80,
+    },
+    synthetic_pairs: pairs,
+  };
+}
+
+let _lastArtifact = null;
+
+const GRADE_COLOR  = { A:'var(--green)',B:'var(--teal-lt)',C:'var(--gold)',D:'var(--warn)',F:'var(--red)' };
+const FLAG_CLASS   = { HIGH_FALSE_POSITIVE_RATE:'warn-b', LOW_RECALL:'err' };
+
+async function run() {
+  // Validate JSON before running
+  const raw = document.getElementById('pairs_json').value.trim();
+  const errEl = document.getElementById('jsonErr');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+    errEl.style.display = 'none';
+  } catch (e) {
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'browser',
+    mandate_type: 'model_governance',
+    tool_id: 'art-93-fuzzy-match-calibration-scorer',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact;
+
+  document.getElementById('results').classList.add('show');
+
+  // Hero stats
+  const f1 = output_payload.f1;
+  const f1El = document.getElementById('f1Val');
+  f1El.textContent = f1 !== null ? f1.toFixed(3) : 'N/A';
+  f1El.style.color = GRADE_COLOR[output_payload.calibration_grade] || 'var(--teal-lt)';
+
+  const fprEl = document.getElementById('fprVal');
+  fprEl.textContent = output_payload.fpr !== null ? output_payload.fpr.toFixed(3) : 'N/A';
+  fprEl.style.color = output_payload.fpr > 0.20 ? 'var(--red)' : 'var(--green)';
+
+  const recEl = document.getElementById('recallVal');
+  recEl.textContent = output_payload.recall !== null ? output_payload.recall.toFixed(3) : 'N/A';
+  recEl.style.color = output_payload.recall < 0.80 ? 'var(--warn)' : 'var(--green)';
+
+  const gradeEl = document.getElementById('gradeVal');
+  gradeEl.textContent = output_payload.calibration_grade;
+  gradeEl.style.color = GRADE_COLOR[output_payload.calibration_grade] || 'var(--teal-lt)';
+
+  // Confusion matrix
+  const cm = output_payload.confusion_matrix;
+  document.getElementById('tpVal').textContent = cm.tp;
+  document.getElementById('fpVal').textContent = cm.fp;
+  document.getElementById('fnVal').textContent = cm.fn;
+  document.getElementById('tnVal').textContent = cm.tn;
+
+  // Threshold recommendation
+  const rec = output_payload.threshold_recommendation;
+  const assessed = output_payload.threshold_assessed;
+  document.getElementById('threshRecVal').textContent = rec.toFixed(2);
+  const better = rec !== assessed;
+  document.getElementById('threshRecNote').innerHTML = better
+    ? `Current threshold <b>${assessed.toFixed(2)}</b> — recommended: <b>${rec.toFixed(2)}</b> for best F1 on these pairs`
+    : `Current threshold <b>${assessed.toFixed(2)}</b> is already optimal on these pairs`;
+
+  // Pairs evaluated
+  document.getElementById('pairsEvalRow').textContent =
+    `${output_payload.pairs_evaluated} pair(s) evaluated · algorithm: ${output_payload.algorithm_assessed}`;
+
+  // Wolfsberg note
+  document.getElementById('wolfsbergNote').innerHTML =
+    `<b>Wolfsberg Guidance:</b> ${output_payload.wolfsberg_note}`;
+
+  // Flags
+  const flagsHtml = compliance_flags.length
+    ? compliance_flags.map(f => `<span class="badge ${FLAG_CLASS[f] || 'warn-b'}">${f}</span>`).join('')
+    : '<span class="badge ok">NO_FLAGS</span>';
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hashOut').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+async function exportAP2() {
+  if (!_lastArtifact) return;
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'art-93-fuzzy-match-calibration-scorer',
+    tool_version: '1.0.0',
+    mandate_type: 'model_governance',
+    payload: _lastArtifact.output_payload,
+    execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `art-93-fuzzy-match-calibration-scorer_${ts}.policy.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportMarkdown() {
+  if (!_lastArtifact) return;
+  const op = _lastArtifact.output_payload;
+  const lines = [
+    '# Fuzzy-Match Calibration Scorer — ART-93',
+    '',
+    `**Generated:** ${_lastArtifact.generated_at}`,
+    `**Tool:** ${_lastArtifact.tool_id} v${_lastArtifact.tool_version}`,
+    `**Execution Hash:** ${_lastArtifact.execution_hash}`,
+    '',
+    '## Calibration Summary',
+    '',
+    `| Metric | Value |`,
+    `|---|---|`,
+    `| Calibration Grade | ${op.calibration_grade} |`,
+    `| F1 Score | ${op.f1 !== null ? op.f1.toFixed(4) : 'N/A'} |`,
+    `| Recall | ${op.recall !== null ? op.recall.toFixed(4) : 'N/A'} |`,
+    `| FPR | ${op.fpr !== null ? op.fpr.toFixed(4) : 'N/A'} |`,
+    `| Precision | ${op.precision !== null ? op.precision.toFixed(4) : 'N/A'} |`,
+    `| Algorithm | ${op.algorithm_assessed} |`,
+    `| Threshold Assessed | ${op.threshold_assessed} |`,
+    `| Threshold Recommended | ${op.threshold_recommendation} |`,
+    `| Pairs Evaluated | ${op.pairs_evaluated} |`,
+    '',
+    '## Confusion Matrix',
+    '',
+    `| | Predicted Match | Predicted Non-match |`,
+    `|---|---|---|`,
+    `| Actual Match | TP: ${op.confusion_matrix.tp} | FN: ${op.confusion_matrix.fn} |`,
+    `| Actual Non-match | FP: ${op.confusion_matrix.fp} | TN: ${op.confusion_matrix.tn} |`,
+    '',
+    '## Compliance Flags',
+    '',
+    _lastArtifact.compliance_flags.length ? _lastArtifact.compliance_flags.map(f => `- ${f}`).join('\n') : '_None_',
+    '',
+    '## Wolfsberg Note',
+    '',
+    op.wolfsberg_note,
+    '',
+    '---',
+    `*${op.note}*`,
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'art-93-fuzzy-match-calibration-scorer.md';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="guide-sanctions-screening.html" style="color:var(--muted)">Wave 19 Guide</a>
+      <a href="chains/sanc-fuzzy-calibration.html" style="color:var(--muted)">sanc-fuzzy-calibration chain</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+</body></html>

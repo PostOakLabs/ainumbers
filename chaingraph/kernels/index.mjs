@@ -95,6 +95,15 @@ import * as art86  from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87  from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
 import * as art88  from './art-88-fido-pqc-conformance-checker.kernel.mjs';
 import * as art89  from './art-89-blockchain-quantum-risk-classifier.kernel.mjs';
+// ART Sanctions & Export-Control Screening Conformance (wave 19)
+import * as art90  from './art-90-sanctions-screening-fit-diagnostic.kernel.mjs';
+import * as art91  from './art-91-ownership-50pct-aggregator.kernel.mjs';
+import * as art92  from './art-92-screening-list-coverage-checker.kernel.mjs';
+import * as art93  from './art-93-fuzzy-match-calibration-scorer.kernel.mjs';
+import * as art94  from './art-94-eccn-dual-use-classifier.kernel.mjs';
+import * as art95  from './art-95-circumvention-diligence-assessor.kernel.mjs';
+import * as art96  from './art-96-no-russia-clause-pack-builder.kernel.mjs';
+import * as art97  from './art-97-sanctions-screening-quality-scorer.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -225,6 +234,15 @@ export const KERNELS = {
   'art-87-iso20022-pqc-readiness-checker':          art87,
   'art-88-fido-pqc-conformance-checker':            art88,
   'art-89-blockchain-quantum-risk-classifier':      art89,
+  // ART Sanctions & Export-Control Screening Conformance (wave 19)
+  'art-90-sanctions-screening-fit-diagnostic':      art90,
+  'art-91-ownership-50pct-aggregator':              art91,
+  'art-92-screening-list-coverage-checker':         art92,
+  'art-93-fuzzy-match-calibration-scorer':          art93,
+  'art-94-eccn-dual-use-classifier':                art94,
+  'art-95-circumvention-diligence-assessor':        art95,
+  'art-96-no-russia-clause-pack-builder':           art96,
+  'art-97-sanctions-screening-quality-scorer':      art97,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
