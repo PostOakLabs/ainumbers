@@ -2,7 +2,7 @@
  * art-90-sanctions-screening-fit-diagnostic.kernel.mjs
  * Wave 19 — Sanctions & Export-Control Screening Fit Diagnostic (D0).
  * 12-param A–F diagnostic scoping a firm's sanctions/export-control screening
- * program and routing to the right Wave-19 sanc-*/ec-* chain.
+ * program and routing to the right Wave-19 sanc- and ec- chains.
  * Operates on program config only — zero real customer data, zero PII.
  *
  * Citations (verify before citing):
