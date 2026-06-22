@@ -77,6 +77,7 @@ def main():
             "metadata": {
                 "tool_id": man.get('tool_id', slug),
                 "category": man.get('category', ''),
+                "tags": man.get('tags', []),
                 "url": f"{BASE_URL}/tools/{slug}.html",
                 "ap2_export": bool(man.get('ap2_export', False)),
                 "execution_type": "browser-reference",
