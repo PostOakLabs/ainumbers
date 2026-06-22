@@ -111,11 +111,17 @@ def main():
               indent=2, ensure_ascii=True)
     open('mcp/catalog.json', 'a', encoding='utf-8').write('\n')
 
+    # ── get mcp.live from counts.mjs (SSOT) via subprocess ──
+    import subprocess as _sp
+    _counts_result = _sp.run(['node', 'scripts/counts.mjs'], capture_output=True, text=True, cwd=ROOT)
+    _counts = json.loads(_counts_result.stdout) if _counts_result.returncode == 0 else {}
+    mcp_live = _counts.get('mcp.live', n)   # fallback to n if counts.mjs fails
+
     # ── mcp/server.json ──
     sj = json.load(open('mcp/server.json', encoding='utf-8'))
     sj['tool_count'] = n
     sj['last_updated'] = TODAY
-    sj['description'] = (f"{n}+ browser-based fintech intelligence tools built by Post Oak Labs. "
+    sj['description'] = (f"{n} browser-based fintech intelligence tools built by Post Oak Labs. "
                          f"Covers ISO 20022, A2A payments, open banking (CFPB §1033 / PSD3), "
                          f"EU AI Act, DORA, AML/KYC, BaaS, DLT/tokenization, cross-border FX, "
                          f"real-time payments, e-invoicing (Peppol/ViDA), agentic payment protocols "
@@ -130,9 +136,14 @@ def main():
     for s in wk.get('servers', []):
         if s.get('id') == 'ainumbers-fintech-suite':
             s['tool_count'] = n
-            s['description'] = (f"{n}+ browser-based fintech tools — ISO 20022, A2A, CFPB §1033, "
+            s['description'] = (f"{n} browser-based fintech tools — ISO 20022, A2A, CFPB §1033, "
                                 f"EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, "
                                 f"Visa TAP, Mastercard Agent Pay), and MCP developer tooling.")
+        elif s.get('id') == 'ainumbers-apps':
+            s['tool_count'] = mcp_live
+            s['description'] = (f"Live MCP endpoint ({mcp_live} tools) — chainable OCG compute nodes, "
+                                f"flagship browser tool widgets, and catalog search. "
+                                f"Streamable HTTP at https://mcp.ainumbers.co/mcp, no auth.")
     json.dump(wk, open('.well-known/mcp.json', 'w', encoding='utf-8'),
               indent=2, ensure_ascii=True)
     open('.well-known/mcp.json', 'a', encoding='utf-8').write('\n')
@@ -162,9 +173,10 @@ def main():
                     f'<span class="filter-count" id="fc-all">{n_tools}</span>', thtml)
     open('tools.html', 'w', encoding='utf-8').write(thtml)
 
-    # ── index.html (hub spoke — "Browse all N tools" CTA count) ──
+    # ── index.html (hub spoke — preserve sentinel format in "Browse all N tools" CTA) ──
     ihtml = open('index.html', encoding='utf-8').read()
-    ihtml = _re.sub(r'Browse all \d+ tools →', f'Browse all {n_tools} tools →', ihtml)
+    ihtml = _re.sub(r'Browse all (?:<!--COUNT:tools\.browser-->\d+<!--/COUNT-->|\d+) tools →',
+                    f'Browse all <!--COUNT:tools.browser-->{n_tools}<!--/COUNT--> tools →', ihtml)
     open('index.html', 'w', encoding='utf-8').write(ihtml)
 
     # ── report ──

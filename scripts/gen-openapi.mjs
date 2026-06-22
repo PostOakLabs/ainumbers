@@ -17,9 +17,13 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, copyFileSync } from 'fs'
 import { resolve, join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { deriveCounts } from './counts.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
+
+// Derive counts once — used for the OpenAPI description and docs/index.html sentinels.
+const C = deriveCounts()
 
 // ── 1. Read all manifests ────────────────────────────────────────────────────
 const manifestsDir = join(repoRoot, 'manifests')
@@ -131,6 +135,9 @@ for (const [mcpName, entry] of byMcpName) {
 }
 
 const toolCount = Object.keys(paths).length
+if (toolCount !== C['openapi.ops']) {
+  console.warn(`WARNING: generated path count ${toolCount} != counts.mjs openapi.ops ${C['openapi.ops']} — run verify-counts.mjs --fix if they differ`)
+}
 console.log(`Generated ${toolCount} paths (${[...byMcpName.values()].filter(e => e.source === 'manifest').length} from manifests, ${[...byMcpName.values()].filter(e => e.source === 'chaingraph').length} from chaingraph nodes)`)
 
 // ── 4. Assemble OpenAPI 3.1 document ────────────────────────────────────────
@@ -269,5 +276,28 @@ const catalogSrc  = join(repoRoot, 'mcp', 'catalog.json')
 const catalogDest = join(docsDir, 'catalog.json')
 copyFileSync(catalogSrc, catalogDest)
 console.log(`Copied catalog.json → ${catalogDest}`)
+
+// ── 6. Fill docs/index.html sentinels (closes the orphan that caused the incident) ──
+const docsIndexPath = join(docsDir, 'index.html')
+if (existsSync(docsIndexPath)) {
+  const SENTINEL_RE = /<!--COUNT:([^-]+?)-->(\d+)<!--\/COUNT-->/g
+  const DATA_COUNT_RE = /(<[^>]+\bdata-count="([^"]+)"[^>]*>)(\d+)(<\/)/g
+  let docsHtml = readFileSync(docsIndexPath, 'utf8')
+  let changed = false
+  docsHtml = docsHtml.replace(SENTINEL_RE, (match, key, valStr) => {
+    const expected = C[key]
+    if (expected === undefined) return match
+    if (parseInt(valStr, 10) !== expected) { changed = true; return `<!--COUNT:${key}-->${expected}<!--/COUNT-->` }
+    return match
+  })
+  docsHtml = docsHtml.replace(DATA_COUNT_RE, (match, openFull, key, valStr, close) => {
+    const expected = C[key]
+    if (expected === undefined) return match
+    if (parseInt(valStr, 10) !== expected) { changed = true; return `${openFull}${expected}${close}` }
+    return match
+  })
+  if (changed) { writeFileSync(docsIndexPath, docsHtml, 'utf8'); console.log(`Updated sentinels in ${docsIndexPath}`) }
+  else { console.log(`docs/index.html sentinels already current`) }
+}
 
 console.log(`\nDone. ${toolCount} operations in openapi.json.`)
