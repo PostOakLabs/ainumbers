@@ -43,15 +43,15 @@ Before adding or renaming any tool, ChainGraph node, chain, or kernel:
 ## 📐 Required UI & Export Contracts
 
 - **Lang toggle:** OMIT. Do not add `.lang-bar`, `setLang()`, or `TRANSLATIONS` objects. Toggle deferred — see `CONTRACT.md` §1.1 and `../I18N-SPEC.md` for future re-implementation spec.
-- **AP2 Button:** Must live in `.results-export-row`. Validates against AP2 v1.0 schema before download.
-- **Export Tiers:** Tier 1 (AP2 JSON + Markdown) mandatory for all policy/rule/mandate tools. Tier 2/3 conditional.
+- **Policy Mandate export button:** Must live in `.results-export-row`. Validates against the **Policy Mandate v1.0 schema** (`CONTRACT.md` §3.1) before download. The export is the **AINumbers Policy Mandate**, NOT Google's AP2 payments protocol. **Keep the literal `id="ap2ExportBtn"` and the `AP2Schema.validate()` JS name — retained legacy identifiers (§3.1); do NOT rename them** (a suite-wide rename was explicitly rejected — it's a 465-file churn with no standards gain).
+- **Export Tiers:** Tier 1 (Policy Mandate JSON + Markdown) mandatory for all policy/rule/mandate tools. Tier 2/3 conditional.
 - **PII Banner:** Exact text: `🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.`
 
 ## 🛠️ Build Workflow
 
 1. Read `CONTRACT.md` §0–§6 fully.
 2. Generate single `.html` file and place it in `tools/`.
-3. Validate AP2 schema, storage, and export contracts before output.
+3. Validate Policy Mandate schema (`CONTRACT.md` §3.1), storage, and export contracts before output.
 4. Run pre-flight checklist from `CONTRACT.md` §6.1.
 5. Add card entry to `index.html` tool grid (correct `data-cat`, `data-tags`, `data-name`).
 6. Update category tool count in `index.html` cat-heading `<span class="cat-n">`.
@@ -66,7 +66,7 @@ Run after every batch of new tools, before committing:
 2. **Catalog** — `python scripts/regen_catalog.py` — regenerates `catalog.json` + `data/catalog.json`.
 3. **Sitemap** — `python scripts/regen_sitemap.py --apply` — regenerates `sitemap.xml` from filesystem.
 4. **PII banners** — every new tool must have the canonical `<div class="pii-notice">` with exact CONTRACT §1.3 text. Verify: `grep -rL "pii-notice" tools/*.html` (expect: no output).
-5. **AP2 export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have `id="ap2ExportBtn"`. Check each new in-scope tool.
+5. **Policy Mandate export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have the Policy Mandate export button. Its element id stays `id="ap2ExportBtn"` (retained legacy id, §3.1 — do not rename). Check each new in-scope tool.
 6. **index.html** — card entry present with correct `data-cat`, `data-tags`, `data-name`, and updated `<span class="cat-n">` count.
 7. **Stat sync** — `node scripts/sync-stats.mjs` — verifies workflow recipe count (mcp.html) and OCG tool count (chaingraph-hub.html) match their static fallback numbers. Run `--fix` to auto-patch. Exit 0 required before commit.
 8. **Count-drift gate** — `node scripts/verify-counts.mjs --check` — verifies every published count sentinel (`<!--COUNT:key-->N<!--/COUNT-->`, `data-count="key"`) matches `deriveCounts()` from `scripts/counts.mjs`. Run `--fix` to repair. Exit 0 required before commit. **Never hardcode a count to make this pass — fix the sentinel or the source.**
@@ -85,7 +85,7 @@ Run `ls` to verify — counts change each session.
 
 ## 📋 Additional Rules (from post-launch audits)
 
-- **AP2 is mandatory** for any tool whose title/function involves: policy, rule, mandate, routing, compliance, risk assessment, AML, KYC, or gap analysis. When in doubt, add it.
+- **Policy Mandate export is mandatory** for any tool whose title/function involves: policy, rule, mandate, routing, compliance, risk assessment, AML, KYC, or gap analysis. When in doubt, add it. (This is the AINumbers Policy Mandate — `CONTRACT.md` §3.1 — NOT Google's AP2 payments protocol. The `ap2ExportBtn` / `ap2_export` / `AP2Schema` identifiers are **retained legacy names, not a rename target**.)
 - **Manifest naming:** one file per tool, always `{number}-{slug}.manifest.json`. Never create short-form `{number}-manifest.json` variants — these become orphans.
 - **No external JS libraries** for export (no jsPDF, no SheetJS, etc.) unless explicitly bundled inline. Use `URL.createObjectURL(new Blob(...))` + `<a download>` only.
 - **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.
