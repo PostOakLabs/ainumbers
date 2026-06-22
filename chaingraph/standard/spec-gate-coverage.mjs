@@ -28,6 +28,7 @@ const SPEC = process.env.SPEC || firstExisting([
 const GATE_DIRS = (process.env.GATE_DIRS || [
   HERE,                                                     // landed: standard/ (SSOT gates)
   join(HERE, '..', 'kernels'),                             // landed: chaingraph/kernels (hash gates)
+  join(HERE, '..', 'exporters'),                           // landed: chaingraph/exporters (§13 export gates)
   join(HERE, '..', '..', '..', 'mcp-apps-poc', 'scripts'), // local sibling worker repo (dev runs)
   join(HERE, '..', 'mcp-apps-poc', 'scripts'),             // staging: ssot-rollout/
   join(HERE, '..', 'repo', 'chaingraph', 'kernels'),       // staging

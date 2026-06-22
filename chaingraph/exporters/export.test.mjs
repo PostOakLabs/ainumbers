@@ -66,6 +66,27 @@ ok(!xtext.includes('name="'), 'no non-standard name="" attribute on facts (valid
 safeWrite('sample-export.xbrl', xtext);
 ok(!exportArtifact({ artifact, format: 'xbrl', xbrl_taxonomy: 'eba-corep-own-funds' }).ok, 'eba-corep pending (no fabricated EBA concepts)');
 
+// vc — W3C Verifiable Credentials 2.0 profile (OCG §13.11). View-only: no new hash/proof.
+const vc = exportArtifact({ artifact, format: 'vc' });
+ok(vc.ok, 'vc export ok');
+ok(vc.filename.endsWith('.vc.json'), 'vc filename ext');
+ok(vc.media_type === 'application/vc+json', 'vc media type');
+const vcobj = JSON.parse(Buffer.from(vc.bytes_base64, 'base64').toString('utf8'));
+ok(vcobj['@context'][0] === 'https://www.w3.org/ns/credentials/v2', 'vc @context[0] is W3C VC 2.0');
+ok(vcobj.type.includes('VerifiableCredential'), 'vc type includes VerifiableCredential');
+ok(vcobj.credentialSubject.output_payload && 'annual_saving_usd' in vcobj.credentialSubject.output_payload, 'vc credentialSubject carries output_payload');
+ok(vcobj['ocg:hashAnchor'].executionHash === artifact.execution_hash, 'vc hashAnchor re-states the canonical execution_hash');
+ok(vcobj.execution_hash === undefined && vcobj.proof === undefined, 'vc mints NO new execution_hash and NO proof (§13 view-only)');
+// Determinism — same artifact must render byte-identical bytes.
+const vc2 = exportArtifact({ artifact, format: 'vc' });
+ok(vc2.bytes_base64 === vc.bytes_base64, 'vc is deterministic (byte-identical on re-run)');
+// Base profile — available even when a per-node gate denies everything.
+const vcGated = exportArtifact({ artifact, format: 'vc', isFormatAllowed: () => false });
+ok(vcGated.ok, 'vc is a base profile (bypasses export_capability gate)');
+const xlsxGated = exportArtifact({ artifact, format: 'xlsx', isFormatAllowed: () => false });
+ok(!xlsxGated.ok, 'non-base format still honors the export_capability gate');
+safeWrite('sample-export.vc.json', Buffer.from(vc.bytes_base64, 'base64'));
+
 // qr (structural only — SCAN sample-export.pdf to confirm it decodes to the verify URL)
 const { qrMatrix } = await import('./qr.mjs');
 const qr = qrMatrix('https://ainumbers.co/chaingraph/verify?hash=' + 'a'.repeat(64));
