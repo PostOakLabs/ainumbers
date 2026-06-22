@@ -117,9 +117,6 @@ for (const [mcpName, entry] of byMcpName) {
         content: {
           'application/json': { schema: outputSchema }
         }
-      },
-      '501': {
-        description: 'Not Implemented — REST shim (Area 2 Path B) not yet deployed. Use MCP JSON-RPC at https://mcp.ainumbers.co/mcp instead.'
       }
     },
     'x-mcp-tool-name': mcpName,

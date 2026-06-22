@@ -386,7 +386,13 @@ asyncio.<span class="fn">run</span>(<span class="fn">main</span>())</code></pre>
       Use the <a href="#sdk" style="color:var(--teal)">SDK snippets above</a> to call tools today.
       Raw spec: <a href="./openapi.json" style="color:var(--teal)" target="_blank" rel="noopener">openapi.json ↗</a>
     </div>
-    <div id="redoc-container"></div>
+    <div id="redoc-load" style="padding:32px 24px;text-align:center">
+      <button id="redoc-btn" onclick="loadRedocOnce()" style="background:var(--teal);color:#080E1A;border:none;border-radius:6px;padding:12px 24px;font-size:.95rem;font-family:'Sora',sans-serif;font-weight:600;cursor:pointer">
+        Load full API reference (<!--COUNT:openapi.ops-->603<!--/COUNT--> operations)
+      </button>
+      <p style="margin:10px 0 0;font-size:.8rem;color:var(--muted)">1.6 MB — loads on demand</p>
+    </div>
+    <div id="redoc-container" style="display:none"></div>
   </div>
 </section>
 
@@ -477,16 +483,12 @@ document.getElementById('catalog-search').addEventListener('input', function() {
 
 loadCatalog()
 
-// ── Redoc loader ──────────────────────────────────────────────────────────
-// Defer loading Redoc until the user scrolls to #api-ref (perf)
-const observer = new IntersectionObserver((entries) => {
-  if (!entries[0].isIntersecting) return
-  observer.disconnect()
-  loadRedoc()
-}, { rootMargin: '200px' })
-observer.observe(document.getElementById('api-ref'))
-
-function loadRedoc() {
+// ── Redoc loader (on-demand — user clicks the button) ─────────────────────
+function loadRedocOnce() {
+  const btn = document.getElementById('redoc-load')
+  if (btn) btn.remove()
+  const container = document.getElementById('redoc-container')
+  container.style.display = ''
   const script = document.createElement('script')
   script.src = 'https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js'
   script.onload = () => {
@@ -500,9 +502,7 @@ function loadRedoc() {
             success: { color: '#22C55E', backgroundColor: 'rgba(34,197,94,.08)' },
             error:   { color: '#EF4444', backgroundColor: 'rgba(239,68,68,.08)' }
           },
-          http: {
-            post: '#14B8A6'
-          }
+          http: { post: '#14B8A6' }
         },
         schema: { requirePropertiesColor: '#EF4444' },
         sidebar: {
@@ -517,23 +517,14 @@ function loadRedoc() {
           code: { fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }
         }
       },
-      scrollYOffset: 56,   // sticky header height
+      scrollYOffset: 56,
       hideDownloadButton: false,
       expandResponses: '200',
       pathInMiddlePanel: false,
-    }, document.getElementById('redoc-container'))
+    }, container)
   }
   document.head.appendChild(script)
 }
-
-// ── Stat: derive tool count from openapi.json ─────────────────────────────
-fetch('./openapi.json')
-  .then(r => r.json())
-  .then(d => {
-    const n = Object.keys(d.paths || {}).length
-    if (n) document.getElementById('stat-tools').textContent = n
-  })
-  .catch(() => {})
 </script>
 </body>
 </html>
