@@ -104,6 +104,15 @@ import * as art94  from './art-94-eccn-dual-use-classifier.kernel.mjs';
 import * as art95  from './art-95-circumvention-diligence-assessor.kernel.mjs';
 import * as art96  from './art-96-no-russia-clause-pack-builder.kernel.mjs';
 import * as art97  from './art-97-sanctions-screening-quality-scorer.kernel.mjs';
+// ART MiCA CASP Lifecycle (wave 20)
+import * as art98  from './art-98-mica-casp-fit-diagnostic.kernel.mjs';
+import * as art99  from './art-99-mica-transitional-deadline-router.kernel.mjs';
+import * as art100 from './art-100-mica-casp-authorization-readiness.kernel.mjs';
+import * as art101 from './art-101-mica-art67-own-funds-calculator.kernel.mjs';
+import * as art102 from './art-102-crypto-asset-whitepaper-linter.kernel.mjs';
+import * as art103 from './art-103-mar-crypto-surveillance-readiness.kernel.mjs';
+import * as art104 from './art-104-tfr-travel-rule-batch-validator.kernel.mjs';
+import * as art105 from './art-105-mica-token-service-scoper.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -243,6 +252,15 @@ export const KERNELS = {
   'art-95-circumvention-diligence-assessor':        art95,
   'art-96-no-russia-clause-pack-builder':           art96,
   'art-97-sanctions-screening-quality-scorer':      art97,
+  // ART MiCA CASP Lifecycle (wave 20)
+  'art-98-mica-casp-fit-diagnostic':              art98,
+  'art-99-mica-transitional-deadline-router':     art99,
+  'art-100-mica-casp-authorization-readiness':    art100,
+  'art-101-mica-art67-own-funds-calculator':      art101,
+  'art-102-crypto-asset-whitepaper-linter':       art102,
+  'art-103-mar-crypto-surveillance-readiness':    art103,
+  'art-104-tfr-travel-rule-batch-validator':      art104,
+  'art-105-mica-token-service-scoper':            art105,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
