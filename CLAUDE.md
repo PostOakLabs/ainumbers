@@ -68,6 +68,7 @@ Run after every batch of new tools, before committing:
 4. **PII banners** — every new tool must have the canonical `<div class="pii-notice">` with exact CONTRACT §1.3 text. Verify: `grep -rL "pii-notice" tools/*.html` (expect: no output).
 5. **AP2 export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have `id="ap2ExportBtn"`. Check each new in-scope tool.
 6. **index.html** — card entry present with correct `data-cat`, `data-tags`, `data-name`, and updated `<span class="cat-n">` count.
+7. **Stat sync** — `node scripts/sync-stats.mjs` — verifies workflow recipe count (mcp.html) and OCG tool count (chaingraph-hub.html) match their static fallback numbers. Run `--fix` to auto-patch. Exit 0 required before commit.
 
 ## 📊 Current Scale
 
