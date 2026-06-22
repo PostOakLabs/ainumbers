@@ -29,6 +29,13 @@ const BANNED = [
   // as a JSON.stringify replacer — canonical OCG sorts INSIDE cgCanon, then JSON.stringify(canon) with no replacer.
   { re: /JSON\.stringify\([\s\S]{0,200}?,\s*Object\.keys\([\s\S]{0,160}?\)\.sort\(\)\s*\)/, why: 'Scheme A: array-replacer collapses nested data (input-independent hash). Use cgCanon/_hash.mjs: JSON.stringify(cgCanon({policy_parameters, output_payload})).' },
   { re: /function\s+simpleHash\s*\(/, why: 'Scheme C: simpleHash is a 32-bit FNV mislabeled "sha256:". Not SHA-256. Use real crypto.subtle SHA-256 via __ocgHash.' },
+  // Scheme E (no canon): JSON.stringify({policy_parameters, output_payload}) hashed WITHOUT a recursive
+  // key-sort — the cry-04/Wave-16-17 class (added 2026-06-21). A direct object-literal preimage starting
+  // with policy_parameters means the page hashes unsorted JSON, so its hash won't match the canonical
+  // kernel (cgCanon sorts recursively). The canonical form wraps it: JSON.stringify(cgCanon({...})) — which
+  // is `stringify(cgCanon(` not `stringify({`, so this only fires on the unwrapped (wrong) form. Export
+  // blobs are unaffected (they start with mandate_type/spread, not policy_parameters).
+  { re: /JSON\.stringify\(\s*\{\s*policy_parameters\b/, why: 'Scheme E: non-canonical preimage — {policy_parameters, output_payload} hashed without recursive key-sort. Wrap it: JSON.stringify(cgCanon({policy_parameters, output_payload})) (cgCanon = the recursive sorter from _hash.mjs).' },
 ];
 
 let violations = 0;
