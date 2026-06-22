@@ -27,8 +27,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
 INDEX_PATH = os.path.join(REPO_ROOT, "tools.html")
 
-# Tools that are intentionally omitted from index.html (duplicates / aliases)
-# Edit this list if you deliberately exclude a tool from the homepage.
+# Tools that are intentionally omitted from tools.html (duplicates / aliases)
+# Edit this list if you deliberately exclude a tool from the catalog.
 INTENTIONAL_OMISSIONS = {
     "tool-01-smb-treasury-tax.html",         # duplicate of rbe-01
     "tool-02-a2a-exception-triage.html",     # duplicate of rbe-02
@@ -67,11 +67,11 @@ def main():
         f for f in os.listdir(TOOLS_DIR) if f.endswith(".html")
     )
 
-    # ── 2. Read index.html ─────────────────────────────────────────────────
+    # ── 2. Read tools.html ─────────────────────────────────────────────────
     with open(INDEX_PATH, encoding="utf-8", errors="replace") as fh:
         index_html = fh.read()
 
-    # ── 3. Find tools referenced in index.html ────────────────────────────
+    # ── 3. Find tools referenced in tools.html ────────────────────────────
     # Match href="tools/<filename>" patterns
     referenced = set(re.findall(r'href="tools/([^"]+\.html)"', index_html))
 
@@ -81,7 +81,7 @@ def main():
         if not os.path.exists(os.path.join(TOOLS_DIR, f))
     )
 
-    # ── 5. Find tools not referenced in index.html ────────────────────────
+    # ── 5. Find tools not referenced in tools.html ────────────────────────
     not_referenced = sorted(
         f for f in all_tools
         if f not in index_html  # broader check catches data-name matches too
@@ -101,7 +101,7 @@ def main():
         print(f"\n{ANSI_GREEN}  ✓ No dead links in tools.html{ANSI_RESET}")
 
     if unintentional:
-        print(f"\n{ANSI_RED}{ANSI_BOLD}  ✗ Tools missing from index.html ({len(unintentional)}):{ANSI_RESET}")
+        print(f"\n{ANSI_RED}{ANSI_BOLD}  ✗ Tools missing from tools.html ({len(unintentional)}):{ANSI_RESET}")
         for f in unintentional:
             print(f"    tools/{f}")
         print(f"\n  Add a card for each missing tool, or add its filename to")
