@@ -1,16 +1,16 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.4.0
+spec_version: 0.4.1
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
 version_of_record: chaingraph.json#spec_version
-last_reconciled: 2026-06-20
+last_reconciled: 2026-06-22
 renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consistency.mjs)
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.4.0
+# OpenChainGraph Standard — v0.4.1
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -297,7 +297,7 @@ that ignores unknown fields.
 Generated, non-canonical renderings of an already-verified artifact, produced **after**
 `execution_hash` and **excluded from the hash preimage**.
 
-- Umbrella `chaingraph_export:<format>` — `xlsx | pdf | csv | xbrl`. Each export MUST embed a metadata
+- Umbrella `chaingraph_export:<format>` — `xlsx | pdf | csv | xbrl | vc`. Each export MUST embed a metadata
   block (`tool_id`, `execution_hash`, `chaingraph_version`, `compute_mode`, signing `keyid` if present)
   + a link/QR to the canonical JSON; MUST NOT carry a new `execution_hash`; MUST be deterministic.
 - MCP surface: a single read-only `export_artifact` tool (`readOnlyHint:true`), input = full artifact +
@@ -309,8 +309,28 @@ Generated, non-canonical renderings of an already-verified artifact, produced **
   taxonomy exists. **No fabricated taxonomy concepts** — each maps to a published element or an explicit
   `ocg-ext` element.
 
+### §13.11 Verifiable Credentials profile (`vc`) — NORMATIVE, new in v0.4.1
+`chaingraph_export:vc` renders a verified artifact as a [W3C Verifiable Credentials 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
+*credential* (`application/vc+json`). It is a **base profile**: available on **every** node regardless of
+`export_capability` (a lossless structural re-expression of the canonical artifact always exists), so a
+node need not declare `vc`. Mapping (envelope → VC): `issued_by`→`issuer`, `mandate_type`+`output_payload`+
+`policy_parameters`→`credentialSubject`, `valid_from`/`valid_until`→`validFrom`/`validUntil`. The VC
+`@context` is `["https://www.w3.org/ns/credentials/v2", "<ocg vc context>"]` and `type` includes
+`OpenChainGraphCredential`.
+- The credential MUST carry an `ocg:hashAnchor` (`{type:"OpenChainGraphHashAnchor2026", digestMethod:"sha-256",
+  executionHash, verify_url}`) that **re-states** the canonical `execution_hash`. It is an anchor, not a VC
+  proof suite.
+- The `vc` export MUST NOT mint a new `execution_hash` and MUST NOT add a securing `proof` — like every §13
+  profile it is a **view, not a fact**; verification routes back to the canonical JSON artifact. A deployer
+  needing a *secured* VC adds an enveloping JOSE/COSE or Data Integrity proof downstream (out of profile scope).
+- Deterministic: every field derives from the artifact only (id = `urn:ocg:artifact:<bare-hash>`; no UUID, no
+  wall-clock). The same artifact MUST render byte-identical bytes.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.4.0 = Compute Binding (§12) + Export Profiles (§13) over v0.3.1.
+See `standard/CHANGELOG.md`. v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
+v0.4.0 = Compute Binding (§12) + Export Profiles (§13) over v0.3.1. The artifact envelope and hash
+preimage are **unchanged** in v0.4.1 (export profiles are not part of the envelope) — artifacts continue
+to emit `chaingraph_version:"0.4.0"` and remain valid under any v0.4 verifier.
 
 ## §15 Conformance gates (NORMATIVE — conformance-by-construction)
 A v0.4 implementation MUST pass all of the following. **No normative rule above exists without a gate
@@ -331,7 +351,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | unique mcp_name (nodes+pilot+utility) | `check-tool-names.mjs` | validate |
 | chain integrity | `validate-chains.mjs` | validate |
 | /mcp handshake works | `smoke-mcp.mjs` | post-deploy |
-| §13 export gate honored | `smoke-compute.mjs` (export round-trip) | post-deploy |
+| §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

@@ -9,17 +9,26 @@ import { buildXlsx } from './xlsx.mjs';
 import { buildCsv } from './csv.mjs';
 import { buildPdf } from './pdf.mjs';
 import { buildXbrl } from './xbrl.mjs';
+import { buildVc } from './vc.mjs';
 import { metaBlock, bytesToBase64 } from './_meta.mjs';
 
-// All four formats implemented. xbrl takes a second arg (the taxonomy) and may
-// throw for an unknown/pending taxonomy — the dispatcher catches it.
+// All five formats implemented. xbrl takes a second arg (the taxonomy) and may
+// throw for an unknown/pending taxonomy — the dispatcher catches it. vc (W3C
+// Verifiable Credentials 2.0, OCG §13.11) is a BASE profile: a lossless structural
+// re-expression of the canonical artifact, available on every node without a
+// per-node export_capability declaration (see the BASE_PROFILES bypass below).
 const EXPORTERS = {
   xlsx: (a) => buildXlsx(a),
   csv:  (a) => buildCsv(a),
   pdf:  (a) => buildPdf(a),
   xbrl: (a, taxonomy) => buildXbrl(a, taxonomy),
+  vc:   (a) => buildVc(a),
 };
 const PLANNED = {};
+
+// Base profiles need no per-node export_capability gate — any verified artifact can be
+// rendered into them losslessly (OCG §13.11). The per-node gate still applies to all others.
+const BASE_PROFILES = new Set(['vc']);
 
 export const SUPPORTED_FORMATS = Object.keys(EXPORTERS);
 export const ALL_FORMATS = [...SUPPORTED_FORMATS, ...Object.keys(PLANNED)];
@@ -33,10 +42,11 @@ export const EXPORT_ARTIFACT_TOOL_NAME = 'export_artifact';
  * or { ok:false, error }.
  * @param {object} p
  * @param {object} p.artifact         full v0.4 artifact (REQUIRED — stateless, no cache)
- * @param {string} p.format           'xlsx' | 'csv' | 'pdf' | 'xbrl'
+ * @param {string} p.format           'xlsx' | 'csv' | 'pdf' | 'xbrl' | 'vc'
  * @param {string} [p.xbrl_taxonomy]  required when format==='xbrl'
  * @param {(tool_id:string, format:string)=>boolean} [p.isFormatAllowed]
  *        optional per-node export_capability gate; defaults to allow-all.
+ *        Bypassed for BASE_PROFILES (e.g. 'vc') — always available (OCG §13.11).
  */
 export function exportArtifact({ artifact, format, xbrl_taxonomy, isFormatAllowed } = {}) {
   if (!artifact || typeof artifact !== 'object' || artifact.policy_parameters === undefined || artifact.output_payload === undefined) {
@@ -52,7 +62,7 @@ export function exportArtifact({ artifact, format, xbrl_taxonomy, isFormatAllowe
     return { ok: false, error: 'format="xbrl" requires xbrl_taxonomy (e.g. "eba-corep-own-funds"). See OCG §13.8.' };
   }
   const tid = artifact.tool_id ?? null;
-  if (isFormatAllowed && tid && !isFormatAllowed(tid, format)) {
+  if (isFormatAllowed && tid && !BASE_PROFILES.has(format) && !isFormatAllowed(tid, format)) {
     return { ok: false, error: `Tool "${tid}" does not declare export_capability for "${format}". See its chaingraph.json node.` };
   }
 
@@ -81,17 +91,19 @@ export function exportArtifact({ artifact, format, xbrl_taxonomy, isFormatAllowe
  */
 export function registerExportArtifact(server, z, opts = {}) {
   server.registerTool(EXPORT_ARTIFACT_TOOL_NAME, {
-    title: 'Export a ChainGraph artifact as xlsx / pdf / csv / xbrl',
+    title: 'Export a ChainGraph artifact as xlsx / pdf / csv / xbrl / vc',
     description:
       'Render a verified OpenChainGraph v0.4 artifact into a chaingraph_export profile (OCG Standard §13). ' +
       'Generated downstream of and EXCLUDED from the execution_hash preimage — the export is a view, not a fact; ' +
       'verification always routes back to the canonical JSON artifact. Pass the FULL artifact you received from a ' +
       'compute tool (the server is stateless — there is no hash cache). Formats: xlsx, csv, pdf, ' +
-      'and xbrl (xbrl_taxonomy="ocg-ext" works now; eba-corep-* return a pending error until their ' +
-      'concept maps are populated from the published EBA taxonomy). readOnlyHint: true; zero PII, zero payload logging.',
+      'xbrl (xbrl_taxonomy="ocg-ext" works now; eba-corep-* return a pending error until their ' +
+      'concept maps are populated from the published EBA taxonomy), and vc — a W3C Verifiable Credentials 2.0 ' +
+      'rendering (OCG §13.11, application/vc+json) available on every node; it re-states the canonical ' +
+      'execution_hash via ocg:hashAnchor and mints no new hash/proof. readOnlyHint: true; zero PII, zero payload logging.',
     inputSchema: {
       artifact: z.record(z.any()).describe('Full v0.4 ChainGraph artifact (policy_parameters + output_payload + execution_hash + chain).'),
-      format: z.enum(['xlsx', 'csv', 'pdf', 'xbrl']).describe('Export profile. xlsx/csv implemented; pdf/xbrl planned.'),
+      format: z.enum(['xlsx', 'csv', 'pdf', 'xbrl', 'vc']).describe('Export profile. xlsx/csv/pdf/xbrl/vc implemented; vc = W3C Verifiable Credentials 2.0 (base profile, all nodes).'),
       xbrl_taxonomy: z.string().optional().describe('Required only when format="xbrl" (e.g. "eba-corep-own-funds").'),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
