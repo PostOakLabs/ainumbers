@@ -1,0 +1,88 @@
+name: Deploy docs.ainumbers.co
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'mcp/catalog.json'
+      - 'manifests/**'
+      - 'chaingraph/chaingraph.json'
+      - 'scripts/gen-openapi.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    name: Build & deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: 🔧 Regenerate openapi.json + docs data files
+        # Always regenerate before deploy so docs.ainumbers.co stays in sync
+        # with the latest manifests and chaingraph nodes.
+        run: node scripts/gen-openapi.mjs
+
+      - name: 📋 Docs build summary
+        run: |
+          echo "## docs.ainumbers.co build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          OPS=$(node -e "const j=require('./openapi.json'); console.log(Object.keys(j.paths).length)")
+          TOOLS=$(node -e "const j=require('./mcp/catalog.json'); console.log((j.tools||[]).length)")
+          echo "| Artifact | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------:|" >> $GITHUB_STEP_SUMMARY
+          echo "| OpenAPI operations | $OPS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Catalog tools | $TOOLS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🚀 Deploy to Cloudflare Pages
+        # Requires two secrets in this repo's GitHub Actions settings:
+        #   CLOUDFLARE_API_TOKEN — token with Cloudflare Pages:Edit permission
+        #   CLOUDFLARE_ACCOUNT_ID — your CF account ID
+        #
+        # One-time setup (do once in Cloudflare dashboard before first deploy):
+        #   1. Pages → Create application → Connect to Git → PostOakLabs/ainumbers
+        #   2. Build settings: Build command (none), Output directory: docs
+        #   3. Add custom domain: docs.ainumbers.co
+        #   4. Cloudflare will auto-add the CNAME in DNS (ainumbers.co is on Cloudflare)
+        #
+        # Or create the project via CLI:
+        #   npx wrangler@latest pages project create ainumbers-docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ℹ️  CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set."
+            echo "   Add them in GitHub → Settings → Secrets → Actions, then re-run."
+            echo "   See the one-time setup comment in this workflow for steps."
+            exit 0
+          fi
+          npx wrangler@latest pages deploy docs \
+            --project-name ainumbers-docs \
+            --branch main \
+            --commit-hash "${{ github.sha }}"
+
+      - name: 🌐 Smoke test — docs site responds
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then exit 0; fi
+          sleep 10
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://docs.ainumbers.co || echo "000")
+          if [ "$CODE" = "200" ] || [ "$CODE" = "301" ] || [ "$CODE" = "302" ]; then
+            echo "✅ docs.ainumbers.co responded HTTP $CODE"
+          else
+            echo "⚠️  docs.ainumbers.co returned HTTP $CODE (may still be propagating — check manually)"
+          fi
