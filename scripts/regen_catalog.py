@@ -153,19 +153,25 @@ def main():
         llms = llms.replace(a, b)
     open('llms.txt', 'w', encoding='utf-8').write(llms)
 
-    # ── index.html (two stale hardcoded counts) ──
-    idx = open('index.html', encoding='utf-8').read()
-    idx = idx.replace("Suite-Wide Tool Manifest Registry · 265 tools",
-                      f"Suite-Wide Tool Manifest Registry · {n} tools")
-    idx = idx.replace('<span class="filter-count" id="fc-all">241</span>',
-                      f'<span class="filter-count" id="fc-all">{n_tools}</span>')
-    open('index.html', 'w', encoding='utf-8').write(idx)
+    # ── tools.html (catalog spoke — registry header + filter count) ──
+    import re as _re
+    thtml = open('tools.html', encoding='utf-8').read()
+    thtml = thtml.replace("Suite-Wide Tool Manifest Registry · 265 tools",
+                          f"Suite-Wide Tool Manifest Registry · {n} tools")
+    thtml = _re.sub(r'<span class="filter-count" id="fc-all">\d+</span>',
+                    f'<span class="filter-count" id="fc-all">{n_tools}</span>', thtml)
+    open('tools.html', 'w', encoding='utf-8').write(thtml)
+
+    # ── index.html (hub spoke — "Browse all N tools" CTA count) ──
+    ihtml = open('index.html', encoding='utf-8').read()
+    ihtml = _re.sub(r'Browse all \d+ tools →', f'Browse all {n_tools} tools →', ihtml)
+    open('index.html', 'w', encoding='utf-8').write(ihtml)
 
     # ── report ──
     print(f"catalog.json regenerated: {n} entries (tool_count={n})")
     print(f"unique names: {len(seen_names)}  ->  {'OK' if len(seen_names)==n else 'MISMATCH'}")
     print(f"actual tool HTMLs: {n_tools} | hub pages: {n_hubs} | manifest-backed (catalog): {n}")
-    print(f"server.json / .well-known/mcp.json tool_count -> {n}; llms.txt + index.html counts synced")
+    print(f"server.json / .well-known/mcp.json tool_count -> {n}; llms.txt + tools.html + index.html counts synced")
     if parse_fail:
         print(f"\n!! PARSE FAILURES ({len(parse_fail)}):")
         for s, e in parse_fail: print(f"   {s}: {e}")

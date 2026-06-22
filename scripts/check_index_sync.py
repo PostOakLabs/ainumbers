@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-check_index_sync.py — AINumbers.co homepage sync validator
-===========================================================
-Compares tools/*.html against index.html tool cards.
+check_index_sync.py — AINumbers.co catalog sync validator
+==========================================================
+Compares tools/*.html against tools.html tool cards.
 
 Usage:
   python scripts/check_index_sync.py            # report only
   python scripts/check_index_sync.py --strict   # exit 1 if any missing (for CI)
 
 What it checks:
-  1. Every .html file in tools/ is referenced somewhere in index.html
-  2. Every href in index.html that points to tools/*.html actually exists on disk
+  1. Every .html file in tools/ is referenced somewhere in tools.html
+  2. Every href in tools.html that points to tools/*.html actually exists on disk
   3. Reports a count summary
 
 Exit codes:
@@ -25,7 +25,7 @@ import argparse
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
-INDEX_PATH = os.path.join(REPO_ROOT, "index.html")
+INDEX_PATH = os.path.join(REPO_ROOT, "tools.html")
 
 # Tools that are intentionally omitted from index.html (duplicates / aliases)
 # Edit this list if you deliberately exclude a tool from the homepage.
@@ -58,7 +58,7 @@ def main():
         for v in ["ANSI_RED", "ANSI_GREEN", "ANSI_YELLOW", "ANSI_BOLD", "ANSI_RESET"]:
             globals()[v] = ""
 
-    print(f"{ANSI_BOLD}AINumbers — index.html sync check{ANSI_RESET}")
+    print(f"{ANSI_BOLD}AINumbers — tools.html sync check{ANSI_RESET}")
     print(f"Tools dir : {TOOLS_DIR}")
     print(f"Index file: {INDEX_PATH}\n")
 
@@ -91,14 +91,14 @@ def main():
 
     # ── Report ────────────────────────────────────────────────────────────
     print(f"  Tools on disk   : {len(all_tools)}")
-    print(f"  Cards in index  : {len(referenced)}")
+    print(f"  Cards in tools  : {len(referenced)}")
 
     if dead_links:
-        print(f"\n{ANSI_RED}{ANSI_BOLD}  ✗ Dead links in index.html ({len(dead_links)}) — file not on disk:{ANSI_RESET}")
+        print(f"\n{ANSI_RED}{ANSI_BOLD}  ✗ Dead links in tools.html ({len(dead_links)}) — file not on disk:{ANSI_RESET}")
         for f in dead_links:
             print(f"    tools/{f}")
     else:
-        print(f"\n{ANSI_GREEN}  ✓ No dead links in index.html{ANSI_RESET}")
+        print(f"\n{ANSI_GREEN}  ✓ No dead links in tools.html{ANSI_RESET}")
 
     if unintentional:
         print(f"\n{ANSI_RED}{ANSI_BOLD}  ✗ Tools missing from index.html ({len(unintentional)}):{ANSI_RESET}")
@@ -106,8 +106,9 @@ def main():
             print(f"    tools/{f}")
         print(f"\n  Add a card for each missing tool, or add its filename to")
         print(f"  INTENTIONAL_OMISSIONS in scripts/check_index_sync.py.")
+        print(f"  (tools.html is the catalog spoke — check_index_sync validates it, not index.html)")
     else:
-        print(f"{ANSI_GREEN}  ✓ All tools are represented on the homepage{ANSI_RESET}")
+        print(f"{ANSI_GREEN}  ✓ All tools are represented in tools.html{ANSI_RESET}")
 
     if intentional:
         print(f"\n{ANSI_YELLOW}  ⚠ Intentionally omitted ({len(intentional)} known duplicates):{ANSI_RESET}")
