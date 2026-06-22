@@ -1,0 +1,64 @@
+name: Sync ChainGraph spec to public mirror
+
+# Keeps the public Pages mirror (PostOakLabs/chaingraph) in lockstep with the
+# OpenChainGraph SSOT in this repo. Fires whenever the normative spec, its JSON
+# schema, or the rendered HTML spec changes on main, then copies just those three
+# files into the mirror and pushes via a write-scoped ed25519 deploy key
+# (secret CHAINGRAPH_SYNC_DEPLOY_KEY). Scope is deliberate: only files with a
+# source of truth in this repo are synced — index.html and the profiles/namespaces/
+# adoption trees are mirror-owned and left untouched.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chaingraph/standard/SPEC.md'
+      - 'chaingraph/standard/openchain-graph-v0.4.schema.json'
+      - 'chaingraph/openchain-graph-spec.html'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chaingraph-mirror-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout site repo
+        uses: actions/checkout@v4
+
+      - name: Set up SSH deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.CHAINGRAPH_SYNC_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Clone mirror
+        run: git clone --depth 1 git@github.com:PostOakLabs/chaingraph.git mirror
+
+      - name: Copy spec artifacts into mirror
+        run: |
+          cp chaingraph/standard/SPEC.md                          mirror/SPEC.md
+          cp chaingraph/standard/openchain-graph-v0.4.schema.json mirror/schema/openchain-graph-v0.4.schema.json
+          cp chaingraph/openchain-graph-spec.html                 mirror/spec.html
+
+      - name: Commit & push if changed
+        working-directory: mirror
+        run: |
+          git config user.name  "ainumbers-spec-sync[bot]"
+          git config user.email "tim@postoaklabs.com"
+          if git diff --quiet; then
+            echo "Mirror already in sync — nothing to push."
+            exit 0
+          fi
+          git add SPEC.md schema/openchain-graph-v0.4.schema.json spec.html
+          git commit -m "sync: mirror OpenChainGraph spec from PostOakLabs/ainumbers@${GITHUB_SHA:0:7}"
+          git push origin main
+          echo "Pushed spec sync to PostOakLabs/chaingraph."
