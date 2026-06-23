@@ -1,0 +1,74 @@
+#!/usr/bin/env node
+/**
+ * scripts/preflight.mjs — run EVERY hard CI gate locally, in CI order.
+ *
+ * Purpose: kill the push → CI-fail → fix → re-push churn. Green here ⇒ green in
+ * the "Deploy to DreamHost" pre-flight job. Run before EVERY push:
+ *   node scripts/preflight.mjs
+ *
+ * Mirrors .github/workflows/deploy-to-dreamhost.yml (the hard, blocking gates).
+ * Soft/warn-only CI steps (line-ending guard, manifest-parity, count summaries)
+ * are intentionally omitted — they don't fail the build. Stops on first failure.
+ *
+ * Worker repo (mcp-apps-poc) has its OWN CI gates — this is the SITE preflight.
+ */
+import { execSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python gates print ✓/✗
+
+// [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
+const GATES = [
+  ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
+  ['Kernel JS syntax',             'node chaingraph/kernels/syntax-check.mjs'],
+  ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
+  ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
+  ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
+  ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
+  ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
+  ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
+  ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
+  ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
+  ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],
+  ['verify_repo (PII/sitemap/AP2)','python scripts/verify_repo.py'],
+];
+
+let failed = null;
+for (const [label, cmd] of GATES) {
+  process.stdout.write(`▶ ${label} … `);
+  try {
+    execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('✓');
+  } catch (e) {
+    console.log('✗');
+    const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
+    console.log('\n' + out.trim() + '\n');
+    failed = label;
+    break;
+  }
+}
+
+// mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
+if (!failed) {
+  process.stdout.write('▶ mfstSec presence (every tool) … ');
+  const missing = readdirSync(resolve(REPO, 'tools'))
+    .filter(f => f.endsWith('.html'))
+    .filter(f => !readFileSync(resolve(REPO, 'tools', f), 'utf8').includes('mfstSec'));
+  if (missing.length) {
+    console.log('✗');
+    console.log('\nTools missing the mfstSec manifest panel:\n  ' + missing.join('\n  ') + '\n');
+    failed = 'mfstSec presence';
+  } else {
+    console.log('✓');
+  }
+}
+
+if (failed) {
+  console.error(`\n❌ preflight FAILED at: ${failed}. Fix it before pushing (this would have failed CI).`);
+  process.exit(1);
+}
+console.log('\n✅ preflight PASSED — all hard CI gates green. Safe to push.');

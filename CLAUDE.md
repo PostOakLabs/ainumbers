@@ -59,9 +59,12 @@ Before adding or renaming any tool, ChainGraph node, chain, or kernel:
 
 ## ✅ Wave Completion Checklist
 
-Run after every batch of new tools, before committing:
+**⚡ BEFORE EVERY PUSH: `node scripts/preflight.mjs`** — runs every hard CI gate locally, in CI order (JS syntax, hash gates, index-sync, dead-link, count-drift, **hub freshness**, SSOT conformance, verify_repo, mfstSec). **Green here ⇒ green in CI.** Never push on a red preflight — that's the push→CI-fail→fix→re-push churn this prevents. The numbered items below are the individual remediation steps when a gate fails.
+
+Run after every batch of new tools/chains, before committing:
 
 0. **JS syntax gate (BLOCKING)** — `node scripts/check_tools.js` MUST print `0 ... syntax error` and exit 0. If red, `node scripts/locate_errors.js` to find the break, fix, re-run. **Never commit tool HTML on a red gate.** (CONTRACT §6.2.)
+0b. **Hub freshness** — after any `chaingraph.json` chain change, run `node scripts/gen-chain-index.mjs` (re-embeds the hub chain grid + refreshes the hero count) and commit `chaingraph/chaingraph-hub.html`. Gate: `node scripts/gen-chain-index.mjs --check`. The hub's number is runtime-derived from its card grid, so a stale grid = a stale showcase that the count-drift sentinel gate cannot see.
 1. **Manifests** — one per new tool: `manifests/{number}-{slug}.manifest.json`. No short-form `{number}-manifest.json` variants.
 2. **Catalog** — `python scripts/regen_catalog.py` — regenerates `catalog.json` + `data/catalog.json`.
 3. **Sitemap** — `python scripts/regen_sitemap.py --apply` — regenerates `sitemap.xml` from filesystem.
