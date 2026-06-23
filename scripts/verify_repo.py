@@ -134,6 +134,10 @@ def check_sitemap():
     for path in sorted(GUIDES.glob("*.html")):
         if path.name == "tool-chains.html":
             continue  # lives in core-pages block, not auto-generated section
+        # Skip redirect stubs — noindex pages don't belong in sitemap
+        content = path.read_text(encoding="utf-8", errors="replace")
+        if "noindex" in content:
+            continue
         if f"guides/{path.name}" not in sitemap_locs:
             missing.append(f"guides/{path.name}")
 
@@ -145,8 +149,10 @@ def check_sitemap():
             fail(f"  ... and {len(missing) - 25} more — run: python scripts/regen_sitemap.py --apply")
     else:
         t = len(list(TOOLS.glob("*.html")))
-        g = len([p for p in GUIDES.glob("*.html") if p.name != "tool-chains.html"])
-        print(f"  ✅ Sitemap: all {t} tools + {g} guides present")
+        g = len([p for p in GUIDES.glob("*.html")
+                 if p.name != "tool-chains.html"
+                 and "noindex" not in p.read_text(encoding="utf-8", errors="replace")])
+        print(f"  ✅ Sitemap: all {t} tools + {g} indexable guides present")
 
 
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────
