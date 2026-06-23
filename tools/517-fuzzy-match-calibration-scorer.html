@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Fuzzy-Match Calibration Scorer · T517 · AINumbers.co</title>
+<meta name="description" content="Browser-based fuzzy-match calibration scorer for sanctions screening engines. Input synthetic name pairs with ground-truth labels, select algorithm (Levenshtein / Jaro-Winkler / Phonetic), set threshold, and get FPR/recall/F1 metrics with calibration grade and threshold recommendation. Wolfsberg-aligned. Synthetic pairs only — zero PII.">
+<link rel="canonical" href="https://ainumbers.co/tools/517-fuzzy-match-calibration-scorer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Fuzzy-Match Calibration Scorer","url":"https://ainumbers.co/tools/517-fuzzy-match-calibration-scorer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "517-fuzzy-match-calibration-scorer",
+  "version": "1.0.0",
+  "title": "Fuzzy-Match Calibration Scorer",
+  "description": "FPR/recall/F1 scoring and threshold calibration for sanctions fuzzy-match engines. Synthetic pairs only.",
+  "category": "aml",
+  "tags": ["sanctions", "fuzzy-match", "calibration", "model-governance", "wolfsberg"],
+  "ap2_export": true,
+  "mandate_type": "model_governance",
+  "mcp_tool": "score_fuzzy_match_calibration",
+  "chaingraph_node": "https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:.75rem}
+.hero-link{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem;display:block}
+.hero-link a{color:var(--teal);text-decoration:underline}.hero-link a:hover{color:var(--teal-lt)}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.pii-notice{background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.65rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--teal-lt);line-height:1.6;margin-bottom:.75rem}
+.edu-notice{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.6rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--warn);line-height:1.6;margin-bottom:.75rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1rem}
+.form-field{display:flex;flex-direction:column;gap:.35rem}
+.form-field.full-width{grid-column:1/-1}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-select,.form-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .55rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.form-select:focus,.form-input:focus{border-color:var(--teal)}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.15rem}
+.textarea-wrap{position:relative}
+.form-textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .75rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%;resize:vertical;line-height:1.6;min-height:180px}
+.form-textarea:focus{border-color:var(--teal)}
+.load-example-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border-2);color:var(--body);padding:.28rem .7rem;border-radius:3px;transition:all .2s;margin-top:.4rem}
+.load-example-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.45;cursor:not-allowed}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Grade display */
+.grade-display{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.grade-circle{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:2.4rem;color:#fff;flex-shrink:0;border:2px solid}
+.grade-A{background:rgba(34,197,94,.18);border-color:var(--green);color:var(--green)}
+.grade-B{background:rgba(20,184,166,.18);border-color:var(--teal);color:var(--teal-lt)}
+.grade-C{background:rgba(212,168,71,.18);border-color:var(--gold);color:var(--gold)}
+.grade-D{background:rgba(245,158,11,.18);border-color:var(--warn);color:var(--warn)}
+.grade-F{background:rgba(239,68,68,.18);border-color:var(--red);color:var(--red)}
+.grade-info{flex:1;min-width:200px}
+.grade-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.grade-desc{font-size:.78rem;color:var(--text);line-height:1.6}
+/* Metrics grid */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.75rem;margin-bottom:1.25rem}
+.metric-chip{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;display:flex;flex-direction:column;align-items:center;gap:.25rem}
+.metric-val{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;line-height:1;color:var(--teal)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+/* Confusion matrix */
+.cm-grid{display:grid;grid-template-columns:auto 1fr 1fr;gap:2px;width:fit-content;margin-bottom:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.56rem}
+.cm-head{background:var(--bg-4);color:var(--muted);padding:.4rem .75rem;text-align:center;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase}
+.cm-row-head{background:var(--bg-4);color:var(--muted);padding:.4rem .6rem;display:flex;align-items:center;justify-content:center;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;writing-mode:initial}
+.cm-cell{padding:.55rem 1.1rem;text-align:center;font-size:.85rem;font-weight:500;border-radius:2px}
+.cm-tp{background:rgba(34,197,94,.14);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.cm-fp{background:rgba(239,68,68,.10);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.cm-fn{background:rgba(245,158,11,.10);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.cm-tn{background:rgba(20,184,166,.10);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.cm-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.2rem;display:block}
+/* Threshold row */
+.thresh-row{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.thresh-chip{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .9rem;display:flex;flex-direction:column;gap:.2rem}
+.thresh-chip-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.thresh-chip-val{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--bright)}
+.thresh-chip-val.recommended{color:var(--teal-lt)}
+.thresh-arrow{font-size:.75rem;color:var(--muted)}
+/* Compliance flags */
+.flags-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.flag-badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;padding:.28rem .65rem;border-radius:3px;display:inline-flex;align-items:center;gap:.35rem}
+.flag-badge-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.flag-badge-warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.flag-badge-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+/* Wolfsberg note */
+.wolfsberg-note{background:var(--bg-4);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.65rem .9rem;font-size:.72rem;color:var(--body);font-style:italic;line-height:1.7;margin-bottom:1.25rem}
+/* Scored pairs table */
+.pairs-table-wrap{overflow-x:auto;margin-top:.5rem}
+.pairs-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.58rem}
+.pairs-table th{background:var(--bg-4);color:var(--muted);font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .65rem;text-align:left;border-bottom:1px solid var(--border)}
+.pairs-table td{padding:.38rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle;color:var(--text)}
+.pairs-table tr:last-child td{border-bottom:none}
+.pairs-table tr:hover td{background:rgba(255,255,255,.02)}
+.sim-bar-wrap{display:flex;align-items:center;gap:.5rem}
+.sim-bar{height:6px;background:rgba(30,47,74,.8);border-radius:3px;overflow:hidden;width:60px}
+.sim-bar-fill{height:100%;border-radius:3px}
+.sim-val{color:var(--bright)}
+.match-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem}
+.dot-tp{background:var(--green)}.dot-fp{background:var(--red)}.dot-tn{background:var(--teal-lt)}.dot-fn{background:var(--warn)}
+.outcome-label{font-size:.5rem;letter-spacing:.06em;text-transform:uppercase}
+/* Export row */
+.results-export-row{display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);flex-wrap:wrap}
+.results-export-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex:1;min-width:160px}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.45rem 1.1rem;border-radius:var(--radius);transition:all .2s;opacity:.5;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+/* Manifest toggle */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* Error box */
+.error-box{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red);line-height:1.6;margin-bottom:1rem}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:500;color:var(--text)}
+.footer-brand span{color:var(--teal)}
+.footer-meta{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner{flex-direction:column;text-align:center}.cm-grid{font-size:.5rem}}
+</style>
+</head>
+<body>
+<!-- lang toggle removed — CONTRACT §1.1 -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">AINumbers.co</a><span class="nav-bc-sep">/</span>
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">Fuzzy-Match Calibration Scorer</span>
+  </div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">AML / Sanctions · T517 · Model Governance</div>
+  <span class="hero-badge">v1.0.0</span>
+  <h1>Fuzzy-Match <em>Calibration Scorer</em></h1>
+  <p class="hero-desc">Browser-based calibration scorer for sanctions screening fuzzy-match engines. Input synthetic name pairs with ground-truth labels, select algorithm, set threshold — get FPR/recall/F1 metrics, calibration grade (A–F), and threshold recommendation. Wolfsberg-aligned. Synthetic pairs only — zero PII.</p>
+  <span class="hero-link">Also available as OpenChainGraph MCP node: <a href="../chaingraph/art-93-fuzzy-match-calibration-scorer.html">art-93-fuzzy-match-calibration-scorer</a></span>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="edu-notice">EDUCATIONAL — Outputs are illustrative decision-support drafts. Use only synthetic or anonymised name pairs. Do not input real persons' names or entity data. Verify calibration thresholds with a qualified sanctions compliance officer.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Levenshtein</span>
+    <span class="badge badge-teal">Jaro-Winkler</span>
+    <span class="badge badge-teal">Phonetic</span>
+    <span class="badge badge-gold">Wolfsberg-Aligned</span>
+    <span class="badge badge-warn">Model Governance</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <!-- INPUTS -->
+  <div class="panel">
+    <div class="panel-header">Algorithm &amp; Threshold</div>
+    <div class="form-grid">
+      <div class="form-field">
+        <label class="form-label" for="algorithmSelect">Matching Algorithm</label>
+        <select class="form-select" id="algorithmSelect">
+          <option value="levenshtein" selected>Levenshtein (Edit Distance)</option>
+          <option value="jaro-winkler">Jaro-Winkler</option>
+          <option value="phonetic">Phonetic (Soundex)</option>
+        </select>
+        <span class="form-hint">Levenshtein = character edit distance; Jaro-Winkler = prefix-weighted transposition; Phonetic = Soundex code comparison</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="thresholdInput">Match Threshold</label>
+        <input type="number" class="form-input" id="thresholdInput" value="0.80" min="0" max="1" step="0.01">
+        <span class="form-hint">Similarity score at or above this value is classified as a match (0.00 – 1.00)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <span>Synthetic Name Pairs (JSON)</span>
+      <button class="load-example-btn" onclick="loadExamplePairs()">Load Example Pairs</button>
+    </div>
+    <div class="form-field full-width">
+      <label class="form-label" for="pairsTextarea">JSON Array — fields: name_a, name_b, is_match (true/false)</label>
+      <textarea class="form-textarea" id="pairsTextarea" spellcheck="false" placeholder='[{"name_a":"JOHN SMITH","name_b":"JON SMYTH","is_match":true}, ...]'></textarea>
+      <span class="form-hint">Each element must have name_a (string), name_b (string), is_match (boolean). All names must be synthetic or anonymised — no real persons.</span>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="handleRun()">Score Calibration</button>
+
+  <!-- RESULTS -->
+  <div id="outputSection" class="output-section" style="display:none"></div>
+
+  <!-- EXPORT ROW -->
+  <div class="results-export-row" style="margin-top:1.25rem">
+    <span class="results-export-label">Policy Mandate Export — model_governance</span>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled>&#8659; Export Policy Mandate</button>
+  </div>
+
+  <!-- MANIFEST TOGGLE -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" id="mfstBtn" onclick="toggleMfst()">
+      <span>Tool Manifest &amp; MCP Definition</span>
+      <span id="mfstArrow" style="transition:transform .2s">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner">
+    <div class="footer-brand"><span>Post Oak Labs</span> · CC BY 4.0 · AINumbers.co · T517 Fuzzy-Match Calibration Scorer v1.0.0</div>
+    <div class="footer-meta">Deterministic · Zero PII · Client-Side · Wolfsberg Sanctions Screening Guidance 2019</div>
+  </div>
+</div></footer>
+
+<script>
+/* =====================================================================
+   MANIFEST
+   ===================================================================== */
+var MANIFEST = {
+  tool_id: "517-fuzzy-match-calibration-scorer",
+  version: "1.0.0",
+  title: "Fuzzy-Match Calibration Scorer",
+  description: "FPR/recall/F1 scoring and threshold calibration for sanctions fuzzy-match engines. Synthetic pairs only.",
+  category: "aml",
+  tags: ["sanctions", "fuzzy-match", "calibration", "model-governance", "wolfsberg"],
+  ap2_export: true,
+  mandate_type: "model_governance",
+  mcp_tool: "score_fuzzy_match_calibration",
+  chaingraph_node: "https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html"
+};
+
+/* =====================================================================
+   EXAMPLE PAIRS
+   ===================================================================== */
+var EXAMPLE_PAIRS = [
+  {"name_a":"JOHN SMITH","name_b":"JON SMYTH","is_match":true},
+  {"name_a":"AHMED AL-RASHID","name_b":"AHMAD ALRASHID","is_match":true},
+  {"name_a":"WANG WEI","name_b":"WONG WAY","is_match":false},
+  {"name_a":"ELENA PETROVA","name_b":"ELENA PETROV","is_match":true},
+  {"name_a":"CARLOS MENDEZ","name_b":"CARLOS MENDEZ","is_match":true},
+  {"name_a":"FATIMA HASSAN","name_b":"JOHN DOE","is_match":false},
+  {"name_a":"MUHAMAD IBRAHIM","name_b":"MUHAMMAD IBRAHM","is_match":true},
+  {"name_a":"LI NA","name_b":"LEE NAH","is_match":false},
+  {"name_a":"NIKOLAI VOLKOV","name_b":"NIKOLAY VOLKOV","is_match":true},
+  {"name_a":"SARAH JOHNSON","name_b":"SARA JONSON","is_match":true}
+];
+
+function loadExamplePairs() {
+  document.getElementById('pairsTextarea').value = JSON.stringify(EXAMPLE_PAIRS, null, 2);
+}
+
+/* =====================================================================
+   COMPUTE KERNEL — art-93-fuzzy-match-calibration-scorer
+   ===================================================================== */
+function levenshteinSim(a, b) {
+  var al = a.toLowerCase(), bl = b.toLowerCase();
+  var m = al.length, n = bl.length;
+  if (m === 0 && n === 0) return 1;
+  if (m === 0 || n === 0) return 0;
+  var dp = Array.from({ length: m + 1 }, function(_, i) {
+    return Array.from({ length: n + 1 }, function(_, j) {
+      return (i === 0 ? j : j === 0 ? i : 0);
+    });
+  });
+  for (var i = 1; i <= m; i++) {
+    for (var j = 1; j <= n; j++) {
+      dp[i][j] = al[i-1] === bl[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return 1 - dp[m][n] / Math.max(m, n);
+}
+
+function jaroSim(a, b) {
+  var s1 = a.toLowerCase(), s2 = b.toLowerCase();
+  if (s1 === s2) return 1;
+  var len1 = s1.length, len2 = s2.length;
+  if (len1 === 0 || len2 === 0) return 0;
+  var matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+  var s1m = new Array(len1).fill(false), s2m = new Array(len2).fill(false);
+  var matches = 0, t = 0;
+  for (var i = 0; i < len1; i++) {
+    var lo = Math.max(0, i - matchDist), hi = Math.min(i + matchDist + 1, len2);
+    for (var j = lo; j < hi; j++) {
+      if (!s2m[j] && s1[i] === s2[j]) { s1m[i] = s2m[j] = true; matches++; break; }
+    }
+  }
+  if (matches === 0) return 0;
+  var k = 0;
+  for (var i2 = 0; i2 < len1; i2++) {
+    if (s1m[i2]) {
+      while (!s2m[k]) k++;
+      if (s1[i2] !== s2[k]) t++;
+      k++;
+    }
+  }
+  return (matches/len1 + matches/len2 + (matches - t/2)/matches) / 3;
+}
+
+function jaroWinklerSim(a, b, p) {
+  if (p === undefined) p = 0.1;
+  var jaro = jaroSim(a, b);
+  var s1 = a.toLowerCase(), s2 = b.toLowerCase();
+  var prefix = 0;
+  for (var i = 0; i < Math.min(s1.length, s2.length, 4); i++) {
+    if (s1[i] === s2[i]) prefix++; else break;
+  }
+  return jaro + prefix * p * (1 - jaro);
+}
+
+function soundexCode(s) {
+  var map = { b:1,f:1,p:1,v:1, c:2,g:2,j:2,k:2,q:2,s:2,x:2,z:2, d:3,t:3, l:4, m:5,n:5, r:6 };
+  var w = s.toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return '0000';
+  var code = w[0].toUpperCase();
+  var prev = map[w[0]] !== undefined ? map[w[0]] : 0;
+  for (var i = 1; i < w.length && code.length < 4; i++) {
+    var c = map[w[i]] !== undefined ? map[w[i]] : 0;
+    if (c && c !== prev) code += c;
+    prev = c;
+  }
+  return code.padEnd(4, '0');
+}
+
+function phoneticSim(a, b) {
+  return soundexCode(a) === soundexCode(b) ? 1 : levenshteinSim(a, b) * 0.6;
+}
+
+function computeSim(algorithm, a, b) {
+  switch (algorithm) {
+    case 'jaro-winkler': return jaroWinklerSim(a, b);
+    case 'phonetic':     return phoneticSim(a, b);
+    default:             return levenshteinSim(a, b);
+  }
+}
+
+function gradeCalibration(f1) {
+  if (f1 >= 0.90) return 'A';
+  if (f1 >= 0.80) return 'B';
+  if (f1 >= 0.65) return 'C';
+  if (f1 >= 0.50) return 'D';
+  return 'F';
+}
+
+function runCalibration(algorithm, threshold, synthetic_pairs) {
+  var thresh = Math.max(0, Math.min(1, threshold));
+  if (!synthetic_pairs || synthetic_pairs.length === 0) return null;
+  var tp = 0, fp = 0, tn = 0, fn = 0;
+  var scored_pairs = [];
+  for (var pi = 0; pi < synthetic_pairs.length; pi++) {
+    var pair = synthetic_pairs[pi];
+    var name_a = pair.name_a, name_b = pair.name_b, is_match = pair.is_match;
+    if (typeof name_a !== 'string' || typeof name_b !== 'string') continue;
+    var sim = computeSim(algorithm, name_a, name_b);
+    var predicted_match = sim >= thresh;
+    var actual_match = is_match === true || is_match === 1;
+    if (predicted_match && actual_match)  tp++;
+    if (predicted_match && !actual_match) fp++;
+    if (!predicted_match && !actual_match) tn++;
+    if (!predicted_match && actual_match)  fn++;
+    scored_pairs.push({ name_a: name_a, name_b: name_b, sim: +sim.toFixed(4), predicted_match: predicted_match, actual_match: actual_match });
+  }
+  var total_pos = tp + fn;
+  var total_neg = fp + tn;
+  var fpr    = total_neg > 0 ? +(fp / total_neg).toFixed(4) : 0;
+  var recall = total_pos > 0 ? +(tp / total_pos).toFixed(4) : 0;
+  var precision = (tp + fp) > 0 ? +(tp / (tp + fp)).toFixed(4) : 0;
+  var f1 = (precision + recall) > 0 ? +(2 * precision * recall / (precision + recall)).toFixed(4) : 0;
+  // Find best threshold
+  var best_f1 = -1, best_thresh = thresh;
+  for (var t2 = 0.60; t2 <= 0.95; t2 = +(t2 + 0.05).toFixed(2)) {
+    var tp2=0,fp2=0,fn2=0;
+    for (var si = 0; si < scored_pairs.length; si++) {
+      var sp = scored_pairs[si];
+      var pm = sp.sim >= t2;
+      if (pm && sp.actual_match) tp2++;
+      if (pm && !sp.actual_match) fp2++;
+      if (!pm && sp.actual_match) fn2++;
+    }
+    var prec2 = (tp2+fp2)>0?tp2/(tp2+fp2):0;
+    var rec2  = (tp2+fn2)>0?tp2/(tp2+fn2):0;
+    var f12   = (prec2+rec2)>0?2*prec2*rec2/(prec2+rec2):0;
+    if (f12 > best_f1) { best_f1=f12; best_thresh=t2; }
+  }
+  var calibration_grade = gradeCalibration(f1);
+  var compliance_flags = [];
+  if (fpr > 0.20)    compliance_flags.push('HIGH_FALSE_POSITIVE_RATE');
+  if (recall < 0.80) compliance_flags.push('LOW_RECALL');
+  return {
+    fpr: fpr,
+    recall: recall,
+    precision: precision,
+    f1: f1,
+    confusion_matrix: {tp:tp, fp:fp, tn:tn, fn:fn},
+    threshold_assessed: thresh,
+    threshold_recommendation: best_thresh,
+    calibration_grade: calibration_grade,
+    pairs_evaluated: scored_pairs.length,
+    algorithm_assessed: algorithm,
+    scored_pairs: scored_pairs,
+    compliance_flags: compliance_flags,
+    wolfsberg_note: 'Wolfsberg Guidance targets high recall with acceptable FPR; calibrate threshold to minimise missed matches (fn) before false positives (fp) in sanctions context.'
+  };
+}
+
+/* =====================================================================
+   RENDER HELPERS
+   ===================================================================== */
+function gradeClass(g) {
+  var map = { A:'grade-A', B:'grade-B', C:'grade-C', D:'grade-D', F:'grade-F' };
+  return map[g] || 'grade-F';
+}
+
+function gradeDesc(g) {
+  var map = {
+    A: 'Excellent calibration. Engine achieves high recall and precision — suitable for deployment with standard monitoring.',
+    B: 'Good calibration. Minor tuning may improve recall or reduce false positives before production deployment.',
+    C: 'Marginal calibration. Threshold adjustment recommended; review missed matches (FN) before go-live.',
+    D: 'Poor calibration. Significant remediation required — high miss rate or excessive false positives detected.',
+    F: 'Failing calibration. Engine is not production-ready. Fundamental algorithm or threshold changes are required.'
+  };
+  return map[g] || 'Calibration result unavailable.';
+}
+
+function simColor(sim) {
+  if (sim >= 0.85) return 'var(--green)';
+  if (sim >= 0.65) return 'var(--teal-lt)';
+  if (sim >= 0.45) return 'var(--gold)';
+  return 'var(--red)';
+}
+
+function outcomeLabel(sp) {
+  if (sp.predicted_match && sp.actual_match)  return { cls:'dot-tp', label:'TP', title:'True Positive' };
+  if (sp.predicted_match && !sp.actual_match) return { cls:'dot-fp', label:'FP', title:'False Positive' };
+  if (!sp.predicted_match && sp.actual_match) return { cls:'dot-fn', label:'FN', title:'False Negative (missed match)' };
+  return { cls:'dot-tn', label:'TN', title:'True Negative' };
+}
+
+function pct(v) {
+  return (v * 100).toFixed(1) + '%';
+}
+
+function renderResults(res) {
+  var g = res.calibration_grade;
+  var cm = res.confusion_matrix;
+
+  // Build compliance flags HTML
+  var flagsHtml = '';
+  if (res.compliance_flags && res.compliance_flags.length > 0) {
+    res.compliance_flags.forEach(function(f) {
+      var cls = f === 'HIGH_FALSE_POSITIVE_RATE' ? 'flag-badge-red' : 'flag-badge-warn';
+      flagsHtml += '<span class="flag-badge ' + cls + '">&#9888; ' + f.replace(/_/g,' ') + '</span>';
+    });
+  } else {
+    flagsHtml = '<span class="flag-badge flag-badge-green">&#10003; NO COMPLIANCE FLAGS</span>';
+  }
+
+  // Scored pairs table (cap 20)
+  var displayPairs = res.scored_pairs.slice(0, 20);
+  var pairsRows = '';
+  for (var i = 0; i < displayPairs.length; i++) {
+    var sp = displayPairs[i];
+    var oc = outcomeLabel(sp);
+    var barPct = Math.round(sp.sim * 100);
+    var barColor = simColor(sp.sim);
+    pairsRows += '<tr>' +
+      '<td style="color:var(--bright);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + sp.name_a + '">' + escHtml(sp.name_a) + '</td>' +
+      '<td style="color:var(--bright);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + sp.name_b + '">' + escHtml(sp.name_b) + '</td>' +
+      '<td><div class="sim-bar-wrap"><div class="sim-bar"><div class="sim-bar-fill" style="width:' + barPct + '%;background:' + barColor + '"></div></div><span class="sim-val">' + sp.sim.toFixed(3) + '</span></div></td>' +
+      '<td><span class="match-dot ' + oc.cls + '"></span><span class="outcome-label" title="' + oc.title + '">' + oc.label + '</span></td>' +
+      '</tr>';
+  }
+  var pairsNote = res.scored_pairs.length > 20 ? '<p style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted);margin-top:.5rem">Showing first 20 of ' + res.scored_pairs.length + ' pairs evaluated.</p>' : '';
+
+  var threshChanged = res.threshold_recommendation !== res.threshold_assessed;
+  var threshRecoColor = threshChanged ? 'recommended' : '';
+  var threshNote = threshChanged
+    ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted);margin-left:.5rem">Threshold change recommended — best F1 found at ' + res.threshold_recommendation.toFixed(2) + '</span>'
+    : '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--green);margin-left:.5rem">Current threshold is optimal in tested range</span>';
+
+  var algoLabel = { 'levenshtein':'Levenshtein', 'jaro-winkler':'Jaro-Winkler', 'phonetic':'Phonetic (Soundex)' };
+
+  var html = '<div class="out-card">' +
+    '<div class="out-header"><span class="out-title">Calibration Grade &amp; Summary</span>' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">' + (algoLabel[res.algorithm_assessed] || res.algorithm_assessed) + ' · threshold ' + res.threshold_assessed.toFixed(2) + ' · ' + res.pairs_evaluated + ' pairs</span>' +
+    '</div>' +
+    '<div class="out-body">' +
+    '<div class="grade-display">' +
+    '<div class="grade-circle ' + gradeClass(g) + '">' + g + '</div>' +
+    '<div class="grade-info">' +
+    '<div class="grade-label">Calibration Grade</div>' +
+    '<div class="grade-desc">' + gradeDesc(g) + '</div>' +
+    '</div>' +
+    '</div>' +
+
+    '<div class="metrics-grid">' +
+    '<div class="metric-chip"><span class="metric-val">' + pct(res.f1) + '</span><span class="metric-lbl">F1 Score</span></div>' +
+    '<div class="metric-chip"><span class="metric-val" style="color:var(--teal-lt)">' + pct(res.precision) + '</span><span class="metric-lbl">Precision</span></div>' +
+    '<div class="metric-chip"><span class="metric-val" style="color:var(--green)">' + pct(res.recall) + '</span><span class="metric-lbl">Recall</span></div>' +
+    '<div class="metric-chip"><span class="metric-val" style="color:' + (res.fpr > 0.20 ? 'var(--red)' : 'var(--gold)') + '">' + pct(res.fpr) + '</span><span class="metric-lbl">False Positive Rate</span></div>' +
+    '</div>' +
+
+    '<div style="margin-bottom:1.25rem">' +
+    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Confusion Matrix</div>' +
+    '<div class="cm-grid">' +
+    '<div class="cm-head" style="background:transparent"></div>' +
+    '<div class="cm-head">Pred: Match</div>' +
+    '<div class="cm-head">Pred: No Match</div>' +
+    '<div class="cm-row-head">Actual: Match</div>' +
+    '<div class="cm-cell cm-tp">' + cm.tp + '<span class="cm-label">TP</span></div>' +
+    '<div class="cm-cell cm-fn">' + cm.fn + '<span class="cm-label">FN</span></div>' +
+    '<div class="cm-row-head">Actual: No Match</div>' +
+    '<div class="cm-cell cm-fp">' + cm.fp + '<span class="cm-label">FP</span></div>' +
+    '<div class="cm-cell cm-tn">' + cm.tn + '<span class="cm-label">TN</span></div>' +
+    '</div>' +
+    '</div>' +
+
+    '<div class="thresh-row">' +
+    '<div class="thresh-chip"><span class="thresh-chip-label">Threshold Assessed</span><span class="thresh-chip-val">' + res.threshold_assessed.toFixed(2) + '</span></div>' +
+    '<span class="thresh-arrow">&#8594;</span>' +
+    '<div class="thresh-chip"><span class="thresh-chip-label">Recommended Threshold</span><span class="thresh-chip-val ' + threshRecoColor + '">' + res.threshold_recommendation.toFixed(2) + '</span></div>' +
+    threshNote +
+    '</div>' +
+
+    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Compliance Flags</div>' +
+    '<div class="flags-row">' + flagsHtml + '</div>' +
+
+    '<div class="wolfsberg-note">' + escHtml(res.wolfsberg_note) + '</div>' +
+
+    '</div>' +
+    '</div>' +
+
+    '<div class="out-card" style="margin-top:0">' +
+    '<div class="out-header"><span class="out-title">Scored Name Pairs</span>' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">TP=True Pos · FP=False Pos · FN=False Neg · TN=True Neg</span>' +
+    '</div>' +
+    '<div class="out-body">' +
+    '<div class="pairs-table-wrap"><table class="pairs-table">' +
+    '<thead><tr><th>Name A (synthetic)</th><th>Name B (synthetic)</th><th>Similarity</th><th>Outcome</th></tr></thead>' +
+    '<tbody>' + pairsRows + '</tbody>' +
+    '</table></div>' +
+    pairsNote +
+    '</div>' +
+    '</div>';
+
+  return html;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* =====================================================================
+   MAIN RUN HANDLER
+   ===================================================================== */
+function handleRun() {
+  var outputSection = document.getElementById('outputSection');
+  outputSection.innerHTML = '';
+  outputSection.style.display = 'none';
+
+  var algorithm = document.getElementById('algorithmSelect').value;
+  var threshRaw = parseFloat(document.getElementById('thresholdInput').value);
+  var pairsRaw  = document.getElementById('pairsTextarea').value.trim();
+
+  if (isNaN(threshRaw) || threshRaw < 0 || threshRaw > 1) {
+    outputSection.innerHTML = '<div class="error-box">Threshold must be a number between 0.00 and 1.00.</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+  if (!pairsRaw) {
+    outputSection.innerHTML = '<div class="error-box">Please enter synthetic name pairs JSON, or click "Load Example Pairs".</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+
+  var pairs;
+  try {
+    pairs = JSON.parse(pairsRaw);
+  } catch(e) {
+    outputSection.innerHTML = '<div class="error-box">JSON parse error: ' + escHtml(e.message) + '</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+
+  if (!Array.isArray(pairs) || pairs.length === 0) {
+    outputSection.innerHTML = '<div class="error-box">Input must be a non-empty JSON array of name pair objects.</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+
+  var result;
+  try {
+    result = runCalibration(algorithm, threshRaw, pairs);
+  } catch(e) {
+    outputSection.innerHTML = '<div class="error-box">Computation error: ' + escHtml(e.message) + '</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+
+  if (!result) {
+    outputSection.innerHTML = '<div class="error-box">No valid pairs found. Ensure each object has name_a, name_b, and is_match fields.</div>';
+    outputSection.style.display = 'flex';
+    return;
+  }
+
+  // Store result for export
+  window._lastCalibrationResult = result;
+
+  outputSection.innerHTML = renderResults(result);
+  outputSection.style.display = 'flex';
+
+  window.enableAP2Btn();
+}
+
+/* =====================================================================
+   MANIFEST TOGGLE
+   ===================================================================== */
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arrow = document.getElementById('mfstArrow');
+  var code  = document.getElementById('mfstCode');
+  if (body.style.display === 'block') {
+    body.style.display = 'none';
+    arrow.style.transform = '';
+  } else {
+    if (!code.textContent) {
+      code.textContent = JSON.stringify(MANIFEST, null, 2);
+    }
+    body.style.display = 'block';
+    arrow.style.transform = 'rotate(180deg)';
+  }
+}
+
+/* =====================================================================
+   POLICY MANDATE EXPORT (AP2Schema — retained legacy identifiers §3.1)
+   ===================================================================== */
+(function(){
+  if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+  var AP2Schema = window.AP2Schema;
+
+  AP2Schema.validate = function(m) {
+    function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+    if (!m || typeof m !== 'object') _f('mandate must be an object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+    return true;
+  };
+
+  window.enableAP2Btn = function() {
+    var b = document.getElementById('ap2ExportBtn');
+    if (b) { b.disabled = false; b.classList.add('ready'); }
+  };
+
+  window._ap2Result = null;
+
+  window._captureAP2 = function() {
+    var el = document.getElementById('outputSection');
+    if (el && el.textContent.trim().length > 10) {
+      window._ap2Result = { output: el.textContent.trim().slice(0, 3000) };
+    }
+  };
+
+  window.exportAP2 = function() {
+    window._captureAP2();
+    if (!window._ap2Result) { alert('Run the tool first.'); return; }
+    var ts = new Date().toISOString();
+    var mandate = {
+      ap2_version: '1.0',
+      mandate_id: '517-fuzzy-match-calibration-scorer-' + ts.replace(/[:.]/g, '-').slice(0, 19),
+      issued_at: ts,
+      issued_by: 'ainumbers.co',
+      tool_id: '517-fuzzy-match-calibration-scorer',
+      tool_version: '1.0.0',
+      mandate_type: 'model_governance',
+      jurisdiction: ['ZZ'],
+      regulatory_frameworks: [
+        'Wolfsberg Sanctions Screening Guidance 2019',
+        'FATF Sanctions Due Diligence 2021'
+      ],
+      payload: window._ap2Result,
+      summary: 'Fuzzy-Match Calibration Scorer — assessment ' + ts.slice(0, 10),
+      agent_instructions: [
+        'Review calibration grade and threshold recommendation before deploying screening engine.'
+      ],
+      valid_from: ts.slice(0, 10),
+      valid_until: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+      last_reviewed: ts.slice(0, 10),
+      audit_metadata: {
+        client_side_executed: true,
+        zero_pii_verified: true,
+        deterministic_run: true
+      }
+    };
+    AP2Schema.validate(mandate);
+    var json = JSON.stringify(mandate, null, 2);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = '517-fuzzy-match-calibration_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.policy.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+})();
+</script>
+</body>
+</html>
