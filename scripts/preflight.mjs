@@ -71,4 +71,17 @@ if (failed) {
   console.error(`\n❌ preflight FAILED at: ${failed}. Fix it before pushing (this would have failed CI).`);
   process.exit(1);
 }
+
+// ── Advisory (non-blocking): version-prose drift ────────────────────────────
+// The version-of-record gate (spec-version-consistency) enforces the <meta>
+// marker. This --remnants pass surfaces stray vX.Y strings in PROSE so a spec
+// bump doesn't leave the hub/spec pages describing an old version. It is NOISY
+// (legitimately flags the AP2 *protocol* version + OCG layer versions), so it's
+// ADVISORY, not a gate — eyeball it after a spec bump.
+process.stdout.write('▶ version-prose drift (advisory) … ');
+try {
+  execSync('node chaingraph/standard/spec-version-consistency.mjs --remnants', { cwd: REPO, env, stdio: 'ignore' });
+  console.log('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
+} catch { console.log('(advisory check unavailable — skipped)'); }
+
 console.log('\n✅ preflight PASSED — all hard CI gates green. Safe to push.');
