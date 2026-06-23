@@ -32,6 +32,33 @@ const entries = chains.map(c => {
   return JSON.stringify({ n: c.name, t: title, d: desc, s: steps, u: relUrl, dom: domain });
 });
 
-const jsData = 'var CHAIN_INDEX=' + '[' + entries.join(',') + ']' + ';';
-// Write to stdout for embedding
-process.stdout.write(jsData);
+const jsData = 'var CHAIN_INDEX=[' + entries.join(',') + '];';
+const truth = chains.length;
+
+// Embed directly into the hub (single-line CHAIN_INDEX block at ~line 2409).
+const HUB = resolve(REPO, 'chaingraph', 'chaingraph-hub.html');
+const hub = readFileSync(HUB, 'utf8');
+const RE = /var CHAIN_INDEX=\[.*\];/; // no /s — block is one line; greedy to last ]; on that line
+const m = hub.match(RE);
+if (!m) { console.error('gen-chain-index: CHAIN_INDEX block not found in chaingraph-hub.html'); process.exit(2); }
+const embedded = (m[0].match(/"n":"/g) || []).length;
+
+// --check: freshness gate (hub embedded chains must equal chaingraph.json chains).
+// Wired into CI + preflight so the hub can never silently drift behind a chain build.
+if (process.argv.includes('--check')) {
+  if (embedded !== truth) {
+    console.error(`gen-chain-index --check FAIL: hub shows ${embedded} chains, chaingraph.json has ${truth}. Run: node scripts/gen-chain-index.mjs`);
+    process.exit(1);
+  }
+  console.log(`gen-chain-index --check: hub fresh (${truth} chains).`);
+  process.exit(0);
+}
+
+// Write mode: re-embed the index + refresh the hero static fallbacks (the runtime
+// JS overrides these from the live card count, but keep the static HTML honest too).
+let out = hub.replace(RE, jsData)
+  .replace(/(id="hub-total-n">)\d+/,   `$1${truth}`)
+  .replace(/(id="hub-mcp-n">)\d+/,     `$1${truth}`)
+  .replace(/(id="hub-eyebrow-n">)\d+/, `$1${truth}`);
+writeFileSync(HUB, out);
+console.log(`gen-chain-index: embedded ${truth} chains into chaingraph-hub.html (was ${embedded}).`);
