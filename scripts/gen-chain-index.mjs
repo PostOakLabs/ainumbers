@@ -46,11 +46,20 @@ const embedded = (m[0].match(/"n":"/g) || []).length;
 // --check: freshness gate (hub embedded chains must equal chaingraph.json chains).
 // Wired into CI + preflight so the hub can never silently drift behind a chain build.
 if (process.argv.includes('--check')) {
-  if (embedded !== truth) {
-    console.error(`gen-chain-index --check FAIL: hub shows ${embedded} chains, chaingraph.json has ${truth}. Run: node scripts/gen-chain-index.mjs`);
+  // Check BOTH the searchable CHAIN_INDEX and the displayed hero stats — the hero
+  // is what a human sees, so it must be gated too (this is the 122-vs-200 bug).
+  const heroIds = ['hub-total-n', 'hub-mcp-n', 'hub-eyebrow-n'];
+  const heroBad = heroIds.filter(id => {
+    const hm = hub.match(new RegExp(`id="${id}">(\\d+)`));
+    return !hm || Number(hm[1]) !== truth;
+  });
+  if (embedded !== truth || heroBad.length) {
+    console.error(`gen-chain-index --check FAIL: chaingraph.json has ${truth} chains; hub CHAIN_INDEX=${embedded}` +
+      (heroBad.length ? `, stale hero stat(s): ${heroBad.join(', ')}` : '') +
+      `. Run: node scripts/gen-chain-index.mjs`);
     process.exit(1);
   }
-  console.log(`gen-chain-index --check: hub fresh (${truth} chains).`);
+  console.log(`gen-chain-index --check: hub fresh (${truth} chains, hero stats match).`);
   process.exit(0);
 }
 

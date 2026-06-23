@@ -102,16 +102,12 @@ drifted += checkFile('mcp.html', [
   { id: 'wf-count-prose', actual: wfCount, label: 'workflow recipes (prose)'           },
 ]);
 
-// chaingraph/chaingraph-hub.html — OCG tool count (cards shown in the hub)
-// The hub lists OCG nodes only — not pilot widgets or utility tools.
-// counts.mjs mcp.live includes all three, so it's expected to be higher.
-const hubHtml    = read('chaingraph/chaingraph-hub.html');
-const toolCount  = countCardNames(hubHtml);  // DOM count = authoritative for hub display
-drifted += checkFile('chaingraph/chaingraph-hub.html', [
-  { id: 'hub-total-n',   actual: toolCount, label: 'tools shipped (hero stat)'  },
-  { id: 'hub-mcp-n',     actual: toolCount, label: 'tools MCP-exposed (hero)'   },
-  { id: 'hub-eyebrow-n', actual: toolCount, label: 'tools live (hero eyebrow)'  },
-]);
+// chaingraph/chaingraph-hub.html hero stats are now owned + gated by
+// scripts/gen-chain-index.mjs (--check), which verifies them against the TRUE
+// chain count (chaingraph.json.chains). Do NOT check them here against the
+// .card-name DOM count — that counts only the curated showcase cards (122),
+// not all chains (200), which is exactly the 122-vs-200 drift bug. See
+// gen-chain-index.mjs and the deploy-to-dreamhost.yml "Hub freshness gate".
 
 // ── result ────────────────────────────────────────────────────────────────────
 
