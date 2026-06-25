@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.4.1
+spec_version: 0.5.0
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -10,7 +10,7 @@ renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consis
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.4.1
+# OpenChainGraph Standard — v0.5.0
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -326,8 +326,63 @@ node need not declare `vc`. Mapping (envelope → VC): `issued_by`→`issuer`, `
 - Deterministic: every field derives from the artifact only (id = `urn:ocg:artifact:<bare-hash>`; no UUID, no
   wall-clock). The same artifact MUST render byte-identical bytes.
 
+## §16 Proof Binding (NORMATIVE — new in v0.5)
+A node or chain page **MAY** bind authenticity to a verified artifact by attaching a **W3C Data Integrity
+proof** ([Data Integrity EdDSA Cryptosuites v1.0](https://www.w3.org/TR/vc-di-eddsa/), Rec 2025-05) at
+`audit_signature.proof`. Proof Binding is OPTIONAL and holder-chosen; an artifact with no
+`audit_signature.proof` is fully v0.5-conformant. It turns the §4 hash from *tamper-evidence* (recompute →
+matches inputs) into *authenticated attestation* (a named key vouches for the artifact), filling the
+§13.11 gap (the `vc` view mints no securing proof).
+
+**§16.0 Home (NORMATIVE).** The proof lives at `audit_signature.proof` — NOT at artifact root and NOT
+inside the DSSE-style `audit_signature.signatures[]` array. The artifact root is `additionalProperties:false`
+in the frozen v0.4 schema (a root `proof` would make a signed artifact fail a v0.4 verifier), whereas
+`audit_signature` tolerates added properties — so a signed v0.5 artifact still validates under the frozen
+v0.4 schema. `signatures[]` keeps its separate DSSE/in-toto meaning (§9); §16 does not overload it.
+
+A §16 proof object **MUST**:
+- set `type:"DataIntegrityProof"`, `cryptosuite:"eddsa-jcs-2022"`, `proofPurpose:"assertionMethod"`;
+- set `verificationMethod` to a **did:key** (§9) resolving to the signing Ed25519 public key;
+- set `created` to an ISO-8601 instant and **MUST NOT** add any field to the §4 hash preimage;
+- carry `proofValue` as the multibase-`z` base58btc Ed25519 signature over the §16.1 input, produced
+  client-side via WebCrypto `Ed25519`;
+- **MUST NOT** mint a new `execution_hash` and **MUST NOT** change `chaingraph_version` (stays `"0.4.0"`).
+
+**§16.1 Proof input (canonical) — stock W3C Data Integrity.** The secured document is the **full artifact
+with `audit_signature.proof` removed**. Generation follows the `eddsa-jcs-2022` pipeline verbatim: (1)
+**Transform** — JCS-canonicalize (RFC 8785) the secured document and, separately, the proof options (the
+proof object without `proofValue`); (2) **Hash** — SHA-256 each; (3) **Sign** — Ed25519 over
+`SHA-256(proofOptions) ‖ SHA-256(document)`. Because `execution_hash` sits **inside** the secured document,
+a whole-artifact signature transitively secures the §4 anchor. The JCS canonicalizer is the **same**
+`kernels/_hash.mjs` `cgCanon` used by §4 (no second canonicalization path; the array-replacer forms
+FORBIDDEN by §4 stay forbidden). Produced by the shared `kernels/_proof.mjs` (browser inlines it; Worker
+imports it; byte-identical). Verification is reproducible offline: recompute `execution_hash` per §4, then
+verify `proofValue` against the `verificationMethod` key over the same input — failure of either step fails
+verification. A key referenced by `verificationMethod` **SHOULD** be published in Graph Index
+`ocg:signing_keys` (§7) so a verifier resolves it without contacting the signer.
+
+**§16.2 Privacy tradeoff (NORMATIVE caveat).** A §16 proof makes a run linkable to a key, eroding the
+default zero-PII anonymous posture (which is itself a feature for some users). Proof Binding therefore
+**MUST** default OFF and **MUST NOT** be auto-applied; a tool offering it **MUST** surface that signing
+de-anonymizes the run. `zero_pii_verified` semantics are unchanged (inputs stay PII-free; the *signer*
+becomes known).
+
+**§16.3 Relation to §13.11.** A §16 proof secures the **canonical OCG artifact**, not the VC re-expression.
+When that artifact is exported as a `vc` (§13.11), the `ocg:hashAnchor` routes a verifier back to the
+canonical JSON where the §16 proof lives, so the secured artifact stays verifiable through the VC. A
+deployer needing a `proof` **on the VC document itself** re-runs the same `eddsa-jcs-2022` pipeline over the
+VC (a distinct proof, out of §16 scope).
+
+**§16.4 Institutional issuer identity (informative).** For *ephemeral* / self-contained signing a
+`did:key` is sufficient (and is the only CONTRACT-compatible option for a fully client-side tool — a private
+key MUST NOT ship in client HTML/storage). A *stable institutional* issuer SHOULD instead anchor to
+`did:web` over the publisher's domain with the private key held in an HSM/KMS and signing performed
+server-side (e.g. the §12 compute path); `did:key` and `did:web` are interoperable `verificationMethod`
+values under §16.1.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
+See `standard/CHANGELOG.md`. v0.5.0 = Proof Binding (§16) over v0.4.1.
+v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
 v0.4.0 = Compute Binding (§12) + Export Profiles (§13) over v0.3.1. The artifact envelope and hash
 preimage are **unchanged** in v0.4.1 (export profiles are not part of the envelope) — artifacts continue
 to emit `chaingraph_version:"0.4.0"` and remain valid under any v0.4 verifier.
@@ -352,6 +407,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | chain integrity | `validate-chains.mjs` | validate |
 | /mcp handshake works | `smoke-mcp.mjs` | post-deploy |
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
+| §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

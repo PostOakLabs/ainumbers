@@ -3,6 +3,26 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.5.0 — Proof Binding (§16)
+- **§16 Proof Binding (new, normative).** A node MAY attach an OPTIONAL **W3C Data Integrity proof**
+  (cryptosuite `eddsa-jcs-2022`, [Rec 2025-05](https://www.w3.org/TR/vc-di-eddsa/)) at `audit_signature.proof`,
+  turning the §4 hash from tamper-evidence into authenticated attestation — filling the §13.11 gap (the `vc`
+  view mints no securing proof). Whole-artifact signing via the stock Data Integrity pipeline
+  (Transform→Hash→Sign), reusing the §4 JCS canonicalizer (`kernels/_hash.mjs` `cgCanon`) — no second
+  canonicalization path. Ed25519 over WebCrypto; `verificationMethod` is a did:key (§9).
+- **Backward-compatible.** Hash preimage unchanged; `chaingraph_version` stays `"0.4.0"`; only `spec_version`
+  bumps to `0.5.0`. The proof is homed at `audit_signature.proof` (NOT artifact root, NOT `signatures[]`):
+  the artifact root is `additionalProperties:false`, so a root field would break v0.4 verifiers, but
+  `audit_signature` tolerates added properties — a signed v0.5 artifact still validates under the frozen v0.4
+  schema. An unsigned artifact is byte-identical to v0.4.1.
+- **Default-off, privacy-guarded (§16.2).** Signing de-anonymizes a run (links it to a key), so Proof Binding
+  MUST default OFF and surface that tradeoff. For ephemeral/client-side signing a did:key suffices; a stable
+  institutional issuer SHOULD use did:web + HSM/KMS + server-side signing (§16.4) — a private key MUST NOT
+  ship client-side.
+- **Schema.** Adds `$defs.dataIntegrityProof` + optional `audit_signature.proof`; widens the catalog
+  `spec_version` pattern to `^0\.[45]\.[0-9]+$`. Filename stays `openchain-graph-v0.4.schema.json` (envelope
+  unchanged). Gate: `proof-binding.test.mjs` (§15).
+
 ## 0.4.1 — Verifiable Credentials export profile
 - **§13.11 `vc` export profile (new, normative).** `export_artifact` can render any verified artifact as a
   [W3C Verifiable Credentials 2.0](https://www.w3.org/TR/vc-data-model-2.0/) credential (`application/vc+json`).
