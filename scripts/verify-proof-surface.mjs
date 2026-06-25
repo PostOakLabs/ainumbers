@@ -29,18 +29,34 @@
 //   node scripts/verify-proof-surface.mjs              strict (CI): exit 1 on any non-conformant emitter
 //   node scripts/verify-proof-surface.mjs --summary    counts only (emitters / conformant / missing), exit 0
 //   node scripts/verify-proof-surface.mjs --list-missing   print every emitter still missing the §16 surface
+//   node scripts/verify-proof-surface.mjs --chains-only    strict only over chaingraph/chains/ (Phase 1 CI gate)
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');                                  // repo/
 const SUMMARY = process.argv.includes('--summary');
 const LIST_MISSING = process.argv.includes('--list-missing');
+const CHAINS_ONLY = process.argv.includes('--chains-only');
+
+// Phase 0 laggards: chains that have OCG-CANON v1 but are not yet on the engagement template
+// (missing exportVCBtn / buildArtifact). They qualify for the gate's emitter scan but are excluded
+// from Phase 1's strict check because they are Phase 0 scope. Remove each entry once Phase 0 lands.
+const PHASE0_LAGGARDS = new Set([
+  'agentic-policy.html',
+  'agentic-rail.html',
+  'aml-consolidation.html',
+  'eudi-wallet.html',
+]);
 
 // ── page roots (re-verify counts at build time; never trust hardcoded numbers) ───────────────────
-const PAGE_DIRS = ['tools', 'guides', 'chaingraph'].map((d) => join(ROOT, d));
+// --chains-only scopes the strict check to chaingraph/chains/ only (Phase 1 CI gate;
+// non-chains emitters are Phase 2/3 scope and expected-missing until those phases land).
+const PAGE_DIRS = CHAINS_ONLY
+  ? [join(ROOT, 'chaingraph', 'chains')]
+  : ['tools', 'guides', 'chaingraph'].map((d) => join(ROOT, d));
 const PIN = join(ROOT, 'chaingraph', 'kernels', '_proof.inline.min.js');
 
 // ── sentinels (must match the injector exactly) ──────────────────────────────────────────────────
@@ -100,6 +116,8 @@ for (const f of files) {
 
   const isEmitter = html.includes(CANON_SENTINEL);
   if (!isEmitter) continue;                // non-emitter → no §16 surface required
+  // In --chains-only mode, skip Phase 0 laggards (not yet on engagement template; Phase 0 scope).
+  if (CHAINS_ONLY && PHASE0_LAGGARDS.has(basename(f))) continue;
   emitters++;
 
   const reasons = [];

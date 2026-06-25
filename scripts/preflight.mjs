@@ -35,6 +35,7 @@ const GATES = [
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
   ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],
   ['verify_repo (PII/sitemap/AP2)','python scripts/verify_repo.py'],
+  ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
 ];
 
 let failed = null;
