@@ -3,8 +3,22 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.4.1",
+  "spec_version": "0.5.0",
   "$defs": {
+    "dataIntegrityProof": {
+      "type": "object",
+      "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version.",
+      "additionalProperties": false,
+      "required": ["type", "cryptosuite", "verificationMethod", "proofPurpose", "created", "proofValue"],
+      "properties": {
+        "type": { "const": "DataIntegrityProof" },
+        "cryptosuite": { "const": "eddsa-jcs-2022" },
+        "verificationMethod": { "type": "string", "pattern": "^did:key:z6Mk" },
+        "proofPurpose": { "const": "assertionMethod" },
+        "created": { "type": "string", "format": "date-time" },
+        "proofValue": { "type": "string", "pattern": "^z" }
+      }
+    },
     "sha256ref": {
       "type": "string",
       "description": "Either a bare 64-char hex digest or a sha256:-prefixed digest.",
@@ -87,7 +101,8 @@
             "client_side_executed": { "type": "boolean" },
             "zero_pii_verified": { "type": "boolean" },
             "deterministic_run": { "type": "boolean" },
-            "signatures": { "type": "array" }
+            "signatures": { "type": "array" },
+            "proof": { "$ref": "#/$defs/dataIntegrityProof" }
           }
         }
       }
@@ -179,7 +194,7 @@
       "description": "A chaingraph.json catalog document.",
       "required": ["spec_version", "nodes", "chains"],
       "properties": {
-        "spec_version": { "type": "string", "pattern": "^0\\.4\\.[0-9]+$" },
+        "spec_version": { "type": "string", "pattern": "^0\\.[45]\\.[0-9]+$" },
         "version": { "type": "string" },
         "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
         "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }
