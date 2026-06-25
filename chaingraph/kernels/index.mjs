@@ -120,6 +120,18 @@ import * as art108 from './art-108-canton-selective-disclosure.kernel.mjs';
 import * as art109 from './art-109-dtc-tokenized-treasury.kernel.mjs';
 import * as art110 from './art-110-arc-partner-stablecoin-onboarding.kernel.mjs';
 import * as art111 from './art-111-arc-corridor-jurisdiction-router.kernel.mjs';
+// ART Provenance Wave (wave 22)
+import * as art112 from './art-112-dscsa-transaction-statement-verifier.kernel.mjs';
+import * as art113 from './art-113-saleable-returns-verifier.kernel.mjs';
+import * as art114 from './art-114-suspect-product-quarantine.kernel.mjs';
+import * as art115 from './art-115-dpp-data-carrier-validator.kernel.mjs';
+import * as art116 from './art-116-product-lineage-builder.kernel.mjs';
+import * as art117 from './art-117-product-authenticity-verifier.kernel.mjs';
+import * as art118 from './art-118-fsma204-cte-validator.kernel.mjs';
+import * as art119 from './art-119-traceability-lot-code-linker.kernel.mjs';
+import * as art120 from './art-120-recall-trace-resolver.kernel.mjs';
+import * as art121 from './art-121-document-integrity-anchor.kernel.mjs';
+import * as art122 from './art-122-timestamp-attestation-verifier.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -275,6 +287,18 @@ export const KERNELS = {
   'art-109-dtc-tokenized-treasury':               art109,
   'art-110-arc-partner-stablecoin-onboarding':    art110,
   'art-111-arc-corridor-jurisdiction-router':     art111,
+  // ART Provenance Wave (wave 22)
+  'art-112-dscsa-transaction-statement-verifier': art112,
+  'art-113-saleable-returns-verifier':            art113,
+  'art-114-suspect-product-quarantine':           art114,
+  'art-115-dpp-data-carrier-validator':           art115,
+  'art-116-product-lineage-builder':              art116,
+  'art-117-product-authenticity-verifier':        art117,
+  'art-118-fsma204-cte-validator':                art118,
+  'art-119-traceability-lot-code-linker':         art119,
+  'art-120-recall-trace-resolver':                art120,
+  'art-121-document-integrity-anchor':            art121,
+  'art-122-timestamp-attestation-verifier':       art122,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
