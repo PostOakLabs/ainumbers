@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-22-agentic-payments-protocol-comparator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0'; // 1.1.0: + MPP (Tempo Machine Payments Protocol) as a 6th compared rail
 
 export const meta = {
   tool_id: TOOL_ID,
@@ -62,6 +62,16 @@ const PROTOCOLS = [
    audit:'Network transaction record + token provenance',
    status:'Announced Apr 2025; first live txn Sep 2025',
    url:'https://www.mastercard.com/'},
+  {id:'mpp', name:'MPP', sub:'Machine Payments Protocol (Tempo)',
+   backer:'Tempo (Stripe + Paradigm); co-authored by Stripe',
+   artifact:'Session object (charge / session / subscription) with a pre-authorized spend cap',
+   signed:'Access-key-scoped, pre-authorized session; streamed micropayments within the cap',
+   scope:'Spend cap + cadence/expiry, bound at session grant; per-draw within envelope',
+   rail:'Multi-rail — stablecoins on Tempo (TIP-20), cards via Stripe, Bitcoin via Lightning',
+   identity:'Access keys / scoped session keys ("OAuth of payments")',
+   audit:'Session draw ledger; per-cycle reconciliation against the authorized envelope',
+   status:'Tempo mainnet live Mar 2026; MPP open standard',
+   url:'https://docs.tempo.xyz/learn/tempo/machine-payments'},
 ];
 
 const PROTOCOL_MAP = Object.fromEntries(PROTOCOLS.map(p => [p.id, p]));
@@ -78,15 +88,16 @@ const DIMS = [
 ];
 
 const CROSSWALK = [
-  {concept:'Authorization artifact', map:{ap2:'Payment Mandate (VDC)',     acp:'Shared Payment Token', x402:'PaymentPayload',              tap:'Tokenised credential + signature', mc:'Agentic Token'}},
-  {concept:'Proof of user intent',   map:{ap2:'Signed mandate chain',       acp:'OAuth delegation + SPT', x402:'Wallet signature',          tap:'Cardholder consent + token',       mc:'Consent policy in token'}},
-  {concept:'Scope unit',             map:{ap2:'Cart + amount',               acp:'Merchant + cart total',  x402:'Exact amount',              tap:'Merchant scope',                   mc:'Agent + merchant + consent'}},
-  {concept:'Settlement medium',      map:{ap2:'Card or stablecoin',          acp:'Card via PSP',           x402:'USDC on-chain',             tap:'Visa rails',                       mc:'Mastercard rails'}},
-  {concept:'Identity / trust root',  map:{ap2:'FIDO / VDC',                 acp:'OAuth 2.0',              x402:'Wallet key',                tap:'RFC 9421 / Web Bot Auth',          mc:'MDES token'}},
+  {concept:'Authorization artifact', map:{ap2:'Payment Mandate (VDC)',     acp:'Shared Payment Token', x402:'PaymentPayload',              tap:'Tokenised credential + signature', mc:'Agentic Token',           mpp:'Session (charge/session/subscription)'}},
+  {concept:'Proof of user intent',   map:{ap2:'Signed mandate chain',       acp:'OAuth delegation + SPT', x402:'Wallet signature',          tap:'Cardholder consent + token',       mc:'Consent policy in token', mpp:'Pre-authorized spend cap + access key'}},
+  {concept:'Scope unit',             map:{ap2:'Cart + amount',               acp:'Merchant + cart total',  x402:'Exact amount',              tap:'Merchant scope',                   mc:'Agent + merchant + consent', mpp:'Spend cap + cadence/expiry'}},
+  {concept:'Settlement medium',      map:{ap2:'Card or stablecoin',          acp:'Card via PSP',           x402:'USDC on-chain',             tap:'Visa rails',                       mc:'Mastercard rails',        mpp:'Stablecoin (Tempo) / card / Lightning'}},
+  {concept:'Identity / trust root',  map:{ap2:'FIDO / VDC',                 acp:'OAuth 2.0',              x402:'Wallet key',                tap:'RFC 9421 / Web Bot Auth',          mc:'MDES token',              mpp:'Access keys / scoped session keys'}},
 ];
 
 const SCENARIOS = {
-  agent_micro:     {pick:['x402'],    also:['ap2'],  why:'Stablecoin micropayments and metered API billing map directly to x402\'s HTTP-402 + on-chain settlement (exact / upcoming upto schemes). AP2\'s A2A x402 extension can wrap it with a card-grade mandate/audit trail if you need verifiable user intent.'},
+  agent_micro:     {pick:['x402'],    also:['ap2','mpp'],  why:'Stablecoin micropayments and metered API billing map directly to x402\'s HTTP-402 + on-chain settlement (exact / upcoming upto schemes). Tempo MPP is the close alternative when you want a pre-authorized session that streams many micro-draws under one cap. AP2\'s A2A x402 extension can wrap either with a card-grade mandate/audit trail if you need verifiable user intent.'},
+  agent_subscription:{pick:['mpp'],   also:['ap2'],  why:'Recurring or streamed agent spend under a single pre-authorization is Tempo MPP\'s subscription/session model (spend cap + cadence, streamed micro-draws, per-cycle reconciliation). AP2 can supply the verifiable mandate envelope around it.'},
   chatgpt_checkout:{pick:['acp'],     also:['ap2'],  why:'In-assistant consumer card checkout is exactly ACP\'s Agentic Checkout + Shared Payment Token model (OpenAI + Stripe). AP2 is the vendor-neutral alternative if you need a rail-agnostic, network-portable mandate.'},
   cross_merchant:  {pick:['ap2'],     also:['acp'],  why:'A rail-agnostic, non-repudiable mandate chain across merchants is AP2\'s core design (Checkout + Payment Mandate VDCs). ACP fits if you are standardising on the OpenAI/Stripe checkout surface.'},
   merchant_verify: {pick:['tap'],     also:['x402'], why:'Merchant-side agent recognition is the Visa Trusted Agent Protocol\'s purpose (RFC 9421 signatures, Web Bot Auth-aligned). The shared RFC 9421 substrate also underlies open Web Bot Auth verification.'},
@@ -139,6 +150,7 @@ export function compute(pp) {
     X402_INCLUDED: valid_ids.includes('x402'),
     TAP_INCLUDED: valid_ids.includes('tap'),
     MC_INCLUDED: valid_ids.includes('mc'),
+    MPP_INCLUDED: valid_ids.includes('mpp'),
     SNAPSHOT_DATE: '2026-06',
   };
 
