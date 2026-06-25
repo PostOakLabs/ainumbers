@@ -45,10 +45,7 @@ const CHAINS_ONLY = process.argv.includes('--chains-only');
 // (missing exportVCBtn / buildArtifact). They qualify for the gate's emitter scan but are excluded
 // from Phase 1's strict check because they are Phase 0 scope. Remove each entry once Phase 0 lands.
 const PHASE0_LAGGARDS = new Set([
-  'agentic-policy.html',
-  'agentic-rail.html',
-  'aml-consolidation.html',
-  'eudi-wallet.html',
+  'agentic-policy.html', // hand-port (custom runtime) — Phase 0 scope, separate effort
 ]);
 
 // ── page roots (re-verify counts at build time; never trust hardcoded numbers) ───────────────────
