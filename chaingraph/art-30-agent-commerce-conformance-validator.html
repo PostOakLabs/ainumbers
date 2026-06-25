@@ -18,7 +18,7 @@
   "category": "chaingraph",
   "tags": ["AP2","agentic-commerce","ACP","Visa TAP","RFC 9421","x402","cross-protocol","conformance","payment_mandate","OpenChainGraph"],
   "audience": ["payments_engineer","merchant_developer","compliance","product"],
-  "mcp_tool_definition": {"name":"validate_agent_commerce_conformance","description":"Validates a single agent purchase end-to-end: AP2 v0.2 mandate chain, ACP checkout conformance, Visa TAP RFC 9421 HTTP Message Signature, x402 settlement leg. Issues a unified cross-protocol conformance verdict and a single OpenChainGraph execution_hash receipt (chain_depth: 1). Consumes ART-01, ART-12, ART-03 parent artifacts. GPU: No.","inputSchema":{"type":"object","properties":{"ap2_mandate_trio":{"type":"string","description":"JSON object with keys intent (required), cart (optional), payment — full AP2 v0.2 mandate chain"},"acp_payload":{"type":"string","description":"Optional. JSON of an ACP CheckoutRequest or CheckoutResponse"},"tap_headers":{"type":"string","description":"Optional. JSON object with Signature-Input and Signature header values per RFC 9421"},"x402_payload":{"type":"string","description":"Optional. JSON of an x402 402-Payment-Required body (scheme, network, maxAmountRequired, asset, payTo, extra)"},"parent_hashes":{"type":"array","items":{"type":"string"},"description":"execution_hash values from parent ART-01, ART-12, ART-03 runs (in that order)"}},"required":["ap2_mandate_trio"]}},
+  "mcp_tool_definition": {"name":"validate_agent_commerce_conformance","description":"Validates a single agent purchase end-to-end: AP2 v0.2 mandate chain, ACP checkout conformance, Visa TAP RFC 9421 HTTP Message Signature, x402 settlement leg, and Tempo MPP session/subscription pre-authorization. Issues a unified cross-protocol conformance verdict and a single OpenChainGraph execution_hash receipt (chain_depth: 1). Consumes ART-01, ART-12, ART-03 parent artifacts. GPU: No.","inputSchema":{"type":"object","properties":{"ap2_mandate_trio":{"type":"string","description":"JSON object with keys intent (required), cart (optional), payment — full AP2 v0.2 mandate chain"},"acp_payload":{"type":"string","description":"Optional. JSON of an ACP CheckoutRequest or CheckoutResponse"},"tap_headers":{"type":"string","description":"Optional. JSON object with Signature-Input and Signature header values per RFC 9421"},"x402_payload":{"type":"string","description":"Optional. JSON of an x402 402-Payment-Required body (scheme, network, maxAmountRequired, asset, payTo, extra)"},"mpp_session":{"type":"string","description":"Optional. JSON of a Tempo MPP session: mode (charge/session/subscription), session_id, max_amount, currency, payee, cadence, expires_at, access_key"},"parent_hashes":{"type":"array","items":{"type":"string"},"description":"execution_hash values from parent ART-01, ART-12, ART-03 runs (in that order)"}},"required":["ap2_mandate_trio"]}},
   "execution": {"type":"browser-javascript","entry":"chaingraph/art-30-agent-commerce-conformance-validator.html","function_name":"validateAgentCommerceConformance","timeout_ms":5000},
   "ap2_export": true,
   "chaingraph": true,
@@ -288,6 +288,19 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     <div style="display:flex;gap:.75rem;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="formatTA('x402Input')">Format JSON</button>
       <button class="btn btn-ghost" onclick="clearTA('x402Input')">Clear</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Stage 5 — MPP Session Leg <span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-left:.4rem">(optional)</span></div>
+    <div class="field-group">
+      <div class="field-label">Tempo Machine Payments Protocol session</div>
+      <div class="field-hint">JSON for a Tempo MPP pre-authorization: { mode: "charge|session|subscription", session_id, max_amount, currency, payee, cadence (subscription), expires_at (session), access_key }. Leave blank to skip — validated only when supplied.</div>
+      <textarea id="mppInput" spellcheck="false" rows="8" placeholder="// Optional — paste Tempo MPP session JSON to add the MPP conformance leg"></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="formatTA('mppInput')">Format JSON</button>
+      <button class="btn btn-ghost" onclick="clearTA('mppInput')">Clear</button>
     </div>
   </div>
 
@@ -638,6 +651,15 @@ async function runValidation() {
     }
   }
 
+  let mpp = null;
+  const mppRaw = document.getElementById('mppInput').value.trim();
+  if (mppRaw) {
+    try { mpp = JSON.parse(mppRaw); } catch(e) {
+      document.getElementById('mppInput').classList.add('error');
+      showToast('Stage 5 MPP — JSON parse error: ' + e.message); return;
+    }
+  }
+
   const h1 = document.getElementById('h1Input').value.trim();
   const h2 = document.getElementById('h2Input').value.trim();
   const h3 = document.getElementById('h3Input').value.trim();
@@ -654,7 +676,11 @@ async function runValidation() {
   const acpChecks = acp ? validateACP(acp) : null;
   const tapChecks = tap ? validateTAP(tap) : null;
   const x402Checks = x402 ? validateX402(x402) : null;
-  const xpChecks = validateCrossProtocol(ap2, acp, x402);
+  const mppChecks = mpp ? validateMPP(mpp) : null;
+  const xpChecks = [
+    ...validateCrossProtocol(ap2, acp, x402),
+    ...(mpp ? validateCrossProtocolMPP(ap2, mpp) : [])
+  ];
 
   /* --- Compute counts --- */
   const allChecks = [
@@ -662,6 +688,7 @@ async function runValidation() {
     ...(acpChecks || []),
     ...(tapChecks || []),
     ...(x402Checks || []),
+    ...(mppChecks || []),
     ...xpChecks
   ];
   const passCount = allChecks.filter(c=>c.status==='pass').length;
@@ -680,6 +707,8 @@ async function runValidation() {
     tap_provided: !!tap,
     x402_provided: !!x402,
     x402_network: x402?.network ?? null,
+    mpp_provided: !!mpp,
+    mpp_mode: mpp?.mode ?? null,
     parent_hashes: parentHashes,
     parent_tool_ids: parentToolIds
   };
@@ -689,11 +718,11 @@ async function runValidation() {
     fail_count: failCount,
     warn_count: warnCount,
     checks: allChecks.map(c=>({code:c.code,status:c.status})),
-    protocols_validated: ['AP2 v0.2', acp?'ACP':null, tap?'Visa TAP RFC 9421':null, x402?'x402':null].filter(Boolean)
+    protocols_validated: ['AP2 v0.2', acp?'ACP':null, tap?'Visa TAP RFC 9421':null, x402?'x402':null, mpp?'Tempo MPP':null].filter(Boolean)
   };
   const execHash = await cgHash(policyParameters, outputPayload);
 
-  _lastResult = {ap2, acp, tap, x402, ap2Checks, acpChecks, tapChecks, x402Checks, xpChecks, allChecks, passCount, failCount, warnCount, overallStatus, parentHashes, parentToolIds, chainDepth, policyParameters, outputPayload, execHash};
+  _lastResult = {ap2, acp, tap, x402, mpp, ap2Checks, acpChecks, tapChecks, x402Checks, mppChecks, xpChecks, allChecks, passCount, failCount, warnCount, overallStatus, parentHashes, parentToolIds, chainDepth, policyParameters, outputPayload, execHash};
 
   const complianceFlags = failCount > 0
     ? ['CROSS_PROTOCOL_NON_CONFORMANT','FIELD_VALIDATION_FAILED']
@@ -706,7 +735,7 @@ async function runValidation() {
     buildType: 'https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256',
     mandate_type: 'payment_mandate',
     tool_id: 'art-30-agent-commerce-conformance-validator',
-    tool_version: '1.0.0',
+    tool_version: '1.1.0',
     generated_at: new Date().toISOString(),
     execution_hash: execHash,
     chain: { parent_hashes: parentHashes, parent_tool_ids: parentToolIds, chain_depth: chainDepth },
@@ -921,6 +950,58 @@ function validateX402(payload) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   MPP VALIDATION — Tempo Machine Payments Protocol (Stripe-co-authored)
+   session/charge/subscription pre-authorization for streamed micropayments
+   ───────────────────────────────────────────────────────────────── */
+function validateMPP(s) {
+  const checks = [];
+  const modeOk = ['charge','session','subscription'].includes(s.mode);
+  checks.push({status: modeOk?'pass':'fail', icon: modeOk?'✓':'✗', code:'MPP-S01', text:`mode: "${s.mode}"`, detail: modeOk?'':'Must be one of: charge, session, subscription'});
+
+  const idOk = !!s.session_id;
+  checks.push({status: idOk?'pass':'warn', icon: idOk?'✓':'⚠', code:'MPP-S02', text:`session_id: "${s.session_id||'absent'}"`, detail: idOk?'':'session_id recommended for reconciliation'});
+
+  const capOk = typeof s.max_amount === 'number' && s.max_amount > 0;
+  checks.push({status: capOk?'pass':'fail', icon: capOk?'✓':'✗', code:'MPP-S03', text:`max_amount: ${s.max_amount}`, detail: capOk?'Pre-authorized spend cap':'Must be a positive number (the authorized envelope)'});
+
+  const curOk = !!s.currency;
+  checks.push({status: curOk?'pass':'fail', icon: curOk?'✓':'✗', code:'MPP-S04', text:`currency: "${s.currency||'absent'}"`, detail: curOk?'':'currency required'});
+
+  const payeeOk = !!(s.payee || s.resource);
+  checks.push({status: payeeOk?'pass':'fail', icon: payeeOk?'✓':'✗', code:'MPP-S05', text:`payee/resource: "${s.payee||s.resource||'absent'}"`, detail: payeeOk?'':'payee or resource required'});
+
+  if (s.mode === 'subscription') {
+    const cadOk = !!s.cadence;
+    checks.push({status: cadOk?'pass':'fail', icon: cadOk?'✓':'✗', code:'MPP-S06', text:`cadence: "${s.cadence||'absent'}"`, detail: cadOk?'Recurring cadence bounds the authorization':'subscription mode requires a cadence'});
+  } else if (s.mode === 'session') {
+    const expOk = s.expires_at != null;
+    checks.push({status: expOk?'pass':'warn', icon: expOk?'✓':'⚠', code:'MPP-S06', text:`expires_at: ${s.expires_at ?? 'absent'}`, detail: expOk?'Channel expiry bounds the session':'session channel expires_at recommended'});
+  } else {
+    checks.push({status:'pass', icon:'✓', code:'MPP-S06', text:'charge: single-shot, no cadence/expiry required', detail:''});
+  }
+
+  const ak = s.access_key || s.signature || '';
+  checks.push({status: ak?'pass':'warn', icon: ak?'✓':'⚠', code:'MPP-S07', text:`access_key/signature: ${ak?'present':'absent'}`, detail: ak?'Signed pre-authorization (scoped session key)':'access_key recommended — the MPP trust root'});
+
+  return checks;
+}
+
+function validateCrossProtocolMPP(ap2, s) {
+  const checks = [];
+  const intent = ap2 && ap2.intent;
+  if (!intent) return checks;
+  if (typeof s.max_amount === 'number' && typeof intent.scope?.max_amount === 'number') {
+    const within = s.max_amount <= intent.scope.max_amount;
+    checks.push({status: within?'pass':'warn', icon: within?'✓':'⚠', code:'XP-M01', text:`MPP cap ${s.max_amount} vs AP2 intent max ${intent.scope.max_amount}`, detail: within?'MPP envelope within the AP2 intent cap':'MPP cap exceeds the AP2 intent max_amount'});
+  }
+  if (s.currency && intent.scope?.currency) {
+    const same = s.currency.toUpperCase() === intent.scope.currency.toUpperCase();
+    checks.push({status: same?'pass':'warn', icon: same?'✓':'⚠', code:'XP-M02', text:`MPP currency ${s.currency} vs AP2 ${intent.scope.currency}`, detail: same?'Currencies match':'MPP currency differs from the AP2 intent scope currency'});
+  }
+  return checks;
+}
+
+/* ─────────────────────────────────────────────────────────────────
    CROSS-PROTOCOL CONSISTENCY
    ───────────────────────────────────────────────────────────────── */
 function validateCrossProtocol(ap2, acp, x402) {
@@ -969,7 +1050,7 @@ function validateCrossProtocol(ap2, acp, x402) {
    ───────────────────────────────────────────────────────────────── */
 function renderResults() {
   const r = _lastResult;
-  const {passCount, failCount, warnCount, overallStatus, ap2Checks, acpChecks, tapChecks, x402Checks, xpChecks, allChecks, execHash, parentHashes, parentToolIds, chainDepth} = r;
+  const {passCount, failCount, warnCount, overallStatus, ap2Checks, acpChecks, tapChecks, x402Checks, mppChecks, xpChecks, allChecks, execHash, parentHashes, parentToolIds, chainDepth} = r;
   const total = allChecks.length;
 
   /* Verdict */
@@ -990,6 +1071,7 @@ function renderResults() {
     {label:'ACP Checkout Conformance', checks: acpChecks, proto:'ACP', optional:true},
     {label:'Visa TAP · RFC 9421 HTTP Message Signature', checks: tapChecks, proto:'TAP', optional:true},
     {label:'x402 Settlement Leg', checks: x402Checks, proto:'x402', optional:true},
+    {label:'Tempo MPP Session Leg', checks: mppChecks, proto:'MPP', optional:true},
     {label:'Cross-Protocol Consistency', checks: xpChecks, proto:'XP'}
   ];
   let html = '';

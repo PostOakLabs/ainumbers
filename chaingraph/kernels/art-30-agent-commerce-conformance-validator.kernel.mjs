@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-30-agent-commerce-conformance-validator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0'; // 1.1.0: + MPP (Tempo Machine Payments Protocol) leg — additive, fires only when mpp_session supplied
 
 export const meta = {
   tool_id: TOOL_ID,
@@ -148,6 +148,49 @@ function validateX402(payload) {
   return checks;
 }
 
+// MPP — Tempo Machine Payments Protocol (Stripe-co-authored). Validates the agent-side
+// session/charge/subscription pre-authorization that underlies a streamed-micropayment leg.
+// Modes: charge (one-time), session (pay-as-you-go channel), subscription (recurring).
+function validateMPP(session) {
+  const checks = [];
+  const push = (code, status, note) => checks.push({ code, status, note: note||undefined });
+  if (!session) { push('MPP-S00', 'fail', 'mpp_session null/missing'); return checks; }
+  push('MPP-S00', 'pass', 'mpp_session present');
+  const mode = session.mode;
+  push('MPP-S01', ['charge','session','subscription'].includes(mode) ? 'pass' : 'fail', `mode=${mode}`);
+  push('MPP-S02', !!session.session_id ? 'pass' : 'warn', 'session_id present');
+  push('MPP-S03', typeof session.max_amount==='number' && session.max_amount>0 ? 'pass' : 'fail', 'max_amount>0 (pre-authorized spend cap)');
+  push('MPP-S04', !!session.currency ? 'pass' : 'fail', 'currency present');
+  push('MPP-S05', !!(session.payee || session.resource) ? 'pass' : 'fail', 'payee or resource present');
+  // recurring/streamed modes need a cadence or channel expiry to bound the authorization
+  if (mode === 'subscription') {
+    push('MPP-S06', !!session.cadence ? 'pass' : 'fail', `subscription requires cadence (=${session.cadence})`);
+  } else if (mode === 'session') {
+    push('MPP-S06', session.expires_at!=null ? 'pass' : 'warn', 'session channel expires_at present');
+  } else {
+    push('MPP-S06', 'pass', 'charge: no cadence/expiry required');
+  }
+  // signed pre-authorization (access key / scoped key) — MPP "OAuth of payments" trust root
+  const ak = session.access_key || session.signature || '';
+  push('MPP-S07', !!ak ? 'pass' : 'warn', 'access_key/signature present (signed pre-authorization)');
+  return checks;
+}
+
+// MPP cross-protocol coherence vs the AP2 intent envelope (only when both present).
+function validateCrossProtocolMPP(ap2Trio, mppSession) {
+  const checks = [];
+  const push = (code, status, note) => checks.push({ code, status, note: note||undefined });
+  const intent = ap2Trio && ap2Trio.intent;
+  if (!intent || !mppSession) return checks;
+  if (typeof mppSession.max_amount==='number' && typeof intent.scope?.max_amount==='number') {
+    push('XP-M01', mppSession.max_amount <= intent.scope.max_amount ? 'pass' : 'warn', `mpp cap=${mppSession.max_amount} within intent max=${intent.scope.max_amount}`);
+  }
+  if (mppSession.currency && intent.scope?.currency) {
+    push('XP-M02', mppSession.currency.toUpperCase()===intent.scope.currency.toUpperCase() ? 'pass' : 'warn', 'mpp currency matches intent.scope.currency');
+  }
+  return checks;
+}
+
 function validateCrossProtocol(ap2Trio, acpPayload, x402Payload) {
   const checks = [];
   const push = (code, status, note) => checks.push({ code, status, note: note||undefined });
@@ -176,13 +219,17 @@ export function compute(pp) {
   const acpPayload = pp.acp_payload ? safeJson(pp.acp_payload) : null;
   const tapHeaders = pp.tap_headers ? safeJson(pp.tap_headers) : null;
   const x402Payload = pp.x402_payload ? safeJson(pp.x402_payload) : null;
+  const mppSession = pp.mpp_session ? safeJson(pp.mpp_session) : null;
 
   const protocolsValidated = ['AP2'];
   const allChecks = [...validateAP2(ap2Trio)];
   if (acpPayload) { allChecks.push(...validateACP(acpPayload)); protocolsValidated.push('ACP'); }
   if (tapHeaders) { allChecks.push(...validateTAP(tapHeaders)); protocolsValidated.push('TAP'); }
   if (x402Payload) { allChecks.push(...validateX402(x402Payload)); protocolsValidated.push('x402'); }
+  if (mppSession) { allChecks.push(...validateMPP(mppSession)); protocolsValidated.push('MPP'); }
   allChecks.push(...validateCrossProtocol(ap2Trio, acpPayload, x402Payload));
+  // MPP cross-checks appended last so existing protocol/check ordering is byte-identical when mpp absent.
+  if (mppSession) { allChecks.push(...validateCrossProtocolMPP(ap2Trio, mppSession)); }
 
   const failCount = allChecks.filter(c=>c.status==='fail').length;
   const warnCount = allChecks.filter(c=>c.status==='warn').length;
