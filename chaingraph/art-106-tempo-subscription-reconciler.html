@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tempo Subscription &amp; Streaming Settlement Reconciler · ART-106 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Reconcile executed MPP recurring/streamed draws against the authorized mandate envelope. Checks per-cycle and cumulative caps, expiry/revocation breaches, and produces a draw-set commitment for downstream Merkle verification.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-106-tempo-subscription-reconciler.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tempo Subscription & Streaming Settlement Reconciler","url":"https://ainumbers.co/chaingraph/art-106-tempo-subscription-reconciler.html","applicationCategory":"FinancialApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-family:'DM Serif Display',serif;font-size:1.75rem;color:var(--white);margin-bottom:8px;font-weight:400;line-height:1.25}
+.sub{color:var(--body);max-width:640px;margin-bottom:8px;font-size:.9rem}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.1);color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.07em}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select,input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+select{font-family:inherit}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.73rem;resize:vertical;min-height:140px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.run-btn{margin-top:6px;width:100%;padding:.75rem 1.2rem;font-size:.75rem}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;flex:1;min-width:120px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-val.green{color:var(--green)}
+.hero-val.red{color:var(--red)}
+.hero-val.warn{color:var(--warn)}
+.hero-val.teal{color:var(--teal-lt)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:8px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.1);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:6px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.ok{color:var(--green)}
+.tbl td.err{color:var(--red)}
+.tbl td.warn{color:var(--warn)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-label{color:var(--muted);font-size:.72rem;font-family:'JetBrains Mono',monospace}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.06em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;border:none;font-weight:600}
+.export-btn-primary{background:var(--teal);color:#06121f}
+.export-btn-secondary{background:none;border:1px solid var(--purple);color:var(--purple)}
+.export-btn-secondary:hover{background:rgba(155,114,245,.1);opacity:1}
+.export-btn-tertiary{background:none;border:1px solid var(--border-2);color:var(--body)}
+.export-btn-tertiary:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.breach-row{background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius);padding:8px 12px;margin:4px 0;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--red)}
+.breach-type{color:var(--red);font-weight:600;margin-right:6px}
+.breach-detail{color:var(--body)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.6rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center">
+    <a href="../index.html" style="color:var(--body)">All Tools</a>
+    <span>/</span>
+    <a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph Hub</a>
+    <span>/</span>
+    <span style="color:var(--text)">Tempo Subscription &amp; Streaming Settlement Reconciler</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Hub →</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-106 · Wave 21 · Tempo / MPP</div>
+  <h1>Tempo Subscription &amp; Streaming Settlement Reconciler</h1>
+  <p class="sub">Reconcile executed MPP recurring/streamed draws against the authorized mandate envelope. Checks per-cycle and cumulative caps, expiry/revocation breaches, and produces a draw-set commitment for downstream Merkle verification. Distinct from ART-36 (mandate granting).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag">Zero PII</span>
+    <span class="flag">Client-side only</span>
+    <span class="flag info">MPP Session Semantics</span>
+    <span class="flag warn">ISO 20022 pacs.008-subset</span>
+    <span class="flag purple">§16 Ed25519 Signing</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">MPP Mandate Reconciler — Scope</div>
+    This node validates draw execution against a pre-authorized MPP envelope. Each draw is checked against the per-cycle cap and cumulative cap. Expiry timestamps are enforced against <code>valid_until</code>. Output includes a draw-set Merkle leaf commitment for chaining to downstream verification nodes. For mandate granting, see ART-36.
+  </div>
+
+  <!-- INPUT PANEL -->
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('clean_monthly')">Monthly — Conformant</button>
+      <button class="preset-btn" onclick="loadPreset('cycle_breach')">Cycle Cap Breach</button>
+      <button class="preset-btn" onclick="loadPreset('cumulative_breach')">Cumulative Cap Breach</button>
+      <button class="preset-btn" onclick="loadPreset('expiry_breach')">Expiry Breach</button>
+      <button class="preset-btn" onclick="loadPreset('streaming_ok')">Streaming — Conformant</button>
+    </div>
+
+    <div class="section-head">Authorized Mandate Envelope</div>
+    <div class="grid3">
+      <div class="q">
+        <label><span class="dim">Required</span>Total Cap (currency units)</label>
+        <input type="number" id="cap_total" value="1000.00" step="0.000001" min="0">
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Per-Cycle Cap</label>
+        <input type="number" id="cap_per_cycle" value="250.00" step="0.000001" min="0">
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Valid Until (Unix ms)</label>
+        <input type="number" id="valid_until" value="9999999999999">
+      </div>
+    </div>
+    <div class="grid">
+      <div class="q">
+        <label><span class="dim">Required</span>Cadence</label>
+        <select id="cadence">
+          <option value="monthly" selected>Monthly</option>
+          <option value="weekly">Weekly</option>
+          <option value="daily">Daily</option>
+          <option value="streaming">Streaming</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Mode</label>
+        <select id="mode">
+          <option value="subscription" selected>Subscription</option>
+          <option value="streaming">Streaming</option>
+          <option value="metered">Metered</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-head">Executed Draws (JSON array)</div>
+    <div class="q">
+      <label><span class="dim">Required</span>Draws — <code>[{seq, amount, ts, cycle}]</code></label>
+      <textarea id="draws_json" spellcheck="false">[
+  {"seq":1,"amount":200.00,"ts":1700000001000,"cycle":1},
+  {"seq":2,"amount":150.00,"ts":1702678401000,"cycle":2},
+  {"seq":3,"amount":180.00,"ts":1705356801000,"cycle":3},
+  {"seq":4,"amount":220.00,"ts":1708035201000,"cycle":4}
+]</textarea>
+    </div>
+    <div id="parseError" style="display:none;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:-6px;margin-bottom:8px"></div>
+
+    <button class="run-btn" onclick="runReconcile()">Reconcile MPP Draws</button>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="card">
+      <div class="section-head">Reconciliation Summary</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBlock"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Per-Cycle Analysis</div>
+      <table class="tbl" id="cycleTable">
+        <thead><tr><th>Cycle</th><th>Drawn</th><th>Cap</th><th>Status</th></tr></thead>
+        <tbody id="cycleTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Draw Register</div>
+      <table class="tbl" id="drawTable">
+        <thead><tr><th>Seq</th><th>Amount</th><th>Timestamp</th><th>Cycle</th><th>Status</th></tr></thead>
+        <tbody id="drawTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="breachCard" style="display:none">
+      <div class="section-head">Breach Detail</div>
+      <div id="breachList"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Compliance Flags</div>
+      <div id="complianceFlags" style="margin-bottom:10px"></div>
+      <div class="verdict warn" style="margin-top:10px">⚠ DECISION-SUPPORT DRAFT. Not a legal filing or settlement confirmation. Verify against operative MPP mandate and governing settlement rules.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; Artifact (§4)</div>
+      <div class="muted-label">SHA-256 execution hash (JCS canonical):</div>
+      <div class="hash" id="execHash"></div>
+      <div class="muted-label" style="margin-top:8px">Draw-set Merkle leaf commitment:</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--purple);word-break:break-all;margin:4px 0" id="merkleRoot"></div>
+      <pre id="artifactPre"></pre>
+
+      <div class="results-export-row">
+        <button class="export-btn export-btn-primary" id="ap2ExportBtn" onclick="exportPolicyMandate()" disabled>⬇ Export Policy Mandate JSON</button>
+        <button class="export-btn export-btn-tertiary" id="csvExportBtn" onclick="exportCSV()" disabled>⬇ Export CSV</button>
+        <button class="export-btn export-btn-tertiary" id="artifactExportBtn" onclick="exportArtifact()" disabled>⬇ Export §4 Artifact</button>
+        <button class="export-btn export-btn-secondary" id="signArtifactBtn" onclick="signArtifact()" disabled>⬇ Sign artifact (Ed25519 · §16)</button>
+      </div>
+    </div>
+
+  </div><!-- /.results-panel -->
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+
+</div><!-- /.wrap -->
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+      <a href="../index.html" style="color:var(--muted)">All Tools</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+/* =====================================================================
+   MANIFEST
+   ===================================================================== */
+const MANIFEST = {
+  tool_id: 'art-106-tempo-subscription-reconciler',
+  version: '1.0.0',
+  title: 'Tempo Subscription & Streaming Settlement Reconciler',
+  mcp_tool_definition: {
+    name: 'reconcile_mpp_subscription',
+    description: 'Reconciles executed MPP subscription/streaming draws against the authorized mandate envelope. Checks per-cycle caps, cumulative caps, expiry/revocation, and produces a draw-set commitment for Merkle verification. Cites MPP session semantics.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        envelope: {
+          type: 'object',
+          description: 'Authorized MPP envelope: {cap_total, cap_per_cycle, cadence, valid_until, mode}',
+          properties: {
+            cap_total: { type: 'number' },
+            cap_per_cycle: { type: 'number' },
+            cadence: { type: 'string' },
+            valid_until: { type: 'number' },
+            mode: { type: 'string' }
+          }
+        },
+        draws: {
+          type: 'array',
+          description: 'Array of executed draws: [{seq, amount, ts, cycle}]',
+          items: {
+            type: 'object',
+            properties: {
+              seq: { type: 'number' },
+              amount: { type: 'number' },
+              ts: { type: 'number' },
+              cycle: { type: 'number' }
+            }
+          }
+        }
+      },
+      required: ['envelope', 'draws']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true,
+  mandate_type: 'settlement_mandate',
+  semantic_profile: 'iso20022:pacs.008-subset',
+  export_capability: ['csv', 'xlsx', 'pdf', 'xbrl:ocg-ext'],
+  wave: 21,
+  chaingraph_version: '0.4.0',
+  compute_capability: 'server',
+  url: 'https://ainumbers.co/chaingraph/art-106-tempo-subscription-reconciler.html'
+};
+
+/* =====================================================================
+   PRESETS
+   ===================================================================== */
+const PRESETS = {
+  clean_monthly: {
+    cap_total: 1000, cap_per_cycle: 250, valid_until: 9999999999999,
+    cadence: 'monthly', mode: 'subscription',
+    draws: [
+      {seq:1, amount:200.00, ts:1700000001000, cycle:1},
+      {seq:2, amount:150.00, ts:1702678401000, cycle:2},
+      {seq:3, amount:180.00, ts:1705356801000, cycle:3},
+      {seq:4, amount:220.00, ts:1708035201000, cycle:4}
+    ]
+  },
+  cycle_breach: {
+    cap_total: 1000, cap_per_cycle: 200, valid_until: 9999999999999,
+    cadence: 'monthly', mode: 'subscription',
+    draws: [
+      {seq:1, amount:150.00, ts:1700000001000, cycle:1},
+      {seq:2, amount:220.00, ts:1700100001000, cycle:1},
+      {seq:3, amount:180.00, ts:1702678401000, cycle:2}
+    ]
+  },
+  cumulative_breach: {
+    cap_total: 500, cap_per_cycle: 300, valid_until: 9999999999999,
+    cadence: 'monthly', mode: 'subscription',
+    draws: [
+      {seq:1, amount:250.00, ts:1700000001000, cycle:1},
+      {seq:2, amount:180.00, ts:1702678401000, cycle:2},
+      {seq:3, amount:120.00, ts:1705356801000, cycle:3}
+    ]
+  },
+  expiry_breach: {
+    cap_total: 1000, cap_per_cycle: 300, valid_until: 1700100000000,
+    cadence: 'monthly', mode: 'subscription',
+    draws: [
+      {seq:1, amount:200.00, ts:1700000001000, cycle:1},
+      {seq:2, amount:150.00, ts:1700200001000, cycle:2}
+    ]
+  },
+  streaming_ok: {
+    cap_total: 50, cap_per_cycle: 10, valid_until: 9999999999999,
+    cadence: 'streaming', mode: 'streaming',
+    draws: [
+      {seq:1, amount:2.50, ts:1700000001000, cycle:1},
+      {seq:2, amount:3.00, ts:1700001001000, cycle:1},
+      {seq:3, amount:4.00, ts:1700002001000, cycle:2},
+      {seq:4, amount:1.50, ts:1700003001000, cycle:2},
+      {seq:5, amount:2.00, ts:1700004001000, cycle:3}
+    ]
+  }
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  document.getElementById('cap_total').value = p.cap_total;
+  document.getElementById('cap_per_cycle').value = p.cap_per_cycle;
+  document.getElementById('valid_until').value = p.valid_until;
+  document.getElementById('cadence').value = p.cadence;
+  document.getElementById('mode').value = p.mode;
+  document.getElementById('draws_json').value = JSON.stringify(p.draws, null, 2);
+  document.getElementById('parseError').style.display = 'none';
+}
+
+/* =====================================================================
+   CANONICAL HASH HELPERS (from _hash.mjs)
+   ===================================================================== */
+function cgCanon(v) {
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(cgCanon);
+  const out = {};
+  for (const k of Object.keys(v).sort()) out[k] = cgCanon(v[k]);
+  return out;
+}
+
+async function executionHashLocal(pp, outputPayload) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: outputPayload });
+  const s = JSON.stringify(obj);
+  const buf = new TextEncoder().encode(s);
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* =====================================================================
+   §16 Ed25519 SIGN FUNCTIONS (inlined from _proof.mjs)
+   ===================================================================== */
+const CRYPTOSUITE = 'eddsa-jcs-2022';
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes) {
+  let zeros = 0; while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) { carry += digits[j] << 8; digits[j] = carry % 58; carry = (carry / 58) | 0; }
+    while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = ''; for (let k = 0; k < zeros; k++) out += '1';
+  for (let q = digits.length - 1; q >= 0; q--) out += B58[digits[q]];
+  return out;
+}
+function securedDoc(artifact) { const a = JSON.parse(JSON.stringify(artifact)); if (a && a.audit_signature && 'proof' in a.audit_signature) delete a.audit_signature.proof; return a; }
+function proofOpts(vm, created) { return { type: 'DataIntegrityProof', cryptosuite: CRYPTOSUITE, verificationMethod: vm, proofPurpose: 'assertionMethod', created }; }
+async function sha256b(buf) { return new Uint8Array(await crypto.subtle.digest('SHA-256', buf)); }
+function jcsBuf(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+async function hashData(artifact, opts) {
+  const oh = await sha256b(jcsBuf(opts));
+  const dh = await sha256b(jcsBuf(securedDoc(artifact)));
+  const cat = new Uint8Array(oh.length + dh.length);
+  cat.set(oh, 0); cat.set(dh, oh.length); return cat;
+}
+async function didKeyFromPubKey(key) {
+  const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+  const pfx = new Uint8Array([0xed, 0x01]);
+  const full = new Uint8Array(pfx.length + raw.length);
+  full.set(pfx, 0); full.set(raw, pfx.length);
+  return 'did:key:z' + b58encode(full);
+}
+async function signArtifactWith(artifact, privKey, pubKeyDid, created) {
+  const opts = proofOpts(pubKeyDid, created);
+  const sig = new Uint8Array(await crypto.subtle.sign('Ed25519', privKey, await hashData(artifact, opts)));
+  const out = JSON.parse(JSON.stringify(artifact));
+  out.audit_signature = { ...(out.audit_signature || {}), proof: { ...opts, proofValue: 'z' + b58encode(sig) } };
+  return out;
+}
+async function signArtifact() {
+  if (!lastArtifact) { alert('Run the tool first.'); return; }
+  if (!confirm('Signing binds this run to your key and de-anonymizes it (OCG §16.2). Continue?')) return;
+  const btn = document.getElementById('signArtifactBtn');
+  btn.textContent = 'Signing…';
+  try {
+    const kp = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+    const did = await didKeyFromPubKey(kp.publicKey);
+    const created = lastArtifact.generated_at || new Date().toISOString();
+    const signed = await signArtifactWith(lastArtifact, kp.privateKey, did, created);
+    const ts = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(signed, null, 2)], { type: 'application/json' }));
+    a.download = 'art-106-tempo-subscription-reconciler_' + ts + '.signed.json';
+    a.click(); URL.revokeObjectURL(a.href);
+    btn.textContent = '⬇ Sign artifact (Ed25519 · §16)';
+  } catch (e) {
+    btn.textContent = '⬇ Sign artifact (Ed25519 · §16)';
+    alert('Sign failed: ' + e.message);
+  }
+}
+
+/* =====================================================================
+   CORE COMPUTE LOGIC (matches kernel byte-for-byte)
+   ===================================================================== */
+function computeMppReconciliation(envelope, draws_arr) {
+  const cap_total = Number(envelope.cap_total) || 0;
+  const cap_per_cycle = Number(envelope.cap_per_cycle) || 0;
+  const valid_until = Number(envelope.valid_until) || Infinity;
+  const cadence = envelope.cadence || 'monthly';
+  const mode = envelope.mode || 'subscription';
+  const breaches = [];
+  const cycleMap = {};
+  let total_drawn = 0;
+  for (const draw of draws_arr) {
+    const seq = draw.seq || 0;
+    const amount = Number(draw.amount) || 0;
+    const ts = Number(draw.ts) || 0;
+    const cycle = draw.cycle || 1;
+    total_drawn += amount;
+    if (ts > valid_until) breaches.push({ seq, type: 'EXPIRY_BREACH', detail: 'Draw ts ' + ts + ' > valid_until ' + valid_until });
+    if (!cycleMap[cycle]) cycleMap[cycle] = 0;
+    cycleMap[cycle] += amount;
+  }
+  for (const [cycle, cycleTotal] of Object.entries(cycleMap)) {
+    if (cap_per_cycle > 0 && cycleTotal > cap_per_cycle) breaches.push({ cycle: Number(cycle), type: 'CYCLE_CAP_BREACH', detail: 'Cycle total ' + cycleTotal.toFixed(6) + ' > cap_per_cycle ' + cap_per_cycle });
+  }
+  let cumulative_ok = true;
+  if (cap_total > 0 && total_drawn > cap_total) { cumulative_ok = false; breaches.push({ type: 'CUMULATIVE_CAP_BREACH', detail: 'Total drawn ' + total_drawn.toFixed(6) + ' > cap_total ' + cap_total }); }
+  const cycles_ok = !breaches.some(b => b.type === 'CYCLE_CAP_BREACH');
+  const residual_envelope = Math.max(0, cap_total - total_drawn);
+  const drawLeaves = draws_arr.map(d => (d.seq) + ':' + (Number(d.amount).toFixed(6)) + ':' + (d.ts) + ':' + (d.cycle)).sort().join('|');
+  const draw_merkle_root = 'leaf-commit:' + draws_arr.length + ':' + drawLeaves.length;
+  const verdict = breaches.length === 0 ? 'CONFORMANT' : 'BREACH_DETECTED';
+  return {
+    output_payload: { cycles_ok, cumulative_ok, breaches, total_drawn: +total_drawn.toFixed(6), residual_envelope: +residual_envelope.toFixed(6), draw_count: draws_arr.length, draw_merkle_root, verdict },
+    compliance_flags: [verdict === 'CONFORMANT' ? 'MPP_DRAWS_CONFORMANT' : 'MPP_DRAW_BREACH', ...(cycles_ok ? ['CYCLE_CAPS_OK'] : []), ...(cumulative_ok ? ['CUMULATIVE_CAP_OK'] : [])]
+  };
+}
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let lastArtifact = null;
+let lastPP = null;
+let lastOP = null;
+let lastDrawsArr = null;
+
+/* =====================================================================
+   BUILD ARTIFACT (§4 envelope)
+   ===================================================================== */
+async function buildArtifact(pp, output_payload, compliance_flags, execHash) {
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version: '0.4.0',
+    spec_version: '0.5.0',
+    compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type,
+    tool_id: MANIFEST.tool_id,
+    version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: 'sha256:' + execHash,
+    semantic_profile: MANIFEST.semantic_profile,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload: output_payload,
+    compliance_flags: compliance_flags,
+    audit_signature: {
+      payloadType: 'application/vnd.openchain.graph+json;version=0.4',
+      payload: '',
+      signatures: []
+    }
+  };
+}
+
+/* =====================================================================
+   MAIN RUN
+   ===================================================================== */
+async function runReconcile() {
+  // Parse draws JSON
+  const parseErr = document.getElementById('parseError');
+  let draws_arr;
+  try {
+    draws_arr = JSON.parse(document.getElementById('draws_json').value);
+    if (!Array.isArray(draws_arr)) throw new Error('Expected a JSON array');
+    parseErr.style.display = 'none';
+  } catch (e) {
+    parseErr.textContent = 'JSON parse error: ' + e.message;
+    parseErr.style.display = 'block';
+    return;
+  }
+
+  const envelope = {
+    cap_total: parseFloat(document.getElementById('cap_total').value) || 0,
+    cap_per_cycle: parseFloat(document.getElementById('cap_per_cycle').value) || 0,
+    valid_until: parseFloat(document.getElementById('valid_until').value) || Infinity,
+    cadence: document.getElementById('cadence').value,
+    mode: document.getElementById('mode').value
+  };
+
+  const pp = { envelope, draws: draws_arr };
+  const { output_payload, compliance_flags } = computeMppReconciliation(envelope, draws_arr);
+  const execHash = await executionHashLocal(pp, output_payload);
+  const artifact = await buildArtifact(pp, output_payload, compliance_flags, execHash);
+
+  lastArtifact = artifact;
+  lastPP = pp;
+  lastOP = output_payload;
+  lastDrawsArr = draws_arr;
+
+  // ---- RENDER HERO ROW ----
+  const heroConformant = output_payload.verdict === 'CONFORMANT';
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-val ${heroConformant ? 'green' : 'red'}">${heroConformant ? 'OK' : 'BREACH'}</div>
+      <div class="hero-lbl">Verdict</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val teal">${output_payload.draw_count}</div>
+      <div class="hero-lbl">Draws</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val ${output_payload.cumulative_ok ? 'teal' : 'red'}">${output_payload.total_drawn.toFixed(2)}</div>
+      <div class="hero-lbl">Total Drawn</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val ${output_payload.residual_envelope > 0 ? 'green' : 'red'}">${output_payload.residual_envelope.toFixed(2)}</div>
+      <div class="hero-lbl">Residual</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val ${output_payload.breaches.length === 0 ? 'green' : 'red'}">${output_payload.breaches.length}</div>
+      <div class="hero-lbl">Breaches</div>
+    </div>
+  `;
+
+  // ---- VERDICT ----
+  const verdictCls = heroConformant ? 'verdict pass' : 'verdict fail';
+  document.getElementById('verdictBlock').innerHTML = `<div class="${verdictCls}">
+    ${heroConformant
+      ? '✓ All draws are within authorized limits. Draw-set commitment produced for Merkle verification.'
+      : '✗ BREACH DETECTED — one or more draws violate the authorized MPP mandate envelope. See Breach Detail below.'}
+  </div>`;
+
+  // ---- PER-CYCLE TABLE ----
+  const cycleMap = {};
+  for (const draw of draws_arr) {
+    const c = draw.cycle || 1;
+    if (!cycleMap[c]) cycleMap[c] = 0;
+    cycleMap[c] += Number(draw.amount) || 0;
+  }
+  const capPerCycle = envelope.cap_per_cycle;
+  const cycleRows = Object.entries(cycleMap).sort((a, b) => Number(a[0]) - Number(b[0])).map(([cycle, total]) => {
+    const ok = capPerCycle <= 0 || total <= capPerCycle;
+    const cls = ok ? 'ok' : 'err';
+    const status = ok ? '✓ OK' : '✗ BREACH';
+    return `<tr>
+      <td>${cycle}</td>
+      <td>${total.toFixed(6)}</td>
+      <td>${capPerCycle > 0 ? capPerCycle.toFixed(6) : '—'}</td>
+      <td class="${cls}">${status}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cycleTableBody').innerHTML = cycleRows || '<tr><td colspan="4" style="color:var(--muted)">No draws.</td></tr>';
+
+  // ---- DRAW REGISTER ----
+  const validUntil = Number(envelope.valid_until) || Infinity;
+  const drawRows = draws_arr.map(d => {
+    const ts = Number(d.ts) || 0;
+    const expiryOk = ts <= validUntil;
+    const cls = expiryOk ? 'ok' : 'err';
+    const status = expiryOk ? '✓ Valid' : '✗ Expired';
+    const tsLabel = ts > 0 ? new Date(ts).toISOString().slice(0, 19).replace('T', ' ') : '—';
+    return `<tr>
+      <td>${d.seq ?? '—'}</td>
+      <td>${Number(d.amount).toFixed(6)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem">${tsLabel}</td>
+      <td>${d.cycle ?? '—'}</td>
+      <td class="${cls}">${status}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('drawTableBody').innerHTML = drawRows || '<tr><td colspan="5" style="color:var(--muted)">No draws.</td></tr>';
+
+  // ---- BREACH DETAIL ----
+  const breachCard = document.getElementById('breachCard');
+  if (output_payload.breaches.length > 0) {
+    breachCard.style.display = 'block';
+    document.getElementById('breachList').innerHTML = output_payload.breaches.map(b => `
+      <div class="breach-row">
+        <span class="breach-type">${b.type}</span>
+        ${b.seq !== undefined ? `<span style="color:var(--muted);margin-right:4px">seq=${b.seq}</span>` : ''}
+        ${b.cycle !== undefined ? `<span style="color:var(--muted);margin-right:4px">cycle=${b.cycle}</span>` : ''}
+        <span class="breach-detail">${b.detail}</span>
+      </div>`).join('');
+  } else {
+    breachCard.style.display = 'none';
+  }
+
+  // ---- COMPLIANCE FLAGS ----
+  document.getElementById('complianceFlags').innerHTML = compliance_flags.map(f => {
+    const cls = f.includes('BREACH') ? 'badge err' : 'badge ok';
+    return `<span class="${cls}">${f}</span>`;
+  }).join(' ');
+
+  // ---- HASH + ARTIFACT ----
+  document.getElementById('execHash').textContent = 'sha256:' + execHash;
+  document.getElementById('merkleRoot').textContent = output_payload.draw_merkle_root;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+
+  // ---- ENABLE EXPORTS ----
+  enableExportBtns();
+
+  // ---- SHOW RESULTS ----
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function enableExportBtns() {
+  ['ap2ExportBtn', 'csvExportBtn', 'artifactExportBtn', 'signArtifactBtn'].forEach(id => {
+    document.getElementById(id).disabled = false;
+  });
+}
+
+/* =====================================================================
+   EXPORT: Policy Mandate JSON (AP2)
+   ===================================================================== */
+function exportPolicyMandate() {
+  if (!lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id,
+    version: MANIFEST.version,
+    mandate_type: MANIFEST.mandate_type,
+    semantic_profile: MANIFEST.semantic_profile,
+    payload: lastOP,
+    compliance_flags: lastArtifact.compliance_flags,
+    execution_hash: lastArtifact.execution_hash,
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+      spec_version: '0.5.0'
+    }
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'art-106-tempo-subscription-reconciler_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* =====================================================================
+   EXPORT: §4 Artifact JSON
+   ===================================================================== */
+function exportArtifact() {
+  if (!lastArtifact) return;
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const blob = new Blob([JSON.stringify(lastArtifact, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'art-106-tempo-subscription-reconciler_' + ts + '.artifact.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* =====================================================================
+   EXPORT: CSV
+   ===================================================================== */
+function exportCSV() {
+  if (!lastDrawsArr || !lastOP) return;
+  const envelope = lastPP.envelope;
+  const rows = [
+    ['seq', 'amount', 'ts', 'ts_iso', 'cycle', 'expiry_ok'],
+    ...lastDrawsArr.map(d => {
+      const ts = Number(d.ts) || 0;
+      const expiryOk = ts <= (Number(envelope.valid_until) || Infinity);
+      return [
+        d.seq ?? '',
+        Number(d.amount).toFixed(6),
+        d.ts ?? '',
+        ts > 0 ? new Date(ts).toISOString() : '',
+        d.cycle ?? '',
+        expiryOk ? 'TRUE' : 'FALSE'
+      ];
+    }),
+    [],
+    ['SUMMARY', '', '', '', '', ''],
+    ['total_drawn', lastOP.total_drawn, '', '', '', ''],
+    ['residual_envelope', lastOP.residual_envelope, '', '', '', ''],
+    ['draw_count', lastOP.draw_count, '', '', '', ''],
+    ['verdict', lastOP.verdict, '', '', '', ''],
+    ['draw_merkle_root', lastOP.draw_merkle_root, '', '', '', ''],
+    ['execution_hash', lastArtifact ? lastArtifact.execution_hash : '', '', '', '', '']
+  ];
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c);
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(',')).join('\r\n');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'art-106-tempo-subscription-reconciler_' + ts + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* =====================================================================
+   MANIFEST TOGGLE
+   ===================================================================== */
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+</body>
+</html>

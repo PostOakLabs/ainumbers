@@ -113,6 +113,13 @@ import * as art102 from './art-102-crypto-asset-whitepaper-linter.kernel.mjs';
 import * as art103 from './art-103-mar-crypto-surveillance-readiness.kernel.mjs';
 import * as art104 from './art-104-tfr-travel-rule-batch-validator.kernel.mjs';
 import * as art105 from './art-105-mica-token-service-scoper.kernel.mjs';
+// ART Tempo / Canton / Arc Extension (wave 21)
+import * as art106 from './art-106-tempo-subscription-reconciler.kernel.mjs';
+import * as art107 from './art-107-tempo-gas-economics.kernel.mjs';
+import * as art108 from './art-108-canton-selective-disclosure.kernel.mjs';
+import * as art109 from './art-109-dtc-tokenized-treasury.kernel.mjs';
+import * as art110 from './art-110-arc-partner-stablecoin-onboarding.kernel.mjs';
+import * as art111 from './art-111-arc-corridor-jurisdiction-router.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -261,6 +268,13 @@ export const KERNELS = {
   'art-103-mar-crypto-surveillance-readiness':    art103,
   'art-104-tfr-travel-rule-batch-validator':      art104,
   'art-105-mica-token-service-scoper':            art105,
+  // ART Tempo / Canton / Arc Extension (wave 21)
+  'art-106-tempo-subscription-reconciler':        art106,
+  'art-107-tempo-gas-economics':                  art107,
+  'art-108-canton-selective-disclosure':          art108,
+  'art-109-dtc-tokenized-treasury':               art109,
+  'art-110-arc-partner-stablecoin-onboarding':    art110,
+  'art-111-arc-corridor-jurisdiction-router':     art111,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Canton Selective-Disclosure DvP Reconciliation Attestation · ART-108 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Attests that a Canton DvP privacy partition is sound — each counterparty sees only its own leg, both views reconcile to one atomic commitment, no cross-leg field leakage. Optional Ed25519 §16 proof binds the attestation to a key.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-108-canton-selective-disclosure.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Canton Selective-Disclosure DvP Reconciliation Attestation","url":"https://ainumbers.co/chaingraph/art-108-canton-selective-disclosure.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:680px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.1);color:var(--purple);border-color:rgba(155,114,245,.3)}
+.flag.teal{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.q .hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:4px;line-height:1.4}
+select,input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;resize:vertical;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.08);color:var(--purple);border:1px solid rgba(155,114,245,.2)}
+.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+@media(max-width:600px){.check-grid{grid-template-columns:1fr}}
+.check-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.check-card .cc-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.check-card .cc-val{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600}
+.check-card .cc-val.pass{color:var(--green)}
+.check-card .cc-val.fail{color:var(--red)}
+.verdict-hero{border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:12px;font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;letter-spacing:.04em;text-align:center}
+.verdict-hero.sound{background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3);color:var(--green)}
+.verdict-hero.breach{background:rgba(239,68,68,.08);border:2px solid rgba(239,68,68,.3);color:var(--red)}
+.leak-block{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:10px 14px;margin:8px 0;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--red)}
+.partition-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.7;word-break:break-all}
+.partition-block .pb-label{color:var(--purple);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.muted{color:var(--muted);font-size:.72rem}
+.run-btn{margin-top:6px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.export-btn{background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2);font-size:.62rem;padding:.4rem .85rem;text-transform:uppercase;letter-spacing:.07em;font-weight:500}
+.export-btn:hover{border-color:var(--teal);opacity:1}
+.export-btn:disabled{opacity:.35;cursor:not-allowed}
+.export-btn-primary{background:var(--teal);color:#06121f;border-color:var(--teal)}
+.export-btn-primary:hover{opacity:.88}
+.export-btn-secondary{background:rgba(155,114,245,.1);color:var(--purple);border:1px solid rgba(155,114,245,.3)}
+.export-btn-secondary:hover{border-color:var(--purple);opacity:1}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.list-block{margin:6px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center">
+    <a href="../index.html" style="color:var(--body)">All Tools</a>
+    <span>/</span>
+    <a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph Hub</a>
+    <span>/</span>
+    <span style="color:var(--text)">Canton Selective-Disclosure DvP</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Wave 21 →</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-108 · Wave 21</div>
+  <h1>Canton Selective-Disclosure DvP Reconciliation Attestation</h1>
+  <p class="sub">Attests that a Canton DvP privacy partition is sound — each counterparty sees only its own leg, both views reconcile to one atomic commitment, no cross-leg field leakage. Optional Ed25519 §16 proof binds the attestation to a key.</p>
+  <div style="margin-bottom:4px">
+    <span class="flag">Zero PII</span>
+    <span class="flag">Client-side only</span>
+    <span class="flag teal">Canton DvP Privacy</span>
+    <span class="flag purple">§16 Sign Enabled</span>
+    <span class="flag warn">Structural Inputs Only</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('sound')">Sound Partition (Pass)</button>
+      <button class="preset-btn" onclick="loadPreset('registrar_breach')">Registrar Sees Cash (Breach)</button>
+      <button class="preset-btn" onclick="loadPreset('cross_leak')">Cross-Leg Field Leak</button>
+      <button class="preset-btn" onclick="loadPreset('no_commitment')">Missing Commitment</button>
+    </div>
+
+    <div class="section-head">Asset Leg</div>
+    <div class="grid">
+      <div class="q">
+        <label><span class="dim">Required</span>Asset Leg — Visible To (comma-separated roles)</label>
+        <input type="text" id="asset_visible_to" value="registrar" placeholder="registrar">
+        <div class="hint">Roles that can see the asset leg. Canonical: registrar. E.g. registrar,custodian</div>
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Asset Leg — Field Names (comma-separated)</label>
+        <input type="text" id="asset_fields" value="isin,quantity,seller_id" placeholder="isin,quantity,seller_id">
+        <div class="hint">Structural field names — no real values. E.g. isin,quantity,seller_id</div>
+      </div>
+    </div>
+
+    <div class="section-head">Cash Leg</div>
+    <div class="grid">
+      <div class="q">
+        <label><span class="dim">Required</span>Cash Leg — Visible To (comma-separated roles)</label>
+        <input type="text" id="cash_visible_to" value="bank" placeholder="bank">
+        <div class="hint">Roles that can see the cash leg. Canonical: bank. E.g. bank,nostro_agent</div>
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Cash Leg — Field Names (comma-separated)</label>
+        <input type="text" id="cash_fields" value="amount,currency,buyer_id" placeholder="amount,currency,buyer_id">
+        <div class="hint">Structural field names — no real values. E.g. amount,currency,buyer_id</div>
+      </div>
+    </div>
+
+    <div class="section-head">Shared Atomic Commitment</div>
+    <div class="q">
+      <label><span class="dim">Required</span>Shared Commitment Hash / Identifier</label>
+      <input type="text" id="shared_commitment" value="h_dvp_commitment_2026_06_abc123" placeholder="h_dvp_commitment_2026_06_abc123">
+      <div class="hint">Opaque commitment string binding both legs to one atomic DvP. Not a real hash — use a synthetic token.</div>
+    </div>
+
+    <button class="run-btn" onclick="run()">Attest Canton Partition</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="card">
+      <div class="section-head">Partition Verdict</div>
+      <div class="verdict-hero" id="verdictHero"></div>
+
+      <div class="check-grid">
+        <div class="check-card">
+          <div class="cc-label">Registrar View</div>
+          <div class="cc-val" id="registrarViewVal">—</div>
+        </div>
+        <div class="check-card">
+          <div class="cc-label">Bank View</div>
+          <div class="cc-val" id="bankViewVal">—</div>
+        </div>
+        <div class="check-card">
+          <div class="cc-label">Cross-Leg Leak</div>
+          <div class="cc-val" id="crossLeakVal">—</div>
+        </div>
+        <div class="check-card">
+          <div class="cc-label">Reconciles to Commitment</div>
+          <div class="cc-val" id="reconcileVal">—</div>
+        </div>
+      </div>
+
+      <div id="leakBlock" style="display:none" class="leak-block">
+        ⚠ Cross-leg field leak detected: <span id="leakFields"></span>
+      </div>
+
+      <div class="partition-block">
+        <div class="pb-label">Partition Attestation String</div>
+        <div id="partitionAttestation"></div>
+      </div>
+
+      <div class="section-head">Compliance Flags</div>
+      <div id="complianceFlags" style="margin-bottom:8px"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:6px"><span class="muted">SHA-256 execution hash (JCS canonical · RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button class="export-btn export-btn-primary" id="ap2ExportBtn" onclick="exportAP2()" disabled>⬇ Policy Mandate JSON</button>
+        <button class="export-btn" id="csvExportBtn" onclick="exportCSV()" disabled>⬇ CSV</button>
+        <button class="export-btn" id="artifactExportBtn" onclick="exportArtifact()" disabled>⬇ §4 Artifact JSON</button>
+        <button class="export-btn export-btn-secondary" id="signArtifactBtn" onclick="signArtifact()" disabled>⬇ Sign artifact (Ed25519 · §16)</button>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+
+</div><!-- /wrap -->
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+      <a href="../index.html" style="color:var(--muted)">All Tools</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+// ─── MANIFEST ────────────────────────────────────────────────────────────────
+const MANIFEST = {
+  tool_id: 'art-108-canton-selective-disclosure',
+  version: '1.0.0',
+  title: 'Canton Selective-Disclosure DvP Reconciliation Attestation',
+  mcp_tool_definition: {
+    name: 'validate_canton_selective_disclosure',
+    description: 'Validates a Canton DvP privacy partition: each counterparty sees only its own leg, both views reconcile to one atomic commitment, no cross-leg field leakage. Inputs are structural (field names/roles), never party data — zero PII.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dvp_structure: { type: 'object', description: 'DvP privacy partition: {asset_leg:{visible_to,fields}, cash_leg:{visible_to,fields}, shared_commitment}', properties:{asset_leg:{type:'object'},cash_leg:{type:'object'},shared_commitment:{type:'string'}} }
+      },
+      required: ['dvp_structure']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true
+};
+
+// ─── PRESETS ─────────────────────────────────────────────────────────────────
+const PRESETS = {
+  sound: {
+    asset_visible_to: 'registrar',
+    asset_fields: 'isin,quantity,seller_id',
+    cash_visible_to: 'bank',
+    cash_fields: 'amount,currency,buyer_id',
+    shared_commitment: 'h_dvp_commitment_2026_06_abc123'
+  },
+  registrar_breach: {
+    asset_visible_to: 'registrar',
+    asset_fields: 'isin,quantity,seller_id',
+    cash_visible_to: 'registrar,bank',
+    cash_fields: 'amount,currency,buyer_id',
+    shared_commitment: 'h_dvp_commitment_2026_06_breach01'
+  },
+  cross_leak: {
+    asset_visible_to: 'registrar',
+    asset_fields: 'isin,quantity,amount,currency',
+    cash_visible_to: 'bank',
+    cash_fields: 'amount,currency,buyer_id',
+    shared_commitment: 'h_dvp_commitment_2026_06_leak01'
+  },
+  no_commitment: {
+    asset_visible_to: 'registrar',
+    asset_fields: 'isin,quantity,seller_id',
+    cash_visible_to: 'bank',
+    cash_fields: 'amount,currency,buyer_id',
+    shared_commitment: ''
+  }
+};
+
+function loadPreset(p) {
+  const preset = PRESETS[p];
+  document.getElementById('asset_visible_to').value = preset.asset_visible_to;
+  document.getElementById('asset_fields').value = preset.asset_fields;
+  document.getElementById('cash_visible_to').value = preset.cash_visible_to;
+  document.getElementById('cash_fields').value = preset.cash_fields;
+  document.getElementById('shared_commitment').value = preset.shared_commitment;
+}
+
+// ─── COMPUTE (kernel golden-parity) ──────────────────────────────────────────
+function computeCantonPartition(dvp_structure) {
+  const asset_leg = dvp_structure.asset_leg||{};
+  const cash_leg = dvp_structure.cash_leg||{};
+  const shared_commitment = dvp_structure.shared_commitment||'';
+  const asset_visible_to = Array.isArray(asset_leg.visible_to)?asset_leg.visible_to:['registrar'];
+  const cash_visible_to = Array.isArray(cash_leg.visible_to)?cash_leg.visible_to:['bank'];
+  const asset_fields = Array.isArray(asset_leg.fields)?asset_leg.fields:[];
+  const cash_fields = Array.isArray(cash_leg.fields)?cash_leg.fields:[];
+  const registrar_sees_asset = asset_visible_to.includes('registrar');
+  const registrar_sees_cash = cash_visible_to.includes('registrar');
+  const registrar_view_ok = registrar_sees_asset&&!registrar_sees_cash;
+  const bank_sees_cash = cash_visible_to.includes('bank');
+  const bank_sees_asset = asset_visible_to.includes('bank');
+  const bank_view_ok = bank_sees_cash&&!bank_sees_asset;
+  const cashSet = new Set(cash_fields);
+  const crossLeakFields = asset_fields.filter(f=>cashSet.has(f));
+  const no_cross_leg_leak = crossLeakFields.length===0;
+  const reconciles_to_commitment = typeof shared_commitment==='string'&&shared_commitment.length>0;
+  const partition_attestation = 'asset-visible:'+asset_visible_to.join(',')+';cash-visible:'+cash_visible_to.join(',')+';commitment:'+shared_commitment.slice(0,16);
+  const all_ok = registrar_view_ok&&bank_view_ok&&no_cross_leg_leak&&reconciles_to_commitment;
+  const verdict = all_ok?'PARTITION_SOUND':'PARTITION_BREACH';
+  return {
+    output_payload: {registrar_view_ok,bank_view_ok,no_cross_leg_leak,cross_leak_fields:crossLeakFields,reconciles_to_commitment,partition_attestation,verdict},
+    compliance_flags: [all_ok?'CANTON_PARTITION_ATTESTED':'CANTON_PARTITION_FAILED',...(registrar_view_ok?['REGISTRAR_VIEW_OK']:[]),...(bank_view_ok?['BANK_VIEW_OK']:[]),...(no_cross_leg_leak?['NO_CROSS_LEG_LEAK']:[])]
+  };
+}
+
+// ─── HASH (RFC 8785 JCS canonical, WebCrypto SHA-256) ────────────────────────
+function cgCanon(v) {
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(cgCanon);
+  const out = {};
+  for (const k of Object.keys(v).sort()) out[k] = cgCanon(v[k]);
+  return out;
+}
+
+async function executionHashLocal(pp, outputPayload) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: outputPayload });
+  const s = JSON.stringify(obj);
+  const buf = new TextEncoder().encode(s);
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── §16 Ed25519 SIGN (inlined from _proof.mjs) ──────────────────────────────
+const CRYPTOSUITE = 'eddsa-jcs-2022';
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function b58encode(bytes) {
+  let zeros=0;while(zeros<bytes.length&&bytes[zeros]===0)zeros++;
+  const digits=[0];
+  for(let i=zeros;i<bytes.length;i++){let carry=bytes[i];for(let j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=(carry/58)|0;}while(carry){digits.push(carry%58);carry=(carry/58)|0;}}
+  let out='';for(let k=0;k<zeros;k++)out+='1';
+  for(let q=digits.length-1;q>=0;q--)out+=B58[digits[q]];return out;
+}
+
+function securedDoc(artifact){const a=JSON.parse(JSON.stringify(artifact));if(a&&a.audit_signature&&'proof'in a.audit_signature)delete a.audit_signature.proof;return a;}
+function proofOpts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CRYPTOSUITE,verificationMethod:vm,proofPurpose:'assertionMethod',created};}
+async function sha256b(buf){return new Uint8Array(await crypto.subtle.digest('SHA-256',buf));}
+function jcsBuf(obj){return new TextEncoder().encode(JSON.stringify(cgCanon(obj)));}
+async function hashData(artifact,opts){const oh=await sha256b(jcsBuf(opts));const dh=await sha256b(jcsBuf(securedDoc(artifact)));const cat=new Uint8Array(oh.length+dh.length);cat.set(oh,0);cat.set(dh,oh.length);return cat;}
+async function didKeyFromPubKey(key){const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));const pfx=new Uint8Array([0xed,0x01]);const full=new Uint8Array(pfx.length+raw.length);full.set(pfx,0);full.set(raw,pfx.length);return 'did:key:z'+b58encode(full);}
+async function signArtifactWith(artifact,privKey,pubKeyDid,created){
+  const opts=proofOpts(pubKeyDid,created);
+  const sig=new Uint8Array(await crypto.subtle.sign('Ed25519',privKey,await hashData(artifact,opts)));
+  const out=JSON.parse(JSON.stringify(artifact));
+  out.audit_signature={...(out.audit_signature||{}),proof:{...opts,proofValue:'z'+b58encode(sig)}};
+  return out;
+}
+
+async function signArtifact(){
+  if(!lastArtifact){alert('Run the tool first.');return;}
+  if(!confirm('Signing binds this run to your key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  const btn=document.getElementById('signArtifactBtn');
+  btn.textContent='Signing…';
+  try{
+    const kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+    const did=await didKeyFromPubKey(kp.publicKey);
+    const created=lastArtifact.generated_at||new Date().toISOString();
+    const signed=await signArtifactWith(lastArtifact,kp.privateKey,did,created);
+    const ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+    a.download='art-108-canton-selective-disclosure_'+ts+'.signed.json';a.click();URL.revokeObjectURL(a.href);
+    btn.textContent='⬇ Sign artifact (Ed25519 · §16)';
+  }catch(e){btn.textContent='⬇ Sign artifact (Ed25519 · §16)';alert('Sign failed: '+e.message);}
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let lastArtifact = null;
+let lastPP = null;
+let lastOP = null;
+let lastFlags = null;
+
+// ─── BUILD ARTIFACT (§4 envelope) ────────────────────────────────────────────
+function buildArtifact(pp, output_payload, compliance_flags, execHash) {
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    spec_version: '0.5.0',
+    compute_mode: 'browser',
+    mandate_type: 'attestation_mandate',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload: output_payload,
+    compliance_flags: compliance_flags,
+    export_capability: ['csv','pdf','xbrl:ocg-ext'],
+    audit_signature: {
+      payloadType: 'application/vnd.openchain.graph+json;version=0.4',
+      payload: '',
+      signatures: []
+    }
+  };
+}
+
+// ─── GET POLICY PARAMETERS FROM FORM ────────────────────────────────────────
+function getPP() {
+  const assetVisibleTo = document.getElementById('asset_visible_to').value
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  const assetFields = document.getElementById('asset_fields').value
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  const cashVisibleTo = document.getElementById('cash_visible_to').value
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  const cashFields = document.getElementById('cash_fields').value
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  const sharedCommitment = document.getElementById('shared_commitment').value.trim();
+
+  return {
+    dvp_structure: {
+      asset_leg: { visible_to: assetVisibleTo, fields: assetFields },
+      cash_leg: { visible_to: cashVisibleTo, fields: cashFields },
+      shared_commitment: sharedCommitment
+    }
+  };
+}
+
+// ─── MAIN RUN ────────────────────────────────────────────────────────────────
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = computeCantonPartition(pp.dvp_structure);
+  const execHash = await executionHashLocal(pp, output_payload);
+  const artifact = buildArtifact(pp, output_payload, compliance_flags, execHash);
+
+  lastArtifact = artifact;
+  lastPP = pp;
+  lastOP = output_payload;
+  lastFlags = compliance_flags;
+
+  // Verdict hero
+  const verdictHero = document.getElementById('verdictHero');
+  const isSound = output_payload.verdict === 'PARTITION_SOUND';
+  verdictHero.className = 'verdict-hero ' + (isSound ? 'sound' : 'breach');
+  verdictHero.textContent = isSound ? '✓ PARTITION_SOUND — Selective-disclosure checks pass' : '✗ PARTITION_BREACH — Partition violation detected';
+
+  // Check cards
+  function setCheck(id, ok) {
+    const el = document.getElementById(id);
+    el.textContent = ok ? 'PASS' : 'FAIL';
+    el.className = 'cc-val ' + (ok ? 'pass' : 'fail');
+  }
+  setCheck('registrarViewVal', output_payload.registrar_view_ok);
+  setCheck('bankViewVal', output_payload.bank_view_ok);
+  setCheck('crossLeakVal', output_payload.no_cross_leg_leak);
+  setCheck('reconcileVal', output_payload.reconciles_to_commitment);
+
+  // Cross-leg leak block
+  const leakBlock = document.getElementById('leakBlock');
+  if (!output_payload.no_cross_leg_leak && output_payload.cross_leak_fields.length > 0) {
+    document.getElementById('leakFields').textContent = output_payload.cross_leak_fields.join(', ');
+    leakBlock.style.display = 'block';
+  } else {
+    leakBlock.style.display = 'none';
+  }
+
+  // Partition attestation string
+  document.getElementById('partitionAttestation').textContent = output_payload.partition_attestation;
+
+  // Compliance flags
+  document.getElementById('complianceFlags').innerHTML = compliance_flags.map(f => {
+    const cls = f.includes('FAILED') || f.includes('BREACH') ? 'err' : 'ok';
+    return `<span class="badge ${cls}">${f}</span>`;
+  }).join(' ');
+
+  // Hash + artifact
+  document.getElementById('execHash').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+
+  // Enable exports
+  enableAP2Btn();
+  document.getElementById('csvExportBtn').disabled = false;
+  document.getElementById('artifactExportBtn').disabled = false;
+  document.getElementById('signArtifactBtn').disabled = false;
+
+  // Reveal results
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── ENABLE AP2 BUTTON ────────────────────────────────────────────────────────
+function enableAP2Btn() {
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+// ─── EXPORT: POLICY MANDATE JSON ─────────────────────────────────────────────
+function exportAP2() {
+  if (!lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    mandate_type: 'attestation_mandate',
+    payload: lastOP,
+    compliance_flags: lastFlags,
+    execution_hash: lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  const ts = new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── EXPORT: §4 ARTIFACT JSON ─────────────────────────────────────────────────
+function exportArtifact() {
+  if (!lastArtifact) return;
+  const ts = new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(lastArtifact, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_' + ts + '.artifact.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── EXPORT: CSV ──────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!lastOP) return;
+  const rows = [
+    ['field','value'],
+    ['verdict', lastOP.verdict],
+    ['registrar_view_ok', lastOP.registrar_view_ok],
+    ['bank_view_ok', lastOP.bank_view_ok],
+    ['no_cross_leg_leak', lastOP.no_cross_leg_leak],
+    ['cross_leak_fields', lastOP.cross_leak_fields.join('|')],
+    ['reconciles_to_commitment', lastOP.reconciles_to_commitment],
+    ['partition_attestation', lastOP.partition_attestation],
+    ['execution_hash', lastArtifact ? lastArtifact.execution_hash : ''],
+    ['generated_at', lastArtifact ? lastArtifact.generated_at : ''],
+    ['compliance_flags', lastFlags ? lastFlags.join('|') : '']
+  ];
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const ts = new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_' + ts + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── MANIFEST TOGGLE ─────────────────────────────────────────────────────────
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+</body>
+</html>

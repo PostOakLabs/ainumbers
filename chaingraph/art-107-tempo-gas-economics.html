@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tempo Fee-Sponsorship &amp; Gas-AMM Economics · ART-107 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Model Tempo's enshrined-AMM gas cost in any major stablecoin plus server-paid fee sponsorship, vs card/SWIFT/ACH baselines. Distinct from Arc ERC-4337 Paymaster.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Tempo Fee-Sponsorship & Gas-AMM Economics",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Any",
+  "url": "https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html",
+  "description": "Model Tempo's enshrined-AMM gas cost in any major stablecoin plus server-paid fee sponsorship, vs card/SWIFT/ACH baselines. Distinct from Arc ERC-4337 Paymaster.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Post Oak Labs",
+    "url": "https://postoaklabs.com"
+  },
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "isPartOf": {
+    "@type": "CreativeWork",
+    "name": "OpenChainGraph Suite",
+    "url": "https://ainumbers.co/chaingraph/chaingraph-hub.html"
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{opacity:.85}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:900px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center}
+.breadcrumb a{color:var(--body)}
+.breadcrumb a:hover{color:var(--text)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:680px;margin-bottom:10px;font-size:.88rem;line-height:1.65}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0 16px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);font-weight:600}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.q .help{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:4px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+select:focus{outline:none;border-color:var(--teal)}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+input[type=number]:focus,input[type=text]:focus{outline:none;border-color:var(--teal)}
+input[type=range]{width:100%;accent-color:var(--teal);margin:4px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;transition:opacity .15s}
+button:hover{opacity:.88}
+button:disabled{opacity:.35;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text)}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.run-btn{margin-top:8px;padding:.65rem 1.8rem;font-size:.72rem}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;flex:1;min-width:120px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;line-height:1.2}
+.hero-val.teal{color:var(--teal-lt)}
+.hero-val.green{color:var(--green)}
+.hero-val.gold{color:var(--gold)}
+.hero-val.purple{color:var(--purple)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:4px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:8px 0;font-size:.82rem;line-height:1.55}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.08);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+.tbl td{padding:7px 10px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.right{text-align:right}
+.tbl td.highlight{color:var(--teal-lt);font-weight:600}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:380px;overflow-y:auto}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;background:rgba(34,197,94,.04);border:1px solid rgba(34,197,94,.15);border-radius:4px;padding:6px 10px;margin:6px 0}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:28px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2);opacity:1}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);align-items:center}
+.export-btn{background:var(--bg-3);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);font-size:.65rem;padding:.45rem .9rem;letter-spacing:.06em}
+.export-btn:hover{background:rgba(20,184,166,.08);opacity:1}
+.export-btn:disabled{opacity:.3;cursor:not-allowed}
+.primary-export-btn{background:var(--teal);color:#06121f;font-size:.68rem}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--teal-lt);font-weight:600;margin-left:8px}
+.token-mix-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+@media(max-width:480px){.token-mix-grid{grid-template-columns:1fr}}
+.token-row{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.token-row .tk-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--teal-lt);margin-bottom:6px;font-weight:600}
+.cfo-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:4px;padding:.8rem 1rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.cfo-box .cfo-title{color:var(--purple);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-weight:600}
+.disclaimer{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.6rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);line-height:1.5;margin:10px 0}
+.note-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.65rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);line-height:1.6}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div class="breadcrumb">
+    <a href="../index.html">All Tools</a>
+    <span>/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a>
+    <span>/</span>
+    <span style="color:var(--text)">Tempo Fee-Sponsorship &amp; Gas-AMM Economics</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px;white-space:nowrap">Hub →</a>
+</div></nav>
+
+<div class="wrap">
+
+  <!-- Hero -->
+  <div class="eyebrow">OpenChainGraph Suite · ART-107 · Wave 21</div>
+  <h1>Tempo Fee-Sponsorship &amp; Gas-AMM Economics</h1>
+  <p class="sub">Model Tempo's enshrined-AMM gas cost in any major stablecoin plus server-paid fee sponsorship, vs card/SWIFT/ACH baselines. <strong style="color:var(--bright)">Distinct from Arc ERC-4337 Paymaster</strong> — Tempo has no native gas token and uses an enshrined protocol AMM.</p>
+  <div style="margin-bottom:4px">
+    <span class="flag">Zero PII</span>
+    <span class="flag">Client-side only</span>
+    <span class="flag info">Enshrined AMM</span>
+    <span class="flag info">Server Fee-Sponsorship</span>
+    <span class="flag warn">Not ERC-4337</span>
+    <span class="flag purple">Wave 21</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="note-box">
+    <strong style="color:var(--teal-lt)">Architecture note:</strong> Tempo uses an enshrined protocol-level AMM to settle gas fees in stablecoins — not the ERC-4337 Account Abstraction Paymaster architecture used by Arc (ART-46). Server-paid sponsorship here means the protocol operator absorbs a portion of the enshrined AMM gas cost, not a smart-contract paymaster.
+  </div>
+
+  <!-- Input panel -->
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('retail_usdc')">Retail · USDC</button>
+      <button class="preset-btn" onclick="loadPreset('b2b_mix')">B2B · USDC+USD1</button>
+      <button class="preset-btn" onclick="loadPreset('high_volume')">High Volume · SWIFT baseline</button>
+      <button class="preset-btn" onclick="loadPreset('sponsored')">Full Sponsorship</button>
+    </div>
+
+    <div class="section-head">Volume &amp; Rail</div>
+    <div class="grid">
+      <div class="q">
+        <label><span class="dim">Required</span>Monthly Transaction Count</label>
+        <input type="number" id="monthly_volume" value="50000" min="1" max="100000000" step="1000">
+        <div class="help">Number of on-chain Tempo transactions per month</div>
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Baseline Rail (comparison)</label>
+        <select id="baseline_rail">
+          <option value="swift" selected>SWIFT (wire, $18 fixed + 0.1%)</option>
+          <option value="card">Card ($0.10 fixed + 1.5%)</option>
+          <option value="ach">ACH ($0.26 fixed, flat)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label><span class="dim">Required</span>Average Transaction Size (USD)</label>
+        <input type="number" id="tx_amount_usd" value="2500" min="0.01" max="10000000" step="100">
+      </div>
+      <div class="q">
+        <label><span class="dim">Optional</span>Implementation Period (months)</label>
+        <input type="number" id="impl_months" value="3" min="1" max="36" step="1">
+        <div class="help">Used for sponsorship break-even calculation ($15,000/mo impl cost)</div>
+      </div>
+    </div>
+
+    <div class="section-head">Fee-Stablecoin Mix &amp; AMM Slippage</div>
+    <p style="font-size:.76rem;color:var(--body);margin-bottom:12px">Weights must sum to 1.0. AMM slippage is in basis points (0 = no slippage vs USD).</p>
+    <div class="token-mix-grid">
+      <div class="token-row">
+        <div class="tk-label">USDC</div>
+        <div class="q" style="margin-bottom:8px">
+          <label style="font-size:.72rem">Weight <span class="range-val" id="usdc_wt_lbl">0.70</span></label>
+          <input type="range" id="usdc_weight" min="0" max="1" step="0.05" value="0.70" oninput="syncWeights('usdc')">
+        </div>
+        <div class="q" style="margin-bottom:0">
+          <label style="font-size:.72rem">AMM Slippage (bps)</label>
+          <input type="number" id="usdc_slip" value="0" min="0" max="200" step="1" style="width:100%">
+        </div>
+      </div>
+      <div class="token-row">
+        <div class="tk-label">USD1</div>
+        <div class="q" style="margin-bottom:8px">
+          <label style="font-size:.72rem">Weight <span class="range-val" id="usd1_wt_lbl">0.20</span></label>
+          <input type="range" id="usd1_weight" min="0" max="1" step="0.05" value="0.20" oninput="syncWeights('usd1')">
+        </div>
+        <div class="q" style="margin-bottom:0">
+          <label style="font-size:.72rem">AMM Slippage (bps)</label>
+          <input type="number" id="usd1_slip" value="2" min="0" max="200" step="1" style="width:100%">
+        </div>
+      </div>
+      <div class="token-row">
+        <div class="tk-label">USDT</div>
+        <div class="q" style="margin-bottom:8px">
+          <label style="font-size:.72rem">Weight <span class="range-val" id="usdt_wt_lbl">0.10</span></label>
+          <input type="range" id="usdt_weight" min="0" max="1" step="0.05" value="0.10" oninput="syncWeights('usdt')">
+        </div>
+        <div class="q" style="margin-bottom:0">
+          <label style="font-size:.72rem">AMM Slippage (bps)</label>
+          <input type="number" id="usdt_slip" value="1" min="0" max="200" step="1" style="width:100%">
+        </div>
+      </div>
+      <div class="token-row">
+        <div class="tk-label">PYUSD</div>
+        <div class="q" style="margin-bottom:8px">
+          <label style="font-size:.72rem">Weight <span class="range-val" id="pyusd_wt_lbl">0.00</span></label>
+          <input type="range" id="pyusd_weight" min="0" max="1" step="0.05" value="0.00" oninput="syncWeights('pyusd')">
+        </div>
+        <div class="q" style="margin-bottom:0">
+          <label style="font-size:.72rem">AMM Slippage (bps)</label>
+          <input type="number" id="pyusd_slip" value="3" min="0" max="200" step="1" style="width:100%">
+        </div>
+      </div>
+    </div>
+    <div id="weightWarning" style="display:none" class="disclaimer">⚠ Fee-stablecoin weights do not sum to 1.0. Please adjust the sliders so total = 1.00 before running.</div>
+
+    <div class="section-head">Server-Paid Sponsorship</div>
+    <div class="q">
+      <label>Protocol Sponsorship Fraction (server pays this share of gas) <span class="range-val" id="srv_pct_lbl">0.50</span> (50%)</label>
+      <input type="range" id="server_paid_pct" min="0" max="1" step="0.05" value="0.50" oninput="document.getElementById('srv_pct_lbl').textContent=parseFloat(this.value).toFixed(2)">
+      <div class="help">0 = user pays all gas; 1.0 = protocol pays all gas (full sponsorship)</div>
+    </div>
+
+    <button class="run-btn" onclick="runModel()">Model Tempo Gas Economics</button>
+  </div>
+
+  <!-- Results panel -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="card">
+      <div class="section-head">Economics Summary</div>
+      <div class="hero-row">
+        <div class="hero-stat">
+          <div class="hero-val teal" id="heroEffCost">—</div>
+          <div class="hero-lbl">Effective Gas/tx (USD)</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-val green" id="heroPerTxSave">—</div>
+          <div class="hero-lbl">Saving vs Baseline/tx</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-val gold" id="heroAnnual">—</div>
+          <div class="hero-lbl">Annual Saving (USD)</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-val purple" id="heroBreakeven">—</div>
+          <div class="hero-lbl">Sponsorship Break-Even (tx)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Cost Breakdown</div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Metric</th>
+          <th class="right">Value</th>
+          <th>Notes</th>
+        </tr></thead>
+        <tbody id="costTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Rail Comparison</div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Rail</th>
+          <th class="right">Fee/tx (USD)</th>
+          <th class="right">Annual Cost (USD)</th>
+          <th>vs Tempo</th>
+        </tr></thead>
+        <tbody id="railTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-head">CFO Summary Memo</div>
+      <div class="cfo-box">
+        <div class="cfo-title">CFO Memo — Tempo Gas Economics</div>
+        <div id="cfoMemo"></div>
+      </div>
+      <div id="complianceFlags" style="margin-top:10px"></div>
+      <div class="disclaimer">⚠ DECISION-SUPPORT TOOL. Model uses Tempo enshrined-AMM base gas cost ($0.0003/tx). Actual costs depend on network conditions, stablecoin liquidity, and protocol parameters. Not investment or financial advice.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:6px"><span class="muted">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHashDisplay"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" class="primary-export-btn" onclick="exportPolicyMandate()" disabled>Export Policy Mandate JSON</button>
+        <button class="export-btn" id="csvExportBtn" onclick="exportCSV()" disabled>Export CSV</button>
+        <button class="export-btn" id="artifactExportBtn" onclick="exportArtifact()" disabled>Export §4 Artifact</button>
+      </div>
+    </div>
+
+    <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+    <div id="mfstBody" class="card" style="margin-top:10px;display:none">
+      <pre id="mfstCode" style="max-height:500px"></pre>
+    </div>
+
+  </div><!-- /results-panel -->
+
+</div><!-- /wrap -->
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+      <a href="../index.html" style="color:var(--muted)">All Tools</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+// ─── MANIFEST ───────────────────────────────────────────────────────────────
+const MANIFEST = {
+  tool_id: 'art-107-tempo-gas-economics',
+  version: '1.0.0',
+  title: 'Tempo Fee-Sponsorship & Gas-AMM Economics',
+  mcp_tool_definition: {
+    name: 'model_tempo_gas_economics',
+    description: 'Models Tempo enshrined-AMM gas cost across fee-stablecoin mix with server-paid sponsorship, vs card/SWIFT/ACH baselines. Returns blended gas cost, sponsorship break-even, and annual savings. Distinct from Arc ERC-4337 Paymaster.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        monthly_volume: { type: 'number', description: 'Monthly transaction count' },
+        fee_mix: { type: 'object', description: 'Fee-stablecoin weights summing to 1.0 e.g. {USDC:0.7,USD1:0.3}' },
+        amm_slippage: { type: 'object', description: 'AMM slippage in bps per stablecoin e.g. {USDC:0,USD1:2}' },
+        server_paid_pct: { type: 'number', description: 'Fraction of gas paid by protocol (0-1)' },
+        baseline_rail: { type: 'string', enum: ['swift','card','ach'], description: 'Incumbent rail for comparison' },
+        tx_amount_usd: { type: 'number', description: 'Average transaction size in USD' },
+        impl_months: { type: 'number', description: 'Implementation months for sponsorship break-even' }
+      },
+      required: ['monthly_volume', 'baseline_rail']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true,
+  mandate_type: 'treasury_mandate',
+  wave: 21,
+  chaingraph_version: '0.4.0',
+  compute_capability: 'server',
+  export_capability: ['xlsx','csv','pdf'],
+  url: 'https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html'
+};
+
+// ─── PRESETS ─────────────────────────────────────────────────────────────────
+const PRESETS = {
+  retail_usdc: {
+    monthly_volume: 50000, baseline_rail: 'card', tx_amount_usd: 150, impl_months: 3,
+    usdc_weight: 1.00, usd1_weight: 0.00, usdt_weight: 0.00, pyusd_weight: 0.00,
+    usdc_slip: 0, usd1_slip: 2, usdt_slip: 1, pyusd_slip: 3, server_paid_pct: 0.50
+  },
+  b2b_mix: {
+    monthly_volume: 10000, baseline_rail: 'swift', tx_amount_usd: 15000, impl_months: 6,
+    usdc_weight: 0.70, usd1_weight: 0.30, usdt_weight: 0.00, pyusd_weight: 0.00,
+    usdc_slip: 0, usd1_slip: 2, usdt_slip: 1, pyusd_slip: 3, server_paid_pct: 0.30
+  },
+  high_volume: {
+    monthly_volume: 500000, baseline_rail: 'swift', tx_amount_usd: 5000, impl_months: 3,
+    usdc_weight: 0.50, usd1_weight: 0.20, usdt_weight: 0.20, pyusd_weight: 0.10,
+    usdc_slip: 0, usd1_slip: 2, usdt_slip: 1, pyusd_slip: 3, server_paid_pct: 0.25
+  },
+  sponsored: {
+    monthly_volume: 100000, baseline_rail: 'ach', tx_amount_usd: 500, impl_months: 6,
+    usdc_weight: 0.80, usd1_weight: 0.10, usdt_weight: 0.10, pyusd_weight: 0.00,
+    usdc_slip: 0, usd1_slip: 2, usdt_slip: 1, pyusd_slip: 3, server_paid_pct: 1.00
+  }
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('monthly_volume').value = p.monthly_volume;
+  document.getElementById('baseline_rail').value = p.baseline_rail;
+  document.getElementById('tx_amount_usd').value = p.tx_amount_usd;
+  document.getElementById('impl_months').value = p.impl_months;
+  document.getElementById('server_paid_pct').value = p.server_paid_pct;
+  document.getElementById('srv_pct_lbl').textContent = p.server_paid_pct.toFixed(2);
+  setSlider('usdc', p.usdc_weight);
+  setSlider('usd1', p.usd1_weight);
+  setSlider('usdt', p.usdt_weight);
+  setSlider('pyusd', p.pyusd_weight);
+  document.getElementById('usdc_slip').value = p.usdc_slip;
+  document.getElementById('usd1_slip').value = p.usd1_slip;
+  document.getElementById('usdt_slip').value = p.usdt_slip;
+  document.getElementById('pyusd_slip').value = p.pyusd_slip;
+}
+
+function setSlider(tok, val) {
+  document.getElementById(tok + '_weight').value = val;
+  document.getElementById(tok + '_wt_lbl').textContent = val.toFixed(2);
+}
+
+// ─── WEIGHT SYNC ──────────────────────────────────────────────────────────────
+function syncWeights(changed) {
+  const ids = ['usdc','usd1','usdt','pyusd'];
+  for (const id of ids) {
+    const el = document.getElementById(id + '_weight');
+    const lbl = document.getElementById(id + '_wt_lbl');
+    lbl.textContent = parseFloat(el.value).toFixed(2);
+  }
+  const total = ids.reduce((s, id) => s + parseFloat(document.getElementById(id + '_weight').value), 0);
+  const warn = document.getElementById('weightWarning');
+  warn.style.display = (Math.abs(total - 1.0) > 0.02) ? 'block' : 'none';
+}
+
+// ─── COMPUTE LOGIC (kernel-exact) ─────────────────────────────────────────────
+const TEMPO_BASE_USD = 0.0003;
+const IMPL_COST_PER_MONTH = 15000;
+const BASELINE_RAILS = {
+  swift: { fixed: 18.00, pct: 0.001 },
+  card:  { fixed: 0.10,  pct: 0.015 },
+  ach:   { fixed: 0.26,  pct: 0.000 },
+};
+
+function computeTempoGas(monthly_volume, fee_mix, amm_slippage, server_paid_pct, baseline_rail, tx_amount_usd, impl_months) {
+  const vol = Number(monthly_volume)||0;
+  const srvPct = Number(server_paid_pct)||0;
+  const txAmt = Number(tx_amount_usd)||0;
+  const implMo = Number(impl_months)||3;
+  const rail = BASELINE_RAILS[baseline_rail]||BASELINE_RAILS.swift;
+  const tokens = Object.keys(fee_mix||{USDC:1});
+  let weightedSlippageBps = 0;
+  for(const t of tokens) weightedSlippageBps += (fee_mix[t]||0)*((amm_slippage||{})[t]||0);
+  const blended_gas_cost = +(TEMPO_BASE_USD*(1+weightedSlippageBps/10000)).toFixed(8);
+  const subsidy_per_tx = +(srvPct*blended_gas_cost).toFixed(8);
+  const effective_cost = +((1-srvPct)*blended_gas_cost).toFixed(8);
+  const baseline_fee = +(rail.fixed+txAmt*rail.pct).toFixed(6);
+  const per_tx_saving = +(baseline_fee-effective_cost).toFixed(6);
+  const annual_saving = +(per_tx_saving*vol*12).toFixed(2);
+  const impl_cost = implMo*IMPL_COST_PER_MONTH;
+  const sponsorship_breakeven_tx = (srvPct>0&&subsidy_per_tx>0)?Math.round(impl_cost/subsidy_per_tx):null;
+  const cfo_memo = 'Tempo effective gas $'+effective_cost.toFixed(6)+'/tx ('+(srvPct*100).toFixed(0)+'% server-paid via enshrined AMM). Saves $'+per_tx_saving.toFixed(4)+'/tx vs '+baseline_rail.toUpperCase()+' ($'+baseline_fee.toFixed(4)+'/tx). Annual saving: $'+(annual_saving/1e6).toFixed(2)+'M on '+vol.toLocaleString()+' tx/mo. NOTE: Tempo has no native gas token and uses an enshrined protocol AMM — not ERC-4337/Paymaster (art-46).';
+  return {
+    output_payload: { blended_gas_cost, amm_slippage_bps:+weightedSlippageBps.toFixed(4), server_paid_pct:srvPct, effective_cost, baseline_fee, per_tx_saving, annual_saving, sponsorship_breakeven_tx, cfo_memo },
+    compliance_flags: ['TEMPO_GAS_AMM_MODELLED', ...(per_tx_saving>baseline_fee*0.9?['TEMPO_COST_ADVANTAGE_STRONG']:[]), ...(srvPct>0?['SPONSORSHIP_SUBSIDY_ACTIVE']:[])]
+  };
+}
+
+// ─── HASH FUNCTIONS (canonical) ───────────────────────────────────────────────
+function cgCanon(v) {
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(cgCanon);
+  const out = {};
+  for (const k of Object.keys(v).sort()) out[k] = cgCanon(v[k]);
+  return out;
+}
+
+async function executionHashLocal(pp, outputPayload) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: outputPayload });
+  const s = JSON.stringify(obj);
+  const buf = new TextEncoder().encode(s);
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let _lastArtifact = null;
+let _lastPP = null;
+let _lastOP = null;
+let _lastFlags = null;
+
+// ─── READ INPUTS ──────────────────────────────────────────────────────────────
+function getPP() {
+  const usdc_w  = parseFloat(document.getElementById('usdc_weight').value) || 0;
+  const usd1_w  = parseFloat(document.getElementById('usd1_weight').value) || 0;
+  const usdt_w  = parseFloat(document.getElementById('usdt_weight').value) || 0;
+  const pyusd_w = parseFloat(document.getElementById('pyusd_weight').value) || 0;
+  const fee_mix = {};
+  if (usdc_w > 0)  fee_mix['USDC']  = +usdc_w.toFixed(4);
+  if (usd1_w > 0)  fee_mix['USD1']  = +usd1_w.toFixed(4);
+  if (usdt_w > 0)  fee_mix['USDT']  = +usdt_w.toFixed(4);
+  if (pyusd_w > 0) fee_mix['PYUSD'] = +pyusd_w.toFixed(4);
+  if (!Object.keys(fee_mix).length) fee_mix['USDC'] = 1;
+  const amm_slippage = {
+    USDC:  parseFloat(document.getElementById('usdc_slip').value)  || 0,
+    USD1:  parseFloat(document.getElementById('usd1_slip').value)  || 0,
+    USDT:  parseFloat(document.getElementById('usdt_slip').value)  || 0,
+    PYUSD: parseFloat(document.getElementById('pyusd_slip').value) || 0,
+  };
+  return {
+    monthly_volume:  parseFloat(document.getElementById('monthly_volume').value) || 0,
+    fee_mix,
+    amm_slippage,
+    server_paid_pct: parseFloat(document.getElementById('server_paid_pct').value) || 0,
+    baseline_rail:   document.getElementById('baseline_rail').value || 'swift',
+    tx_amount_usd:   parseFloat(document.getElementById('tx_amount_usd').value) || 0,
+    impl_months:     parseInt(document.getElementById('impl_months').value, 10) || 3,
+  };
+}
+
+// ─── MAIN RUN ─────────────────────────────────────────────────────────────────
+async function runModel() {
+  const pp = getPP();
+
+  // Validate weight sum
+  const totalW = Object.values(pp.fee_mix).reduce((s,v)=>s+v, 0);
+  if (Math.abs(totalW - 1.0) > 0.05) {
+    document.getElementById('weightWarning').style.display = 'block';
+    return;
+  }
+
+  const { output_payload: op, compliance_flags } = computeTempoGas(
+    pp.monthly_volume, pp.fee_mix, pp.amm_slippage,
+    pp.server_paid_pct, pp.baseline_rail, pp.tx_amount_usd, pp.impl_months
+  );
+
+  const hexHash = await executionHashLocal(pp, op);
+  const execHash = 'sha256:' + hexHash;
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    compute_mode: 'browser',
+    mandate_type: 'treasury_mandate',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload: op,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+
+  _lastArtifact = artifact;
+  _lastPP = pp;
+  _lastOP = op;
+  _lastFlags = compliance_flags;
+
+  // ── Update hero stats
+  document.getElementById('heroEffCost').textContent   = '$' + op.effective_cost.toFixed(6);
+  document.getElementById('heroPerTxSave').textContent = '$' + op.per_tx_saving.toFixed(4);
+  document.getElementById('heroAnnual').textContent    = '$' + (op.annual_saving / 1e6).toFixed(2) + 'M';
+  document.getElementById('heroBreakeven').textContent = op.sponsorship_breakeven_tx !== null
+    ? op.sponsorship_breakeven_tx.toLocaleString() + ' tx'
+    : 'N/A';
+
+  // ── Cost breakdown table
+  const railName = pp.baseline_rail.toUpperCase();
+  const rows = [
+    ['Tempo Base Gas (enshrined AMM)', '$' + TEMPO_BASE_USD.toFixed(8), 'Protocol constant (no native gas token)'],
+    ['AMM Slippage (blended, bps)',    op.amm_slippage_bps.toFixed(4) + ' bps', 'Weighted across stablecoin mix'],
+    ['Blended Gas Cost',               '$' + op.blended_gas_cost.toFixed(8), 'Base + slippage adjustment'],
+    ['Server Sponsorship Fraction',    (op.server_paid_pct * 100).toFixed(0) + '%', 'Protocol operator absorbs this share'],
+    ['Effective User Gas Cost/tx',     '$' + op.effective_cost.toFixed(6), 'After sponsorship deduction'],
+    ['Baseline Rail Fee (' + railName + ')', '$' + op.baseline_fee.toFixed(4), 'Fixed + ad valorem for $' + pp.tx_amount_usd.toLocaleString() + ' tx'],
+    ['Saving vs Baseline/tx',          '$' + op.per_tx_saving.toFixed(4), 'Baseline − Tempo effective cost'],
+    ['Annual Saving',                  '$' + op.annual_saving.toLocaleString(undefined,{maximumFractionDigits:2}), pp.monthly_volume.toLocaleString() + ' tx/mo × 12'],
+  ];
+  if (op.sponsorship_breakeven_tx !== null) {
+    rows.push(['Sponsorship Break-Even', op.sponsorship_breakeven_tx.toLocaleString() + ' tx', '$' + (pp.impl_months * IMPL_COST_PER_MONTH).toLocaleString() + ' impl cost @ $15k/mo']);
+  }
+  document.getElementById('costTableBody').innerHTML = rows.map(([m, v, n]) =>
+    `<tr><td>${m}</td><td class="right highlight">${v}</td><td style="color:var(--body);font-family:'Sora',sans-serif;font-size:.72rem">${n}</td></tr>`
+  ).join('');
+
+  // ── Rail comparison table
+  const allRails = Object.entries(BASELINE_RAILS).map(([rk, rv]) => {
+    const railFee = +(rv.fixed + pp.tx_amount_usd * rv.pct).toFixed(4);
+    const annualCost = +(railFee * pp.monthly_volume * 12).toFixed(2);
+    const saving = +(railFee - op.effective_cost).toFixed(4);
+    const savingPct = railFee > 0 ? ((saving / railFee) * 100).toFixed(1) : '0';
+    const isCurrent = rk === pp.baseline_rail;
+    const savingBadge = saving > 0
+      ? `<span class="badge ok">-${savingPct}%</span>`
+      : `<span class="badge err">+${Math.abs(parseFloat(savingPct))}%</span>`;
+    return `<tr${isCurrent ? ' style="background:rgba(20,184,166,.04)"' : ''}>
+      <td>${rk.toUpperCase()}${isCurrent ? ' <span class="badge info">selected</span>' : ''}</td>
+      <td class="right">$${railFee.toFixed(4)}</td>
+      <td class="right">$${(annualCost/1e6).toFixed(2)}M</td>
+      <td>${savingBadge} vs Tempo</td>
+    </tr>`;
+  });
+  // Add Tempo row
+  const tempoAnnual = +(op.effective_cost * pp.monthly_volume * 12).toFixed(2);
+  allRails.push(`<tr style="background:rgba(20,184,166,.05);border-top:1px solid rgba(20,184,166,.2)">
+    <td><strong style="color:var(--teal-lt)">Tempo (enshrined AMM)</strong> <span class="badge info">this model</span></td>
+    <td class="right" style="color:var(--teal-lt)">$${op.effective_cost.toFixed(6)}</td>
+    <td class="right" style="color:var(--teal-lt)">$${(tempoAnnual/1e6).toFixed(2)}M</td>
+    <td><span class="badge ok">BASELINE</span></td>
+  </tr>`);
+  document.getElementById('railTableBody').innerHTML = allRails.join('');
+
+  // ── CFO memo
+  document.getElementById('cfoMemo').textContent = op.cfo_memo;
+
+  // ── Compliance flags
+  const flagColors = {
+    TEMPO_GAS_AMM_MODELLED: 'info',
+    TEMPO_COST_ADVANTAGE_STRONG: 'ok',
+    SPONSORSHIP_SUBSIDY_ACTIVE: 'purple',
+  };
+  document.getElementById('complianceFlags').innerHTML = compliance_flags.map(f =>
+    `<span class="badge ${flagColors[f]||'info'}">${f}</span>`
+  ).join(' ');
+
+  // ── Hash + artifact
+  document.getElementById('execHashDisplay').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+
+  // ── Enable exports
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('csvExportBtn').disabled = false;
+  document.getElementById('artifactExportBtn').disabled = false;
+
+  // ── Show results
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── EXPORT: Policy Mandate JSON ──────────────────────────────────────────────
+function exportPolicyMandate() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    mandate_type: 'treasury_mandate',
+    payload: _lastOP,
+    compliance_flags: _lastFlags,
+    execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── EXPORT: CSV ──────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!_lastOP || !_lastPP) return;
+  const op = _lastOP;
+  const pp = _lastPP;
+  const rows = [
+    ['Field', 'Value'],
+    ['Tool', MANIFEST.title],
+    ['Tool ID', MANIFEST.tool_id],
+    ['Generated At', new Date().toISOString()],
+    ['Execution Hash', _lastArtifact ? _lastArtifact.execution_hash : ''],
+    [''],
+    ['--- Policy Parameters ---', ''],
+    ['Monthly Volume (tx)', pp.monthly_volume],
+    ['Baseline Rail', pp.baseline_rail.toUpperCase()],
+    ['Avg Tx Amount (USD)', pp.tx_amount_usd],
+    ['Server Paid Pct', (pp.server_paid_pct * 100).toFixed(0) + '%'],
+    ['Impl Months', pp.impl_months],
+    [''],
+    ['--- Fee Mix ---', ''],
+    ...Object.entries(pp.fee_mix).map(([t,w]) => [t + ' Weight', w]),
+    ...Object.entries(pp.amm_slippage).map(([t,s]) => [t + ' Slippage (bps)', s]),
+    [''],
+    ['--- Output ---', ''],
+    ['Blended Gas Cost (USD)', op.blended_gas_cost],
+    ['AMM Slippage Blended (bps)', op.amm_slippage_bps],
+    ['Effective User Cost/tx (USD)', op.effective_cost],
+    ['Baseline Rail Fee/tx (USD)', op.baseline_fee],
+    ['Saving vs Baseline/tx (USD)', op.per_tx_saving],
+    ['Annual Saving (USD)', op.annual_saving],
+    ['Sponsorship Break-Even (tx)', op.sponsorship_breakeven_tx !== null ? op.sponsorship_breakeven_tx : 'N/A'],
+    [''],
+    ['--- Compliance Flags ---', ''],
+    ...(_lastFlags || []).map(f => ['Flag', f]),
+  ];
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\r\n');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_' + ts + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── EXPORT: §4 Artifact (full envelope) ──────────────────────────────────────
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = MANIFEST.tool_id + '_artifact_' + ts + '.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── MANIFEST TOGGLE ─────────────────────────────────────────────────────────
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const isOpen = b.style.display === 'block';
+  b.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  }
+}
+</script>
+</body>
+</html>

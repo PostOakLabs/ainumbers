@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Arc Multi-Currency Corridor Compliance Routing · ART-111 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Route a multi-currency Arc corridor to its per-currency home regimes and validate cross-currency settlement and Travel Rule. Supported: EURC (MiCA), JPYC (JP FSA), BRLA (BCB), MXNB (CNBV), AUDF (ASIC), PHPC (BSP), QCAD (FINTRAC), ZARU (SARB). Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-111-arc-corridor-jurisdiction-router.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Arc Multi-Currency Corridor Compliance Routing",
+  "applicationCategory": "FinanceApplication",
+  "description": "Routes each Arc corridor leg to its home regulatory regime and validates cross-currency settlement and Travel Rule compliance. Supports EURC (MiCA EMT), JPYC (JP FSA), BRLA (BCB), MXNB (CNBV), AUDF (ASIC), PHPC (BSP), QCAD (FINTRAC), ZARU (SARB). No FX economics.",
+  "url": "https://ainumbers.co/chaingraph/art-111-arc-corridor-jurisdiction-router.html",
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" },
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "keywords": "Arc corridor, stablecoin compliance, multi-currency routing, MiCA EMT, EURC, JPYC, BRLA, MXNB, AUDF, PHPC, QCAD, ZARU, Travel Rule, PvP settlement"
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:920px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:110px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.1);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.handoff-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:4px;padding:.75rem 1rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.7}
+.handoff-box .hb-title{color:var(--purple);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.regime-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.regime-row:last-child{border-bottom:none}
+.regime-ccy{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--teal-lt);min-width:52px}
+.regime-detail{flex:1}
+.regime-name{font-size:.75rem;color:var(--bright);margin-bottom:2px}
+.regime-reg{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.disclosure-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.54rem;background:var(--bg-4);color:var(--body);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;margin:2px 2px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.leg-editor-row{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;position:relative}
+.leg-num{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.leg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.leg-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+@media(max-width:600px){.leg-grid{grid-template-columns:1fr}.leg-grid3{grid-template-columns:1fr}}
+.leg-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+.leg-editor-row input,.leg-editor-row select{font-size:.75rem;padding:.35rem .5rem}
+.remove-leg-btn{background:none;color:var(--muted);border:1px solid var(--border);font-size:.58rem;padding:.2rem .5rem;border-radius:3px;position:absolute;top:8px;right:8px;letter-spacing:0;text-transform:none}
+.remove-leg-btn:hover{color:var(--red);border-color:rgba(239,68,68,.4);opacity:1}
+.add-leg-btn{background:var(--bg-3);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);font-size:.62rem;padding:.35rem .8rem;letter-spacing:0;text-transform:none;border-radius:var(--radius)}
+.add-leg-btn:hover{background:var(--teal-dim);opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center">
+    <a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span>
+    <a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph Hub</a><span>/</span>
+    <span style="color:var(--text)">Arc Multi-Currency Corridor Compliance Routing</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Hub →</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-111 · wave 21</div>
+  <h1>Arc Multi-Currency Corridor Compliance Routing</h1>
+  <p class="sub">Route a multi-currency Arc corridor to its per-currency home regimes and validate cross-currency settlement and Travel Rule — compliance layer only, no FX economics. Supported: EURC (MiCA), JPYC (JP FSA), BRLA (BCB), MXNB (CNBV), AUDF (ASIC), PHPC (BSP), QCAD (FINTRAC), ZARU (SARB).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Arc Corridor</span>
+    <span class="flag info">Multi-Currency</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag">Client-side only</span>
+    <span class="flag warn">MiCA · JP FSA · BCB · CNBV · ASIC · BSP · FINTRAC · SARB</span>
+    <span class="flag purple">iso20022:pacs.008-subset</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    Compliance routing only — validates home regime mapping, disclousure gap detection, and emits PvP (511) + Travel-Rule (art-104) handoffs. No FX pricing, no liquidity economics. Use <a href="art-106-tempo-subscription-reconciler.html" style="color:var(--teal-lt)">ART-106</a> for economics; <a href="art-107-tempo-gas-economics.html" style="color:var(--teal-lt)">ART-107</a> for paymaster modelling.
+  </div>
+
+  <!-- Input Panel -->
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('eurc_jpyc')">EURC + JPYC Corridor</button>
+      <button class="preset-btn" onclick="loadPreset('brla_mxnb')">BRLA + MXNB Corridor</button>
+      <button class="preset-btn" onclick="loadPreset('full_arc')">Full 8-Currency Arc</button>
+      <button class="preset-btn" onclick="loadPreset('gaps')">Disclosure Gaps Scenario</button>
+    </div>
+
+    <div class="section-head">Corridor Legs</div>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:10px">Add one row per corridor leg. Each leg specifies the partner stablecoin, notional amount, and any disclosures already provided. The router maps each to its home regulatory regime.</p>
+
+    <div id="legsContainer"></div>
+    <button class="add-leg-btn" onclick="addLeg()">+ Add Leg</button>
+
+    <button class="run-btn" style="margin-top:14px" onclick="run()">Route Corridor</button>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="card">
+      <div class="section-head">Routing Summary</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBadge" style="margin-bottom:10px"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Leg Regime Map</div>
+      <div id="legRegimeMap"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Disclosure Gaps</div>
+      <div id="disclosureGaps"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Downstream Handoffs</div>
+      <div id="handoffs"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical — RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportCSV()">Export CSV</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+
+</div><!-- /wrap -->
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+// ─── MANIFEST ───────────────────────────────────────────────────────────────
+const MANIFEST = {
+  tool_id: 'art-111-arc-corridor-jurisdiction-router',
+  version: '1.0.0',
+  title: 'Arc Multi-Currency Corridor Compliance Routing',
+  mcp_tool_definition: {
+    name: 'route_partner_stablecoin_jurisdiction',
+    description: 'Routes each Arc corridor leg to its home regulatory regime (EURC→MiCA EMT, JPYC→JP FSA, BRLA→BCB, MXNB→CNBV, AUDF→ASIC, PHPC→BSP, QCAD→FINTRAC, ZARU→SARB). Flags disclosure gaps and emits PvP (511) + Travel-Rule (art-104) handoffs. No FX economics.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        corridor_legs: { type: 'array', description: 'Array of corridor legs: [{ccy_pair, partner_stablecoin, notional, disclosures_provided[]}]', items:{type:'object',properties:{ccy_pair:{type:'string'},partner_stablecoin:{type:'string'},notional:{type:'number'},disclosures_provided:{type:'array',items:{type:'string'}}}} }
+      },
+      required: ['corridor_legs']
+    }
+  },
+  ap2_export: true,
+  chaingraph: true
+};
+
+// ─── REGIME TABLE ────────────────────────────────────────────────────────────
+const REGIME_TABLE = {
+  EURC:{regime:'MiCA-EMT',regulator:'EBA/NCAs',disclosure:['EMT_whitepaper','reserve_attestation_monthly','MiCA_Art21']},
+  JPYC:{regime:'JP-PSA-FSA',regulator:'Japan FSA',disclosure:['PSA_registration','fund_segregation','JP_crypto_reporting']},
+  BRLA:{regime:'BR-CMN-BCB',regulator:'Banco Central BR',disclosure:['BCB_registration','reserve_report_monthly','AML_COAF']},
+  MXNB:{regime:'MX-CNBV-FINTEC',regulator:'CNBV',disclosure:['Fintech_Law_ITF','CNBV_registration','SAT_reporting']},
+  AUDF:{regime:'AU-ASIC',regulator:'ASIC',disclosure:['ASIC_digital_asset','ePayments_Code']},
+  PHPC:{regime:'PH-BSP',regulator:'Bangko Sentral ng Pilipinas',disclosure:['BSP_VirtualAsset','AMLC_registration']},
+  QCAD:{regime:'CA-FINTRAC',regulator:'FINTRAC',disclosure:['MSB_registration','PCMLTFA_compliance']},
+  ZARU:{regime:'ZA-SARB-FSCA',regulator:'SARB/FSCA',disclosure:['SARB_registration','FSCA_CASP','FICA_AML']},
+  USDC:{regime:'US-NY-DFS',regulator:'NY DFS / OCC',disclosure:['GENIUS_Act','monthly_attestation','FedWire_eligibility']},
+  USDT:{regime:'US-USVI-registered',regulator:'USVI',disclosure:['monthly_attestation']},
+};
+const REQ_DISC = ['reserve_attestation','AML_program'];
+
+// ─── COMPUTE (inline — byte-for-byte kernel parity) ──────────────────────────
+function computeCorridorRouter(corridor_legs) {
+  const legs = Array.isArray(corridor_legs)?corridor_legs:[];
+  const leg_regimes=[]; const disclosure_gaps=[];
+  for(const leg of legs){
+    const ccy=(leg.partner_stablecoin||leg.ccy||'').toUpperCase();
+    const entry=REGIME_TABLE[ccy];
+    const notional=Number(leg.notional)||0;
+    if(!entry){
+      leg_regimes.push({ccy_pair:leg.ccy_pair||ccy,ccy,regime:'UNKNOWN',regulator:'unknown',disclosures_required:[],note:'No home regime registered for '+ccy});
+      disclosure_gaps.push({ccy,gap:'NO_REGIME_MAPPED',severity:'HIGH'});
+    } else {
+      leg_regimes.push({ccy_pair:leg.ccy_pair||ccy,ccy,regime:entry.regime,regulator:entry.regulator,disclosures_required:entry.disclosure,notional});
+      const provided=Array.isArray(leg.disclosures_provided)?leg.disclosures_provided:[];
+      for(const req of REQ_DISC){if(!provided.some(p=>p.toLowerCase().includes(req.toLowerCase())))disclosure_gaps.push({ccy,gap:'MISSING_'+req.toUpperCase(),severity:'MEDIUM'});}
+    }
+  }
+  const pvp_handoff={tool:'511-multi-currency-pvp-validator',leg_count:legs.length,regimes:leg_regimes.map(l=>l.regime)};
+  const travel_rule_handoff={tool:'art-104-tfr-travel-rule-batch-validator',leg_count:legs.length,currencies:leg_regimes.map(l=>l.ccy)};
+  const all_mapped=!leg_regimes.some(l=>l.regime==='UNKNOWN');
+  const high_gaps=disclosure_gaps.filter(g=>g.severity==='HIGH');
+  const verdict=all_mapped&&high_gaps.length===0?'ROUTING_COMPLETE':'ROUTING_GAPS';
+  return {
+    output_payload:{leg_regimes,disclosure_gaps,pvp_handoff,travel_rule_handoff,verdict},
+    compliance_flags:[all_mapped?'ALL_REGIMES_MAPPED':'UNMAPPED_REGIMES',...(disclosure_gaps.length===0?['DISCLOSURES_COMPLETE']:['DISCLOSURE_GAPS_FOUND'])]
+  };
+}
+
+// ─── HASH (cgCanon — RFC 8785 JCS) ───────────────────────────────────────────
+function cgCanon(v) {
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(cgCanon);
+  const out = {};
+  for (const k of Object.keys(v).sort()) out[k] = cgCanon(v[k]);
+  return out;
+}
+
+async function executionHashLocal(pp, outputPayload) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: outputPayload });
+  const s = JSON.stringify(obj);
+  const buf = new TextEncoder().encode(s);
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── PRESETS ──────────────────────────────────────────────────────────────────
+const PRESETS = {
+  eurc_jpyc: [
+    {ccy_pair:'EUR/JPY',partner_stablecoin:'EURC',notional:250000,disclosures_provided:['EMT_whitepaper','reserve_attestation_monthly','AML_program']},
+    {ccy_pair:'JPY/EUR',partner_stablecoin:'JPYC',notional:37500000,disclosures_provided:['PSA_registration','AML_program','fund_segregation']}
+  ],
+  brla_mxnb: [
+    {ccy_pair:'BRL/MXN',partner_stablecoin:'BRLA',notional:1200000,disclosures_provided:['BCB_registration','AML_COAF']},
+    {ccy_pair:'MXN/BRL',partner_stablecoin:'MXNB',notional:7200000,disclosures_provided:['Fintech_Law_ITF','CNBV_registration']}
+  ],
+  full_arc: [
+    {ccy_pair:'EUR/USD',partner_stablecoin:'EURC',notional:500000,disclosures_provided:['EMT_whitepaper','reserve_attestation_monthly','MiCA_Art21','AML_program']},
+    {ccy_pair:'JPY/USD',partner_stablecoin:'JPYC',notional:75000000,disclosures_provided:['PSA_registration','fund_segregation','JP_crypto_reporting','AML_program']},
+    {ccy_pair:'BRL/USD',partner_stablecoin:'BRLA',notional:2500000,disclosures_provided:['BCB_registration','reserve_attestation_monthly','AML_program']},
+    {ccy_pair:'MXN/USD',partner_stablecoin:'MXNB',notional:10000000,disclosures_provided:['Fintech_Law_ITF','CNBV_registration','SAT_reporting','AML_program']},
+    {ccy_pair:'AUD/USD',partner_stablecoin:'AUDF',notional:780000,disclosures_provided:['ASIC_digital_asset','ePayments_Code','reserve_attestation','AML_program']},
+    {ccy_pair:'PHP/USD',partner_stablecoin:'PHPC',notional:28000000,disclosures_provided:['BSP_VirtualAsset','AMLC_registration','reserve_attestation','AML_program']},
+    {ccy_pair:'CAD/USD',partner_stablecoin:'QCAD',notional:680000,disclosures_provided:['MSB_registration','PCMLTFA_compliance','reserve_attestation','AML_program']},
+    {ccy_pair:'ZAR/USD',partner_stablecoin:'ZARU',notional:9200000,disclosures_provided:['SARB_registration','FSCA_CASP','FICA_AML','reserve_attestation','AML_program']}
+  ],
+  gaps: [
+    {ccy_pair:'EUR/GBP',partner_stablecoin:'EURC',notional:300000,disclosures_provided:['EMT_whitepaper']},
+    {ccy_pair:'BRL/GBP',partner_stablecoin:'BRLA',notional:1500000,disclosures_provided:[]},
+    {ccy_pair:'XYZ/GBP',partner_stablecoin:'XYZC',notional:50000,disclosures_provided:[]}
+  ]
+};
+
+// ─── LEG EDITOR ───────────────────────────────────────────────────────────────
+const CCY_OPTIONS = ['EURC','JPYC','BRLA','MXNB','AUDF','PHPC','QCAD','ZARU','USDC','USDT'];
+const DISC_OPTIONS = ['reserve_attestation_monthly','AML_program','EMT_whitepaper','MiCA_Art21','PSA_registration','fund_segregation','JP_crypto_reporting','BCB_registration','AML_COAF','Fintech_Law_ITF','CNBV_registration','SAT_reporting','ASIC_digital_asset','ePayments_Code','BSP_VirtualAsset','AMLC_registration','MSB_registration','PCMLTFA_compliance','SARB_registration','FSCA_CASP','FICA_AML','GENIUS_Act','monthly_attestation','FedWire_eligibility'];
+let legCount = 0;
+
+function addLeg(data) {
+  legCount++;
+  const id = 'leg_' + legCount;
+  const d = data || {};
+  const ccyOptions = CCY_OPTIONS.map(c => `<option value="${c}"${(d.partner_stablecoin||'EURC')===c?' selected':''}>${c}</option>`).join('');
+  const discOptions = DISC_OPTIONS.map(o => {
+    const sel = Array.isArray(d.disclosures_provided) && d.disclosures_provided.includes(o) ? ' selected' : '';
+    return `<option value="${o}"${sel}>${o}</option>`;
+  }).join('');
+  const html = `<div class="leg-editor-row" id="${id}">
+    <div class="leg-num">Leg ${legCount}</div>
+    <button class="remove-leg-btn" onclick="removeLeg('${id}')">✕ Remove</button>
+    <div class="leg-grid3">
+      <div>
+        <span class="leg-label">Partner Stablecoin</span>
+        <select class="leg-ccy">${ccyOptions}</select>
+      </div>
+      <div>
+        <span class="leg-label">CCY Pair (e.g. EUR/JPY)</span>
+        <input type="text" class="leg-pair" placeholder="EUR/USD" value="${d.ccy_pair||''}">
+      </div>
+      <div>
+        <span class="leg-label">Notional</span>
+        <input type="number" class="leg-notional" placeholder="100000" value="${d.notional||''}">
+      </div>
+    </div>
+    <div style="margin-top:8px">
+      <span class="leg-label">Disclosures Provided (hold Ctrl/Cmd to multi-select)</span>
+      <select class="leg-disclosures" multiple size="4" style="font-size:.7rem">${discOptions}</select>
+    </div>
+  </div>`;
+  document.getElementById('legsContainer').insertAdjacentHTML('beforeend', html);
+}
+
+function removeLeg(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function getLegs() {
+  const rows = document.querySelectorAll('.leg-editor-row');
+  return Array.from(rows).map(row => {
+    const ccy = row.querySelector('.leg-ccy').value;
+    const pair = row.querySelector('.leg-pair').value.trim();
+    const notional = parseFloat(row.querySelector('.leg-notional').value) || 0;
+    const sel = row.querySelector('.leg-disclosures');
+    const disclosures_provided = Array.from(sel.selectedOptions).map(o => o.value);
+    return { ccy_pair: pair || ccy, partner_stablecoin: ccy, notional, disclosures_provided };
+  });
+}
+
+function loadPreset(name) {
+  document.getElementById('legsContainer').innerHTML = '';
+  legCount = 0;
+  (PRESETS[name] || []).forEach(d => addLeg(d));
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastHash = null, _lastFlags = null;
+
+// ─── MAIN RUN ─────────────────────────────────────────────────────────────────
+async function run() {
+  const legs = getLegs();
+  if (!legs.length) { alert('Add at least one corridor leg.'); return; }
+  const pp = { corridor_legs: legs };
+  const { output_payload, compliance_flags } = computeCorridorRouter(legs);
+  const rawHash = await executionHashLocal(pp, output_payload);
+  const execHash = 'sha256:' + rawHash;
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version: '0.4.0',
+    spec_version: '0.4.1',
+    compute_mode: 'browser',
+    mandate_type: 'compliance_mandate',
+    semantic_profile: 'iso20022:pacs.008-subset',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: { parent_hashes: [], parent_tool_ids: ['art-106-tempo-subscription-reconciler','art-107-tempo-gas-economics'], chain_depth: 1 },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload;
+  _lastHash = execHash; _lastFlags = compliance_flags;
+
+  renderResults(output_payload, compliance_flags, execHash, artifact);
+  enableAP2Btn();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderResults(op, flags, execHash, artifact) {
+  const leg_regimes = op.leg_regimes || [];
+  const gaps = op.disclosure_gaps || [];
+  const verdict = op.verdict || 'UNKNOWN';
+  const high_gaps = gaps.filter(g => g.severity === 'HIGH');
+  const med_gaps = gaps.filter(g => g.severity === 'MEDIUM');
+
+  // Hero row
+  const vColor = verdict === 'ROUTING_COMPLETE' ? 'var(--green)' : 'var(--warn)';
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">${leg_regimes.length}</div><div class="hero-lbl">Legs Routed</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${leg_regimes.filter(l=>l.regime!=='UNKNOWN').length===leg_regimes.length?'var(--green)':'var(--red)'}">${leg_regimes.filter(l=>l.regime!=='UNKNOWN').length}</div><div class="hero-lbl">Regimes Mapped</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${high_gaps.length===0?'var(--green)':'var(--red)'}">${high_gaps.length}</div><div class="hero-lbl">High Gaps</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${med_gaps.length===0?'var(--green)':'var(--warn)'}">${med_gaps.length}</div><div class="hero-lbl">Medium Gaps</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${vColor};font-size:1rem;padding-top:6px">${verdict==='ROUTING_COMPLETE'?'✓ COMPLETE':'⚠ GAPS'}</div><div class="hero-lbl">Verdict</div></div>`;
+
+  // Verdict badge
+  const vClass = verdict === 'ROUTING_COMPLETE' ? 'pass' : 'warn';
+  const vMsg = verdict === 'ROUTING_COMPLETE'
+    ? '✓ ROUTING_COMPLETE — All corridor legs mapped to home regulatory regimes with no HIGH-severity disclosure gaps.'
+    : '⚠ ROUTING_GAPS — One or more legs have unmapped regimes or HIGH-severity disclosure gaps. Resolve before settlement.';
+  document.getElementById('verdictBadge').innerHTML = `<div class="verdict ${vClass}">${vMsg}</div>
+    <div style="margin-top:6px">${flags.map(f => {
+      const cls = f.includes('UNMAPPED')||f.includes('GAPS') ? 'warn-b' : 'ok';
+      return `<span class="badge ${cls}">${f}</span>`;
+    }).join('')}</div>`;
+
+  // Leg regime map
+  document.getElementById('legRegimeMap').innerHTML = leg_regimes.length === 0
+    ? '<p class="muted-txt">No legs routed.</p>'
+    : leg_regimes.map(lr => {
+        const isUnknown = lr.regime === 'UNKNOWN';
+        const discs = (lr.disclosures_required||[]).map(d => `<span class="disclosure-tag">${d}</span>`).join('');
+        return `<div class="regime-row">
+          <div class="regime-ccy" style="color:${isUnknown?'var(--red)':'var(--teal-lt)'}">${lr.ccy}</div>
+          <div class="regime-detail">
+            <div class="regime-name">${lr.ccy_pair} → <strong style="color:${isUnknown?'var(--red)':'var(--bright)'}">${lr.regime}</strong>${lr.notional?` <span style="color:var(--muted);font-size:.68rem">(${Number(lr.notional).toLocaleString()})</span>`:''}</div>
+            <div class="regime-reg">${lr.regulator}</div>
+            ${lr.note?`<div style="color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:2px">${lr.note}</div>`:''}
+            ${discs?`<div style="margin-top:4px">${discs}</div>`:''}
+          </div>
+        </div>`;
+      }).join('');
+
+  // Disclosure gaps
+  if (gaps.length === 0) {
+    document.getElementById('disclosureGaps').innerHTML = '<div class="verdict pass">✓ No disclosure gaps detected across all corridor legs.</div>';
+  } else {
+    let html = '<table class="tbl"><thead><tr><th>CCY</th><th>Gap</th><th>Severity</th></tr></thead><tbody>';
+    for (const g of gaps) {
+      const sColor = g.severity === 'HIGH' ? 'err' : 'warn-b';
+      html += `<tr><td><span style="font-family:'JetBrains Mono',monospace;color:var(--teal-lt)">${g.ccy}</span></td><td>${g.gap}</td><td><span class="badge ${sColor}">${g.severity}</span></td></tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('disclosureGaps').innerHTML = html;
+  }
+
+  // Handoffs
+  const pvp = op.pvp_handoff || {};
+  const tr = op.travel_rule_handoff || {};
+  document.getElementById('handoffs').innerHTML = `
+    <div class="handoff-box">
+      <div class="hb-title">PvP Settlement Handoff → ${pvp.tool||''}</div>
+      Leg count: <strong>${pvp.leg_count||0}</strong> · Regimes: ${(pvp.regimes||[]).map(r=>`<span class="badge info">${r}</span>`).join('')}
+    </div>
+    <div class="handoff-box">
+      <div class="hb-title">Travel Rule Handoff → ${tr.tool||''}</div>
+      Leg count: <strong>${tr.leg_count||0}</strong> · Currencies: ${(tr.currencies||[]).map(c=>`<span class="badge purple">${c}</span>`).join('')}
+    </div>
+    <div class="verdict info" style="margin-top:10px">⚠ DECISION-SUPPORT DRAFT. Not a filing or legal advice. Verify all regulatory mappings against current official sources for each jurisdiction.</div>`;
+
+  // Hash + artifact
+  document.getElementById('execHash').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// ─── EXPORTS ─────────────────────────────────────────────────────────────────
+function enableAP2Btn() {
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const ap2 = {
+    schema: 'ainumbers-policy-mandate-v1.0',
+    tool_id: MANIFEST.tool_id,
+    version: MANIFEST.version,
+    mandate_type: 'compliance_mandate',
+    generated_at: _lastArtifact.generated_at,
+    execution_hash: _lastHash,
+    policy_parameters: _lastPP,
+    output_payload: _lastOP,
+    compliance_flags: _lastFlags
+  };
+  dl(JSON.stringify(ap2, null, 2), 'art-111-policy-mandate.json', 'application/json');
+}
+
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  dl(JSON.stringify(_lastArtifact, null, 2), 'art-111-artifact.json', 'application/json');
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const legs = _lastOP.leg_regimes || [];
+  const gaps = _lastOP.disclosure_gaps || [];
+  let csv = 'CCY_Pair,CCY,Regime,Regulator,Notional\n';
+  for (const l of legs) csv += `"${l.ccy_pair}","${l.ccy}","${l.regime}","${l.regulator}",${l.notional||0}\n`;
+  csv += '\nCCY,Gap,Severity\n';
+  for (const g of gaps) csv += `"${g.ccy}","${g.gap}","${g.severity}"\n`;
+  dl(csv, 'art-111-corridor-routing.csv', 'text/csv');
+}
+
+function dl(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+  a.download = filename;
+  a.click();
+}
+
+// ─── MANIFEST TOGGLE ─────────────────────────────────────────────────────────
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const code = document.getElementById('mfstCode');
+  if (body.style.display === 'none' || !body.style.display) {
+    if (!code.textContent) code.textContent = JSON.stringify(MANIFEST, null, 2);
+    body.style.display = 'block';
+  } else {
+    body.style.display = 'none';
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+// Load default preset on page load
+loadPreset('eurc_jpyc');
+</script>
+</body>
+</html>
