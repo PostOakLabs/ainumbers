@@ -3,7 +3,7 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
-## 0.5.0 — Proof Binding (§16)
+## 0.5.0 — Proof Binding (§16) + audit_signature schema alignment
 - **§16 Proof Binding (new, normative).** A node MAY attach an OPTIONAL **W3C Data Integrity proof**
   (cryptosuite `eddsa-jcs-2022`, [Rec 2025-05](https://www.w3.org/TR/vc-di-eddsa/)) at `audit_signature.proof`,
   turning the §4 hash from tamper-evidence into authenticated attestation — filling the §13.11 gap (the `vc`
@@ -22,6 +22,11 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
 - **Schema.** Adds `$defs.dataIntegrityProof` + optional `audit_signature.proof`; widens the catalog
   `spec_version` pattern to `^0\.[45]\.[0-9]+$`. Filename stays `openchain-graph-v0.4.schema.json` (envelope
   unchanged). Gate: `proof-binding.test.mjs` (§15).
+- **`audit_signature` schema alignment (corrective).** Removed the stale `required: [client_side_executed,
+  zero_pii_verified, deterministic_run]` array — these three boolean fields were never emitted by the canonical
+  DSSE shell (`payloadType`/`payload`/`signatures`) shipped with v0.4. Added `payloadType` and `payload` as
+  declared (optional) properties so the actual emitted shell validates cleanly. The three booleans remain as
+  optional, typed properties. No hash preimage, `chaingraph_version`, or artifact envelope change.
 
 ## 0.4.1 — Verifiable Credentials export profile
 - **§13.11 `vc` export profile (new, normative).** `export_artifact` can render any verified artifact as a

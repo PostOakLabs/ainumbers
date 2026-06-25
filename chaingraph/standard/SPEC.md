@@ -48,7 +48,7 @@ Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields an
   "policy_parameters": { "execution_backend": "server", "input_parameters": {} },
   "output_payload": {},
   "compliance_flags": [],
-  "audit_signature": { "client_side_executed": true, "zero_pii_verified": true, "deterministic_run": true }
+  "audit_signature": { "payloadType": "application/vnd.openchain.graph+json;version=0.2", "payload": "", "signatures": [] }
 }
 ```
 
