@@ -31,6 +31,8 @@ const GATES = [
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
+  ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
