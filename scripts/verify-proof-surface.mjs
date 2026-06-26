@@ -45,7 +45,8 @@ const CHAINS_ONLY = process.argv.includes('--chains-only');
 // (missing exportVCBtn / buildArtifact). They qualify for the gate's emitter scan but are excluded
 // from Phase 1's strict check because they are Phase 0 scope. Remove each entry once Phase 0 lands.
 const PHASE0_LAGGARDS = new Set([
-  'agentic-policy.html', // hand-port (custom runtime) — Phase 0 scope, separate effort
+  // (empty) — agentic-policy.html §16 hand-port landed 2026-06-25; the gate now covers 100% of
+  // emitters with no carve-out. Re-add only if a new custom-runtime laggard appears.
 ]);
 
 // ── page roots (re-verify counts at build time; never trust hardcoded numbers) ───────────────────
