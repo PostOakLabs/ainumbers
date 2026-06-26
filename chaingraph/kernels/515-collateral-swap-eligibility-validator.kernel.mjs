@@ -43,8 +43,8 @@ export function compute(pp) {
   const hcA = haircut_a ?? ((HQLA_TIERS[asset_a]?.stdHaircut ?? 0) * 100);
   const hcB = haircut_b ?? ((HQLA_TIERS[asset_b]?.stdHaircut ?? 0) * 100);
 
-  const valueA = notional_a * (1 - hcA / 100);
-  const valueB = notional_b * (1 - hcB / 100);
+  const valueA = (Number.isFinite(Number(notional_a)) ? Number(notional_a) : 0) * (1 - hcA / 100);
+  const valueB = (Number.isFinite(Number(notional_b)) ? Number(notional_b) : 0) * (1 - hcB / 100);
   const netEconomicValue = valueB - valueA;
 
   // HQLA impact

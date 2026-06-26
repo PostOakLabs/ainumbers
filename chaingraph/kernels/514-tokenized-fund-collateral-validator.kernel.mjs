@@ -66,7 +66,7 @@ export function compute(pp) {
   // Haircut
   const isGovt = ['sec_govt_mmf','other_govt_fund','eu_cnav'].includes(fund_type);
   const haircut = isGovt ? 0 : 0.10;
-  const adjusted_collateral_value = +(total_fund_value * (1 - haircut)).toFixed(2);
+  const adjusted_collateral_value = +((Number.isFinite(Number(total_fund_value)) ? Number(total_fund_value) : 0) * (1 - haircut)).toFixed(2);
 
   // Always set
   setFlag('FUND_HQLA_EXCLUDED', 'pass'); // pass:false per spec — but the structure requires a type
