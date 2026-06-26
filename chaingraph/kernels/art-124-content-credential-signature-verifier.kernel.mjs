@@ -38,7 +38,11 @@ export async function compute(pp) {
   if (alg_allowed && signer_public_key_jwk && signed_bytes_b64 && signature_b64) {
     try {
       const params = ALG_ALLOW[alg];
-      const key = await globalThis.crypto.subtle.importKey('jwk', signer_public_key_jwk, params, false, ['verify']);
+      // Strip non-standard 'alg' field from JWK — CF Workers follows RFC 8037 strictly
+      // (OKP 'alg' must be 'EdDSA', not 'Ed25519'); callers may supply either or neither.
+      const jwk = Object.assign({}, signer_public_key_jwk);
+      delete jwk.alg;
+      const key = await globalThis.crypto.subtle.importKey('jwk', jwk, params, false, ['verify']);
       signature_cryptographically_valid = await globalThis.crypto.subtle.verify(
         params, key, b64ToBytes(signature_b64), b64ToBytes(signed_bytes_b64));
     } catch { signature_cryptographically_valid = false; }
