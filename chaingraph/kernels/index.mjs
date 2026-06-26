@@ -132,6 +132,12 @@ import * as art119 from './art-119-traceability-lot-code-linker.kernel.mjs';
 import * as art120 from './art-120-recall-trace-resolver.kernel.mjs';
 import * as art121 from './art-121-document-integrity-anchor.kernel.mjs';
 import * as art122 from './art-122-timestamp-attestation-verifier.kernel.mjs';
+import * as art123 from './art-123-c2pa-manifest-validator.kernel.mjs';
+import * as art124 from './art-124-content-credential-signature-verifier.kernel.mjs';
+import * as art125 from './art-125-provenance-ingredient-tree-resolver.kernel.mjs';
+import * as art126 from './art-126-ai-act-art50-marking-checker.kernel.mjs';
+import * as art127 from './art-127-dual-layer-disclosure-verifier.kernel.mjs';
+import * as art128 from './art-128-content-binding-assertion-validator.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -299,6 +305,13 @@ export const KERNELS = {
   'art-120-recall-trace-resolver':                art120,
   'art-121-document-integrity-anchor':            art121,
   'art-122-timestamp-attestation-verifier':       art122,
+  // ART C2PA / AI Content Integrity (wave 23)
+  'art-123-c2pa-manifest-validator':              art123,
+  'art-124-content-credential-signature-verifier': art124,
+  'art-125-provenance-ingredient-tree-resolver':  art125,
+  'art-126-ai-act-art50-marking-checker':         art126,
+  'art-127-dual-layer-disclosure-verifier':       art127,
+  'art-128-content-binding-assertion-validator':  art128,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,
