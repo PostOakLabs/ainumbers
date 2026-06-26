@@ -27,6 +27,7 @@ const GATES = [
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Kernel empty-input finite',    'node chaingraph/kernels/empty-input-finite.test.mjs'],
+  ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
