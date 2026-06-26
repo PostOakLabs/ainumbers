@@ -138,6 +138,13 @@ import * as art125 from './art-125-provenance-ingredient-tree-resolver.kernel.mj
 import * as art126 from './art-126-ai-act-art50-marking-checker.kernel.mjs';
 import * as art127 from './art-127-dual-layer-disclosure-verifier.kernel.mjs';
 import * as art128 from './art-128-content-binding-assertion-validator.kernel.mjs';
+// ART Web Bot Auth & Agent Identity (wave 24)
+import * as art129 from './art-129-webbotauth-signature-verifier.kernel.mjs';
+import * as art130 from './art-130-signature-directory-validator.kernel.mjs';
+import * as art131 from './art-131-signature-agent-card-validator.kernel.mjs';
+import * as art132 from './art-132-agent-key-rotation-auditor.kernel.mjs';
+import * as art133 from './art-133-agent-payment-rail-trust-crosswalk.kernel.mjs';
+import * as art134 from './art-134-agent-directory-publish-readiness.kernel.mjs';
 import * as t503   from './503-canton-tokenization-readiness-diagnostic.kernel.mjs';
 import * as t504   from './504-settlement-risk-capital-optimizer.kernel.mjs';
 import * as t505   from './505-tokenized-collateral-eligibility-checker.kernel.mjs';
@@ -312,6 +319,13 @@ export const KERNELS = {
   'art-126-ai-act-art50-marking-checker':         art126,
   'art-127-dual-layer-disclosure-verifier':       art127,
   'art-128-content-binding-assertion-validator':  art128,
+  // ART Web Bot Auth & Agent Identity (wave 24)
+  'art-129-webbotauth-signature-verifier':        art129,
+  'art-130-signature-directory-validator':        art130,
+  'art-131-signature-agent-card-validator':       art131,
+  'art-132-agent-key-rotation-auditor':           art132,
+  'art-133-agent-payment-rail-trust-crosswalk':   art133,
+  'art-134-agent-directory-publish-readiness':    art134,
   // T-series — capital markets / tokenization
   '503-canton-tokenization-readiness-diagnostic':    t503,
   '504-settlement-risk-capital-optimizer':           t504,

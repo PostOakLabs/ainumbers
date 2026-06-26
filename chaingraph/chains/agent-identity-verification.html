@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agent Identity Verification (RFC 9421 Web Bot Auth) · OpenChainGraph Suite · AINumbers.co</title>
+<meta name="description" content="3-step chain: verify RFC 9421 Ed25519 Web Bot Auth signature, zero network (art-129) → validate /.well-known/http-message-signatures-directory JWKS (art-130) → validate Signature Agent Card and emit identity-trust verdict (art-131).">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/agent-identity-verification.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent Identity Verification (RFC 9421 Web Bot Auth)","url":"https://ainumbers.co/chaingraph/chains/agent-identity-verification.html","applicationCategory":"FinancialApplication","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "chain_id": "agent-identity-verification",
+  "version": "1.0.0",
+  "title": "Agent Identity Verification (RFC 9421 Web Bot Auth)",
+  "description": "Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the /.well-known/http-message-signatures-directory JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.",
+  "category": "chaingraph",
+  "chaingraph": true,
+  "mandate_type": "compliance_mandate",
+  "chain_depth": 3,
+  "page_url": "https://ainumbers.co/chaingraph/chains/agent-identity-verification.html",
+  "steps": [
+    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Signature verdict feeds directory validation"},
+    {"order":2,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Directory validation feeds agent card check"},
+    {"order":3,"tool_id":"art-131-signature-agent-card-validator","mcp_name":"validate_signature_agent_card","url":"https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html","handoff":"Exports identity-trust verdict with execution_hash — final stage"}
+  ]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--warn:#F59E0B;--purple:#9B72F5;--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:900px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:900px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.dag-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin:2rem 0;position:relative;z-index:1;overflow-x:auto}
+.dag-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.hash-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin-bottom:1.5rem;position:relative;z-index:1}
+.hash-section-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.hash-display{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--green-lt);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:.75rem}
+.hash-label{color:var(--muted);margin-right:.4rem}.hash-value{color:var(--green-lt)}
+.hash-btn-row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.verify-btn{background:transparent;border:1px solid var(--teal);color:var(--teal-lt);padding:.5rem 1.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase}
+.verify-btn:hover{background:var(--teal-dim)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.58rem;margin-left:.75rem}
+.stages-section{margin:1.5rem 0;position:relative;z-index:1}
+.stages-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.stage-card{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:.75rem}
+.stage-header{display:flex;align-items:center;gap:.65rem;margin-bottom:.65rem;flex-wrap:wrap}
+.stage-num{width:26px;height:26px;border-radius:50%;background:var(--teal-dim);color:var(--teal-lt);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;flex-shrink:0}
+.stage-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.badge-kind{font-family:'JetBrains Mono',monospace;font-size:.48rem;padding:.1rem .4rem;border-radius:20px;text-transform:uppercase;letter-spacing:.08em}
+.badge-node{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.stage-body{padding-left:.1rem}
+.stage-name{font-size:.92rem;color:var(--bright);font-weight:500;margin-bottom:.35rem}
+.stage-tool-link{color:var(--teal-lt)}.stage-tool-link:hover{color:var(--white);text-decoration:underline}
+.stage-tool-id{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:400;margin-left:.4rem}
+.stage-handoff{font-size:.78rem;color:var(--body);margin-bottom:.5rem;line-height:1.55}
+.stage-arrow{text-align:center;color:var(--muted);font-size:1.1rem;margin:6px 0}
+.mcp-call-block{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.75rem 1rem;margin-top:.6rem}
+.mcp-call-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+code.mcp-name{font-size:.56rem;color:var(--teal-lt);font-family:inherit}
+.mcp-call-pre{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.55;overflow-x:auto;white-space:pre;background:var(--bg-4);border:1px solid var(--border);border-radius:4px;padding:.6rem .75rem;margin-bottom:.5rem}
+.mcp-call-footer{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.mcp-endpoint{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.copy-mcp-btn{background:transparent;border:1px solid var(--border-2);color:var(--body);padding:.3rem .75rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase}
+.copy-mcp-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.copy-confirm{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--green-lt)}
+.export-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin-bottom:1.5rem;position:relative;z-index:1}
+.export-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.35rem}
+.export-desc{font-size:.78rem;color:var(--body);margin-bottom:1rem;line-height:1.6}
+.export-btn-row{display:flex;gap:.65rem;flex-wrap:wrap}
+.export-btn{border:none;padding:.65rem 1.5rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.export-btn-primary{background:var(--teal);color:var(--bg)}.export-btn-primary:hover{background:var(--teal-lt)}
+.export-btn-secondary{background:var(--purple);color:var(--white)}.export-btn-secondary:hover{background:var(--purple-lt)}
+.export-btn:disabled{opacity:.4;cursor:not-allowed;background:var(--border-2)!important}
+.ghost-btn{background:transparent;border:1px solid var(--border-2);color:var(--body);padding:.6rem 1.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal-lt)}.ghost-btn:disabled{opacity:.35;cursor:not-allowed}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius)}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted)}.footer-links a:hover{color:var(--teal-lt)}
+.footer-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);display:flex;flex-direction:column;gap:.3rem}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../../index.html"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Agent Identity Verification</span>
+  </div>
+  <a href="../chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">OpenChainGraph Suite · wave 24 · compliance_mandate</div>
+  <h1>Agent Identity Verification (RFC 9421 Web Bot Auth)</h1>
+  <p class="hero-desc">Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the <code>/.well-known/http-message-signatures-directory</code> JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">OpenChainGraph · 3 Steps</span>
+    <span class="badge badge-gold">compliance mandate</span>
+    <span class="badge badge-teal">RFC 9421 · Web Bot Auth · Ed25519</span>
+    <span class="badge badge-teal">Visa TAP · MC Agent Pay</span>
+    <span class="badge badge-purple">W3C VC §13.11</span>
+    <span class="badge badge-green">Hash-Anchored §4</span>
+    <span class="badge badge-muted">chain_depth:3 · Zero PII</span>
+  </div>
+</div></div>
+
+<div class="container">
+
+<div class="dag-section" style="margin-top:2rem">
+  <div class="dag-title">Chain Topology — Agent Identity Verification (art-129→130→131)</div>
+  <svg xmlns="http://www.w3.org/2000/svg" width="720" height="80">
+    <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#3A5270"/></marker></defs>
+    <rect x="10" y="20" width="200" height="40" rx="5" fill="#0D1627" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="110" y="37" text-anchor="middle" fill="#2DD4BF" font-family="JetBrains Mono,monospace" font-size="9">art-129</text>
+    <text x="110" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">WebBotAuth Sig Verifier</text>
+    <line x1="210" y1="40" x2="230" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
+    <rect x="232" y="20" width="200" height="40" rx="5" fill="#0D1627" stroke="#9B72F5" stroke-width="1.5"/>
+    <text x="332" y="37" text-anchor="middle" fill="#B794F4" font-family="JetBrains Mono,monospace" font-size="9">art-130</text>
+    <text x="332" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Sig Directory Validator</text>
+    <line x1="432" y1="40" x2="452" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
+    <rect x="454" y="20" width="256" height="40" rx="5" fill="#0D1627" stroke="#22C55E" stroke-width="1.5"/>
+    <text x="582" y="37" text-anchor="middle" fill="#4ADE80" font-family="JetBrains Mono,monospace" font-size="9">art-131</text>
+    <text x="582" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Sig Agent Card Validator ⊣</text>
+  </svg>
+</div>
+
+<div class="hash-section">
+  <div class="hash-section-title">§4 Execution Hash · Chain Definition Anchor</div>
+  <div class="hash-display"><span class="hash-label">execution_hash:</span><span class="hash-value" id="hashValue">computing…</span></div>
+  <div class="hash-btn-row">
+    <button class="verify-btn" onclick="verifyHash()" id="verifyBtn" disabled>✓ Verify</button>
+    <span class="verify-result" id="verifyResult"></span>
+  </div>
+</div>
+
+<div class="stages-section">
+  <div class="stages-title">Chain Stages · 3 Steps</div>
+
+  <div class="stage-card">
+    <div class="stage-header"><span class="stage-num">1</span><span class="stage-tag">ROOT · D0</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-body">
+      <div class="stage-name"><a href="../art-129-webbotauth-signature-verifier.html" class="stage-tool-link">Web Bot Auth Signature Verifier (RFC 9421)</a> <span class="stage-tool-id">art-129</span></div>
+      <div class="stage-handoff">Signature verdict feeds directory validation</div>
+      <div class="mcp-call-block">
+        <div class="mcp-call-label">MCP Call · <code class="mcp-name">verify_webbotauth_signature</code></div>
+        <pre class="mcp-call-pre">{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "verify_webbotauth_signature",
+    "arguments": {
+      "covered_components": [
+        { "name": "method", "value": "POST" },
+        { "name": "@authority", "value": "api.example.com" },
+        { "name": "@path", "value": "/agent/v1/execute" }
+      ],
+      "signature_params": "(\"method\" \"@authority\" \"@path\");created=1750000000;keyid=\"key-2026-06\";tag=\"web-bot-auth\";alg=\"ed25519\"",
+      "signature_b64": "ruUab1uVdHazfuOcU0E4qLcTnOM2Z7zYHiluP5qxDZkKbw8EjPNarFHL7G2fS2DhnFH1xlpbihrIkOm8jwxIDA==",
+      "public_key_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" },
+      "alg": "ed25519",
+      "expected_tag": "web-bot-auth",
+      "created": 1750000000,
+      "now_unix": 1750003600,
+      "max_age_s": 3600
+    }
+  },
+  "id": 1
+}</pre>
+        <div class="mcp-call-footer">
+          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
+          <button class="copy-mcp-btn" onclick="copyMCP(0)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm0"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-arrow">↓</div>
+
+  <div class="stage-card" style="border-left-color:var(--purple)">
+    <div class="stage-header"><span class="stage-num" style="background:rgba(155,114,245,.12);color:#B794F4">2</span><span class="stage-tag">MIDDLE · D1</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-body">
+      <div class="stage-name"><a href="../art-130-signature-directory-validator.html" class="stage-tool-link">HTTP Signatures Directory Validator</a> <span class="stage-tool-id">art-130</span></div>
+      <div class="stage-handoff">Directory validation feeds agent card check</div>
+      <div class="mcp-call-block">
+        <div class="mcp-call-label">MCP Call · <code class="mcp-name">validate_signature_directory</code></div>
+        <pre class="mcp-call-pre">{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "validate_signature_directory",
+    "arguments": {
+      "well_known_path": "/.well-known/http-message-signatures-directory",
+      "keyid": "key-2026-06",
+      "directory_jwks": {
+        "keys": [
+          {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "kid": "key-2026-06",
+            "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g"
+          }
+        ]
+      }
+    }
+  },
+  "id": 2
+}</pre>
+        <div class="mcp-call-footer">
+          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
+          <button class="copy-mcp-btn" onclick="copyMCP(1)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm1"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-arrow">↓</div>
+
+  <div class="stage-card" style="border-left-color:var(--green)">
+    <div class="stage-header"><span class="stage-num" style="background:rgba(34,197,94,.12);color:#4ADE80">3</span><span class="stage-tag">TERMINAL · D2</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-body">
+      <div class="stage-name"><a href="../art-131-signature-agent-card-validator.html" class="stage-tool-link">Signature Agent Card Validator</a> <span class="stage-tool-id">art-131</span></div>
+      <div class="stage-handoff">Exports identity-trust verdict with execution_hash — final stage</div>
+      <div class="mcp-call-block">
+        <div class="mcp-call-label">MCP Call · <code class="mcp-name">validate_signature_agent_card</code></div>
+        <pre class="mcp-call-pre">{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "validate_signature_agent_card",
+    "arguments": {
+      "card": {
+        "name": "TradeAgent-v1",
+        "operator": "Acme Corp",
+        "expected_request_rate": 100,
+        "keys": [{ "kid": "key-2026-06" }]
+      },
+      "directory_keyids": ["key-2026-06", "key-2026-07-next"]
+    }
+  },
+  "id": 3
+}</pre>
+        <div class="mcp-call-footer">
+          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
+          <button class="copy-mcp-btn" onclick="copyMCP(2)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm2"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="export-section">
+  <div class="export-title">Export Artifacts</div>
+  <div class="export-desc">Download the §4 chain definition artifact or the §13.11 W3C VC view. Each of art-129, art-130, and art-131 individually support Policy Mandate JSON and W3C VC export.</div>
+  <div class="export-btn-row">
+    <button class="export-btn export-btn-primary" id="exportArtifactBtn" onclick="exportArtifact()" disabled>⬇ Export §4 Artifact</button>
+    <button class="export-btn export-btn-secondary" id="exportVCBtn" onclick="exportVC()" disabled>⬇ Export W3C VC (§13.11)</button>
+    <button class="ghost-btn" id="copyJsonBtn" onclick="copyJSON()" disabled>📋 Copy JSON</button>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+  </div>
+</div>
+
+<div style="margin-bottom:2rem;position:relative;z-index:1">
+  <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;chain manifest.json · MCP chain definition · §4 schema · v0.4.1</span><span id="mfstArr">▼</span></button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</div>
+</div>
+
+<footer><div class="container"><div class="footer-inner">
+  <a href="../../index.html" style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--text)"><span style="color:var(--teal)">AI</span>Numbers.co</a>
+  <div class="footer-links"><a href="../../index.html">All Tools</a><a href="../chaingraph-hub.html">OpenChainGraph Hub</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
+  <div class="footer-badge"><span>Post Oak Labs · CC BY 4.0</span><span>OpenChainGraph Suite · Agent Identity Verification v1.0.0</span><span>wave 24 · hash-anchored · OCG v0.4.1</span></div>
+</div></div></footer>
+
+<script>
+'use strict';
+const CHAIN_MANIFEST = {
+  "chain_id":"agent-identity-verification","version":"1.0.0",
+  "title":"Agent Identity Verification (RFC 9421 Web Bot Auth)",
+  "description":"Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the /.well-known/http-message-signatures-directory JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.",
+  "category":"chaingraph","chaingraph":true,"mandate_type":"compliance_mandate","chain_depth":3,
+  "page_url":"https://ainumbers.co/chaingraph/chains/agent-identity-verification.html",
+  "steps":[
+    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Signature verdict feeds directory validation"},
+    {"order":2,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Directory validation feeds agent card check"},
+    {"order":3,"tool_id":"art-131-signature-agent-card-validator","mcp_name":"validate_signature_agent_card","url":"https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html","handoff":"Exports identity-trust verdict with execution_hash — final stage"}
+  ]
+};
+const MCP_CALLS = [
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "verify_webbotauth_signature",\n    "arguments": {\n      "covered_components": [\n        { "name": "method", "value": "POST" },\n        { "name": "@authority", "value": "api.example.com" },\n        { "name": "@path", "value": "/agent/v1/execute" }\n      ],\n      "signature_params": "(\\"method\\" \\"@authority\\" \\"@path\\");created=1750000000;keyid=\\"key-2026-06\\";tag=\\"web-bot-auth\\";alg=\\"ed25519\\"",\n      "signature_b64": "ruUab1uVdHazfuOcU0E4qLcTnOM2Z7zYHiluP5qxDZkKbw8EjPNarFHL7G2fS2DhnFH1xlpbihrIkOm8jwxIDA==",\n      "public_key_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" },\n      "alg": "ed25519",\n      "expected_tag": "web-bot-auth",\n      "created": 1750000000,\n      "now_unix": 1750003600,\n      "max_age_s": 3600\n    }\n  },\n  "id": 1\n}`,
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "validate_signature_directory",\n    "arguments": {\n      "well_known_path": "/.well-known/http-message-signatures-directory",\n      "keyid": "key-2026-06",\n      "directory_jwks": { "keys": [{ "kty": "OKP", "crv": "Ed25519", "kid": "key-2026-06", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" }] }\n    }\n  },\n  "id": 2\n}`,
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "validate_signature_agent_card",\n    "arguments": {\n      "card": { "name": "TradeAgent-v1", "operator": "Acme Corp", "expected_request_rate": 100, "keys": [{ "kid": "key-2026-06" }] },\n      "directory_keyids": ["key-2026-06", "key-2026-07-next"]\n    }\n  },\n  "id": 3\n}`
+];
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function calcHash(){const pp={chain_id:CHAIN_MANIFEST.chain_id,version:CHAIN_MANIFEST.version,steps:CHAIN_MANIFEST.steps};const op={chain_depth:CHAIN_MANIFEST.chain_depth,step_count:CHAIN_MANIFEST.steps.length,tool_ids:CHAIN_MANIFEST.steps.map(s=>s.tool_id)};const obj=cgCanon({policy_parameters:pp,output_payload:op});const buf=new TextEncoder().encode(JSON.stringify(obj));const dig=await crypto.subtle.digest('SHA-256',buf);const hex=Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');return'sha256:'+hex;}
+let _chainHash=null,_artifact=null;
+(async()=>{
+  _chainHash=await calcHash();
+  document.getElementById('hashValue').textContent=_chainHash;
+  document.getElementById('verifyBtn').disabled=false;
+  _artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_mandate',tool_id:'chain:agent-identity-verification',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:_chainHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{chain_id:CHAIN_MANIFEST.chain_id,version:CHAIN_MANIFEST.version,steps:CHAIN_MANIFEST.steps},output_payload:{chain_depth:CHAIN_MANIFEST.chain_depth,step_count:CHAIN_MANIFEST.steps.length,tool_ids:CHAIN_MANIFEST.steps.map(s=>s.tool_id)},compliance_flags:{CHAIN_DEFINITION_ANCHORED:true},audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('exportArtifactBtn').disabled=false;
+  document.getElementById('exportVCBtn').disabled=false;
+  document.getElementById('copyJsonBtn').disabled=false;
+  const sab=document.getElementById('signArtifactBtn');if(sab)sab.disabled=false;
+})();
+async function verifyHash(){const h=await calcHash();const ok=h===_chainHash;document.getElementById('verifyResult').textContent=ok?'✓ hash verified':'✗ mismatch';}
+function copyMCP(i){if(MCP_CALLS[i])navigator.clipboard.writeText(MCP_CALLS[i]).then(()=>{const el=document.getElementById('copyConfirm'+i);if(el){el.textContent='✓ copied';setTimeout(()=>el.textContent='',2000);}});}
+function exportArtifact(){if(!_artifact)return;dl(JSON.stringify(_artifact,null,2),'agent-identity-verification-artifact.json','application/json');}
+function exportVC(){if(!_artifact)return;const vc={"@context":["https://www.w3.org/ns/credentials/v2","https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"],type:["VerifiableCredential","OpenChainGraphArtifact"],issuer:"did:web:ainumbers.co",validFrom:_artifact.generated_at,credentialSubject:{...{id:"urn:ocg:"+_chainHash},..._artifact}};dl(JSON.stringify(vc,null,2),'agent-identity-verification-vc.json','application/json');}
+function copyJSON(){if(!_artifact)return;navigator.clipboard.writeText(JSON.stringify(_artifact,null,2));}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode'),a=document.getElementById('mfstArr');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(CHAIN_MANIFEST,null,2);b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}}
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2). DO NOT hand-edit. */
+function __ocgGetArt(){var cands=['_artifact','_result','_lastArtifact','lastArtifact'];for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}return null;}
+async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Chain hash not yet computed.');return;}if(!confirm('Sign this chain definition artifact with a one-time Ed25519 key? (OCG §16.2)'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var fn='agent-identity-verification-chain_'+new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14)+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
+async function verifySignature(){var t=window.prompt('Paste a signed OCG chain artifact JSON:');if(!t)return;var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}var pr=art&&art.audit_signature&&art.audit_signature.proof;if(!pr){alert('✗ no §16 proof');return;}try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}}
+</script>
+</body>
+</html>

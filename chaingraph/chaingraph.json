@@ -1,7 +1,7 @@
 {
   "$schema": "https://ainumbers.co/schema/chaingraph-v1.0.json",
-  "version": "1.27.0",
-  "updated": "2026-06-25",
+  "version": "1.28.0",
+  "updated": "2026-06-26",
   "spec_version": "0.5.0",
   "maintainer": "Post Oak Labs",
   "description": "Machine-readable index of the AINumbers ChainGraph suite. Every tool's MCP name, mandate_type, inputSchema pointer, and chain edges (consumes/feeds). Linked from llms.txt and embedded as JSON-LD on the hub. Internal mandate_type taxonomy — not AP2 v0.2 spec vocabulary.",
@@ -4325,6 +4325,148 @@
         "csv",
         "pdf",
         "xbrl:ocg-ext"
+      ]
+    },
+    {
+      "tool_id": "art-129-webbotauth-signature-verifier",
+      "tool_version": "1.0.0",
+      "display_name": "Web Bot Auth Signature Verifier (RFC 9421)",
+      "mcp_name": "verify_webbotauth_signature",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html",
+      "description": "Reconstruct the RFC 9421 signature base and verify the Ed25519 Web Bot Auth signature against a caller-supplied public key, zero network. Checks alg=ed25519, tag=web-bot-auth, and freshness. Feeds the signatures-directory validator (art-130).",
+      "input_schema_ref": "chaingraph/art-129-webbotauth-signature-verifier.html#manifest",
+      "consumes": [],
+      "feeds": [
+        "art-130-signature-directory-validator"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-130-signature-directory-validator",
+      "tool_version": "1.0.0",
+      "display_name": "HTTP Signatures Directory Validator",
+      "mcp_name": "validate_signature_directory",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html",
+      "description": "Validate the /.well-known/http-message-signatures-directory JWKS: well-formed, keys are OKP/Ed25519, the keyid from Signature-Input resolves to a key in the directory, well-known path correct. Agent fetches the directory once and passes the JSON. Consumes art-129, feeds art-131.",
+      "input_schema_ref": "chaingraph/art-130-signature-directory-validator.html#manifest",
+      "consumes": [
+        "art-129-webbotauth-signature-verifier"
+      ],
+      "feeds": [
+        "art-131-signature-agent-card-validator"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-131-signature-agent-card-validator",
+      "tool_version": "1.0.0",
+      "display_name": "Signature Agent Card Validator",
+      "mcp_name": "validate_signature_agent_card",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html",
+      "description": "Validate the Signature Agent Card (Cloudflare/Bedrock AgentCore schema): required fields (name, operator, expected request rate, keys) and card keys consistent with the validated directory. Emits identity-trust verdict. Terminal stage of agent-identity-verification chain.",
+      "input_schema_ref": "chaingraph/art-131-signature-agent-card-validator.html#manifest",
+      "consumes": [
+        "art-130-signature-directory-validator"
+      ],
+      "feeds": [],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-132-agent-key-rotation-auditor",
+      "tool_version": "1.0.0",
+      "display_name": "Agent Key Rotation Auditor",
+      "mcp_name": "audit_agent_key_rotation",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-132-agent-key-rotation-auditor.html",
+      "description": "Audit key freshness and rotation posture: key age vs max-age policy, presence of a next-key and overlap window, algorithm is Ed25519. Emits HEALTHY / ROTATION_STAGED / ACTION_REQUIRED posture. Feeds the payment-rail trust crosswalk (art-133).",
+      "input_schema_ref": "chaingraph/art-132-agent-key-rotation-auditor.html#manifest",
+      "consumes": [],
+      "feeds": [
+        "art-133-agent-payment-rail-trust-crosswalk"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-133-agent-payment-rail-trust-crosswalk",
+      "tool_version": "1.0.0",
+      "display_name": "Agent Payment Rail Trust Crosswalk",
+      "mcp_name": "crosswalk_agent_payment_rail_trust",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-133-agent-payment-rail-trust-crosswalk.html",
+      "description": "Crosswalk agent identity posture (alg, directory published, card present, signature verified) to Visa TAP, Mastercard Agent Pay, and Web Bot Auth acceptance criteria. Emits per-rail accepted/gaps. Consumes art-132, feeds art-134.",
+      "input_schema_ref": "chaingraph/art-133-agent-payment-rail-trust-crosswalk.html#manifest",
+      "consumes": [
+        "art-132-agent-key-rotation-auditor"
+      ],
+      "feeds": [
+        "art-134-agent-directory-publish-readiness"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-134-agent-directory-publish-readiness",
+      "tool_version": "1.0.0",
+      "display_name": "Agent Directory Publish Readiness Diagnostic",
+      "mcp_name": "assess_agent_directory_publish_readiness",
+      "mandate_type": "compliance_mandate",
+      "wave": 24,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-134-agent-directory-publish-readiness.html",
+      "description": "Diagnostic: is the operator ready to publish a verifiable Web Bot Auth identity? Checks well-known path, JWKS reachability flag, card completeness, rotation posture, Ed25519. Emits ready verdict and gap list. Terminal stage of agent-identity-publishing chain.",
+      "input_schema_ref": "chaingraph/art-134-agent-directory-publish-readiness.html#manifest",
+      "consumes": [
+        "art-133-agent-payment-rail-trust-crosswalk"
+      ],
+      "feeds": [],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
       ]
     }
   ],
@@ -8970,6 +9112,46 @@
         {
           "tool_id": "art-128-content-binding-assertion-validator",
           "handoff": "Exports binding verdict with execution_hash — final stage"
+        }
+      ]
+    },
+    {
+      "name": "agent-identity-verification",
+      "title": "Agent Identity Verification (RFC 9421 Web Bot Auth)",
+      "description": "Reconstruct the RFC 9421 signature base and verify the Ed25519 Web Bot Auth signature against a caller-supplied public key (art-129) then validate the /.well-known/http-message-signatures-directory JWKS and keyid resolution (art-130) then validate the Signature Agent Card against the directory and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/agent-identity-verification.html",
+      "steps": [
+        {
+          "tool_id": "art-129-webbotauth-signature-verifier",
+          "handoff": "Signature verdict feeds directory validation"
+        },
+        {
+          "tool_id": "art-130-signature-directory-validator",
+          "handoff": "Directory validation feeds agent card check"
+        },
+        {
+          "tool_id": "art-131-signature-agent-card-validator",
+          "handoff": "Exports identity-trust verdict with execution_hash — final stage"
+        }
+      ]
+    },
+    {
+      "name": "agent-identity-publishing",
+      "title": "Agent Identity Publishing Readiness (Visa TAP / Mastercard Agent Pay)",
+      "description": "Audit key freshness and rotation posture (art-132) then crosswalk identity posture to Visa TAP, Mastercard Agent Pay, and Web Bot Auth acceptance criteria (art-133) then emit a directory-publish readiness verdict with a precise gap list (art-134). Supply-side of the Ed25519 identity substrate.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/agent-identity-publishing.html",
+      "steps": [
+        {
+          "tool_id": "art-132-agent-key-rotation-auditor",
+          "handoff": "Rotation posture feeds payment-rail crosswalk"
+        },
+        {
+          "tool_id": "art-133-agent-payment-rail-trust-crosswalk",
+          "handoff": "Rail trust gaps feed publish-readiness diagnostic"
+        },
+        {
+          "tool_id": "art-134-agent-directory-publish-readiness",
+          "handoff": "Exports directory-publish verdict with execution_hash — final stage"
         }
       ]
     }
