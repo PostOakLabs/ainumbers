@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EMIR Counterparty Pairing Reconciler · ART-156 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Pair two counterparties' EMIR Refit reports by UTI and reconcile the matching-field set (up to 148 fields per 2026 escalation) within per-field numeric tolerance. Identifies reconciliation breaks. Root node of the emir-reconciliation-and-lifecycle chain. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-156-emir-counterparty-pairing-reconciler.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EMIR Counterparty Pairing Reconciler","applicationCategory":"FinanceApplication","description":"Pair two counterparties' EMIR Refit reports by UTI and reconcile the matching-field set (up to 148 fields per 2026 escalation) within per-field numeric tolerance. Identifies reconciliation breaks. Root node of the emir-reconciliation-and-lifecycle chain. Zero network.","url":"https://ainumbers.co/chaingraph/art-156-emir-counterparty-pairing-reconciler.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:920px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.flag-red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);color:var(--gold)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.warn{background:rgba(212,168,71,.08);color:var(--gold);border:1px solid rgba(212,168,71,.2)}
+.gap-list{margin:10px 0;display:flex;flex-wrap:wrap;gap:6px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-label span{color:var(--muted);margin-left:4px}
+input[type=text],input[type=number],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.two-col{grid-template-columns:1fr}}
+table.breaks-tbl{width:100%;border-collapse:collapse;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+table.breaks-tbl th{background:var(--bg-3);color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+table.breaks-tbl td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+table.breaks-tbl tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center">
+    <a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span>
+    <a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph Hub</a><span>/</span>
+    <span style="color:var(--text)">EMIR Counterparty Pairing Reconciler</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Hub →</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-156 · wave 28</div>
+  <h1>EMIR Counterparty Pairing Reconciler</h1>
+  <p class="sub">Pair two counterparties' EMIR Refit reports by UTI and reconcile the matching-field set (up to 148 fields per 2026 escalation) within per-field numeric tolerance. Identifies reconciliation breaks. Root node of the emir-reconciliation-and-lifecycle chain. Zero network.</p>
+  <div style="margin-bottom:6px"><span class="flag warn">EMIR Refit</span><span class="flag info">ISO 20022</span><span class="flag gold">148-Field Reconciliation</span><span class="flag">Zero PII</span><span class="flag purple">W3C VC §13.11</span></div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box"><div class="ib-title">Scope</div>Root node of the emir-reconciliation-and-lifecycle chain (art-156→157→158). Pairs two counterparty reports by UTI and checks a configurable field set within numeric tolerance. Supports the 2026 escalation to 148 matching fields. Feeds art-157 (lifecycle event validator). See <a href="chains/emir-reconciliation-and-lifecycle.html">emir-reconciliation-and-lifecycle chain</a>.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('reconciled')">Reconciled pair</button>
+      <button class="preset-btn" onclick="loadPreset('break')">Notional break</button>
+    </div>
+
+    <div class="section-head">Counterparty A Report</div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label" for="a_uti">report_a.uti</label>
+        <input type="text" id="a_uti" placeholder="UTI-EXAMPLE-001-20240429">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="a_asset_class">report_a.asset_class</label>
+        <select id="a_asset_class">
+          <option value="">— select —</option>
+          <option value="IR">IR</option>
+          <option value="CR">CR</option>
+          <option value="EQ">EQ</option>
+          <option value="CO">CO</option>
+          <option value="FX">FX</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="a_notional">report_a.notional</label>
+      <input type="number" id="a_notional" placeholder="1000000">
+    </div>
+
+    <div class="section-head">Counterparty B Report</div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label" for="b_uti">report_b.uti</label>
+        <input type="text" id="b_uti" placeholder="UTI-EXAMPLE-001-20240429">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="b_asset_class">report_b.asset_class</label>
+        <select id="b_asset_class">
+          <option value="">— select —</option>
+          <option value="IR">IR</option>
+          <option value="CR">CR</option>
+          <option value="EQ">EQ</option>
+          <option value="CO">CO</option>
+          <option value="FX">FX</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="b_notional">report_b.notional</label>
+      <input type="number" id="b_notional" placeholder="1000000">
+    </div>
+
+    <div class="section-head">Reconciliation Parameters</div>
+    <div class="form-group">
+      <label class="form-label" for="matching_fields">matching_fields <span>(comma-separated field names)</span></label>
+      <input type="text" id="matching_fields" value="notional,asset_class">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="numeric_tolerance_pct">numeric_tolerance_pct <span>(% tolerance for numeric fields)</span></label>
+      <input type="number" id="numeric_tolerance_pct" value="1" min="0" step="0.1">
+    </div>
+
+    <button class="run-btn" style="margin-top:16px" onclick="run()">Reconcile Pair</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="breaksDiv"></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical — RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportPDF()">Export PDF</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-156-emir-counterparty-pairing-reconciler",
+  "version": "1.0.0",
+  "title": "EMIR Counterparty Pairing Reconciler",
+  "mcp_tool_definition": {
+    "name": "reconcile_emir_pairing",
+    "description": "Pair two counterparties' EMIR Refit reports by UTI and reconcile a configurable matching-field set (up to 148 fields per 2026 escalation) within per-field numeric tolerance. Returns break details. Zero network, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "report_a": {"type": "object"},
+        "report_b": {"type": "object"},
+        "matching_fields": {"type": "array", "items": {"type": "string"}},
+        "numeric_tolerance_pct": {"type": "number"}
+      }
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+function compute(pp) {
+  const { report_a = {}, report_b = {}, matching_fields = [], numeric_tolerance_pct = 0 } = pp;
+  const fields = Array.isArray(matching_fields) ? matching_fields : [];
+  const tol = Number.isFinite(Number(numeric_tolerance_pct)) ? Math.abs(Number(numeric_tolerance_pct)) : 0;
+  const uti_paired = typeof report_a.uti === 'string' && report_a.uti === report_b.uti;
+  const breaks = [];
+  fields.forEach((f) => {
+    const av = report_a[f], bv = report_b[f];
+    const an = Number(av), bn = Number(bv);
+    let matched;
+    if (Number.isFinite(an) && Number.isFinite(bn)) {
+      const denom = Math.max(Math.abs(an), Math.abs(bn), 1);
+      const diff_pct = (Math.abs(an - bn) / denom) * 100;
+      matched = Number.isFinite(diff_pct) ? diff_pct <= tol : (an === bn);
+    } else {
+      matched = av === bv;
+    }
+    if (!matched) breaks.push({ field: f, a: av ?? null, b: bv ?? null });
+  });
+  const reconciled = uti_paired && breaks.length === 0;
+  const compliance_flags = { EMIR_PAIRING_ASSESSED: true };
+  compliance_flags[reconciled ? 'EMIR_PAIR_RECONCILED' : 'EMIR_PAIR_BREAK'] = true;
+  if (!uti_paired) compliance_flags.UTI_PAIRING_FAILED = true;
+  return { output_payload: { reconciled, uti_paired, fields_compared: fields.length, break_count: breaks.length, breaks }, compliance_flags };
+}
+
+function getParams() {
+  const fieldsRaw = document.getElementById('matching_fields').value;
+  const matching_fields = fieldsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  return {
+    report_a: {
+      uti: document.getElementById('a_uti').value.trim(),
+      notional: document.getElementById('a_notional').value !== '' ? Number(document.getElementById('a_notional').value) : undefined,
+      asset_class: document.getElementById('a_asset_class').value || undefined
+    },
+    report_b: {
+      uti: document.getElementById('b_uti').value.trim(),
+      notional: document.getElementById('b_notional').value !== '' ? Number(document.getElementById('b_notional').value) : undefined,
+      asset_class: document.getElementById('b_asset_class').value || undefined
+    },
+    matching_fields,
+    numeric_tolerance_pct: document.getElementById('numeric_tolerance_pct').value !== '' ? Number(document.getElementById('numeric_tolerance_pct').value) : 0
+  };
+}
+
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const s = JSON.stringify(obj);
+  const buf = new TextEncoder().encode(s);
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function cgCanon(v) { if (v === null || typeof v !== 'object') return v; if (Array.isArray(v)) return v.map(cgCanon); const o = {}; for (const k of Object.keys(v).sort()) o[k] = cgCanon(v[k]); return o; }
+
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastHash = null, _lastFlags = null;
+
+async function run() {
+  const pp = getParams();
+  const { output_payload, compliance_flags } = compute(pp);
+  const rawHash = await cgHash(pp, output_payload);
+  const execHash = 'sha256:' + rawHash;
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version: '0.4.0', spec_version: '0.5.0', compute_mode: 'browser',
+    mandate_type: 'compliance_mandate', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash: execHash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastHash = execHash; _lastFlags = compliance_flags;
+  renderResults(output_payload, compliance_flags, execHash, artifact);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function renderResults(op, flags, execHash, artifact) {
+  const ok = op.reconciled;
+  const color = ok ? 'var(--green)' : 'var(--red)';
+  document.getElementById('heroRow').innerHTML =
+    '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:1.1rem;padding-top:6px">' + (ok ? 'RECONCILED' : 'BREAK') + '</div><div class="hero-lbl">Pair Status</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:' + (op.uti_paired ? 'var(--green)' : 'var(--red)') + ';font-size:1rem;padding-top:6px">' + (op.uti_paired ? '✓' : '✗') + '</div><div class="hero-lbl">UTI Paired</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + op.fields_compared + '</div><div class="hero-lbl">Fields Compared</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:' + (op.break_count === 0 ? 'var(--green)' : 'var(--red)') + '">' + op.break_count + '</div><div class="hero-lbl">Breaks</div></div>';
+  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  document.getElementById('verdictDiv').innerHTML =
+    '<div class="verdict ' + (ok ? 'pass' : 'fail') + '">' +
+    (ok ? '✓ RECONCILED — UTI paired and all compared fields match within tolerance.' : '✗ RECONCILIATION BREAK — UTI pairing failed or one or more field breaks detected.') +
+    '</div><div style="margin-top:6px">' + flagKeys.map(f => '<span class="badge ' + (f.includes('BREAK') || f.includes('FAILED') ? 'err' : f.includes('RECONCILED') ? 'ok' : 'info') + '">' + f + '</span>').join('') + '</div>';
+  if (op.breaks && op.breaks.length > 0) {
+    let tbl = '<table class="breaks-tbl"><thead><tr><th>Field</th><th>Report A</th><th>Report B</th></tr></thead><tbody>';
+    op.breaks.forEach(b => { tbl += '<tr><td>' + b.field + '</td><td style="color:var(--red)">' + (b.a ?? 'null') + '</td><td style="color:var(--red)">' + (b.b ?? 'null') + '</td></tr>'; });
+    tbl += '</tbody></table>';
+    document.getElementById('breaksDiv').innerHTML = '<div class="section-head" style="margin-top:14px">Reconciliation Breaks</div>' + tbl;
+  } else {
+    document.getElementById('breaksDiv').innerHTML = '';
+  }
+  document.getElementById('execHash').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2() { if (!_lastArtifact) return; const ap2 = { schema: 'ainumbers-policy-mandate-v1.0', tool_id: MANIFEST.tool_id, version: MANIFEST.version, mandate_type: 'compliance_mandate', generated_at: _lastArtifact.generated_at, execution_hash: _lastHash, policy_parameters: _lastPP, output_payload: _lastOP, compliance_flags: _lastFlags }; dl(JSON.stringify(ap2, null, 2), 'art-156-emir-counterparty-pairing-reconciler-policy-mandate.json', 'application/json'); }
+function exportArtifact() { if (!_lastArtifact) return; dl(JSON.stringify(_lastArtifact, null, 2), 'art-156-emir-counterparty-pairing-reconciler-artifact.json', 'application/json'); }
+function exportVC() { if (!_lastArtifact) return; const vc = { "@context": ["https://www.w3.org/ns/credentials/v2", "https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"], type: ["VerifiableCredential", "OpenChainGraphArtifact"], issuer: "did:web:ainumbers.co", validFrom: _lastArtifact.generated_at, credentialSubject: { ...{ id: "urn:ocg:" + _lastHash }, ..._lastArtifact } }; dl(JSON.stringify(vc, null, 2), 'art-156-emir-counterparty-pairing-reconciler-vc.json', 'application/json'); }
+function exportPDF() {
+  if (!_lastArtifact) return;
+  const op = _lastOP; const flags = _lastFlags;
+  const lines = [
+    'EMIR Counterparty Pairing Reconciler — ART-156',
+    'Generated: ' + _lastArtifact.generated_at,
+    'Execution Hash: ' + _lastHash,
+    '',
+    'RESULT: ' + (op.reconciled ? 'RECONCILED' : 'BREAK'),
+    'UTI Paired: ' + op.uti_paired,
+    'Fields Compared: ' + op.fields_compared,
+    'Break Count: ' + op.break_count,
+    '',
+    'Compliance Flags:',
+    ...Object.keys(flags).filter(k => flags[k]).map(f => '  ' + f),
+    '',
+    'Breaks:',
+    ...(op.breaks && op.breaks.length > 0 ? op.breaks.map(b => '  ' + b.field + ': A=' + b.a + ' B=' + b.b) : ['  (none)'])
+  ];
+  dl(lines.join('\n'), 'art-156-emir-counterparty-pairing-reconciler-report.txt', 'text/plain');
+}
+function dl(c, f, m) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: m })); a.download = f; a.click(); }
+
+function toggleMfst() { const b = document.getElementById('mfstBody'), c = document.getElementById('mfstCode'); if (b.style.display === 'none' || !b.style.display) { if (!c.textContent) c.textContent = JSON.stringify(MANIFEST, null, 2); b.style.display = 'block'; } else b.style.display = 'none'; }
+
+const PRESETS = {
+  reconciled: { a_uti: 'UTI-EXAMPLE-001-20240429', a_notional: '1000000', a_asset: 'IR', b_uti: 'UTI-EXAMPLE-001-20240429', b_notional: '1000000', b_asset: 'IR', fields: 'notional,asset_class', tol: '1' },
+  break:      { a_uti: 'UTI-EXAMPLE-001-20240429', a_notional: '1000000', a_asset: 'IR', b_uti: 'UTI-EXAMPLE-001-20240429', b_notional: '950000',  b_asset: 'IR', fields: 'notional,asset_class', tol: '1' }
+};
+function loadPreset(n) {
+  const d = PRESETS[n]; if (!d) return;
+  document.getElementById('a_uti').value = d.a_uti;
+  document.getElementById('a_notional').value = d.a_notional;
+  document.getElementById('a_asset_class').value = d.a_asset;
+  document.getElementById('b_uti').value = d.b_uti;
+  document.getElementById('b_notional').value = d.b_notional;
+  document.getElementById('b_asset_class').value = d.b_asset;
+  document.getElementById('matching_fields').value = d.fields;
+  document.getElementById('numeric_tolerance_pct').value = d.tol;
+}
+loadPreset('reconciled');
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('ap2ExportBtn');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    var sab=document.getElementById('signArtifactBtn');
+    if(sab){sab.disabled=false;}
+    obs.disconnect();
+  });
+  obs.observe(el,{attributes:true,attributeFilter:['disabled']});
+})();
+</script>
+</body>
+</html>

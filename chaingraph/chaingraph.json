@@ -1,6 +1,6 @@
 {
   "$schema": "https://ainumbers.co/schema/chaingraph-v1.0.json",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "updated": "2026-06-26",
   "spec_version": "0.5.0",
   "maintainer": "Post Oak Labs",
@@ -4901,6 +4901,150 @@
         "json",
         "vc"
       ]
+    },
+    {
+      "tool_id": "art-153-emir-trade-report-field-validator",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR Trade Report Field Validator",
+      "mcp_name": "validate_emir_trade_report",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-153-emir-trade-report-field-validator.html",
+      "description": "Validate the required-field subset of an EMIR Refit ISO 20022 auth.030 derivative trade report: action type, both counterparty LEIs (20-char ISO 17442), UTI, UPI, notional, currency, effective date, and asset class. Catches missing or malformed fields before submission to the Trade Repository. Feeds UTI completeness checker (art-154).",
+      "input_schema_ref": "chaingraph/art-153-emir-trade-report-field-validator.html#manifest",
+      "consumes": [],
+      "feeds": [
+        "art-154-emir-uti-completeness-checker"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-154-emir-uti-completeness-checker",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR UTI Completeness Checker",
+      "mcp_name": "check_emir_uti_completeness",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-154-emir-uti-completeness-checker.html",
+      "description": "Validate EMIR Refit UTI format (ISO 23897, 52 alphanumeric characters max), generating-party identity, and T+1 sharing timing: UTI must be shared with the other counterparty by 10:00 CET next business day (approximately 34-hour window). Caller supplies Unix timestamps. Catches late or malformed UTIs before Trade Repository submission. Feeds UPI validator (art-155).",
+      "input_schema_ref": "chaingraph/art-154-emir-uti-completeness-checker.html#manifest",
+      "consumes": [
+        "art-153-emir-trade-report-field-validator"
+      ],
+      "feeds": [
+        "art-155-emir-upi-validator"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-155-emir-upi-validator",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR UPI Validator",
+      "mcp_name": "validate_emir_upi",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-155-emir-upi-validator.html",
+      "description": "Validate EMIR Refit UPI format (ISO 4914, 12-character alphanumeric via ANNA Derivatives Service Bureau) and product classification consistency: asset class must be a supported EMIR class (IR/CR/EQ/CO/FX) and instrument type must be present. Terminal node of the emir-trade-report-validation chain; exports field-level validity verdict with execution_hash.",
+      "input_schema_ref": "chaingraph/art-155-emir-upi-validator.html#manifest",
+      "consumes": [
+        "art-154-emir-uti-completeness-checker"
+      ],
+      "feeds": [],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-156-emir-counterparty-pairing-reconciler",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR Counterparty Pairing Reconciler",
+      "mcp_name": "reconcile_emir_pairing",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-156-emir-counterparty-pairing-reconciler.html",
+      "description": "Pair two counterparties EMIR Refit reports by UTI and reconcile the caller-supplied matching-field set (up to 148 fields per the 2026 escalation) within a configurable per-field numeric tolerance. Identifies reconciliation breaks so a firm catches the pairing failure before the Trade Repository rejects it. Feeds lifecycle event validator (art-157).",
+      "input_schema_ref": "chaingraph/art-156-emir-counterparty-pairing-reconciler.html#manifest",
+      "consumes": [],
+      "feeds": [
+        "art-157-emir-lifecycle-event-validator"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "pdf",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-157-emir-lifecycle-event-validator",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR Lifecycle Event Validator",
+      "mcp_name": "validate_emir_lifecycle_event",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-157-emir-lifecycle-event-validator.html",
+      "description": "Validate an EMIR Refit action type against the prior reported state of the UTI: New/Position are legal on a previously unreported trade; Modify/Correct/Valuation/Terminate/Error require a prior open trade; Revive/Correct/Error apply to terminated trades. Catches the most common Refit rejection cause before Trade Repository submission. Feeds readiness diagnostic (art-158).",
+      "input_schema_ref": "chaingraph/art-157-emir-lifecycle-event-validator.html#manifest",
+      "consumes": [
+        "art-156-emir-counterparty-pairing-reconciler"
+      ],
+      "feeds": [
+        "art-158-emir-reporting-readiness-diagnostic"
+      ],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "vc"
+      ]
+    },
+    {
+      "tool_id": "art-158-emir-reporting-readiness-diagnostic",
+      "tool_version": "1.0.0",
+      "display_name": "EMIR Reporting Readiness Diagnostic",
+      "mcp_name": "run_emir_reporting_fit",
+      "mandate_type": "compliance_mandate",
+      "wave": 28,
+      "gpu": false,
+      "url": "https://ainumbers.co/chaingraph/art-158-emir-reporting-readiness-diagnostic.html",
+      "description": "Grade a firm EMIR Refit reporting readiness across five dimensions: ISO 20022 format cutover, UPI sourcing via ANNA DSB, UTI sharing SLA (10:00 CET T+1), reconciliation tolerance configuration (148-field set, 2026 escalation), and lifecycle action-type controls. Returns an A-F grade and a gap list. Terminal node of the emir-reconciliation-and-lifecycle chain; exports readiness attestation with execution_hash.",
+      "input_schema_ref": "chaingraph/art-158-emir-reporting-readiness-diagnostic.html#manifest",
+      "consumes": [
+        "art-157-emir-lifecycle-event-validator"
+      ],
+      "feeds": [],
+      "status": "live",
+      "conformance_fixtures": true,
+      "compute_capability": "server",
+      "export_capability": [
+        "json",
+        "pdf",
+        "vc"
+      ]
     }
   ],
   "chains": [
@@ -9707,6 +9851,48 @@
         {
           "tool_id": "art-152-mcp-task-lifecycle-validator",
           "handoff": "Exports task lifecycle validity with execution_hash — final stage"
+        }
+      ]
+    },
+    {
+      "id": "emir-trade-report-validation",
+      "name": "emir-trade-report-validation",
+      "title": "EMIR Trade Report Validation",
+      "description": "Validate the required-field subset of an EMIR Refit ISO 20022 auth.030 derivative trade report: action type, counterparty LEIs, UTI, UPI, notional, currency, effective date, and asset class (art-153) -> validate UTI format (ISO 23897, 52 chars max), generating-party identity, and T+1 10:00 CET sharing timing (art-154) -> validate UPI format (ISO 4914, 12-char ANNA DSB) and product classification consistency against asset class and instrument type (art-155). Exports field-level validity verdict with execution_hash.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/emir-trade-report-validation.html",
+      "steps": [
+        {
+          "tool_id": "art-153-emir-trade-report-field-validator",
+          "handoff": "Field validity feeds UTI completeness checker"
+        },
+        {
+          "tool_id": "art-154-emir-uti-completeness-checker",
+          "handoff": "UTI completeness feeds UPI validator"
+        },
+        {
+          "tool_id": "art-155-emir-upi-validator",
+          "handoff": "Exports UPI validity verdict with execution_hash -- final stage"
+        }
+      ]
+    },
+    {
+      "id": "emir-reconciliation-and-lifecycle",
+      "name": "emir-reconciliation-and-lifecycle",
+      "title": "EMIR Reconciliation & Lifecycle",
+      "description": "Pair two counterparties EMIR Refit reports by UTI and reconcile up to 148 matching fields within configurable numeric tolerance, flagging reconciliation breaks (art-156) -> validate the action type against the prior reported state of the UTI (art-157) -> grade the firm overall EMIR Refit reporting readiness across five dimensions: ISO 20022 cutover, UPI sourcing, UTI sharing SLA, reconciliation tolerance, and lifecycle controls; returns A-F grade and gap list (art-158). Exports readiness attestation with execution_hash.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/emir-reconciliation-and-lifecycle.html",
+      "steps": [
+        {
+          "tool_id": "art-156-emir-counterparty-pairing-reconciler",
+          "handoff": "Pairing and reconciliation feeds lifecycle event validator"
+        },
+        {
+          "tool_id": "art-157-emir-lifecycle-event-validator",
+          "handoff": "Lifecycle validity feeds readiness diagnostic"
+        },
+        {
+          "tool_id": "art-158-emir-reporting-readiness-diagnostic",
+          "handoff": "Exports EMIR Refit readiness attestation with execution_hash -- final stage"
         }
       ]
     }

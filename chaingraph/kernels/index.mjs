@@ -85,6 +85,12 @@ import * as art149 from './art-149-mcp-registry-entry-conformance.kernel.mjs';
 import * as art150 from './art-150-mcp-tool-scope-revocation-auditor.kernel.mjs';
 import * as art151 from './art-151-agent-obo-mandate-validator.kernel.mjs';
 import * as art152 from './art-152-mcp-task-lifecycle-validator.kernel.mjs';
+import * as art153 from './art-153-emir-trade-report-field-validator.kernel.mjs';
+import * as art154 from './art-154-emir-uti-completeness-checker.kernel.mjs';
+import * as art155 from './art-155-emir-upi-validator.kernel.mjs';
+import * as art156 from './art-156-emir-counterparty-pairing-reconciler.kernel.mjs';
+import * as art157 from './art-157-emir-lifecycle-event-validator.kernel.mjs';
+import * as art158 from './art-158-emir-reporting-readiness-diagnostic.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
@@ -267,6 +273,12 @@ export const KERNELS = {
   'art-150-mcp-tool-scope-revocation-auditor':         art150,
   'art-151-agent-obo-mandate-validator':               art151,
   'art-152-mcp-task-lifecycle-validator':              art152,
+  'art-153-emir-trade-report-field-validator':         art153,
+  'art-154-emir-uti-completeness-checker':             art154,
+  'art-155-emir-upi-validator':                        art155,
+  'art-156-emir-counterparty-pairing-reconciler':      art156,
+  'art-157-emir-lifecycle-event-validator':            art157,
+  'art-158-emir-reporting-readiness-diagnostic':       art158,
   'art-19-agentic-checkout-protocol-selector':         art19,
   'art-20-acp-ucp-product-feed-conformance-auditor':   art20,
   'art-21-agent-traffic-acceptance-policy-builder':    art21,
