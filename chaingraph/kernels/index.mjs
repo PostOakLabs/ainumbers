@@ -138,6 +138,13 @@ import * as art125 from './art-125-provenance-ingredient-tree-resolver.kernel.mj
 import * as art126 from './art-126-ai-act-art50-marking-checker.kernel.mjs';
 import * as art127 from './art-127-dual-layer-disclosure-verifier.kernel.mjs';
 import * as art128 from './art-128-content-binding-assertion-validator.kernel.mjs';
+// ART EU CRA / SBOM / SLSA / OpenVEX (wave 25)
+import * as art135 from './art-135-cyclonedx-sbom-validator.kernel.mjs';
+import * as art136 from './art-136-slsa-provenance-verifier.kernel.mjs';
+import * as art137 from './art-137-openvex-statement-validator.kernel.mjs';
+import * as art138 from './art-138-spdx-sbom-validator.kernel.mjs';
+import * as art139 from './art-139-cra-annex1-completeness-checker.kernel.mjs';
+import * as art140 from './art-140-cra-vuln-reporting-readiness.kernel.mjs';
 // ART Web Bot Auth & Agent Identity (wave 24)
 import * as art129 from './art-129-webbotauth-signature-verifier.kernel.mjs';
 import * as art130 from './art-130-signature-directory-validator.kernel.mjs';
@@ -319,6 +326,13 @@ export const KERNELS = {
   'art-126-ai-act-art50-marking-checker':         art126,
   'art-127-dual-layer-disclosure-verifier':       art127,
   'art-128-content-binding-assertion-validator':  art128,
+  // ART EU CRA / SBOM / SLSA / OpenVEX (wave 25)
+  'art-135-cyclonedx-sbom-validator':             art135,
+  'art-136-slsa-provenance-verifier':             art136,
+  'art-137-openvex-statement-validator':          art137,
+  'art-138-spdx-sbom-validator':                  art138,
+  'art-139-cra-annex1-completeness-checker':      art139,
+  'art-140-cra-vuln-reporting-readiness':         art140,
   // ART Web Bot Auth & Agent Identity (wave 24)
   'art-129-webbotauth-signature-verifier':        art129,
   'art-130-signature-directory-validator':        art130,
