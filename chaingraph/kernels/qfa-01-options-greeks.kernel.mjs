@@ -33,6 +33,13 @@ export function compute(pp) {
   const q = Number(pp.div_yield != null ? pp.div_yield : 0) / 100;
   const isCall = (pp.type || 'call') === 'call';
 
+  // Guard: missing/invalid inputs (empty input → NaN) must never produce non-finite output
+  // (NaN is not valid I-JSON and breaks execution_hash). Return a finite zero-greeks result.
+  if (![S, K, T, sigma, r, q].every(Number.isFinite) || S <= 0 || K <= 0 || sigma <= 0) {
+    const output_payload = { price: 0, delta: 0, gamma: 0, theta_per_day: 0, vega_per_pct: 0, rho_per_pct: 0, d1: 0, d2: 0, delta_risk_band: 'LOW', type: pp.type || 'call' };
+    return { output_payload, compliance_flags: complianceFlags };
+  }
+
   if (T <= 0) {
     const intrinsic = isCall ? Math.max(S - K, 0) : Math.max(K - S, 0);
     const delta = isCall ? (S > K ? 1 : 0) : (S < K ? -1 : 0);

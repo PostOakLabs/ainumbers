@@ -19,6 +19,10 @@ export function compute(pp) {
     custody_linkage,
   } = pp;
 
+  // Coerce notional to a finite number — a missing/non-numeric notional must NEVER yield NaN in
+  // output_payload (NaN is not valid I-JSON and breaks execution_hash canonicalization). Default 0.
+  const notionalNum = Number.isFinite(Number(notional)) ? Number(notional) : 0;
+
   const { lock_up, min_denomination, transfer_agent_approval } = transfer_restrictions;
   const hasRestrictions = !!(lock_up || min_denomination || transfer_agent_approval);
 
@@ -26,7 +30,7 @@ export function compute(pp) {
   if (asset_type === 'mmf_fund_share') {
     const haircut_adj = hasRestrictions ? 5 : 0;
     const final_haircut = haircut_adj;
-    const adjusted_value = +(notional * (1 - final_haircut / 100)).toFixed(2);
+    const adjusted_value = +(notionalNum * (1 - final_haircut / 100)).toFixed(2);
 
     const compliance_flags = {
       COLLATERAL_ELIGIBILITY_ASSESSED: true,
@@ -79,7 +83,7 @@ export function compute(pp) {
   const final_haircut = base_haircut !== null
     ? Math.min(base_haircut + haircut_adj, 100)
     : haircut_adj;
-  const adjusted_value = +(notional * (1 - final_haircut / 100)).toFixed(2);
+  const adjusted_value = +(notionalNum * (1 - final_haircut / 100)).toFixed(2);
 
   const compliance_flags = {
     COLLATERAL_ELIGIBILITY_ASSESSED: true,
