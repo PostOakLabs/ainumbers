@@ -145,6 +145,13 @@ import * as art137 from './art-137-openvex-statement-validator.kernel.mjs';
 import * as art138 from './art-138-spdx-sbom-validator.kernel.mjs';
 import * as art139 from './art-139-cra-annex1-completeness-checker.kernel.mjs';
 import * as art140 from './art-140-cra-vuln-reporting-readiness.kernel.mjs';
+// ART NIS2 Cross-Sector Cybersecurity (wave 26)
+import * as art141 from './art-141-nis2-entity-scope-classifier.kernel.mjs';
+import * as art142 from './art-142-nis2-art21-gap-checker.kernel.mjs';
+import * as art143 from './art-143-nis2-penalty-exposure-calculator.kernel.mjs';
+import * as art144 from './art-144-nis2-incident-significance-scorer.kernel.mjs';
+import * as art145 from './art-145-nis2-ict-supply-chain-diligence-scorer.kernel.mjs';
+import * as art146 from './art-146-nis2-governance-readiness-checker.kernel.mjs';
 // ART Web Bot Auth & Agent Identity (wave 24)
 import * as art129 from './art-129-webbotauth-signature-verifier.kernel.mjs';
 import * as art130 from './art-130-signature-directory-validator.kernel.mjs';
@@ -333,6 +340,13 @@ export const KERNELS = {
   'art-138-spdx-sbom-validator':                  art138,
   'art-139-cra-annex1-completeness-checker':      art139,
   'art-140-cra-vuln-reporting-readiness':         art140,
+  // ART NIS2 Cross-Sector Cybersecurity (wave 26)
+  'art-141-nis2-entity-scope-classifier':          art141,
+  'art-142-nis2-art21-gap-checker':               art142,
+  'art-143-nis2-penalty-exposure-calculator':      art143,
+  'art-144-nis2-incident-significance-scorer':     art144,
+  'art-145-nis2-ict-supply-chain-diligence-scorer': art145,
+  'art-146-nis2-governance-readiness-checker':     art146,
   // ART Web Bot Auth & Agent Identity (wave 24)
   'art-129-webbotauth-signature-verifier':        art129,
   'art-130-signature-directory-validator':        art130,
