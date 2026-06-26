@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Content Binding Assertion Validator · ART-128 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate hard-binding (c2pa.hash.data/bmff, tamper-evident — covers asset bytes) vs soft-binding (watermark/fingerprint, survives re-encode but not tamper-evident). Emits TAMPER_EVIDENT / SOFT_BINDING_ONLY / UNBOUND verdict. Terminal stage.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-128-content-binding-assertion-validator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Content Binding Assertion Validator","applicationCategory":"FinanceApplication","description":"Validate hard-binding (c2pa.hash.data/bmff, tamper-evident — covers asset bytes) vs soft-binding (watermark/fingerprint, survives re-encode but not tamper-evident). Emits TAMPER_EVIDENT / SOFT_BINDING_ONLY / UNBOUND verdict. Terminal stage.","url":"https://ainumbers.co/chaingraph/art-128-content-binding-assertion-validator.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:920px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:110px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.1);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.handoff-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:4px;padding:.75rem 1rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.7}
+.handoff-box .hb-title{color:var(--purple);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="../index.html" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:.5rem;align-items:center">
+    <a href="../index.html" style="color:var(--body)">All Tools</a><span>/</span>
+    <a href="chaingraph-hub.html" style="color:var(--body)">OpenChainGraph Hub</a><span>/</span>
+    <span style="color:var(--text)">Content Binding Assertion Validator</span>
+  </div>
+  <a href="chaingraph-hub.html" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px">Hub →</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-128 · wave 23</div>
+  <h1>Content Binding Assertion Validator</h1>
+  <p class="sub">Validate hard-binding (c2pa.hash.data/bmff, tamper-evident — covers asset bytes) vs soft-binding (watermark/fingerprint, survives re-encode but not tamper-evident). Confirms asset byte-hash matches claimed hard-binding hash. Emits TAMPER_EVIDENT / SOFT_BINDING_ONLY / UNBOUND verdict.</p>
+  <div style="margin-bottom:6px"><span class="flag info">C2PA 2.x</span><span class="flag info">tamper-evident</span><span class="flag info">hard binding</span><span class="flag purple">W3C VC §13.11</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box"><div class="ib-title">Scope</div>Terminal stage of the ai-content-disclosure-conformance chain. Validates C2PA content binding type: hard-binding (c2pa.hash.data or c2pa.hash.bmff) is tamper-evident — any asset mutation breaks the hash match. Soft-binding (watermark or fingerprint) survives re-encoding but cannot detect tampering. Compares asset_bytes_hash to claimed_hard_binding_hash to confirm integrity. Emits TAMPER_EVIDENT, SOFT_BINDING_ONLY, or UNBOUND verdict.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('match')">Tamper-Evident Match</button>
+      <button class="preset-btn" onclick="loadPreset('mismatch')">Hash Mismatch</button>
+      <button class="preset-btn" onclick="loadPreset('soft')">Soft Binding Only</button>
+      <button class="preset-btn" onclick="loadPreset('both')">Both Bindings</button>
+    </div>
+    <div class="section-head">Inputs</div>
+    <div class="grid">
+      <div class="q"><label>Binding Type <span class="dim">assertion type declared</span></label>
+        <select id="binding_type">
+          <option value="hard">hard</option>
+          <option value="soft">soft</option>
+          <option value="both">both</option>
+        </select>
+      </div>
+      <div class="q"><label>Soft Binding Identifier Present <span class="dim">watermark / fingerprint</span></label>
+        <select id="soft_binding_identifier_present">
+          <option value="false">false</option>
+          <option value="true">true</option>
+        </select>
+      </div>
+    </div>
+    <div class="q"><label>Asset Bytes Hash <span class="dim">sha256:64hexchars — actual asset hash</span></label>
+      <input type="text" id="asset_bytes_hash" placeholder="sha256:64hexchars">
+    </div>
+    <div class="q"><label>Claimed Hard Binding Hash <span class="dim">sha256:64hexchars — from C2PA assertion</span></label>
+      <input type="text" id="claimed_hard_binding_hash" placeholder="sha256:64hexchars">
+    </div>
+    <button class="run-btn" style="margin-top:14px" onclick="run()">Run</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="detailDiv"></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical — RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-128-content-binding-assertion-validator",
+  "version": "1.0.0",
+  "title": "Content Binding Assertion Validator",
+  "mcp_tool_definition": {
+    "name": "validate_content_binding_assertion",
+    "description": "Validate hard-binding (tamper-evident asset hash match) vs soft-binding (watermark survives re-encode). Emits TAMPER_EVIDENT / SOFT_BINDING_ONLY / UNBOUND verdict. Terminal stage.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "binding_type": {"type": "string", "enum": ["hard","soft","both"]},
+        "asset_bytes_hash": {"type": "string"},
+        "claimed_hard_binding_hash": {"type": "string"},
+        "soft_binding_identifier_present": {"type": "boolean"}
+      },
+      "required": ["binding_type"]
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+async function compute(pp){
+  const{binding_type,asset_bytes_hash,claimed_hard_binding_hash,soft_binding_identifier_present}=pp;
+  const VALID=['hard','soft','both'];
+  const type_valid=VALID.includes(binding_type);
+  const has_hard=binding_type==='hard'||binding_type==='both';
+  const has_soft=binding_type==='soft'||binding_type==='both';
+  const hard_hashes_ok=typeof asset_bytes_hash==='string'&&/^sha256:[0-9a-f]{64}$/.test(asset_bytes_hash)&&typeof claimed_hard_binding_hash==='string'&&/^sha256:[0-9a-f]{64}$/.test(claimed_hard_binding_hash);
+  const hard_binding_matches=has_hard&&hard_hashes_ok&&asset_bytes_hash===claimed_hard_binding_hash;
+  const soft_binding_present=has_soft&&soft_binding_identifier_present===true;
+  const tamper_evident=hard_binding_matches;
+  const verdict=tamper_evident?'TAMPER_EVIDENT':(soft_binding_present?'SOFT_BINDING_ONLY':'UNBOUND');
+  const flags={CONTENT_BINDING_ASSESSED:true};
+  flags[tamper_evident?'HARD_BINDING_VERIFIED':'HARD_BINDING_UNVERIFIED']=true;
+  if(!type_valid)flags.UNRECOGNIZED_BINDING_TYPE=true;
+  if(has_hard&&hard_hashes_ok&&!hard_binding_matches)flags.ASSET_HASH_MISMATCH=true;
+  return{output_payload:{binding_type:binding_type??null,hard_binding_matches,tamper_evident,soft_binding_present,verdict},compliance_flags:flags};
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+
+async function run(){
+  const pp=getParams();
+  if(!pp)return;
+  const {output_payload,compliance_flags}=await compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const artifact={
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0',
+    spec_version:'0.5.0',
+    compute_mode:'browser',
+    mandate_type:'compliance_mandate',
+    tool_id:MANIFEST.tool_id,
+    tool_version:MANIFEST.version,
+    generated_at:new Date().toISOString(),
+    execution_hash:execHash,
+    chain:{parent_hashes:[],parent_tool_ids:["art-127-dual-layer-disclosure-verifier"],chain_depth:2},
+    policy_parameters:pp,
+    output_payload,
+    compliance_flags,
+    audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}
+  };
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,compliance_flags,execHash,artifact);
+  document.getElementById('ap2ExportBtn').disabled=false;
+}
+
+function verdictColor(v){if(v==='TAMPER_EVIDENT')return'var(--green)';if(v==='SOFT_BINDING_ONLY')return'var(--gold)';return'var(--red)';}
+function verdictClass(v){if(v==='TAMPER_EVIDENT')return'pass';if(v==='SOFT_BINDING_ONLY')return'warn';return'fail';}
+function verdictMsg(op){
+  if(op.verdict==='TAMPER_EVIDENT')return'✓ TAMPER_EVIDENT — Hard-binding hash confirmed. Asset bytes match C2PA assertion. Any content mutation would break this binding.';
+  if(op.verdict==='SOFT_BINDING_ONLY')return'⚠ SOFT_BINDING_ONLY — Soft-binding identifier present (watermark / fingerprint). Survives re-encode but does not detect tampering.';
+  return'✗ UNBOUND — No verified binding. Hard-binding hash mismatch or absent; no soft-binding identifier present.';
+}
+
+function renderResults(op,flags,execHash,artifact){
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
+  document.getElementById('heroRow').innerHTML=
+    '<div class="hero-stat"><div class="hero-val" style="color:'+verdictColor(op.verdict)+';font-size:.8rem;padding-top:8px">'+op.verdict+'</div><div class="hero-lbl">Verdict</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.hard_binding_matches?'var(--green)':'var(--red)')+'">'+( op.hard_binding_matches?'✓':'✗')+'</div><div class="hero-lbl">Hard Binding Match</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.tamper_evident?'var(--green)':'var(--red)')+'">'+( op.tamper_evident?'✓':'✗')+'</div><div class="hero-lbl">Tamper-Evident</div></div>';
+  document.getElementById('verdictDiv').innerHTML=
+    '<div class="verdict '+verdictClass(op.verdict)+'">'+verdictMsg(op)+'</div>'+
+    '<div style="margin-top:6px">'+flagKeys.map(f=>{
+      const isOk=f==='CONTENT_BINDING_ASSESSED'||f==='HARD_BINDING_VERIFIED';
+      const isErr=f==='HARD_BINDING_UNVERIFIED'||f==='ASSET_HASH_MISMATCH'||f==='UNRECOGNIZED_BINDING_TYPE';
+      const isWarn=f==='SOFT_BINDING_ONLY';
+      return '<span class="badge '+(isOk?'ok':isErr?'err':isWarn?'warn-b':'info')+'">'+f+'</span>';
+    }).join('')+'</div>';
+  document.getElementById('detailDiv').innerHTML=
+    '<table class="tbl" style="margin-top:12px"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>'+
+    '<tr><td>binding_type</td><td><span class="badge info">'+(op.binding_type||'—')+'</span></td></tr>'+
+    '<tr><td>hard_binding_matches</td><td><span class="badge '+(op.hard_binding_matches?'ok':'err')+'">'+op.hard_binding_matches+'</span></td></tr>'+
+    '<tr><td>tamper_evident</td><td><span class="badge '+(op.tamper_evident?'ok':'err')+'">'+op.tamper_evident+'</span></td></tr>'+
+    '<tr><td>soft_binding_present</td><td><span class="badge '+(op.soft_binding_present?'ok':'info')+'">'+op.soft_binding_present+'</span></td></tr>'+
+    '</tbody></table>';
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-128-content-binding-assertion-validator-policy-mandate.json','application/json');}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-128-content-binding-assertion-validator-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={"@context":["https://www.w3.org/ns/credentials/v2","https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"],type:["VerifiableCredential","OpenChainGraphArtifact"],issuer:"did:web:ainumbers.co",validFrom:_lastArtifact.generated_at,credentialSubject:{...{id:"urn:ocg:"+_lastHash},..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-128-content-binding-assertion-validator-vc.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+
+const HASH_A='sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
+const HASH_B='sha256:0000000000000000000000000000000000000000000000000000000000000000';
+const PRESETS={
+  match:{bt:'hard',abh:HASH_A,cbh:HASH_A,sbi:'false'},
+  mismatch:{bt:'hard',abh:HASH_A,cbh:HASH_B,sbi:'false'},
+  soft:{bt:'soft',abh:'',cbh:'',sbi:'true'},
+  both:{bt:'both',abh:HASH_A,cbh:HASH_A,sbi:'true'}
+};
+function loadPreset(n){const d=PRESETS[n];if(!d)return;document.getElementById('binding_type').value=d.bt;document.getElementById('asset_bytes_hash').value=d.abh;document.getElementById('claimed_hard_binding_hash').value=d.cbh;document.getElementById('soft_binding_identifier_present').value=d.sbi;}
+function getParams(){
+  const bt=document.getElementById('binding_type').value;
+  const abh=document.getElementById('asset_bytes_hash').value.trim()||null;
+  const cbh=document.getElementById('claimed_hard_binding_hash').value.trim()||null;
+  const sbi=document.getElementById('soft_binding_identifier_present').value==='true';
+  return{binding_type:bt,asset_bytes_hash:abh,claimed_hard_binding_hash:cbh,soft_binding_identifier_present:sbi};
+}
+loadPreset('match');
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('ap2ExportBtn');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    var sab=document.getElementById('signArtifactBtn');
+    if(sab){sab.disabled=false;}
+    obs.disconnect();
+  });
+  obs.observe(el,{attributes:true,attributeFilter:['disabled']});
+})();
+</script>
+</body>
+</html>
