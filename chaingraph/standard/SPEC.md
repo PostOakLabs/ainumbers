@@ -99,7 +99,7 @@ The Graph Index (chaingraph.json) is the machine-discoverable catalog of a vendo
   "@type":           "dcat:Catalog",
   "@id":             "https://ainumbers.co/chaingraph/chaingraph.json",
   "dct:title":       "AINumbers OpenChainGraph Suite",
-  "dct:description": "48 AP2-emitting, hash-anchored financial decision tools.",
+  "dct:description": "48 Policy-Mandate-emitting, hash-anchored financial decision tools.",
   "dct:publisher":   { "@id": "https://postoaklabs.com", "dct:title": "Post Oak Labs" },
   "ocg:conformance_level": "L4",
   "ocg:mcp_endpoint": "https://mcp.ainumbers.co/mcp",

@@ -1,7 +1,7 @@
 ---
 type: Index
 title: "AINumbers OpenChainGraph Suite"
-description: "Client-side, zero-egress, AP2-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack."
+description: "Client-side, zero-egress, Policy-Mandate-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack."
 resource: https://ainumbers.co/chaingraph/chaingraph-hub.html
 tags: ["openchaingraph", "okf", "spec-0.3.1"]
 timestamp: 2026-06-18T15:18:23.408Z
@@ -9,7 +9,7 @@ timestamp: 2026-06-18T15:18:23.408Z
 
 # AINumbers OpenChainGraph Suite
 
-> Client-side, zero-egress, AP2-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack.
+> Client-side, zero-egress, Policy-Mandate-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack.
 
 This OKF bundle is the **narrative knowledge layer** for the suite — auto-generated from
 `chaingraph.json` (the DCAT Graph Index). It is *context to read before acting*; the tools
