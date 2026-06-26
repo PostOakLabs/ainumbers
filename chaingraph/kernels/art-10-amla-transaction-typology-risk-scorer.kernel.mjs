@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'art-10-amla-transaction-typology-risk-scorer',
   mcp_name:     'score_aml_typologies',
   mandate_type: 'risk_control',
   version:      '1.0.0',
 };
+
+const TOOL_ID = 'art-10-amla-transaction-typology-risk-scorer';
+const TOOL_VERSION = '1.0.0';
 
 // ── Typology definitions ─────────────────────────────────────────────────────
 const TYPOLOGY_WEIGHTS = {
@@ -184,21 +189,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:              meta.tool_id,
-    mandate_type:         meta.mandate_type,
-    overall_risk:         r.overall_risk,
-    transaction_count:    r.transaction_count,
-    high_risk_count:      r.high_risk_count,
-    medium_risk_count:    r.medium_risk_count,
-    average_score:        r.average_score,
-    max_score:            r.max_score,
-    travel_rule_violations: r.travel_rule_violations,
-    typology_hit_counts:  r.typology_hit_counts,
-    top_risk_accounts:    r.top_risk_accounts,
-    compliance_flags:     r.compliance_flags,
-    inputs:               pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

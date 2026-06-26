@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'art-07-basel31-reporting-delta-calculator',
   mcp_name:     'compute_basel31_delta',
   mandate_type: 'capital_assessment',
   version:      '1.0.0',
 };
+
+const TOOL_ID = 'art-07-basel31-reporting-delta-calculator';
+const TOOL_VERSION = '1.0.0';
 
 // ── Asset class definitions (SA risk weights current vs Basel 3.1) ────────────
 const ASSET_CLASSES = [
@@ -120,22 +125,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:               meta.tool_id,
-    mandate_type:          meta.mandate_type,
-    verdict:               r.verdict,
-    current_rwa_bn:        r.current_rwa_bn,
-    basel31_rwa_bn:        r.basel31_rwa_bn,
-    rwa_delta_bn:          r.rwa_delta_bn,
-    rwa_delta_pct:         r.rwa_delta_pct,
-    output_floor_binding:  r.output_floor_binding,
-    capital_shortfall_bn:  r.capital_shortfall_bn,
-    cet1_ratio_current_pct: r.cet1_ratio_current_pct,
-    cet1_ratio_basel31_pct: r.cet1_ratio_basel31_pct,
-    asset_class_summary:   r.asset_class_summary,
-    compliance_flags:      r.compliance_flags,
-    inputs:                pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

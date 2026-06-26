@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'qfa-03-stress-test-engine',
   mcp_name:     'compute_stress_test_scenarios',
   mandate_type: 'risk_parameter',
   version:      '1.0.0',
 };
+
+const TOOL_ID      = 'qfa-03-stress-test-engine';
+const TOOL_VERSION = '1.0.0';
 
 // ── LCG + Box-Muller (matches source HTML) ────────────────────────────────────
 function makeLCG(seed) {
@@ -149,22 +154,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:               meta.tool_id,
-    mandate_type:          meta.mandate_type,
-    verdict:               r.verdict,
-    worst_case_scenario:   r.worst_case_scenario,
-    worst_case_loss:       r.worst_case_loss,
-    stressed_var_pct:      r.stressed_var_pct,
-    stressed_es_pct:       r.stressed_es_pct,
-    normal_var_pct:        r.normal_var_pct,
-    stress_multiplier:     r.stress_multiplier,
-    max_drawdown:          r.max_drawdown,
-    recovery_days_estimate: r.recovery_days_estimate,
-    scenario_losses:       r.scenario_losses,
-    compliance_flags:      r.compliance_flags,
-    inputs:                pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

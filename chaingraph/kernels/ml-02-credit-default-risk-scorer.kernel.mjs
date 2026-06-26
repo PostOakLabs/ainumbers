@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'ml-02-credit-default-risk-scorer',
   mcp_name:     'score_credit_default_risk',
   mandate_type: 'credit_assessment',
   version:      '1.0.0',
 };
+
+const TOOL_ID      = 'ml-02-credit-default-risk-scorer';
+const TOOL_VERSION = '1.0.0';
 
 // ── LCG ──────────────────────────────────────────────────────────────────────
 function makeLCG(seed) {
@@ -195,27 +200,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:            meta.tool_id,
-    mandate_type:       meta.mandate_type,
-    verdict:            r.verdict,
-    auc_roc:            r.auc_roc,
-    ks_statistic:       r.ks_statistic,
-    gini_coefficient:   r.gini_coefficient,
-    portfolio_pd:       r.portfolio_pd,
-    total_ead_gbp:      r.total_ead_gbp,
-    expected_loss_gbp:  r.expected_loss_gbp,
-    irb_rwa_gbp:        r.irb_rwa_gbp,
-    sa_rwa_gbp:         r.sa_rwa_gbp,
-    irb_capital_gbp:    r.irb_capital_gbp,
-    sa_capital_gbp:     r.sa_capital_gbp,
-    irb_vs_sa_saving:   r.irb_vs_sa_saving,
-    n_loans_scored:     r.n_loans_scored,
-    n_defaults_observed: r.n_defaults_observed,
-    high_pd_loans:      r.high_pd_loans,
-    compliance_flags:   r.compliance_flags,
-    inputs:             pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

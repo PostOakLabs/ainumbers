@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'qfa-02-portfolio-var-engine',
   mcp_name:     'compute_portfolio_var',
   mandate_type: 'risk_control',
   version:      '1.0.0',
 };
+
+const TOOL_ID      = 'qfa-02-portfolio-var-engine';
+const TOOL_VERSION = '1.0.0';
 
 // ── LCG (matches source HTML) ─────────────────────────────────────────────────
 function makeLCG(seed) {
@@ -163,21 +168,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:         meta.tool_id,
-    mandate_type:    meta.mandate_type,
-    verdict:         r.verdict,
-    mc_var_pct:      r.mc_var_pct,
-    mc_es_pct:       r.mc_es_pct,
-    param_var_pct:   r.param_var_pct,
-    param_es_pct:    r.param_es_pct,
-    hist_var_pct:    r.hist_var_pct,
-    portfolio_vol_hp: r.portfolio_vol_hp,
-    var_dollar_mm:   r.var_dollar_mm,
-    es_dollar_mm:    r.es_dollar_mm,
-    compliance_flags: r.compliance_flags,
-    inputs:          pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

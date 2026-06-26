@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'mms-03-app-fraud-graph',
   mcp_name:     'simulate_app_fraud_graph',
   mandate_type: 'aml_rule',
   version:      '1.0.0',
 };
+
+const TOOL_ID      = 'mms-03-app-fraud-graph';
+const TOOL_VERSION = '1.0.0';
 
 // ── LCG (matches source HTML makeLCG) ────────────────────────────────────────
 function makeLCG(seed) {
@@ -201,17 +206,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:                          meta.tool_id,
-    mandate_type:                     meta.mandate_type,
-    fraud_verdict:                    r.fraud_verdict,
-    mean_loss_at_risk:                r.mean_loss_at_risk,
-    loss_p95:                         r.loss_p95,
-    psr_threshold_breach_probability: r.psr_threshold_breach_probability,
-    mean_detection_hop:               r.mean_detection_hop,
-    compliance_flags:                 r.compliance_flags,
-    inputs:                           pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }

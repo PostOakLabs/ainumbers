@@ -4,12 +4,17 @@
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
 
+import { executionHash } from './_hash.mjs';
+
 export const meta = {
   tool_id:      'rca-02-mica-reserve-stress',
   mcp_name:     'simulate_stablecoin_reserve',
   mandate_type: 'liquidity_mandate',
   version:      '1.0.0',
 };
+
+const TOOL_ID      = 'rca-02-mica-reserve-stress';
+const TOOL_VERSION = '1.0.0';
 
 // ── LCG ──────────────────────────────────────────────────────────────────────
 function makeLCG(seed) {
@@ -156,19 +161,24 @@ export function compute(pp) {
   };
 }
 
-export function buildArtifact(pp, opts = {}) {
-  const r = compute(pp);
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const result = compute(pp);
+  const { compliance_flags = {} } = result;
+  const output_payload = result;
+  const hash = await executionHash(pp, output_payload);
   return {
-    tool_id:                meta.tool_id,
-    mandate_type:           meta.mandate_type,
-    verdict:                r.verdict,
-    coverage_p50_end_day:   r.coverage_p50_end_day,
-    coverage_p5_end_day:    r.coverage_p5_end_day,
-    breach_probability_pct: r.breach_probability_pct,
-    peak_breach_pct:        r.peak_breach_pct,
-    art36_buffer_adequate_pct: r.art36_buffer_adequate_pct,
-    scenario:               r.scenario,
-    compliance_flags:       r.compliance_flags,
-    inputs:                 pp,
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
