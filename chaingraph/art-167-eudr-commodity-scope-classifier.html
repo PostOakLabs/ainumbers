@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EUDR Commodity Scope Classifier · ART-167 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Classifies HS code to EUDR Annex I commodity scope (cattle, cocoa, coffee, oil palm, rubber, soya, wood). Determines operator/trader role, SME status, DDS obligation, and enforcement deadline. Terminal node of eudr-due-diligence-statement-validation chain. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-167-eudr-commodity-scope-classifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EUDR Commodity Scope Classifier","applicationCategory":"FinanceApplication","description":"Classifies HS code to EUDR Annex I commodity scope. Determines operator/trader role, SME status, DDS filing obligation, and enforcement deadline. Terminal node of eudr-due-diligence-statement-validation chain. Zero network.","url":"https://ainumbers.co/chaingraph/art-167-eudr-commodity-scope-classifier.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);color:var(--gold)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.warn{background:rgba(212,168,71,.08);color:var(--gold);border:1px solid rgba(212,168,71,.2)}
+.badge.purple{background:rgba(155,114,245,.08);color:var(--purple);border:1px solid rgba(155,114,245,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:2px}
+input[type=text],input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem .75rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;transition:border-color .2s}
+input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--teal)}
+select{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem .75rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;transition:border-color .2s;cursor:pointer}
+select:focus{outline:none;border-color:var(--teal)}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:600px){.form-row-2,.form-row-3{grid-template-columns:1fr}}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:12px 0}
+.detail-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.detail-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+.detail-val{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--bright)}
+.obligation-list{list-style:none;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.obligation-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:flex;align-items:center;gap:8px}
+.obligation-item::before{content:'→';color:var(--teal);flex-shrink:0}
+.commodity-banner{background:var(--bg-4);border:1px solid var(--border-2);border-left:4px solid var(--teal);border-radius:var(--radius);padding:12px 16px;margin:10px 0;display:flex;align-items:center;gap:16px}
+.commodity-name{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.commodity-code{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)}
+.hs-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin:8px 0}
+.hs-table td,.hs-table th{padding:5px 8px;border:1px solid var(--border);text-align:left}
+.hs-table th{background:var(--bg-4);color:var(--muted);font-size:.55rem;text-transform:uppercase;letter-spacing:.06em}
+.hs-table tr:hover td{background:var(--bg-3)}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>EUDR Commodity Scope Classifier</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-167 · Supply-Chain Due Diligence</div>
+  <h1>EUDR Commodity Scope Classifier</h1>
+  <p class="sub">Classifies HS codes against EUDR Annex I (cattle, cocoa, coffee, oil palm, rubber, soya, wood). Determines entity role, SME thresholds, DDS filing obligation, and enforcement deadline. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag warn">EUDR 2023/1115</span>
+    <span class="flag info">Annex I</span>
+    <span class="flag gold">7 Commodities</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.5.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    Terminal node of eudr-due-diligence-statement-validation chain (art-165→166→167). EUDR Annex I covers 7 commodities (cattle, cocoa, coffee, oil palm, rubber, soya, wood) and their derivatives. Classifies HS code to commodity scope, determines operator/trader role, SME status, DDS filing obligation, and enforcement deadline. See <a href="chains/eudr-due-diligence-statement-validation.html">eudr-due-diligence-statement-validation chain</a>.
+  </div>
+
+  <!-- HS Reference table -->
+  <details style="margin:12px 0">
+    <summary style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);cursor:pointer;padding:6px 0">▸ Annex I HS code reference (selected headings)</summary>
+    <div style="overflow-x:auto;margin-top:8px">
+    <table class="hs-table">
+      <tr><th>HS Heading</th><th>Commodity</th><th>Description</th></tr>
+      <tr><td>0102</td><td>Cattle</td><td>Live bovine animals</td></tr>
+      <tr><td>0201–0202</td><td>Cattle</td><td>Meat of bovine animals</td></tr>
+      <tr><td>4101–4104</td><td>Cattle</td><td>Raw hides, skins, leather</td></tr>
+      <tr><td>1801</td><td>Cocoa</td><td>Cocoa beans, whole or broken</td></tr>
+      <tr><td>1802</td><td>Cocoa</td><td>Cocoa shells, husks, skins</td></tr>
+      <tr><td>1803–1806</td><td>Cocoa</td><td>Cocoa paste, butter, powder, chocolate</td></tr>
+      <tr><td>0901</td><td>Coffee</td><td>Coffee, roasted or not</td></tr>
+      <tr><td>2101</td><td>Coffee</td><td>Extracts, essences of coffee</td></tr>
+      <tr><td>1511</td><td>Oil Palm</td><td>Palm oil and its fractions</td></tr>
+      <tr><td>1513</td><td>Oil Palm</td><td>Coconut / palm-kernel oil</td></tr>
+      <tr><td>1207</td><td>Oil Palm</td><td>Palm nuts and kernels</td></tr>
+      <tr><td>4001</td><td>Rubber</td><td>Natural rubber, balata, gutta-percha</td></tr>
+      <tr><td>4005–4017</td><td>Rubber</td><td>Rubber compounds and articles</td></tr>
+      <tr><td>1201</td><td>Soya</td><td>Soya beans</td></tr>
+      <tr><td>1208</td><td>Soya</td><td>Flours of oil seeds (incl. soya)</td></tr>
+      <tr><td>2304</td><td>Soya</td><td>Soya-bean oil-cake and residues</td></tr>
+      <tr><td>1507</td><td>Soya</td><td>Soya-bean oil</td></tr>
+      <tr><td>4407</td><td>Wood</td><td>Wood sawn or chipped lengthwise</td></tr>
+      <tr><td>4408–4421</td><td>Wood</td><td>Wood panels, plywood, wood articles</td></tr>
+      <tr><td>4701–4707</td><td>Wood</td><td>Pulp of wood, paper for recycling</td></tr>
+      <tr><td>9401–9403</td><td>Wood</td><td>Furniture of wood</td></tr>
+    </table>
+    </div>
+  </details>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('wood_large')">Wood — large operator</button>
+      <button class="preset-btn" onclick="loadPreset('cocoa_sme')">Cocoa chocolate — SME trader</button>
+      <button class="preset-btn" onclick="loadPreset('out_of_scope')">Out of scope</button>
+    </div>
+
+    <div class="section-head">Commodity Identification</div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label" for="hs_code">hs_code</label>
+        <input type="text" id="hs_code" placeholder="4407">
+        <div class="form-hint">Enter 4-digit HS heading (e.g. 4407 for sawn wood, 1801 for cocoa beans)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="entity_type">entity_type</label>
+        <select id="entity_type">
+          <option value="operator">operator</option>
+          <option value="trader">trader</option>
+        </select>
+        <div class="form-hint">Operator = places goods on EU market first; Trader = subsequent supply chain</div>
+      </div>
+    </div>
+
+    <div class="section-head">Entity Size</div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label" for="employee_count">employee_count</label>
+        <input type="number" id="employee_count" placeholder="500" min="0">
+        <div class="form-hint">Full-time equivalent employees</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="annual_turnover_eur">annual_turnover_eur</label>
+        <input type="number" id="annual_turnover_eur" placeholder="80000000" min="0" step="1000">
+        <div class="form-hint">Annual turnover in EUR</div>
+      </div>
+    </div>
+
+    <button onclick="runClassification()">Classify Commodity Scope</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Classification Results</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="commodityBanner"></div>
+      <div id="verdictBox"></div>
+      <div id="detailGrid"></div>
+      <div id="obligationsBox"></div>
+      <div id="flagsBox"></div>
+      <div id="hashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;margin-top:.5rem">⬇ Sign artifact (Ed25519 · §16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;margin-top:.5rem">🔏 Verify signature (§16)</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.5.0</a>
+    </div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-167-eudr-commodity-scope-classifier',
+  version: '1.0.0',
+  mcp_name: 'classify_eudr_commodity_scope',
+  title: 'EUDR Commodity Scope Classifier',
+  description: 'Classifies HS code to EUDR Annex I commodity scope (cattle, cocoa, coffee, oil palm, rubber, soya, wood). Determines operator/trader role, SME status, DDS filing obligation, and enforcement deadline.',
+  spec_version: '0.5.0',
+  chaingraph_version: '0.4.0',
+  chain: 'eudr-due-diligence-statement-validation',
+  node_position: 'terminal',
+  regulation: 'EUDR 2023/1115 Annex I',
+  mcp_tool_definition: {
+    name: 'classify_eudr_commodity_scope',
+    description: 'Classifies HS code against EUDR Annex I commodities (cattle, cocoa, coffee, oil palm, rubber, soya, wood). Returns in_scope flag, commodity name, entity_role, SME/micro status, DDS obligation, and enforcement deadline.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        hs_code: {type:'string', description:'4+ digit HS heading or subheading'},
+        entity: {
+          type: 'object',
+          properties: {
+            entity_type: {type:'string', enum:['operator','trader']},
+            employee_count: {type:'number'},
+            annual_turnover_eur: {type:'number', description:'Annual turnover in EUR'}
+          }
+        }
+      }
+    }
+  }
+};
+
+// State
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastFlags = null;
+
+// EUDR Annex I — HS heading → commodity mapping
+// Each entry: [prefix_or_range, commodity_name]
+// We match the first 4 digits of the HS code
+const ANNEX_I = [
+  // Cattle
+  {prefixes:['0102'], commodity:'cattle', description:'Live bovine animals'},
+  {prefixes:['0201','0202'], commodity:'cattle', description:'Meat of bovine animals'},
+  {prefixes:['0206'], commodity:'cattle', description:'Edible offal of bovine animals'},
+  {prefixes:['0210'], commodity:'cattle', description:'Salted/dried bovine meat'},
+  {prefixes:['1602'], commodity:'cattle', description:'Prepared/preserved bovine meat'},
+  {prefixes:['4101','4102','4103','4104','4105','4106','4107','4108','4109','4110','4111'], commodity:'cattle', description:'Raw hides, skins and leather'},
+  // Cocoa
+  {prefixes:['1801'], commodity:'cocoa', description:'Cocoa beans, whole or broken, raw or roasted'},
+  {prefixes:['1802'], commodity:'cocoa', description:'Cocoa shells, husks, skins and waste'},
+  {prefixes:['1803'], commodity:'cocoa', description:'Cocoa paste'},
+  {prefixes:['1804'], commodity:'cocoa', description:'Cocoa butter, fat and oil'},
+  {prefixes:['1805'], commodity:'cocoa', description:'Cocoa powder, not sweetened'},
+  {prefixes:['1806'], commodity:'cocoa', description:'Chocolate and other food preparations containing cocoa'},
+  // Coffee
+  {prefixes:['0901'], commodity:'coffee', description:'Coffee, roasted or not, decaffeinated or not'},
+  {prefixes:['2101'], commodity:'coffee', description:'Extracts, essences and concentrates of coffee'},
+  // Oil palm
+  {prefixes:['1207'], commodity:'oil_palm', description:'Palm nuts and kernels'},
+  {prefixes:['1511'], commodity:'oil_palm', description:'Palm oil and its fractions'},
+  {prefixes:['1513'], commodity:'oil_palm', description:'Coconut, palm-kernel or babassu oil'},
+  {prefixes:['2306'], commodity:'oil_palm', description:'Oil-cake and residues from palm nuts or kernels'},
+  // Rubber
+  {prefixes:['4001'], commodity:'rubber', description:'Natural rubber, balata, gutta-percha, guayule, chicle and similar natural gums'},
+  {prefixes:['4005','4006','4007','4008','4009','4010','4011','4012','4013','4014','4015','4016','4017'], commodity:'rubber', description:'Rubber compounds and manufactured articles of rubber'},
+  // Soya
+  {prefixes:['1201'], commodity:'soya', description:'Soya beans, whether or not broken'},
+  {prefixes:['1208'], commodity:'soya', description:'Flours and meals of oil seeds (incl. soya)'},
+  {prefixes:['2304'], commodity:'soya', description:'Soya-bean oil-cake and other solid residues'},
+  {prefixes:['1507'], commodity:'soya', description:'Soya-bean oil and its fractions'},
+  // Wood
+  {prefixes:['4401','4402','4403','4404','4405','4406','4407','4408','4409','4410','4411','4412','4413','4414','4415','4416','4417','4418','4419','4420','4421'], commodity:'wood', description:'Wood and articles of wood'},
+  {prefixes:['4701','4702','4703','4704','4705','4706','4707'], commodity:'wood', description:'Pulp of wood, paper for recycling'},
+  {prefixes:['4801','4802','4803','4804','4805','4806','4807','4808','4809','4810','4811','4812','4813','4814','4816','4817','4818','4819','4820','4821','4822','4823'], commodity:'wood', description:'Paper and paperboard'},
+  {prefixes:['9401','9402','9403'], commodity:'wood', description:'Furniture of wood'},
+];
+
+// Commodity display metadata
+const COMMODITY_META = {
+  cattle:   {label:'Cattle',   emoji:'🐄', color:'var(--gold)'},
+  cocoa:    {label:'Cocoa',    emoji:'🍫', color:'var(--warn)'},
+  coffee:   {label:'Coffee',   emoji:'☕', color:'#92400e'},
+  oil_palm: {label:'Oil Palm', emoji:'🌴', color:'var(--green)'},
+  rubber:   {label:'Rubber',   emoji:'⚙', color:'var(--muted)'},
+  soya:     {label:'Soya',     emoji:'🌱', color:'var(--teal-lt)'},
+  wood:     {label:'Wood',     emoji:'🌳', color:'#a16207'},
+};
+
+// Kernel compute()
+function compute(pp) {
+  const hs_raw = typeof pp.hs_code === 'string' ? pp.hs_code.trim() : '';
+  const entity = pp.entity || {};
+  const entity_type = entity.entity_type === 'trader' ? 'trader' : 'operator';
+  const employees = Number.isFinite(Number(entity.employee_count)) ? Number(entity.employee_count) : 0;
+  const turnover = Number.isFinite(Number(entity.annual_turnover_eur)) ? Number(entity.annual_turnover_eur) : 0;
+
+  // SME: <250 employees AND turnover ≤€50M, OR balance sheet ≤€43M (balance not collected; use turnover only)
+  // Micro: <10 employees AND turnover ≤€2M
+  const is_micro = employees > 0 && employees < 10 && turnover > 0 && turnover <= 2_000_000;
+  const is_sme = !is_micro && employees > 0 && employees < 250 && turnover > 0 && turnover <= 50_000_000;
+
+  // HS classification
+  const hs4 = hs_raw.replace(/\D/g, '').slice(0, 4);
+  let commodity = null;
+  let commodity_description = null;
+
+  for (const entry of ANNEX_I) {
+    if (entry.prefixes.some(p => hs4 === p)) {
+      commodity = entry.commodity;
+      commodity_description = entry.description;
+      break;
+    }
+  }
+
+  const in_scope = commodity !== null;
+
+  // Obligations and deadline
+  // Large operators: 2024-12-30 original; postponed to 2025-12-30 (delayed by EU); further extended to 2026-12-30 for large operators
+  // SMEs: 2026-12-30
+  // Micro operators with exemption: simplified DDS
+  let deadline = null;
+  let dds_obligation = false;
+  const obligations = [];
+
+  if (in_scope) {
+    dds_obligation = true;
+    if (entity_type === 'operator') {
+      if (is_micro) {
+        deadline = '2026-12-30';
+        obligations.push('File Due Diligence Statement in TRACES NT before placing goods on EU market');
+        obligations.push('Simplified DDS: may use postal address instead of plot-level geolocation (micro-operator exemption)');
+        obligations.push('Maintain supply chain records for 5 years');
+      } else if (is_sme) {
+        deadline = '2026-12-30';
+        obligations.push('File Due Diligence Statement in TRACES NT before placing goods on EU market');
+        obligations.push('Provide plot-level geolocation (Point for <4 ha, Polygon for ≥4 ha)');
+        obligations.push('Conduct risk assessment covering deforestation and legality');
+        obligations.push('Maintain supply chain records for 5 years');
+      } else {
+        // Large operator
+        deadline = '2025-12-30';
+        obligations.push('File Due Diligence Statement in TRACES NT before placing goods on EU market');
+        obligations.push('Provide plot-level geolocation (Point for <4 ha, Polygon for ≥4 ha)');
+        obligations.push('Conduct and document full risk assessment');
+        obligations.push('Implement risk mitigation measures if risk not negligible');
+        obligations.push('Annual reporting to competent authorities');
+        obligations.push('Maintain supply chain records for 5 years');
+      }
+    } else {
+      // Trader
+      if (is_micro || is_sme) {
+        deadline = '2026-12-30';
+        obligations.push('Collect and retain DDS reference number from operator');
+        obligations.push('Simplified regime: reference existing DDS rather than filing new one');
+        obligations.push('Maintain records for 5 years');
+      } else {
+        deadline = '2025-12-30';
+        obligations.push('Collect DDS reference numbers from upstream operators');
+        obligations.push('Verify DDS completeness before further supply chain placement');
+        obligations.push('File own DDS if sourcing directly from producers outside EU');
+        obligations.push('Maintain records for 5 years');
+      }
+    }
+  }
+
+  const compliance_flags = { EUDR_SCOPE_ASSESSED: true };
+  if (in_scope) {
+    compliance_flags.EUDR_IN_SCOPE = true;
+    compliance_flags.EUDR_DDS_REQUIRED = true;
+    if (is_micro) compliance_flags.EUDR_MICRO_ENTITY = true;
+    else if (is_sme) compliance_flags.EUDR_SME_ENTITY = true;
+    else compliance_flags.EUDR_LARGE_ENTITY = true;
+  } else {
+    compliance_flags.EUDR_OUT_OF_SCOPE = true;
+  }
+
+  return {
+    output_payload: {
+      in_scope,
+      commodity,
+      commodity_description,
+      hs4: hs4 || null,
+      entity_role: entity_type,
+      is_micro,
+      is_sme,
+      is_large: !is_micro && !is_sme && (employees >= 250 || turnover > 50_000_000),
+      dds_obligation,
+      deadline,
+      obligations,
+      employees: employees > 0 ? employees : null,
+      annual_turnover_eur: turnover > 0 ? turnover : null,
+    },
+    compliance_flags,
+  };
+}
+
+// Hash helpers
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function cgCanon(v) { if (v===null||typeof v!=='object') return v; if (Array.isArray(v)) return v.map(cgCanon); const o={}; for (const k of Object.keys(v).sort()) o[k]=cgCanon(v[k]); return o; }
+
+function getParams() {
+  return {
+    hs_code: document.getElementById('hs_code').value.trim(),
+    entity: {
+      entity_type: document.getElementById('entity_type').value,
+      employee_count: document.getElementById('employee_count').value !== '' ? Number(document.getElementById('employee_count').value) : undefined,
+      annual_turnover_eur: document.getElementById('annual_turnover_eur').value !== '' ? Number(document.getElementById('annual_turnover_eur').value) : undefined,
+    }
+  };
+}
+
+function loadPreset(key) {
+  const presets = {
+    wood_large:  { hs_code:'4407', entity_type:'operator', employees:'500', turnover:'80000000' },
+    cocoa_sme:   { hs_code:'1806', entity_type:'trader',   employees:'45',  turnover:'8000000' },
+    out_of_scope:{ hs_code:'8471', entity_type:'operator', employees:'200', turnover:'30000000' },
+  };
+  const p = presets[key]; if(!p) return;
+  document.getElementById('hs_code').value = p.hs_code;
+  document.getElementById('entity_type').value = p.entity_type;
+  document.getElementById('employee_count').value = p.employees;
+  document.getElementById('annual_turnover_eur').value = p.turnover;
+}
+
+async function runClassification() {
+  const pp = getParams();
+  const { output_payload, compliance_flags } = compute(pp);
+  const rawHash = await cgHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version: '0.4.0', spec_version: '0.5.0', compute_mode: 'browser',
+    mandate_type: 'compliance_mandate', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash: 'sha256:' + rawHash,
+    chain: { parent_hashes: [], parent_tool_ids: ['art-165-eudr-dds-field-validator','art-166-eudr-geolocation-plot-validator'], chain_depth: 2 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
+  };
+
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastFlags = compliance_flags;
+  renderResults(output_payload, compliance_flags, rawHash, artifact);
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function fmtEur(n) {
+  if (!n) return '—';
+  return new Intl.NumberFormat('de-DE', {style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+}
+
+function renderResults(op, flags, rawHash, artifact) {
+  // Hero row
+  const meta = op.commodity ? COMMODITY_META[op.commodity] : null;
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.in_scope?'var(--green)':'var(--red)'}">
+        ${op.in_scope ? 'IN SCOPE' : 'OUT'}
+      </div>
+      <div class="hero-lbl">EUDR Scope</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${meta?meta.color:'var(--muted)'};font-size:${op.commodity?'1rem':'1.8rem'};padding-top:${op.commodity?'8px':'0'}">
+        ${meta ? meta.label : '—'}
+      </div>
+      <div class="hero-lbl">Commodity</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.deadline?'var(--gold)':'var(--muted)'};font-size:${op.deadline?'.95rem':'1.8rem'};padding-top:${op.deadline?'8px':'0'}">
+        ${op.deadline || '—'}
+      </div>
+      <div class="hero-lbl">Enforcement Deadline</div>
+    </div>
+  `;
+
+  // Commodity banner
+  if (op.in_scope && meta) {
+    document.getElementById('commodityBanner').innerHTML = `
+      <div class="commodity-banner">
+        <div style="font-size:2rem">${meta.emoji}</div>
+        <div>
+          <div class="commodity-name">${meta.label}</div>
+          <div class="commodity-code">HS ${op.hs4} — ${op.commodity_description}</div>
+        </div>
+      </div>`;
+  } else {
+    document.getElementById('commodityBanner').innerHTML = '';
+  }
+
+  // Verdict
+  if (op.in_scope) {
+    document.getElementById('verdictBox').innerHTML = `<div class="verdict pass">✓ HS ${op.hs4} is within EUDR Annex I scope (${meta ? meta.label : op.commodity}). DDS filing obligation applies.</div>`;
+  } else {
+    document.getElementById('verdictBox').innerHTML = `<div class="verdict fail">✗ HS ${op.hs4 || '—'} is outside EUDR Annex I scope. No DDS filing obligation under EUDR 2023/1115.</div>`;
+  }
+
+  // Detail grid
+  const entityLabel = op.is_micro ? 'Micro Entity' : op.is_sme ? 'SME' : 'Large Entity';
+  const entityColor = op.is_micro ? 'var(--gold)' : op.is_sme ? 'var(--teal-lt)' : 'var(--text)';
+  document.getElementById('detailGrid').innerHTML = `<div class="detail-grid">
+    <div class="detail-cell"><div class="detail-key">Entity Role</div><div class="detail-val" style="text-transform:capitalize">${op.entity_role}</div></div>
+    <div class="detail-cell"><div class="detail-key">Entity Size</div><div class="detail-val" style="color:${entityColor}">${entityLabel}</div></div>
+    <div class="detail-cell"><div class="detail-key">Employees</div><div class="detail-val">${op.employees !== null ? op.employees.toLocaleString() : '—'}</div></div>
+    <div class="detail-cell"><div class="detail-key">Annual Turnover</div><div class="detail-val">${fmtEur(op.annual_turnover_eur)}</div></div>
+    <div class="detail-cell"><div class="detail-key">DDS Obligation</div><div class="detail-val" style="color:${op.dds_obligation?'var(--red)':'var(--green)'}">${op.dds_obligation?'Required':'None'}</div></div>
+    <div class="detail-cell"><div class="detail-key">Deadline</div><div class="detail-val" style="color:${op.deadline?'var(--gold)':'var(--muted)'}">${op.deadline||'—'}</div></div>
+  </div>`;
+
+  // Status badges
+  const sizeBadges = [
+    op.is_micro ? '<span class="badge warn">micro-operator</span>' : '',
+    op.is_sme ? '<span class="badge info">SME</span>' : '',
+    op.is_large ? '<span class="badge ok">large entity</span>' : '',
+  ].filter(Boolean).join('');
+  if (sizeBadges) {
+    document.getElementById('detailGrid').innerHTML += `<div style="margin-top:6px">${sizeBadges}</div>`;
+  }
+
+  // Obligations
+  if (op.obligations && op.obligations.length > 0) {
+    const items = op.obligations.map(o => `<li class="obligation-item">${o}</li>`).join('');
+    document.getElementById('obligationsBox').innerHTML = `
+      <div style="margin:12px 0">
+        <div class="form-label" style="margin-bottom:8px">EUDR obligations for this entity:</div>
+        <ul class="obligation-list">${items}</ul>
+      </div>`;
+  } else {
+    document.getElementById('obligationsBox').innerHTML = op.in_scope ? '' :
+      `<div class="verdict warn" style="margin:10px 0">No EUDR obligations apply. Confirm the HS code is correct and verify no derivative commodities are present.</div>`;
+  }
+
+  // Compliance flags
+  const fKeys = Object.entries(flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML = `<div style="margin:10px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div><div>${fKeys}</div></div>`;
+
+  // Hash
+  document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+
+  // Artifact
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact,null,2);
+  pre.style.display = 'block';
+}
+
+function exportAP2() {
+  if(!_lastArtifact) return;
+  const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};
+  dl(JSON.stringify(ap2,null,2),'art-167-eudr-commodity-scope-classifier-policy-mandate.json','application/json');
+}
+function exportArtifact() {
+  if(!_lastArtifact) return;
+  dl(JSON.stringify(_lastArtifact,null,2),'art-167-eudr-commodity-scope-classifier-artifact.json','application/json');
+}
+function exportVC() {
+  if(!_lastArtifact) return;
+  const vc = {
+    '@context': ['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],
+    type: ['VerifiableCredential','OpenChainGraphMandateCredential'],
+    issuer: 'https://ainumbers.co',
+    validFrom: _lastArtifact.generated_at,
+    credentialSubject: { id: 'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id, ..._lastArtifact }
+  };
+  dl(JSON.stringify(vc,null,2),'art-167-eudr-commodity-scope-classifier-vc.json','application/json');
+}
+function dl(data,name,type) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type})); a.download=name; a.click(); }
+
+async function signArtifact() { alert('§16 Ed25519 signing — server-side did:key endpoint required. See OpenChainGraph Spec §16.'); }
+async function verifySignature() { alert('§16 signature verification — paste signed artifact to verify Ed25519 proof.'); }
+
+function toggleMfst() {
+  const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');
+  if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}
+  else b.style.display='none';
+}
+</script>
+</body>
+</html>

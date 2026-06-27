@@ -97,6 +97,12 @@ import * as art161 from './art-161-vida-recapitulative-statement-migration-asses
 import * as art162 from './art-162-vida-platform-deemed-supplier-classifier.kernel.mjs';
 import * as art163 from './art-163-vida-oss-registration-router.kernel.mjs';
 import * as art164 from './art-164-vida-compliance-readiness-diagnostic.kernel.mjs';
+import * as art165 from './art-165-eudr-dds-field-validator.kernel.mjs';
+import * as art166 from './art-166-eudr-geolocation-plot-validator.kernel.mjs';
+import * as art167 from './art-167-eudr-commodity-scope-classifier.kernel.mjs';
+import * as art168 from './art-168-eudr-country-benchmark-risk-scorer.kernel.mjs';
+import * as art169 from './art-169-eudr-supply-chain-traceability-linker.kernel.mjs';
+import * as art170 from './art-170-eudr-readiness-diagnostic.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
@@ -291,6 +297,12 @@ export const KERNELS = {
   'art-162-vida-platform-deemed-supplier-classifier':         art162,
   'art-163-vida-oss-registration-router':                     art163,
   'art-164-vida-compliance-readiness-diagnostic':             art164,
+  'art-165-eudr-dds-field-validator':                         art165,
+  'art-166-eudr-geolocation-plot-validator':                  art166,
+  'art-167-eudr-commodity-scope-classifier':                  art167,
+  'art-168-eudr-country-benchmark-risk-scorer':               art168,
+  'art-169-eudr-supply-chain-traceability-linker':            art169,
+  'art-170-eudr-readiness-diagnostic':                        art170,
   'art-19-agentic-checkout-protocol-selector':                art19,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
