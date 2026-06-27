@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="ocg-spec-version" content="0.5.0">
+<meta name="ocg-spec-version" content="0.6.0">
 <title>OpenChainGraph Standard v0.4 — Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -148,6 +148,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s12">Compute Binding <span style="color:var(--green)">(new in v0.4)</span></a></li>
         <li><a href="#s13">Export Profiles <span style="color:var(--green)">(new in v0.4)</span></a></li>
         <li><a href="#s16">Proof Binding <span style="color:var(--green)">(new in v0.5)</span></a></li>
+        <li><a href="#s17">Kernel Identity Binding <span style="color:var(--green)">(new in v0.6)</span></a></li>
+        <li><a href="#s18">Compute-Integrity Proof <span style="color:var(--green)">(new in v0.6)</span></a></li>
         <li><a href="#s14">Changelog</a></li>
       </ol>
     </div>
@@ -948,13 +950,91 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   </div>
 </div>
 
+<!-- ═══ §17 Kernel Identity Binding ═══ -->
+<div class="section" id="s17">
+  <div class="wrap">
+    <div class="sec-num">Section 17</div>
+    <h2>Kernel Identity Binding <span style="font-size:.6em;font-weight:400;color:var(--green)">new in v0.6</span></h2>
+    <p>A node MAY publish, and an artifact MAY record, the <strong>content digest of the exact kernel that produced it</strong> — closing the §4 gap that <code>execution_hash</code> proves <em>"this output follows from these inputs by <strong>some</strong> logic"</em> but does <strong>not</strong> pin <em>which</em> logic ran.</p>
+
+    <h3>§17.0 — Home: <code>audit_signature.build_identity</code></h3>
+    <p>The binding lives at <code>audit_signature.build_identity</code> (hash-excluded, like §16 — keeps the frozen v0.4 root schema; an artifact without it is byte-identical to v0.5). It MUST carry a <code>kernel_digest</code> (a <code>sha256:</code>-prefixed digest produced by the shared <code>kernels/_buildid.mjs</code> over the kernel's canonical source bytes — UTF-8, <strong>LF-normalized</strong> — via WebCrypto SHA-256) and a <code>buildType</code> URI; <code>source_ref</code> is optional.</p>
+    <pre>build_identity = {
+  <span class="k">"kernel_digest"</span>: <span class="v">"sha256:…"</span>,   <span class="c">// SHA-256 over LF-normalized kernel source</span>
+  <span class="k">"buildType"</span>:     <span class="v">"…#WebCryptoSHA256"</span>,
+  <span class="k">"source_ref"</span>:    <span class="v">"kernels/&lt;tool_id&gt;.kernel.mjs"</span>  <span class="c">// optional</span>
+}</pre>
+
+    <h3>§17.1 — Publication + three-way cross-check</h3>
+    <p>A node SHOULD publish its kernel digest in the Graph Index node field <code>compute_images[]</code> (<code>{ system:"sha256-source", image_id:"sha256:…", valid_from }</code>). A verifier cross-checks three values — <code>artifact.audit_signature.build_identity.kernel_digest</code> == the node's <code>compute_images[].image_id</code> == <code>_buildid.digest(recomputed from source)</code>. Any mismatch FAILS the binding.</p>
+
+    <div class="callout">
+      <div class="lab">Honesty caveat (§17.2)</div>
+      <p>§17 is an <strong>advisory published claim</strong> of which kernel <em>source</em> ran — <strong>not</strong> a cryptographic proof of execution. A dishonest server could record a digest different from the code it actually executed. §17 strengthens tamper-evidence (the digest is in the secured set when §16 also applies) but does not, by itself, prove the named kernel produced the output — that is §18. It mints no new <code>execution_hash</code> and does not bump <code>chaingraph_version</code> (stays <code>"0.4.0"</code>).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ §18 Compute-Integrity Proof ═══ -->
+<div class="section" id="s18">
+  <div class="wrap">
+    <div class="sec-num">Section 18</div>
+    <h2>Compute-Integrity Proof <span style="font-size:.6em;font-weight:400;color:var(--green)">new in v0.6</span></h2>
+    <p>A node MAY attach an OPTIONAL <strong>zkVM compute-integrity proof</strong> at <code>audit_signature.compute_proof</code>, turning the §4 hash from <em>re-execute-to-verify</em> (a verifier must re-run the kernel with <strong>cleartext</strong> inputs) into a <strong>succinct proof of correct execution</strong> a verifier checks <strong>without re-execution</strong> and, optionally, <strong>without seeing the inputs</strong>. This is the §17 claim made cryptographic. It is OCG's analogue of the chained-verifiable-computation goal in <a href="https://arxiv.org/abs/2504.15717">Trusted Compute Units (arXiv:2504.15717)</a> — but deliberately <strong>software/cryptographic only: no TEE, no hardware enclave, no blockchain anchor</strong>. An artifact with no <code>compute_proof</code> is fully v0.6-conformant.</p>
+
+    <h3>§18.0 — Home + object: <code>audit_signature.compute_proof</code></h3>
+    <pre>compute_proof = {
+  <span class="k">"type"</span>:          <span class="v">"ZkVmReceipt"</span>,
+  <span class="k">"system"</span>:        <span class="v">"risc0"</span>,            <span class="c">// | "sp1" | "jolt" | … — system-agnostic</span>
+  <span class="k">"receiptFormat"</span>: <span class="v">"groth16-bn254"</span>,    <span class="c">// RECOMMENDED ~200-byte SNARK | "stark"</span>
+  <span class="k">"imageId"</span>:       <span class="v">"sha256:…"</span>,         <span class="c">// guest-program identity (ImageID / vkey)</span>
+  <span class="k">"seal"</span>:          <span class="v">"&lt;base64&gt;"</span>,         <span class="c">// proof bytes — produced OFFLINE (§18.2)</span>
+  <span class="k">"journal"</span>:       { <span class="k">"output"</span>: … }   <span class="c">// MUST equal artifact output_payload</span>
+}</pre>
+
+    <h3>§18.1 — Verification: two paths, seal delegated</h3>
+    <p>(a) <strong>§4 recompute</strong> — still valid when inputs are public; or (b) <strong>receipt verification</strong> — verify <code>seal</code> against <code>imageId</code>, valid even when inputs are withheld. Cryptographic seal-verification is <strong>DELEGATED to the named system's vetted verifier</strong> (<code>risc0</code>/<code>sp1</code> <code>verify</code>), exactly as §4 delegates SHA-256 and §16 delegates Ed25519 to WebCrypto — OCG specifies the <strong>binding</strong>, it does not re-implement a proof system. A self-contained <strong>BN254 Groth16</strong> pairing-check verifier for <code>receiptFormat:"groth16-bn254"</code> is a RECOMMENDED reference. OCG's gate (<code>compute-proof.test.mjs</code>) checks the binding: object shape, <code>imageId</code> ↔ Graph Index <code>compute_images</code>, journal ↔ <code>output_payload</code>, no new <code>execution_hash</code>, <code>chaingraph_version</code> stays <code>"0.4.0"</code>.</p>
+
+    <div class="callout">
+      <div class="lab">Proving is off-band (§18.2)</div>
+      <p>zkVM <strong>proving</strong> needs a Rust toolchain and heavy compute (multiple orders of magnitude over native — arXiv:2504.15717); it <strong>MUST NOT</strong> be claimed to run in the browser tool, the Worker (§12 compute path), or CI. A <code>compute_proof</code> is produced <strong>offline</strong> and attached; the live surfaces only <strong>verify</strong>.</p>
+    </div>
+
+    <h3>§18.3 — Confidentiality + privacy (default-off)</h3>
+    <p>When the receipt is used to <strong>withhold</strong> inputs, <code>policy_parameters</code> MAY carry commitments/hashes in place of cleartext; then §4 recompute is unavailable to third parties (only the input-holder can re-run) and the receipt becomes the sole verification path — a tool in this mode MUST surface that. Like §16, attaching a <code>compute_proof</code> links the run to a published <code>imageId</code>, so it <strong>MUST default OFF</strong>.</p>
+
+    <h3>§18.4 — The strength-of-verifiable ladder</h3>
+    <p>§17 = advisory claim of <em>which</em> kernel; §18 = cryptographic proof that <em>that</em> program produced <em>this</em> output; §16 = a named key vouching for the whole artifact. They compose: a §18 receipt MAY itself be covered by a §16 proof. <strong>L1</strong> §4 hash (tamper-evidence) → <strong>L2</strong> §16 proof (authenticated attestation) → <strong>L3</strong> §18 receipt (succinct compute-integrity, optionally confidential).</p>
+  </div>
+</div>
+
 <!-- ═══ §14 Changelog ═══ -->
 <div class="section" id="s14">
   <div class="wrap">
     <div class="sec-num">Section 14</div>
     <h2>Changelog</h2>
 
-    <h3 style="margin-top:.4rem">v0.4.1 → v0.5.0 — 2026-06-25</h3>
+    <h3 style="margin-top:.4rem">v0.5.0 → v0.6.0 — 2026-06-27</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§17 (new)</span>
+        <span class="change-desc"><strong>Kernel Identity Binding.</strong> An artifact MAY record the content digest of the kernel that produced it at <code>audit_signature.build_identity</code> (<code>{kernel_digest, buildType, source_ref?}</code>), closing the §4 gap that <code>execution_hash</code> does not pin <em>which</em> logic ran. <code>kernel_digest</code> = WebCrypto SHA-256 over the LF-normalized kernel source via the shared <code>kernels/_buildid.mjs</code>; published per-node in Graph Index <code>compute_images[]</code> and cross-checked artifact ↔ Graph Index ↔ recomputed source. Honesty caveat (§17.2): an advisory claim of which source ran, not a proof of execution.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§18 (new)</span>
+        <span class="change-desc"><strong>Compute-Integrity Proof.</strong> An artifact MAY attach an OPTIONAL zkVM receipt at <code>audit_signature.compute_proof</code> (<code>{type:"ZkVmReceipt", system, receiptFormat, imageId, seal, journal}</code>), turning the §4 hash into a succinct proof of correct execution — verifiable without re-execution and, optionally, without seeing the inputs (§18.3). OCG's analogue of <a href="https://arxiv.org/abs/2504.15717">Trusted Compute Units</a>, but software/cryptographic only (no TEE, no enclave, no chain). System-agnostic; <code>groth16-bn254</code> RECOMMENDED. Seal crypto-verify DELEGATED to the named zkVM verifier (§18.1); proving is off-band (§18.2). Default-off.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">Schema</span>
+        <span class="change-desc">Added <code>$defs.buildIdentity</code> + <code>$defs.computeProof</code>; optional <code>audit_signature.build_identity</code> + <code>audit_signature.compute_proof</code>; optional node <code>compute_images[]</code>; widened the catalog <code>spec_version</code> pattern to <code>^0\.[456]\.[0-9]+$</code>. Filename stays <code>openchain-graph-v0.4.schema.json</code>. All three fields are hash-excluded and ride under the tolerant <code>audit_signature</code> object — a v0.6 artifact still validates under the frozen v0.4 schema; hash preimage unchanged; <code>chaingraph_version</code> stays <code>"0.4.0"</code>; only <code>spec_version</code> bumps to 0.6.0.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">CI gates</span>
+        <span class="change-desc"><strong><code>kernel-identity.test.mjs</code></strong> (§17): digest determinism + LF-normalization, the three-way cross-check, tamper-detection, backward-compat. <strong><code>compute-proof.test.mjs</code></strong> (§18): binding (structure + journal↔output + imageId↔compute_images), tamper-detection, backward-compat, and that <code>verifySeal()</code> throws (seal verification is delegated, never silently skipped).</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">v0.4.1 → v0.5.0 — 2026-06-25</h3>
     <div style="margin-top:.6rem">
       <div class="change-row">
         <span class="change-ref">§16 (new)</span>

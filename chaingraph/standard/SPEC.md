@@ -1,16 +1,16 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.5.0
+spec_version: 0.6.0
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
 version_of_record: chaingraph.json#spec_version
-last_reconciled: 2026-06-22
+last_reconciled: 2026-06-27
 renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consistency.mjs)
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.5.0
+# OpenChainGraph Standard — v0.6.0
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -380,8 +380,83 @@ key MUST NOT ship in client HTML/storage). A *stable institutional* issuer SHOUL
 server-side (e.g. the §12 compute path); `did:key` and `did:web` are interoperable `verificationMethod`
 values under §16.1.
 
+## §17 Kernel Identity Binding (NORMATIVE — new in v0.6)
+A node MAY publish, and an artifact MAY record, the **content digest of the exact kernel that produced
+it** — closing the §4 gap that `execution_hash` proves *"this output follows from these inputs by **some**
+logic"* but does **not** pin *which* logic ran.
+
+**§17.0 Home + digest.** The binding lives at `audit_signature.build_identity` (hash-excluded, like §16 —
+keeps the frozen v0.4 root schema; an artifact without it is byte-identical to v0.5). It MUST carry:
+- `kernel_digest` — a `sha256:`-prefixed digest produced by the shared **`kernels/_buildid.mjs`** over the
+  kernel's canonical source bytes (the deployed `kernels/<tool_id>.kernel.mjs`, read UTF-8, **LF-normalized**,
+  no trailing-newline trimming) via WebCrypto SHA-256 (browser inlines it; Worker imports it; byte-identical);
+- `buildType` — the algorithm URI that produced the digest;
+- OPTIONAL `source_ref` — a dereferenceable URL/commit pinning the source.
+
+**§17.1 Publication + cross-check.** A node SHOULD publish its kernel digest in the Graph Index node field
+`compute_images[]` (`{ system:"sha256-source", image_id:"sha256:…", valid_from }`). A verifier cross-checks
+three values: `artifact.audit_signature.build_identity.kernel_digest` == the node's `compute_images[].image_id`
+== `_buildid.digest(recomputed from source)`. Any mismatch FAILS the binding.
+
+**§17.2 Strength (NORMATIVE honesty caveat).** §17 is an **advisory published claim**, *not* a cryptographic
+proof of execution: it asserts which kernel **source** the publisher ran and lets a verifier confirm that
+source's digest, but a dishonest server could record a digest different from the code it actually executed.
+§17 strengthens tamper-evidence (the digest is in the secured set when §16 also applies) but does **not**, by
+itself, *prove* the named kernel produced the output — that is §18's role. It MUST NOT alter `execution_hash`
+or bump `chaingraph_version` (stays `"0.4.0"`).
+
+## §18 Compute-Integrity Proof (NORMATIVE — new in v0.6)
+A node MAY attach an OPTIONAL **zkVM compute-integrity proof** at `audit_signature.compute_proof`, turning the
+§4 hash from *re-execute-to-verify* (a verifier must re-run the kernel with **cleartext** inputs) into a
+**succinct proof of correct execution** a verifier checks **without re-execution** and, optionally, **without
+seeing the inputs**. This is the §17 claim made cryptographic. It is OCG's analogue of the chained-verifiable-
+computation goal in [Trusted Compute Units (arXiv:2504.15717)](https://arxiv.org/abs/2504.15717) — but
+deliberately **software/cryptographic only: no TEE, no hardware enclave, no blockchain anchor** (OCG's
+"registry" is the published Graph Index + `imageId`, never a chain). Compute-Integrity Proof is OPTIONAL and
+holder-chosen; an artifact with no `audit_signature.compute_proof` is fully v0.6-conformant.
+
+**§18.0 Home + object.** The proof lives at `audit_signature.compute_proof` (hash-excluded; keeps the frozen
+v0.4 root schema). It MUST carry:
+- `type:"ZkVmReceipt"`;
+- `system` — the zkVM identifier (`"risc0" | "sp1" | "jolt" | …`); **system-agnostic** by design;
+- `receiptFormat` — `"groth16-bn254"` (**RECOMMENDED**: a constant ~200-byte SNARK, verifiable in
+  milliseconds in-browser/Worker/CI; the de-facto interop point both Risc0 and SP1 emit) or `"stark"`;
+- `imageId` — the zkVM program identity (Risc0 ImageID / SP1 vkey) in `sha256:`-form, pinning the exact guest
+  program (the cryptographic analogue of §17's `kernel_digest`);
+- `seal` — the standard-base64 proof bytes;
+- `journal` — the public outputs the guest committed; the journal's committed output **MUST** equal the
+  artifact `output_payload` (the proof is *about* this artifact's output).
+
+**§18.1 Verification — two paths, verifier's choice.** (a) **§4 recompute** — still valid when inputs are
+public; OR (b) **receipt verification** — verify `seal` against `imageId`, valid even when inputs are withheld.
+Cryptographic seal-verification is **DELEGATED to the named system's vetted verifier** (`risc0`/`sp1` `verify`),
+exactly as §4 delegates SHA-256 and §16 delegates Ed25519 to WebCrypto — OCG specifies the **binding**, it does
+**not** re-implement a proof system. A self-contained **BN254 Groth16** pairing-check verifier for
+`receiptFormat:"groth16-bn254"` is a **RECOMMENDED reference** so a verifier is not runtime-dependent on the
+prover vendor. OCG's gate (`compute-proof.test.mjs`, §15) checks the **binding**: object structure, `imageId`
+↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new `execution_hash`, `chaingraph_version` stays
+`"0.4.0"`.
+
+**§18.2 Proving is off-band (NORMATIVE constraint).** zkVM **proving** needs a Rust toolchain and heavy compute;
+it **MUST NOT** be claimed to run in the browser tool, the Cloudflare Worker (§12 compute path), or CI (the
+proving cost is "multiple orders of magnitude" over native — arXiv:2504.15717). A `compute_proof` is produced
+**offline** and attached; the live surfaces only **verify**. A node MUST NOT advertise in-browser proving.
+
+**§18.3 Confidentiality + privacy (NORMATIVE).** When the receipt is used to **withhold** inputs,
+`policy_parameters` MAY carry commitments/hashes in place of cleartext; then §4 recompute is **unavailable to
+third parties** (only the input-holder can re-run) and the receipt becomes the sole verification path — a tool
+in this mode MUST surface that to consumers. Like §16, attaching a `compute_proof` links the run to a published
+`imageId` (and, where co-signed, a key), so it **MUST default OFF** and MUST NOT be auto-applied.
+
+**§18.4 Relation to §16 / §17.** §17 = advisory claim of *which* kernel; §18 = cryptographic proof that *that*
+program produced *this* output; §16 = a named key vouching for the whole artifact. They compose: a §18 receipt
+MAY itself be covered by a §16 proof over the artifact. No layer mints a new `execution_hash` or bumps
+`chaingraph_version`. This completes the OCG **strength-of-verifiable ladder**: L1 §4 hash (tamper-evidence) →
+L2 §16 proof (authenticated attestation) → L3 §18 receipt (succinct compute-integrity, optionally confidential).
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.5.0 = Proof Binding (§16) over v0.4.1.
+See `standard/CHANGELOG.md`. v0.6.0 = Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM,
+software-only) over v0.5.0. v0.5.0 = Proof Binding (§16) over v0.4.1.
 v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
 v0.4.0 = Compute Binding (§12) + Export Profiles (§13) over v0.3.1. The artifact envelope and hash
 preimage are **unchanged** in v0.4.1 (export profiles are not part of the envelope) — artifacts continue
@@ -408,6 +483,8 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | /mcp handshake works | `smoke-mcp.mjs` | post-deploy |
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
+| §17 kernel identity binding: digest at `audit_signature.build_identity` ↔ Graph Index `compute_images` ↔ recomputed source, hash-excluded, no `chaingraph_version` bump | `kernel-identity.test.mjs` (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat) | validate |
+| §18 compute-integrity proof binding: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off (seal crypto-verify delegated to the named zkVM verifier per §18.1) | `compute-proof.test.mjs` (unit: binding + journal↔output + tamper-detect + backward-compat) | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

@@ -3,6 +3,40 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.6.0 — Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM)
+- **§17 Kernel Identity Binding (new, normative).** An artifact MAY record the content digest of the exact
+  kernel that produced it at `audit_signature.build_identity` (`{kernel_digest, buildType, source_ref?}`),
+  closing the §4 gap that `execution_hash` proves *"output follows from inputs by **some** logic"* but does
+  not pin *which* logic ran. `kernel_digest` = WebCrypto SHA-256 over the kernel's canonical source bytes
+  (LF-normalized) via the shared `kernels/_buildid.mjs`. A node SHOULD publish it in the Graph Index node
+  field `compute_images[]` (`system:"sha256-source"`); a verifier cross-checks artifact ↔ Graph Index ↔
+  recomputed source. **Honesty caveat (§17.2):** §17 is an *advisory published claim* of which kernel SOURCE
+  ran, not a proof of execution — that is §18.
+- **§18 Compute-Integrity Proof (new, normative).** An artifact MAY attach an OPTIONAL **zkVM receipt** at
+  `audit_signature.compute_proof` (`{type:"ZkVmReceipt", system, receiptFormat, imageId, seal, journal}`),
+  turning the §4 hash from *re-execute-to-verify* into a **succinct proof of correct execution** — verifiable
+  **without re-execution** and, optionally, **without seeing the inputs** (confidentiality, §18.3). OCG's
+  analogue of the chained-verifiable-computation goal in
+  [Trusted Compute Units (arXiv:2504.15717)](https://arxiv.org/abs/2504.15717) — but **software/cryptographic
+  only: no TEE, no hardware enclave, no blockchain anchor.** System-agnostic; `groth16-bn254` is the
+  RECOMMENDED interop receipt form (~200-byte SNARK, ms-verifiable in browser/Worker/CI — both Risc0 and SP1
+  emit it). **Seal cryptographic verification is DELEGATED** to the named zkVM's vetted verifier (§18.1),
+  exactly as §4 delegates SHA-256 and §16 delegates Ed25519 to WebCrypto; OCG specifies the **binding**, not a
+  re-implemented proof system. **Proving is off-band (§18.2):** zkVM proving needs Rust + heavy compute and
+  MUST NOT be claimed to run in the browser tool, the Worker, or CI — a `compute_proof` is produced offline
+  and attached; live surfaces only verify. Default-off (§18.3).
+- **Strength-of-verifiable ladder (§18.4).** L1 §4 hash (tamper-evidence) → L2 §16 proof (authenticated
+  attestation) → L3 §18 receipt (succinct compute-integrity, optionally confidential). The layers compose; a
+  §18 receipt MAY itself be covered by a §16 proof.
+- **Backward-compatible.** All three new fields are hash-excluded and live under the tolerant `audit_signature`
+  object — the artifact root stays `additionalProperties:false`, so a v0.6 artifact still validates under the
+  frozen v0.4 schema. Hash preimage unchanged; `chaingraph_version` stays `"0.4.0"`; an artifact carrying
+  neither `build_identity` nor `compute_proof` is byte-identical to v0.5. Only `spec_version` bumps to `0.6.0`.
+- **Schema.** Adds `$defs.buildIdentity` + `$defs.computeProof`; optional `audit_signature.build_identity` +
+  `audit_signature.compute_proof`; optional node `compute_images[]`; widens the catalog `spec_version` pattern
+  to `^0\.[456]\.[0-9]+$`. Filename stays `openchain-graph-v0.4.schema.json` (envelope unchanged).
+- Gates: `kernel-identity.test.mjs` (§17) + `compute-proof.test.mjs` (§18) — see §15.
+
 ## 0.5.0 — Proof Binding (§16) + audit_signature schema alignment
 - **§16 Proof Binding (new, normative).** A node MAY attach an OPTIONAL **W3C Data Integrity proof**
   (cryptosuite `eddsa-jcs-2022`, [Rec 2025-05](https://www.w3.org/TR/vc-di-eddsa/)) at `audit_signature.proof`,
