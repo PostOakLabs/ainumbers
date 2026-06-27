@@ -109,6 +109,12 @@ import * as art173 from './art-173-ai-system-governance-classifier.kernel.mjs';
 import * as art174 from './art-174-nist-ai-rmf-function-mapper.kernel.mjs';
 import * as art175 from './art-175-gpai-code-of-practice-conformance.kernel.mjs';
 import * as art176 from './art-176-ai-governance-readiness-diagnostic.kernel.mjs';
+import * as art177 from './art-177-ifrs17-measurement-model-classifier.kernel.mjs';
+import * as art178 from './art-178-ifrs17-csm-rollforward-validator.kernel.mjs';
+import * as art179 from './art-179-ifrs17-risk-adjustment-checker.kernel.mjs';
+import * as art180 from './art-180-solvency2-scr-ratio-calculator.kernel.mjs';
+import * as art181 from './art-181-sii-ifrs17-reconciliation-bridger.kernel.mjs';
+import * as art182 from './art-182-insurance-reporting-readiness-diagnostic.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
@@ -315,6 +321,12 @@ export const KERNELS = {
   'art-174-nist-ai-rmf-function-mapper':                      art174,
   'art-175-gpai-code-of-practice-conformance':                art175,
   'art-176-ai-governance-readiness-diagnostic':               art176,
+  'art-177-ifrs17-measurement-model-classifier':              art177,
+  'art-178-ifrs17-csm-rollforward-validator':                 art178,
+  'art-179-ifrs17-risk-adjustment-checker':                   art179,
+  'art-180-solvency2-scr-ratio-calculator':                   art180,
+  'art-181-sii-ifrs17-reconciliation-bridger':                art181,
+  'art-182-insurance-reporting-readiness-diagnostic':         art182,
   'art-19-agentic-checkout-protocol-selector':                art19,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,

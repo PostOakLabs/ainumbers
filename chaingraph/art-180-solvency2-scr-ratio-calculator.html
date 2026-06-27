@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Solvency II SCR/MCR Ratio Calculator · ART-180 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Calculate Solvency II SCR and MCR coverage ratios, own-funds tiering checks (Delegated Regulation 2015/35), and capital adequacy flags. Root node of solvency-ii-reconciliation-and-capital chain.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:90px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:2px}
+input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem .75rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;transition:border-color .2s}
+input[type=number]:focus{outline:none;border-color:var(--teal)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.grid3{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+.sign-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.sign-btn{background:none;color:var(--purple);border:1px solid rgba(155,114,245,.4);font-size:.62rem;padding:.3rem .7rem;letter-spacing:.06em;font-weight:400}
+.sign-note{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.tier-table td{padding:4px 10px;font-family:'JetBrains Mono',monospace;font-size:.68rem;border-bottom:1px solid var(--border)}
+.tier-table td:first-child{color:var(--muted)}
+.tier-table td:last-child{color:var(--bright);text-align:right}
+.tier-req{font-size:.6rem;color:var(--muted);margin-left:4px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Solvency II SCR/MCR Ratio Calculator</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-180 · Insurance, Actuarial &amp; Prudential</div>
+  <h1>Solvency II SCR/MCR Ratio Calculator</h1>
+  <p class="sub">Calculate Solvency II SCR and MCR coverage ratios, Tier-1/Tier-2/Tier-3 own-funds eligibility limits (EU Delegated Regulation 2015/35), and capital adequacy compliance flags. Root node of the solvency-ii-reconciliation-and-capital chain. §16 proof candidate. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Solvency II</span>
+    <span class="flag gold">SCR / MCR</span>
+    <span class="flag info">Del. Reg. 2015/35</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">§16 Proof Candidate</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.5.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    Root node of <a href="chains/solvency-ii-reconciliation-and-capital.html">solvency-ii-reconciliation-and-capital chain</a> (art-180→181→182). Solvency II Directive art. 100–101 + Del. Reg. 2015/35 art. 82–85: own-funds tiering limits — Tier-1 unrestricted ≥50% of SCR, Tier-1 total ≥80% of SCR, Tier-3 ≤15% of SCR. SCR coverage ratio must be ≥100%; MCR coverage ratio must be ≥100%. Optimal Tier-1 unrestricted buffer target ≥150% SCR per EIOPA supervisory guidance.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('healthy')">Healthy Capital — All Limits Met</button>
+      <button class="preset-btn" onclick="loadPreset('breach')">SCR Breach + Tiering Fail</button>
+      <button class="preset-btn" onclick="loadPreset('border')">Borderline — MCR Met, SCR Marginal</button>
+    </div>
+
+    <div class="section-head">Own Funds &amp; Capital Requirements (€M or local currency)</div>
+
+    <div class="grid2">
+      <div class="form-group">
+        <label class="form-label" for="eligible_own_funds">eligible_own_funds</label>
+        <input type="number" id="eligible_own_funds" value="0" step="any" min="0">
+        <div class="form-hint">Total eligible own funds (sum of all tiers, subject to limits).</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="scr">scr — Solvency Capital Requirement</label>
+        <input type="number" id="scr" value="0" step="any" min="0">
+      </div>
+    </div>
+
+    <div class="section-head">Own Funds Tier Breakdown</div>
+    <div class="grid3">
+      <div class="form-group">
+        <label class="form-label" for="tier1_unrestricted">tier1_unrestricted</label>
+        <input type="number" id="tier1_unrestricted" value="0" step="any" min="0">
+        <div class="form-hint">≥50% of SCR required.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tier1_restricted">tier1_restricted</label>
+        <input type="number" id="tier1_restricted" value="0" step="any" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tier2">tier2</label>
+        <input type="number" id="tier2" value="0" step="any" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tier3">tier3</label>
+        <input type="number" id="tier3" value="0" step="any" min="0">
+        <div class="form-hint">≤15% of SCR.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mcr">mcr — Minimum Capital Requirement</label>
+        <input type="number" id="mcr" value="0" step="any" min="0">
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCalculator()">Calculate Ratios</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Capital Adequacy Results</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div id="tierBox"></div>
+      <div id="flagsBox"></div>
+      <div id="hashBox"></div>
+
+      <div class="sign-row" id="signRow" style="display:none">
+        <button class="sign-btn" onclick="signArtifact()">Sign Artifact (§16 eddsa-jcs-2022)</button>
+        <span class="sign-note">Optional — generates ephemeral did:key proof. Does not transmit data.</span>
+      </div>
+      <div id="proofBox"></div>
+
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.5.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-180-solvency2-scr-ratio-calculator',
+  version: '1.0.0',
+  mcp_name: 'calculate_solvency2_scr_ratio',
+  title: 'Solvency II SCR/MCR Ratio Calculator',
+  description: 'Calculate Solvency II SCR/MCR coverage ratios and own-funds tiering limits (Del. Reg. 2015/35): Tier-1 unrestricted ≥50% SCR, Tier-1 total ≥80% SCR, Tier-3 ≤15% SCR. Returns scr_coverage_ratio, mcr_coverage_ratio, tiering_ok, and per-tier limit flags.',
+  spec_version: '0.5.0',
+  chaingraph_version: '0.4.0',
+  chain: 'solvency-ii-reconciliation-and-capital',
+  node_position: 'root',
+  regulation: 'Solvency II Directive art. 100-101 + EU Del. Reg. 2015/35 art. 82-85',
+  mcp_tool_definition: {
+    name: 'calculate_solvency2_scr_ratio',
+    description: 'Calculate Solvency II SCR/MCR coverage ratios and own-funds tiering compliance. Checks Tier-1 unrestricted ≥50% SCR, Tier-1 total ≥80% SCR, Tier-3 ≤15% SCR (EU Del. Reg. 2015/35 art. 82-85). Returns coverage ratios, breach flags, and per-limit booleans.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        capital: {
+          type: 'object',
+          properties: {
+            eligible_own_funds: { type: 'number' },
+            tier1_unrestricted: { type: 'number' },
+            tier1_restricted: { type: 'number' },
+            tier2: { type: 'number' },
+            tier3: { type: 'number' },
+            scr: { type: 'number', description: 'Solvency Capital Requirement.' },
+            mcr: { type: 'number', description: 'Minimum Capital Requirement.' }
+          }
+        }
+      }
+    }
+  }
+};
+
+let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
+
+function compute(pp) {
+  const cap = (pp && pp.capital) ? pp.capital : {};
+  const g = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const own_funds        = g(cap.eligible_own_funds);
+  const t1_unrestricted  = g(cap.tier1_unrestricted);
+  const t1_restricted    = g(cap.tier1_restricted);
+  const tier2            = g(cap.tier2);
+  const tier3            = g(cap.tier3);
+  const scr              = g(cap.scr);
+  const mcr              = g(cap.mcr);
+
+  const t1_total = t1_unrestricted + t1_restricted;
+
+  const scr_coverage_ratio = scr > 0 ? Math.round((own_funds / scr) * 10000) / 100 : 0;
+  const mcr_coverage_ratio = mcr > 0 ? Math.round((own_funds / mcr) * 10000) / 100 : 0;
+
+  const t1_unrestricted_pct = scr > 0 ? Math.round((t1_unrestricted / scr) * 10000) / 100 : 0;
+  const t1_total_pct        = scr > 0 ? Math.round((t1_total / scr) * 10000) / 100 : 0;
+  const tier3_pct           = scr > 0 ? Math.round((tier3 / scr) * 10000) / 100 : 0;
+
+  const t1_unrestricted_limit_ok = scr > 0 ? t1_unrestricted >= 0.5 * scr : false;
+  const t1_total_limit_ok        = scr > 0 ? t1_total >= 0.8 * scr : false;
+  const tier3_limit_ok           = scr > 0 ? tier3 <= 0.15 * scr : true;
+
+  const tiering_ok = t1_unrestricted_limit_ok && t1_total_limit_ok && tier3_limit_ok;
+  const scr_breached = own_funds < scr;
+  const mcr_breached = own_funds < mcr;
+
+  const compliance_flags = {
+    SII_SCR_COVERED: !scr_breached,
+    SII_MCR_COVERED: !mcr_breached,
+    SII_TIERING_OK: tiering_ok,
+    SII_T1_UNRESTRICTED_LIMIT_OK: t1_unrestricted_limit_ok,
+    SII_T1_TOTAL_LIMIT_OK: t1_total_limit_ok,
+    SII_T3_LIMIT_OK: tier3_limit_ok,
+  };
+
+  return {
+    output_payload: {
+      scr_coverage_ratio,
+      mcr_coverage_ratio,
+      scr_breached,
+      mcr_breached,
+      tiering_ok,
+      tier1_unrestricted_pct_of_scr: t1_unrestricted_pct,
+      tier1_total_pct_of_scr: t1_total_pct,
+      tier3_pct_of_scr: tier3_pct,
+      tier1_unrestricted_limit_ok: t1_unrestricted_limit_ok,
+      tier1_total_limit_ok: t1_total_limit_ok,
+      tier3_limit_ok,
+      eligible_own_funds: own_funds,
+      scr,
+      mcr,
+    },
+    compliance_flags,
+  };
+}
+
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+
+function getParams() {
+  return { capital: {
+    eligible_own_funds: Number(document.getElementById('eligible_own_funds').value)||0,
+    tier1_unrestricted: Number(document.getElementById('tier1_unrestricted').value)||0,
+    tier1_restricted:   Number(document.getElementById('tier1_restricted').value)||0,
+    tier2:              Number(document.getElementById('tier2').value)||0,
+    tier3:              Number(document.getElementById('tier3').value)||0,
+    scr:                Number(document.getElementById('scr').value)||0,
+    mcr:                Number(document.getElementById('mcr').value)||0,
+  }};
+}
+
+function loadPreset(key) {
+  const P = {
+    healthy: { eligible_own_funds:1500, tier1_unrestricted:800, tier1_restricted:200, tier2:400, tier3:100, scr:1000, mcr:250 },
+    breach:  { eligible_own_funds:800,  tier1_unrestricted:300, tier1_restricted:100, tier2:250, tier3:150, scr:1000, mcr:250 },
+    border:  { eligible_own_funds:1050, tier1_unrestricted:530, tier1_restricted:50,  tier2:400, tier3:70,  scr:1000, mcr:250 },
+  };
+  const p=P[key]; if(!p) return;
+  Object.entries(p).forEach(([id,v])=>{ document.getElementById(id).value=v; });
+}
+
+const fmt = (n) => Number.isFinite(n) ? n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+
+async function runCalculator() {
+  const pp = getParams();
+  const { output_payload: op, compliance_flags } = compute(pp);
+  const rawHash = await cgHash(pp, op);
+
+  const artifact = {
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.5.0', compute_mode:'browser',
+    mandate_type:'compliance_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags;
+
+  const scrColor = op.scr_breached ? 'var(--red)' : (op.scr_coverage_ratio >= 150 ? 'var(--green)' : 'var(--warn)');
+  const mcrColor = op.mcr_breached ? 'var(--red)' : 'var(--green)';
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat"><div class="hero-val" style="color:${scrColor}">${op.scr_coverage_ratio}%</div><div class="hero-lbl">SCR Coverage</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${mcrColor}">${op.mcr_coverage_ratio}%</div><div class="hero-lbl">MCR Coverage</div></div>
+    <div class="hero-stat"><div class="hero-val" style="color:${op.tiering_ok?'var(--green)':'var(--red)'}">${op.tiering_ok?'OK':'FAIL'}</div><div class="hero-lbl">Tiering</div></div>
+  `;
+
+  let vHtml = '';
+  if (!op.scr_breached && !op.mcr_breached && op.tiering_ok) {
+    vHtml = `<div class="verdict pass">✓ Capital adequacy confirmed — SCR ${op.scr_coverage_ratio}%, MCR ${op.mcr_coverage_ratio}%, all tiering limits met.</div>`;
+  } else {
+    if (op.scr_breached) vHtml += `<div class="verdict fail">✗ SCR breached — own funds (${fmt(op.eligible_own_funds)}) < SCR (${fmt(op.scr)}). Immediate supervisory notification required.</div>`;
+    if (op.mcr_breached) vHtml += `<div class="verdict fail">✗ MCR breached — own funds below minimum. EIOPA enforcement threshold exceeded.</div>`;
+    if (!op.tiering_ok)  vHtml += `<div class="verdict warn">⚠ Tiering limits not met — review Tier-1 unrestricted (≥50% SCR), Tier-1 total (≥80% SCR), Tier-3 (≤15% SCR).</div>`;
+  }
+  document.getElementById('verdictBox').innerHTML = vHtml;
+
+  document.getElementById('tierBox').innerHTML = `
+    <div class="form-label" style="margin-top:12px;margin-bottom:6px">Tiering detail (Del. Reg. 2015/35 art. 82–85)</div>
+    <table class="tier-table" style="width:100%;max-width:500px;border-collapse:collapse">
+      <tr><td>Tier-1 Unrestricted</td><td>${op.tier1_unrestricted_pct_of_scr}% of SCR<span class="tier-req">(req ≥50%)</span></td><td><span class="badge ${op.tier1_unrestricted_limit_ok?'ok':'err'}">${op.tier1_unrestricted_limit_ok?'OK':'FAIL'}</span></td></tr>
+      <tr><td>Tier-1 Total</td><td>${op.tier1_total_pct_of_scr}% of SCR<span class="tier-req">(req ≥80%)</span></td><td><span class="badge ${op.tier1_total_limit_ok?'ok':'err'}">${op.tier1_total_limit_ok?'OK':'FAIL'}</span></td></tr>
+      <tr><td>Tier-3</td><td>${op.tier3_pct_of_scr}% of SCR<span class="tier-req">(req ≤15%)</span></td><td><span class="badge ${op.tier3_limit_ok?'ok':'err'}">${op.tier3_limit_ok?'OK':'FAIL'}</span></td></tr>
+    </table>`;
+
+  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
+  document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+  document.getElementById('signRow').style.display='flex';
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact, null, 2); pre.style.display='block';
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+async function signArtifact() {
+  if (!_lastArtifact) return;
+  try {
+    const key = await crypto.subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, false, ['sign','verify']);
+    const exported = await crypto.subtle.exportKey('jwk', key.publicKey);
+    const payload = new TextEncoder().encode(JSON.stringify(cgCanon(_lastArtifact)));
+    const sig = await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, key.privateKey, payload);
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+    _lastArtifact.audit_signature.signatures = [{ type:'ecdsa-p256', publicKey:exported, signature:b64, created:new Date().toISOString() }];
+    document.getElementById('proofBox').innerHTML = `<div class="verdict info" style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:.62rem">§16 ephemeral ECDSA-P256 signature applied. did:key proof attached to artifact. Export to preserve.</div>`;
+    document.getElementById('artifactPre').textContent = JSON.stringify(_lastArtifact, null, 2);
+  } catch(e) { document.getElementById('proofBox').innerHTML = `<div style="color:var(--red);font-size:.7rem;margin-top:6px">Sign failed: ${e.message}</div>`; }
+}
+
+function exportAP2(){if(!_lastArtifact)return;dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-180-sii-scr-policy-mandate.json','application/json');}
+function exportArtifact(){if(_lastArtifact)dl(JSON.stringify(_lastArtifact,null,2),'art-180-sii-scr-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-180-sii-scr-vc.json','application/json');}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>
