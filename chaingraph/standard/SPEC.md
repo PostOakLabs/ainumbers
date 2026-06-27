@@ -429,13 +429,16 @@ v0.4 root schema). It MUST carry:
 
 **§18.1 Verification — two paths, verifier's choice.** (a) **§4 recompute** — still valid when inputs are
 public; OR (b) **receipt verification** — verify `seal` against `imageId`, valid even when inputs are withheld.
-Cryptographic seal-verification is **DELEGATED to the named system's vetted verifier** (`risc0`/`sp1` `verify`),
-exactly as §4 delegates SHA-256 and §16 delegates Ed25519 to WebCrypto — OCG specifies the **binding**, it does
-**not** re-implement a proof system. A self-contained **BN254 Groth16** pairing-check verifier for
-`receiptFormat:"groth16-bn254"` is a **RECOMMENDED reference** so a verifier is not runtime-dependent on the
-prover vendor. OCG's gate (`compute-proof.test.mjs`, §15) checks the **binding**: object structure, `imageId`
-↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new `execution_hash`, `chaingraph_version` stays
-`"0.4.0"`.
+For `receiptFormat:"groth16-bn254"` OCG **ships a self-contained reference verifier** (`_computeproof.mjs`
+`verifySeal`, vendored BN254 pairing math, **zero npm/runtime dep**): it reconstructs the named system's
+ReceiptClaim digest from `(imageId, journal)`, derives the Groth16 public inputs, and checks the pairing against
+the published verifying key — **chain-free** (preserving "no blockchain in the verify path") and **not
+runtime-dependent on the prover vendor**. For `receiptFormat:"stark"` seal-verification stays **DELEGATED** to
+the named system's vetted verifier (`risc0`/`sp1` `verify`), exactly as §4 delegates SHA-256 and §16 delegates
+Ed25519 to WebCrypto. OCG's gate (`compute-proof.test.mjs`, §15) **verifies a real committed Groth16-BN254
+receipt fixture** against its published `imageId` (green = a real proof verified, not structure-only) and checks
+the **binding**: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new
+`execution_hash`, `chaingraph_version` stays `"0.4.0"`.
 
 **§18.2 Proving is off-band (NORMATIVE constraint).** zkVM **proving** needs a Rust toolchain and heavy compute;
 it **MUST NOT** be claimed to run in the browser tool, the Cloudflare Worker (§12 compute path), or CI (the
@@ -484,7 +487,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
 | §17 kernel identity binding: digest at `audit_signature.build_identity` ↔ Graph Index `compute_images` ↔ recomputed source, hash-excluded, no `chaingraph_version` bump | `kernel-identity.test.mjs` (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat) | validate |
-| §18 compute-integrity proof binding: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off (seal crypto-verify delegated to the named zkVM verifier per §18.1) | `compute-proof.test.mjs` (unit: binding + journal↔output + tamper-detect + backward-compat) | validate |
+| §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

@@ -1,16 +1,21 @@
 // compute-proof.test.mjs — §18 Compute-Integrity Proof GATE (conformance-by-construction, SPEC.md §15).
-// Asserts the BINDING (OCG specifies the binding; the seal crypto-verify is DELEGATED, §18.1):
+// Asserts the BINDING and the SELF-CONTAINED BN254 Groth16 reference verifier (§18.1):
 //   (a) attach + verifyBinding round-trip for a well-formed receipt whose journal binds output_payload and
 //       whose imageId is published in compute_images; (struct) missing/!type/!format/!seal/!journal fails;
 //       (journal) journal.output != output_payload fails; (img) imageId not published fails;
 //   (d) backward-compat — attaching compute_proof mints no new execution_hash, no chaingraph_version bump,
 //       and an artifact without compute_proof has no §18 binding;
-//   (delegated) verifySeal() THROWS (no silent-skip — seal verification is delegated, not implemented).
+//   (verify) verifySeal() VERIFIES A REAL Groth16-BN254 receipt fixture (green = a real proof verified),
+//       REJECTS a tampered seal and a wrong journal, and DELEGATES (throws) for receiptFormat:"stark".
 // Node 18+.  Run:  node kernels/compute-proof.test.mjs
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
 import { attachComputeProof, verifyBinding, verifySeal, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
 import { executionHash } from './_hash.mjs';
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
 
@@ -61,10 +66,32 @@ ok(!verifyBinding(mk((c) => { c.type = 'NotAReceipt'; }), { publishedImageIds: p
 ok(!verifyBinding(mk((c) => { c.receiptFormat = 'plonk'; }), { publishedImageIds: published }), '(struct) unknown receiptFormat fails');
 ok(!verifyBinding(mk((c) => { c.imageId = ''; }), { publishedImageIds: published }), '(struct) empty imageId fails');
 
-// (delegated) §18.1 — seal crypto-verify is delegated; verifySeal MUST throw (no silent-skip).
-ok(SEAL_VERIFICATION === 'delegated', '(delegated) SEAL_VERIFICATION marker is "delegated"');
-let threw = false; try { verifySeal(); } catch { threw = true; }
-ok(threw, '(delegated) verifySeal() throws — OCG does not re-implement the proof system (§18.1)');
+// ── (verify) §18.1 — the self-contained BN254 Groth16 reference verifier on a REAL receipt ──
+// Fixture is a real RISC0_DEV_MODE=0 Groth16-BN254 receipt for the art-04 runner-guest (see fixtures/
+// compute-proof/PROVENANCE.md for the exact toolchain + command that produced it). Green here means a
+// real zkVM proof actually verified against the published ImageID — not a structure-only check.
+ok(SEAL_VERIFICATION === 'reference-verifier', '(verify) SEAL_VERIFICATION marker is "reference-verifier"');
+const FIXTURE = JSON.parse(readFileSync(resolve(HERE, 'fixtures/compute-proof/art-04-agent-identity-attestation-checker.receipt.json'), 'utf8'));
+ok(FIXTURE.receiptFormat === 'groth16-bn254' && FIXTURE.seal && FIXTURE.imageId.startsWith('sha256:'), '(verify) fixture is a groth16-bn254 receipt');
+ok(verifySeal(FIXTURE) === true, '(verify) verifySeal VERIFIES the real Groth16-BN254 receipt against its ImageID');
+
+// the real receipt must also bind to its own output_payload (full §18 chain on a real proof).
+const realArtifact = await buildArtifact(PP, { now: CREATED });
+const realProven = attachComputeProof(realArtifact, FIXTURE);
+ok(verifyBinding(realProven, { publishedImageIds: [FIXTURE.imageId] }), '(verify) real receipt binds output_payload + published ImageID');
+
+// negative — a tampered seal must be REJECTED (guards against a vacuous verifier).
+const sealBytes = Uint8Array.from(atob(FIXTURE.seal), (ch) => ch.charCodeAt(0)); sealBytes[200] ^= 0x01;
+const tampered = { ...FIXTURE, seal: btoa(String.fromCharCode(...sealBytes)) };
+ok(verifySeal(tampered) === false, '(verify) tampered seal is REJECTED');
+
+// negative — a wrong journal (different claim digest) must be REJECTED.
+const wrongJournal = structuredClone(FIXTURE); wrongJournal.journal.output.pass = 7;
+ok(verifySeal(wrongJournal) === false, '(verify) wrong journal is REJECTED');
+
+// (delegated) §18.1 — stark seal verification stays delegated to the vendor verifier (throws, no silent-skip).
+let threw = false; try { verifySeal({ ...FIXTURE, receiptFormat: 'stark' }); } catch { threw = true; }
+ok(threw, '(delegated) verifySeal() throws for receiptFormat:"stark" — vendor-delegated (§18.1)');
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all compute-proof (§18) assertions passed');
 process.exit(fail ? 1 : 0);
