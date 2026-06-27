@@ -103,6 +103,12 @@ import * as art167 from './art-167-eudr-commodity-scope-classifier.kernel.mjs';
 import * as art168 from './art-168-eudr-country-benchmark-risk-scorer.kernel.mjs';
 import * as art169 from './art-169-eudr-supply-chain-traceability-linker.kernel.mjs';
 import * as art170 from './art-170-eudr-readiness-diagnostic.kernel.mjs';
+import * as art171 from './art-171-iso42001-aims-clause-conformance.kernel.mjs';
+import * as art172 from './art-172-ai-risk-impact-assessment-validator.kernel.mjs';
+import * as art173 from './art-173-ai-system-governance-classifier.kernel.mjs';
+import * as art174 from './art-174-nist-ai-rmf-function-mapper.kernel.mjs';
+import * as art175 from './art-175-gpai-code-of-practice-conformance.kernel.mjs';
+import * as art176 from './art-176-ai-governance-readiness-diagnostic.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
@@ -303,6 +309,12 @@ export const KERNELS = {
   'art-168-eudr-country-benchmark-risk-scorer':               art168,
   'art-169-eudr-supply-chain-traceability-linker':            art169,
   'art-170-eudr-readiness-diagnostic':                        art170,
+  'art-171-iso42001-aims-clause-conformance':                 art171,
+  'art-172-ai-risk-impact-assessment-validator':              art172,
+  'art-173-ai-system-governance-classifier':                  art173,
+  'art-174-nist-ai-rmf-function-mapper':                      art174,
+  'art-175-gpai-code-of-practice-conformance':                art175,
+  'art-176-ai-governance-readiness-diagnostic':               art176,
   'art-19-agentic-checkout-protocol-selector':                art19,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
