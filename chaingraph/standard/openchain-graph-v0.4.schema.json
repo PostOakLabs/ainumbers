@@ -3,8 +3,33 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.5.0",
+  "spec_version": "0.6.0",
   "$defs": {
+    "buildIdentity": {
+      "type": "object",
+      "description": "OCG Standard §17 Kernel Identity Binding — content digest of the kernel that produced the artifact. Optional; lives at audit_signature.build_identity. Hash-excluded; does not alter execution_hash or chaingraph_version. An advisory published claim of which kernel SOURCE ran (not a proof of execution — that is §18).",
+      "additionalProperties": false,
+      "required": ["kernel_digest", "buildType"],
+      "properties": {
+        "kernel_digest": { "$ref": "#/$defs/sha256ref" },
+        "buildType": { "type": "string", "description": "Algorithm URI that produced the digest." },
+        "source_ref": { "type": "string", "description": "Optional dereferenceable URL/commit pinning the source." }
+      }
+    },
+    "computeProof": {
+      "type": "object",
+      "description": "OCG Standard §18 Compute-Integrity Proof — a zkVM receipt proving the named guest program produced output_payload. Optional; lives at audit_signature.compute_proof. Hash-excluded; does not alter execution_hash or chaingraph_version. System-agnostic; groth16-bn254 is the RECOMMENDED interop receipt form. Cryptographic seal-verification is DELEGATED to the named zkVM's vetted verifier (§18.1); this schema validates the binding shape only.",
+      "additionalProperties": false,
+      "required": ["type", "system", "receiptFormat", "imageId", "seal", "journal"],
+      "properties": {
+        "type": { "const": "ZkVmReceipt" },
+        "system": { "type": "string", "minLength": 1, "description": "zkVM identifier: risc0 | sp1 | jolt | …" },
+        "receiptFormat": { "type": "string", "enum": ["groth16-bn254", "stark"] },
+        "imageId": { "$ref": "#/$defs/sha256ref" },
+        "seal": { "type": "string", "minLength": 1, "description": "Standard-base64 proof bytes." },
+        "journal": { "type": "object", "description": "Public outputs committed by the guest; MUST bind output_payload (§18.0)." }
+      }
+    },
     "dataIntegrityProof": {
       "type": "object",
       "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version.",
@@ -103,7 +128,9 @@
             "payloadType": { "type": "string" },
             "payload": { "type": "string" },
             "signatures": { "type": "array" },
-            "proof": { "$ref": "#/$defs/dataIntegrityProof" }
+            "proof": { "$ref": "#/$defs/dataIntegrityProof" },
+            "build_identity": { "$ref": "#/$defs/buildIdentity" },
+            "compute_proof": { "$ref": "#/$defs/computeProof" }
           }
         }
       }
@@ -148,6 +175,19 @@
           "items": { "type": "string", "pattern": "^(json|pdf|xlsx|csv|vc|xbrl(:[a-z0-9:-]+)?)$" }
         },
         "conformance_fixtures": { "type": "boolean" },
+        "compute_images": {
+          "type": "array",
+          "description": "§17/§18 — published kernel/program identities for this node. system 'sha256-source' = §17 kernel-source digest; 'risc0'/'sp1'/… = §18 zkVM ImageID/vkey.",
+          "items": {
+            "type": "object",
+            "required": ["system", "image_id"],
+            "properties": {
+              "system": { "type": "string", "minLength": 1 },
+              "image_id": { "$ref": "#/$defs/sha256ref" },
+              "valid_from": { "type": "string" }
+            }
+          }
+        },
         "deadline": { "type": ["string", "null"], "description": "ISO date, or null when N/A. Catalog convention: present-as-null rather than omitted." },
         "deadline_note": { "type": "string" },
         "semantic_profile": { "type": "string", "description": "ISO 20022 alignment label (e.g. iso20022:pacs.008-subset) (§8)." },
@@ -200,7 +240,7 @@
       "description": "A chaingraph.json catalog document.",
       "required": ["spec_version", "nodes", "chains"],
       "properties": {
-        "spec_version": { "type": "string", "pattern": "^0\\.[45]\\.[0-9]+$" },
+        "spec_version": { "type": "string", "pattern": "^0\\.[456]\\.[0-9]+$" },
         "version": { "type": "string" },
         "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
         "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }

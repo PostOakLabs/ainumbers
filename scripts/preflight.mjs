@@ -41,6 +41,9 @@ const GATES = [
   ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],
   ['verify_repo (PII/sitemap/AP2)','python scripts/verify_repo.py'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
+  ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
+  ['§17 kernel identity (unit)',   'node chaingraph/kernels/kernel-identity.test.mjs'],
+  ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
 ];
 
 let failed = null;
