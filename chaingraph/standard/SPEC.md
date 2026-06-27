@@ -29,6 +29,28 @@ mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 (a) emits artifacts that validate against `openchain-graph-v0.4.schema.json`, and (b) passes every
 gate in §15. Conformance is defined by the schema + the gates, not by prose alone.
 
+## Versioning model (informative — disambiguation)
+OpenChainGraph carries **layered version identifiers**, each answering a different question. They are
+intentionally decoupled, following the in-toto/SLSA pattern in which **additive changes do not move the
+wire identifier** (a SLSA `predicateType` URI resolves to the latest minor version without changing for
+additive updates). No single one of these should be read as "the OpenChainGraph version."
+
+| Identifier | Where it lives | Answers | Current | Bumps when |
+|---|---|---|---|---|
+| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.6.0` | every release (additive or breaking) |
+| `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
+| `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
+| `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
+
+**The rule that ties them together:** every additive layer (§13.11 `vc`, §16 proof, §17 build_identity,
+§18 compute_proof) is hash-excluded and rides under `audit_signature`, so it does **not** move
+`chaingraph_version`; a v0.6 artifact therefore still validates under the frozen
+`openchain-graph-v0.4.schema.json`. So **`chaingraph_version` is the schema version (the "parse me with
+this" number), not the standard release** — the release is `spec_version`. Renaming `chaingraph_version`
+to a clearer `format_version` (or a self-describing type URI, in the in-toto style) would itself be a
+breaking envelope change, because the envelope root is `additionalProperties:false`; it is therefore
+reserved for a future major revision rather than done additively now.
+
 ## §1 Artifact envelope (NORMATIVE)
 Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields and types are fixed by
 `openchain-graph-v0.4.schema.json#/$defs/artifact` (`additionalProperties:false`).
