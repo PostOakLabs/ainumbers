@@ -290,6 +290,18 @@ footer{padding:2.4rem 0 3.4rem}
       <figcaption><b>Figure 2.</b> A real artifact. Re-running <code>art-04</code> with the same <code>policy_parameters</code> reproduces the same <code>output_payload</code> and therefore the same hash; the deployed verifier confirms the match.</figcaption>
     </figure>
     <p>To verify this artifact, a third party canonicalizes the two preimage members, takes the SHA-256, and compares against the stored value. To verify it more strongly, that party re-runs the kernel itself with the recorded <code>policy_parameters</code>, obtains the same <code>output_payload</code>, and then hashes. The second path is what distinguishes OCG from a plain checksum: the hash is reproducible because the computation is reproducible, so the artifact certifies a derivation and not merely an unchanged blob.</p>
+    <h3>3.4 · Versioning model</h3>
+    <p>One point of friction deserves a direct explanation, because an artifact carries several version numbers and none of them is the headline "v0.6." OCG uses layered version identifiers, each answering a different question, and deliberately decouples them. This follows the in-toto and SLSA convention, where a predicate's type URI resolves to the latest minor version and does not change for additive updates; the consumer-facing identifier moves only on a breaking change.</p>
+    <table class="tbl">
+      <thead><tr><th>Identifier</th><th>Answers</th><th>Current</th><th>Changes when</th></tr></thead>
+      <tbody>
+        <tr><td><code>spec_version</code> (catalog)</td><td>which OCG release is this</td><td class="n">0.6.0</td><td>every release</td></tr>
+        <tr><td><code>chaingraph_version</code> (artifact)</td><td>which schema to parse it with</td><td class="n">0.4.0</td><td>only a breaking envelope change</td></tr>
+        <tr><td><code>@context</code> URL</td><td>which JSON-LD vocabulary applies</td><td class="n">v0.3</td><td>only on a vocabulary change</td></tr>
+        <tr><td><code>payloadType</code> version</td><td>which signing-envelope shell</td><td class="n">0.2</td><td>only on a DSSE shell change</td></tr>
+      </tbody>
+    </table>
+    <p>The unifying rule: every additive layer (the verifiable-credential view of Section 7, and the proof, kernel-identity, and compute-integrity attestations of Section 6) is hash-excluded and lives under <code>audit_signature</code>, so it never moves <code>chaingraph_version</code>. A v0.6 artifact therefore still validates under the frozen v0.4 schema. Read <code>chaingraph_version</code> as the schema version ("parse me with this"), and <code>spec_version</code> as the standard release. The bare field name <code>chaingraph_version</code> is the one we would change, to a self-describing <code>format_version</code> or type URI in the in-toto style, on the next breaking envelope revision; it cannot be renamed additively because the envelope root is closed (<code>additionalProperties:false</code>).</p>
   </div>
 </section>
 
