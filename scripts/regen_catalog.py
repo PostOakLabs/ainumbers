@@ -120,9 +120,14 @@ def main():
 
     # ── mcp/server.json ──
     sj = json.load(open('mcp/server.json', encoding='utf-8'))
-    sj['tool_count'] = n
+    # tool_count = n_tools (count of tools/*.html = browser tools), NOT n (manifest count). The MCP
+    # registry descriptor + every public meta/og/schema tag advertise the browser-tool count; the
+    # extra manifests are derived/short-form with no page. verify-counts.mjs gates this field against
+    # tools.browser, so writing n here re-introduced count drift on every catalog regen (the per-wave
+    # "--fix server.json/mcp.json" churn). Keep regen and verify-counts in agreement = no drift.
+    sj['tool_count'] = n_tools
     sj['last_updated'] = TODAY
-    sj['description'] = (f"{n} browser-based fintech intelligence tools built by Post Oak Labs. "
+    sj['description'] = (f"{n_tools} browser-based fintech intelligence tools built by Post Oak Labs. "
                          f"Covers ISO 20022, A2A payments, open banking (CFPB §1033 / PSD3), "
                          f"EU AI Act, DORA, AML/KYC, BaaS, DLT/tokenization, cross-border FX, "
                          f"real-time payments, e-invoicing (Peppol/ViDA), agentic payment protocols "
@@ -136,8 +141,8 @@ def main():
     wk = json.load(open('.well-known/mcp.json', encoding='utf-8'))
     for s in wk.get('servers', []):
         if s.get('id') == 'ainumbers-fintech-suite':
-            s['tool_count'] = n
-            s['description'] = (f"{n} browser-based fintech tools — ISO 20022, A2A, CFPB §1033, "
+            s['tool_count'] = n_tools   # browser-tool count, not manifest count — see server.json note above
+            s['description'] = (f"{n_tools} browser-based fintech tools — ISO 20022, A2A, CFPB §1033, "
                                 f"EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, "
                                 f"Visa TAP, Mastercard Agent Pay), and MCP developer tooling.")
         elif s.get('id') == 'ainumbers-apps':
