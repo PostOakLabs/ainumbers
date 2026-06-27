@@ -75,12 +75,17 @@ TRANSFORMS = [
 ]
 
 # Anything matching this after transforms means the file is NOT clean.
-RESIDUAL = re.compile(r'sessionStorage|setLang\s*\(|class="lang-bar"|data-lang=')
+# NOTE: match only REAL sessionStorage USAGE (.getItem/.setItem/.removeItem/[..]),
+# not the bare word — several tools have a legit code comment like
+# "session state lives here, never in real sessionStorage", which is not toggle
+# machinery and must not block an otherwise-clean strip. The lang-bar UI markers
+# (class="lang-bar", data-lang=) are still hard residuals that must be gone.
+RESIDUAL = re.compile(r'sessionStorage\s*\.\s*(?:get|set|remove)Item|sessionStorage\s*\[|class="lang-bar"|data-lang=')
 
 
 def html_files():
     files = []
-    for sub in ("tools", "guides"):
+    for sub in ("tools", "guides", "chaingraph", "chaingraph/chains"):
         d = REPO / sub
         if d.is_dir():
             files += sorted(p for p in d.glob("*.html"))
