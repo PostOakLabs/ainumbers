@@ -45,6 +45,7 @@ const SURFACES = [
   { file: P('standard/openchain-graph-v0.4.schema.json'), label: 'JSON Schema spec_version', re: /"spec_version"\s*:\s*"([0-9.]+)"/ },
   { file: P('openchain-graph-spec.html'), label: 'spec page <meta>', re: /name=["']ocg-spec-version["']\s+content=["']([0-9.]+)["']/ },
   { file: P('chaingraph-hub.html'), label: 'hub <meta>', re: /name=["']ocg-spec-version["']\s+content=["']([0-9.]+)["']/ },
+  { file: P('ocg-industries.html'), label: 'industries page <meta>', re: /name=["']ocg-spec-version["']\s+content=["']([0-9.]+)["']/ },
   { file: process.env.GHPAGES_INDEX || P('../../chaingraph-ghpages/index.html'), label: 'GitHub Pages mirror <meta>', re: /name=["']ocg-spec-version["']\s+content=["']([0-9.]+)["']/, optional: true },
   { file: P('../.well-known/agent-card.json'), label: 'agent-card.json OCG Standard ref', re: /OpenChainGraph Standard v([0-9.]+)/, optional: true },
 ];
