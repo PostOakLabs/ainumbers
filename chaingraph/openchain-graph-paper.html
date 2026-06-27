@@ -222,6 +222,9 @@ footer{padding:2.4rem 0 3.4rem}
       </table>
       <figcaption><b>Table 1.</b> Prior art and the honest distinction. OCG is the intersection, not any single row.</figcaption>
     </figure>
+    <h3>2.5 · Theoretical lineage</h3>
+    <p>OCG's mechanisms are recombinations of well-established results, and naming that lineage is part of honest positioning. The base-layer idea, that a record's integrity can rest on a hash linking it to its inputs and to prior records, descends from the hash-linked digital timestamping of Haber and Stornetta<sup><a href="#r21">[21]</a></sup> and from Merkle's hash-tree authentication of large data sets<sup><a href="#r22">[22]</a></sup>. A ChainGraph is, in effect, a hash-linked provenance structure over decisions rather than over documents or coins. The cryptographic hash itself is SHA-256 as standardized in FIPS 180-4<sup><a href="#r26">[26]</a></sup>, and the canonical preimage is restricted to the interoperable JSON subset of RFC 7493<sup><a href="#r27">[27]</a></sup> so that serialization is unambiguous.</p>
+    <p>The optional compute-integrity layer draws on the zero-knowledge proof tradition that began with Goldwasser, Micali, and Rackoff<sup><a href="#r23">[23]</a></sup> and that modern zkVMs realize through transparent, scalable proof systems such as STARKs<sup><a href="#r24">[24]</a></sup>. The idea of composing such proofs across a workflow, so that a verifier checks a final result without re-running the whole pipeline, is the proof-carrying data model of Chiesa and Tromer<sup><a href="#r25">[25]</a></sup>, which Section 6.6 returns to. The mainstreaming of provenance as a baseline control, which made the supply-chain analogy in Section 2.1 timely, tracks frameworks such as the NIST Secure Software Development Framework<sup><a href="#r28">[28]</a></sup>.</p>
   </div>
 </section>
 
@@ -249,8 +252,8 @@ footer{padding:2.4rem 0 3.4rem}
       <figcaption><b>Figure 1.</b> The artifact envelope (abridged), with a real <code>execution_hash</code> from the worked example in Section 3.3.</figcaption>
     </figure>
     <h3>3.1 · Canonicalization is the contract</h3>
-    <p>Two implementations agree on a hash only if they serialize the preimage the same way down to the byte. OCG fixes this with the JSON Canonicalization Scheme (JCS, RFC 8785)<sup><a href="#r8">[8]</a></sup>: object keys are sorted by Unicode code point, arrays keep their order, numbers use the ECMAScript number-to-string production, strings use minimal escaping, and insignificant whitespace is removed. A single shared canonicalizer, used by both the browser tool and the server compute path, produces these bytes, and the hash is the SHA-256 of that byte string rendered as lowercase hexadecimal.</p>
-    <p>Canonicalization carries a subtle correctness condition. JCS is only well defined over the interoperable JSON subset (I-JSON), so a value that cannot round-trip, such as a non-finite number or an integer beyond the safe range of an IEEE-754 double, would canonicalize ambiguously. OCG rejects such values at hash time rather than emitting an unstable hash. The reference canonicalizer asserts the I-JSON property over the preimage and raises an error on any violation, which converts a silent reproducibility bug into a loud failure at the point of production.</p>
+    <p>Two implementations agree on a hash only if they serialize the preimage the same way down to the byte. OCG fixes this with the JSON Canonicalization Scheme (JCS, RFC 8785)<sup><a href="#r8">[8]</a></sup>: object keys are sorted by Unicode code point, arrays keep their order, numbers use the ECMAScript number-to-string production, strings use minimal escaping, and insignificant whitespace is removed. A single shared canonicalizer, used by both the browser tool and the server compute path, produces these bytes, and the hash is the SHA-256 (the Secure Hash Standard, FIPS 180-4<sup><a href="#r26">[26]</a></sup>) of that byte string rendered as lowercase hexadecimal.</p>
+    <p>Canonicalization carries a subtle correctness condition. JCS is only well defined over the interoperable JSON subset (I-JSON, RFC 7493<sup><a href="#r27">[27]</a></sup>), so a value that cannot round-trip, such as a non-finite number or an integer beyond the safe range of an IEEE-754 double, would canonicalize ambiguously. OCG rejects such values at hash time rather than emitting an unstable hash. The reference canonicalizer asserts the I-JSON property over the preimage and raises an error on any violation, which converts a silent reproducibility bug into a loud failure at the point of production.</p>
     <h4>Forbidden constructions</h4>
     <p>Several plausible-looking shortcuts produce hashes that look canonical but are not, and OCG forbids them by lint gate rather than by convention.</p>
     <ul>
@@ -368,6 +371,8 @@ footer{padding:2.4rem 0 3.4rem}
     <p>The receipt enables a mode the base layer cannot reach. When a receipt is used to withhold inputs, <code>policy_parameters</code> may carry commitments or hashes in place of cleartext, the journal exposes only the public result, and the proof attests that some private input consistent with those commitments produced that result. In this mode the Section 4 recompute path is unavailable to a third party, because the third party does not hold the inputs, and the receipt becomes the sole verification path. A tool offering this mode must say so to the consumer. Like signing, attaching a receipt links a run to a published program identity, so the layer defaults off and is never applied automatically.</p>
     <h3>6.5 · Why not TEEs</h3>
     <p>TCU combines TEEs and zkVMs. OCG adopts the zkVM leg and declines the TEE leg deliberately. A hardware enclave relocates the root of trust into silicon and a vendor attestation service, and that root has a long record of being broken by side-channel and microarchitectural attacks. A zkVM keeps the trust in mathematics and in open verifiers, which is consistent with the rest of the design. The three layers compose. A compute-integrity receipt can itself be covered by a Data Integrity signature over the whole artifact. None of the three mints a new execution hash or changes the version tag, all of them ride under the tolerant <code>audit_signature</code> object, and an artifact carrying none of them is byte-identical to a pre-version-0.6 artifact and validates under the same frozen schema.</p>
+    <h3>6.6 · Proof-carrying data: the formal frame</h3>
+    <p>The base layer and the compute-integrity layer are two points on one spectrum the literature calls proof-carrying data<sup><a href="#r25">[25]</a></sup>. In that model each node in a computation passes along, together with its output, evidence that the output was produced correctly from valid inputs, and a downstream party verifies the final evidence without re-executing the history. OCG's base layer is a degenerate instance of the model: the evidence is the recorded inputs plus the execution hash, and verification is re-execution, which is cheap to produce but linear to check and needs the inputs in the clear. The compute-integrity layer is the full instance: the evidence is a succinct zero-knowledge proof<sup><a href="#r23">[23]</a></sup>, realized in current zkVMs through transparent proof systems<sup><a href="#r24">[24]</a></sup>, and verification is sublinear and input-hiding. Framing the layers this way clarifies the design. OCG does not choose between recomputation and proof; it places them on one ladder and lets a deployer pick the rung that matches a workflow's cost and confidentiality needs.</p>
   </div>
 </section>
 
@@ -509,6 +514,14 @@ footer{padding:2.4rem 0 3.4rem}
   </div>
 </section>
 
+<section id="disclosure">
+  <div class="wrap">
+    <div class="sec-num">Disclosure</div>
+    <h2>Acknowledgment of AI Assistance</h2>
+    <p>In the interest of transparency: drafting, citation verification, derivation checking, and figure preparation were performed with substantial assistance from a large language model (Claude, Anthropic), under the author's direction. The author reviewed and takes full responsibility for all claims, derivations, and references.</p>
+  </div>
+</section>
+
 <div class="refs">
   <div class="wrap">
     <h2>References</h2>
@@ -533,6 +546,14 @@ footer{padding:2.4rem 0 3.4rem}
       <li id="r18">W3C. "Decentralized Identifiers (DIDs) v1.0." W3C Recommendation. <a href="https://www.w3.org/TR/did-core/">w3.org/TR/did-core</a>.</li>
       <li id="r19">XBRL International. "eXtensible Business Reporting Language (XBRL) 2.1." <a href="https://www.xbrl.org/">xbrl.org</a>.</li>
       <li id="r20">Post Oak Labs. "OCG Creative and Industry Application Concepts." <a href="ocg-industries.html">ainumbers.co/chaingraph/ocg-industries.html</a>.</li>
+      <li id="r21">S. Haber, W. S. Stornetta. "How to Time-Stamp a Digital Document." Journal of Cryptology, 3(2):99-111, 1991.</li>
+      <li id="r22">R. C. Merkle. "A Digital Signature Based on a Conventional Encryption Function." CRYPTO 1987, LNCS 293, pp. 369-378.</li>
+      <li id="r23">S. Goldwasser, S. Micali, C. Rackoff. "The Knowledge Complexity of Interactive Proof Systems." SIAM Journal on Computing, 18(1):186-208, 1989 (STOC 1985).</li>
+      <li id="r24">E. Ben-Sasson, I. Bentov, Y. Horesh, M. Riabzev. "Scalable, Transparent, and Post-Quantum Secure Computational Integrity." IACR ePrint 2018/046 (STARKs). <a href="https://eprint.iacr.org/2018/046">eprint.iacr.org/2018/046</a>.</li>
+      <li id="r25">A. Chiesa, E. Tromer. "Proof-Carrying Data and Hearsay Arguments from Signature Cards." Innovations in Computer Science (ICS), 2010.</li>
+      <li id="r26">National Institute of Standards and Technology. "Secure Hash Standard (SHS)." FIPS PUB 180-4, 2015. <a href="https://doi.org/10.6028/NIST.FIPS.180-4">doi.org/10.6028/NIST.FIPS.180-4</a>.</li>
+      <li id="r27">T. Bray, Ed. "The I-JSON Message Format." RFC 7493, IETF, 2015. <a href="https://www.rfc-editor.org/rfc/rfc7493">rfc-editor.org/rfc/rfc7493</a>.</li>
+      <li id="r28">National Institute of Standards and Technology. "Secure Software Development Framework (SSDF) Version 1.1." SP 800-218, 2022. <a href="https://doi.org/10.6028/NIST.SP.800-218">doi.org/10.6028/NIST.SP.800-218</a>.</li>
     </ol>
   </div>
 </div>
