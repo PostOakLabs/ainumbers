@@ -116,16 +116,15 @@ const ATTR_RULES = [
 
   // ── index.html (head meta/title — body text uses comment sentinels) ──────
   { file: 'index.html', key: 'tools.browser', label: 'meta description',
-    regex: /(content=")(\d+)( free, open-source fintech tools designed by Post Oak Labs)/,
+    regex: /(content=")(\d+)( browser-based fintech tools and )/,
   },
   { file: 'index.html', key: 'tools.browser', label: 'og:description',
-    regex: /(content=")(\d+)( free browser-based fintech tools designed by Post Oak Labs)/,
+    regex: /(content=")(\d+)( free browser-based fintech tools and )/,
   },
-  { file: 'index.html', key: 'tools.browser', label: 'twitter:description',
-    regex: /(content=")(\d+)( free browser-based fintech tools for A2A payments)/,
-  },
+  // twitter:description was removed from index.html in the hub-spoke rewrite — sentinel dropped
+  // (it was a silent NO-MATCH). Re-add a row here if the tag returns.
   { file: 'index.html', key: 'tools.browser', label: 'schema.org description',
-    regex: /(\"description\": \")(\d+)( free, open-source browser-based fintech tools for payments)/,
+    regex: /(\"description\": \")(\d+)( browser-based fintech tools and )/,
   },
 
   // ── sitemap.html ─────────────────────────────────────────────────────────
@@ -204,7 +203,12 @@ function checkAttrRules() {
         return match
       })
       if (!matched) {
-        console.warn(`NO-MATCH  ${file}  ${label}  regex did not match anything`)
+        // A declared sentinel that matches NOTHING = silent coverage loss — markup was reworded/
+        // removed and this count is now unverified (exactly how drift sneaks back undetected). FAIL
+        // it: a count that can't be located can't be verified. Fix the regex or delete the row
+        // deliberately; never warn-and-pass. (Not auto-fixable — there's nothing to substitute.)
+        console.log(`NO-MATCH  ${file}  ${label}  regex did not match anything — FAIL (update or remove this sentinel)`)
+        total++
       }
     }
     if (FIX && changed) { write(file, content); console.log(`WROTE  ${file}`) }
