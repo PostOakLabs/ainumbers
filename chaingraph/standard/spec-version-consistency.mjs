@@ -62,6 +62,48 @@ for (const s of SURFACES) {
   else console.log(`✓ ${s.label}: ${m[1]}`);
 }
 
+// ── Display-label pass (strict): human-visible OCG-standard version labels MUST track the record. ──
+// The SURFACES pass above checks the machine <meta name="ocg-spec-version"> marker. This pass checks the
+// version a HUMAN reads — nav pills, hero CTAs, page titles, footer links — which drift silently because
+// no gate watched them (this caught a phantom 0.8.0 on the industries page and v0.4.1 / v0.5.0 labels on
+// the spec + hub). Historical/feature references ("Spec v0.4.1 adds Compute Binding", "Standard v0.4.1 —
+// New in this release", "v0.4 is additive", "new in v0.5") are NOT current labels and are exempted by a
+// descriptive-context window after the version. Bare "v0.4" (two-part), the JSON-LD .../context/v0.3/...,
+// the artifact chaingraph_version "0.4.0", and the schema filename openchain-graph-v0.4.schema.json do not
+// match the three-part label patterns below, so they are never flagged.
+const FAMILY = (process.env.OCG_FAMILY_PAGES ||
+  'openchain-graph-spec.html,chaingraph-hub.html,why-openchain-graph.html,ocg-industries.html,openchain-graph-explainer.html,../mcp.html'
+).split(',').map((s) => s.trim()).filter(Boolean);
+// Each pattern denotes a CURRENT OCG standard/spec version label; the version is captured in group 1.
+const LABEL_RES = [
+  /OpenChainGraph (?:Standard|Spec) v(0\.\d+\.\d+)/g,            // page H1, footer "Standard vX", infra card "OpenChainGraph Spec vX"
+  /(?:Full\s+)?(?:Technical\s+)?Spec v(0\.\d+\.\d+)\s*(?:&rarr;|→|<)/g, // nav pills, hero/spec CTAs, footer "Spec vX" links
+  /class=["']nav-pill["'][^>]*>\s*v(0\.\d+\.\d+)/g,             // bare-version nav pill (e.g. the spec page)
+];
+// If any marker appears in the ~30 chars AFTER the version, the match is a feature/release note, not a label.
+const DESCRIPTIVE = /(adds?\b|introduc|is additive|New in\b|aligned|backward|earlier than)/i;
+console.log('\ndisplay-label pass (visible OCG-standard version labels):');
+for (const f of FAMILY) {
+  const fp = P(f);
+  if (!existsSync(fp)) { console.log(`· ${f}: (not present, skipped)`); continue; }
+  const html = readFileSync(fp, 'utf8');
+  let nLabels = 0, nBad = 0;
+  for (const re of LABEL_RES) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      if (DESCRIPTIVE.test(html.slice(re.lastIndex, re.lastIndex + 22))) continue; // historical, not a label
+      nLabels++;
+      if (m[1] !== recordVersion) {
+        console.error(`  ✗ ${f}: visible label "${m[0].trim()}" declares ${m[1]}, record is ${recordVersion}`);
+        failed++; nBad++;
+      }
+    }
+  }
+  if (nLabels && !nBad) console.log(`  ✓ ${f}: ${nLabels} version label(s), all ${recordVersion}`);
+  else if (!nLabels) console.log(`  · ${f}: no current version labels`);
+}
+
 if (process.argv.includes('--remnants')) {
   console.log('\n--remnants (warn-only): stray spec-version strings outside the allowlist');
   for (const f of ['openchain-graph-spec.html', 'chaingraph-hub.html']) {
