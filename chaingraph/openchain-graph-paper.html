@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="ocg-spec-version" content="0.6.0">
+<title>OpenChainGraph: Browser-Native, Hash-Anchored Provenance for Verifiable Agent-Callable Decisions</title>
+<meta name="description" content="A technical white paper on OpenChainGraph (OCG), an open standard for deterministic, hash-anchored, agent-callable decision artifacts that recompute in the browser. Covers the artifact envelope and execution hash, canonicalization, cross-vendor chaining, the strength-of-verifiable ladder (recompute, Data Integrity signature, zkVM compute-integrity proof), the agent interaction model, conformance-by-construction, the trust model, and a cross-domain deployment of 659 tools on three independent sites. Candid about what it does and does not prove.">
+<meta name="author" content="Tim Swanson, Post Oak Labs">
+<meta property="og:title" content="OpenChainGraph: Browser-Native, Hash-Anchored Provenance for Verifiable Agent-Callable Decisions">
+<meta property="og:description" content="Technical white paper. Deterministic, recompute-to-verify decision artifacts for the agent economy: the model, the trust ladder, the zkVM compute-integrity layer, and a candid limitations section.">
+<meta property="og:type" content="article">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/openchain-graph-paper.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ScholarlyArticle",
+  "headline": "OpenChainGraph: Browser-Native, Hash-Anchored Provenance for Verifiable Agent-Callable Decisions",
+  "author": { "@type": "Person", "name": "Tim Swanson", "affiliation": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" } },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "datePublished": "2026-06-27",
+  "version": "Draft, OCG Standard v0.6.0",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "about": ["OpenChainGraph", "verifiable computation", "decision provenance", "zero-knowledge virtual machine", "Model Context Protocol", "agentic AI", "RegTech", "supply-chain attestation"]
+}
+</script>
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6E8DAD;
+  --text:#AEC8E0; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.1); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.3);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --sky:#38BDF8; --sky-dim:rgba(56,189,248,.1);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.1);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:52px 52px;pointer-events:none;z-index:0}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.25;color:var(--white)}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+sup a{font-size:.74em;padding:0 .05em}
+.wrap{max-width:880px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.93);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:880px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:10px}
+.nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.nav-spec:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);padding:.25rem .65rem;border-radius:20px}
+.head{padding:3.6rem 0 2.2rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.head h1{font-size:clamp(1.7rem,3.4vw,2.5rem);margin-bottom:1.1rem;letter-spacing:-.01em}
+.byline{font-size:1rem;color:var(--bright)}
+.byline .aff{color:var(--body);font-size:.86rem}
+.meta-line{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;color:var(--muted);margin-top:.9rem;text-transform:uppercase}
+.draft-note{margin-top:1.3rem;background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);border-left:2px solid var(--gold);border-radius:var(--radius);padding:.7rem 1rem;font-size:.82rem;color:var(--text)}
+.draft-note b{color:var(--bright)}
+.abstract{padding:2.4rem 0;border-bottom:1px solid var(--border)}
+.abstract h2{font-size:1.05rem;font-family:'JetBrains Mono',monospace;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.abstract p{color:var(--text);font-size:.95rem;margin-bottom:1rem}
+.kw{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-top:.6rem}
+.kw b{color:var(--body)}
+.toc{padding:2rem 0;border-bottom:1px solid var(--border)}
+.toc h2{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.toc ol{list-style:none;counter-reset:s;columns:2;column-gap:2.4rem}
+.toc li{counter-increment:s;font-size:.86rem;margin-bottom:.5rem;break-inside:avoid}
+.toc li::before{content:counter(s) ". ";color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.8em}
+.toc a{color:var(--body)}.toc a:hover{color:var(--bright)}
+section{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+section h2{font-size:clamp(1.3rem,2.4vw,1.8rem);margin-bottom:1rem}
+section h3{font-size:1.12rem;margin:1.8rem 0 .7rem;color:var(--bright)}
+section h4{font-size:.96rem;margin:1.2rem 0 .5rem;color:var(--bright);font-family:'Sora',sans-serif;font-weight:500}
+section p{color:var(--body);font-size:.93rem;margin-bottom:1rem}
+section p strong,li strong{color:var(--text);font-weight:500}
+section ul,section ol{margin:0 0 1rem 1.3rem;color:var(--body);font-size:.92rem}
+section li{margin-bottom:.45rem}
+pre{background:var(--bg-2);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:var(--radius);padding:1rem 1.2rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.7;color:var(--text);margin:1.2rem 0;white-space:pre}
+pre .k{color:var(--sky)}pre .v{color:var(--teal-lt)}pre .c{color:var(--muted)}
+figure{margin:1.6rem 0}
+figcaption{font-size:.76rem;color:var(--muted);margin-top:.6rem;font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
+figcaption b{color:var(--body)}
+.fig{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.4rem}
+.tbl{width:100%;border-collapse:collapse;margin:1.4rem 0;font-size:.82rem;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.tbl th{background:var(--bg-3);color:var(--bright);text-align:left;padding:.65rem .85rem;font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.tbl td{padding:.7rem .85rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--body)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{color:var(--text)}
+.tbl td.n{font-family:'JetBrains Mono',monospace;color:var(--teal-lt);text-align:right}
+.tbl td.y{color:var(--teal-lt)}.tbl td.x{color:var(--muted)}
+.callout{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1.1rem;margin:1.2rem 0}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+.callout p{margin:0;font-size:.88rem;color:var(--text)}
+.caveat{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);border-left:2px solid var(--red);border-radius:var(--radius);padding:.85rem 1.1rem;margin:.8rem 0;font-size:.88rem;color:var(--text)}
+.caveat b{color:var(--bright)}
+.ladder{display:grid;gap:.55rem;margin:1.3rem 0}
+.rung{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:.86rem;color:var(--body)}
+.rung b{color:var(--bright)}
+.rung .tag{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal-lt);margin-right:.5rem}
+.r1{border-left:2px solid var(--muted)}.r2{border-left:2px solid var(--gold)}.r3{border-left:2px solid var(--teal)}
+.refs{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.refs h2{font-size:1.4rem;margin-bottom:1.2rem}
+.refs ol{list-style:none;counter-reset:r}
+.refs li{counter-increment:r;position:relative;padding-left:2.2rem;margin-bottom:.7rem;font-size:.82rem;color:var(--body)}
+.refs li::before{content:"["counter(r)"]";position:absolute;left:0;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.74rem}
+.refs a{color:var(--body)}.refs a:hover{color:var(--teal-lt)}
+footer{padding:2.4rem 0 3.4rem}
+.foot{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:2.2;letter-spacing:.03em}
+.foot a{color:var(--body)}.foot span{color:var(--border-2);margin:0 .2rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-spec" href="why-openchain-graph.html">Why OCG</a>
+      <a class="nav-spec" href="openchain-graph-spec.html">Tech Spec</a>
+      <span class="nav-pill">White Paper · Draft</span>
+    </div>
+  </div>
+</nav>
+
+<header class="head">
+  <div class="wrap">
+    <div class="eyebrow">Technical White Paper</div>
+    <h1>OpenChainGraph: Browser-Native, Hash-Anchored Provenance for Verifiable Agent-Callable Decisions</h1>
+    <p class="byline">Tim Swanson<br><span class="aff">Post Oak Labs · <a href="https://postoaklabs.com">postoaklabs.com</a></span></p>
+    <p class="meta-line">Draft · OCG Standard v0.6.0 · 2026-06-27 · Licensed CC BY 4.0</p>
+    <div class="draft-note"><b>Status: working draft.</b> This paper documents a deployed, evolving open standard. Every quantitative claim is taken from the live deployment and is reproducible from the public catalogs cited in Section 11; counts grow as the suites grow. Where the standard does not yet do something, the paper says so directly (Section 12).</div>
+  </div>
+</header>
+
+<section class="abstract">
+  <div class="wrap">
+    <h2>Abstract</h2>
+    <p>The emerging agent economy lets autonomous software discover and invoke third-party tools across organizational boundaries. When those tools make consequential decisions, such as a compliance verdict, a capital calculation, or a payment authorization, the consumer needs to know not only what was returned but that the result follows from stated inputs by a stated procedure, and to re-establish that fact later without trusting the producer. Existing provenance systems address adjacent problems. Software-supply-chain frameworks attest builds. Data-lineage systems track movement. Verifiable-credential systems bind claims to keys. None of them targets recomputable decision artifacts that are produced and verified inside a commodity web browser and are callable by an AI agent over a standard protocol.</p>
+    <p>We present OpenChainGraph (OCG), an open standard for deterministic, hash-anchored decision artifacts. An OCG artifact commits its policy inputs and output payload under a single canonical execution hash, computed with WebCrypto SHA-256 over an RFC 8785 canonical serialization. Any party that re-runs the producing kernel with the recorded inputs recomputes the identical hash, which establishes integrity without a signature, a key, or a trusted third party. Artifacts cite one another by hash to form a provenance graph that recomputes end to end across vendors, and every node is exposed as a Model Context Protocol tool so that agents can plan and execute a chain. OCG layers progressively stronger guarantees as an opt-in ladder: recompute-to-verify at the base, a W3C Data Integrity signature above it, and, new in version 0.6, a zero-knowledge virtual machine compute-integrity proof that a verifier checks without re-execution and, when desired, without seeing the inputs. The standard is enforced by construction. Each normative rule is bound to an executable conformance gate, and a rule with no wired gate is, by definition, not part of the standard. We report a cross-domain deployment of 659 browser-native tools across three independent sites, covering finance, education and career analytics, and observational astrophysics, all sharing one envelope, one hash rule, and one live agent endpoint. We are candid about the limits. Recompute-to-verify proves derivation, not input truth or human action; it requires inputs in the clear unless the zkVM layer is used; and the design composes public parts rather than introducing a new cryptographic primitive.</p>
+    <p class="kw"><b>Keywords:</b> verifiable computation; decision provenance; content-addressed artifacts; JSON canonicalization; zero-knowledge virtual machines; Model Context Protocol; agentic AI; RegTech; conformance-by-construction</p>
+  </div>
+</section>
+
+<div class="toc">
+  <div class="wrap">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#s1">Introduction</a></li>
+      <li><a href="#s2">Background and Related Work</a></li>
+      <li><a href="#s3">The OpenChainGraph Model</a></li>
+      <li><a href="#s4">Determinism and Compute Binding</a></li>
+      <li><a href="#s5">Chaining and Cross-Vendor Verification</a></li>
+      <li><a href="#s6">The Strength-of-Verifiable Ladder</a></li>
+      <li><a href="#s7">Export Profiles and Semantic Interoperability</a></li>
+      <li><a href="#s8">The Agent Interaction Model</a></li>
+      <li><a href="#s9">Conformance by Construction</a></li>
+      <li><a href="#s10">Threat Model and Trust</a></li>
+      <li><a href="#s11">Deployment and Evaluation</a></li>
+      <li><a href="#s12">Limitations</a></li>
+      <li><a href="#s13">Future Work</a></li>
+      <li><a href="#s14">Conclusion</a></li>
+    </ol>
+  </div>
+</div>
+
+<!-- 1 -->
+<section id="s1">
+  <div class="wrap">
+    <div class="sec-num">Section 1</div>
+    <h2>1 · Introduction</h2>
+    <p>Two developments over roughly the last eighteen months changed what software can ask of other software. The first is the Model Context Protocol (MCP)<sup><a href="#r9">[9]</a></sup>, which gave AI agents a standard way to discover and invoke external tools. An MCP host turns a language model from a text generator into an orchestrator that calls third-party capabilities and consumes their results. The second is a cluster of agentic-payment and cross-vendor trust standards, including AP2<sup><a href="#r11">[11]</a></sup>, A2A, x402, and signed-agent-request conventions<sup><a href="#r10">[10]</a></sup>, which made it concrete for one organization's agent to act on the output produced by another organization's tool. Put together, these create a requirement that did not previously have a clean answer: when an agent consumes a tool's result and acts on it, both sides want that result to behave as verifiable evidence rather than as an unaccountable assertion.</p>
+    <p>The requirement is sharpest in regulated finance, where supervisors increasingly expect demonstrable and reproducible controls instead of after-the-fact attestation. It is not confined there. Any decision a downstream party relies on, whether a credit eligibility check, a sanctions screen, a reserve-adequacy calculation, or a scientific estimate, benefits from an artifact that lets a third party re-establish, independently, that a stated output follows from stated inputs.</p>
+    <h3>1.1 · Why the usual answers are unsatisfying here</h3>
+    <p>Three established approaches to trusted output each carry a cost that OCG is built to avoid.</p>
+    <p>Signature-based trust proves who produced a result. It does not prove that the result is correct, and it transfers a key-custody burden onto the producer and a key-distribution burden onto the verifier. A signed wrong answer is still a wrong answer, now with attribution.</p>
+    <p>Hardware trusted execution environments (TEEs) attest that a given program ran inside an enclave. The guarantee is real but it rests on a hardware root of trust and on a vendor attestation service, and that root has been breached repeatedly across successive microarchitectural and side-channel disclosures. A standard that depends on enclave integrity inherits every future enclave break.</p>
+    <p>On-chain verification publishes a proof or a commitment to a blockchain. This buys public auditability at the cost of gas fees, latency, and, in the common case where inputs or proofs are posted publicly, a loss of confidentiality.</p>
+    <p>OCG starts instead from the cheapest primitive that still gives a useful guarantee, namely deterministic recomputation, and treats every stronger guarantee as an opt-in layer placed on top rather than as a precondition.</p>
+    <h3>1.2 · Contributions</h3>
+    <p>This paper makes five contributions. It describes a compact artifact model that binds decision inputs and outputs under one canonical hash and chains across vendors by citation (Sections 3 and 5). It states a determinism discipline that lets the same kernel run and verify in a browser, on a server, and in continuous integration with byte-identical results (Section 4). It defines a strength-of-verifiable ladder that adds authenticated attestation and, new in version 0.6, a zkVM compute-integrity proof as additive, backward-compatible layers (Section 6). It presents an agent interaction model in which discovery, planning, invocation, and verification all run over MCP (Section 8). And it reports a cross-domain deployment of 659 tools across three sites that gives evidence of domain generality (Section 11). Section 12 states the limits without softening them.</p>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <div class="wrap">
+    <div class="sec-num">Section 2</div>
+    <h2>2 · Background and Related Work</h2>
+    <p>OpenChainGraph is a synthesis of borrowed parts rather than a new primitive. Each ingredient already exists in an adjacent field. What is new is the combination and the target. We name the influences plainly, because honest positioning is more useful to an implementer than a novelty claim.</p>
+    <h3>2.1 · Software-supply-chain provenance</h3>
+    <p>in-toto<sup><a href="#r1">[1]</a></sup> and SLSA<sup><a href="#r2">[2]</a></sup> established the pattern OCG borrows most directly: a hash-anchored, recompute-to-verify provenance record for produced artifacts, paired with a version-independent <code>buildType</code> vocabulary that names the algorithm rather than a particular tool version. The supply-chain setting cares about which source and which builder produced a binary. OCG transplants the same idea into a different setting, where the produced thing is a financial or analytical decision, and where production and verification both happen client-side. The <code>buildType</code> idiom carries over unchanged, and OCG reuses it to name its hashing algorithm.</p>
+    <h3>2.2 · Data provenance and lineage</h3>
+    <p>The W3C PROV data model<sup><a href="#r3">[3]</a></sup> describes the provenance of data in terms of entities, activities, and agents. As the Trusted Compute Units authors note<sup><a href="#r14">[14]</a></sup>, PROV concentrates on data and not on the computations that produced it. OpenLineage<sup><a href="#r13">[13]</a></sup> records dataset movement through pipelines for observability. OCG uses PROV vocabulary in its provenance envelope and then adds the part PROV leaves out: a hash that binds the output to the inputs as a function, so a node records both what flowed and that the output is reproducible from the recorded inputs.</p>
+    <h3>2.3 · Catalogs, semantics, and credentials</h3>
+    <p>OCG expresses its discovery catalog as a W3C DCAT version 3 dataset<sup><a href="#r4">[4]</a></sup>, which makes the catalog crawlable by data portals and reporting platforms. For payment-shaped payloads it offers an optional ISO 20022 semantic crosswalk<sup><a href="#r5">[5]</a></sup>, and for regulatory filing it offers an XBRL export keyed to published taxonomies<sup><a href="#r19">[19]</a></sup>. Any artifact can be re-expressed as a W3C Verifiable Credential version 2.0<sup><a href="#r6">[6]</a></sup>, and signing keys can be named with decentralized identifiers<sup><a href="#r18">[18]</a></sup>. These are interoperability surfaces. None of them is the trust mechanism, and none of them enters the hash.</p>
+    <h3>2.4 · Verifiable computation and zkVMs</h3>
+    <p>The closest academic neighbor is Trusted Compute Units (TCU)<sup><a href="#r14">[14]</a></sup>, which frames chained verifiable computation as a technology-agnostic abstraction over heterogeneous backends. TCU combines hardware TEEs and zero-knowledge virtual machines and anchors a workflow to a blockchain registry, demonstrating end-to-end integrity across organizations through federated-learning use cases. OCG shares the goal of chaining verifiable computation across organizational boundaries, and it adopts the zkVM half of TCU's toolkit, but it diverges on three deliberate points. It is software and cryptographic only, with no TEE and no hardware enclave. It is off-chain, with the registry realized as a published catalog rather than a blockchain. And its base layer needs no proving at all, because deterministic recomputation already gives a useful integrity guarantee at zero proving cost. Where a verifier wants more, OCG turns to zkVMs such as RISC Zero<sup><a href="#r15">[15]</a></sup> and SP1<sup><a href="#r16">[16]</a></sup>, both of which can emit a Groth16 SNARK<sup><a href="#r17">[17]</a></sup> for cheap downstream verification, and it declines the TEE leg on purpose (Section 6.5). Content-provenance efforts such as C2PA<sup><a href="#r12">[12]</a></sup> solve an analogous problem for media through signed manifests over assets, which is a different object than a recomputable decision.</p>
+    <figure>
+      <table class="tbl">
+        <thead><tr><th>Ingredient</th><th>Prior art</th><th>How OCG differs</th></tr></thead>
+        <tbody>
+          <tr><td>Hash-anchored, recompute-to-verify provenance</td><td>in-toto, SLSA<sup><a href="#r1">[1]</a><a href="#r2">[2]</a></sup></td><td class="y">Applied to decision artifacts, produced and verified in-browser</td></tr>
+          <tr><td>Computation provenance vocabulary</td><td>W3C PROV<sup><a href="#r3">[3]</a></sup></td><td class="y">PROV envelope plus a binding hash over inputs and output</td></tr>
+          <tr><td>Chained verifiable computation framework</td><td>Trusted Compute Units<sup><a href="#r14">[14]</a></sup></td><td class="y">Software only (no TEE), off-chain, recompute base layer</td></tr>
+          <tr><td>Signed cross-vendor receipts and mandates</td><td>AP2<sup><a href="#r11">[11]</a></sup></td><td class="y">Computation-trust first; the key signature is optional</td></tr>
+          <tr><td>Lineage graph</td><td>OpenLineage<sup><a href="#r13">[13]</a></sup></td><td class="y">Recomputable decision receipts, not movement observability</td></tr>
+        </tbody>
+      </table>
+      <figcaption><b>Table 1.</b> Prior art and the honest distinction. OCG is the intersection, not any single row.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <div class="wrap">
+    <div class="sec-num">Section 3</div>
+    <h2>3 · The OpenChainGraph Model</h2>
+    <p>An OCG artifact is a JSON document with a fixed envelope. The integrity anchor is a single field, <code>execution_hash</code>, defined as a WebCrypto SHA-256 over the canonical serialization of exactly one pair of members, <code>policy_parameters</code> and <code>output_payload</code>, and nothing else. The remaining envelope fields are metadata that travel with the artifact but stay outside the hash.</p>
+    <figure>
+      <pre>{
+  <span class="k">"@context"</span>: <span class="v">"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld"</span>,
+  <span class="k">"chaingraph_version"</span>: <span class="v">"0.4.0"</span>,
+  <span class="k">"mandate_type"</span>: <span class="v">"compliance_mandate"</span>,
+  <span class="k">"tool_id"</span>: <span class="v">"art-04-agent-identity-attestation-checker"</span>,
+  <span class="k">"tool_version"</span>: <span class="v">"1.0.0"</span>,
+  <span class="k">"generated_at"</span>: <span class="v">"2026-06-27T12:00:00Z"</span>,
+  <span class="k">"buildType"</span>: <span class="v">"https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256"</span>,
+  <span class="k">"execution_hash"</span>: <span class="v">"63e5ab2beeec9efeb1e77c3da265eb049160a271fa98096ce8bebf2dbb838677"</span>,
+  <span class="k">"chain"</span>: { <span class="k">"parent_hashes"</span>: [], <span class="k">"parent_tool_ids"</span>: [], <span class="k">"chain_depth"</span>: <span class="v">0</span> },
+  <span class="k">"policy_parameters"</span>: { <span class="c">// half of the hash preimage: every decision input lives here</span> },
+  <span class="k">"output_payload"</span>:    { <span class="c">// half of the hash preimage: the decision itself</span> },
+  <span class="k">"audit_signature"</span>:   { <span class="c">// optional attestations: §16 proof, §17 build_identity, §18 compute_proof</span> }
+}</pre>
+      <figcaption><b>Figure 1.</b> The artifact envelope (abridged), with a real <code>execution_hash</code> from the worked example in Section 3.3.</figcaption>
+    </figure>
+    <h3>3.1 · Canonicalization is the contract</h3>
+    <p>Two implementations agree on a hash only if they serialize the preimage the same way down to the byte. OCG fixes this with the JSON Canonicalization Scheme (JCS, RFC 8785)<sup><a href="#r8">[8]</a></sup>: object keys are sorted by Unicode code point, arrays keep their order, numbers use the ECMAScript number-to-string production, strings use minimal escaping, and insignificant whitespace is removed. A single shared canonicalizer, used by both the browser tool and the server compute path, produces these bytes, and the hash is the SHA-256 of that byte string rendered as lowercase hexadecimal.</p>
+    <p>Canonicalization carries a subtle correctness condition. JCS is only well defined over the interoperable JSON subset (I-JSON), so a value that cannot round-trip, such as a non-finite number or an integer beyond the safe range of an IEEE-754 double, would canonicalize ambiguously. OCG rejects such values at hash time rather than emitting an unstable hash. The reference canonicalizer asserts the I-JSON property over the preimage and raises an error on any violation, which converts a silent reproducibility bug into a loud failure at the point of production.</p>
+    <h4>Forbidden constructions</h4>
+    <p>Several plausible-looking shortcuts produce hashes that look canonical but are not, and OCG forbids them by lint gate rather than by convention.</p>
+    <ul>
+      <li>Array-replacer key sorting, such as passing <code>Object.keys(x).sort()</code> as the replacer argument to a stringify call, sorts only the top level and leaves nested objects in insertion order. It is a frequent and quiet source of cross-implementation drift.</li>
+      <li>Substituting a non-cryptographic digest, such as a 32-bit string hash, for SHA-256 and labeling the result <code>sha256:</code> defeats the integrity claim while preserving its appearance.</li>
+      <li>Hashing a reduced or pretty-printed object that differs from the stored <code>output_payload</code> breaks recomputation for anyone who hashes what was actually stored.</li>
+      <li>Embedding the hash inside the object that is hashed creates a self-reference that cannot be reproduced.</li>
+    </ul>
+    <h3>3.2 · The preimage and only the preimage</h3>
+    <p>Folding every decision input into <code>policy_parameters</code> is a discipline, not a suggestion. If a kernel reads a value that is not in the preimage, a verifier who has only the recorded inputs cannot reproduce the output. The rule is therefore that the kernel is a pure function of <code>policy_parameters</code> and writes its entire result to <code>output_payload</code>. Everything else in the envelope, including the timestamp, the context URL, the version tag, and any later attestation, sits outside the preimage so that adding or changing it never disturbs the hash.</p>
+    <h3>3.3 · A worked example</h3>
+    <p>The following artifact was produced by the deployed agent-identity attestation kernel (node <code>art-04</code>) and is reproduced here verbatim, including its real hash. The kernel checks an agent credential against a set of Know-Your-Agent rules and returns a pass, warn, and fail tally.</p>
+    <figure>
+      <pre><span class="c">// policy_parameters (the full preimage input)</span>
+{
+  <span class="k">"credential"</span>: {
+    <span class="k">"credential_type"</span>: <span class="v">"AgentCredential"</span>, <span class="k">"agent_id"</span>: <span class="v">"agent-7f3a"</span>,
+    <span class="k">"issuer"</span>: <span class="v">"did:key:z6MkExampleIssuer"</span>,
+    <span class="k">"issued_at"</span>: <span class="v">1750000000</span>, <span class="k">"expires_at"</span>: <span class="v">1781536000</span>,
+    <span class="k">"scopes"</span>: [<span class="v">"read:account"</span>, <span class="v">"initiate:payment"</span>], <span class="k">"signature"</span>: <span class="v">"ed25519:zSig"</span>
+  },
+  <span class="k">"validate_at_unix"</span>: <span class="v">1751000000</span>
+}
+
+<span class="c">// output_payload (the decision)</span>
+{
+  <span class="k">"overall_status"</span>: <span class="v">"warn"</span>, <span class="k">"pass"</span>: <span class="v">5</span>, <span class="k">"fail"</span>: <span class="v">0</span>, <span class="k">"warn"</span>: <span class="v">3</span>,
+  <span class="k">"checks"</span>: [ {<span class="k">"code"</span>:<span class="v">"KYA-T01"</span>,<span class="k">"status"</span>:<span class="v">"pass"</span>}, <span class="c">/* ... */</span> {<span class="k">"code"</span>:<span class="v">"KYA-EU1"</span>,<span class="k">"status"</span>:<span class="v">"warn"</span>} ],
+  <span class="k">"root_agent_id"</span>: <span class="v">"agent-7f3a"</span>, <span class="k">"scopes"</span>: [<span class="v">"read:account"</span>, <span class="v">"initiate:payment"</span>]
+}
+
+<span class="c">// execution_hash = SHA-256( JCS({ policy_parameters, output_payload }) )</span>
+<span class="v">63e5ab2beeec9efeb1e77c3da265eb049160a271fa98096ce8bebf2dbb838677</span></pre>
+      <figcaption><b>Figure 2.</b> A real artifact. Re-running <code>art-04</code> with the same <code>policy_parameters</code> reproduces the same <code>output_payload</code> and therefore the same hash; the deployed verifier confirms the match.</figcaption>
+    </figure>
+    <p>To verify this artifact, a third party canonicalizes the two preimage members, takes the SHA-256, and compares against the stored value. To verify it more strongly, that party re-runs the kernel itself with the recorded <code>policy_parameters</code>, obtains the same <code>output_payload</code>, and then hashes. The second path is what distinguishes OCG from a plain checksum: the hash is reproducible because the computation is reproducible, so the artifact certifies a derivation and not merely an unchanged blob.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <div class="wrap">
+    <div class="sec-num">Section 4</div>
+    <h2>4 · Determinism and Compute Binding</h2>
+    <p>Recompute-to-verify is only as good as the determinism of the kernel. OCG's reference implementation enforces determinism through a deployment discipline rather than trusting authors to be careful. Each tool is a single self-contained HTML page that computes in the browser with no network calls after load, no persistent storage of any kind, and no personally identifiable data. The decision logic is a pure kernel, a function from inputs to output, with no clock, no source of randomness, and no input or output side effect on the hash path.</p>
+    <h3>4.1 · One kernel, three runtimes</h3>
+    <p>The same kernel module is shared, byte for byte, between the browser page and a server-side compute path, a property OCG calls compute binding. An agent that prefers a single round trip can call the server path and receive a complete, hash-anchored artifact without ever opening the page, and the result is identical to what the page would have produced because the code and the canonicalizer are the same module imported in two runtimes. WebCrypto provides SHA-256 in browsers, in the Cloudflare Workers runtime, and in Node, so the canonicalizer runs unchanged in all three, including the continuous-integration environment that gates releases.</p>
+    <h3>4.2 · The kernel contract</h3>
+    <p>A server-computable node ships a kernel that exports three things: a pure <code>compute</code> function, an <code>async buildArtifact</code> that wraps the output in the envelope and computes the hash, and a small metadata record. Two properties are checked mechanically. Every node that declares a server compute capability must ship a registered kernel, and a missing kernel fails the build rather than degrading to a browser-only fallback. Every kernel must return a finite, I-JSON-valid result even on empty input, which a dedicated gate verifies by invoking each kernel with an empty object and rejecting any non-finite value. The second check exists because an unguarded division or logarithm that yields infinity or not-a-number would break canonicalization and, with it, reproducibility.</p>
+    <div class="callout"><div class="lab">Why browser-native matters</div><p>Producing and verifying in a commodity browser removes a backend from the trust story. There is no server to operate, no data egress, and no server-side state. The verifier's trust assumption shrinks to two clauses: SHA-256 is collision resistant, and my own browser executed the math. That is a smaller assumption than trusting the producer's infrastructure, and it is what makes the zero-egress, zero-PII posture credible rather than aspirational.</p></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <div class="wrap">
+    <div class="sec-num">Section 5</div>
+    <h2>5 · Chaining and Cross-Vendor Verification</h2>
+    <p>A single artifact certifies one decision. Real workflows compose decisions, often across organizational boundaries, and OCG composes artifacts the same way it secures them, by hash.</p>
+    <h3>5.1 · Edges are citations</h3>
+    <p>A consuming stage records, in its <code>chain</code> object, the <code>execution_hash</code> of each parent it depends on, the parents' tool identifiers, and a depth value set to one more than the greatest parent depth. A root artifact has an empty parent list and depth zero. The edges of the resulting directed acyclic graph are cryptographic citations rather than editorial references, so a chain is not a story about how data moved; it is a set of hashes that either reproduce or do not.</p>
+    <figure class="fig">
+      <svg viewBox="0 0 760 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto" font-family="JetBrains Mono, monospace">
+        <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2DD4BF"/></marker></defs>
+        <rect x="14" y="44" width="150" height="42" rx="6" fill="#0D1627" stroke="#1E2F4A"/>
+        <text x="89" y="62" fill="#D4E8F8" font-size="11" text-anchor="middle">node A</text>
+        <text x="89" y="77" fill="#3A5270" font-size="8.5" text-anchor="middle">hash hA · depth 0</text>
+        <rect x="300" y="14" width="150" height="42" rx="6" fill="#0D1627" stroke="#1E2F4A"/>
+        <text x="375" y="32" fill="#D4E8F8" font-size="11" text-anchor="middle">node B</text>
+        <text x="375" y="47" fill="#3A5270" font-size="8.5" text-anchor="middle">parent hA · depth 1</text>
+        <rect x="300" y="74" width="150" height="42" rx="6" fill="#0D1627" stroke="#1E2F4A"/>
+        <text x="375" y="92" fill="#D4E8F8" font-size="11" text-anchor="middle">node C</text>
+        <text x="375" y="107" fill="#3A5270" font-size="8.5" text-anchor="middle">parent hA · depth 1</text>
+        <rect x="592" y="44" width="154" height="42" rx="6" fill="#111E35" stroke="#14B8A6"/>
+        <text x="669" y="62" fill="#D4E8F8" font-size="11" text-anchor="middle">node D</text>
+        <text x="669" y="77" fill="#2DD4BF" font-size="8.5" text-anchor="middle">parents hB,hC · depth 2</text>
+        <line x1="164" y1="60" x2="298" y2="38" stroke="#2DD4BF" stroke-width="1.3" marker-end="url(#ar)"/>
+        <line x1="164" y1="70" x2="298" y2="92" stroke="#2DD4BF" stroke-width="1.3" marker-end="url(#ar)"/>
+        <line x1="450" y1="36" x2="590" y2="58" stroke="#2DD4BF" stroke-width="1.3" marker-end="url(#ar)"/>
+        <line x1="450" y1="94" x2="590" y2="72" stroke="#2DD4BF" stroke-width="1.3" marker-end="url(#ar)"/>
+      </svg>
+      <figcaption><b>Figure 3.</b> A ChainGraph. Each artifact cites its parents by hash. Verifying node D's provenance recomputes the entire upstream graph.</figcaption>
+    </figure>
+    <h3>5.2 · The verification algorithm</h3>
+    <p>To verify a chain rooted at a final artifact, a consumer walks the graph from that artifact toward its roots. For each artifact it confirms two things: that recomputing the SHA-256 over the artifact's own preimage reproduces its <code>execution_hash</code>, and that every value listed in <code>parent_hashes</code> equals the <code>execution_hash</code> of an artifact it has obtained and checked. The walk succeeds only if every node reproduces and every cited parent hash resolves. Because a child's stored parent hash is the parent's own computed hash, any modification anywhere upstream changes a hash and breaks the citation that points at it, so tampering is detected at the first altered node regardless of how deep it sits.</p>
+    <h3>5.3 · Why this works across vendors</h3>
+    <p>Nothing in the procedure requires the verifier to trust, or even contact, the organizations that produced the upstream artifacts. The artifacts are self-certifying: each carries its inputs, its output, and a hash that a verifier reproduces locally. A bank consuming a counterparty's screening artifact, which in turn cited a data vendor's enrichment artifact, can reconstruct and re-verify the full provenance from the artifacts alone. The base layer's one cost, which Section 5.4 and Section 6 address, is that this reconstruction requires re-execution and requires the inputs to be present.</p>
+    <h3>5.4 · The cost the base layer pays</h3>
+    <p>Recompute-to-verify has two honest weaknesses at the base layer. Verifying a deep chain means re-running every stage, with no shortcut, and re-running a stage means holding its inputs in the clear. Both are acceptable for many workflows and unacceptable for some, which is precisely why OCG offers stronger layers above the base rather than forcing every user onto one mechanism. The compute-integrity proof of Section 6.4 removes both weaknesses at once, at the price of off-line proving.</p>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <div class="wrap">
+    <div class="sec-num">Section 6</div>
+    <h2>6 · The Strength-of-Verifiable Ladder</h2>
+    <p>No single mechanism serves every verifier. One party wants cheap, anonymous, keyless integrity. Another wants a named party to vouch for an artifact. A third wants a succinct proof that also hides the inputs. OCG offers all three as additive, opt-in attestations, each living under the <code>audit_signature</code> object and each excluded from the hash. Adding an attestation never changes the <code>execution_hash</code>, and an artifact that carries no attestation is still fully conformant.</p>
+    <div class="ladder">
+      <div class="rung r1"><span class="tag">L1 · §4</span><b>Execution hash, tamper-evidence.</b> Recompute the kernel and match the SHA-256. No key, no signer, no trusted party. It establishes that the output follows from the inputs by some procedure.</div>
+      <div class="rung r2"><span class="tag">L2 · §16</span><b>Proof binding, authenticated attestation.</b> An optional W3C Data Integrity proof<sup><a href="#r7">[7]</a></sup> signs the whole artifact, so a named key vouches for it. The signature covers the artifact, so it also secures the hash transitively.</div>
+      <div class="rung r3"><span class="tag">L3 · §18</span><b>Compute-integrity proof, succinct and optionally confidential.</b> An optional zkVM receipt proves the named program produced this output, verifiable without re-execution and, when desired, without revealing the inputs.</div>
+    </div>
+    <h3>6.1 · Layer 2, the Data Integrity signature</h3>
+    <p>Proof binding attaches a proof object at <code>audit_signature.proof</code> using the <code>eddsa-jcs-2022</code> cryptosuite, an Ed25519 signature over a JCS-canonicalized document, in the standard W3C Data Integrity pipeline. The secured document is the full artifact with the proof object removed, so a signature is never part of its own input. Generation hashes the canonical proof options and the canonical document separately, concatenates the two digests, and signs the concatenation; verification reverses the steps. The canonicalizer is the same one used for the execution hash, so there is no second serialization path and the forbidden constructions of Section 3.1 stay forbidden here as well. Because the execution hash sits inside the secured document, a whole-artifact signature transitively secures the Section 4 anchor. The verification method is a decentralized identifier: a <code>did:key</code> for ephemeral, fully client-side signing, where a private key must never be shipped in page or storage, or a <code>did:web</code> for a stable institutional issuer whose key lives in a hardware security module and signs on the server compute path.</p>
+    <h3>6.2 · Layer between L2 and L3, kernel identity</h3>
+    <p>The execution hash proves that the output follows from the inputs by some logic, but it does not pin which logic ran. Kernel identity binding closes that gap as a published claim. The artifact records, at <code>audit_signature.build_identity</code>, the SHA-256 digest of the exact kernel source that produced it, computed over line-normalized source bytes by the same shared digest helper, and a node publishes that digest in its catalog entry. A verifier cross-checks three values: the digest in the artifact, the digest published in the catalog, and the digest recomputed from the deployed source. We are explicit about the strength of this claim. It is advisory. It lets a verifier confirm which source the publisher states ran, but a dishonest server could record a digest different from the code it actually executed. Cryptographic proof that the named program produced the output is the job of the next layer.</p>
+    <h3>6.3 · Layer 3, the compute-integrity proof</h3>
+    <p>Compute-integrity proof, new in version 0.6, turns the Section 4 hash from re-execute-to-verify into a succinct proof of correct execution. A node may attach, at <code>audit_signature.compute_proof</code>, a zkVM receipt with a small fixed shape: a type tag, a system identifier such as <code>risc0</code> or <code>sp1</code>, a receipt format, an image identifier that names the exact guest program (a RISC Zero ImageID or an SP1 verifying key), the proof bytes, and a journal of public outputs. The journal's committed output must equal the artifact's <code>output_payload</code>, which is what binds the proof to this particular artifact rather than to some other run of the same program.</p>
+    <h4>Verification, with the cryptography delegated</h4>
+    <p>A verifier has two paths and chooses between them. It can recompute per Section 4 when the inputs are public, or it can verify the receipt against the image identifier, which works even when the inputs are withheld. The cryptographic seal check is delegated to the named system's own vetted verifier, in the same way that Section 4 delegates SHA-256 and Section 6.1 delegates Ed25519 to WebCrypto. OCG specifies the binding and does not reimplement a proof system. Its conformance gate checks that the receipt is well formed, that its image identifier matches the one the node publishes, that the journal binds the output, that no new execution hash is minted, and that the version tag is unchanged. The recommended receipt format is a Groth16 SNARK over the BN254 curve, a constant-size proof of roughly two hundred bytes that verifies in milliseconds, because both RISC Zero and SP1 can produce it and it has become the practical interoperability point across zkVMs. A self-contained pairing-check verifier for that format is recommended so that a verifier is not dependent at run time on the prover's vendor.</p>
+    <h4>Proving runs off-line</h4>
+    <p>zkVM proving needs a Rust toolchain and substantial compute, and the proving cost runs orders of magnitude above native execution<sup><a href="#r14">[14]</a></sup>. OCG therefore states a hard constraint: proving must not be claimed to run in the browser tool, in the Cloudflare Workers compute path, or in continuous integration. A receipt is produced off-line and attached, and the live surfaces only verify.</p>
+    <h3>6.4 · Confidentiality</h3>
+    <p>The receipt enables a mode the base layer cannot reach. When a receipt is used to withhold inputs, <code>policy_parameters</code> may carry commitments or hashes in place of cleartext, the journal exposes only the public result, and the proof attests that some private input consistent with those commitments produced that result. In this mode the Section 4 recompute path is unavailable to a third party, because the third party does not hold the inputs, and the receipt becomes the sole verification path. A tool offering this mode must say so to the consumer. Like signing, attaching a receipt links a run to a published program identity, so the layer defaults off and is never applied automatically.</p>
+    <h3>6.5 · Why not TEEs</h3>
+    <p>TCU combines TEEs and zkVMs. OCG adopts the zkVM leg and declines the TEE leg deliberately. A hardware enclave relocates the root of trust into silicon and a vendor attestation service, and that root has a long record of being broken by side-channel and microarchitectural attacks. A zkVM keeps the trust in mathematics and in open verifiers, which is consistent with the rest of the design. The three layers compose. A compute-integrity receipt can itself be covered by a Data Integrity signature over the whole artifact. None of the three mints a new execution hash or changes the version tag, all of them ride under the tolerant <code>audit_signature</code> object, and an artifact carrying none of them is byte-identical to a pre-version-0.6 artifact and validates under the same frozen schema.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <div class="wrap">
+    <div class="sec-num">Section 7</div>
+    <h2>7 · Export Profiles and Semantic Interoperability</h2>
+    <p>A verifiable artifact is useful only if the systems around it can read it. OCG defines export profiles, which are generated renderings produced after the execution hash and excluded from the preimage. An export is a view, never a fact. A single read-only export tool emits XLSX, CSV, PDF, an XBRL document keyed to a regulator taxonomy, and a Verifiable Credential. Each export embeds the canonical hash and a link back to the JSON, none of them mints a new hash, and each is deterministic, so the same artifact renders byte-identical bytes every time. Verification always routes back to the canonical artifact.</p>
+    <h3>7.1 · XBRL without invented concepts</h3>
+    <p>The XBRL profile maps payload fields to published taxonomy elements on a per-regime basis, with pilots for the European Banking Authority own-funds and liquidity templates, and it never fabricates a taxonomy concept. Where no regulator taxonomy exists for a quantity, the profile uses an explicit extension element rather than pretending a standard concept applies. The intent is that a filing produced from an OCG artifact can be checked against the regulator's own taxonomy, not merely against OCG's claims about it.</p>
+    <h3>7.2 · The credential view</h3>
+    <p>The Verifiable Credential profile re-expresses an artifact as a W3C Verifiable Credential version 2.0 document. It maps the envelope to credential fields and carries a hash anchor that restates the canonical execution hash, so a credential consumer can route back to the canonical JSON and re-verify. The profile is available on every node, because a lossless structural re-expression always exists, and it deliberately mints no securing proof of its own. A deployer who needs a secured credential adds an enveloping proof downstream, and the proof binding of Section 6.1 provides exactly that mechanism over the canonical artifact.</p>
+    <h3>7.3 · The catalog as an orchestration recipe</h3>
+    <p>The discovery catalog is a DCAT version 3 dataset, which makes it crawlable by data portals and reporting platforms. Beyond cataloging, the catalog carries the edges an agent needs to plan. Each node declares what it consumes and what it feeds, and those edges are the machine-readable map an agent reads before it calls anything, so it can assemble a full chain in advance rather than discovering dependencies by trial. Payment-shaped nodes additionally carry an ISO 20022 crosswalk for amounts, parties, and agents, and every node declares its profile conformance with the W3C Profiles vocabulary, asserting only what it truthfully conforms to so that a non-payment node carries no payment profile. None of these surfaces enters the preimage, so a verifier written for the base envelope computes identical hashes regardless of which overlays are present.</p>
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <div class="wrap">
+    <div class="sec-num">Section 8</div>
+    <h2>8 · The Agent Interaction Model</h2>
+    <p>OCG is built for two readers at once, a human at a page and an agent at a protocol. The human face of a capability is a tool, a single self-contained page. The machine face of the same capability is a node, an entry in the catalog with a stable identifier, an MCP tool name, an input schema, and the promise to emit a hash-anchored artifact. The two are the same computation behind two interfaces, and they share the same kernel.</p>
+    <h3>8.1 · Discover, plan, call, verify</h3>
+    <p>An agent works the catalog in four steps. It discovers nodes by reading the DCAT catalog, which lists every node, its inputs, and its consumes and feeds edges. It plans a chain by following those edges, ordering the nodes so that each one's inputs are available before it runs. It calls each node over MCP, passing inputs and receiving a complete artifact, including the execution hash, in a single round trip through the server compute path. It verifies by recomputing the hash, or by checking an attached attestation, before it acts on the result or passes it downstream.</p>
+    <h3>8.2 · One round trip to a verifiable result</h3>
+    <p>Compute binding is what makes step three cheap for an agent. Because the kernel runs server-side as well as in the page, the agent does not need to drive a browser or scrape a result; it calls the MCP tool, the server executes the same kernel, and the response is the artifact the page would have produced. The export tool is exposed the same way, as a single read-only call that takes a full artifact and a format and returns the rendered bytes, so an agent can obtain a filing-ready document without leaving the protocol.</p>
+    <h3>8.3 · A note on vocabulary</h3>
+    <p>There is one collision worth flagging for MCP-native readers. In MCP, the callable thing is itself called a tool. OCG re-layers that word, using tool for the human page and node for the agent surface. The distinction is deliberate, because the two faces differ in real ways, but it is bespoke, and a reader who lives in MCP's vocabulary should keep it in mind.</p>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <div class="wrap">
+    <div class="sec-num">Section 9</div>
+    <h2>9 · Conformance by Construction</h2>
+    <p>A standard that exists only as prose drifts away from its implementation. OCG's central methodological claim is that conformance is defined by an executable gate suite and not by prose. The normative specification carries a matrix in which every normative rule names at least one gate, an on-disk script that checks it. A meta-gate parses that matrix and fails if any rule lacks a wired gate, so a contributor cannot add a requirement to the standard without also wiring the automation that enforces it. Stated plainly, a rule with no live gate is not part of the standard.</p>
+    <h3>9.1 · What the gates cover</h3>
+    <p>The suite spans the canonicalization lints of Section 3.1, schema validation of the envelope and the catalog node object, an offline test that confirms a kernel's <code>buildArtifact</code> reproduces its own hash, a single-version-of-record check that every public surface declares the same standard version, catalog and surface parity checks that every node has a page and every count agrees, a uniqueness check on MCP tool names, chain-integrity validation, and, for the version-0.6 attestation layers, sign-and-verify round trips, tamper detection, determinism, and backward-compatibility checks. A subset runs after deployment against the live endpoint. A sweep re-verifies that every deployed node still recomputes a valid hash, and a smoke test performs a real protocol handshake, because a green build does not prove that a live endpoint answers.</p>
+    <h3>9.2 · The incident that motivated it</h3>
+    <p>The discipline is not abstract. It is the institutional response to a real failure, in which a canonicalization rule was documented but had no end-to-end gate that exercised it on the deployed surface, and several implementations drifted to incompatible hashes before anyone noticed. The remediation consolidated all hashing onto one shared canonicalizer, added the forbidden-construction lint, and, most importantly, added the meta-rule that a normative requirement without a gate is rejected at review time. A related class of failure, the documented-but-not-executed gate, is guarded the same way: a unit test can exist in the tree yet never run, so the release pipeline now invokes each attestation gate explicitly, and during the preparation of this paper one such gate was found to be present but unwired and was connected to the pipeline.</p>
+    <div class="callout"><div class="lab">Design consequence</div><p>Because the schema and the gates are the source of truth, conformance is a decidable property rather than a matter of interpretation. An implementation conforms if and only if it validates against the published schema and passes every gate. The prose in this paper explains; the gates decide.</p></div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <div class="wrap">
+    <div class="sec-num">Section 10</div>
+    <h2>10 · Threat Model and Trust</h2>
+    <p>The property the base layer defends is integrity of derivation. Given an artifact, a verifier can establish that the recorded output is what the recorded kernel produces from the recorded inputs. Stating the adversary makes the boundary precise.</p>
+    <h3>10.1 · Adversary and defenses</h3>
+    <p>Consider an adversary who can present an artifact and can tamper with any field in it, who can stand up a server that returns artifacts, and who may have stolen a signing key. The base layer detects any modification of inputs, output, or chain edges, because each of those changes the hash or breaks a cited parent hash. It does so without trusting the producer, because the verifier reproduces the hash locally. What the base layer does not defend follows just as precisely. It does not prove the inputs are true, so an adversary who feeds false but well-formed inputs gets a faithfully hashed false conclusion. It does not prove which kernel ran, which is the gap kernel identity addresses as a published claim and the compute-integrity proof addresses cryptographically. It does not prove a human acted on the result. And it provides no confidentiality at the base layer, because reproduction requires the inputs.</p>
+    <h3>10.2 · Specific attacks</h3>
+    <ul>
+      <li><b>Input or output tampering.</b> Detected at L1. Any altered preimage member changes the hash, and any altered upstream artifact breaks the child's parent-hash citation.</li>
+      <li><b>Kernel substitution.</b> A server that runs different code than it claims is not caught by L1 alone. Kernel identity (Section 6.2) surfaces it as a digest mismatch when the source is checkable, and the compute-integrity proof (Section 6.3) rules it out cryptographically by binding the image identifier of the program that actually ran.</li>
+      <li><b>Replay and substitution of a valid artifact.</b> The artifact is bound to its inputs and to its parents, so reusing it in a context with different inputs fails the parent-hash and journal checks. Binding an artifact to a wall-clock or a nonce, where that matters, is done by folding the value into <code>policy_parameters</code> so the hash anchors it.</li>
+      <li><b>Key compromise at L2.</b> A stolen signing key lets an adversary forge attestations, which is the standard key-custody risk the signature layer inherits. It does not let the adversary forge a correct derivation, because L1 still requires the output to reproduce from the inputs. This is the reason the signature is an addition to, not a replacement for, the hash.</li>
+    </ul>
+    <h3>10.3 · Privacy posture</h3>
+    <p>The default posture is anonymous. Inputs stay client-side and contain no personally identifiable data, and a base artifact names no one. Each attestation trades some of that anonymity for a stronger claim. A signature links a run to a key, and a compute-integrity proof links it to a published program identity. Both are therefore default-off, and a tool that offers them must surface the trade so a user chooses it knowingly rather than inheriting it silently.</p>
+    <figure>
+      <table class="tbl">
+        <thead><tr><th>Mechanism</th><th>Proves</th><th>Hides inputs</th><th>No re-exec</th><th>Root of trust</th></tr></thead>
+        <tbody>
+          <tr><td>OCG L1, execution hash</td><td>Derivation integrity</td><td class="x">no</td><td class="x">no</td><td class="y">math (SHA-256)</td></tr>
+          <tr><td>OCG L2, signature<sup><a href="#r7">[7]</a></sup></td><td>plus named-key attestation</td><td class="x">no</td><td class="x">no</td><td>math plus key custody</td></tr>
+          <tr><td>OCG L3, zkVM proof<sup><a href="#r15">[15]</a><a href="#r16">[16]</a></sup></td><td>plus correct execution</td><td class="y">optional</td><td class="y">yes</td><td class="y">math (ZKP)</td></tr>
+          <tr><td>TEE attestation</td><td>Code ran in enclave</td><td class="y">yes</td><td class="y">yes</td><td class="x">hardware plus vendor</td></tr>
+          <tr><td>On-chain ZKP<sup><a href="#r14">[14]</a></sup></td><td>Correct execution</td><td class="x">often public</td><td class="y">yes</td><td>chain consensus plus gas</td></tr>
+        </tbody>
+      </table>
+      <figcaption><b>Table 2.</b> Trust mechanisms compared. OCG climbs the ladder only as far as a verifier requires, and never depends on a hardware enclave or a blockchain.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 11 -->
+<section id="s11">
+  <div class="wrap">
+    <div class="sec-num">Section 11</div>
+    <h2>11 · Deployment and Evaluation</h2>
+    <p>OCG is not a proposal. It is deployed, and its claims are reproducible from public catalogs. The reference suite, AINumbers.co, exposes 487 browser-native tools, of which 204 are OCG nodes wired into 228 chains, backed by 208 shared deterministic kernels and a live MCP endpoint that registers 228 agent-callable tools alongside interactive widgets, prompts, and utilities. The same standard, the same envelope, the same hash rule, and the same canonicalizer are deployed without modification on two sister sites in unrelated fields.</p>
+    <figure>
+      <table class="tbl">
+        <thead><tr><th>Site</th><th>Domain</th><th class="n">Tools</th><th>OCG specifics</th></tr></thead>
+        <tbody>
+          <tr><td>AINumbers.co</td><td>Finance, RegTech</td><td class="n">487</td><td>204 nodes, 228 chains, 208 kernels, live MCP</td></tr>
+          <tr><td>ApexLogics.org</td><td>Education, career</td><td class="n">146</td><td>Same envelope and hash rule, own MCP catalog</td></tr>
+          <tr><td>OmegaCentauri.me</td><td>Astrophysics</td><td class="n">26</td><td>Peer-reviewed and speculative registers, Bayesian evidence ledger</td></tr>
+          <tr><td><b>Total</b></td><td><b>3 independent domains</b></td><td class="n"><b>659</b></td><td>One standard, three vocabularies</td></tr>
+        </tbody>
+      </table>
+      <figcaption><b>Table 3.</b> Cross-domain deployment, live counts as of 2026-06-27, reproducible from each site's public catalog. Counts grow as the suites grow.</figcaption>
+    </figure>
+    <h3>11.1 · Domain generality is the result</h3>
+    <p>The cross-domain spread is the substantive finding. A finance compliance verdict, an education-financing return estimate, and an astrophysical mass constraint share nothing in their domain vocabularies, yet each emits the same hash-anchored, recomputable, agent-callable artifact. The standard is therefore not tuned to finance; finance is simply where it was first built out in depth.</p>
+    <h3>11.2 · An adversarial case for over-claiming</h3>
+    <p>The astrophysics deployment is worth dwelling on because it stresses the design against the temptation to overstate. Its tools separate a peer-reviewed register, meaning citable published science, from a speculative register, meaning engineering extrapolation beyond established results, and they label every tool accordingly. Its flagship evidence ledger aggregates competing lines of evidence for and against an intermediate-mass black hole in Omega Centauri using a Bayesian log-odds account, and it deliberately preserves an unresolved tension between two published mass bounds rather than collapsing them into one convenient number. A provenance standard ought to make that kind of epistemic honesty easy to express, and the same hash-anchored artifact that records a compliance decision records "here is the evidence, here is the weighting, here is the result, recompute it yourself" equally well.</p>
+    <h3>11.3 · Operational gates</h3>
+    <p>Every deployment is gated. The full conformance suite runs before publication, and after each deploy a sweep re-verifies that each live node recomputes a valid hash and a smoke test confirms that the agent endpoint completes a real handshake. The suite also enforces a single version of record across every public surface, so the version a human reads on the specification page, the version a machine reads from the schema, and the version the catalog declares cannot drift apart silently.</p>
+  </div>
+</section>
+
+<!-- 12 -->
+<section id="s12">
+  <div class="wrap">
+    <div class="sec-num">Section 12</div>
+    <h2>12 · Limitations</h2>
+    <p>A standard that lists only strengths is not credible. OCG does not do everything, and it should not be sold as if it does.</p>
+    <div class="caveat"><b>Derivation, not truth.</b> Recompute-to-verify proves that an output follows from inputs by a procedure. It says nothing about whether the inputs were true, whether the procedure was the right one, or whether anyone acted on the result.</div>
+    <div class="caveat"><b>Inputs in the clear at the base.</b> Verification at L1 and L2 requires the recorded inputs. Confidentiality arrives only at L3, which depends on off-line zkVM proving, is not a one-click in-browser operation, and is not yet adopted by any production node. Version 0.6 defines and gates the receipt binding; wiring an actual prover for specific nodes remains future work.</div>
+    <div class="caveat"><b>Kernel identity is advisory.</b> Absent a compute-integrity receipt, the kernel-identity binding lets a verifier confirm which source the publisher claims ran, but does not cryptographically prove that the claimed kernel produced the output.</div>
+    <div class="caveat"><b>A synthesis, not a new primitive.</b> OCG introduces no new cryptography. Its defensibility is execution, coverage, and standard-shaping, not a patent or a network effect. Better-resourced incumbents in adjacent verifiability could enter the space.</div>
+    <div class="caveat"><b>Bespoke vocabulary, one real collision.</b> OCG re-layers familiar terms, and notably reuses the word tool for the human page while MCP uses it for the callable. The mapping is deliberate but must be learned.</div>
+    <div class="caveat"><b>Demand is still emerging.</b> Agent-verifiable decision provenance is a 2025 to 2026 narrative. The regulatory pull toward demonstrable evidence is real and growing, but the buyer who requires a recomputable decision hash today is an early adopter rather than the mainstream.</div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section id="s13">
+  <div class="wrap">
+    <div class="sec-num">Section 13</div>
+    <h2>13 · Future Work</h2>
+    <p>Two directions are concrete. The first is per-node adoption of the compute-integrity layer. Version 0.6 defines and gates the receipt binding, but no production node yet emits a receipt. The natural next step is to wire a real zkVM proving pipeline for a small set of high-value kernels, to ship a self-contained pairing-check verifier for the recommended receipt format so that verification does not depend on the prover vendor at run time, and to enable server-side <code>did:web</code> signing for stable institutional issuers.</p>
+    <p>The second direction is likely to interest a broader audience, namely applications outside finance. The same primitive, a recomputable, hash-anchored, chainable artifact, generalizes well beyond compliance. Candidate areas include reproducibility ledgers for scientific results, where a published figure cites the artifact that produced it; provenance for physical supply chains and trade documents, where each handoff is a node; content authenticity for AI-generated media, where a disclosure is an artifact rather than a watermark; and replayable state for games and generative art, where a seed and its derivation are the artifact. We maintain a separate catalog of these concept clusters and the OCG primitives each one uses<sup><a href="#r20">[20]</a></sup>. Each is an opportunity to test whether browser-native, recompute-to-verify provenance fits where heavier verifiable-computation stacks have been too costly to adopt.</p>
+  </div>
+</section>
+
+<!-- 14 -->
+<section id="s14">
+  <div class="wrap">
+    <div class="sec-num">Section 14</div>
+    <h2>14 · Conclusion</h2>
+    <p>OpenChainGraph takes a well-understood pattern, hash-anchored recompute-to-verify provenance, and applies it to a problem the agent economy has only recently made urgent: decisions that one party produces and another, sometimes an autonomous agent, has to trust independently. The base layer asks for the smallest plausible trust assumption, deterministic recomputation in the verifier's own browser, and adds named-key attestation and zkVM compute-integrity as opt-in, additive, backward-compatible layers, never a hardware enclave and never a blockchain. It is enforced by an executable conformance suite rather than by prose, and it is deployed across three unrelated fields and 659 tools. It is not a new cryptographic primitive, it does not prove that inputs are true, and it says both of those things plainly. What it offers is a small, honest, browser-native unit of verifiable decision provenance that an agent can discover, call, and check, and that a third party can re-establish without trusting anyone.</p>
+  </div>
+</section>
+
+<div class="refs">
+  <div class="wrap">
+    <h2>References</h2>
+    <ol>
+      <li id="r1">S. Torres-Arias, H. Afzali, T. Kuppusamy, R. Curtmola, J. Cappos. "in-toto: Providing Farm-to-Table Guarantees for Bits and Bytes." USENIX Security Symposium, 2019.</li>
+      <li id="r2">SLSA, Supply-chain Levels for Software Artifacts, version 1.0. <a href="https://slsa.dev/spec/v1.0/">slsa.dev/spec/v1.0</a>.</li>
+      <li id="r3">W3C. "PROV-DM: The PROV Data Model." W3C Recommendation, 2013. <a href="https://www.w3.org/TR/prov-dm/">w3.org/TR/prov-dm</a>.</li>
+      <li id="r4">W3C. "Data Catalog Vocabulary (DCAT), Version 3." W3C Recommendation, 2024. <a href="https://www.w3.org/TR/vocab-dcat-3/">w3.org/TR/vocab-dcat-3</a>.</li>
+      <li id="r5">ISO 20022, Financial services universal message scheme. <a href="https://www.iso20022.org/">iso20022.org</a>.</li>
+      <li id="r6">W3C. "Verifiable Credentials Data Model 2.0." W3C Recommendation. <a href="https://www.w3.org/TR/vc-data-model-2.0/">w3.org/TR/vc-data-model-2.0</a>.</li>
+      <li id="r7">W3C. "Data Integrity EdDSA Cryptosuites v1.0 (eddsa-jcs-2022)." W3C Recommendation, 2025. <a href="https://www.w3.org/TR/vc-di-eddsa/">w3.org/TR/vc-di-eddsa</a>.</li>
+      <li id="r8">A. Rundgren, B. Jordan, S. Erdtman. "JSON Canonicalization Scheme (JCS)." RFC 8785, IETF, 2020. <a href="https://www.rfc-editor.org/rfc/rfc8785">rfc-editor.org/rfc/rfc8785</a>.</li>
+      <li id="r9">Anthropic. "Model Context Protocol." 2024; contributed to the Linux Foundation, 2025. <a href="https://modelcontextprotocol.io/">modelcontextprotocol.io</a>.</li>
+      <li id="r10">A. Backman, J. Richer, M. Sporny. "HTTP Message Signatures." RFC 9421, IETF, 2024. <a href="https://www.rfc-editor.org/rfc/rfc9421">rfc-editor.org/rfc/rfc9421</a>.</li>
+      <li id="r11">Google. "Agent Payments Protocol (AP2)." 2025. <a href="https://ap2-protocol.org/">ap2-protocol.org</a>.</li>
+      <li id="r12">Coalition for Content Provenance and Authenticity (C2PA), Technical Specification. <a href="https://c2pa.org/">c2pa.org</a>.</li>
+      <li id="r13">OpenLineage, LF AI and Data Foundation. <a href="https://openlineage.io/">openlineage.io</a>.</li>
+      <li id="r14">F. Castillo, J. Heiss, S. Werner, S. Tai. "Trusted Compute Units: A Framework for Chained Verifiable Computations." arXiv:2504.15717, 2025. <a href="https://arxiv.org/abs/2504.15717">arxiv.org/abs/2504.15717</a>.</li>
+      <li id="r15">RISC Zero, a zk-STARK based RISC-V zkVM. <a href="https://github.com/risc0/risc0">github.com/risc0/risc0</a>.</li>
+      <li id="r16">Succinct Labs. "SP1 zkVM." <a href="https://blog.succinct.xyz/sp1-testnet/">blog.succinct.xyz</a>.</li>
+      <li id="r17">J. Groth. "On the Size of Pairing-based Non-interactive Arguments." EUROCRYPT, 2016.</li>
+      <li id="r18">W3C. "Decentralized Identifiers (DIDs) v1.0." W3C Recommendation. <a href="https://www.w3.org/TR/did-core/">w3.org/TR/did-core</a>.</li>
+      <li id="r19">XBRL International. "eXtensible Business Reporting Language (XBRL) 2.1." <a href="https://www.xbrl.org/">xbrl.org</a>.</li>
+      <li id="r20">Post Oak Labs. "OCG Creative and Industry Application Concepts." <a href="ocg-industries.html">ainumbers.co/chaingraph/ocg-industries.html</a>.</li>
+    </ol>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph White Paper (Draft) · Tim Swanson, <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span>
+      <a href="https://ainumbers.co">AINumbers.co</a>, reference implementation
+      <span>·</span>
+      <a href="openchain-graph-spec.html">Technical Spec</a>
+      <span>·</span>
+      <a href="why-openchain-graph.html">Why OCG</a>
+      <span>·</span>
+      <a href="chaingraph-hub.html">Hub</a>
+      <span>·</span>
+      <a href="ocg-industries.html">Industry Concepts</a>
+      <span>·</span>
+      Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
