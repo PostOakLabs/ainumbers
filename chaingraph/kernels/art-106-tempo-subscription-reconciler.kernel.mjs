@@ -6,8 +6,6 @@
  * Pure decision kernel — no DOM, no window, no Date.now().
  */
 import { executionHash } from './_hash.mjs';
-import { sign as proofSign } from './_proof.mjs';
-
 const TOOL_ID = 'art-106-tempo-subscription-reconciler';
 const TOOL_VERSION = '1.0.0';
 
@@ -116,5 +114,8 @@ export async function buildArtifact(pp, {
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
-  return sign ? proofSign(artifact, sign) : artifact;
+  if (!sign) return artifact;
+  // §16 signer imported lazily so the runner-guest (which only runs compute()) need not resolve _proof.mjs.
+  const { sign: proofSign } = await import('./_proof.mjs');
+  return proofSign(artifact, sign);
 }
