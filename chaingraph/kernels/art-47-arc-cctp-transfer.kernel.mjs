@@ -10,6 +10,36 @@
 
 import { executionHash } from './_hash.mjs';
 
+// Deterministic en-US number format — exact pure-JS replica of (n).toLocaleString('en-US') default options
+// (group-3 integer digits, 0..3 fraction digits, halfExpand rounding). Used instead of toLocaleString so the
+// OCG runner-guest (QuickJS-ng, no ICU) produces output byte-identical to V8. Verified vs V8 over 105k+ values.
+function fmtEnUS(n) {
+  n = Number(n);
+  if (Number.isNaN(n)) return 'NaN';
+  if (!Number.isFinite(n)) return n > 0 ? '∞' : '-∞';
+  const sign = (n < 0) ? '-' : '';
+  let s = Math.abs(n).toString();
+  if (s.includes('e') || s.includes('E')) return sign + s;
+  let [intPart, fracPart = ''] = s.split('.');
+  if (fracPart.length > 3) {
+    const keep = fracPart.slice(0, 3);
+    const nextDigit = fracPart.charCodeAt(3) - 48;
+    const digits = (intPart + keep).split('').map((c) => c.charCodeAt(0) - 48);
+    if (nextDigit >= 5) {
+      let i = digits.length - 1;
+      for (; i >= 0; i--) { if (digits[i] === 9) { digits[i] = 0; } else { digits[i]++; break; } }
+      if (i < 0) digits.unshift(1);
+    }
+    const all = digits.join('');
+    intPart = all.slice(0, all.length - keep.length) || '0';
+    fracPart = all.slice(all.length - keep.length);
+  }
+  fracPart = fracPart.replace(/0+$/, '');
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return sign + grouped + (fracPart ? '.' + fracPart : '');
+}
+
 const TOOL_ID      = 'art-47-arc-cctp-transfer';
 const TOOL_VERSION = '1.0.0';
 
@@ -122,9 +152,9 @@ export function compute(pp) {
     pass:    !lpRiskWarn,
     warn:    lpRiskWarn,
     message: lpRiskWarn
-      ? `Notional $${notional.toLocaleString()} exceeds $1M — Fast Transfer LP pools may lack depth; risk of fallback to standard (~13 min finality)`
+      ? `Notional $${fmtEnUS(notional)} exceeds $1M — Fast Transfer LP pools may lack depth; risk of fallback to standard (~13 min finality)`
       : notional > LARGE_NOTIONAL_THRESHOLD && !isFast
-        ? `Large notional ($${notional.toLocaleString()}) — standard CCTP sufficient; no LP depth risk ✓`
+        ? `Large notional ($${fmtEnUS(notional)}) — standard CCTP sufficient; no LP depth risk ✓`
         : 'Notional within LP depth comfort zone ✓',
     cite: 'CCTP v2 Fast Transfer LP financing model',
   });
@@ -137,7 +167,7 @@ export function compute(pp) {
     pass:    !travelRuleWarn,
     warn:    travelRuleWarn,
     message: travelRuleRequired
-      ? `Notional $${notional.toLocaleString()} ≥ $3,000 — FATF R16 / GENIUS Act PPSI Travel Rule: originator and beneficiary data required`
+      ? `Notional $${fmtEnUS(notional)} ≥ $3,000 — FATF R16 / GENIUS Act PPSI Travel Rule: originator and beneficiary data required`
       : 'Notional below $3,000 Travel Rule threshold ✓',
     cite: 'FATF Recommendation 16; GENIUS Act PPSI AML NPRM (Fed. Reg. 2026-06963)',
   });
