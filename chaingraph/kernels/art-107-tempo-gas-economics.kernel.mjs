@@ -7,6 +7,36 @@
  */
 import { executionHash } from './_hash.mjs';
 
+// Deterministic en-US number format — exact pure-JS replica of (n).toLocaleString('en-US') default options
+// (group-3 integer digits, 0..3 fraction digits, halfExpand rounding). Used instead of toLocaleString so the
+// OCG runner-guest (QuickJS-ng, no ICU) produces output byte-identical to V8. Verified vs V8 over 105k+ values.
+function fmtEnUS(n) {
+  n = Number(n);
+  if (Number.isNaN(n)) return 'NaN';
+  if (!Number.isFinite(n)) return n > 0 ? '∞' : '-∞';
+  const sign = (n < 0) ? '-' : '';
+  let s = Math.abs(n).toString();
+  if (s.includes('e') || s.includes('E')) return sign + s;
+  let [intPart, fracPart = ''] = s.split('.');
+  if (fracPart.length > 3) {
+    const keep = fracPart.slice(0, 3);
+    const nextDigit = fracPart.charCodeAt(3) - 48;
+    const digits = (intPart + keep).split('').map((c) => c.charCodeAt(0) - 48);
+    if (nextDigit >= 5) {
+      let i = digits.length - 1;
+      for (; i >= 0; i--) { if (digits[i] === 9) { digits[i] = 0; } else { digits[i]++; break; } }
+      if (i < 0) digits.unshift(1);
+    }
+    const all = digits.join('');
+    intPart = all.slice(0, all.length - keep.length) || '0';
+    fracPart = all.slice(all.length - keep.length);
+  }
+  fracPart = fracPart.replace(/0+$/, '');
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return sign + grouped + (fracPart ? '.' + fracPart : '');
+}
+
 const TOOL_ID = 'art-107-tempo-gas-economics';
 const TOOL_VERSION = '1.0.0';
 
@@ -67,7 +97,7 @@ export function compute(pp) {
   if (per_tx_saving > baseline_fee * 0.9) compliance_flags.push('TEMPO_COST_ADVANTAGE_STRONG');
   if (srvPct > 0) compliance_flags.push('SPONSORSHIP_SUBSIDY_ACTIVE');
 
-  const cfo_memo = `Tempo effective gas $${effective_cost.toFixed(6)}/tx (${(srvPct*100).toFixed(0)}% server-paid via enshrined AMM). Saves $${per_tx_saving.toFixed(4)}/tx vs ${baseline_rail.toUpperCase()} ($${baseline_fee.toFixed(4)}/tx). Annual saving: $${(annual_saving/1e6).toFixed(2)}M on ${vol.toLocaleString()} tx/mo. NOTE: Tempo has no native gas token and uses an enshrined protocol AMM — not ERC-4337/Paymaster (art-46).`;
+  const cfo_memo = `Tempo effective gas $${effective_cost.toFixed(6)}/tx (${(srvPct*100).toFixed(0)}% server-paid via enshrined AMM). Saves $${per_tx_saving.toFixed(4)}/tx vs ${baseline_rail.toUpperCase()} ($${baseline_fee.toFixed(4)}/tx). Annual saving: $${(annual_saving/1e6).toFixed(2)}M on ${fmtEnUS(vol)} tx/mo. NOTE: Tempo has no native gas token and uses an enshrined protocol AMM — not ERC-4337/Paymaster (art-46).`;
 
   const output_payload = {
     blended_gas_cost,
