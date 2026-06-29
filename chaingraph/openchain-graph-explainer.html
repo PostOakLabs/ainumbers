@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How OpenChainGraph Works — Interactive Explainer</title>
-<meta name="description" content="Thirteen-stage interactive walkthrough of the OpenChainGraph v0.4 standard — SHA-256 hashing, parent_hash chains, MCP agent verification, cross-vendor trust, W3C PROV-DM, Ed25519 signing, OpenTelemetry, ISO 20022, OKF bundles, profile conformance, Compute Binding, and Export Profiles. Client-side, zero-egress, quiz-driven.">
+<meta name="description" content="Twenty-stage interactive walkthrough of the OpenChainGraph v0.5 standard — SHA-256 hashing, parent_hash chains, MCP agent verification, cross-vendor trust, W3C PROV-DM, Ed25519 key lifecycle, OpenTelemetry, ISO 20022, OKF bundles, profile conformance, Compute Binding, Export Profiles (xlsx/pdf/csv/xbrl/vc), Proof Binding (eddsa-jcs-2022), compliance_flags, and the chaingraph.json Graph Index. Client-side, zero-egress, quiz-driven.">
 <meta property="og:title" content="How OpenChainGraph Works — Interactive Explainer">
-<meta property="og:description" content="Thirteen animated stages + live SHA-256 demo: how decision tools chain hash-linked artifacts into a tamper-evident provenance graph. v0.4 adds server-side Compute Binding and chaingraph_export profiles. For engineers, auditors, and agentic stack builders.">
+<meta property="og:description" content="Eighteen animated stages + live SHA-256 demo: how decision tools chain hash-linked artifacts into a tamper-evident provenance graph. v0.4 adds Compute Binding and chaingraph_export profiles. v0.5 adds Proof Binding (eddsa-jcs-2022), Kernel Identity Binding (SHA-256 over kernel source, §17), and Compute-Integrity Proof (zkVM receipt, §18). Includes Graph Index deep-dive, Ed25519 key lifecycle, and compliance_flags.">
 <meta property="og:type" content="website">
 <meta name="author" content="Post Oak Labs">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,7 +197,6 @@ nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filt
 .faq-item.open .faq-chevron{transform:rotate(90deg);color:var(--teal)}
 .faq-a{max-height:0;overflow:hidden;transition:max-height .35s ease}
 .faq-item.open .faq-a{max-height:400px}
-.faq-item.open .faq-a.tall{max-height:1400px}
 .faq-a-inner{padding:.1rem 1.2rem 1.1rem;font-size:.84rem;color:var(--body);line-height:1.8}
 .faq-a-inner p{margin-bottom:.6rem}
 .faq-a-inner p:last-child{margin-bottom:0}
@@ -271,9 +270,85 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 
 @media(prefers-reduced-motion:reduce){.dot{animation:none!important}}
 @media(max-width:640px){.hash-compare,.hash-rules,.concepts-grid{grid-template-columns:1fr}}
+
+/* ── SCROLL PROGRESS BAR ── */
+#ocg-progress-bar{position:fixed;top:0;left:0;z-index:999;height:3px;width:0%;background:linear-gradient(90deg,var(--teal),var(--purple));transition:width .1s linear;pointer-events:none}
+
+/* ── STAGE MAP SIDEBAR ── */
+#stage-map{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:180;display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:rgba(8,14,26,.82);border:1px solid var(--border);border-left:none;border-radius:0 8px 8px 0;backdrop-filter:blur(8px);transition:opacity .2s}
+#stage-map .sm-dot{width:8px;height:8px;border-radius:50%;background:var(--border-2);border:none;cursor:pointer;padding:0;transition:all .2s;position:relative}
+#stage-map .sm-dot:hover,#stage-map .sm-dot.active{background:var(--teal);box-shadow:0 0 6px var(--teal)}
+#stage-map .sm-dot::after{content:attr(data-tip);position:absolute;left:18px;top:50%;transform:translateY(-50%);background:var(--bg-2);border:1px solid var(--border-2);border-radius:4px;padding:.25rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;white-space:nowrap;color:var(--bright);opacity:0;pointer-events:none;transition:opacity .15s;z-index:10}
+#stage-map .sm-dot:hover::after{opacity:1}
+@media(max-width:1100px){#stage-map{display:none}}
+
+/* ── GLOBAL SPEED NAV PILL ── */
+#nav-speed{display:flex;align-items:center;gap:4px;margin-left:10px}
+.ns-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;padding:.22rem .5rem;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.ns-btn.active,.ns-btn:hover{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+
+/* ── ANATOMY OVERLAY ── */
+.anatomy-wrap{position:relative;margin:1rem 0}
+.anatomy-toggle{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .75rem;border-radius:4px;border:1px solid var(--border-2);background:transparent;color:var(--body);cursor:pointer;transition:all .15s;margin-bottom:.8rem}
+.anatomy-toggle:hover,.anatomy-toggle.on{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+.anatomy-code{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.2rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;line-height:1.85;overflow-x:auto;display:none}
+.anatomy-code.visible{display:block}
+.az-preimage{background:rgba(34,197,94,.12);border-radius:3px;padding:0 2px;position:relative}
+.az-envelope{background:rgba(20,184,166,.1);border-radius:3px;padding:0 2px}
+.az-chain{background:rgba(155,114,245,.12);border-radius:3px;padding:0 2px}
+.az-sig{background:rgba(212,168,71,.1);border-radius:3px;padding:0 2px}
+.anatomy-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.al-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.anatomy-legend.hidden{display:none}
+
+/* ── OTel WATERFALL TABLE ── */
+.otel-waterfall{margin:1rem 0;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.otel-wf-head{display:grid;grid-template-columns:180px 1fr 90px;gap:0;background:var(--bg-4);border-bottom:1px solid var(--border);padding:.5rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.otel-wf-row{display:grid;grid-template-columns:180px 1fr 90px;gap:0;padding:.5rem 1rem;border-bottom:1px solid var(--border);align-items:center;font-size:.75rem}
+.otel-wf-row:last-child{border-bottom:none}
+.otel-wf-name{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.otel-wf-bar-wrap{position:relative;height:14px;background:var(--bg-2);border-radius:3px;overflow:hidden}
+.otel-wf-bar{height:100%;border-radius:3px;position:absolute;top:0}
+.otel-wf-dur{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-align:right}
+.otel-depth-indent{display:inline-block}
+
+/* ── INTERACTIVE BUTTONS (Stage 2, 3, 6, 12, 15) ── */
+.iact-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:.75rem 0}
+.iact-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem .9rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .18s}
+.iact-btn.add{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.35)}
+.iact-btn.add:hover{background:rgba(20,184,166,.18)}
+.iact-btn.danger{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.35)}
+.iact-btn.danger:hover{background:rgba(239,68,68,.15)}
+.iact-btn.warn{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.35)}
+.iact-btn.warn:hover{background:rgba(212,168,71,.18)}
+.iact-btn.neutral{background:var(--bg-3);color:var(--body);border-color:var(--border-2)}
+.iact-btn.neutral:hover{border-color:var(--teal);color:var(--teal-lt)}
+.iact-btn.purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.35)}
+.iact-btn.purple:hover{background:rgba(155,114,245,.18)}
+.iact-status{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .75rem;border-radius:20px;border:1px solid}
+.iact-status.ok{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.iact-status.fail{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.3)}
+.iact-status.warn{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.iact-counter{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:500;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);min-width:120px;text-align:center}
+.iact-counter.slow{color:var(--red)}
+.iact-counter.fast{color:var(--green)}
+.counter-row{display:flex;gap:20px;align-items:center;margin:.75rem 0;flex-wrap:wrap}
+.counter-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+
+/* ── STAGE DEEP-LINK COPY ── */
+.stage-copylink{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;background:none;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:.2rem .55rem;cursor:pointer;transition:all .15s;margin-left:.5rem}
+.stage-copylink:hover{border-color:var(--teal);color:var(--teal-lt)}
+
+/* ── TOAST ── */
+#ocg-toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;padding:.5rem 1rem;border-radius:var(--radius);background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none}
+#ocg-toast.show{opacity:1;transform:translateY(0)}
 </style>
 </head>
 <body>
+
+<div id="ocg-progress-bar"></div>
+<div id="ocg-toast"></div>
+<div id="stage-map"></div>
 
 <nav>
   <div class="nav-in">
@@ -281,8 +356,9 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="nav-meta">
       <a class="nav-spec" href="chaingraph-hub.html">← Hub</a>
       <a class="nav-spec" href="openchain-graph-spec.html">Tech Spec →</a>
+      <div id="nav-speed"><button class="ns-btn active" onclick="setSpeed(1)">1×</button><button class="ns-btn" onclick="setSpeed(0.5)">½×</button><button class="ns-btn" onclick="setSpeed(2)">2×</button></div>
       <span class="nav-tag">Interactive Explainer</span>
-      <span class="nav-pill">v0.4 · 13 stages</span>
+      <span class="nav-pill">v0.6 · 20 stages</span>
     </div>
   </div>
 </nav>
@@ -292,7 +368,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification</div>
     <h1>How <em>OpenChainGraph</em> works</h1>
-    <p class="hero-desc">Decision tools produce artifacts. Artifacts carry a fingerprint of their inputs and outputs. Each artifact can cite the fingerprints of the artifacts it consumed — forming a verifiable, tamper-evident provenance chain. v0.2 adds W3C PROV-DM semantic context, buildType URI, in-toto envelopes, Ed25519 signing, and OpenTelemetry span mapping. v0.3 adds ISO 20022 payload alignment, LEI &amp; did:key party identity, and an OKF companion bundle. v0.3.1 formalizes profile conformance via dereferenceable <code>dct:conformsTo</code> URIs. v0.4 adds Compute Binding (<code>gpu:false</code> kernels run server-side in a single MCP round-trip) and Export Profiles (<code>chaingraph_export</code> generates xlsx, pdf, csv, and xbrl renderings downstream of a fixed <code>execution_hash</code>). Any agent, anywhere, can re-run the math to confirm any link. No trusted authority required.</p>
+    <p class="hero-desc">Decision tools produce artifacts. Artifacts carry a fingerprint of their inputs and outputs. Each artifact can cite the fingerprints of the artifacts it consumed — forming a verifiable, tamper-evident provenance chain. v0.2 adds W3C PROV-DM semantic context, buildType URI, in-toto envelopes, Ed25519 signing, and OpenTelemetry span mapping. v0.3 adds ISO 20022 payload alignment, LEI &amp; did:key party identity, and an OKF companion bundle. v0.3.1 formalizes profile conformance via dereferenceable <code>dct:conformsTo</code> URIs. v0.4 adds Compute Binding (<code>gpu:false</code> kernels run server-side in a single MCP round-trip) and Export Profiles (<code>chaingraph_export</code> generates xlsx, pdf, csv, xbrl, and vc renderings downstream of a fixed <code>execution_hash</code>). <strong>v0.5</strong> adds Proof Binding (§16): an optional W3C Data Integrity proof (<code>eddsa-jcs-2022</code>) at <code>audit_signature.proof</code> that turns the artifact from tamper-evidence into authenticated attestation — default-off, holder-chosen, backward-compatible. <strong>v0.6</strong> adds <strong>Kernel Identity Binding</strong> (§17): <code>audit_signature.build_identity.kernel_digest</code> — SHA-256 over the LF-normalised kernel source, cross-checked three ways against the Graph Index <code>compute_images[]</code>, closing the gap that <code>execution_hash</code> proves <em>some</em> logic ran but not <em>which</em>. <strong>v0.6</strong> also adds <strong>Compute-Integrity Proof</strong> (§18): an optional zkVM receipt (<code>audit_signature.compute_proof</code>, <code>groth16-bn254</code> recommended) that turns the §4 hash from re-execute-to-verify into a succinct proof of correct execution, optionally without revealing inputs — software-only, no TEE, no chain. Any agent, anywhere, can re-run the math to confirm any link. No trusted authority required.</p>
   </div>
 </div>
 
@@ -528,7 +604,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 1 ═══ -->
 <div class="stage-header" style="padding-top:2.5rem">
   <div class="wrap">
-    <div class="stage-num">Stage 1 of 13</div>
+    <div class="stage-num">Stage 1 of 20</div>
     <h2>A decision tool runs and emits an artifact</h2>
     <p>Every conformant tool takes structured inputs (<code>policy_parameters</code>), runs a deterministic computation, and produces outputs (<code>output_payload</code>). It then wraps inputs + outputs together into a JSON envelope and runs SHA-256 over the combined package. That hash — called the <code>execution_hash</code> — gets stamped onto the artifact before it's sent anywhere.</p>
     <div class="stage-note">📌 Watch the animation: the document leaving the tool is labeled <strong>"raw result"</strong> — it has no hash yet. It becomes a <strong>"JSON payload"</strong> in the artifact envelope. Only then does SHA-256 compute the fingerprint.</div>
@@ -569,6 +645,32 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       </div>
     </div>
 
+
+    <div class="anatomy-wrap">
+      <button class="anatomy-toggle" id="anatBtn" onclick="toggleAnatomy()">⊞ Anatomy mode — show field zones</button>
+      <div class="anatomy-code" id="anatCode"><pre style="margin:0;font-family:'JetBrains Mono',monospace;font-size:.63rem;line-height:1.9;color:#A8C4DE">{
+  <span class="az-envelope" title="Envelope — outside hash preimage">"@context"</span>: "https://ocg.postoaklabs.com/ns/v0.5",
+  <span class="az-envelope">"chaingraph_version"</span>: "0.4.0",
+  <span class="az-envelope">"buildType"</span>: "WebCryptoSHA256",
+  <span class="az-chain" title="Chain — outside preimage">"chain_depth"</span>: 2,
+  <span class="az-chain">"parent_hashes"</span>: ["sha256:3f9a…"],
+  <span class="az-preimage" title="PREIMAGE — enters the hash">"policy_parameters"</span>: { "loan_amount": 45000, "rate": 6.4 },
+  <span class="az-preimage">"output_payload"</span>: { "decision": "APPROVED", "score": 712 },
+  <span class="az-envelope">"mandate_id"</span>: "urn:uuid:a1b2c3d4…",
+  <span class="az-envelope">"compliance_flags"</span>: [],
+  <span class="az-sig" title="Signature — outside preimage">"audit_signature"</span>: {
+    "execution_hash": <span class="az-preimage">"sha256:8e5a…"</span>,
+    "signatures": […],
+    "proof": {…}
+  }
+}</pre></div>
+      <div class="anatomy-legend hidden" id="anatLegend">
+        <span><span class="al-dot" style="background:rgba(34,197,94,.45)"></span><span style="color:#22C55E">Preimage</span> — hashed</span>
+        <span><span class="al-dot" style="background:rgba(20,184,166,.35)"></span><span style="color:#2DD4BF">Envelope</span> — outside hash</span>
+        <span><span class="al-dot" style="background:rgba(155,114,245,.35)"></span><span style="color:#9B72F5">Chain</span> — outside hash</span>
+        <span><span class="al-dot" style="background:rgba(212,168,71,.35)"></span><span style="color:#D4A847">Signature</span> — outside hash</span>
+      </div>
+    </div>
     <button class="quiz-btn" onclick="openQuiz('s1')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: Stage 1
@@ -584,7 +686,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 2 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 2 of 13</div>
+    <div class="stage-num">Stage 2 of 20</div>
     <h2>Artifacts cite each other — chains form</h2>
     <p>When Tool B consumes the output of Tool A, it copies Tool A's <code>execution_hash</code> into its own <code>chain.parent_hashes</code> array. This single act creates a cryptographically linked chain. Tool C can cite both A and B. The result is a directed acyclic graph (DAG) — like a family tree of decisions — where every connection is a hash reference that can be independently verified.</p>
   </div>
@@ -630,6 +732,13 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       <button class="speed-btn" onclick="setSpeed(2)" id="sp3">2×</button>
     </div>
 
+
+    <div class="iact-row">
+      <button class="iact-btn add" onclick="dagAddNode(1)">+ Add node (1 parent)</button>
+      <button class="iact-btn add" onclick="dagAddNode(2)">+ Add node (2 parents)</button>
+      <button class="iact-btn neutral" onclick="dagAddNode(0)">+ New root node</button>
+      <button class="iact-btn danger" onclick="dagReset()">Reset chain</button>
+    </div>
     <button class="quiz-btn" onclick="openQuiz('s2')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: chains &amp; depth
@@ -645,7 +754,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 3 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 3 of 13</div>
+    <div class="stage-num">Stage 3 of 20</div>
     <h2>AI agents discover, call, and verify over MCP</h2>
     <p>A conformant tool exposes a <code>tools/call</code> MCP endpoint. An AI assistant — Claude, ChatGPT, or any MCP-compatible agent — can call <code>emit_artifact</code>, receive the envelope, then call <code>verify_execution_hash</code> to confirm integrity. The agent never needs to trust the server. It runs the SHA-256 check itself, the same way you ran "Apple" through SHA-256 in the pre-stage above. If the numbers match, the artifact is genuine.</p>
   </div>
@@ -684,6 +793,12 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       </div>
     </div>
 
+
+    <div class="iact-row">
+      <button class="iact-btn danger" id="s3FailBtn" onclick="s3SimFail()">Simulate verification failure</button>
+      <button class="iact-btn add" id="s3OkBtn" onclick="s3SimOk()" style="display:none">Restore happy path</button>
+      <span class="iact-status ok" id="s3Status">&#10003; verification passed</span>
+    </div>
     <button class="quiz-btn" onclick="openQuiz('s3')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: agent verification
@@ -699,7 +814,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 4 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 4 of 13</div>
+    <div class="stage-num">Stage 4 of 20</div>
     <h2>Chains cross vendor boundaries — the graph is the product</h2>
     <p>When two vendors both publish the <code>x-chaingraph</code> A2A capability extension, an orchestrating agent can chain artifacts <em>across</em> them. An OCS constraint solution can cite an ApexLogics credit assessment as a parent. An AINumbers compliance verdict can cite either. Every link is verified through each vendor's own <code>verify_execution_hash</code>. No vendor needs to trust another — the hash is the contract.</p>
   </div>
@@ -779,7 +894,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 5 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 5 of 13 · v0.2</div>
+    <div class="stage-num">Stage 5 of 20 · v0.2</div>
     <h2>Semantic context — W3C PROV-DM and buildType</h2>
     <p>v0.2 adds a <code>@context</code> URL to every artifact. This single field makes OpenChainGraph artifacts interpretable by any W3C-compliant provenance tool. Field names like <code>tool_id</code> map to standardized PROV-DM terms — so a DORA audit system, a prov:Entity processor, and a DCAT catalog can all consume the same artifact without a custom adapter. A <code>buildType</code> URI declares exactly which hash construction algorithm was used, making the provenance machine-auditable end to end.</p>
     <div class="stage-note">📌 Watch the animation: artifacts flow through an <strong>@context relay</strong> that maps OpenChainGraph fields to W3C standard terms. The rotating label shows each field mapping. The <code>buildType</code> tag appears below the artifact node.</div>
@@ -834,7 +949,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 6 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 6 of 13 · v0.2</div>
+    <div class="stage-num">Stage 6 of 20 · v0.2</div>
     <h2>Authenticity layer — in-toto envelopes and Ed25519 signing</h2>
     <p>The <code>execution_hash</code> proves <em>integrity</em>: the content hasn't changed. But it doesn't prove <em>authenticity</em>: who produced it. v0.2 upgrades <code>audit_signature</code> from a bare string to a structured in-toto ITE-6 attestation envelope — <code>{payloadType, payload, signatures[{keyid, sig}]}</code>. An optional Ed25519 key (RFC 8032, via WebCrypto) signs over the <code>execution_hash</code>. These are two independent checks: a valid hash but invalid signature means the content is intact but the signer is wrong.</p>
     <div class="stage-note">📌 Two tracks: <strong>top = integrity</strong> (hash path) and <strong>bottom = authenticity</strong> (signature path). Both converge at VERIFY. A ✓ means both checks passed independently.</div>
@@ -874,6 +989,13 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       </div>
     </div>
 
+
+    <div class="iact-row">
+      <button class="iact-btn danger" onclick="s6Break('hash')">Break the hash (alter content)</button>
+      <button class="iact-btn warn" onclick="s6Break('sig')">Break the signature (wrong key)</button>
+      <button class="iact-btn neutral" onclick="s6Break('none')">Restore both</button>
+      <span class="iact-status ok" id="s6Status">&#10003; integrity + authenticity both valid</span>
+    </div>
     <button class="quiz-btn" onclick="openQuiz('s6')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: integrity vs authenticity
@@ -889,7 +1011,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 7 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 7 of 13 · v0.2</div>
+    <div class="stage-num">Stage 7 of 20 · v0.2</div>
     <h2>Observability — chains appear as distributed traces in OTel</h2>
     <p>v0.2 defines a deterministic mapping from OpenChainGraph artifacts to OpenTelemetry spans. The first 8 bytes of an artifact's <code>execution_hash</code> become its <code>spanId</code>. The first 8 bytes of <code>parent_hashes[0]</code> become the <code>parentSpanId</code>. The root artifact's <code>execution_hash</code> becomes the <code>traceId</code> for the whole chain. Run <code>artifactToOtelSpan()</code> on any artifact and it drops into Datadog, Jaeger, or Honeycomb as a waterfall trace — no instrumentation code required.</p>
     <div class="stage-note">📌 Left: a chain of 4 artifacts (depth 0→3). Center: <code>artifactToOtelSpan()</code>. Right: the resulting OTel waterfall — each bar indented by depth, showing spanId and parentSpanId labels.</div>
@@ -929,6 +1051,31 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       </div>
     </div>
 
+
+    <div class="otel-waterfall">
+      <div class="otel-wf-head"><div>Span / Tool</div><div>Timeline</div><div>Duration</div></div>
+      <div class="otel-wf-row">
+        <div class="otel-wf-name"><span class="otel-depth-indent" style="padding-left:0px">&#9500; Credit Score</span><br><span style="font-size:.52rem;color:#3A5270">traceId: 3f9a… · spanId: 3f9a… · depth:0</span></div>
+        <div class="otel-wf-bar-wrap"><div class="otel-wf-bar" style="left:0%;width:28%;background:#14B8A6;opacity:.7"></div></div>
+        <div class="otel-wf-dur" style="color:#14B8A6">48 ms</div>
+      </div>
+      <div class="otel-wf-row">
+        <div class="otel-wf-name"><span class="otel-depth-indent" style="padding-left:16px">&#9500; Affordability</span><br><span style="font-size:.52rem;color:#3A5270">parentSpan: 3f9a… · spanId: 7c2b… · depth:1</span></div>
+        <div class="otel-wf-bar-wrap"><div class="otel-wf-bar" style="left:25%;width:30%;background:#D4A847;opacity:.7"></div></div>
+        <div class="otel-wf-dur" style="color:#D4A847">62 ms</div>
+      </div>
+      <div class="otel-wf-row">
+        <div class="otel-wf-name"><span class="otel-depth-indent" style="padding-left:32px">&#9500; Risk Model</span><br><span style="font-size:.52rem;color:#3A5270">parentSpan: 7c2b… · spanId: a1d9… · depth:2</span></div>
+        <div class="otel-wf-bar-wrap"><div class="otel-wf-bar" style="left:52%;width:26%;background:#9B72F5;opacity:.7"></div></div>
+        <div class="otel-wf-dur" style="color:#9B72F5">55 ms</div>
+      </div>
+      <div class="otel-wf-row">
+        <div class="otel-wf-name"><span class="otel-depth-indent" style="padding-left:48px">&#9492; Loan Approval</span><br><span style="font-size:.52rem;color:#3A5270">parentSpan: a1d9… · spanId: 8e5a… · depth:3</span></div>
+        <div class="otel-wf-bar-wrap"><div class="otel-wf-bar" style="left:74%;width:24%;background:#22C55E;opacity:.7"></div></div>
+        <div class="otel-wf-dur" style="color:#22C55E">38 ms</div>
+      </div>
+    </div>
+    <p style="font-size:.74rem;color:var(--muted);margin:.4rem 0 .8rem">&#9432; spanId = first 16 hex chars of execution_hash &middot; parentSpanId = first 16 hex chars of parent_hashes[0] &middot; traceId = root artifact execution_hash &middot; status.code = ERROR if any compliance_flag has severity:ERROR</p>
     <button class="quiz-btn" onclick="openQuiz('s7')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: OTel mapping
@@ -943,7 +1090,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 8 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 8 of 13 · v0.3</div>
+    <div class="stage-num">Stage 8 of 20 · v0.3</div>
     <h2>Financial payload alignment — ISO 20022 semantic profile</h2>
     <p>v0.3 gives the financial <em>payload</em> a semantic standard to complement the provenance envelope's W3C PROV-DM alignment. The ISO 20022 semantic profile is an optional JSON-LD overlay — a second <code>@context</code> entry — that maps amount, currency, party, and agent fields to ISO 20022 business elements. It never touches the <code>execution_hash</code> preimage (§2 is unchanged). Tools that aren't payment tools carry no profile: a VaR engine or DORA classifier has nothing ISO 20022-shaped to declare.</p>
     <div class="stage-note">📌 Watch field names fly from the OCG artifact through the context relay and land on their ISO 20022 equivalents. The profile is applied by adding a second @context URL — nothing else changes in the artifact.</div>
@@ -996,7 +1143,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 9 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 9 of 13 · v0.3</div>
+    <div class="stage-num">Stage 9 of 20 · v0.3</div>
     <h2>Party identity — LEI anchors and did:key signing</h2>
     <p>v0.3 formalizes two optional identity anchors. A <strong>did:key</strong> identifier — a self-describing, multicodec-prefixed base58btc encoding of the Ed25519 public key — is the recommended form for <code>keyid</code> in the signature envelope. An ISO 17442 <strong>Legal Entity Identifier (LEI)</strong> optionally binds the publisher (and signing key) to a regulator-grade legal-entity anchor. Together they bridge the signing layer (§6) and the ISO 20022 payload layer (§8): the same LEI can identify both the tool vendor and a debtor or creditor in a payment artifact.</p>
     <div class="stage-note">📌 Left: Ed25519 key pair. Center: did:key URI derived — self-describing, no registry needed. Right: LEI optionally ties the signer to a legal entity (GLEIF-registered, regulator-grade). Each layer is optional and additive.</div>
@@ -1049,7 +1196,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 10 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 10 of 13 · v0.3</div>
+    <div class="stage-num">Stage 10 of 20 · v0.3</div>
     <h2>Knowledge layer — OKF companion bundle</h2>
     <p>v0.3 publishes an <strong>Open Knowledge Format (OKF)</strong> companion bundle auto-generated from <code>chaingraph.json</code>: one markdown concept file per Graph Index node. It's the narrative complement to the DCAT catalog — DCAT is what an agent reads to <em>plan</em> a chain before calling anything; OKF is what an agent (or human) reads to <em>understand</em> what a tool does and when to use it. Crucially, OKF concept documents are knowledge, never decision artifacts — they MUST NOT carry an <code>execution_hash</code>.</p>
     <div class="stage-note">📌 One source: chaingraph.json generates both outputs. Left branch → DCAT catalog (machine-optimized, agent-plannable). Right branch → OKF bundle (narrative context, human + agent readable). The two outputs are strictly separate — knowledge ≠ decision artifact.</div>
@@ -1102,7 +1249,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 11 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 11 of 13 · v0.3.1</div>
+    <div class="stage-num">Stage 11 of 20 · v0.3.1</div>
     <h2>Profile conformance — dct:conformsTo and dereferenceable URIs</h2>
     <p>v0.3.1 makes semantic profile conformance machine-resolvable using W3C PROF and Content Negotiation by Profile. A profile is now published at a <strong>dereferenceable URI</strong> and declared with <code>dct:conformsTo</code> — not just named by an opaque string token. The <code>semantic_profile</code> token (e.g. <code>"iso20022:pacs.008-subset"</code>) is retained as a registered alias pointing to the URI via a token↔URI registry. Every node declares only what it <em>truthfully</em> conforms to — a VaR engine carries no ISO 20022 profile. The hash preimage is unchanged; all prior artifacts remain valid.</p>
     <div class="stage-note">📌 Left: v0.3.1 artifact with both semantic_profile token and dct:conformsTo URI. Center: verifier dereferences the URI. Right: prof:Profile document confirms the schema and guidance. Hash preimage is unchanged throughout — this is metadata about the artifact, not the artifact's decision content.</div>
@@ -1155,7 +1302,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 12 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 12 of 13 · v0.4</div>
+    <div class="stage-num">Stage 12 of 20 · v0.4</div>
     <h2>Compute Binding — server-side kernels make every tool agent-native</h2>
     <p>v0.4 introduces <strong>Compute Binding</strong>: a registered kernel (pure ESM, exports <code>compute()</code>, <code>buildArtifact()</code>, <code>meta</code>) runs directly on the Cloudflare Worker for nodes where <code>gpu:false</code>. An AI agent sends <code>policy_parameters</code> in a single <code>tools/call</code> and receives a complete, fully-hashed v0.4 artifact in one round-trip — no browser delegation, no user interaction, no waiting for a page to load. The new <code>compute_mode: "server"</code> envelope field tells every downstream consumer how the hash was computed. It is excluded from the hash preimage, so all prior artifacts remain valid.</p>
     <div class="stage-note">📌 Watch both paths: the old browser-delegated flow (top, purple) requires a delegation URL, a browser runtime, and multiple steps. The v0.4 server-side flow (bottom, green) returns a signed artifact in a single MCP call — the Worker itself runs the ESM kernel. No browser. No wait. No UI.</div>
@@ -1194,6 +1341,18 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
         <div class="concept-desc">§12.4: the Worker kernel runs in a stateless context. No PII is logged. No computation telemetry is emitted. The privacy boundary is identical to the MCP contract — <code>readOnlyHint: true</code>. Sensitive <code>policy_parameters</code> never leave the MCP call/response envelope.</div>
       </div>
     </div>
+
+    <div class="counter-row">
+      <div>
+        <div class="counter-label">Old path (browser round-trip)</div>
+        <div class="iact-counter slow" id="s12CountSlow">0.00s</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--muted);align-self:flex-end;padding-bottom:.55rem">vs</div>
+      <div>
+        <div class="counter-label">Compute Binding (single MCP call)</div>
+        <div class="iact-counter fast" id="s12CountFast">0ms</div>
+      </div>
+    </div>
     <button class="quiz-btn" onclick="openQuiz('s12')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Quick check: Compute Binding
@@ -1209,9 +1368,9 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <!-- ═══ STAGE 13 ═══ -->
 <div class="stage-header">
   <div class="wrap">
-    <div class="stage-num">Stage 13 of 13 · v0.4</div>
+    <div class="stage-num">Stage 13 of 20 · v0.4</div>
     <h2>Export Profiles — the hash travels to the last mile</h2>
-    <p>v0.4 defines the <code>chaingraph_export</code> umbrella: xlsx, pdf, csv, and xbrl renderings generated <strong>from</strong> a verified artifact. The key invariant: exports are produced <em>downstream of</em> <code>execution_hash</code> and are <strong>excluded from the hash preimage</strong>. The cryptographic anchor is fixed before any export runs. The <code>export_artifact</code> MCP tool (<code>readOnlyHint: true</code>) takes an artifact and a format and returns a deterministic rendering — the <code>execution_hash</code> travels intact into every output as embedded metadata. Regulatory XBRL submissions use the <code>xbrl_taxonomy</code> parameter (e.g. <code>"eba-corep-own-funds"</code>) to select the filing profile.</p>
+    <p>v0.4 defines the <code>chaingraph_export</code> umbrella: xlsx, pdf, csv, xbrl, and vc renderings generated <strong>from</strong> a verified artifact. v0.4.1 adds <code>chaingraph_export:vc</code> (W3C Verifiable Credentials 2.0) as a base profile available on every node — covered in Stage 14. The key invariant: exports are produced <em>downstream of</em> <code>execution_hash</code> and are <strong>excluded from the hash preimage</strong>. The cryptographic anchor is fixed before any export runs. The <code>export_artifact</code> MCP tool (<code>readOnlyHint: true</code>) takes an artifact and a format and returns a deterministic rendering — the <code>execution_hash</code> travels intact into every output as embedded metadata. Regulatory XBRL submissions use the <code>xbrl_taxonomy</code> parameter (e.g. <code>"eba-corep-own-funds"</code>) to select the filing profile.</p>
     <div class="stage-note">📌 Three layers: the verified JSON artifact (provenance-out), the OKF concept bundle (knowledge-in, see Stage 10), and the export renderings (rendered-for-review). Only the first layer carries an execution_hash and enters verification chains. The export layer annotates it — it doesn't modify it.</div>
   </div>
 </div>
@@ -1261,6 +1420,411 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 </div>
 
 <!-- ═══ QUIZ MODAL ═══ -->
+
+<!-- ═══ STAGE 14 ═══ -->
+<div class="stage-header">
+  <div class="wrap">
+    <div class="stage-num">Stage 14 of 20 · v0.4.1</div>
+    <h2>Export Profile: W3C Verifiable Credentials — the standards shell</h2>
+    <p>v0.4.1 adds a fifth export profile: <code>chaingraph_export:vc</code>. Unlike xlsx/pdf/csv/xbrl — which target human reviewers and regulatory filings — the VC profile targets agents and counterparties that already speak <a href="https://www.w3.org/TR/vc-data-model-2.0/" style="color:var(--teal-lt)">W3C Verifiable Credentials 2.0</a>. It renders any verified artifact as an <code>OpenChainGraphCredential</code> (<code>application/vc+json</code>). It is a <strong>base profile</strong>: no <code>export_capability</code> declaration required, available on every node. The <code>ocg:hashAnchor</code> field re-states the canonical <code>execution_hash</code> inside the VC envelope so downstream consumers can always route verification back to the canonical JSON. Key distinction: this is a view, not a secured credential — it carries no VC proof. For a signed, secured artifact, see Stage 15.</p>
+    <div class="stage-note">📌 The verified artifact (left) passes through the VC renderer — the same <code>execution_hash</code> travels into the credential envelope as <code>ocg:hashAnchor</code>. The VC is a lossless structural re-expression. Hash preimage unchanged; <code>chaingraph_version</code> stays "0.4.0".</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c14" height="340"></canvas>
+      <div class="scene-caption"><span class="dot"></span>Verified artifact → VC renderer → OpenChainGraphCredential · ocg:hashAnchor carries execution_hash · hash preimage unchanged · view only</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🏅</div>
+        <div class="concept-label">Base Profile — every node</div>
+        <div class="concept-title">No export_capability declaration needed</div>
+        <div class="concept-desc">A structural re-expression of any OCG artifact into VC format always exists, so this profile is universally available — unlike xlsx or xbrl, which are domain-specific and must be declared in <code>export_capability</code>.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🪪</div>
+        <div class="concept-label">OpenChainGraphCredential</div>
+        <div class="concept-title">Deterministic VC identity</div>
+        <div class="concept-desc">The VC <code>type</code> array contains <code>"VerifiableCredential"</code> and <code>"OpenChainGraphCredential"</code>. The <code>id</code> is <code>urn:ocg:artifact:&lt;bare-execution-hash&gt;</code> — deterministic, no UUID or clock. Same artifact always maps to the same credential URI.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">#️⃣</div>
+        <div class="concept-label">ocg:hashAnchor</div>
+        <div class="concept-title">Pointer back to verification</div>
+        <div class="concept-desc">Re-states the canonical <code>execution_hash</code>, <code>digestMethod</code>, and a <code>verify_url</code> inside the VC envelope. Not a VC proof suite — a structured pointer that routes any downstream consumer back to the original verification path.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">👁️</div>
+        <div class="concept-label">View, not secured credential</div>
+        <div class="concept-title">No new hash · no securing proof</div>
+        <div class="concept-desc">Like all §13 exports, the VC mints no new <code>execution_hash</code> and adds no W3C Data Integrity proof. The envelope and <code>chaingraph_version</code> are unchanged. For a <em>secured</em> VC, add a proof via Stage 15 (Proof Binding).</div>
+      </div>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s14')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: VC export profile
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §13.11 →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 15 ═══ -->
+<div class="stage-header">
+  <div class="wrap">
+    <div class="stage-num">Stage 15 of 20 · v0.5</div>
+    <h2>Proof Binding — from tamper-evidence to authenticated attestation</h2>
+    <p>v0.5 adds the final layer: Proof Binding. Until now, <code>execution_hash</code> proved <em>integrity</em> — the content hasn't changed since it was produced. But it didn't prove <em>who</em> produced it at the artifact level. v0.5 adds an OPTIONAL W3C Data Integrity proof (<code>eddsa-jcs-2022</code>) at <code>audit_signature.proof</code>. Because <code>execution_hash</code> sits inside the secured document, one signature transitively secures both the §4 hash anchor and the full artifact envelope. The mechanism is <strong>default-off</strong>: signing makes the run linkable to a key, eroding the zero-PII anonymous posture. Tools MUST surface that opting in de-anonymizes the run. The hash preimage is unchanged; unsigned artifacts are byte-identical to v0.4.1; only <code>spec_version</code> advances to 0.5.0.</p>
+    <div class="stage-note">📌 Watch three guarantees converge on the artifact: execution_hash (integrity, always present), signatures[] (hash-level authenticity, v0.2+), and the new proof (whole-artifact authenticity, v0.5). The proof track auto-toggles every 5 seconds to illustrate the default-off posture. Unsigned artifacts are byte-identical to v0.4.1.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c15" height="400"></canvas>
+      <div class="scene-caption"><span class="dot"></span>Three convergent paths: execution_hash (integrity) · signatures[] (hash authenticity) · proof (whole-artifact authenticity, default-off) · proof auto-toggles to illustrate default-off</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">📍</div>
+        <div class="concept-label">audit_signature.proof</div>
+        <div class="concept-title">Backward-compatible proof placement</div>
+        <div class="concept-desc">The proof lives at <code>audit_signature.proof</code>, not at artifact root (<code>additionalProperties:false</code> in frozen v0.4 schema) and not inside <code>signatures[]</code> (which retains its DSSE/in-toto meaning). A signed v0.5 artifact still validates under the v0.4 schema.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔏</div>
+        <div class="concept-label">eddsa-jcs-2022</div>
+        <div class="concept-title">W3C Data Integrity cryptosuite</div>
+        <div class="concept-desc">Uses the same <code>cgCanon</code> JCS canonicalizer from <code>kernels/_hash.mjs</code> as §4 — no second canonicalization path. <code>proofValue</code> is <code>"z" + base58btc(Ed25519.sign(key, hashData))</code> — multibase-encoded. Produced by shared <code>kernels/_proof.mjs</code>; browser inlines it, Worker imports it, byte-identical output.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔗</div>
+        <div class="concept-label">Transitive security</div>
+        <div class="concept-title">One signature · two guarantees</div>
+        <div class="concept-desc">The secured document is the full artifact minus <code>proof</code>. Because <code>execution_hash</code> sits inside the secured document, a whole-artifact signature transitively secures both the §4 hash anchor and all other artifact fields — one key pair, two guarantees.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔐</div>
+        <div class="concept-label">did:key vs did:web</div>
+        <div class="concept-title">Ephemeral vs institutional issuers</div>
+        <div class="concept-desc">Ephemeral or client-side signing uses <code>did:key</code> — self-describing, no registry. Institutional issuers SHOULD use <code>did:web</code> anchored to their domain, key held in HSM/KMS, signing performed server-side via the §12 Compute path (same Worker).</div>
+      </div>
+    </div>
+    <div class="bridge-note">
+      <strong>Privacy tradeoff — default-off by design</strong><br>
+      Signing makes the run linkable to a key — the signer becomes known. The <code>zero_pii_verified</code> guarantee still holds for inputs; only the <em>identity of the signer</em> is revealed. Proof Binding MUST default OFF and MUST NOT be auto-applied. A tool may offer signing as an opt-in for institutional issuers wanting auditor-grade attestation while preserving anonymous-by-default behavior for all other callers.
+    </div>
+
+    <div class="iact-row">
+      <button class="iact-btn purple" id="s15EnableBtn" onclick="s15SetProof(true)">Enable signing (opt-in)</button>
+      <button class="iact-btn neutral" id="s15DisableBtn" onclick="s15SetProof(false)" style="display:none">Disable signing (default-off)</button>
+      <span class="iact-status warn" id="s15Status">Default off &mdash; run is anonymous</span>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s15')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: Proof Binding
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §16 →</a>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ═══ STAGE 16 ═══ -->
+<div class="stage-header" id="stage-16" data-stage="16">
+  <div class="wrap">
+    <div class="stage-num">Stage 16 of 20 · v0.1+ (now explicit)</div>
+    <h2>compliance_flags[] and mandate_id — the decision identity fields</h2>
+    <p>Every artifact carries two fields that Stage 1 didn't have space to unpack. <code>mandate_id</code> is a UUID v4 assigned at run time — it's the "ticket number" for this specific execution, used by ops teams for support queries and audit lookup. <code>compliance_flags[]</code> is the structured exception layer: an array of flag objects with <code>code</code>, <code>severity</code> (INFO / WARN / ERROR), and <code>message</code>. A valid <code>execution_hash</code> and one or more <code>compliance_flags</code> with severity ERROR are not contradictory — integrity and business-logic warnings are fully independent. The OTel mapping converts <code>compliance_flags</code> into span <code>status.code</code>: any ERROR flag produces <code>status.code = ERROR</code> on the span.</p>
+    <div class="stage-note">📌 Watch flags build up in the artifact as the tool runs — WARN (yellow), ERROR (red), then cleared (green). The execution_hash stays fixed throughout: content integrity is separate from compliance outcome.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c16" height="320"></canvas>
+      <div class="scene-caption"><span class="dot"></span>mandate_id (run identity) · compliance_flags[] building up (INFO→WARN→ERROR→cleared) · execution_hash stays fixed · OTel status.code updates</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🎫</div>
+        <div class="concept-label">mandate_id</div>
+        <div class="concept-title">Run identity — the ticket number</div>
+        <div class="concept-desc">UUID v4 assigned at execution time. Uniquely identifies this specific run of this tool. Used by ops teams for support lookup, audit queries, and recall. Does not enter the hash preimage — the same inputs always produce the same hash regardless of when they run.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🚩</div>
+        <div class="concept-label">compliance_flags[]</div>
+        <div class="concept-title">Structured exception layer</div>
+        <div class="concept-desc">Array of flag objects: <code>{code, severity, message}</code>. Severity levels: INFO, WARN, ERROR. A valid hash + ERROR flag is fully valid — the content is intact AND the business logic raised a warning. These are independent properties.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📡</div>
+        <div class="concept-label">OTel status.code</div>
+        <div class="concept-title">Flags → span status</div>
+        <div class="concept-desc">The OTel mapping (§6) converts <code>compliance_flags</code> into span <code>status.code</code>: any flag with <code>severity: ERROR</code> sets <code>status.code = ERROR</code> on the span. INFO and WARN flags leave status at OK. This makes compliance exceptions visible in Datadog, Jaeger, and any OTel-compatible trace viewer.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔑</div>
+        <div class="concept-label">Preimage independence</div>
+        <div class="concept-title">Flags don't affect the hash</div>
+        <div class="concept-desc"><code>compliance_flags</code> and <code>mandate_id</code> are <em>outside</em> the hash preimage — only <code>policy_parameters</code> and <code>output_payload</code> are hashed. This means a tool can raise a WARN or ERROR flag without changing the verifiable hash of its decision inputs and outputs.</div>
+      </div>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s16')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: compliance_flags
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §1 &rarr;</a>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §6 OTel &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 17 ═══ -->
+<div class="stage-header" id="stage-17" data-stage="17">
+  <div class="wrap">
+    <div class="stage-num">Stage 17 of 20 · v0.2+</div>
+    <h2>Ed25519 key lifecycle — generate, publish, sign, verify, rotate</h2>
+    <p>Stage 6 covered what the signature does. This stage covers how the key is born, where it lives, how verification finds it, and how it gets rotated. The full lifecycle is four steps: <strong>Generate</strong> (<code>crypto.subtle.generateKey</code> in the browser, or Node's <code>crypto.generateKeyPairSync</code> server-side), <strong>Publish</strong> (export the public key as hex → <code>did:key</code> → add to <code>chaingraph.json</code> under <code>ocg:signing_keys</code>), <strong>Sign</strong> (the <code>kernels/_proof.mjs</code> or in-toto envelope signer produces the signature bytes), <strong>Verify</strong> (any verifier imports the public key from the Graph Index and calls <code>crypto.subtle.verify</code>). Rotation adds a new entry with a <code>valid_from</code> date — old artifacts signed under the prior key remain permanently verifiable using the prior entry.</p>
+    <div class="stage-note">📌 The four-panel canvas cycles through GENERATE → PUBLISH → SIGN → VERIFY. Watch the key bytes (purple) travel from the keypair generation into the chaingraph.json Graph Index, then into the signature, then back out to the verifier's verify call. Key rotation is shown by the second key entry appearing alongside the first.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c17" height="360"></canvas>
+      <div class="scene-caption"><span class="dot"></span>Ed25519 lifecycle: generate keypair &rarr; publish did:key to Graph Index &rarr; sign artifact &rarr; verify using public key &rarr; key rotation (valid_from)</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">⚙️</div>
+        <div class="concept-label">Generate</div>
+        <div class="concept-title">crypto.subtle.generateKey</div>
+        <div class="concept-desc"><code>crypto.subtle.generateKey({name:"Ed25519"}, true, ["sign","verify"])</code> produces a CryptoKeyPair. Export public key as raw bytes → hex string → derive <code>did:key</code> (multicodec 0xed01 prefix + base58btc). Never export the private key bytes outside a secure context.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📋</div>
+        <div class="concept-label">Publish</div>
+        <div class="concept-title">ocg:signing_keys in chaingraph.json</div>
+        <div class="concept-desc">Add the public key to the tool's Graph Index entry: <code>ocg:signing_keys: [{keyid:"did:key:z6Mk…", valid_from:"2025-01-01"}]</code>. Any verifier that fetches <code>chaingraph.json</code> from the tool's endpoint can now derive the public key from the <code>did:key</code> and verify any artifact signed with it.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">✍️</div>
+        <div class="concept-label">Sign</div>
+        <div class="concept-title">Ed25519.sign over payload or JCS</div>
+        <div class="concept-desc">For in-toto: sign the base64url-encoded artifact body (PAE envelope). For Proof Binding (v0.5): sign the JCS-canonicalized document via <code>kernels/_proof.mjs</code>. Both use <code>crypto.subtle.sign("Ed25519", privateKey, data)</code>. Output: 64 bytes → encoded in the artifact.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔁</div>
+        <div class="concept-label">Rotate</div>
+        <div class="concept-title">valid_from / valid_until</div>
+        <div class="concept-desc">Add a new key entry with today's <code>valid_from</code>. Set <code>valid_until</code> on the old entry if desired. Verifiers MUST use the key whose <code>valid_from</code>/<code>valid_until</code> bracket the artifact's <code>created_at</code> timestamp. Old artifacts remain verifiable permanently — rotation is additive, not destructive.</div>
+      </div>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s17')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: key lifecycle
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §5 &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 18 ═══ -->
+<div class="stage-header" id="stage-18" data-stage="18">
+  <div class="wrap">
+    <div class="stage-num">Stage 18 of 20 · v0.4+</div>
+    <h2>The chaingraph.json Graph Index — how agents plan before calling</h2>
+    <p>Stage 3 showed an agent calling a tool. Stage 4 showed cross-vendor chains. But neither answered: <em>how does the agent know which tools to call, in what order, before making any calls?</em> The answer is the <code>chaingraph.json</code> Graph Index — a DCAT 3.0 catalog that every node publishes at its well-known URL. It declares <code>ocg:consumes</code> (what this node depends on) and <code>ocg:feeds</code> (what this node can produce input for), forming a dependency DAG. Agents read the full graph before calling anything, plan the optimal execution path, and avoid invalid partial chains. <code>ocg:conformance_level</code> (L1–L4) signals implementation completeness. <code>dcat:accessService</code> + <code>ocg:mcp_tool_name</code> give the callable address. The Graph Index is what makes OCG an orchestration protocol, not just a hash format.</p>
+    <div class="stage-note">📌 Click any tool node in the canvas to expand its Graph Index entry. The agent node reads the full DAG, highlights the optimal path (A → B → D), and shows a conformance badge on each node. ocg:consumes and ocg:feeds are the dependency edges — dotted in, solid out.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c18" height="380"></canvas>
+      <div class="scene-caption"><span class="dot"></span>chaingraph.json catalog &rarr; ocg:consumes / ocg:feeds dependency DAG &rarr; agent plans optimal path &rarr; conformance levels L1&ndash;L4 &rarr; dcat:accessService MCP endpoint</div>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🗺️</div>
+        <div class="concept-label">dcat:Catalog</div>
+        <div class="concept-title">Machine-readable recipe book</div>
+        <div class="concept-desc">The <code>chaingraph.json</code> is a DCAT 3.0 <code>dcat:Catalog</code> published at the tool's well-known URL. Each tool is a <code>dcat:Dataset</code> entry with <code>mandate_type</code>, <code>compute_capability</code>, <code>export_capability</code>, <code>dct:title</code>, and <code>ocg:mcp_tool_name</code>. Agents fetch this once to understand the full tool landscape.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">↔️</div>
+        <div class="concept-label">ocg:consumes / ocg:feeds</div>
+        <div class="concept-title">Dependency DAG edges</div>
+        <div class="concept-desc"><code>ocg:consumes</code>: this node reads artifacts from these upstream tools. <code>ocg:feeds</code>: this node's output can be consumed by these downstream tools. Together they form a directed acyclic graph — agents traverse it to determine which tool calls must precede others and which can be parallelized.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📊</div>
+        <div class="concept-label">Conformance levels L1–L4</div>
+        <div class="concept-title">ocg:conformance_level</div>
+        <div class="concept-desc">L1: canonical artifact + hash only. L2: + PROV-DM context + buildType. L3: + in-toto signature + OTel mapping. L4: + profile conformance + compute binding + export profiles. An agent can filter the DAG to only plan paths through L3+ nodes for high-assurance workflows.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔌</div>
+        <div class="concept-label">dcat:accessService</div>
+        <div class="concept-title">The callable MCP address</div>
+        <div class="concept-desc"><code>dcat:accessService.endpointURL</code> + <code>ocg:mcp_tool_name</code> give the agent everything it needs to call the tool: the MCP server URL and the <code>tools/call</code> tool name. No out-of-band configuration required — the Graph Index is the service directory.</div>
+      </div>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s18')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: Graph Index
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §7 &rarr;</a>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ═══ STAGE 19 ═══ -->
+<div class="stage-header" id="stage-19" data-stage="19">
+  <div class="wrap">
+    <div class="stage-num">Stage 19 of 20 · v0.6</div>
+    <h2>Kernel Identity Binding — pinning <em>which</em> logic ran</h2>
+    <p>Every previous stage has shown that <code>execution_hash</code> proves <em>"this output follows from these inputs"</em>. But it says nothing about <em>which code</em> performed the computation. A dishonest server could substitute a different kernel — one with backdoors, different rounding, or different regulatory logic — while still producing a valid hash over its outputs. v0.6 closes this gap with <strong>Kernel Identity Binding</strong> (§17): the artifact MAY record a <code>kernel_digest</code> — a SHA-256 over the LF-normalised kernel source bytes — at <code>audit_signature.build_identity</code>. A verifier performs a <strong>three-way cross-check</strong>: artifact <code>kernel_digest</code> == Graph Index <code>compute_images[].image_id</code> == digest recomputed from the published source file. Any mismatch fails the binding. Important honesty caveat (§17.2): this is an <strong>advisory claim</strong>, not a cryptographic proof of execution — a dishonest server could still record the right digest while running different code. That is what §18 solves.</p>
+    <div class="stage-note">📌 Watch the kernel source file (left) get hashed by <code>_buildid.mjs</code> (LF-normalised, WebCrypto SHA-256). The digest travels into the artifact at <code>audit_signature.build_identity.kernel_digest</code> AND into the Graph Index <code>compute_images[]</code>. The verifier pulls both and checks three-way equality. The tamper button swaps the kernel — watch all three values diverge and the binding fail.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c19" height="360"></canvas>
+      <div class="scene-caption"><span class="dot"></span>kernel source &rarr; _buildid.mjs (LF-normalise, SHA-256) &rarr; kernel_digest &rarr; artifact build_identity + Graph Index compute_images[] &rarr; three-way cross-check</div>
+    </div>
+    <div class="iact-row">
+      <button class="iact-btn danger" id="s19TamperBtn" onclick="s19Tamper()">Tamper kernel (swap source)</button>
+      <button class="iact-btn add" id="s19RestoreBtn" onclick="s19Restore()" style="display:none">Restore kernel</button>
+      <span class="iact-status ok" id="s19Status">&#10003; three-way binding valid</span>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🧬</div>
+        <div class="concept-label">kernel_digest</div>
+        <div class="concept-title">SHA-256 over kernel source</div>
+        <div class="concept-desc"><code>_buildid.mjs</code> reads the kernel file, normalises all line endings to LF, and runs WebCrypto SHA-256 over the UTF-8 bytes. Result: <code>sha256:&lt;hex&gt;</code>. Stored at <code>audit_signature.build_identity.kernel_digest</code>. Deterministic: same source always → same digest regardless of OS or runtime.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📑</div>
+        <div class="concept-label">compute_images[]</div>
+        <div class="concept-title">Graph Index publication</div>
+        <div class="concept-desc">Each live node in <code>chaingraph.json</code> SHOULD publish its kernel digest: <code>compute_images: [{system:"sha256-source", image_id:"sha256:…", valid_from:"…"}]</code>. This is the second leg of the three-way cross-check — the public, independently verifiable record of which kernel a node claims to run.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔍</div>
+        <div class="concept-label">Three-way cross-check</div>
+        <div class="concept-title">Artifact ↔ Graph Index ↔ Source</div>
+        <div class="concept-desc">Verifier checks: (1) <code>artifact.build_identity.kernel_digest</code> == (2) <code>chaingraph.json compute_images[].image_id</code> == (3) recomputed digest from the published source file. All three must match. Any mismatch — tampered artifact, stale Graph Index, or modified source — fails the binding immediately.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">⚠️</div>
+        <div class="concept-label">Honesty caveat (§17.2)</div>
+        <div class="concept-title">Advisory claim, not proof of execution</div>
+        <div class="concept-desc">§17 cannot prevent a dishonest server recording the correct digest while actually running different code. It strengthens tamper-evidence (the digest is inside the §16 secured set when both apply) and makes forgery auditable — but it does not <em>prove</em> the named kernel produced the output. That is §18's job.</div>
+      </div>
+    </div>
+    <button class="quiz-btn" onclick="openQuiz('s19')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: Kernel Identity Binding
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §17 &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STAGE 20 ═══ -->
+<div class="stage-header" id="stage-20" data-stage="20">
+  <div class="wrap">
+    <div class="stage-num">Stage 20 of 20 · v0.6</div>
+    <h2>Compute-Integrity Proof — succinct proof of correct execution</h2>
+    <p>§17 pins <em>which</em> kernel was claimed. §18 makes it <strong>cryptographic</strong>. An artifact MAY attach an optional <strong>zkVM receipt</strong> at <code>audit_signature.compute_proof</code>: a zero-knowledge proof that <em>this specific program</em> (identified by <code>imageId</code>) produced <em>this specific output</em> (recorded in <code>journal</code>) from <em>some</em> inputs — without the verifier having to re-run the kernel, and optionally without revealing those inputs at all. This is OCG's analogue of Trusted Compute Units (arXiv:2504.15717), but <strong>software-only: no TEE, no hardware enclave, no blockchain anchor</strong>. The system is agnostic (<code>risc0</code>, <code>sp1</code>, <code>jolt</code>…); <code>groth16-bn254</code> (~200 bytes) is recommended. Seal verification is <strong>delegated</strong> to the named system's vetted verifier — exactly as §4 delegates SHA-256 to WebCrypto and §16 delegates Ed25519. <strong>Proving is off-band</strong>: it requires a Rust toolchain and heavy compute; it MUST NOT be claimed to run in the browser or Worker. Default-off.</p>
+    <div class="stage-note">📌 The canvas shows the verifiable-computation ladder: L1 (§4 hash, always), L2 (§16 proof, optional), L3 (§18 receipt, optional). Click any rung to expand it. The zkVM proving and verification flow animates left to right: guest program + inputs → prover (off-band) → receipt (seal + journal) → verifier checks seal, then journal == output_payload.</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="wrap">
+    <div class="scene">
+      <canvas class="scene-canvas" id="c20" height="400"></canvas>
+      <div class="scene-caption"><span class="dot"></span>zkVM proving (off-band, heavy) &rarr; receipt (seal + journal) &rarr; verifier: check seal via zkVM verifier &rarr; check journal == output_payload &rarr; no re-execution needed &bull; optional: inputs may be withheld</div>
+    </div>
+    <div class="iact-row">
+      <button class="iact-btn purple" id="s20ConfBtn" onclick="s20SetConf(true)">Enable confidential inputs</button>
+      <button class="iact-btn neutral" id="s20PubBtn" onclick="s20SetConf(false)" style="display:none">Show public inputs</button>
+      <span class="iact-status ok" id="s20Status">Public inputs &mdash; §4 recompute also available</span>
+    </div>
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-icon">🧾</div>
+        <div class="concept-label">ZkVmReceipt</div>
+        <div class="concept-title">The proof object</div>
+        <div class="concept-desc"><code>{type:"ZkVmReceipt", system:"risc0"|"sp1"|"jolt", receiptFormat:"groth16-bn254"|"stark", imageId:"sha256:…", seal:"&lt;base64&gt;", journal:{output:…}}</code>. Lives at <code>audit_signature.compute_proof</code> — hash-excluded, under the tolerant <code>audit_signature</code> object. A v0.6 artifact still validates under the frozen v0.4 schema.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔗</div>
+        <div class="concept-label">imageId ↔ compute_images[]</div>
+        <div class="concept-title">Program identity binding</div>
+        <div class="concept-desc"><code>imageId</code> in the receipt MUST match <code>compute_images[].image_id</code> in the Graph Index node entry — the published claim of which program the node runs. Together with §17 <code>kernel_digest</code>, this gives a two-layer program identity check: source digest (advisory) + zkVM guest identity (cryptographic).</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">📖</div>
+        <div class="concept-label">journal == output_payload</div>
+        <div class="concept-title">Output binding</div>
+        <div class="concept-desc">The receipt's <code>journal.output</code> MUST equal the artifact's <code>output_payload</code>. The verifier checks this binding directly — no re-execution. If the journal matches and the seal verifies, the verifier has cryptographic assurance that <em>this program</em> produced <em>this output</em>.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon">🔒</div>
+        <div class="concept-label">Confidential inputs (§18.3)</div>
+        <div class="concept-title">Verify without seeing inputs</div>
+        <div class="concept-desc">When inputs are confidential, <code>policy_parameters</code> carries commitments/hashes instead of cleartext. §4 recompute is then unavailable to third parties. The receipt becomes the <em>sole</em> verification path. A tool in this mode MUST surface that to users. Like §16, default-off.</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="lab">The verifiable-computation ladder (§18.4)</div>
+      <p><strong>L1</strong> — §4 <code>execution_hash</code>: tamper-evidence; verifier must re-run with cleartext inputs. &nbsp;<strong>L2</strong> — §16 Proof Binding: authenticated attestation; a named key vouches for the whole artifact. &nbsp;<strong>L3</strong> — §18 Compute-Integrity Proof: succinct proof of correct execution; verifier checks a receipt without re-running, optionally without seeing inputs. They compose: a §18 receipt MAY itself be covered by a §16 proof. Proving is off-band — MUST NOT be claimed to run in the browser or Worker.</p>
+    </div>
+
+    <button class="quiz-btn" onclick="openQuiz('s20')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Quick check: Compute-Integrity Proof
+    </button>
+    <div class="stage-links">
+      <span class="stage-links-label">Go deeper:</span>
+      <a href="openchain-graph-spec.html" class="stage-link">Spec §18 &rarr;</a>
+      <a href="https://arxiv.org/abs/2504.15717" class="stage-link">arXiv:2504.15717 &rarr;</a>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="quizOverlay" onclick="closeQuizOnBg(event)">
   <div class="modal" id="quizModal">
     <button class="modal-x" onclick="closeQuiz()">✕</button>
@@ -1277,56 +1841,9 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="faq-eyebrow">Frequently Asked Questions</div>
     <h2>Questions we keep hearing</h2>
-    <p>Ten questions that come up every time someone encounters OpenChainGraph for the first time — covering the core standard, v0.4 additions, and the AIN Bridge integration layer.</p>
+    <p>Twelve questions that come up every time someone encounters OpenChainGraph for the first time — covering the core standard, v0.4 additions, v0.5 Proof Binding, and the AIN Bridge integration layer.</p>
 
     <div class="faq-list">
-
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
-          <span class="faq-q-text">Tool, node, kernel, chain, artifact, MCP recipe — what's the difference?</span>
-          <span class="faq-chevron">▶</span>
-        </div>
-        <div class="faq-a tall">
-          <div class="faq-a-inner">
-            <p>One capability wears different faces depending on who's using it. The same fraud-screening logic is a <strong>tool</strong> to a person, a <strong>node</strong> to an agent, a <strong>kernel</strong> to the server, and a <strong>step in a chain</strong> to an auditor. Here is the whole vocabulary, smallest to largest:</p>
-            <p><strong>Tool</strong> — a single self-contained browser page (one HTML file, inline CSS/JS, zero network, zero PII). It is what a human opens, fills in, and runs. The catalog is hundreds of these. Every tool runs entirely client-side in your browser.</p>
-            <p><strong>Node</strong> — a capability's identity <em>inside</em> an OpenChainGraph, declared in <code>chaingraph.json</code>: a <code>tool_id</code> plus an <code>mcp_name</code> an AI agent calls, the inputs it accepts (<code>policy_parameters</code>), and the promise that it emits a hash-anchored artifact. A node is the <strong>agent-callable face</strong> of a tool — same logic, exposed for machines instead of a click.</p>
-            <p><strong>Kernel</strong> — the deterministic function behind a node: <code>compute(inputs) → output</code>, wrapped with the canonical <code>execution_hash</code>. It is a small, pure module (no network, no clock, no randomness), so <strong>anyone can re-run it and get the byte-identical hash</strong>. That recomputability is the trust — you don't trust us, you trust the math.</p>
-            <p><strong>Artifact</strong> — what a node emits when it runs: a JSON receipt carrying the inputs, the output, the <code>execution_hash</code>, and pointers to the artifacts it built on. The verifiable record of one decision.</p>
-            <p><strong>Chain (ChainGraph)</strong> — nodes wired into a directed graph, where each artifact's hash feeds the next as a <code>parent_hash</code>. It is a multi-step workflow whose <strong>entire provenance recomputes end-to-end</strong> — e.g. a derivatives-report check that runs field validation → identifier completeness → product validation, each step citing the last.</p>
-            <p><strong>MCP recipe / workflow</strong> — the agent-facing packaging of a chain: a <em>named</em> workflow an agent discovers (<code>find_chain</code>), gets the ordered call sequence for (<code>build_workflow_links</code>), runs step by step, and verifies. ("Workflow" and "composer" pages on the site are these chains in human form.)</p>
-            <p><strong>OpenChainGraph (OCG)</strong> is the open standard tying it all together — the artifact envelope, the hash rule, the chain/provenance model, and the MCP binding every node conforms to. <strong>MCP</strong> (Model Context Protocol) is the doorway agents use to discover, call, and verify those nodes and chains.</p>
-            <p>In one line: <strong>tool</strong> = the app · <strong>node</strong> = the API surface · <strong>kernel</strong> = the function · <strong>artifact</strong> = the receipt · <strong>chain</strong> = the pipeline · <strong>OCG</strong> = the spec · <strong>MCP</strong> = the agent's doorway.</p>
-            <p>One honest note on the words: in MCP, the agent-callable thing is itself called a <strong>"tool."</strong> OpenChainGraph re-layers that — it calls the human page a "tool" and the agent-callable surface a "node." It's a deliberate human-vs-machine distinction, but if you live in MCP's vocabulary, expect a small adjustment. More on the terminology — and how OCG compares to in-toto, SLSA, OpenLineage and AP2 — on <a href="why-openchain-graph.html">Why OpenChainGraph →</a>.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
-          <span class="faq-q-text">Hasn't someone built this already? How is it different from in-toto, SLSA, OpenLineage, or AP2?</span>
-          <span class="faq-chevron">▶</span>
-        </div>
-        <div class="faq-a">
-          <div class="faq-a-inner">
-            <p>OpenChainGraph is a <strong>novel synthesis of borrowed parts, not a new primitive</strong> — and we say so plainly. The hash-anchored, recompute-to-verify pattern is exactly <strong>in-toto / SLSA</strong> (and Git's object model), applied to financial decision artifacts instead of software builds. The DAG-of-runs idea overlaps with <strong>OpenLineage</strong> data lineage — but lineage tracks data movement, not recomputable decision receipts. Signed cross-vendor receipts overlap with <strong>AP2</strong> — but AP2 is payments authorization built on <em>key-trust</em> (signatures), whereas OCG is <em>computation-trust</em> (re-run it, no key needed).</p>
-            <p>What no one else does is the <strong>combination</strong>: deterministic recompute · fintech decisions · runs in the browser (zero PII) · agent-callable over MCP · cross-vendor chains. That's a genuine first-mover position, not an unassailable moat — the full honest comparison, including the caveats, is on <a href="why-openchain-graph.html">Why OpenChainGraph →</a>.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
-          <span class="faq-q-text">Why is this only possible now? Why didn't someone build it five years ago?</span>
-          <span class="faq-chevron">▶</span>
-        </div>
-        <div class="faq-a">
-          <div class="faq-a-inner">
-            <p>Because the enabling pieces only converged in the last ~18 months. <strong>MCP</strong> — the protocol that makes each node agent-callable — arrived Nov 2024 and was donated to the Linux Foundation in Dec 2025. The <strong>agentic-payment / cross-vendor trust standards</strong> (AP2, A2A, x402) that make "agents transact across vendor boundaries and need verifiable outputs" a real problem landed in 2025. Browser <strong>WebCrypto</strong> is what lets the whole thing hash and verify client-side with no backend and zero PII. And <strong>in-toto / SLSA</strong> only went mainstream around 2023–2025, making the provenance pattern borrowable.</p>
-            <p>Before that you couldn't assemble it — no agent protocol to call the nodes, no cross-vendor agent-trust standard to chain across, and provenance wasn't a mainstream expectation. The ingredients sat in separate silos; nobody had the connective tissue to fuse them for fintech decisions until agents needed verifiable tool outputs. Timeline and sources on <a href="why-openchain-graph.html">Why OpenChainGraph →</a>.</p>
-          </div>
-        </div>
-      </div>
 
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this.parentElement)">
@@ -1458,6 +1975,34 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
         </div>
       </div>
 
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">Does Proof Binding make OpenChainGraph artifacts PII-laden?</span>
+          <span class="faq-chevron">&#9658;</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p>No &mdash; Proof Binding is default-off, and inputs (<code>policy_parameters</code>) remain PII-free by the standard zero-egress contract. What changes is that the <em>signer&rsquo;s key identity</em> becomes linkable to the run. The artifact itself carries no personal data. Tools that offer signing MUST clearly communicate that opting in de-anonymizes at the key level &mdash; not the payload level.</p>
+            <p>The <code>zero_pii_verified</code> semantics are unchanged. If you sign with a <code>did:key</code> generated fresh for each session and never published, the run remains practically unlinkable. If you sign with an institutional <code>did:web</code> anchored to your domain, the signer becomes publicly known &mdash; which is exactly the point for regulated institutions seeking auditor-grade attestation.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this.parentElement)">
+          <span class="faq-q-text">What&rsquo;s the difference between audit_signature.signatures[] (v0.2 / §4) and audit_signature.proof (v0.5 / §16)?</span>
+          <span class="faq-chevron">&#9658;</span>
+        </div>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <p><code>signatures[]</code> (§4, v0.2) is a DSSE/in-toto envelope &mdash; it signs over a <code>payload</code> field that is a base64url encoding of the artifact without <code>audit_signature</code>. It is the v0.2 signing mechanism, optimized for in-toto and Sigstore toolchain compatibility.</p>
+            <p><code>proof</code> (§16, v0.5) is a W3C Data Integrity proof using the <code>eddsa-jcs-2022</code> cryptosuite. It signs over the <em>whole artifact</em> minus <code>proof</code> itself, using the same JCS canonicalizer as the §4 hash construction &mdash; no second canonicalization path. The two mechanisms co-exist in the same <code>audit_signature</code> object, are independent, and serve different verifier ecosystems: in-toto/Sigstore consumers use <code>signatures[]</code>; W3C VC / Data Integrity verifiers use <code>proof</code>. Both are optional. A maximally signed v0.5 artifact carries both.</p>
+          </div>
+        </div>
+      </div>
+
+
     </div><!-- /.faq-list -->
   </div>
 </div>
@@ -1465,17 +2010,15 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.4 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.6 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       <a href="https://ainumbers.co">AINumbers.co</a> — Reference implementation
       <span>·</span>
-      <a href="openchain-graph-spec.html">Full Technical Spec v0.4 →</a>
+      <a href="openchain-graph-spec.html">Full Technical Spec v0.6 →</a>
       <span>·</span>
       <a href="chaingraph-hub.html">Hub →</a>
       <span>·</span>
       <a href="ocg-industries.html">Industry Concepts →</a>
-      <span>·</span>
-      <a href="why-openchain-graph.html">Why OpenChainGraph →</a>
       <span>·</span>
       Integration Guides:
       <a href="guide-prov-dm.html">W3C PROV-DM</a> ·
@@ -1947,6 +2490,92 @@ const QUIZZES = {
     correct: 2,
     feedback: '<strong>Correct: C.</strong> Exports are generated <em>downstream of</em> a fixed <code>execution_hash</code> and are explicitly excluded from the hash preimage. The computation is the same as always: SHA-256 over <code>{policy_parameters, output_payload}</code> with sorted keys. The <code>chaingraph_export</code> field is an addendum — it annotates the artifact without changing what was hashed. Every prior artifact remains valid, and every export embeds the original <code>execution_hash</code> as embedded metadata.',
   },
+  s16: {
+    stage: 'Stage 16 · compliance_flags[] and mandate_id',
+    q: 'An artifact has a valid execution_hash AND one compliance_flag with severity: ERROR. What does this mean?',
+    opts: [
+      'The artifact is invalid — a hash and an ERROR flag cannot coexist.',
+      'The content is intact AND the business logic raised an error condition — both are true simultaneously, they are independent properties.',
+      'The ERROR flag automatically invalidates the execution_hash on the next verification attempt.',
+      'The artifact must be re-hashed once the error condition is resolved before it can be cited as a parent.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> <code>execution_hash</code> (integrity) and <code>compliance_flags</code> (business-logic outcome) are fully independent. A valid hash means the content of <code>policy_parameters</code> and <code>output_payload</code> is exactly what was hashed — nothing changed. An ERROR flag means the tool\'s own business logic detected a compliance issue and recorded it. An artifact can simultaneously have intact content and an ERROR flag. The OTel mapping converts ERROR flags to <code>status.code = ERROR</code> on the span, making them visible in trace dashboards.',
+  },
+  s17: {
+    stage: 'Stage 17 · Ed25519 Key Lifecycle',
+    q: 'A vendor rotates their Ed25519 signing key in January 2026. An artifact was signed in December 2025 with the old key. Can that artifact still be verified?',
+    opts: [
+      'No — key rotation revokes the old key; all artifacts signed before rotation become unverifiable.',
+      'Yes — verifiers MUST use the key whose valid_from/valid_until bracket the artifact\'s created_at timestamp. Old keys are retained in the Graph Index; rotation is additive.',
+      'Only if the vendor re-signs the artifact with the new key before decommissioning the old one.',
+      'Yes, but only for 90 days after rotation — after that the old key entry expires.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> Key rotation in OCG is additive — the old key entry is retained in <code>ocg:signing_keys</code> with a <code>valid_until</code> date. Verifiers MUST resolve the key that was active when the artifact was produced (using the artifact\'s <code>created_at</code> timestamp against <code>valid_from</code>/<code>valid_until</code>). The old key is never destroyed from the registry. This makes old artifacts permanently verifiable without re-signing.',
+  },
+  s18: {
+    stage: 'Stage 18 · Graph Index (chaingraph.json)',
+    q: 'Why do ocg:consumes and ocg:feeds exist in the Graph Index when an agent could just call tools one by one and chain the results manually?',
+    opts: [
+      'They are required by the DCAT 3.0 specification for all catalog entries, not specific to OCG.',
+      'They allow agents to plan the full execution DAG before making any calls — no partial calls, no wasted round-trips, no invalid chains. The agent derives the optimal path from the graph.',
+      'They enforce a strict sequential order that prevents agents from parallelising tool calls.',
+      'They are used only for export profile discovery — not for execution planning.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> <code>ocg:consumes</code> and <code>ocg:feeds</code> form a dependency DAG that agents can read in a single catalog fetch. An agent planning a multi-tool workflow reads the full graph, determines which nodes must precede others, identifies parallelisable branches, and builds an execution plan before calling anything. Without these edges, agents would have to call tools speculatively and discover failures mid-chain. The Graph Index is what makes OCG an orchestration protocol, not just a provenance hash format.',
+  },
+  s19: {
+    stage: 'Stage 19 · Kernel Identity Binding (v0.6)',
+    q: 'The spec calls §17 Kernel Identity Binding an "advisory claim" (§17.2). What does this mean, and how does §18 address it?',
+    opts: [
+      'Advisory means the field is optional — §18 makes it mandatory for all v0.6 nodes.',
+      'A dishonest server could record the correct kernel_digest while actually executing different code. §17 strengthens tamper-evidence but cannot prove which code ran. §18 makes it cryptographic: a zkVM receipt proves the named program produced the output.',
+      'Advisory means the digest is approximate — §18 replaces it with an exact cryptographic fingerprint of the source.',
+      'Advisory refers to the LF-normalisation step being optional — §18 removes this ambiguity with a standard encoding.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> §17 records a SHA-256 over the kernel source — an auditable, tamper-evident claim of which source file ran, cross-checked three ways. But a server controls its own compute environment: it could log the right digest while running different code. §17 makes forgery <em>auditable</em> (the mismatch would show up in the three-way check after the fact) but it is not a real-time proof. §18 closes this gap with a zkVM receipt: if the seal verifies and the journal matches <code>output_payload</code>, a verifier has cryptographic assurance that <em>this specific program</em> produced <em>this specific output</em> — no honesty assumption required.',
+  },
+  s20: {
+    stage: 'Stage 20 · Compute-Integrity Proof (v0.6)',
+    q: 'An artifact carries a §18 compute_proof with receiptFormat:"groth16-bn254". A verifier wants to confirm correctness without running the kernel. What are the two checks it performs?',
+    opts: [
+      'Recompute the execution_hash from policy_parameters + output_payload, then compare to the stored hash.',
+      '(1) Verify the seal against the imageId using the named zkVM system\'s vetted verifier (e.g. risc0.verify). (2) Assert that journal.output equals the artifact\'s output_payload. Neither step requires re-executing the kernel.',
+      'Fetch the kernel source from source_ref, hash it locally, compare to imageId, then run the kernel with the recorded inputs.',
+      'Verify the Ed25519 proof at audit_signature.proof (§16), then confirm the compute_proof.imageId matches compute_images[] in the Graph Index.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> The two verification steps are seal verification and output binding. (1) The seal is a cryptographic proof produced by the zkVM prover; the verifier checks it against <code>imageId</code> using the named system\'s vetted verifier — this is delegated, exactly as §4 delegates SHA-256 to WebCrypto and §16 delegates Ed25519. (2) The receipt\'s <code>journal.output</code> is the output the zkVM program actually produced; the verifier asserts it equals <code>output_payload</code>. Both checks pass without re-executing the guest program and, in confidential mode (§18.3), without seeing the inputs.',
+  },
+
+  s14: {
+    stage: 'Stage 14 · VC Export Profile (v0.4.1)',
+    q: 'The chaingraph_export:vc profile is described as a "base profile." What does this mean in practice?',
+    opts: [
+      'It is the most important export format and takes precedence over xlsx and pdf.',
+      'It is available on every node regardless of what the node declares in export_capability — a VC rendering always exists.',
+      'It requires an explicit export_capability: ["vc"] declaration in chaingraph.json before it can be called.',
+      'It automatically adds a W3C Data Integrity securing proof to the rendered credential.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> A "base profile" means a lossless structural re-expression of any OCG artifact into VC format always exists — there is nothing domain-specific to declare. Unlike <code>xlsx</code> or <code>xbrl</code>, which are meaningful only for certain tool types and must be declared in <code>export_capability</code>, the VC rendering is a universal structural mapping. It mints no new hash and adds no proof — verification still routes back to the canonical JSON artifact.',
+  },
+  s15: {
+    stage: 'Stage 15 · Proof Binding (v0.5)',
+    q: 'Why does the v0.5 proof live at audit_signature.proof instead of at the artifact root?',
+    opts: [
+      'The artifact root already holds execution_hash and there is no room for additional top-level fields.',
+      'The artifact root schema is additionalProperties:false in the frozen v0.4 spec — a root-level proof field would break v0.4 verifiers. audit_signature tolerates added properties, so a signed v0.5 artifact still validates under the v0.4 schema.',
+      'The proof must be adjacent to signatures[] to satisfy in-toto attestation framework requirements.',
+      'Root-level fields are reserved for hash-preimage fields only; non-preimage fields must go under audit_signature.',
+    ],
+    correct: 1,
+    feedback: '<strong>Correct: B.</strong> The artifact root is declared with <code>additionalProperties:false</code> in the frozen v0.4 JSON Schema. Adding a <code>proof</code> field there would cause any v0.4-conformant verifier to reject the artifact. <code>audit_signature</code> tolerates additional properties, so attaching the proof there preserves full backward compatibility — unsigned artifacts are byte-identical to v0.4.1, and signed ones still pass v0.4 schema validation.',
+  },
+
   s7: {
     stage: 'Stage 7 · OpenTelemetry Mapping',
     q: 'In the OpenChainGraph → OTel mapping, what does the execution_hash provide?',
@@ -3504,6 +4133,1244 @@ setTimeout(function(){(function(){
   }
   requestAnimationFrame(frame);
 })(); }, 0);
+
+// -------------------------------------------------
+// SCENE 14: chaingraph_export:vc -- VC base profile
+// Artifact (left) -> VC Renderer (centre) -> OpenChainGraphCredential (right)
+// The execution_hash travels through as ocg:hashAnchor
+// -------------------------------------------------
+setTimeout(function(){(function(){
+  var setup = setupCanvas('c14');
+  var ctx = setup.ctx, w = setup.w, h = setup.h;
+  var lastTs = performance.now(), elapsed = 0;
+
+  var ART  = {x:w*.20, y:h*.50};
+  var REND = {x:w*.52, y:h*.50};
+  var VC   = {x:w*.82, y:h*.50};
+  var AW=156, AH=108, RW=100, RH=52, VW=164, VH=114;
+
+  function frame(ts){
+    var dt = Math.min((ts-lastTs)/1000, .05);
+    lastTs=ts; elapsed+=dt;
+    ctx.clearRect(0,0,w,h);
+    var dashOff = (elapsed*16)%12;
+    var pulse = .08+.05*Math.sin(elapsed*2.2);
+
+    // Artifact -> Renderer edge
+    ctx.save(); ctx.strokeStyle=ha(C.gold,.3); ctx.lineWidth=1.4;
+    ctx.setLineDash([4,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(ART.x+AW/2,ART.y); ctx.lineTo(REND.x-RW/2,REND.y); ctx.stroke(); ctx.restore();
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.gold,.45); ctx.textAlign='center';
+    ctx.fillText('export_artifact(artifact, "vc")', (ART.x+AW/2+REND.x-RW/2)/2, ART.y-14);
+
+    // Renderer -> VC edge
+    ctx.save(); ctx.strokeStyle=ha(C.purple,.3); ctx.lineWidth=1.4;
+    ctx.setLineDash([4,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(REND.x+RW/2,REND.y); ctx.lineTo(VC.x-VW/2,VC.y); ctx.stroke(); ctx.restore();
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.purple,.45); ctx.textAlign='center';
+    ctx.fillText('OpenChainGraphCredential', (REND.x+RW/2+VC.x-VW/2)/2, REND.y-14);
+
+    // Packet art->rend
+    var pk1=(elapsed*.28)%1;
+    ctx.fillStyle=ha(C.gold,Math.sin(Math.PI*pk1)*.75);
+    ctx.beginPath(); ctx.arc(ART.x+AW/2+(REND.x-RW/2-ART.x-AW/2)*pk1,ART.y,5,0,Math.PI*2); ctx.fill();
+
+    // Packet rend->vc
+    var pk2=((elapsed*.28)+0.4)%1;
+    ctx.fillStyle=ha(C.purple,Math.sin(Math.PI*pk2)*.75);
+    ctx.beginPath(); ctx.arc(REND.x+RW/2+(VC.x-VW/2-REND.x-RW/2)*pk2,REND.y,5,0,Math.PI*2); ctx.fill();
+
+    // Floating "execution_hash" text drifting from art to vc
+    var htr=(elapsed*.22)%1;
+    ctx.font='400 6.5px '+MONO; ctx.textAlign='center';
+    ctx.fillStyle=ha(C.teal, Math.sin(Math.PI*htr)*.65);
+    ctx.fillText('execution_hash', ART.x+(VC.x-ART.x)*htr, ART.y-32+Math.sin(htr*Math.PI)*(-14));
+
+    // ARTIFACT node
+    var ag=ctx.createRadialGradient(ART.x,ART.y,0,ART.x,ART.y,78);
+    ag.addColorStop(0,ha(C.gold,pulse*1.8)); ag.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(ART.x,ART.y,78,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.gold; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(ART.x-AW/2,ART.y-AH/2,AW,AH,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8.5px '+MONO; ctx.fillStyle=C.gold; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('v0.4 artifact',ART.x,ART.y-37);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.teal,.88);
+    ctx.fillText('execution_hash: sha256:3f9a...',ART.x,ART.y-21);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.body,.65);
+    ctx.fillText('chaingraph_version: "0.4.0"',ART.x,ART.y-5);
+    ctx.fillText('mandate_type: "compliance_mandate"',ART.x,ART.y+11);
+    ctx.textBaseline='alphabetic';
+    ctx.font='300 6px '+SANS; ctx.fillStyle=ha(C.green,.5); ctx.textAlign='center';
+    ctx.fillText('hash locked', ART.x, ART.y+AH/2+13);
+
+    // RENDERER node
+    var rg=ctx.createRadialGradient(REND.x,REND.y,0,REND.x,REND.y,52);
+    rg.addColorStop(0,ha(C.teal,pulse*1.6)); rg.addColorStop(1,ha(C.teal,0));
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(REND.x,REND.y,52,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.teal; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(REND.x-RW/2,REND.y-RH/2,RW,RH,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8px '+MONO; ctx.fillStyle=C.teal; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('VC Renderer',REND.x,REND.y-7);
+    ctx.font='300 6.5px '+SANS; ctx.fillStyle=ha(C.body,.65);
+    ctx.fillText('base profile',REND.x,REND.y+8); ctx.textBaseline='alphabetic';
+    ctx.font='300 6px '+SANS; ctx.fillStyle=ha(C.green,.65); ctx.textAlign='center';
+    ctx.fillText('every node -- no declaration needed',REND.x,REND.y+RH/2+13);
+
+    // VC CREDENTIAL node
+    var vcP=.08+.05*Math.sin(elapsed*2.2+1.8);
+    var vg=ctx.createRadialGradient(VC.x,VC.y,0,VC.x,VC.y,82);
+    vg.addColorStop(0,ha(C.purple,vcP*1.8)); vg.addColorStop(1,ha(C.purple,0));
+    ctx.fillStyle=vg; ctx.beginPath(); ctx.arc(VC.x,VC.y,82,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.purple; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(VC.x-VW/2,VC.y-VH/2,VW,VH,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8.5px '+MONO; ctx.fillStyle=C.purple; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('OpenChainGraphCredential',VC.x,VC.y-42);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.body,.65);
+    ctx.fillText('type: ["VerifiableCredential",',VC.x,VC.y-26);
+    ctx.fillText('"OpenChainGraphCredential"]',VC.x,VC.y-12);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.teal,.88);
+    ctx.fillText('id: "urn:ocg:artifact:3f9a..."',VC.x,VC.y+4);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.gold,.85);
+    ctx.fillText('ocg:hashAnchor.executionHash',VC.x,VC.y+20);
+    ctx.font='300 5.5px '+MONO; ctx.fillStyle=ha(C.gold,.55);
+    ctx.fillText('  re-states canonical hash -- not a proof',VC.x,VC.y+34);
+    ctx.textBaseline='alphabetic';
+    ctx.font='300 6px '+SANS; ctx.fillStyle=ha(C.purple,.45); ctx.textAlign='center';
+    ctx.fillText('view only -- no securing proof -- verify via canonical JSON',VC.x,VC.y+VH/2+13);
+
+    // Caption
+    ctx.font='300 7.5px '+SANS; ctx.fillStyle=ha(C.body,.5); ctx.textAlign='center';
+    ctx.fillText('Deterministic: same artifact -> byte-identical VC -- chaingraph_version stays "0.4.0" -- hash preimage unchanged',w/2,h-10);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+
+// -------------------------------------------------
+// SCENE 15: Proof Binding (v0.5)
+// Three tracks converge on artifact (right):
+//   TOP    (green)  -- execution_hash, always present
+//   MIDDLE (teal)   -- signatures[] DSSE in-toto, v0.2+
+//   BOTTOM (purple) -- proof eddsa-jcs-2022, v0.5, default-off, auto-toggles
+// -------------------------------------------------
+setTimeout(function(){(function(){
+  var setup = setupCanvas('c15');
+  var ctx = setup.ctx, w = setup.w, h = setup.h;
+  var lastTs = performance.now(), elapsed = 0;
+  var proofActive = false, proofFade = 0;
+  setInterval(function(){ proofActive = !proofActive; }, 5000);
+
+  var ART = {x:w*.80, y:h*.50};
+  var AW=148, AH=124;
+
+  // Three track definitions
+  var TK = [
+    {sx:w*.08,sy:h*.18,mx:w*.43,my:h*.18,dy:h*.28,label:'execution_hash',sub:'integrity',mid:'SHA-256',  col:'#22C55E',spd:.42,fa:function(){return 1;}},
+    {sx:w*.08,sy:h*.50,mx:w*.43,my:h*.50,dy:h*.50,label:'signatures[]',  sub:'in-toto',  mid:'Ed25519',  col:'#14B8A6',spd:.40,fa:function(){return .88;}},
+    {sx:w*.08,sy:h*.82,mx:w*.43,my:h*.82,dy:h*.72,label:'proof',         sub:'eddsa-jcs',mid:'DI proof', col:'#9B72F5',spd:.30,fa:function(){return proofFade;}}
+  ];
+
+  function frame(ts){
+    var dt=Math.min((ts-lastTs)/1000,.05);
+    lastTs=ts; elapsed+=dt;
+    proofFade = proofActive ? Math.min(1,proofFade+dt*2.2) : Math.max(0.08,proofFade-dt*2.2);
+    ctx.clearRect(0,0,w,h);
+    var dashOff=(elapsed*16)%12;
+
+    // Track separator lines
+    ctx.save(); ctx.strokeStyle=ha('#1E2F4A',.22); ctx.lineWidth=1; ctx.setLineDash([3,7]);
+    ctx.beginPath(); ctx.moveTo(w*.03,h*.34); ctx.lineTo(w*.97,h*.34); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w*.03,h*.66); ctx.lineTo(w*.97,h*.66); ctx.stroke();
+    ctx.restore();
+
+    // Track header labels
+    ctx.font='300 6px '+SANS; ctx.textAlign='left';
+    ctx.fillStyle=ha('#22C55E',.55); ctx.fillText('INTEGRITY -- execution_hash -- always present -- v0.1+', w*.03, h*.10);
+    ctx.fillStyle=ha('#14B8A6',.5);  ctx.fillText('HASH AUTHENTICITY -- signatures[] -- in-toto compatible -- v0.2+', w*.03, h*.43);
+    ctx.fillStyle=ha('#9B72F5', Math.max(0.2, proofFade*.65));
+    ctx.fillText('WHOLE-ARTIFACT AUTH -- audit_signature.proof -- eddsa-jcs-2022 -- v0.5 -- ' + (proofActive ? 'ENABLED' : 'DEFAULT OFF'), w*.03, h*.88);
+
+    for(var ti=0;ti<TK.length;ti++){
+      var T=TK[ti];
+      var alpha=T.fa();
+      if(alpha<0.02) continue;
+
+      // src->mid edge
+      ctx.save(); ctx.strokeStyle=ha(T.col,alpha*.28); ctx.lineWidth=1.2;
+      ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+      ctx.beginPath(); ctx.moveTo(T.sx+30,T.sy); ctx.lineTo(T.mx-24,T.my); ctx.stroke(); ctx.restore();
+
+      // mid->artifact edge
+      ctx.save(); ctx.strokeStyle=ha(T.col,alpha*.30); ctx.lineWidth=1.3;
+      ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+      ctx.beginPath(); ctx.moveTo(T.mx+24,T.my); ctx.lineTo(ART.x-AW/2,T.dy); ctx.stroke(); ctx.restore();
+
+      // Packet src->mid
+      var pk1=((elapsed*T.spd)+ti*.33)%1;
+      ctx.fillStyle=ha(T.col,Math.sin(Math.PI*pk1)*alpha*.8);
+      ctx.beginPath(); ctx.arc((T.sx+30)+(T.mx-24-T.sx-30)*pk1, T.sy+(T.my-T.sy)*pk1, 4.5,0,Math.PI*2); ctx.fill();
+
+      // Packet mid->artifact
+      var pk2=((elapsed*T.spd)+ti*.33+0.5)%1;
+      ctx.fillStyle=ha(T.col,Math.sin(Math.PI*pk2)*alpha*.75);
+      ctx.beginPath(); ctx.arc((T.mx+24)+(ART.x-AW/2-T.mx-24)*pk2, T.my+(T.dy-T.my)*pk2, 4.5,0,Math.PI*2); ctx.fill();
+
+      // Source node
+      ctx.globalAlpha=alpha;
+      var sg=ctx.createRadialGradient(T.sx,T.sy,0,T.sx,T.sy,30);
+      sg.addColorStop(0,ha(T.col,.18)); sg.addColorStop(1,ha(T.col,0));
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(T.sx,T.sy,30,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=C.bg3; ctx.strokeStyle=T.col; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.roundRect(T.sx-30,T.sy-20,60,40,6); ctx.fill(); ctx.stroke();
+      ctx.font='500 7.5px '+MONO; ctx.fillStyle=T.col; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(T.label,T.sx,T.sy-5);
+      ctx.font='300 6.5px '+SANS; ctx.fillStyle=C.body;
+      ctx.fillText(T.sub,T.sx,T.sy+7); ctx.textBaseline='alphabetic';
+
+      // Mid processor node
+      var mg=ctx.createRadialGradient(T.mx,T.my,0,T.mx,T.my,26);
+      mg.addColorStop(0,ha(T.col,.16)); mg.addColorStop(1,ha(T.col,0));
+      ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(T.mx,T.my,26,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=C.bg3; ctx.strokeStyle=T.col; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(T.mx,T.my,20,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.font='500 7px '+MONO; ctx.fillStyle=T.col; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(T.mid,T.mx,T.my); ctx.textBaseline='alphabetic';
+      ctx.globalAlpha=1;
+    }
+
+    // ARTIFACT node
+    var artP=.1+.06*Math.sin(elapsed*2.5);
+    var agrd=ctx.createRadialGradient(ART.x,ART.y,0,ART.x,ART.y,90);
+    agrd.addColorStop(0,ha(C.gold,artP*1.5)); agrd.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=agrd; ctx.beginPath(); ctx.arc(ART.x,ART.y,90,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.gold; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.roundRect(ART.x-AW/2,ART.y-AH/2,AW,AH,8); ctx.fill(); ctx.stroke();
+
+    ctx.font='500 8px '+MONO; ctx.fillStyle=C.gold; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('v0.5 artifact',ART.x,ART.y-48);
+    ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.teal,.9);
+    ctx.fillText('execution_hash: sha256:3f9a...',ART.x,ART.y-32);
+    ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.teal,.7);
+    ctx.fillText('audit_signature.signatures[]: [...]',ART.x,ART.y-18);
+    // Proof fields fade in
+    ctx.globalAlpha=proofFade;
+    ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.purple,.95);
+    ctx.fillText('audit_signature.proof: {',ART.x,ART.y-2);
+    ctx.font='300 5.5px '+MONO; ctx.fillStyle=ha(C.purple,.82);
+    ctx.fillText('  type: "DataIntegrityProof",',ART.x,ART.y+12);
+    ctx.fillText('  cryptosuite: "eddsa-jcs-2022",',ART.x,ART.y+25);
+    ctx.fillText('  proofValue: "zABC..."}',ART.x,ART.y+38);
+    ctx.globalAlpha=1;
+    ctx.textBaseline='alphabetic';
+
+    // Guarantee badge row
+    var badges=[
+      {t:'integrity', col:'#22C55E',bx:ART.x-48,a:1},
+      {t:'hash auth',  col:'#14B8A6',bx:ART.x,   a:.9},
+      {t:(proofActive?'full auth':'off'), col:'#9B72F5',bx:ART.x+48,a:proofFade*.9+.15}
+    ];
+    for(var bi=0;bi<badges.length;bi++){
+      var b=badges[bi];
+      ctx.font='500 5.5px '+MONO; ctx.fillStyle=ha(b.col,b.a); ctx.textAlign='center';
+      ctx.fillText((b.t==='off'?'-':'\u2713')+' '+b.t, b.bx, ART.y+AH/2+14);
+    }
+
+    ctx.font='300 7px '+SANS; ctx.fillStyle=ha(C.body,.5); ctx.textAlign='center';
+    ctx.fillText('hash preimage unchanged -- chaingraph_version stays "0.4.0" -- unsigned artifacts byte-identical to v0.4.1 -- proof auto-toggles to illustrate default-off',w/2,h-10);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+
+
+// ══════════════════════════════════════════════════════════
+// SCROLL PROGRESS BAR + STAGE MAP (IntersectionObserver)
+// ══════════════════════════════════════════════════════════
+(function(){
+  var bar = document.getElementById('ocg-progress-bar');
+  var map = document.getElementById('stage-map');
+  var headers = [];
+  var activeDot = null;
+
+  function buildMap() {
+    var nodes = document.querySelectorAll('.stage-header, .prestage, .bridge-interlude');
+    nodes.forEach(function(el, i) {
+      var h = el.querySelector('h2');
+      var label = h ? h.textContent.slice(0,28) : 'Section ' + i;
+      var dot = document.createElement('button');
+      dot.className = 'sm-dot';
+      dot.setAttribute('data-tip', label);
+      dot.onclick = function(){ el.scrollIntoView({behavior:'smooth',block:'start'}); };
+      map.appendChild(dot);
+      headers.push({el:el, dot:dot});
+    });
+  }
+
+  function updateProgress() {
+    var scrolled = window.scrollY;
+    var total = document.body.scrollHeight - window.innerHeight;
+    var pct = total > 0 ? Math.min(100, (scrolled/total)*100) : 0;
+    bar.style.width = pct + '%';
+
+    var closest = null, closestDist = Infinity;
+    headers.forEach(function(h) {
+      var rect = h.el.getBoundingClientRect();
+      var dist = Math.abs(rect.top - 80);
+      if (dist < closestDist) { closestDist = dist; closest = h; }
+    });
+    if (closest && closest.dot !== activeDot) {
+      if (activeDot) activeDot.classList.remove('active');
+      closest.dot.classList.add('active');
+      activeDot = closest.dot;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    buildMap();
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, {passive:true});
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(msg) {
+  var t = document.getElementById('ocg-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+
+// ══════════════════════════════════════════════════════════
+// GLOBAL SPEED — override setSpeed to also hit nav buttons
+// ══════════════════════════════════════════════════════════
+var _origSetSpeed = setSpeed;
+setSpeed = function(s) {
+  _origSetSpeed(s);
+  document.querySelectorAll('.ns-btn').forEach(function(b){ b.classList.remove('active'); });
+  var label = s===1?'1\xd7':s===0.5?'\xbd\xd7':'2\xd7';
+  document.querySelectorAll('.ns-btn').forEach(function(b){
+    if(b.textContent===label) b.classList.add('active');
+  });
+};
+
+// ══════════════════════════════════════════════════════════
+// ANATOMY TOGGLE (Stage 1)
+// ══════════════════════════════════════════════════════════
+function toggleAnatomy() {
+  var code = document.getElementById('anatCode');
+  var btn  = document.getElementById('anatBtn');
+  var leg  = document.getElementById('anatLegend');
+  var on   = code.classList.toggle('visible');
+  btn.classList.toggle('on', on);
+  btn.textContent = on ? '\u22a1 Hide anatomy overlay' : '\u229e Anatomy mode \u2014 show field zones';
+  leg.classList.toggle('hidden', !on);
+}
+
+// ══════════════════════════════════════════════════════════
+// DAG BUILDER (Stage 2)
+// ══════════════════════════════════════════════════════════
+var _dagNodes = null;
+function dagReset() {
+  window._dagCustomNodes = null;
+  showToast('Chain reset to default');
+}
+function dagAddNode(parents) {
+  if (!window._dagCustomNodes) {
+    window._dagCustomNodes = [
+      {label:'Tool A', depth:0, color:'#14B8A6', parents:[]},
+      {label:'Tool B', depth:1, color:'#D4A847', parents:[0]},
+      {label:'Tool C', depth:2, color:'#9B72F5', parents:[1]},
+      {label:'Tool D', depth:3, color:'#22C55E', parents:[2]},
+      {label:'Tool E', depth:4, color:'#14B8A6', parents:[3]},
+    ];
+  }
+  var nodes = window._dagCustomNodes;
+  var n = nodes.length;
+  var colors = ['#14B8A6','#D4A847','#9B72F5','#22C55E','#EF4444'];
+  var col = colors[n % colors.length];
+  if (parents === 0) {
+    nodes.push({label:'Root '+n, depth:0, color:col, parents:[]});
+    showToast('Added root node (depth 0)');
+  } else if (parents === 1) {
+    var p = n-1;
+    var d = nodes[p] ? nodes[p].depth+1 : 0;
+    nodes.push({label:'Tool '+(n+1), depth:d, color:col, parents:[p]});
+    showToast('Added node (depth '+ d +')');
+  } else {
+    var p1 = Math.max(0, n-2), p2 = n-1;
+    var d2 = Math.max(nodes[p1]?nodes[p1].depth:0, nodes[p2]?nodes[p2].depth:0) + 1;
+    nodes.push({label:'Tool '+(n+1), depth:d2, color:col, parents:[p1,p2]});
+    showToast('Added node (2 parents, depth '+d2+')');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// STAGE 3 — Fail simulation
+// ══════════════════════════════════════════════════════════
+window._s3Failed = false;
+function s3SimFail() {
+  window._s3Failed = true;
+  document.getElementById('s3FailBtn').style.display='none';
+  document.getElementById('s3OkBtn').style.display='';
+  var st = document.getElementById('s3Status');
+  st.className='iact-status fail'; st.textContent='\u2717 RJCT \u2014 hash mismatch, chain broken';
+}
+function s3SimOk() {
+  window._s3Failed = false;
+  document.getElementById('s3FailBtn').style.display='';
+  document.getElementById('s3OkBtn').style.display='none';
+  var st = document.getElementById('s3Status');
+  st.className='iact-status ok'; st.textContent='\u2713 verification passed';
+}
+
+// ══════════════════════════════════════════════════════════
+// STAGE 6 — Break hash / break sig
+// ══════════════════════════════════════════════════════════
+window._s6Mode = 'none';
+function s6Break(mode) {
+  window._s6Mode = mode;
+  var st = document.getElementById('s6Status');
+  if(mode==='hash'){
+    st.className='iact-status fail'; st.textContent='\u2717 hash broken \u2014 content altered';
+  } else if(mode==='sig'){
+    st.className='iact-status warn'; st.textContent='\u26a0 sig invalid \u2014 wrong key (content intact)';
+  } else {
+    st.className='iact-status ok'; st.textContent='\u2713 integrity + authenticity both valid';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// STAGE 12 — Latency counters
+// ══════════════════════════════════════════════════════════
+(function(){
+  var slowEl, fastEl;
+  var slow=0, fast=0, phase=0;
+  var SLOW_MAX=2.4, FAST_MAX=0.048, PAUSE=1.2;
+  var lastTs=null;
+
+  function tick(ts){
+    if(!slowEl){ slowEl=document.getElementById('s12CountSlow'); fastEl=document.getElementById('s12CountFast'); }
+    if(!slowEl){ requestAnimationFrame(tick); return; }
+    if(!lastTs) lastTs=ts;
+    var dt=Math.min((ts-lastTs)/1000,.05)*SPEED;
+    lastTs=ts;
+
+    if(phase===0){
+      slow=Math.min(SLOW_MAX,slow+dt*0.55);
+      fast=Math.min(FAST_MAX,fast+dt*0.022);
+      if(slow>=SLOW_MAX && fast>=FAST_MAX) phase=1;
+    } else if(phase===1){
+      PAUSE-=dt; if(PAUSE<=0){phase=2;PAUSE=1.2;}
+    } else {
+      slow=Math.max(0,slow-dt*1.2);
+      fast=Math.max(0,fast-dt*0.048);
+      if(slow<=0){phase=0;}
+    }
+    slowEl.textContent=slow.toFixed(2)+'s';
+    fastEl.textContent=Math.round(fast*1000)+'ms';
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ══════════════════════════════════════════════════════════
+// STAGE 15 — User-controlled proof toggle
+// ══════════════════════════════════════════════════════════
+window._s15UserSet = false;
+window._s15ProofOn = false;
+function s15SetProof(on) {
+  window._s15UserSet = true;
+  window._s15ProofOn = on;
+  document.getElementById('s15EnableBtn').style.display  = on ? 'none' : '';
+  document.getElementById('s15DisableBtn').style.display = on ? '' : 'none';
+  var st = document.getElementById('s15Status');
+  if(on){
+    st.className='iact-status ok'; st.textContent='Signing enabled \u2014 signer identity linked to run';
+  } else {
+    st.className='iact-status warn'; st.textContent='Default off \u2014 run is anonymous';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// STAGE-DEEP-LINK COPY (injected programmatically)
+// ══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.stage-header[data-stage]').forEach(function(el){
+    var sn = el.querySelector('.stage-num');
+    if(!sn) return;
+    var s = el.getAttribute('data-stage');
+    var btn = document.createElement('button');
+    btn.className='stage-copylink';
+    btn.title='Copy link to this stage';
+    btn.innerHTML='\u29ba link';
+    btn.onclick=function(){ 
+      var url = location.origin+location.pathname+'#stage-'+s;
+      navigator.clipboard.writeText(url).then(function(){ showToast('\u2713 Stage link copied'); });
+    };
+    sn.appendChild(btn);
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e){
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    var stages = Array.from(document.querySelectorAll('.stage-header'));
+    if(!stages.length) return;
+    var cur = stages.filter(function(s){
+      return s.getBoundingClientRect().top < window.innerHeight*0.5;
+    });
+    var idx = cur.length > 0 ? stages.indexOf(cur[cur.length-1]) : -1;
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'){
+      var next = stages[Math.min(stages.length-1, idx+1)];
+      if(next) next.scrollIntoView({behavior:'smooth',block:'start'});
+      e.preventDefault();
+    } else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){
+      var prev = stages[Math.max(0, idx-1)];
+      if(prev) prev.scrollIntoView({behavior:'smooth',block:'start'});
+      e.preventDefault();
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════
+// SCENE 16 — compliance_flags[] + mandate_id
+// ══════════════════════════════════════════════════════════
+setTimeout(function(){(function(){
+  var s = setupCanvas('c16');
+  var ctx=s.ctx,w=s.w,h=s.h;
+  var lastTs=performance.now(),elapsed=0;
+
+  // Cycle: 0-3s INFO, 3-6s WARN, 6-9s ERROR, 9-12s clear, loop
+  var FLAGS=[
+    {code:'LTV_RATIO_HIGH',sev:'INFO',   col:'#14B8A6',msg:'LTV ratio 78% (informational)',  start:0,  end:3},
+    {code:'DTI_BORDERLINE', sev:'WARN',  col:'#D4A847',msg:'DTI ratio approaching limit',    start:3,  end:6},
+    {code:'INCOME_UNVERIF', sev:'ERROR', col:'#EF4444',msg:'Income not third-party verified', start:6, end:9},
+  ];
+
+  var ARTIFACT={x:w*.60,y:h*.48};
+  var AW=240,AH=140;
+  var OTEL={x:w*.88,y:h*.48};
+
+  function frame(ts){
+    var dt=Math.min((ts-lastTs)/1000,.05);
+    lastTs=ts;elapsed+=dt;
+    ctx.clearRect(0,0,w,h);
+
+    var cyc=(elapsed%12);
+    var activeFlags=FLAGS.filter(function(f){return cyc>=f.start&&cyc<f.end;});
+    var cleared=(cyc>=9);
+    var statusCode = activeFlags.some(function(f){return f.sev==='ERROR';}) ? 'ERROR' : 'OK';
+    var artBorderCol = activeFlags.some(function(f){return f.sev==='ERROR';}) ? '#EF4444' : activeFlags.some(function(f){return f.sev==='WARN';}) ? '#D4A847' : '#22C55E';
+
+    // mandate_id node (left)
+    var midX=w*.14,midY=h*.48;
+    var mg=ctx.createRadialGradient(midX,midY,0,midX,midY,52);
+    mg.addColorStop(0,ha(C.gold,.15));mg.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=mg;ctx.beginPath();ctx.arc(midX,midY,52,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.bg3;ctx.strokeStyle=C.gold;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(midX-68,midY-32,136,64,8);ctx.fill();ctx.stroke();
+    ctx.font='500 8px '+MONO;ctx.fillStyle=C.gold;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('mandate_id',midX,midY-11);
+    ctx.font='300 5.8px '+MONO;ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('urn:uuid:a1b2c3d4-e5f6…',midX,midY+4);
+    ctx.font='300 5.5px '+SANS;ctx.fillStyle=ha(C.green,.65);
+    ctx.fillText('run identity \u2022 UUID v4',midX,midY+17);
+    ctx.textBaseline='alphabetic';
+
+    // Arrow to artifact
+    var dashOff=(elapsed*18)%10;
+    ctx.save();ctx.strokeStyle=ha(C.gold,.3);ctx.lineWidth=1.3;ctx.setLineDash([3,4]);ctx.lineDashOffset=-dashOff;
+    ctx.beginPath();ctx.moveTo(midX+68,midY);ctx.lineTo(ARTIFACT.x-AW/2,ARTIFACT.y);ctx.stroke();ctx.restore();
+
+    // compliance_flags source nodes
+    FLAGS.forEach(function(f,i){
+      var fy=h*.18+i*h*.22;
+      var fx=w*.34;
+      var isActive=activeFlags.indexOf(f)>=0;
+      var alpha=isActive?1:(cleared&&cyc<12?0.2:0.2);
+
+      var fg=ctx.createRadialGradient(fx,fy,0,fx,fy,36);
+      fg.addColorStop(0,ha(f.col,alpha*.25));fg.addColorStop(1,ha(f.col,0));
+      ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fx,fy,36,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle=C.bg3;ctx.strokeStyle=f.col;ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.roundRect(fx-64,fy-24,128,48,6);ctx.fill();ctx.stroke();
+      ctx.font='500 7.5px '+MONO;ctx.fillStyle=f.col;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(f.sev+': '+f.code,fx,fy-7);
+      ctx.font='300 5.8px '+SANS;ctx.fillStyle=C.body;
+      ctx.fillText(f.msg,fx,fy+7);ctx.textBaseline='alphabetic';ctx.globalAlpha=1;
+
+      if(isActive){
+        ctx.save();ctx.strokeStyle=ha(f.col,.35);ctx.lineWidth=1.2;ctx.setLineDash([3,4]);ctx.lineDashOffset=-dashOff;
+        ctx.beginPath();ctx.moveTo(fx+64,fy);ctx.lineTo(ARTIFACT.x-AW/2,ARTIFACT.y+(i-1)*32);ctx.stroke();ctx.restore();
+      }
+    });
+
+    // Artifact node
+    var artPulse=.1+.05*Math.sin(elapsed*2.4);
+    var ag=ctx.createRadialGradient(ARTIFACT.x,ARTIFACT.y,0,ARTIFACT.x,ARTIFACT.y,90);
+    ag.addColorStop(0,ha(artBorderCol,artPulse*1.4));ag.addColorStop(1,ha(artBorderCol,0));
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(ARTIFACT.x,ARTIFACT.y,90,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.bg3;ctx.strokeStyle=artBorderCol;ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.roundRect(ARTIFACT.x-AW/2,ARTIFACT.y-AH/2,AW,AH,8);ctx.fill();ctx.stroke();
+    ctx.font='500 8px '+MONO;ctx.fillStyle=C.gold;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('artifact',ARTIFACT.x,ARTIFACT.y-52);
+    ctx.font='300 6px '+MONO;ctx.fillStyle=ha(C.teal,.9);
+    ctx.fillText('execution_hash: sha256:3f9a… (fixed)',ARTIFACT.x,ARTIFACT.y-36);
+    ctx.font='300 5.8px '+MONO;ctx.fillStyle=ha(C.gold,.8);
+    ctx.fillText('mandate_id: urn:uuid:a1b2…',ARTIFACT.x,ARTIFACT.y-20);
+    ctx.font='300 5.8px '+MONO;
+    if(cleared){
+      ctx.fillStyle=ha(C.green,.9);ctx.fillText('compliance_flags: [] (cleared)',ARTIFACT.x,ARTIFACT.y-4);
+    } else if(activeFlags.length===0){
+      ctx.fillStyle=ha(C.body,.5);ctx.fillText('compliance_flags: [] (empty)',ARTIFACT.x,ARTIFACT.y-4);
+    } else {
+      activeFlags.forEach(function(f,i){
+        ctx.fillStyle=ha(f.col,.9);
+        ctx.fillText('{sev:'+f.sev+', code:"'+f.code.split('_')[0]+'…"}',ARTIFACT.x,ARTIFACT.y-4+i*14);
+      });
+    }
+    ctx.textBaseline='alphabetic';
+
+    // OTel status node
+    var stCol=statusCode==='ERROR'?'#EF4444':'#22C55E';
+    var og=ctx.createRadialGradient(OTEL.x,OTEL.y,0,OTEL.x,OTEL.y,38);
+    og.addColorStop(0,ha(stCol,.2));og.addColorStop(1,ha(stCol,0));
+    ctx.fillStyle=og;ctx.beginPath();ctx.arc(OTEL.x,OTEL.y,38,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.bg3;ctx.strokeStyle=stCol;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(OTEL.x-52,OTEL.y-30,104,60,8);ctx.fill();ctx.stroke();
+    ctx.font='500 7px '+MONO;ctx.fillStyle=stCol;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('OTel span',OTEL.x,OTEL.y-10);
+    ctx.font='500 7.5px '+MONO;ctx.fillStyle=stCol;
+    ctx.fillText('status: '+statusCode,OTEL.x,OTEL.y+7);ctx.textBaseline='alphabetic';
+
+    // Arrow artifact->otel
+    ctx.save();ctx.strokeStyle=ha(stCol,.3);ctx.lineWidth=1.2;ctx.setLineDash([3,4]);ctx.lineDashOffset=-dashOff;
+    ctx.beginPath();ctx.moveTo(ARTIFACT.x+AW/2,ARTIFACT.y);ctx.lineTo(OTEL.x-52,OTEL.y);ctx.stroke();ctx.restore();
+
+    // Bottom legend
+    var phaseLabel=cleared?'compliance_flags cleared \u2022 status:OK':
+      activeFlags.length?'flags present \u2022 execution_hash unchanged \u2022 integrity independent of flags':
+      'no flags \u2022 all clear';
+    ctx.font='300 7.5px '+SANS;ctx.fillStyle=ha(C.body,.5);ctx.textAlign='center';
+    ctx.fillText(phaseLabel,w/2,h-10);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+// ══════════════════════════════════════════════════════════
+// SCENE 17 — Ed25519 Key Lifecycle
+// ══════════════════════════════════════════════════════════
+setTimeout(function(){(function(){
+  var s=setupCanvas('c17');
+  var ctx=s.ctx,w=s.w,h=s.h;
+  var lastTs=performance.now(),elapsed=0;
+
+  // 4 panels side by side
+  var PANELS=[
+    {label:'GENERATE',sub:'crypto.subtle.generateKey',col:'#9B72F5',x:w*.12},
+    {label:'PUBLISH',sub:'ocg:signing_keys / did:key',col:'#14B8A6',x:w*.37},
+    {label:'SIGN',sub:'Ed25519.sign(privKey, data)',col:'#D4A847',x:w*.62},
+    {label:'VERIFY',sub:'crypto.subtle.verify',col:'#22C55E',x:w*.87},
+  ];
+  var PY=h*.42,PW=120,PH=100;
+
+  function frame(ts){
+    var dt=Math.min((ts-lastTs)/1000,.05);
+    lastTs=ts;elapsed+=dt;
+    ctx.clearRect(0,0,w,h);
+    var dashOff=(elapsed*16)%10;
+
+    // Active panel cycles every 2.5s
+    var activeIdx=Math.floor((elapsed/2.5))%PANELS.length;
+    var cycPhase=(elapsed%2.5)/2.5;
+
+    // Arrows between panels
+    for(var i=0;i<PANELS.length-1;i++){
+      var a=PANELS[i],b=PANELS[i+1];
+      var isFlow=(i===activeIdx||i===activeIdx-1);
+      ctx.save();ctx.strokeStyle=ha(b.col,isFlow?.4:.15);ctx.lineWidth=1.2;
+      ctx.setLineDash([3,4]);ctx.lineDashOffset=-dashOff;
+      ctx.beginPath();ctx.moveTo(a.x+PW/2,PY);ctx.lineTo(b.x-PW/2,PY);ctx.stroke();ctx.restore();
+
+      if(isFlow){
+        var pk=(elapsed*0.4)%1;
+        ctx.fillStyle=ha(b.col,Math.sin(Math.PI*pk)*.8);
+        ctx.beginPath();ctx.arc(a.x+PW/2+(b.x-PW/2-a.x-PW/2)*pk,PY,5,0,Math.PI*2);ctx.fill();
+      }
+    }
+
+    // Panels
+    PANELS.forEach(function(p,i){
+      var isActive=(i===activeIdx);
+      var pulse=isActive?(.12+.06*Math.sin(elapsed*3)):0.04;
+      var gg=ctx.createRadialGradient(p.x,PY,0,p.x,PY,80);
+      gg.addColorStop(0,ha(p.col,pulse*1.6));gg.addColorStop(1,ha(p.col,0));
+      ctx.fillStyle=gg;ctx.beginPath();ctx.arc(p.x,PY,80,0,Math.PI*2);ctx.fill();
+
+      ctx.fillStyle=C.bg3;ctx.strokeStyle=p.col;ctx.lineWidth=isActive?2:1.3;
+      ctx.beginPath();ctx.roundRect(p.x-PW/2,PY-PH/2,PW,PH,8);ctx.fill();ctx.stroke();
+
+      ctx.font='600 8px '+MONO;ctx.fillStyle=p.col;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(p.label,p.x,PY-30);
+      ctx.font='300 5.8px '+SANS;ctx.fillStyle=ha(C.body,.75);
+      ctx.fillText(p.sub,p.x,PY-14);
+
+      // Panel content
+      ctx.font='300 5.5px '+MONO;
+      if(i===0){
+        ctx.fillStyle=ha(C.purple,.9);
+        ctx.fillText('pubKey: 0xed01…',p.x,PY+4);
+        ctx.fillStyle=ha(C.red,.6);
+        ctx.fillText('privKey: [secure]',p.x,PY+18);
+        ctx.fillStyle=ha(C.purple,.5);
+        ctx.fillText('did:key:z6Mk…',p.x,PY+32);
+      } else if(i===1){
+        ctx.fillStyle=ha(C.teal,.9);
+        ctx.fillText('chaingraph.json',p.x,PY+4);
+        ctx.fillStyle=ha(C.body,.7);
+        ctx.fillText('signing_keys:[{',p.x,PY+18);
+        ctx.fillText('keyid:"did:key:z6Mk…"',p.x,PY+30);
+        ctx.fillText('valid_from:"2025-01-01"}]',p.x,PY+42);
+      } else if(i===2){
+        ctx.fillStyle=ha(C.gold,.9);
+        ctx.fillText('payload: b64url(art)',p.x,PY+4);
+        ctx.fillStyle=ha(C.body,.7);
+        ctx.fillText('sig: Ed25519.sign(',p.x,PY+18);
+        ctx.fillText('  privKey, PAE)',p.x,PY+30);
+        ctx.fillStyle=ha(C.gold,.6);
+        ctx.fillText('=> 64 bytes',p.x,PY+42);
+      } else {
+        ctx.fillStyle=ha(C.green,.9);
+        ctx.fillText('fetch chaingraph.json',p.x,PY+4);
+        ctx.fillText('derive pubKey from DID',p.x,PY+18);
+        ctx.fillStyle=ha(C.body,.7);
+        ctx.fillText('crypto.subtle.verify(',p.x,PY+30);
+        ctx.fillStyle=ha(C.green,.8);
+        ctx.fillText('=> true / false',p.x,PY+42);
+      }
+      ctx.textBaseline='alphabetic';
+    });
+
+    // Key rotation callout at bottom
+    var rotAlpha=.3+.25*Math.sin(elapsed*1.8);
+    ctx.fillStyle=ha(C.gold,rotAlpha);ctx.textAlign='center';ctx.font='300 7px '+SANS;
+    ctx.fillText('Key rotation: add new entry with valid_from \u2022 old key retained \u2022 old artifacts permanently verifiable',w/2,h-18);
+    ctx.font='300 6.5px '+MONO;ctx.fillStyle=ha(C.gold,rotAlpha*.7);
+    ctx.fillText('{keyid:"did:key:z6NEW…", valid_from:"2026-01-01"} added alongside old entry',w/2,h-6);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+// ══════════════════════════════════════════════════════════
+// SCENE 18 — Graph Index / chaingraph.json DAG
+// ══════════════════════════════════════════════════════════
+setTimeout(function(){(function(){
+  var s=setupCanvas('c18');
+  var ctx=s.ctx,w=s.w,h=s.h;
+  var lastTs=performance.now(),elapsed=0;
+  var selectedNode=-1;
+
+  // Tool nodes
+  var TOOLS=[
+    {id:0,label:'FX Desk',sub:'mandate:fx_rate',col:'#14B8A6',lvl:'L4',x:w*.16,y:h*.28,feeds:[1,2]},
+    {id:1,label:'Risk Score',sub:'mandate:risk_assessment',col:'#D4A847',lvl:'L3',x:w*.38,y:h*.18,feeds:[3]},
+    {id:2,label:'Liquidity',sub:'mandate:liquidity_check',col:'#9B72F5',lvl:'L3',x:w*.38,y:h*.50,feeds:[3]},
+    {id:3,label:'Loan Approver',sub:'mandate:credit_decision',col:'#22C55E',lvl:'L4',x:w*.62,y:h*.34,feeds:[4]},
+    {id:4,label:'Audit Export',sub:'mandate:regulatory_report',col:'#D4A847',lvl:'L2',x:w*.82,y:h*.34,feeds:[]},
+  ];
+  var AGENT={x:w*.04,y:h*.34};
+  var OPTIMAL=[0,1,3,4]; // planned path
+
+  var canvas=document.getElementById('c18');
+  canvas.style.cursor='pointer';
+  canvas.addEventListener('click',function(e){
+    var rect=canvas.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(canvas.width/canvas.clientWidth/((window.devicePixelRatio)||1));
+    var my=(e.clientY-rect.top)*(canvas.height/canvas.clientHeight/((window.devicePixelRatio)||1));
+    var hit=-1;
+    TOOLS.forEach(function(t,i){
+      if(Math.hypot(mx-t.x,my-t.y)<32) hit=i;
+    });
+    selectedNode=(hit===selectedNode)?-1:hit;
+  });
+
+  function frame(ts){
+    var dt=Math.min((ts-lastTs)/1000,.05);
+    lastTs=ts;elapsed+=dt;
+    ctx.clearRect(0,0,w,h);
+    var dashOff=(elapsed*14)%10;
+    var planT=(elapsed*.18)%1;
+
+    // Draw edges (ocg:feeds)
+    TOOLS.forEach(function(t){
+      t.feeds.forEach(function(fid){
+        var to=TOOLS[fid];
+        var isOpt=OPTIMAL.indexOf(t.id)>=0&&OPTIMAL.indexOf(fid)>=0;
+        ctx.save();
+        ctx.strokeStyle=ha(isOpt?C.teal:C.muted,isOpt?.5:.18);
+        ctx.lineWidth=isOpt?1.5:1;
+        ctx.setLineDash(isOpt?[]:([3,5]));
+        ctx.lineDashOffset=-dashOff;
+        ctx.beginPath();ctx.moveTo(t.x+28,t.y);ctx.lineTo(to.x-28,to.y);ctx.stroke();
+
+        if(isOpt){
+          ctx.fillStyle=ha(C.teal,.55);ctx.font='300 5.5px '+MONO;ctx.textAlign='center';
+          ctx.fillText('ocg:feeds',( t.x+28+to.x-28)/2,(t.y+to.y)/2-8);
+        }
+        ctx.restore();
+      });
+    });
+
+    // Agent -> Tool A edge
+    var agentPulse=(elapsed*.2)%1;
+    ctx.save();ctx.strokeStyle=ha(C.gold,.35);ctx.lineWidth=1.3;ctx.setLineDash([3,4]);ctx.lineDashOffset=-dashOff;
+    ctx.beginPath();ctx.moveTo(AGENT.x+26,AGENT.y);ctx.lineTo(TOOLS[0].x-28,TOOLS[0].y);ctx.stroke();ctx.restore();
+    ctx.fillStyle=ha(C.gold,Math.sin(Math.PI*agentPulse)*.75);
+    ctx.beginPath();ctx.arc(AGENT.x+26+(TOOLS[0].x-28-AGENT.x-26)*agentPulse,AGENT.y+(TOOLS[0].y-AGENT.y)*agentPulse,5,0,Math.PI*2);ctx.fill();
+
+    // Optimal path packet
+    if(OPTIMAL.length>1){
+      var pkTotal=OPTIMAL.length-1;
+      var pkFull=planT*pkTotal;
+      var pkSeg=Math.floor(pkFull);
+      var pkFrac=pkFull-pkSeg;
+      if(pkSeg<pkTotal){
+        var from=TOOLS[OPTIMAL[pkSeg]],to2=TOOLS[OPTIMAL[pkSeg+1]];
+        ctx.fillStyle=ha(C.green,.8);
+        ctx.beginPath();ctx.arc(from.x+(to2.x-from.x)*pkFrac,from.y+(to2.y-from.y)*pkFrac,6,0,Math.PI*2);ctx.fill();
+      }
+    }
+
+    // Agent node
+    var ag=ctx.createRadialGradient(AGENT.x,AGENT.y,0,AGENT.x,AGENT.y,30);
+    ag.addColorStop(0,ha(C.gold,.2));ag.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(AGENT.x,AGENT.y,30,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.bg3;ctx.strokeStyle=C.gold;ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.roundRect(AGENT.x-26,AGENT.y-22,52,44,6);ctx.fill();ctx.stroke();
+    ctx.font='500 7px '+MONO;ctx.fillStyle=C.gold;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Agent',AGENT.x,AGENT.y-5);
+    ctx.font='300 5.5px '+SANS;ctx.fillStyle=ha(C.body,.7);ctx.fillText('plans DAG',AGENT.x,AGENT.y+8);
+    ctx.textBaseline='alphabetic';
+
+    // Tool nodes
+    TOOLS.forEach(function(t,i){
+      var isOpt=OPTIMAL.indexOf(i)>=0;
+      var isSel=(i===selectedNode);
+      var pulse=.08+.05*Math.sin(elapsed*2.2+i*.9);
+      var nodeCol=isOpt?t.col:ha(t.col,.4);
+
+      var gg=ctx.createRadialGradient(t.x,t.y,0,t.x,t.y,42);
+      gg.addColorStop(0,ha(t.col,isOpt?pulse*1.6:pulse*.4));gg.addColorStop(1,ha(t.col,0));
+      ctx.fillStyle=gg;ctx.beginPath();ctx.arc(t.x,t.y,42,0,Math.PI*2);ctx.fill();
+
+      ctx.fillStyle=C.bg3;ctx.strokeStyle=isSel?C.bright:t.col;ctx.lineWidth=isSel?2.2:1.4;
+      ctx.globalAlpha=isOpt?1:.55;
+      ctx.beginPath();ctx.arc(t.x,t.y,28,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.globalAlpha=1;
+
+      ctx.font='500 8px '+MONO;ctx.fillStyle=t.col;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(t.label,t.x,t.y-6);
+      ctx.font='300 5.8px '+SANS;ctx.fillStyle=ha(C.body,.75);
+      ctx.fillText(t.sub.split(':')[1]||t.sub,t.x,t.y+7);
+      ctx.textBaseline='alphabetic';
+
+      // Conformance badge
+      var lvlCols={L1:'#3A5270',L2:'#6888A8',L3:'#14B8A6',L4:'#22C55E'};
+      ctx.fillStyle=lvlCols[t.lvl]||C.muted;ctx.font='500 6px '+MONO;ctx.textAlign='center';
+      ctx.fillText(t.lvl,t.x,t.y+28+14);
+    });
+
+    // Expanded node detail panel
+    if(selectedNode>=0&&selectedNode<TOOLS.length){
+      var t=TOOLS[selectedNode];
+      var px=Math.min(t.x+40,w-210),py=Math.max(20,t.y-90);
+      ctx.fillStyle=C.bg2;ctx.strokeStyle=t.col;ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.roundRect(px,py,200,110,6);ctx.fill();ctx.stroke();
+      ctx.font='500 7px '+MONO;ctx.fillStyle=t.col;ctx.textAlign='left';ctx.textBaseline='top';
+      ctx.fillText(t.label+' \u2014 chaingraph.json',px+8,py+8);
+      ctx.font='300 6px '+MONO;ctx.fillStyle=ha(C.body,.85);
+      ctx.fillText('mandate_type: '+t.sub.split(':')[1],px+8,py+24);
+      ctx.fillText('conformance_level: '+t.lvl,px+8,py+38);
+      ctx.fillText('ocg:mcp_tool_name: run_'+t.label.toLowerCase().replace(' ','_'),px+8,py+52);
+      ctx.fillText('dcat:accessService: mcp.ocg.example/mcp',px+8,py+66);
+      ctx.fillText('ocg:feeds: ['+t.feeds.map(function(f){return TOOLS[f].label;}).join(', ')+']',px+8,py+80);
+      ctx.fillText('export_capability: ["xlsx","pdf","vc"]',px+8,py+94);
+      ctx.textBaseline='alphabetic';
+    }
+
+    // Legend
+    ctx.font='300 7px '+SANS;ctx.fillStyle=ha(C.body,.5);ctx.textAlign='center';
+    ctx.fillText('Green path = agent planned optimal route \u2022 Click any node to expand Graph Index entry \u2022 Conformance: L1-L4',w/2,h-10);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+
+
+// ══════════════════════════════════════════════════════════
+// STAGE 19 — Kernel Identity Binding tamper controls
+// ══════════════════════════════════════════════════════════
+window._s19Tampered = false;
+function s19Tamper() {
+  window._s19Tampered = true;
+  document.getElementById('s19TamperBtn').style.display = 'none';
+  document.getElementById('s19RestoreBtn').style.display = '';
+  var st = document.getElementById('s19Status');
+  st.className = 'iact-status fail';
+  st.textContent = '\u2717 kernel digest mismatch \u2014 binding FAILED';
+}
+function s19Restore() {
+  window._s19Tampered = false;
+  document.getElementById('s19TamperBtn').style.display = '';
+  document.getElementById('s19RestoreBtn').style.display = 'none';
+  var st = document.getElementById('s19Status');
+  st.className = 'iact-status ok';
+  st.textContent = '\u2713 three-way binding valid';
+}
+
+// ══════════════════════════════════════════════════════════
+// STAGE 20 — Confidential inputs toggle
+// ══════════════════════════════════════════════════════════
+window._s20Conf = false;
+function s20SetConf(on) {
+  window._s20Conf = on;
+  document.getElementById('s20ConfBtn').style.display = on ? 'none' : '';
+  document.getElementById('s20PubBtn').style.display = on ? '' : 'none';
+  var st = document.getElementById('s20Status');
+  if (on) {
+    st.className = 'iact-status warn';
+    st.textContent = 'Confidential inputs \u2014 receipt is sole verification path';
+  } else {
+    st.className = 'iact-status ok';
+    st.textContent = 'Public inputs \u2014 \xa74 recompute also available';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SCENE 19 — Kernel Identity Binding
+// Three-column: kernel source (left) → _buildid.mjs hasher (centre)
+// → splits into artifact build_identity (top-right) and Graph Index compute_images[] (bottom-right)
+// A verifier node (far right) does the three-way cross-check
+// Tamper button: diverges the kernel source digest from the other two
+// ══════════════════════════════════════════════════════════
+setTimeout(function(){(function(){
+  var s = setupCanvas('c19');
+  var ctx = s.ctx, w = s.w, h = s.h;
+  var lastTs = performance.now(), elapsed = 0;
+
+  var KERN  = {x: w*.10, y: h*.50};
+  var BUILD = {x: w*.34, y: h*.50};
+  var ART   = {x: w*.60, y: h*.28};
+  var IDX   = {x: w*.60, y: h*.72};
+  var VFY   = {x: w*.86, y: h*.50};
+
+  var GOOD_DIGEST = 'sha256:7f3c…b4a1';
+  var BAD_DIGEST  = 'sha256:XXXXX…tampered';
+
+  function frame(ts) {
+    var dt = Math.min((ts-lastTs)/1000, .05);
+    lastTs = ts; elapsed += dt;
+    ctx.clearRect(0,0,w,h);
+
+    var tampered = window._s19Tampered || false;
+    var kernDigest = tampered ? BAD_DIGEST : GOOD_DIGEST;
+    var dashOff = (elapsed*16)%10;
+    var pulse = .09 + .05*Math.sin(elapsed*2.4);
+
+    // ── kernel→build edge ──
+    ctx.save(); ctx.strokeStyle=ha(C.teal,.3); ctx.lineWidth=1.3;
+    ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(KERN.x+44,KERN.y); ctx.lineTo(BUILD.x-30,BUILD.y); ctx.stroke(); ctx.restore();
+
+    // ── build→artifact edge ──
+    ctx.save(); ctx.strokeStyle=ha(tampered?C.red:C.gold,.35); ctx.lineWidth=1.3;
+    ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(BUILD.x+30,BUILD.y); ctx.lineTo(ART.x-50,ART.y); ctx.stroke(); ctx.restore();
+
+    // ── build→graph index edge ──
+    ctx.save(); ctx.strokeStyle=ha(tampered?C.red:C.teal,.35); ctx.lineWidth=1.3;
+    ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(BUILD.x+30,BUILD.y); ctx.lineTo(IDX.x-50,IDX.y); ctx.stroke(); ctx.restore();
+
+    // ── artifact→verifier edge ──
+    ctx.save(); ctx.strokeStyle=ha(tampered?C.red:C.green,.3); ctx.lineWidth=1.2;
+    ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(ART.x+50,ART.y); ctx.lineTo(VFY.x-34,VFY.y-12); ctx.stroke(); ctx.restore();
+
+    // ── index→verifier edge ──
+    ctx.save(); ctx.strokeStyle=ha(tampered?C.red:C.teal,.3); ctx.lineWidth=1.2;
+    ctx.setLineDash([3,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(IDX.x+50,IDX.y); ctx.lineTo(VFY.x-34,VFY.y+12); ctx.stroke(); ctx.restore();
+
+    // ── Animated packets (only when not tampered) ──
+    if (!tampered) {
+      var pk1 = (elapsed*.3)%1;
+      ctx.fillStyle=ha(C.teal, Math.sin(Math.PI*pk1)*.75);
+      ctx.beginPath(); ctx.arc((KERN.x+44)+(BUILD.x-30-KERN.x-44)*pk1, KERN.y, 5,0,Math.PI*2); ctx.fill();
+      var pk2 = ((elapsed*.3)+0.4)%1;
+      ctx.fillStyle=ha(C.gold, Math.sin(Math.PI*pk2)*.7);
+      ctx.beginPath(); ctx.arc((BUILD.x+30)+(ART.x-50-BUILD.x-30)*pk2, BUILD.y+(ART.y-BUILD.y)*pk2, 5,0,Math.PI*2); ctx.fill();
+    } else {
+      // Red X packets when tampered
+      var pk3 = (elapsed*.25)%1;
+      ctx.fillStyle=ha(C.red, Math.sin(Math.PI*pk3)*.7);
+      ctx.beginPath(); ctx.arc((BUILD.x+30)+(ART.x-50-BUILD.x-30)*pk3, BUILD.y+(ART.y-BUILD.y)*pk3, 5,0,Math.PI*2); ctx.fill();
+    }
+
+    // ── KERNEL SOURCE node ──
+    var kg = ctx.createRadialGradient(KERN.x,KERN.y,0,KERN.x,KERN.y,50);
+    kg.addColorStop(0, ha(tampered?C.red:C.teal, pulse*1.6)); kg.addColorStop(1,ha(tampered?C.red:C.teal,0));
+    ctx.fillStyle=kg; ctx.beginPath(); ctx.arc(KERN.x,KERN.y,50,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=tampered?C.red:C.teal; ctx.lineWidth=tampered?2.2:1.5;
+    ctx.beginPath(); ctx.roundRect(KERN.x-44,KERN.y-36,88,72,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8px '+MONO; ctx.fillStyle=tampered?C.red:C.teal; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('kernel.mjs', KERN.x, KERN.y-18);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.body,.75);
+    ctx.fillText(tampered?'[SUBSTITUTED]':'run_credit_score()', KERN.x, KERN.y-4);
+    ctx.fillText('LF-normalised UTF-8', KERN.x, KERN.y+10);
+    ctx.font='300 5.5px '+MONO; ctx.fillStyle=ha(tampered?C.red:C.teal,.65);
+    ctx.fillText(tampered?'sha256:XXXXX…':'sha256:7f3c…', KERN.x, KERN.y+24);
+    ctx.textBaseline='alphabetic';
+
+    // ── _BUILDID.MJS hasher node ──
+    var bg = ctx.createRadialGradient(BUILD.x,BUILD.y,0,BUILD.x,BUILD.y,36);
+    bg.addColorStop(0,ha(C.purple,pulse*1.5)); bg.addColorStop(1,ha(C.purple,0));
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(BUILD.x,BUILD.y,36,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.purple; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.arc(BUILD.x,BUILD.y,26,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.font='500 7.5px '+MONO; ctx.fillStyle=C.purple; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('_buildid', BUILD.x, BUILD.y-5);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('SHA-256', BUILD.x, BUILD.y+7); ctx.textBaseline='alphabetic';
+
+    // ── ARTIFACT build_identity node ──
+    var artCol = tampered ? C.red : C.gold;
+    var ag = ctx.createRadialGradient(ART.x,ART.y,0,ART.x,ART.y,56);
+    ag.addColorStop(0,ha(artCol,pulse*1.4)); ag.addColorStop(1,ha(artCol,0));
+    ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(ART.x,ART.y,56,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=artCol; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(ART.x-50,ART.y-36,100,72,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 7.5px '+MONO; ctx.fillStyle=artCol; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('artifact', ART.x, ART.y-20);
+    ctx.font='300 5.5px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('build_identity:', ART.x, ART.y-6);
+    ctx.font='300 5px '+MONO; ctx.fillStyle=ha(artCol,.85);
+    ctx.fillText(kernDigest.slice(0,18)+'…', ART.x, ART.y+8);
+    ctx.font='300 5px '+MONO; ctx.fillStyle=ha(C.body,.5);
+    ctx.fillText('source_ref: kernels/…', ART.x, ART.y+21);
+    ctx.textBaseline='alphabetic';
+
+    // ── GRAPH INDEX compute_images[] node ──
+    var idxCol = tampered ? C.red : C.teal;
+    var ig = ctx.createRadialGradient(IDX.x,IDX.y,0,IDX.x,IDX.y,56);
+    ig.addColorStop(0,ha(idxCol,pulse*1.4)); ig.addColorStop(1,ha(idxCol,0));
+    ctx.fillStyle=ig; ctx.beginPath(); ctx.arc(IDX.x,IDX.y,56,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=idxCol; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(IDX.x-50,IDX.y-36,100,72,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 7.5px '+MONO; ctx.fillStyle=idxCol; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Graph Index', IDX.x, IDX.y-20);
+    ctx.font='300 5.5px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('compute_images[]:', IDX.x, IDX.y-6);
+    ctx.font='300 5px '+MONO; ctx.fillStyle=ha(idxCol,.85);
+    ctx.fillText(GOOD_DIGEST.slice(0,18)+'…', IDX.x, IDX.y+8);  // Graph Index always has good
+    ctx.font='300 5px '+MONO; ctx.fillStyle=ha(C.body,.5);
+    ctx.fillText('valid_from: 2026-01-01', IDX.x, IDX.y+21);
+    ctx.textBaseline='alphabetic';
+
+    // ── VERIFIER node ──
+    var vfyOk = !tampered;
+    var vCol = vfyOk ? C.green : C.red;
+    var vg2 = ctx.createRadialGradient(VFY.x,VFY.y,0,VFY.x,VFY.y,40);
+    vg2.addColorStop(0,ha(vCol,pulse*1.8)); vg2.addColorStop(1,ha(vCol,0));
+    ctx.fillStyle=vg2; ctx.beginPath(); ctx.arc(VFY.x,VFY.y,40,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=vCol; ctx.lineWidth=vfyOk?1.5:2.2;
+    ctx.beginPath(); ctx.roundRect(VFY.x-34,VFY.y-28,68,56,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8px '+MONO; ctx.fillStyle=vCol; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Verifier', VFY.x, VFY.y-12);
+    ctx.font='500 10px '+SANS; ctx.fillStyle=vCol;
+    ctx.fillText(vfyOk?'\u2713 PASS':'\u2717 FAIL', VFY.x, VFY.y+6);
+    ctx.font='300 5.5px '+SANS; ctx.fillStyle=ha(C.body,.65);
+    ctx.fillText('3-way check', VFY.x, VFY.y+20);
+    ctx.textBaseline='alphabetic';
+
+    // ── Mismatch callout when tampered ──
+    if (tampered) {
+      ctx.font='300 7px '+SANS; ctx.fillStyle=ha(C.red,.85); ctx.textAlign='center';
+      ctx.fillText('kernel substituted \u2014 artifact digest \u2260 Graph Index digest \u2014 binding FAILED', w/2, h-22);
+      ctx.font='300 6.5px '+MONO; ctx.fillStyle=ha(C.red,.55);
+      ctx.fillText('artifact: '+kernDigest+'  |  compute_images[]: '+GOOD_DIGEST, w/2, h-9);
+    } else {
+      ctx.font='300 7px '+SANS; ctx.fillStyle=ha(C.body,.5); ctx.textAlign='center';
+      ctx.fillText('artifact kernel_digest == compute_images[].image_id == recomputed source digest \u2022 three-way binding valid', w/2, h-10);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
+
+// ══════════════════════════════════════════════════════════
+// SCENE 20 — Compute-Integrity Proof (zkVM)
+// LEFT: Prover (off-band, heavy) — inputs + program → receipt
+// CENTRE: Receipt (seal + journal) — compact ~200 bytes
+// RIGHT: Verifier (fast) — checks seal + journal==output
+// BOTTOM STRIP: The L1/L2/L3 ladder always visible
+// Confidential mode: inputs redacted, §4 recompute unavailable
+// ══════════════════════════════════════════════════════════
+setTimeout(function(){(function(){
+  var s = setupCanvas('c20');
+  var ctx = s.ctx, w = s.w, h = s.h;
+  var lastTs = performance.now(), elapsed = 0;
+
+  // Layout
+  var PROVER  = {x: w*.14, y: h*.38};
+  var RECEIPT = {x: w*.50, y: h*.38};
+  var VERIFY  = {x: w*.84, y: h*.38};
+  var LADDER_Y = h*.76;
+
+  function frame(ts) {
+    var dt = Math.min((ts-lastTs)/1000, .05);
+    lastTs = ts; elapsed += dt;
+    ctx.clearRect(0,0,w,h);
+
+    var conf = window._s20Conf || false;
+    var dashOff = (elapsed*16)%10;
+    var pulse = .08 + .05*Math.sin(elapsed*2.2);
+
+    // ── PROVER → RECEIPT edge ──
+    ctx.save(); ctx.strokeStyle=ha(C.gold,.3); ctx.lineWidth=1.4;
+    ctx.setLineDash([4,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(PROVER.x+64,PROVER.y); ctx.lineTo(RECEIPT.x-62,RECEIPT.y); ctx.stroke(); ctx.restore();
+    ctx.font='300 6px '+SANS; ctx.fillStyle=ha(C.gold,.45); ctx.textAlign='center';
+    ctx.fillText('receipt', (PROVER.x+64+RECEIPT.x-62)/2, PROVER.y-12);
+
+    // ── RECEIPT → VERIFIER edge ──
+    ctx.save(); ctx.strokeStyle=ha(C.teal,.3); ctx.lineWidth=1.4;
+    ctx.setLineDash([4,4]); ctx.lineDashOffset=-dashOff;
+    ctx.beginPath(); ctx.moveTo(RECEIPT.x+62,RECEIPT.y); ctx.lineTo(VERIFY.x-52,VERIFY.y); ctx.stroke(); ctx.restore();
+    ctx.font='300 6px '+SANS; ctx.fillStyle=ha(C.teal,.45); ctx.textAlign='center';
+    ctx.fillText('verify seal', (RECEIPT.x+62+VERIFY.x-52)/2, RECEIPT.y-12);
+
+    // ── Receipt→Verifier packet ──
+    var pk1=(elapsed*.28)%1;
+    ctx.fillStyle=ha(C.teal, Math.sin(Math.PI*pk1)*.75);
+    ctx.beginPath(); ctx.arc((RECEIPT.x+62)+(VERIFY.x-52-RECEIPT.x-62)*pk1, RECEIPT.y, 5,0,Math.PI*2); ctx.fill();
+
+    // ── PROVER node ──
+    var pg = ctx.createRadialGradient(PROVER.x,PROVER.y,0,PROVER.x,PROVER.y,70);
+    pg.addColorStop(0,ha(C.gold,pulse*1.5)); pg.addColorStop(1,ha(C.gold,0));
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(PROVER.x,PROVER.y,70,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.gold; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(PROVER.x-64,PROVER.y-50,128,100,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8.5px '+MONO; ctx.fillStyle=C.gold; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Prover (off-band)', PROVER.x, PROVER.y-34);
+    ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('system: risc0 | sp1 | jolt', PROVER.x, PROVER.y-18);
+    // inputs — redacted when confidential
+    if (conf) {
+      ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.red,.75);
+      ctx.fillText('inputs: [WITHHELD]', PROVER.x, PROVER.y-2);
+      ctx.font='300 5.5px '+SANS; ctx.fillStyle=ha(C.red,.55);
+      ctx.fillText('commitments only', PROVER.x, PROVER.y+12);
+    } else {
+      ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.teal,.8);
+      ctx.fillText('inputs: {loan:45000,', PROVER.x, PROVER.y-2);
+      ctx.fillText('         rate:6.4}', PROVER.x, PROVER.y+12);
+    }
+    ctx.font='300 6px '+MONO; ctx.fillStyle=ha(C.purple,.75);
+    ctx.fillText('guest: run_credit_score', PROVER.x, PROVER.y+28);
+    ctx.font='300 5.5px '+SANS; ctx.fillStyle=ha(C.red,.55);
+    ctx.fillText('MUST NOT run in browser/Worker', PROVER.x, PROVER.y+44);
+    ctx.textBaseline='alphabetic';
+
+    // ── RECEIPT node ──
+    var rg = ctx.createRadialGradient(RECEIPT.x,RECEIPT.y,0,RECEIPT.x,RECEIPT.y,68);
+    rg.addColorStop(0,ha(C.purple,pulse*1.5)); rg.addColorStop(1,ha(C.purple,0));
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(RECEIPT.x,RECEIPT.y,68,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.purple; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(RECEIPT.x-62,RECEIPT.y-50,124,100,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8px '+MONO; ctx.fillStyle=C.purple; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('ZkVmReceipt', RECEIPT.x, RECEIPT.y-34);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('receiptFormat: groth16-bn254', RECEIPT.x, RECEIPT.y-18);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.purple,.85);
+    ctx.fillText('imageId: sha256:7f3c…', RECEIPT.x, RECEIPT.y-4);
+    ctx.fillText('seal: <~200 bytes>', RECEIPT.x, RECEIPT.y+10);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.gold,.85);
+    ctx.fillText('journal.output == output_payload', RECEIPT.x, RECEIPT.y+26);
+    ctx.font='300 5.5px '+SANS; ctx.fillStyle=ha(C.body,.5);
+    ctx.fillText('system-agnostic wrapper', RECEIPT.x, RECEIPT.y+42);
+    ctx.textBaseline='alphabetic';
+
+    // ── VERIFIER node ──
+    var vg = ctx.createRadialGradient(VERIFY.x,VERIFY.y,0,VERIFY.x,VERIFY.y,58);
+    vg.addColorStop(0,ha(C.green,pulse*1.6)); vg.addColorStop(1,ha(C.green,0));
+    ctx.fillStyle=vg; ctx.beginPath(); ctx.arc(VERIFY.x,VERIFY.y,58,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.bg3; ctx.strokeStyle=C.green; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(VERIFY.x-52,VERIFY.y-50,104,100,8); ctx.fill(); ctx.stroke();
+    ctx.font='500 8px '+MONO; ctx.fillStyle=C.green; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Verifier', VERIFY.x, VERIFY.y-34);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('1. verify seal via', VERIFY.x, VERIFY.y-18);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.teal,.85);
+    ctx.fillText('risc0.verify(imageId,seal)', VERIFY.x, VERIFY.y-4);
+    ctx.font='300 5.8px '+MONO; ctx.fillStyle=ha(C.body,.7);
+    ctx.fillText('2. assert journal ==', VERIFY.x, VERIFY.y+10);
+    ctx.fillText('output_payload', VERIFY.x, VERIFY.y+24);
+    if (conf) {
+      ctx.font='500 6px '+MONO; ctx.fillStyle=ha(C.red,.7);
+      ctx.fillText('NO inputs needed', VERIFY.x, VERIFY.y+40);
+    } else {
+      ctx.font='500 6px '+MONO; ctx.fillStyle=ha(C.green,.65);
+      ctx.fillText('no re-execution', VERIFY.x, VERIFY.y+40);
+    }
+    ctx.textBaseline='alphabetic';
+
+    // ── THE LADDER (L1/L2/L3) strip at bottom ──
+    var ladderY = LADDER_Y;
+    var rungs = [
+      {label:'L1', title:'\xa74 execution_hash', sub:'tamper-evidence\nre-run to verify', col:C.teal},
+      {label:'L2', title:'\xa716 Proof Binding',  sub:'authenticated attestation\nnamed key vouches', col:C.gold},
+      {label:'L3', title:'\xa718 Compute-Integrity', sub:'succinct proof\nno re-execution'+(conf?'\nno inputs needed':''), col:C.purple},
+    ];
+    var rungW = w/3;
+    rungs.forEach(function(r, i) {
+      var rx = rungW*i + rungW/2;
+      var isHere = (i===2);
+      var rg2 = ctx.createRadialGradient(rx,ladderY,0,rx,ladderY,38);
+      rg2.addColorStop(0,ha(r.col,isHere?.18:.08)); rg2.addColorStop(1,ha(r.col,0));
+      ctx.fillStyle=rg2; ctx.beginPath(); ctx.arc(rx,ladderY,38,0,Math.PI*2); ctx.fill();
+
+      ctx.fillStyle=C.bg3; ctx.strokeStyle=r.col; ctx.lineWidth=isHere?1.8:1.1;
+      ctx.beginPath(); ctx.roundRect(rx-rungW/2+8, ladderY-26, rungW-16, 52, 6); ctx.fill(); ctx.stroke();
+
+      ctx.font='600 9px '+MONO; ctx.fillStyle=r.col; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(r.label, rx, ladderY-14);
+      ctx.font='500 7px '+MONO; ctx.fillStyle=r.col; ctx.fillText(r.title, rx, ladderY+2);
+      var subLines = r.sub.split('\n');
+      subLines.forEach(function(line, li) {
+        ctx.font='300 5.8px '+SANS; ctx.fillStyle=ha(C.body,.65);
+        ctx.fillText(line, rx, ladderY+16+li*11);
+      });
+      ctx.textBaseline='alphabetic';
+      if (i < 2) {
+        ctx.font='400 10px '+SANS; ctx.fillStyle=ha(C.muted,.5); ctx.textAlign='center';
+        ctx.fillText('\u2192', rx+rungW/2, ladderY+4);
+      }
+    });
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})(); }, 0);
+
 </script>
 </body>
 </html>
