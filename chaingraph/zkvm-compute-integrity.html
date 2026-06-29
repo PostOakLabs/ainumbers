@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compute-Integrity (OCG §18) — Verifiable Financial Computation</title>
+<meta name="description" content="Why OpenChainGraph §18 Compute-Integrity matters for regulated financial computation: verify that a model ran faithfully on its inputs — in milliseconds, offline, with no trust in the operator, no special hardware, and no blockchain, optionally without revealing the inputs. Why finance benefits, and why other projects should adopt it.">
+<meta property="og:title" content="Compute-Integrity (OCG §18) — Verifiable Financial Computation">
+<meta property="og:description" content="Verify a financial computation without re-running it or trusting the operator. Software- and cryptography-only: no TEE, no blockchain in the verify path. Why finance benefits, and why devs should adopt it.">
+<meta property="og:type" content="website">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/zkvm-compute-integrity.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Compute-Integrity (OCG §18) — Verifiable Financial Computation",
+  "author": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "description": "Why OpenChainGraph §18 Compute-Integrity proofs matter for regulated financial computation, and why other projects should adopt the open standard. Software- and cryptography-only; no trusted hardware and no blockchain in the verify path.",
+  "about": ["compute integrity", "zero-knowledge proof", "verifiable computation", "RegTech", "OpenChainGraph", "zkVM", "Groth16", "financial audit"],
+  "license": "https://creativecommons.org/licenses/by/4.0/"
+}
+</script>
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.1); --teal-lt:#2DD4BF; --teal-glow:rgba(20,184,166,.35);
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.1); --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1000px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:1000px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);padding:.25rem .65rem;border-radius:20px}
+.nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.nav-spec:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
+/* HERO */
+.hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:1.05rem;color:var(--bright);max-width:740px;margin-bottom:1rem;line-height:1.8}
+.hero-sub{font-size:.95rem;color:var(--body);max-width:740px;line-height:1.8}
+/* SECTION */
+section{padding:3rem 0;border-bottom:1px solid var(--border)}
+.sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+section h2{font-size:clamp(1.3rem,2.5vw,1.9rem);color:var(--white);margin-bottom:.8rem}
+section>.wrap>p{color:var(--body);font-size:.93rem;max-width:780px;margin-bottom:1rem}
+section p strong, li strong{color:var(--text)}
+.pull{font-family:'DM Serif Display',serif;font-style:italic;font-size:1.15rem;color:var(--teal-lt);margin:.4rem 0 1.2rem;max-width:780px;line-height:1.5}
+/* COMBO list */
+.combo{list-style:none;margin:1.2rem 0;display:grid;gap:.6rem}
+.combo li{background:var(--bg-2);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:var(--radius);padding:.7rem .95rem;font-size:.88rem;color:var(--body)}
+.combo li b{color:var(--bright);font-weight:500}
+.combo.gold li{border-left-color:var(--gold)}
+/* TABLE */
+.cmp{width:100%;border-collapse:collapse;margin:1.4rem 0;font-size:.84rem;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.cmp th{background:var(--bg-3);color:var(--bright);text-align:left;padding:.7rem .9rem;font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.cmp td{padding:.75rem .9rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--body)}
+.cmp tr:last-child td{border-bottom:none}
+.cmp td:first-child{color:var(--text);font-weight:400}
+.cmp td.ne{color:var(--teal-lt)}
+/* STEPS */
+.steps{list-style:none;counter-reset:s;margin:1.3rem 0;display:grid;gap:.6rem}
+.steps li{position:relative;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .95rem .7rem 2.6rem;font-size:.88rem;color:var(--body)}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:.8rem;top:.7rem;width:1.2rem;height:1.2rem;border-radius:50%;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);font-family:'JetBrains Mono',monospace;font-size:.66rem;display:flex;align-items:center;justify-content:center}
+.steps li b{color:var(--bright);font-weight:500}
+/* CAVEAT / NOTE */
+.caveat{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);border-left:2px solid var(--red);border-radius:var(--radius);padding:.9rem 1.1rem;margin:.7rem 0;font-size:.88rem;color:var(--text)}
+.caveat b{color:var(--bright)}
+.note{background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);border-left:2px solid var(--gold);border-radius:var(--radius);padding:.9rem 1.1rem;margin:1rem 0;font-size:.88rem;color:var(--text)}
+.note b{color:var(--bright)}
+.oneliner{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--bright);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem 1rem;margin-top:1rem;line-height:2}
+/* SOURCES + FOOTER */
+.sources{font-size:.82rem;color:var(--muted)}
+.sources a{color:var(--body)}
+footer{padding:2.5rem 0 3rem}
+.foot{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:2.2;letter-spacing:.04em}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .2rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-spec" href="why-openchain-graph.html">← Why OCG</a>
+      <a class="nav-spec" href="openchain-graph-spec.html">Tech Spec →</a>
+      <a class="nav-spec" href="openchain-graph-paper.html">White Paper →</a>
+      <span class="nav-tag">§18</span>
+      <span class="nav-pill">Compute-Integrity</span>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Compute-Integrity · OCG §18</div>
+    <h1>Verify a financial computation — <em>without re-running it</em>, or trusting the operator</h1>
+    <p class="hero-desc">§18 attaches a small cryptographic proof to a result that says: <strong>the published logic, on these inputs, really produced exactly this output.</strong> Anyone checks it in milliseconds, offline, with no trust in our servers, no special hardware, and no blockchain — and, optionally, without ever seeing the inputs.</p>
+    <p class="hero-sub">This page makes the case for why that matters specifically in regulated financial computation, and why other projects and developers should adopt the open standard. Written straight, caveats included.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">01 · The problem in finance</div>
+    <h2>A hash proves equality. It does not prove honesty.</h2>
+    <p class="pull">"Trust me, the model ran correctly" is not a control. Re-performing it yourself is expensive, and you still have to trust your own copy.</p>
+    <p>Every regulated decision — a capital calculation, a sanctions screen, an IFRS 17 measurement, a margin or settlement instruction — has to be <strong>auditable and defensible</strong>. But to trust someone else's result today you either re-run their tool (and trust your re-implementation), or you accept their attestation (and trust their controls). An <code>execution_hash</code> lets two parties confirm two outputs are identical, yet it still doesn't prove <em>which</em> code produced it, or that it ran <em>faithfully</em> on the stated inputs.</p>
+    <p>In finance that gap is costly and concrete: auditors re-perform calculations, counterparties duplicate each other's infrastructure to reconcile, and supervisors accept SOC reports and management attestations they cannot independently check. The trust is social, not mathematical.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">02 · Why it matters for financial computation</div>
+    <h2>What §18 changes</h2>
+    <p>A compute-integrity proof turns "trust our controls" into "check the math." These are the benefits that land specifically in regulated finance:</p>
+    <ul class="combo">
+      <li><b>Audit without re-execution.</b> A supervisor, auditor, or counterparty confirms the published model ran faithfully on the inputs by checking ~200 bytes — not by re-implementing the model or trusting a third-party audit of it.</li>
+      <li><b>Verify without exposing the inputs.</b> The proof can confirm an output is correct while the inputs stay private — a firm demonstrates its capital ratio was computed correctly without handing over the position-level portfolio.</li>
+      <li><b>Cross-counterparty trust with no shared infrastructure.</b> A compliance or settlement decision produced by one institution is verifiable by another using pure code — no common platform, no vendor lock-in, no API to trust or keep online.</li>
+      <li><b>Air-gapped, zero-egress verification.</b> Verification is offline and self-contained, so it runs inside the locked-down environments finance actually uses — no outbound calls, no data leaving the perimeter.</li>
+      <li><b>Durable audit evidence.</b> The artifact and its proof recompute years later against the published guest fingerprint — a defensible record that survives staff turnover, vendor changes, and a model's retirement.</li>
+      <li><b>No hardware or chain in the trust path.</b> Many regulated environments cannot place a chip vendor's secure enclave or a token network into their assurance chain. §18 requires neither.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">03 · Why adopt it</div>
+    <h2>Why other projects and developers should use this</h2>
+    <p>Compute-integrity isn't only for us. The standard, the guest, and the verifier are open and built to be reused. If you build deterministic computation that someone else needs to trust, here is the case for adopting it:</p>
+    <ul class="combo gold">
+      <li><b>Inherit it — don't rebuild it.</b> One universal zkVM guest runs <em>any</em> kernel (the source is an input, not baked in), so adopting OCG gets §18 for your tools with proving-only work: no new guest, no new verifier, no new ImageID to design.</li>
+      <li><b>Verification is trivial and universal.</b> A self-contained Groth16-over-BN254 pairing check — vetted, zero-dependency — verifies any proof in milliseconds, in a browser or in Node, offline. Your users verify <em>without</em> your servers.</li>
+      <li><b>Open and borrowable.</b> The standard (OCG §17 Kernel Identity + §18 Compute-Integrity), the guest source, and the verifier are public under CC BY 4.0. Reuse them; rebuild the guest to reproduce the ImageID and trust them yourself.</li>
+      <li><b>Software and cryptography only.</b> No TEE to provision, no chain to join. Proving is off-band and optional (a local GPU, or a proving network); verifying is always cheap and dependency-light.</li>
+      <li><b>It composes.</b> Whole-workflow proofs: an entire multi-step decision chain verifies end-to-end as one artifact, so provenance scales with your pipelines instead of fragmenting across tools.</li>
+    </ul>
+    <div class="oneliner">proving is the investment &nbsp;·&nbsp; verifying is free &nbsp;·&nbsp; the guest is universal &nbsp;·&nbsp; the standard is open</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">04 · How it works</div>
+    <h2>The short version — and how you check it yourself</h2>
+    <ul class="steps">
+      <li><b>One universal guest.</b> A single zkVM program embeds a deterministic JavaScript engine. It takes the kernel's source and the inputs, runs the calculation, and records in its public journal: the hash of the kernel source, the output, and the standard version.</li>
+      <li><b>Prove once, off-line.</b> A prover runs the guest and produces a STARK receipt, then wraps it into a compact <b>Groth16 proof over BN254</b> — about 200 bytes. This heavy step happens out of band; never in a browser, never on a request path.</li>
+      <li><b>Publish.</b> Each tool publishes the guest's <b>ImageID</b> (a fingerprint of exactly which program ran) next to the kernel's source hash. The proof attaches to the result's artifact and never changes its <code>execution_hash</code>.</li>
+      <li><b>Verify, instantly, anywhere.</b> Anyone checks the proof against the published ImageID with the self-contained verifier — one pairing check, no network, no toolchain. It accepts only a genuine proof of that exact output.</li>
+    </ul>
+    <p>Because the kernel source is an <em>input</em> to the guest, one ImageID covers every tool and every future one. To go further: rebuild the guest from public source with the pinned toolchain and confirm you get the <strong>same ImageID</strong> — that is independent proof of exactly which code runs your computation, trusting no one. The full verify-it-yourself and prove-it-yourself steps are in the technical spec (§17/§18).</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">05 · How it compares</div>
+    <h2>Reproducible determinism, not hardware or consensus</h2>
+    <p>Most "verifiable compute" in 2026 anchors trust in one of two places. OCG §18 deliberately uses neither in the verify path.</p>
+    <table class="cmp">
+      <thead><tr><th>Trust anchor</th><th>What you must trust</th><th>OCG §18</th></tr></thead>
+      <tbody>
+        <tr><td>Secure hardware (TEE / confidential compute)</td><td>A chip vendor's attestation and supply chain</td><td class="ne">No enclave. Trust is the reproducible re-execution plus the proof.</td></tr>
+        <tr><td>Blockchain / token network</td><td>A consensus set and its economic incentives</td><td class="ne">No chain in the verify path. Verification is a local pairing check.</td></tr>
+        <tr><td>Operator attestation (SOC reports)</td><td>The operator's controls and your auditor's review of them</td><td class="ne">No operator trust. The proof binds the published code to this output.</td></tr>
+      </tbody>
+    </table>
+    <p>Proving may use heavy compute (and a proving network is one option), but <strong>verification stays self-contained, offline, and chain-free</strong> — that is the promise.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">06 · Caveats</div>
+    <h2>Where we're being straight with you</h2>
+    <p>An advocacy page that only lists strengths isn't credible. Here's the other side.</p>
+    <div class="caveat"><b>Compute-trust has limits.</b> A proof shows <em>"this output follows from these inputs by this logic."</em> It does <em>not</em> prove the inputs were true, or that a human acted on the result. Where you need non-repudiation against a known identity, add the optional §16 signature — and accept the key-custody burden that comes with it.</div>
+    <div class="caveat"><b>Proving costs real compute.</b> Generating proofs needs a genuine toolchain (Rust + a zkVM + Docker, ideally a GPU); it is off-band and not free. Verifying is cheap and universal — proving is the investment, and it is a deployer choice.</div>
+    <div class="caveat"><b>Floating point needs care.</b> Library and transcendental functions (<code>exp</code>, <code>log</code>, <code>pow</code>, trig) are not bit-reproducible across engines, so OCG routes them through a shared deterministic math library. A project adopting §18 must do the same floating-point triage on its own kernels.</div>
+    <div class="caveat"><b>Proving networks are token markets.</b> If you prove via a decentralized market rather than locally, that is a chain/token system — acceptable for <em>proving</em>, but it must never enter the verify path, which stays the self-contained pairing check.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-eyebrow">Sources</div>
+    <h2>References</h2>
+    <p class="sources">
+      OpenChainGraph Standard §17 (Kernel Identity) + §18 (Compute-Integrity) — <a href="openchain-graph-spec.html">technical spec</a> ·
+      <a href="https://www.mintlify.com/risc0/risc0/concepts/receipts-and-verification">RISC Zero receipts (journal + seal)</a> ·
+      <a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">EF zkVM Standards v0 (RV64IM)</a> ·
+      <a href="https://arxiv.org/pdf/2602.11887">zk software-provenance via an interpreter in a zkVM (arXiv 2026)</a> ·
+      <a href="https://blog.icme.io/a-review-on-floating-points-in-zero-knowledge-proof-systems/">Floating point in zero-knowledge systems</a> ·
+      <a href="https://bellard.org/quickjs/quickjs.html">QuickJS</a>
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Standard · §18 Compute-Integrity · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>·</span>
+      <a href="https://ainumbers.co">AINumbers.co</a> — Reference implementation
+      <span>·</span>
+      <a href="why-openchain-graph.html">Why OpenChainGraph →</a>
+      <span>·</span>
+      <a href="openchain-graph-explainer.html">Interactive Explainer →</a>
+      <span>·</span>
+      <a href="openchain-graph-spec.html">Full Technical Spec →</a>
+      <span>·</span>
+      <a href="openchain-graph-paper.html">White Paper →</a>
+      <span>·</span>
+      <a href="chaingraph-hub.html">Hub →</a>
+      <span>·</span>
+      Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
