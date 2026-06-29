@@ -485,13 +485,25 @@ platform API whose result is locale- or environment-sensitive, or whose faithful
 prove, the kernel MUST use a **deterministic, fully specified replacement** with an explicitly documented scope,
 and that same replacement MUST be used **identically on every surface** (compute kernel/guest, browser tool, and
 Worker) so the rule's verdict is byte-identical everywhere and the proof binds the rule actually shown to users.
-Two shipped instances: (a) locale-sensitive number formatting (`toLocaleString`) → a pinned `en-US` formatter
+Three shipped instances: (a) locale-sensitive number formatting (`toLocaleString`) → a pinned `en-US` formatter
 verified value-for-value against V8; (b) the ACP-R09 `https_url` rule → a deterministic ASCII **https-scheme +
 non-empty-authority** check (faithful WHATWG URL parsing measured at ~5.4×10⁹ guest cycles, infeasible to prove;
-"don't parse URLs in the zkVM" — a scheme allowlist — is the established best practice). Such a replacement
+"don't parse URLs in the zkVM" — a scheme allowlist — is the established best practice); (c) **transcendental
+math** (`Math.exp/log/log2/sin/cos/pow`) → a shared pure-JS fdlibm port (`kernels/_detmath.bundle.mjs`, inlined
+per kernel) called identically on every surface. Only `+ − × ÷ √` are IEEE-754 bit-portable; transcendental
+accuracy is implementation-defined, so a kernel calling the engine's libm gets a different result under browser
+V8, Worker V8, QuickJS, and the RV32IM guest. Moving all surfaces onto one pure-JS libm removes the engine from
+the path, so the value users see equals the value proven. Unlike (a) and (b), which are output-preserving, (c) is
+a deliberate **one-time re-baseline**: the new last-bit results differ from V8's `Math.*`, so the affected
+kernels' `execution_hash` is re-pinned. This is a correctness improvement, not a compromise — it removes a latent
+cross-engine nondeterminism (the same input could already hash differently across browsers). Such a replacement
 defines its own conformance scope: it is the rule, not an approximation of a richer V8 behavior. Out-of-scope
-aspects (for `https_url`: IDNA, IPv4-shorthand, IPv6, and full forbidden-host-code-point parsing) MUST be stated
-in the kernel and tool source so consumers know exactly what the proof attests.
+aspects (for `https_url`: IDNA, IPv4-shorthand, IPv6, and full forbidden-host-code-point parsing; for `_detmath`:
+last-ULP equivalence to any specific engine's `Math.*`) MUST be stated in the kernel and tool source so consumers
+know exactly what the proof attests. A node whose deterministic in-guest proving cost is nonetheless prohibitive
+(e.g. tens of thousands of transcendental calls in a Monte-Carlo loop) MAY carry the shared-libm replacement for
+cross-surface determinism yet remain `compute_proof_ready:"deferred"` until a larger prover is available; the
+replacement and the proof are independent.
 
 ## §14 Changelog
 See `standard/CHANGELOG.md`. v0.6.0 = Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM,
