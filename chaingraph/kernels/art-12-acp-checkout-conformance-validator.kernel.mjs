@@ -6,6 +6,33 @@
 
 import { executionHash } from './_hash.mjs';
 
+// Deterministic https-scheme + non-empty-authority check (ASCII; no regex/no /u, no URL state machine) — used so
+// the ACP-R09 redirect_url rule evaluates identically in V8 and the QuickJS-ng runner-guest (faithful WHATWG URL
+// parsing is ~5.4B guest cycles, infeasible to prove; "don't parse in the zkVM" is the established best practice).
+// SCOPE: validates the https scheme + presence of a non-empty authority only. Full WHATWG URL validity — IDNA,
+// IPv4-shorthand, IPv6, and full forbidden-host-code-point parsing — is OUT OF SCOPE for this conformance rule.
+function isHttpsUrl(value) {
+  let s = String(value);
+  let a = 0, b = s.length;
+  while (a < b && s.charCodeAt(a) <= 0x20) a++;          // strip leading C0 control + space (WHATWG pre-scheme trim)
+  while (b > a && s.charCodeAt(b - 1) <= 0x20) b--;
+  s = s.slice(a, b);
+  if (s.length < 8) return false;
+  const c0 = s.charCodeAt(0) | 32, c1 = s.charCodeAt(1) | 32, c2 = s.charCodeAt(2) | 32, c3 = s.charCodeAt(3) | 32, c4 = s.charCodeAt(4) | 32;
+  if (!(c0 === 104 && c1 === 116 && c2 === 116 && c3 === 112 && c4 === 115)) return false; // 'https' case-insensitive
+  if (s.charCodeAt(5) !== 0x3a) return false;            // ':'
+  if (s.charCodeAt(6) !== 0x2f || s.charCodeAt(7) !== 0x2f) return false; // '//'
+  let i = 8;
+  for (; i < s.length; i++) { const ch = s.charCodeAt(i); if (ch === 0x2f || ch === 0x5c || ch === 0x3f || ch === 0x23) break; } // authority ends at / \ ? #
+  const authority = s.slice(8, i);
+  if (authority.length === 0) return false;
+  for (let j = 0; j < authority.length; j++) {
+    const ch = authority.charCodeAt(j);
+    if (ch <= 0x20 || ch === 0x7f || ch === 0x3c || ch === 0x3e || ch === 0x5e || ch === 0x7c) return false; // space/control/<>^|
+  }
+  return true;
+}
+
 const TOOL_ID = 'art-12-acp-checkout-conformance-validator';
 const TOOL_VERSION = '1.0.0';
 
@@ -62,7 +89,7 @@ function runRule(rule, value) {
     return !isNaN(Date.parse(value));
   }
   if (rule === 'https_url') {
-    try { return new URL(value).protocol === 'https:'; } catch { return false; }
+    return isHttpsUrl(value);
   }
   if (rule === 'acp_status') return ACP_STATUSES.has(value);
   if (rule === 'spt_object') return value !== null && typeof value === 'object' && !Array.isArray(value);

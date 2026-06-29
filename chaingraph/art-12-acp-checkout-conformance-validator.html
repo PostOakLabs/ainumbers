@@ -479,6 +479,32 @@ let _lastResult = null;
 /* ─────────────────────────────────────────────────────────────────
    VALIDATOR ENGINE
    ───────────────────────────────────────────────────────────────── */
+// Deterministic https-scheme + non-empty-authority check (ASCII; no regex, no URL state machine). Used identically
+// here and in the art-12 compute kernel/zkVM guest so the ACP-R09 redirect_url rule evaluates byte-identically on
+// every surface (faithful WHATWG URL parsing is infeasible to prove in-zkVM; "don't parse URLs in the zkVM" is the
+// established best practice). SCOPE: https scheme + presence of a non-empty authority only. Full WHATWG URL validity
+// — IDNA, IPv4-shorthand, IPv6, full forbidden-host-code-point parsing — is OUT OF SCOPE for this conformance rule.
+function isHttpsUrl(value) {
+  let s = String(value);
+  let a = 0, b = s.length;
+  while (a < b && s.charCodeAt(a) <= 0x20) a++;
+  while (b > a && s.charCodeAt(b - 1) <= 0x20) b--;
+  s = s.slice(a, b);
+  if (s.length < 8) return false;
+  const c0 = s.charCodeAt(0) | 32, c1 = s.charCodeAt(1) | 32, c2 = s.charCodeAt(2) | 32, c3 = s.charCodeAt(3) | 32, c4 = s.charCodeAt(4) | 32;
+  if (!(c0 === 104 && c1 === 116 && c2 === 116 && c3 === 112 && c4 === 115)) return false; // 'https'
+  if (s.charCodeAt(5) !== 0x3a) return false;            // ':'
+  if (s.charCodeAt(6) !== 0x2f || s.charCodeAt(7) !== 0x2f) return false; // '//'
+  let i = 8;
+  for (; i < s.length; i++) { const ch = s.charCodeAt(i); if (ch === 0x2f || ch === 0x5c || ch === 0x3f || ch === 0x23) break; }
+  const authority = s.slice(8, i);
+  if (authority.length === 0) return false;
+  for (let j = 0; j < authority.length; j++) {
+    const ch = authority.charCodeAt(j);
+    if (ch <= 0x20 || ch === 0x7f || ch === 0x3c || ch === 0x3e || ch === 0x5e || ch === 0x7c) return false;
+  }
+  return true;
+}
 function runRule(rule, value) {
   if (rule === 'nonempty_string') return typeof value === 'string' && value.trim().length > 0;
   if (rule.startsWith('eq:')) return value === rule.slice(3);
@@ -491,7 +517,7 @@ function runRule(rule, value) {
     return !isNaN(Date.parse(value));
   }
   if (rule === 'https_url') {
-    try { return new URL(value).protocol === 'https:'; } catch { return false; }
+    return isHttpsUrl(value);
   }
   if (rule === 'acp_status') return ACP_STATUSES.has(value);
   if (rule === 'spt_object') return value !== null && typeof value === 'object' && !Array.isArray(value);

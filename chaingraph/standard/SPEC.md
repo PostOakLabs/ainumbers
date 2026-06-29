@@ -479,6 +479,20 @@ MAY itself be covered by a §16 proof over the artifact. No layer mints a new `e
 `chaingraph_version`. This completes the OCG **strength-of-verifiable ladder**: L1 §4 hash (tamper-evidence) →
 L2 §16 proof (authenticated attestation) → L3 §18 receipt (succinct compute-integrity, optionally confidential).
 
+**§18.5 Deterministic guest-equivalent kernels (INFORMATIVE).** A §18 proof is produced by running the kernel in
+a fixed zkVM guest (a pinned JS runtime), not in the browser's V8. Where a rule would otherwise depend on a V8
+platform API whose result is locale- or environment-sensitive, or whose faithful in-guest port is infeasible to
+prove, the kernel MUST use a **deterministic, fully specified replacement** with an explicitly documented scope,
+and that same replacement MUST be used **identically on every surface** (compute kernel/guest, browser tool, and
+Worker) so the rule's verdict is byte-identical everywhere and the proof binds the rule actually shown to users.
+Two shipped instances: (a) locale-sensitive number formatting (`toLocaleString`) → a pinned `en-US` formatter
+verified value-for-value against V8; (b) the ACP-R09 `https_url` rule → a deterministic ASCII **https-scheme +
+non-empty-authority** check (faithful WHATWG URL parsing measured at ~5.4×10⁹ guest cycles, infeasible to prove;
+"don't parse URLs in the zkVM" — a scheme allowlist — is the established best practice). Such a replacement
+defines its own conformance scope: it is the rule, not an approximation of a richer V8 behavior. Out-of-scope
+aspects (for `https_url`: IDNA, IPv4-shorthand, IPv6, and full forbidden-host-code-point parsing) MUST be stated
+in the kernel and tool source so consumers know exactly what the proof attests.
+
 ## §14 Changelog
 See `standard/CHANGELOG.md`. v0.6.0 = Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM,
 software-only) over v0.5.0. v0.5.0 = Proof Binding (§16) over v0.4.1.
