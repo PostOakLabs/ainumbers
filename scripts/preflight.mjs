@@ -46,6 +46,7 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['Chain runners up-to-date',    'node scripts/gen-chain-runners.mjs --check'],
+  ['Workbench up-to-date',        'node scripts/gen-workbench.mjs --check'],
 ];
 
 let failed = null;
