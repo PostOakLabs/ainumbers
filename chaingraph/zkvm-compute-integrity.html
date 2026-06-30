@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Compute-Integrity (OCG §18) — Proving a Financial Calculation Ran the Way It Claims</title>
-<meta name="description" content="How OpenChainGraph §18 compute-integrity proofs work, step by step, why they matter for regulated financial computation, and what we learned building them (including the parts that did not work) so other teams can skip the same mistakes. Software and cryptography only: no trusted hardware, no blockchain in the verify path.">
-<meta property="og:title" content="Compute-Integrity (OCG §18) — Verifiable Financial Computation, and what we learned building it">
-<meta property="og:description" content="Prove a financial calculation ran the published code on the stated inputs. Verify it offline in milliseconds, no trust in the operator, no special hardware, no blockchain. A step-by-step walkthrough plus the honest lessons from the build.">
+<title>Compute-Integrity (OCG §18): Proving a Financial Calculation Ran the Way It Claims</title>
+<meta name="description" content="How OpenChainGraph §18 compute-integrity proofs work, with the math and code for each step, why they matter for regulated financial computation, and what we learned building them (including the parts that did not work) so other teams can skip the same mistakes. Software and cryptography only: no trusted hardware, no blockchain in the verify path.">
+<meta property="og:title" content="Compute-Integrity (OCG §18): Verifiable Financial Computation, with the math, code, and lessons">
+<meta property="og:description" content="Prove a financial calculation ran the published code on the stated inputs. Verify it offline in milliseconds, no trust in the operator, no special hardware, no blockchain. A step-by-step walkthrough with math and code, plus the honest lessons from the build.">
 <meta property="og:type" content="website">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/zkvm-compute-integrity.html">
@@ -17,11 +17,11 @@
 {
   "@context": "https://schema.org",
   "@type": "TechArticle",
-  "headline": "Compute-Integrity (OCG §18) — Proving a Financial Calculation Ran the Way It Claims",
+  "headline": "Compute-Integrity (OCG §18): Proving a Financial Calculation Ran the Way It Claims",
   "author": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" },
   "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
-  "description": "A step-by-step explanation of OpenChainGraph §18 compute-integrity proofs, why they matter for regulated financial computation, and the practical lessons (including the failures) from building them. Software and cryptography only; no trusted hardware and no blockchain in the verify path.",
-  "about": ["compute integrity", "zero-knowledge proof", "verifiable computation", "RegTech", "OpenChainGraph", "zkVM", "Groth16", "financial audit"],
+  "description": "A step-by-step explanation, with math and code, of OpenChainGraph §18 compute-integrity proofs, why they matter for regulated financial computation, and the practical lessons from building them. Software and cryptography only; no trusted hardware and no blockchain in the verify path.",
+  "about": ["compute integrity", "zero-knowledge proof", "verifiable computation", "RegTech", "OpenChainGraph", "zkVM", "Groth16", "BN254", "RISC Zero", "financial audit"],
   "license": "https://creativecommons.org/licenses/by/4.0/"
 }
 </script>
@@ -45,7 +45,6 @@ a{color:var(--teal-lt);text-decoration:none}
 a:hover{text-decoration:underline}
 strong{color:var(--bright);font-weight:500}
 .wrap{max-width:880px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
-/* NAV */
 nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
 .nav-in{max-width:880px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
 .brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
@@ -55,37 +54,30 @@ nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filt
 .nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);padding:.25rem .65rem;border-radius:20px}
 .nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
 .nav-spec:hover{color:var(--body);border-color:var(--border-2);text-decoration:none}
-/* HERO */
 .hero{padding:4rem 0 3rem;border-bottom:1px solid var(--border)}
 .eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1.1rem;display:flex;align-items:center;gap:.8rem}
 .eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
 .hero h1{font-size:clamp(1.9rem,4vw,2.7rem);color:var(--white);margin-bottom:1rem}
 .hero p{font-size:1rem;color:var(--text);max-width:760px;margin-bottom:1rem;line-height:1.85}
-/* SECTION */
 section{padding:3rem 0;border-bottom:1px solid var(--border)}
 .sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
 section h2{font-size:clamp(1.3rem,2.5vw,1.8rem);color:var(--white);margin-bottom:1rem}
-section h3{font-size:1.05rem;color:var(--bright);margin:1.6rem 0 .5rem}
+section h3{font-size:1.05rem;color:var(--bright);margin:1.8rem 0 .5rem}
 section p{color:var(--text);font-size:.94rem;max-width:760px;margin-bottom:1rem}
-/* plain list */
 .list{list-style:none;margin:1.1rem 0;display:grid;gap:.55rem;max-width:760px}
 .list li{color:var(--text);font-size:.92rem;padding-left:1.1rem;position:relative}
 .list li::before{content:'';position:absolute;left:0;top:.62rem;width:5px;height:5px;border-radius:50%;background:var(--teal)}
-/* numbered steps */
-.steps{list-style:none;counter-reset:s;margin:1.3rem 0;display:grid;gap:.7rem;max-width:780px}
-.steps li{position:relative;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem .85rem 2.8rem;font-size:.92rem;color:var(--text)}
-.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:.85rem;top:.85rem;width:1.3rem;height:1.3rem;border-radius:50%;background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);font-family:'JetBrains Mono',monospace;font-size:.66rem;display:flex;align-items:center;justify-content:center}
-.steps .why{display:block;margin-top:.35rem;color:var(--body);font-size:.86rem}
-/* lesson blocks */
+.cap{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:1.1rem 0 -.5rem;max-width:780px}
+.code,.math{font-family:'JetBrains Mono',monospace;font-size:.745rem;line-height:1.7;color:var(--text);background:var(--bg-3);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:var(--radius);padding:.85rem 1rem;margin:1rem 0;max-width:780px;overflow-x:auto;white-space:pre}
+.math{border-left-color:var(--gold);color:var(--bright);font-size:.79rem;line-height:1.9}
 .lesson{background:var(--bg-2);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:var(--radius);padding:.95rem 1.15rem;margin:.8rem 0;max-width:780px}
 .lesson h3{margin:0 0 .35rem;font-family:'Sora',sans-serif;font-size:.95rem;font-weight:500;color:var(--bright)}
 .lesson p{margin:0;font-size:.9rem;color:var(--text)}
-/* TABLE */
+.lesson .code,.lesson .math{margin:.7rem 0 0;font-size:.72rem}
 .cmp{width:100%;border-collapse:collapse;margin:1.4rem 0;font-size:.86rem;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;max-width:780px}
 .cmp th{background:var(--bg-3);color:var(--bright);text-align:left;padding:.7rem .9rem;font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
 .cmp td{padding:.75rem .9rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
 .cmp tr:last-child td{border-bottom:none}
-/* NOTE */
 .note{background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);border-left:2px solid var(--gold);border-radius:var(--radius);padding:.95rem 1.15rem;margin:1.2rem 0;font-size:.9rem;color:var(--text);max-width:780px}
 .sources{font-size:.82rem;color:var(--muted);max-width:760px}
 .sources a{color:var(--body)}
@@ -115,7 +107,7 @@ footer{padding:2.5rem 0 3rem}
     <div class="eyebrow">Compute-Integrity · OCG §18</div>
     <h1>Proving a financial calculation ran the way it claims</h1>
     <p>A §18 proof is a small piece of cryptography attached to a result. It says the published code, given these inputs, produced this exact output. You can check that in a few milliseconds, on your own machine, with no network, without re-running the calculation, and without taking the operator's word for it. If you need to, the proof can confirm the output while keeping the inputs private.</p>
-    <p>This page explains why that matters for regulated financial work, walks through how the proof is built and checked one step at a time, and tells you what we got wrong on the way so your team can skip the same mistakes.</p>
+    <p>This page explains why that matters for regulated financial work, walks through how the proof is built and checked one step at a time with the math and code for each step, and tells you what we got wrong on the way so your team can skip the same mistakes.</p>
   </div>
 </header>
 
@@ -123,8 +115,14 @@ footer{padding:2.5rem 0 3rem}
   <div class="wrap">
     <div class="sec-eyebrow">01 · Why finance needs this</div>
     <h2>A hash proves two results match. It does not prove either one is honest.</h2>
-    <p>Every regulated decision has to be defensible later: a capital calculation, a sanctions screen, an IFRS 17 measurement, a margin or settlement instruction. Today, to trust someone else's number you either re-run their tool and trust your own copy of it, or you accept an attestation and trust their controls. An <code>execution_hash</code> lets two parties confirm that two outputs are identical, but it still does not tell you which code produced the number, or that the code ran faithfully on the inputs it claims.</p>
-    <p>In finance that gap is expensive and concrete. Auditors re-perform calculations by hand. Counterparties stand up duplicate infrastructure just to reconcile. Supervisors accept SOC reports and management attestations they cannot independently check. The trust is social, not mathematical.</p>
+    <p>Every regulated decision has to be defensible later: a capital calculation, a sanctions screen, an IFRS 17 measurement, a margin or settlement instruction. Today, to trust someone else's number you either re-run their tool and trust your own copy of it, or you accept an attestation and trust their controls. OpenChainGraph already gives every result an <code>execution_hash</code>, a SHA-256 over the canonical inputs and outputs:</p>
+    <div class="cap">the existing hash</div>
+    <div class="code">execution_hash = SHA-256( JCS({ policy_parameters, output_payload }) )
+                 // JCS = RFC 8785 JSON canonicalization (stable bytes)
+
+// equal hashes  =&gt;  equal outputs
+// but silent on: WHICH code produced them, and whether it ran honestly on the stated inputs</div>
+    <p>That hash lets two parties confirm their outputs are identical. It does not tell you which code produced the number, or that the code ran faithfully on the inputs it claims. In finance that gap is expensive and concrete. Auditors re-perform calculations by hand. Counterparties stand up duplicate infrastructure just to reconcile. Supervisors accept SOC reports and management attestations they cannot independently check. The trust is social, not mathematical.</p>
     <p>A compute-integrity proof closes that gap. Here is what it buys you, specifically in a regulated setting:</p>
     <ul class="list">
       <li>A supervisor, auditor, or counterparty confirms the published model ran faithfully on the inputs by checking about 200 bytes, not by re-implementing the model.</li>
@@ -141,23 +139,88 @@ footer{padding:2.5rem 0 3rem}
   <div class="wrap">
     <div class="sec-eyebrow">02 · How it works, step by step</div>
     <h2>From a calculation to a checkable proof</h2>
-    <p>The mechanism is a zero-knowledge virtual machine (a zkVM): a processor that runs a program and emits a proof that it ran it correctly. The work is in feeding it the right thing to run and making the result reproducible. Here is the whole pipeline.</p>
-    <ul class="steps">
-      <li><strong>Start with a deterministic kernel.</strong> Each tool's logic is a pure function: <code>compute(inputs)</code> returns an output, and the same inputs always return the same output.
-        <span class="why">Why it matters: a proof of a computation is only meaningful if the computation is reproducible in the first place. Determinism is the foundation everything else sits on.</span></li>
-      <li><strong>Fingerprint the source.</strong> Take the SHA-256 of the kernel's source code. That hash is the kernel's identity (OCG calls this §17 kernel identity), and it gets published next to the tool.
-        <span class="why">Why it matters: it ties the eventual proof to exactly which version of the code ran, so "the published model" is a precise, checkable claim rather than a label.</span></li>
-      <li><strong>Run it inside one universal guest.</strong> The guest is a small program compiled for the zkVM. It embeds a JavaScript engine (QuickJS), takes the kernel source and the inputs, runs <code>compute</code>, and writes three things to its public output (the journal): the source hash, the output, and the standard version.
-        <span class="why">Why it matters: because the kernel source is an input to the guest rather than baked in, one guest covers every kernel, present and future. We do not maintain a separate proving program per tool.</span></li>
-      <li><strong>Build the guest reproducibly to get an ImageID.</strong> Compiling the guest with a pinned toolchain produces a deterministic fingerprint of the program, called the ImageID. Publish it.
-        <span class="why">Why it matters: anyone can rebuild the guest from public source and get the same ImageID. That is how a third party confirms exactly what program runs their data, trusting no one.</span></li>
-      <li><strong>Prove it, off-line.</strong> A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, about 200 bytes. This step is heavy and happens out of band, on a prover machine, never in a browser and never on a request path.
-        <span class="why">Why it matters: a small Groth16 proof is cheap to verify, and keeping proving off-line means the live service stays fast and never holds private data.</span></li>
-      <li><strong>Attach the proof, leave the hash alone.</strong> The receipt rides inside the result's artifact, under <code>audit_signature.compute_proof</code>, and is excluded from the <code>execution_hash</code>.
-        <span class="why">Why it matters: the proof is evidence about the output, not part of it. The artifact stays byte-identical to one produced without a proof, so adding proofs never disturbs existing hashes or chains.</span></li>
-      <li><strong>Verify it anywhere.</strong> A self-contained pairing check (a vetted, zero-dependency BN254 implementation) confirms the proof against the published ImageID and the journal. No network, no toolchain, milliseconds.
-        <span class="why">Why it matters: verification has to be trivial and universal, or no one actually does it. This is the part a regulator or counterparty runs.</span></li>
-    </ul>
+    <p>The mechanism is a zero-knowledge virtual machine (a zkVM): a processor that runs a program and emits a proof that it ran it correctly. The work is in feeding it the right thing to run and making the result reproducible. Here is the whole pipeline, with the math and code at each step.</p>
+
+    <h3>Step 1: A deterministic kernel</h3>
+    <p>Each tool's logic is a pure function. The same inputs always return the same output, with no clock, no randomness, no I/O.</p>
+    <div class="cap">kernel (the function behind a tool)</div>
+    <div class="code">// example: a CET1 capital-ratio check
+export function compute(pp) {
+  const ratio = pp.cet1_capital / pp.risk_weighted_assets;
+  return { cet1_ratio: round6(ratio), breach: ratio &lt; 0.045 };
+}</div>
+    <p>Why it matters: a proof of a computation is only meaningful if the computation is reproducible in the first place. Determinism is the foundation everything else sits on.</p>
+
+    <h3>Step 2: Fingerprint the source (§17)</h3>
+    <p>Take the SHA-256 of the kernel's source code. That hash is the kernel's identity, and it is published next to the tool so "the published model" becomes a precise, checkable claim rather than a label.</p>
+    <div class="cap">§17 kernel identity</div>
+    <div class="code">kernel_digest = SHA-256( utf8( source_of(compute) ) )      // e.g. sha256:a3f1c2...
+
+// published in chaingraph.json next to the tool:
+"compute_images": [
+  { "system": "sha256-source", "image_id": "sha256:a3f1c2..." },   // the JS source
+  { "system": "risc0",         "image_id": "sha256:a1a0bc89..." }  // the guest, step 4
+]</div>
+
+    <h3>Step 3: Run it inside one universal guest</h3>
+    <p>The guest is a small program compiled for the zkVM's instruction set (RISC-V, RV64IM). It embeds a JavaScript engine (QuickJS), takes the kernel source and the inputs, runs <code>compute</code>, and writes three things to its public output, the journal.</p>
+    <div class="cap">universal guest, RV64IM, commits the journal</div>
+    <div class="code">// ONE guest proves ANY kernel. The kernel source is an INPUT, never baked in.
+function guest(kernel_source, policy_parameters) {
+  const compute = evalInQuickJS(kernel_source);     // QuickJS, compiled to RV64IM
+  commit({                                          // -&gt; the public journal:
+    kernel_digest:       SHA-256(kernel_source),    //   which code ran (= §17)
+    output:              compute(policy_parameters),//   what it produced
+    chaingraph_version: "0.4.0"
+  });
+}</div>
+    <p>Why it matters: because the kernel source is an input rather than baked in, one guest covers every kernel, present and future. We do not maintain a separate proving program per tool.</p>
+
+    <h3>Step 4: Build the guest reproducibly to get an ImageID</h3>
+    <p>Compiling the guest with a pinned toolchain produces a deterministic fingerprint of the program, the ImageID. Publish it.</p>
+    <div class="cap">imageid</div>
+    <div class="math">ImageID = digest( compiled_guest_method_image )     // the RV64IM ELF, pinned toolchain
+
+reproducible build  =&gt;  same ImageID  =&gt;  one image covers every kernel</div>
+    <p>Why it matters: anyone can rebuild the guest from public source and get the same ImageID. That is how a third party confirms exactly what program runs their data, trusting no one.</p>
+
+    <h3>Step 5: Prove it, off-line</h3>
+    <p>A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, about 200 bytes. This is heavy and happens out of band, never in a browser and never on a request path. Always with development mode off, so the receipt is real.</p>
+    <div class="cap">prove (RISC0_DEV_MODE=0)</div>
+    <div class="math">STARK receipt  --wrap--&gt;  Groth16 over BN254          (~200 bytes)
+
+proof   pi = ( A in G1,  B in G2,  C in G1 )
+
+verify  e(A, B)  =  e(alpha, beta) · e( vk_x, gamma ) · e(C, delta)
+        public inputs encoded in vk_x:  ImageID  and  SHA-256(journal)</div>
+    <p>Why it matters: a small Groth16 proof verifies with a couple of pairings, so checking is cheap, and keeping proving off-line means the live service stays fast and never holds private data.</p>
+
+    <h3>Step 6: Attach the proof, leave the hash alone</h3>
+    <p>The receipt rides inside the result's artifact and is excluded from the <code>execution_hash</code> preimage.</p>
+    <div class="cap">artifact (excerpt)</div>
+    <div class="code">"audit_signature": {
+  "compute_proof": {
+    "receiptFormat": "groth16-bn254",
+    "imageId":  "sha256:a1a0bc89...",
+    "journal":  { "kernel_digest": "sha256:a3f1c2...",
+                  "output": { "cet1_ratio": 0.123456, "breach": false },
+                  "chaingraph_version": "0.4.0" },
+    "seal":     "0x... (~200-byte Groth16 proof)"
+  }
+}
+// execution_hash is taken over { policy_parameters, output_payload } ONLY,
+// so attaching a proof never changes it. Existing hashes and chains stay valid.</div>
+
+    <h3>Step 7: Verify it, anywhere</h3>
+    <p>A self-contained pairing check confirms the proof against the published ImageID and the journal. No network, no toolchain, milliseconds. This is the part a regulator or counterparty runs.</p>
+    <div class="cap">verify (offline, no toolchain)</div>
+    <div class="code">import { verifySeal } from "./kernels/_computeproof.mjs";   // @noble/curves bn254, zero deps
+
+const ok = await verifySeal(
+  artifact.audit_signature.compute_proof,
+  PUBLISHED_IMAGE_ID                       // from chaingraph.json compute_images[]
+);
+// ok === true   iff   the published guest produced exactly this output</div>
     <p>That is the trust model in one line: rebuild the guest and you confirm what code runs; check the proof and you confirm it ran that code on those inputs to get that output. No hardware enclave, no consensus, no operator to trust.</p>
   </div>
 </section>
@@ -175,27 +238,40 @@ footer{padding:2.5rem 0 3rem}
 
     <div class="lesson">
       <h3>Floating point is what bit us, and it bit late</h3>
-      <p>The arithmetic standard (IEEE-754) only guarantees the same bits across engines for the basic operations: add, subtract, multiply, divide, square root. The library functions do not carry that guarantee. <code>exp</code>, <code>log</code>, <code>pow</code>, and the trig family can differ in the last bit between two correct engines. A handful of our kernels (the machine-learning and quantitative ones) produced guest output that differed from the browser by exactly that last bit, and a last-bit difference means the proof does not match the canonical result. The fix was a shared deterministic math library, used identically in the browser, on the server, and inside the guest, so all three agree to the bit. Those roughly twelve transcendental kernels were the last and hardest part of the entire effort. If your kernels do pricing, risk, or ML math, budget for this first, not last.</p>
+      <p>The arithmetic standard (IEEE-754) only guarantees the same bits across engines for the basic operations. The library functions do not carry that guarantee, and they can differ in the last unit in the last place between two correct engines. A handful of our kernels (the machine-learning and quantitative ones) produced guest output that differed from the browser by exactly that last bit, and a last-bit difference means the proof does not match the canonical result.</p>
+      <div class="code">Math.exp(0.5)   // V8  vs  QuickJS-on-RV64IM (soft-float): can differ in the last ULP
+
+// IEEE-754 reproducible across engines:   +   -   *   /   sqrt   (and fma)
+// NOT reproducible:   exp  log  pow  sin  cos  hypot      (the transcendental set)
+
+import { exp } from "./_detmath.bundle.mjs";   // identical bits in browser, server, AND guest</div>
+      <p>The fix was a shared deterministic math library, used identically in all three places. Those roughly twelve transcendental kernels were the last and hardest part of the entire effort. If your kernels do pricing, risk, or ML math, budget for this first, not last.</p>
     </div>
 
     <div class="lesson">
       <h3>Some faithful code is simply too expensive to prove</h3>
-      <p>One kernel validated URLs with a spec-faithful parser. Run inside the guest, that cost about 5.4 billion cycles, which is effectively un-provable at any sane price. We replaced it with a small deterministic check (is this an https URL with a real host) and, importantly, used that same check on every path: browser, server, and guest. The output never diverged, so nothing was lost. The lesson generalizes: faithful-inside-the-guest is sometimes the wrong target. The real requirement is deterministic and identical everywhere, and a simpler function that meets it beats an expensive one that does not.</p>
+      <p>One kernel validated URLs with a spec-faithful parser. Inside the guest, that cost roughly 5.4 billion cycles, which is effectively un-provable at any sane price. We replaced it with a small deterministic check and used that same check on every path, so the output never diverged.</p>
+      <div class="math">faithful WHATWG URL parser, in-guest        ~ 5.4 x 10^9 cycles   (un-provable)
+deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper, identical output)</div>
+      <p>The lesson generalizes: faithful-inside-the-guest is sometimes the wrong target. The real requirement is deterministic and identical everywhere, and a simpler function that meets it beats an expensive one that does not.</p>
     </div>
 
     <div class="lesson">
       <h3>Non-determinism hides in boring places</h3>
-      <p>Two more classes of bug had nothing to do with math. One kernel imported a helper module lazily, which let execution order vary; making the import eager fixed it. Another formatted numbers with the locale-aware formatter, which quietly picked up the host's locale settings and changed the output; swapping in a fixed en-US formatter fixed that. Neither looked like a determinism problem at a glance. The takeaway is that determinism is a property of the whole runtime, the imports and the formatting and the locale, not just the arithmetic.</p>
+      <p>Two more classes of bug had nothing to do with math. One kernel imported a helper module lazily, which let execution order vary; making the import eager fixed it. Another formatted numbers with the locale-aware formatter, which quietly picked up the host's locale and changed the output.</p>
+      <div class="code">(1234.5).toLocaleString()   // "1,234.5" or "1.234,5" depending on host ICU locale  (non-deterministic)
+fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywhere</div>
+      <p>Neither looked like a determinism problem at a glance. The takeaway is that determinism is a property of the whole runtime, the imports and the formatting and the locale, not just the arithmetic.</p>
     </div>
 
     <div class="lesson">
       <h3>Never let development mode lie</h3>
-      <p>The prover has a development mode that emits a fake receipt which still passes verification. A fake proof sitting in a standards repository is the worst outcome we could ship, worse than shipping no proof at all, because it looks real. We ran every single proof with development mode off, and the rule we held to was simple: if we could not produce a real proof, we shipped nothing for that kernel and said so. Hold the same line.</p>
+      <p>The prover has a development mode (<code>RISC0_DEV_MODE=1</code>) that emits a fake receipt which still passes verification. A fake proof sitting in a standards repository is the worst outcome we could ship, worse than shipping no proof at all, because it looks real. We ran every single proof with <code>RISC0_DEV_MODE=0</code>, and the rule we held to was simple: if we could not produce a real proof, we shipped nothing for that kernel and said so. Hold the same line.</p>
     </div>
 
     <div class="lesson">
       <h3>What it actually costs, so you can set expectations</h3>
-      <p>The full suite proved on a single consumer GPU (an RTX 3080) in about five and a half hours. The Groth16 wrap ran roughly 252 seconds per kernel. The first toolchain build took 5 to 15 minutes. Verifying any of the proofs is milliseconds. Proving is the investment and it is a one-time, off-line cost; verifying is free and universal. If you have no GPU, a proving network is an option for the proving step, but keep it out of the verify path.</p>
+      <p>The full suite proved on a single consumer GPU (an RTX 3080) in about five and a half hours. The Groth16 wrap ran roughly 252 seconds per kernel. The first toolchain build took 5 to 15 minutes. Verifying any of the proofs is milliseconds. Proving is the investment and it is a one-time, off-line cost; verifying is free and universal. If you have no GPU, a proving network (such as Boundless or Succinct) is an option for the proving step, but keep it out of the verify path.</p>
     </div>
 
     <div class="lesson">
@@ -227,9 +303,23 @@ footer{padding:2.5rem 0 3rem}
     <div class="sec-eyebrow">05 · Do it yourself</div>
     <h2>Verify a proof, or reproduce one</h2>
     <h3>Verifying (no toolchain)</h3>
-    <p>You need only the artifact, the published ImageID, and the verifier. Take any OCG artifact that carries a <code>compute_proof</code>, look up that tool's ImageID in <code>chaingraph.json</code>, and run the self-contained verifier in <code>kernels/_computeproof.mjs</code>. It uses a vetted, zero-dependency curve library and does one pairing check. It returns true only for a real proof of that exact output, and rejects a tampered output or a wrong journal. That is the entire trust story for a consumer: one offline check against a public fingerprint.</p>
+    <p>You need only the artifact, the published ImageID, and the verifier. Take any OCG artifact that carries a <code>compute_proof</code>, look up that tool's ImageID in <code>chaingraph.json</code>, and run the self-contained verifier. It does one pairing check and returns true only for a real proof of that exact output.</p>
+    <div class="code">import { verifySeal } from "./kernels/_computeproof.mjs";   // @noble/curves bn254, zero deps
+
+const proof = artifact.audit_signature.compute_proof;
+const ok    = await verifySeal(proof, PUBLISHED_IMAGE_ID);
+//  ok === true        real proof of this exact output
+//  ok === false       tampered output, wrong journal, or wrong image</div>
     <h3>Proving, or confirming the ImageID (full toolchain)</h3>
-    <p>If you want to generate proofs, or independently confirm that the published ImageID matches the published guest source, you run the prover. Install the toolchain on Linux or WSL: Rust, the RISC Zero toolchain, and Docker, ideally with a GPU. Rebuild the guest and confirm you get the same ImageID we published. Run a proof with development mode off. Check that the journal's output equals what the JavaScript kernel produces for the same inputs. Then verify your own receipt with the same self-contained verifier. The exact commands and field definitions are in the technical spec under §17 and §18.</p>
+    <p>If you want to generate proofs, or independently confirm that the published ImageID matches the published guest source, you run the prover. Rebuild the guest and confirm you get the same ImageID we published, then prove with development mode off.</p>
+    <div class="cap">prove it yourself (Linux or WSL, ideally a GPU)</div>
+    <div class="code">curl -L https://risczero.com/install | bash &amp;&amp; rzup install   # Rust + cargo-risczero + r0vm
+
+cargo build --release           # rebuild the guest, then
+r0vm --id                       # confirm the SAME ImageID  ->  sha256:a1a0bc89...
+
+RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (never dev mode)</div>
+    <p>Then check that the journal's output equals what the JavaScript kernel produces for the same inputs, and verify your own receipt with the same self-contained verifier. The exact field definitions are in the technical spec under §17 and §18.</p>
     <div class="note"><strong>The keystone is the ImageID.</strong> Rebuilding the guest from public source and getting the same fingerprint we published is what turns "trust our attestation" into "check it yourself." Everything else follows from that one reproducible build.</div>
   </div>
 </section>
@@ -239,7 +329,7 @@ footer{padding:2.5rem 0 3rem}
     <div class="sec-eyebrow">06 · Limits</div>
     <h2>Where to be straight about it</h2>
     <ul class="list">
-      <li>A proof shows the output follows from the inputs by this logic. It does not prove the inputs were true, or that a human acted on the result. Where you need non-repudiation against a known identity, add the optional §16 signature and accept the key-custody burden that comes with it.</li>
+      <li>A proof shows the output follows from the inputs by this logic. It does not prove the inputs were true, or that a human acted on the result. Where you need non-repudiation against a known identity, add the optional §16 signature (an Ed25519 did:key proof) and accept the key-custody burden that comes with it.</li>
       <li>Proving costs real compute and a real toolchain. It is off-line and not free. Verifying is cheap and universal, but someone has to do the proving.</li>
       <li>Library and transcendental functions are not bit-reproducible across engines, so any team adopting §18 has to do the deterministic-math work on its own kernels, as we did.</li>
       <li>If you prove via a decentralized market rather than locally, that is a token system. It is fine for proving, but it must never enter the verify path, which stays the self-contained pairing check.</li>
@@ -254,10 +344,11 @@ footer{padding:2.5rem 0 3rem}
     <p class="sources">
       OpenChainGraph Standard §17 (kernel identity) and §18 (compute-integrity), in the <a href="openchain-graph-spec.html">technical spec</a>.
       <a href="https://www.mintlify.com/risc0/risc0/concepts/receipts-and-verification">RISC Zero receipts (journal and seal)</a>.
-      <a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0</a>.
+      <a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0 (RV64IM)</a>.
       <a href="https://arxiv.org/pdf/2602.11887">Software provenance by running an interpreter in a zkVM (arXiv 2026)</a>.
       <a href="https://blog.icme.io/a-review-on-floating-points-in-zero-knowledge-proof-systems/">Floating point in zero-knowledge systems</a>.
       <a href="https://bellard.org/quickjs/quickjs.html">QuickJS</a>.
+      <a href="https://www.rfc-editor.org/rfc/rfc8785">RFC 8785 (JSON Canonicalization Scheme)</a>.
     </p>
   </div>
 </section>
