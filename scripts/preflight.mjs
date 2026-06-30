@@ -47,6 +47,7 @@ const GATES = [
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['Chain runners up-to-date',    'node scripts/gen-chain-runners.mjs --check'],
   ['Workbench up-to-date',        'node scripts/gen-workbench.mjs --check'],
+  ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
 ];
 
 let failed = null;
