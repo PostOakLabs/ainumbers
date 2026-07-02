@@ -3,6 +3,17 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.6.1 — Deterministic-node proof profile (§18.6)
+- **§18.6 `ocg-p18-deterministic` (new, normative, profile-scoped).** Additive conformance profile an
+  implementation MAY opt into. Under it, every `status:"live"` `gpu:false` node MUST carry a verifying
+  `compute_proof` (groth16-bn254/stark, `imageId` in `compute_images`, journal output == `output_payload`) OR
+  declare `compute_proof_ready:"deferred"` with a `deferral_reason`; `gpu:true` is out of scope (prohibitive
+  in-guest proving cost, §18.2). Base §18 stays OPTIONAL for non-profile implementers. Machine-checked by
+  `check-compute-proof-coverage.mjs` (coverage + binding shape + downward-only deferred ratchet). No
+  envelope/hash/schema change: artifacts still emit `chaingraph_version:"0.4.0"`; schema filename stays
+  `openchain-graph-v0.4.schema.json`; only `spec_version` bumps 0.6.0 → 0.6.1. The AINumbers reference
+  deployment conforms with zero deferrals.
+
 ## 0.6.0 — Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM)
 - **§17 Kernel Identity Binding (new, normative).** An artifact MAY record the content digest of the exact
   kernel that produced it at `audit_signature.build_identity` (`{kernel_digest, buildType, source_ref?}`),
