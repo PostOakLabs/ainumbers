@@ -115,6 +115,12 @@ import * as art179 from './art-179-ifrs17-risk-adjustment-checker.kernel.mjs';
 import * as art180 from './art-180-solvency2-scr-ratio-calculator.kernel.mjs';
 import * as art181 from './art-181-sii-ifrs17-reconciliation-bridger.kernel.mjs';
 import * as art182 from './art-182-insurance-reporting-readiness-diagnostic.kernel.mjs';
+import * as art183 from './art-183-irrbb-eve-shock-calculator.kernel.mjs';
+import * as art184 from './art-184-irrbb-sot-eve-evaluator.kernel.mjs';
+import * as art185 from './art-185-irrbb-sot-nii-evaluator.kernel.mjs';
+import * as art186 from './art-186-irrbb-standardised-approach-mapper.kernel.mjs';
+import * as art187 from './art-187-irrbb-csrbb-scope-checker.kernel.mjs';
+import * as art188 from './art-188-irrbb-disclosure-readiness-diagnostic.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
@@ -327,6 +333,12 @@ export const KERNELS = {
   'art-180-solvency2-scr-ratio-calculator':                   art180,
   'art-181-sii-ifrs17-reconciliation-bridger':                art181,
   'art-182-insurance-reporting-readiness-diagnostic':         art182,
+  'art-183-irrbb-eve-shock-calculator':                       art183,
+  'art-184-irrbb-sot-eve-evaluator':                          art184,
+  'art-185-irrbb-sot-nii-evaluator':                          art185,
+  'art-186-irrbb-standardised-approach-mapper':               art186,
+  'art-187-irrbb-csrbb-scope-checker':                        art187,
+  'art-188-irrbb-disclosure-readiness-diagnostic':            art188,
   'art-19-agentic-checkout-protocol-selector':                art19,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
