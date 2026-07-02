@@ -3,8 +3,39 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.6.1",
+  "spec_version": "0.7.0",
   "$defs": {
+    "anchorBinding": {
+      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof", "policy_oid", "serial", "gen_time", "signer_cert_chain_b64"],
+          "properties": {
+            "type": { "const": "rfc3161-tst" },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "Base64 verbatim RFC 3161 TimeStampToken DER." },
+            "policy_oid": { "type": "string", "minLength": 1 },
+            "serial": { "type": "string", "minLength": 1 },
+            "gen_time": { "type": "string", "minLength": 1 },
+            "signer_cert_chain_b64": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof"],
+          "properties": {
+            "type": { "enum": ["opentimestamps", "c2sp-tlog-proof-v1", "scitt-receipt-rfc9942"] },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "Base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt." }
+          }
+        }
+      ]
+    },
     "buildIdentity": {
       "type": "object",
       "description": "OCG Standard §17 Kernel Identity Binding — content digest of the kernel that produced the artifact. Optional; lives at audit_signature.build_identity. Hash-excluded; does not alter execution_hash or chaingraph_version. An advisory published claim of which kernel SOURCE ran (not a proof of execution — that is §18).",
@@ -32,7 +63,7 @@
     },
     "dataIntegrityProof": {
       "type": "object",
-      "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version.",
+      "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version. §16.5 (v0.7): optional id (referenceable by an endorsement) and previousProof (proof-chain endorsement — id(s) of the proof(s) this one countersigns).",
       "additionalProperties": false,
       "required": ["type", "cryptosuite", "verificationMethod", "proofPurpose", "created", "proofValue"],
       "properties": {
@@ -41,8 +72,22 @@
         "verificationMethod": { "type": "string", "pattern": "^did:key:z6Mk" },
         "proofPurpose": { "const": "assertionMethod" },
         "created": { "type": "string", "format": "date-time" },
-        "proofValue": { "type": "string", "pattern": "^z" }
+        "proofValue": { "type": "string", "pattern": "^z" },
+        "id": { "type": "string", "minLength": 1 },
+        "previousProof": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          ]
+        }
       }
+    },
+    "proofSetOrChain": {
+      "description": "§16.5 (v0.7) — audit_signature.proof MAY be a single proof or an array (parallel proof set and/or previousProof endorsement chain).",
+      "oneOf": [
+        { "$ref": "#/$defs/dataIntegrityProof" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/dataIntegrityProof" } }
+      ]
     },
     "sha256ref": {
       "type": "string",
@@ -118,6 +163,16 @@
           }
         },
         "output_payload": { "type": "object", "description": "Half of the hash preimage." },
+        "supersedes": {
+          "type": "array",
+          "description": "OCG Standard §1, new in v0.7 — OPTIONAL execution_hashes of artifacts this artifact corrects or replaces. Declared at creation; no reverse link, no status registry.",
+          "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        },
+        "anchor_bindings": {
+          "type": "array",
+          "description": "OCG Standard §20, new in v0.7 — OPTIONAL anchor-binding evidence entries. Attached after hashing; excluded from execution_hash scope.",
+          "items": { "$ref": "#/$defs/anchorBinding" }
+        },
         "compliance_flags": { "type": "array", "items": { "type": "string" } },
         "audit_signature": {
           "type": "object",
@@ -128,7 +183,7 @@
             "payloadType": { "type": "string" },
             "payload": { "type": "string" },
             "signatures": { "type": "array" },
-            "proof": { "$ref": "#/$defs/dataIntegrityProof" },
+            "proof": { "$ref": "#/$defs/proofSetOrChain" },
             "build_identity": { "$ref": "#/$defs/buildIdentity" },
             "compute_proof": { "$ref": "#/$defs/computeProof" }
           }
@@ -259,7 +314,7 @@
       "description": "A chaingraph.json catalog document.",
       "required": ["spec_version", "nodes", "chains"],
       "properties": {
-        "spec_version": { "type": "string", "pattern": "^0\\.[456]\\.[0-9]+$" },
+        "spec_version": { "type": "string", "pattern": "^0\\.[4567]\\.[0-9]+$" },
         "version": { "type": "string" },
         "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
         "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="ocg-spec-version" content="0.6.1">
+<meta name="ocg-spec-version" content="0.7.0">
 <title>OpenChainGraph Standard v0.4: Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
       <a class="nav-link" href="openchain-graph-explainer.html">Explainer</a>
       <a class="nav-link" href="openchain-graph-paper.html">White Paper →</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.6.1</span>
+      <span class="nav-pill">v0.7.0</span>
     </div>
   </div>
 </nav>
@@ -129,7 +129,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.6.1</h1>
+    <h1>OpenChainGraph Standard v0.7.0</h1>
     <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive: all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved. <strong>v0.4</strong> adds <strong>Compute Binding</strong> (§12) (server-side kernels make every <code>gpu:false</code> node agent-native over MCP in a single round-trip) and <strong>Export Profiles</strong> (§13): the <code>chaingraph_export</code> umbrella (xlsx / pdf / csv / xbrl) renders a verified artifact for human, pipeline, and regulator consumption, generated downstream of and excluded from the hash preimage. <strong>v0.4.1</strong> adds the <strong>Verifiable Credentials profile</strong> (§13.11): <code>chaingraph_export:vc</code> renders any verified artifact as a <a href="https://www.w3.org/TR/vc-data-model-2.0/">W3C Verifiable Credentials 2.0</a> credential that re-states the canonical <code>execution_hash</code> via <code>ocg:hashAnchor</code>; it is a base profile (every node), mints no new hash or proof, and leaves the artifact envelope unchanged.</p>
   </div>
 </div>
@@ -159,6 +159,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s16"><span class="toc-sec">§16</span>Proof Binding <span style="color:var(--green)">(new in v0.5)</span></a></li>
         <li><a href="#s17"><span class="toc-sec">§17</span>Kernel Identity Binding <span style="color:var(--green)">(new in v0.6)</span></a></li>
         <li><a href="#s18"><span class="toc-sec">§18</span>Compute-Integrity Proof <span style="color:var(--green)">(new in v0.6)</span></a></li>
+        <li><a href="#s20"><span class="toc-sec">§20</span>Anchor Binding <span style="color:var(--green)">(new in v0.7)</span></a></li>
         <li><a href="#s15"><span class="toc-sec">§15</span>Conformance Gates</a></li>
         <li><a href="#s14"><span class="toc-sec">§14</span>Changelog</a></li>
       </ul>
@@ -197,6 +198,8 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
   <span class="k">"mandate_type"</span>: <span class="v">"ap2_mandate_chain_record"</span>,
   <span class="k">"semantic_profile"</span>: <span class="v new">"iso20022:pacs.008-subset"</span>,  <span class="c">// NEW in v0.3 — optional ISO 20022 alignment (§8)</span>
   <span class="k">"execution_hash"</span>: <span class="v">"sha256:3f9a1b2c8d7e4f0a5c6b2e1d9f3a7c4b8f1e5d2a9c0b6f3e7d4a1b8c5e2f9d0"</span>,
+  <span class="k">"supersedes"</span>: [<span class="v new">"sha256:…"</span>],  <span class="c">// NEW in v0.7 — optional: execution_hashes this artifact corrects or replaces; declared at creation, no reverse link, no status registry</span>
+  <span class="k">"anchor_bindings"</span>: [<span class="v new">…</span>],      <span class="c">// NEW in v0.7 — optional §20 anchor evidence; attached AFTER hashing, excluded from execution_hash scope</span>
   <span class="k">"chain"</span>: {
     <span class="k">"parent_hashes"</span>: [<span class="v">"sha256:abc123..."</span>],
     <span class="k">"parent_tool_ids"</span>: [<span class="v">"ain:art-00"</span>],
@@ -233,7 +236,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
     <p>An artifact carries several version numbers and, by design, none of them is the headline release number. OCG uses <strong>layered, decoupled version identifiers</strong>, following the in-toto / SLSA convention where additive changes do not move the wire identifier (a SLSA <code>predicateType</code> URI resolves to the latest minor version and only changes on a breaking revision). Read each one for what it answers:</p>
     <table class="vtbl" style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem">
       <tr><th style="text-align:left;padding:.4rem .6rem">Identifier</th><th style="text-align:left;padding:.4rem .6rem">Answers</th><th style="text-align:left;padding:.4rem .6rem">Current</th><th style="text-align:left;padding:.4rem .6rem">Bumps when</th></tr>
-      <tr><td style="padding:.4rem .6rem"><code>spec_version</code> (catalog)</td><td style="padding:.4rem .6rem">which OCG <strong>release</strong></td><td style="padding:.4rem .6rem"><code>0.6.1</code></td><td style="padding:.4rem .6rem">every release</td></tr>
+      <tr><td style="padding:.4rem .6rem"><code>spec_version</code> (catalog)</td><td style="padding:.4rem .6rem">which OCG <strong>release</strong></td><td style="padding:.4rem .6rem"><code>0.7.0</code></td><td style="padding:.4rem .6rem">every release</td></tr>
       <tr><td style="padding:.4rem .6rem"><code>chaingraph_version</code> (artifact)</td><td style="padding:.4rem .6rem">which <strong>schema</strong> parses it</td><td style="padding:.4rem .6rem"><code>0.4.0</code> (frozen)</td><td style="padding:.4rem .6rem">only a breaking envelope change</td></tr>
       <tr><td style="padding:.4rem .6rem"><code>@context</code> URL</td><td style="padding:.4rem .6rem">which JSON-LD <strong>vocabulary</strong></td><td style="padding:.4rem .6rem"><code>v0.3</code></td><td style="padding:.4rem .6rem">only on a vocabulary change</td></tr>
       <tr><td style="padding:.4rem .6rem"><code>payloadType</code> version</td><td style="padding:.4rem .6rem">which <strong>signing-envelope</strong> shell</td><td style="padding:.4rem .6rem"><code>0.2</code></td><td style="padding:.4rem .6rem">only on a DSSE shell change</td></tr>
@@ -959,6 +962,10 @@ export const meta = { tool_id, tool_version, gpu: false, mandate_type };</pre>
 }</pre>
     <p>Like every §13 profile, <code>vc</code> is a <strong>view, not a fact</strong>: it mints no new <code>execution_hash</code> and adds no securing <code>proof</code>: verification routes back to the canonical JSON. A deployer needing a <em>secured</em> VC adds an enveloping JOSE/COSE or Data Integrity proof downstream (out of profile scope; <strong>§16 Proof Binding</strong> provides exactly this over the canonical artifact). Deterministic: the same artifact renders byte-identical bytes. Because export profiles are not part of the artifact envelope, the envelope and hash preimage are <strong>unchanged</strong> at v0.4.1: artifacts still emit <code>chaingraph_version:"0.4.0"</code>; only <code>spec_version</code> bumps to 0.4.1.</p>
 
+    <h3>§13.12: Selective-disclosure export (SD-JWT, RFC 9901) <span style="font-size:.75em;font-weight:400;color:var(--green)">new in v0.7</span></h3>
+    <p>An implementation MAY export an artifact as an <a href="https://www.rfc-editor.org/rfc/rfc9901">RFC 9901</a> <strong>SD-JWT</strong> whose claims map deterministically from the envelope, EXCEPT the disclosure salts, which MUST be freshly CSPRNG-generated per export (the one permitted nondeterminism; it is confined to the export and never touches the envelope or <code>execution_hash</code>). ALWAYS-DISCLOSED (non-selectively-disclosable) claims: <code>execution_hash</code>, <code>chaingraph_version</code>, <code>spec_version</code>, <code>compute_capability</code>, the §17 kernel/build identity fields, all outputs (<code>output_payload</code>), and timestamps. SELECTIVELY DISCLOSABLE: top-level input values only. Signature: JWS (EdDSA) under the §16 signing key.</p>
+    <p><strong>Normative limitation (MUST be stated by presenting UIs):</strong> a redacted export is NOT re-executable and does NOT permit <code>execution_hash</code> recomputation; its verification yields (a) issuer-signature integrity and (b) hash-binding of each disclosed claim. The full envelope remains the artifact of record. Gate: <code>sd-export-roundtrip.test.mjs</code> (§15).</p>
+
     <div class="callout">
       <div class="lab">Hash preimage unchanged</div>
       <p>Export profiles are generated downstream of <code>execution_hash = SHA-256(JCS({policy_parameters, output_payload}))</code> and never alter it. A v0.4 artifact with exports remains verifiable by any v0.3 verifier that ignores unknown fields.</p>
@@ -996,6 +1003,9 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 
     <h3>§16.4: Issuer identity: did:key vs did:web</h3>
     <p>For <em>ephemeral</em> / fully client-side signing a <code>did:key</code> suffices and is the only CONTRACT-compatible option (a private key MUST NOT ship in client HTML or storage). A <em>stable institutional</em> issuer SHOULD anchor to <code>did:web</code> over the publisher's domain with the private key held in an HSM/KMS and signing performed server-side (e.g. the §12 compute path). Both are interoperable <code>verificationMethod</code> values.</p>
+
+    <h3>§16.5: Proof sets and endorsement chains <span style="font-size:.75em;font-weight:400;color:var(--green)">new in v0.7</span></h3>
+    <p><code>audit_signature.proof</code> MAY be an array. A parallel <strong>proof set</strong> (multiple independent signers over the same artifact) follows VC Data Integrity 1.0 proof-set semantics. An <strong>ENDORSEMENT</strong> (countersignature approving a prior signature) MUST use proof-chain semantics: the endorsing proof's <code>previousProof</code> references the id(s) of the proof(s) it endorses, and verifiers MUST verify chained proofs in dependency order. No new cryptosuite: <code>eddsa-jcs-2022</code> throughout. Gate: countersignature fixture in <code>proof-binding.test.mjs</code> (§15).</p>
   </div>
 </div>
 
@@ -1063,6 +1073,28 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   </div>
 </div>
 
+<!-- ═══ §20 Anchor Binding ═══ -->
+<div class="section" id="s20">
+  <div class="wrap">
+    <div class="sec-num">§20 · Normative · Optional · New in v0.7</div>
+    <h2>Anchor Binding <span style="font-size:.6em;font-weight:400;color:var(--green)">new in v0.7</span></h2>
+    <p>An artifact MAY carry portable, <strong>offline-verifiable evidence</strong> that its <code>execution_hash</code> was included in a transparency log or timestamp service <strong>by a point in time</strong>. Anchor evidence attaches at the OPTIONAL top-level array <code>anchor_bindings</code>, which, like §16 <code>audit_signature</code>, is attached AFTER hashing and is <strong>EXCLUDED from <code>execution_hash</code> scope</strong>. Each entry:</p>
+    <pre>{
+  <span class="k">"type"</span>: <span class="v">"rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942"</span>,
+  <span class="k">"anchored_hash"</span>: <span class="v">"sha256:…"</span>,        <span class="c">// MUST equal the artifact's execution_hash</span>
+  <span class="k">"log_origin"</span>:    <span class="v">"&lt;TSA URL / log origin string / calendar or service identifier&gt;"</span>,
+  <span class="k">"proof"</span>:         <span class="v">"&lt;base64 verbatim TST DER | base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt&gt;"</span>,
+  <span class="c">// rfc3161-tst additional members (all REQUIRED for that type):</span>
+  <span class="k">"policy_oid"</span>, <span class="k">"serial"</span>, <span class="k">"gen_time"</span>, <span class="k">"signer_cert_chain_b64"</span>
+}</pre>
+    <p><strong>Verification (per type):</strong> <code>rfc3161-tst</code>: RFC 3161 TimeStampToken verification: messageImprint matches <code>anchored_hash</code>, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing cert carries critical EKU id-kp-timeStamping, genTime sane; the DER is stored VERBATIM (never re-encoded) so <code>openssl ts -verify</code> remains possible independently, forever. <code>opentimestamps</code>: standard OTS verification (complete proofs verify against Bitcoin block headers alone). <code>c2sp-tlog-proof-v1</code>: the C2SP tlog-proof verification procedure (checkpoint signature against the log's public key, cosignature policy per the verifier's trust policy, Merkle inclusion proof for the leaf committing <code>anchored_hash</code>). <code>scitt-receipt-rfc9942</code>: COSE receipt verification per RFC 9942 (accepted as an evidence type for interop; OCG implementations are NOT SCITT Transparency Services and SCRAPI is out of scope). Multi-TSA redundancy across independent authorities and algorithms is RECOMMENDED per RFC 4998 (informative). A verifier MUST reject a binding whose <code>anchored_hash</code> differs from the artifact's recomputed <code>execution_hash</code>. Multiple bindings MAY coexist (several logs, plus OTS). Gate: <code>anchor-binding.test.mjs</code> (§15), whose rfc3161 fixture carries a REAL TimeStampToken from a public TSA verified against a pinned root.</p>
+    <div class="callout">
+      <div class="lab">Honesty semantics (normative)</div>
+      <p>An anchor binding proves <strong>EXISTENCE</strong> of the artifact bytes by a time and <strong>INCLUSION</strong> in the named log. It does not prove computational correctness (§18), authorship (§16), or kernel identity (§17); the four are independent, composable claims. Because inclusion evidence is SHA-256 Merkle data, anchor bindings retain their timestamp value even against a future signature break (informative).</p>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ §15 Conformance Gates ═══ -->
 <div class="section" id="s15">
   <div class="wrap">
@@ -1081,7 +1113,27 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
     <div class="sec-num">§14 · Changelog</div>
     <h2>Changelog</h2>
 
-    <h3 style="margin-top:.4rem">v0.6.0 → v0.6.1: 2026-07-02</h3>
+    <h3 style="margin-top:.4rem">v0.6.1 → v0.7.0: 2026-07-02</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§20 (new)</span>
+        <span class="change-desc"><strong>Anchor Binding.</strong> An artifact MAY carry portable, offline-verifiable evidence that its <code>execution_hash</code> was included in a transparency log or timestamp service by a point in time, at the OPTIONAL top-level <code>anchor_bindings</code> array (attached after hashing, excluded from hash scope). Evidence types: <code>rfc3161-tst</code> (verbatim TST DER), <code>opentimestamps</code>, <code>c2sp-tlog-proof-v1</code>, <code>scitt-receipt-rfc9942</code>. Proves existence-by-a-time and log inclusion, never correctness or authorship.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§13.12 (new)</span>
+        <span class="change-desc"><strong>Selective-disclosure export (SD-JWT, RFC 9901).</strong> Deterministic claim mapping from the envelope; fresh CSPRNG disclosure salts are the one permitted nondeterminism. Always-disclosed: <code>execution_hash</code>, versions, <code>compute_capability</code>, §17 identity fields, all outputs, timestamps; selectively disclosable: top-level input values only. JWS (EdDSA) under the §16 key. A redacted export is not re-executable.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§16.5 (new)</span>
+        <span class="change-desc"><strong>Proof sets and endorsement chains.</strong> <code>audit_signature.proof</code> MAY be an array (VC Data Integrity proof-set semantics); an endorsement countersignature MUST chain via <code>previousProof</code>, verified in dependency order. <code>eddsa-jcs-2022</code> throughout.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">§1 (additive)</span>
+        <span class="change-desc"><strong>Optional <code>supersedes</code>.</strong> Top-level array of <code>sha256:</code>-prefixed execution_hashes this artifact corrects or replaces, declared at creation. No reverse link, no status registry. No envelope, hash, or schema-filename change anywhere in v0.7: <code>chaingraph_version</code> stays <code>"0.4.0"</code>; only <code>spec_version</code> bumps to 0.7.0.</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">v0.6.0 → v0.6.1: 2026-07-02</h3>
     <div style="margin-top:.6rem">
       <div class="change-row">
         <span class="change-ref">§18.6 (new)</span>
@@ -1254,7 +1306,7 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.6.1 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.7.0 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       Reference implementation: <a href="https://ainumbers.co">AINumbers.co</a>
       <span>·</span>

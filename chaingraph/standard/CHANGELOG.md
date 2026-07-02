@@ -3,6 +3,38 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.7.0 — Anchor Binding (§20) + SD-JWT selective-disclosure export (§13.12)
+- **§20 Anchor Binding (new, normative, OPTIONAL).** An artifact MAY carry portable, offline-verifiable
+  evidence that its `execution_hash` was included in a transparency log or timestamp service by a point in
+  time, at the OPTIONAL top-level array `anchor_bindings` — attached AFTER hashing, EXCLUDED from
+  `execution_hash` scope. Evidence types: `rfc3161-tst` (TST DER stored verbatim, never re-encoded — the
+  four RFC 3161 members `policy_oid`/`serial`/`gen_time`/`signer_cert_chain_b64` are REQUIRED for that
+  type), `opentimestamps` (complete proofs verify against Bitcoin block headers alone),
+  `c2sp-tlog-proof-v1` (checkpoint + cosignatures + Merkle inclusion, offline-verifiable), and
+  `scitt-receipt-rfc9942` (COSE receipt, accepted for interop; OCG implementations are NOT SCITT
+  Transparency Services). A verifier MUST reject a binding whose `anchored_hash` differs from the
+  recomputed `execution_hash`; multiple bindings MAY coexist. Honesty semantics: an anchor proves
+  EXISTENCE by a time + INCLUSION in the named log — not correctness (§18), authorship (§16), or kernel
+  identity (§17). Gate: `anchor-binding.test.mjs` (§15).
+- **§13.12 SD-JWT selective-disclosure export profile (new, normative).** An implementation MAY export an
+  artifact as an [RFC 9901](https://www.rfc-editor.org/rfc/rfc9901) SD-JWT: always-disclosed =
+  `execution_hash`, `chaingraph_version`, `spec_version`, `compute_capability`, §17 identity fields, all
+  outputs, timestamps; selectively disclosable = top-level input values only; JWS (EdDSA) under the §16
+  signing key. Disclosure salts are freshly CSPRNG-generated per export — the one permitted
+  nondeterminism, confined to the export. NORMATIVE limitation: a redacted export is NOT re-executable
+  and does NOT permit `execution_hash` recomputation. Gate: `sd-export-roundtrip.test.mjs` (§15).
+- **§16.5 Proof sets and endorsement chains (clarification, normative).** `audit_signature.proof` MAY be
+  an array (VC Data Integrity 1.0 proof-set semantics); an ENDORSEMENT (countersignature) MUST use
+  proof-chain semantics via `previousProof`, verified in dependency order. eddsa-jcs-2022 throughout.
+  Countersignature fixture added to `proof-binding.test.mjs` (§15).
+- **Optional `supersedes` (§1, additive).** Top-level array of `sha256:`-prefixed execution_hashes this
+  artifact corrects or replaces. Declared at creation; NO reverse link, NO status registry. Shape-checked
+  by `schema-validate.mjs` (§15).
+- **No envelope/hash/schema change.** Artifacts still emit `chaingraph_version:"0.4.0"`; the schema
+  filename stays `openchain-graph-v0.4.schema.json` (new fields optional/additive: `anchor_bindings`,
+  `supersedes`, `$defs.anchorBinding`; catalog `spec_version` pattern widened to `^0\.[4567]\.[0-9]+$`).
+  Only `spec_version` bumps 0.6.1 → 0.7.0.
+
 ## 0.6.1 — Deterministic-node proof profile (§18.6)
 - **§18.6 `ocg-p18-deterministic` (new, normative, profile-scoped).** Additive conformance profile an
   implementation MAY opt into. Under it, every `status:"live"` `gpu:false` node MUST carry a verifying

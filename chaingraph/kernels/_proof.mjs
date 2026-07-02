@@ -37,17 +37,27 @@ function securedDocument(artifact) {
 }
 
 // Proof options = the proof object without proofValue (eddsa-jcs-2022 proof configuration).
-function proofOptions({ verificationMethod, created }) {
-  return { type: 'DataIntegrityProof', cryptosuite: CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
+// §16.5: for set/chain members the config MAY also carry `id` (so an endorsement can reference it)
+// and `previousProof` (the id(s) this proof endorses) — both are part of the signed configuration.
+function proofOptions({ verificationMethod, created, id, previousProof }) {
+  const o = { type: 'DataIntegrityProof', cryptosuite: CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
+  if (id !== undefined) o.id = id;
+  if (previousProof !== undefined) o.previousProof = previousProof;
+  return o;
+}
+
+// hashData over an explicit secured document (already stripped/augmented by the caller).
+async function hashDataForDoc(doc, opts) {
+  const optHash = await sha256(jcsBytes(opts));
+  const docHash = await sha256(jcsBytes(doc));
+  const cat = new Uint8Array(optHash.length + docHash.length);
+  cat.set(optHash, 0); cat.set(docHash, optHash.length);
+  return cat;
 }
 
 // hashData = SHA-256(proofOptions JCS) ++ SHA-256(securedDocument JCS) — proofConfig hash first.
 async function hashData(artifact, opts) {
-  const optHash = await sha256(jcsBytes(opts));
-  const docHash = await sha256(jcsBytes(securedDocument(artifact)));
-  const cat = new Uint8Array(optHash.length + docHash.length);
-  cat.set(optHash, 0); cat.set(docHash, optHash.length);
-  return cat;
+  return hashDataForDoc(securedDocument(artifact), opts);
 }
 
 // ── multibase base58btc ('z') — minimal inline (CONTRACT: no external lib / no CDN) ──────────────
@@ -122,6 +132,85 @@ export async function verify(artifact, publicKey) {
     const sig = b58decode(proof.proofValue.slice(1));
     return await globalThis.crypto.subtle.verify('Ed25519', publicKey, sig, await hashData(artifact, opts));
   } catch { return false; }
+}
+
+// ── §16.5 Proof sets and endorsement chains (OCG v0.7) ──────────────────────────────────────────
+// audit_signature.proof MAY be an array. A parallel proof SET member signs the document with ALL
+// proofs removed (each signer independent — VC Data Integrity 1.0 proof-set semantics). An
+// ENDORSEMENT (proof-chain member) carries previousProof = id(s) of the proof(s) it endorses; its
+// secured input is the document with all proofs removed PLUS exactly the referenced previous
+// proof(s) re-attached (in previousProof order), so the endorsement cryptographically covers what
+// it approves. Verifiers MUST verify chained proofs in dependency order. eddsa-jcs-2022 throughout.
+
+const asArray = (p) => (p == null ? [] : Array.isArray(p) ? p : [p]);
+const prevIds = (proof) => asArray(proof.previousProof);
+
+// Secured input for one set/chain member: strip every proof, then re-attach the endorsed ones.
+function chainSecuredDocument(artifact, proof) {
+  const doc = securedDocument(artifact);
+  const refs = prevIds(proof);
+  if (refs.length === 0) return doc;
+  const all = asArray(artifact?.audit_signature?.proof);
+  const byId = new Map(all.filter((p) => p && p.id !== undefined).map((p) => [p.id, p]));
+  const attached = refs.map((id) => {
+    const hit = byId.get(id);
+    if (!hit) throw new Error(`previousProof "${id}" not found in the proof set`);
+    return structuredClone(hit);
+  });
+  doc.audit_signature = { ...(doc.audit_signature || {}), proof: attached };
+  return doc;
+}
+
+/**
+ * addProof(artifact, { verificationMethod, created, privateKey, id?, previousProof? }) -> new artifact.
+ * Appends a proof-set member (no previousProof) or an endorsement (previousProof = id(s) of proofs
+ * already on the artifact). The result's audit_signature.proof is an array when it holds >1 proof.
+ * created is caller-supplied ISO-8601 (determinism — NEVER Date.now() here).
+ */
+export async function addProof(artifact, { verificationMethod, created, privateKey, id, previousProof }) {
+  if (!verificationMethod || !created || !privateKey) throw new Error('addProof requires { verificationMethod, created, privateKey }');
+  const opts = proofOptions({ verificationMethod, created, id, previousProof });
+  const probe = { ...opts };                      // chainSecuredDocument reads previousProof off the proof
+  const doc = chainSecuredDocument(artifact, probe);
+  const sigBytes = new Uint8Array(await globalThis.crypto.subtle.sign('Ed25519', privateKey, await hashDataForDoc(doc, opts)));
+  const proof = { ...opts, proofValue: 'z' + b58encode(sigBytes) };
+  const out = structuredClone(artifact);
+  const existing = asArray(out.audit_signature?.proof);
+  out.audit_signature = { ...(out.audit_signature || {}), proof: existing.length ? [...existing, proof] : proof };
+  return out;
+}
+
+/**
+ * verifyProofs(artifact, resolveKey) -> boolean. Verifies EVERY member of audit_signature.proof
+ * (object or array) in dependency order: set members first, then endorsements whose previousProof
+ * targets verified ids. resolveKey(verificationMethod) -> Ed25519 public CryptoKey (e.g.
+ * didKeyToPublicKey). Predicate: false on any structural/crypto problem — a broken/missing/cyclic
+ * previousProof reference fails the whole chain.
+ */
+export async function verifyProofs(artifact, resolveKey) {
+  const proofs = asArray(artifact?.audit_signature?.proof);
+  if (proofs.length === 0) return false;
+  const ids = new Set(proofs.filter((p) => p && p.id !== undefined).map((p) => p.id));
+  const verified = new Set();
+  const pending = [...proofs];
+  // dependency-ordered sweep: a proof runs once every previousProof id it names is verified
+  while (pending.length) {
+    const i = pending.findIndex((p) => prevIds(p).every((id) => verified.has(id)));
+    if (i === -1) return false;                   // missing id or dependency cycle
+    const proof = pending.splice(i, 1)[0];
+    if (!proof || proof.type !== 'DataIntegrityProof' || proof.cryptosuite !== CRYPTOSUITE) return false;
+    if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z') return false;
+    if (prevIds(proof).some((id) => !ids.has(id))) return false;
+    const opts = proofOptions({ verificationMethod: proof.verificationMethod, created: proof.created, id: proof.id, previousProof: proof.previousProof });
+    try {
+      const doc = chainSecuredDocument(artifact, proof);
+      const sig = b58decode(proof.proofValue.slice(1));
+      const publicKey = await resolveKey(proof.verificationMethod);
+      if (!(await globalThis.crypto.subtle.verify('Ed25519', publicKey, sig, await hashDataForDoc(doc, opts)))) return false;
+    } catch { return false; }
+    if (proof.id !== undefined) verified.add(proof.id);
+  }
+  return true;
 }
 
 export const PROOF_CRYPTOSUITE = CRYPTOSUITE;

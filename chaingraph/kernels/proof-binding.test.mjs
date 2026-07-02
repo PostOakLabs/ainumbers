@@ -2,10 +2,12 @@
 // Asserts: (a) sign->verify round-trip; (b) tamper on execution_hash OR proofValue fails verify;
 // (c) determinism (same artifact+key+created => byte-identical proofValue); (d) backward-compat
 // (unsigned artifact unchanged + still hash-valid + signing mints no new execution_hash);
-// (e) did:key round-trip resolves the public key for verification.
+// (e) did:key round-trip resolves the public key for verification;
+// (f) §16.5 (v0.7) proof sets + endorsement chains: a parallel proof set of 2 verifies, a chained
+//     endorsement (previousProof) verifies in dependency order, a broken previousProof MUST fail.
 // Node 18+ (WebCrypto Ed25519).  Run:  node kernels/proof-binding.test.mjs
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
-import { sign, verify, rawPubkeyToDidKey, didKeyToPublicKey, PROOF_CRYPTOSUITE } from './_proof.mjs';
+import { sign, verify, addProof, verifyProofs, rawPubkeyToDidKey, didKeyToPublicKey, PROOF_CRYPTOSUITE } from './_proof.mjs';
 import { executionHash } from './_hash.mjs';
 
 let fail = 0;
@@ -51,6 +53,40 @@ ok(!(await verify(tampSig, resolvedPub)), '(b) tampered proofValue fails verify'
 // (c) determinism — Ed25519 (RFC 8032) is deterministic; prove byte-identical proofValue
 const signed2 = await sign(base, { verificationMethod: vm, created: CREATED, privateKey: kp.privateKey });
 ok(signed.audit_signature.proof.proofValue === signed2.audit_signature.proof.proofValue, '(c) deterministic proofValue');
+
+// ── (f) §16.5 proof sets + endorsement chains (countersignature fixture, OCG v0.7) ──────────────
+const kpA = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+const kpB = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+const kpE = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);   // endorser
+const vmA = await rawPubkeyToDidKey(kpA.publicKey);
+const vmB = await rawPubkeyToDidKey(kpB.publicKey);
+const vmE = await rawPubkeyToDidKey(kpE.publicKey);
+const resolveKey = (did) => didKeyToPublicKey(did);
+
+// parallel proof set of 2 independent signers over the same artifact
+let setArt = await addProof(base, { verificationMethod: vmA, created: CREATED, privateKey: kpA.privateKey, id: 'urn:ocg:proof:a' });
+setArt = await addProof(setArt, { verificationMethod: vmB, created: CREATED, privateKey: kpB.privateKey, id: 'urn:ocg:proof:b' });
+ok(Array.isArray(setArt.audit_signature.proof) && setArt.audit_signature.proof.length === 2, '(f) proof set of 2 lives as an array at audit_signature.proof');
+ok(await verifyProofs(setArt, resolveKey), '(f) parallel proof set of 2 verifies');
+ok(setArt.execution_hash === base.execution_hash, '(f) proof set minted no new execution_hash');
+ok(setArt.chaingraph_version === '0.4.0', '(f) proof set did not bump chaingraph_version');
+
+// chained endorsement: E countersigns proof:a (previousProof references it)
+const chained = await addProof(setArt, { verificationMethod: vmE, created: CREATED, privateKey: kpE.privateKey, id: 'urn:ocg:proof:endorse-a', previousProof: 'urn:ocg:proof:a' });
+ok(chained.audit_signature.proof.length === 3, '(f) endorsement appended as third proof');
+ok(chained.audit_signature.proof[2].previousProof === 'urn:ocg:proof:a', '(f) endorsement carries previousProof');
+ok(await verifyProofs(chained, resolveKey), '(f) proof set of 2 + chained endorsement verifies in dependency order');
+
+// broken previousProof MUST fail: (1) dangling reference, (2) endorsed proof tampered after endorsement
+const dangling = structuredClone(chained);
+dangling.audit_signature.proof[2].previousProof = 'urn:ocg:proof:missing';
+ok(!(await verifyProofs(dangling, resolveKey)), '(f) dangling previousProof reference fails the chain');
+const tampChain = structuredClone(chained);
+tampChain.audit_signature.proof[0].proofValue = 'z' + 'A'.repeat(86);   // endorsed proof no longer what E signed
+ok(!(await verifyProofs(tampChain, resolveKey)), '(f) tampering the endorsed proof breaks both its own verify and the endorsement');
+const tampEndorse = structuredClone(chained);
+tampEndorse.audit_signature.proof[2].proofValue = 'z' + 'B'.repeat(86);
+ok(!(await verifyProofs(tampEndorse, resolveKey)), '(f) tampered endorsement proofValue fails');
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all proof-binding assertions passed');
 process.exit(fail ? 1 : 0);

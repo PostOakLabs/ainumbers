@@ -1,16 +1,16 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.6.1
+spec_version: 0.7.0
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
 version_of_record: chaingraph.json#spec_version
-last_reconciled: 2026-06-27
+last_reconciled: 2026-07-02
 renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consistency.mjs)
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.6.1
+# OpenChainGraph Standard — v0.7.0
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -37,7 +37,7 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 
 | Identifier | Where it lives | Answers | Current | Bumps when |
 |---|---|---|---|---|
-| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.6.1` | every release (additive or breaking) |
+| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.7.0` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
 | `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
@@ -80,6 +80,10 @@ Every OpenChainGraph node tool and chain page MUST emit this envelope. Fields an
 - Root artifacts use `parent_hashes: []`, `chain_depth: 0`. A consuming stage copies each parent's
   `execution_hash` into `parent_hashes` and sets `chain_depth = max(parent depths) + 1`. Chain edges
   are hash citations, never editorial prose.
+- OPTIONAL top-level `supersedes: ["sha256:…", …]` (new in v0.7) — execution_hashes of artifacts this
+  artifact corrects or replaces. Declared at creation, INSIDE the hashed envelope (it is an assertion
+  of the new artifact). There is NO reverse link and NO status registry (a registry is a backend);
+  consumers discover supersession only from the newer artifact or a log scan (informative).
 
 ## §4 Execution hash (NORMATIVE — the integrity anchor)
 `execution_hash` MUST be a **WebCrypto SHA-256** over the **RFC 8785 / JCS-canonical** JSON of
@@ -348,6 +352,19 @@ node need not declare `vc`. Mapping (envelope → VC): `issued_by`→`issuer`, `
 - Deterministic: every field derives from the artifact only (id = `urn:ocg:artifact:<bare-hash>`; no UUID, no
   wall-clock). The same artifact MUST render byte-identical bytes.
 
+### §13.12 Selective-disclosure export (SD-JWT, RFC 9901) — NORMATIVE, new in v0.7
+An implementation MAY export an artifact as an SD-JWT whose claims map deterministically from the
+envelope — EXCEPT disclosure salts, which MUST be freshly CSPRNG-generated per export (the one
+permitted nondeterminism; it is confined to the export and never touches the envelope or
+`execution_hash`). ALWAYS-DISCLOSED (non-selectively-disclosable) claims: `execution_hash`,
+`chaingraph_version`, `spec_version`, `compute_capability`, §17 kernel/build identity fields, all
+outputs (`output_payload`), and timestamps. SELECTIVELY DISCLOSABLE: top-level input values only.
+Signature: JWS (EdDSA) under the §16 signing key.
+
+NORMATIVE limitation (MUST be stated by presenting UIs): a redacted export is NOT re-executable and
+does NOT permit `execution_hash` recomputation; its verification yields (a) issuer-signature integrity
+and (b) hash-binding of each disclosed claim. The full envelope remains the artifact of record.
+
 ## §16 Proof Binding (NORMATIVE — new in v0.5)
 A node or chain page **MAY** bind authenticity to a verified artifact by attaching a **W3C Data Integrity
 proof** ([Data Integrity EdDSA Cryptosuites v1.0](https://www.w3.org/TR/vc-di-eddsa/), Rec 2025-05) at
@@ -401,6 +418,13 @@ key MUST NOT ship in client HTML/storage). A *stable institutional* issuer SHOUL
 `did:web` over the publisher's domain with the private key held in an HSM/KMS and signing performed
 server-side (e.g. the §12 compute path); `did:key` and `did:web` are interoperable `verificationMethod`
 values under §16.1.
+
+**§16.5 Proof sets and endorsement chains (NORMATIVE, new in v0.7).** `audit_signature.proof` MAY be an
+array. A parallel proof set (multiple independent signers over the same artifact) follows VC Data
+Integrity 1.0 proof-set semantics. An ENDORSEMENT (countersignature approving a prior signature) MUST
+use proof-chain semantics: the endorsing proof's `previousProof` references the id(s) of the proof(s) it
+endorses, and verifiers MUST verify chained proofs in dependency order. No new cryptosuite:
+eddsa-jcs-2022 throughout.
 
 ## §17 Kernel Identity Binding (NORMATIVE — new in v0.6)
 A node MAY publish, and an artifact MAY record, the **content digest of the exact kernel that produced
@@ -527,8 +551,50 @@ standard unchanged for external implementers and for nondeterministic nodes. Its
 `gpu:false` — is the state "every deterministic live node carries a real compute-integrity proof"; the AINumbers
 reference deployment conforms with zero deferrals.
 
+## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
+An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
+transparency log or timestamp service by a point in time. Anchor evidence attaches at the OPTIONAL
+top-level array `anchor_bindings`, which — like §16 `audit_signature` — is attached AFTER hashing and is
+EXCLUDED from `execution_hash` scope. Each entry:
+
+```json
+{
+  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942",
+  "anchored_hash": "sha256:…",
+  "log_origin": "<TSA URL / log origin string / calendar or service identifier>",
+  "proof": "<base64 verbatim TST DER | base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt>",
+  "policy_oid": "…", "serial": "…", "gen_time": "…", "signer_cert_chain_b64": ["…"]
+}
+```
+
+`anchored_hash` MUST equal the artifact's `execution_hash`. The last four members (`policy_oid`,
+`serial`, `gen_time`, `signer_cert_chain_b64`) are `rfc3161-tst` additional members — all REQUIRED for
+that type, absent otherwise.
+
+Verification (per type): `rfc3161-tst` — RFC 3161 TimeStampToken verification: messageImprint matches
+`anchored_hash`, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing
+cert carries critical EKU id-kp-timeStamping, genTime sane; the DER is stored VERBATIM (never
+re-encoded) so `openssl ts -verify` remains possible independently, forever;
+`opentimestamps` — standard OTS verification (complete proofs verify against Bitcoin block headers
+alone); `c2sp-tlog-proof-v1` — the C2SP tlog-proof verification procedure (checkpoint
+signature against the log's public key, cosignature policy per the verifier's trust policy, Merkle
+inclusion proof for the leaf committing `anchored_hash`, `anchored_hash` == `execution_hash`);
+`scitt-receipt-rfc9942` — COSE receipt verification per RFC 9942 (accepted as an evidence type
+for interop; OCG implementations are NOT SCITT Transparency Services and SCRAPI is out of scope).
+Multi-TSA redundancy across independent authorities/algorithms is RECOMMENDED per RFC 4998 (informative).
+A verifier MUST reject a binding whose `anchored_hash` differs from the artifact's recomputed
+`execution_hash`. Multiple bindings MAY coexist (several logs, plus OTS).
+
+Semantics (NORMATIVE honesty): an anchor binding proves EXISTENCE of the artifact bytes by a time and
+INCLUSION in the named log. It does not prove computational correctness (§18), authorship (§16), or
+kernel identity (§17); the four are independent, composable claims. Because inclusion evidence is
+SHA-256 Merkle data, anchor bindings retain their timestamp value even against a future signature
+break (informative).
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.6.1 = §18.6 deterministic-node proof profile (`ocg-p18-deterministic`) over
+See `standard/CHANGELOG.md`. v0.7.0 = Anchor Binding (§20) + selective-disclosure export (§13.12) +
+proof sets/endorsement chains (§16.5) + optional `supersedes` (§1) over v0.6.1 (additive; no
+envelope/hash/schema change). v0.6.1 = §18.6 deterministic-node proof profile (`ocg-p18-deterministic`) over
 v0.6.0 (additive, profile-scoped; no envelope/hash/schema change). v0.6.0 = Kernel Identity Binding (§17) +
 Compute-Integrity Proof (§18, zkVM, software-only) over v0.5.0. v0.5.0 = Proof Binding (§16) over v0.4.1.
 v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
@@ -560,6 +626,10 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
 | §17 kernel identity binding: digest at `audit_signature.build_identity` ↔ Graph Index `compute_images` ↔ recomputed source, hash-excluded, no `chaingraph_version` bump | `kernel-identity.test.mjs` (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat) | validate |
 | §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
+| §20 anchor binding: per-type proof verification (`rfc3161-tst` real TST vs pinned TSA root incl. messageImprint/CMS/chain/EKU/genTime, `opentimestamps` completed proof vs pinned Bitcoin block header, `c2sp-tlog-proof-v1` vs pinned test log key + cosigners + Merkle inclusion, `scitt-receipt-rfc9942` COSE receipt), `anchored_hash` == recomputed `execution_hash`, tampered proof / mismatched hash MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
+| §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
+| §16.5 proof sets/chains: parallel proof set verifies, endorsement `previousProof` chain verifies in dependency order, broken `previousProof` MUST fail | `proof-binding.test.mjs` | validate |
+| §1 `supersedes` shape: array of `sha256:`-prefixed execution_hashes | `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
