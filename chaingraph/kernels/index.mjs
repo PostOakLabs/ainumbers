@@ -121,7 +121,13 @@ import * as art185 from './art-185-irrbb-sot-nii-evaluator.kernel.mjs';
 import * as art186 from './art-186-irrbb-standardised-approach-mapper.kernel.mjs';
 import * as art187 from './art-187-irrbb-csrbb-scope-checker.kernel.mjs';
 import * as art188 from './art-188-irrbb-disclosure-readiness-diagnostic.kernel.mjs';
+import * as art189 from './art-189-markdown-document-converter.kernel.mjs';
 import * as art19  from './art-19-agentic-checkout-protocol-selector.kernel.mjs';
+import * as art190 from './art-190-tabular-data-converter.kernel.mjs';
+import * as art191 from './art-191-conversion-receipt-builder.kernel.mjs';
+import * as art192 from './art-192-conversion-receipt-verifier.kernel.mjs';
+import * as art193 from './art-193-metadata-sanitization-prover.kernel.mjs';
+import * as art194 from './art-194-digest-manifest-builder.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
@@ -339,7 +345,13 @@ export const KERNELS = {
   'art-186-irrbb-standardised-approach-mapper':               art186,
   'art-187-irrbb-csrbb-scope-checker':                        art187,
   'art-188-irrbb-disclosure-readiness-diagnostic':            art188,
+  'art-189-markdown-document-converter':                      art189,
   'art-19-agentic-checkout-protocol-selector':                art19,
+  'art-190-tabular-data-converter':                           art190,
+  'art-191-conversion-receipt-builder':                       art191,
+  'art-192-conversion-receipt-verifier':                      art192,
+  'art-193-metadata-sanitization-prover':                     art193,
+  'art-194-digest-manifest-builder':                          art194,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
   'art-22-agentic-payments-protocol-comparator':              art22,

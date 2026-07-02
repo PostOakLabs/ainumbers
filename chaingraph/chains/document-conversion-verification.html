@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Document Conversion Verification Chain · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Three-node workflow: convert a document locally to Markdown or across tabular formats, bind the conversion into a canonical receipt, and independently verify the receipt by recomputing its binding. W3C VC export.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/document-conversion-verification.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--amber:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.stage-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:10px 0;display:flex;gap:14px;align-items:flex-start}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal);background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.3);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700}
+.stage-body{flex:1}
+.stage-title{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--bright);margin-bottom:4px}
+.stage-desc{font-size:.78rem;color:var(--body);margin-bottom:6px}
+.stage-link{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:8px;max-height:320px}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.sec-btn{background:none;color:var(--body);border:1px solid var(--border-2);margin-left:8px}
+.sec-btn:hover{color:var(--teal-lt);border-color:var(--teal);opacity:1}
+.copy-btn{background:none;color:var(--muted);border:1px solid var(--border);font-size:.55rem;padding:.2rem .5rem;letter-spacing:0;text-transform:none;font-weight:400;border-radius:3px;vertical-align:middle;margin-left:6px}
+.copy-btn:hover{color:var(--teal-lt);border-color:var(--teal);opacity:1}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.branch-note{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--amber);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6}
+.mcp-block{background:#06101e;border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:var(--radius);padding:12px 14px;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text)}
+.mcp-tool{color:var(--purple);font-size:.68rem;margin-bottom:6px;font-weight:600}
+.dag-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;margin:16px 0}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Document Conversion Verification</span>
+  </div>
+  <a href="../chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Chain · Client-Side Conversions</div>
+  <h1>Document Conversion Verification</h1>
+  <p class="sub">Three-node workflow that makes a local file conversion verifiable. Convert a document in the browser, bind the conversion into a canonical receipt that ties the input digest to the converter identity, the parameters, and the output digest, then independently verify the receipt by recomputing its binding. Each stage produces a tamper-evident SHA-256 execution hash, and nothing leaves the browser.</p>
+  <div style="margin-bottom:12px">
+    <span class="flag info">Markdown / Tabular</span>
+    <span class="flag gold">Conversion Receipt</span>
+    <span class="flag info">RFC 8785 binding</span>
+    <span class="flag">3 nodes</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.6.0</span>
+  </div>
+
+  <div class="info-box">
+    <div class="ib-title">Workflow summary</div>
+    Popular client-side converters prove privacy but attest nothing about how a file was transformed. This workflow supplies the missing layer. Stage 1 converts the document locally. Stage 2 binds the conversion edge into a receipt whose binding_sha256 is a SHA-256 over the JCS-canonical receipt. Stage 3 recomputes that binding and, when the files are supplied, re-hashes them to confirm they match. Nodes: <a href="../art-189-markdown-document-converter.html">ART-189</a> (or <a href="../art-190-tabular-data-converter.html">ART-190</a> on the tabular branch) then <a href="../art-191-conversion-receipt-builder.html">ART-191</a> then <a href="../art-192-conversion-receipt-verifier.html">ART-192</a>.
+  </div>
+
+  <div class="branch-note">
+    <strong>Branches.</strong> This workflow has two entry paths. The <code>markdown</code> branch starts at the Markdown converter (ART-189). The <code>tabular</code> branch swaps in the Tabular Data Converter (ART-190) for CSV, JSON, and Markdown-table conversion. Both branches share the same receipt builder and verifier for stages 2 and 3.
+  </div>
+
+  <div class="dag-wrap">
+    <svg viewBox="0 0 680 140" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:680px;font-family:'JetBrains Mono',monospace">
+      <rect x="20" y="40" width="180" height="42" rx="8" fill="#0D1627" stroke="#14B8A6" stroke-width="1.5"/>
+      <text x="110" y="58" text-anchor="middle" font-size="9" fill="#2DD4BF" font-weight="600">ART-189</text>
+      <text x="110" y="72" text-anchor="middle" font-size="8" fill="#6888A8">Markdown Converter</text>
+      <rect x="20" y="92" width="180" height="34" rx="8" fill="#0D1627" stroke="#F59E0B" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="110" y="106" text-anchor="middle" font-size="9" fill="#F59E0B" font-weight="600">ART-190</text>
+      <text x="110" y="118" text-anchor="middle" font-size="7.5" fill="#6888A8">Tabular (branch)</text>
+      <line x1="200" y1="70" x2="248" y2="70" stroke="#263855" stroke-width="1.5" marker-end="url(#arrc)"/>
+      <rect x="250" y="48" width="180" height="60" rx="8" fill="#0D1627" stroke="#14B8A6" stroke-width="1.5"/>
+      <text x="340" y="72" text-anchor="middle" font-size="9" fill="#2DD4BF" font-weight="600">ART-191</text>
+      <text x="340" y="86" text-anchor="middle" font-size="8" fill="#6888A8">Receipt Builder</text>
+      <line x1="430" y1="78" x2="478" y2="78" stroke="#263855" stroke-width="1.5" marker-end="url(#arrc)"/>
+      <rect x="480" y="48" width="180" height="60" rx="8" fill="#0D1627" stroke="#D4A847" stroke-width="1.5"/>
+      <text x="570" y="72" text-anchor="middle" font-size="9" fill="#D4A847" font-weight="600">ART-192</text>
+      <text x="570" y="86" text-anchor="middle" font-size="8" fill="#6888A8">Receipt Verifier ★</text>
+      <defs><marker id="arrc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#263855"/></marker></defs>
+    </svg>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:6px">★ terminal node · gold border = export · dashed = branch alternate</div>
+  </div>
+
+  <div class="section-head">Stage 1: Local Conversion</div>
+  <div class="stage-card">
+    <div class="stage-num">1</div>
+    <div class="stage-body">
+      <div class="stage-title">convert_markdown_document · ART-189</div>
+      <div class="stage-desc">Convert Markdown to injection-safe HTML and plain text over a hand-rolled CommonMark subset, and return SHA-256 digests of the input, HTML, and plain text over exact UTF-8 bytes. On the tabular branch, convert_tabular_data (ART-190) converts across CSV, JSON, and Markdown tables with RFC 4180 parsing.</div>
+      <a class="stage-link" href="../art-189-markdown-document-converter.html">→ Open tool</a>
+      <span style="color:var(--muted)"> · </span>
+      <a class="stage-link" href="../art-190-tabular-data-converter.html">→ Tabular branch</a>
+    </div>
+  </div>
+
+  <div class="mcp-block">
+    <div class="mcp-tool">MCP tool: convert_markdown_document <button class="copy-btn" onclick="copyMcp('mcp1')">copy</button></div>
+    <pre id="mcp1">{
+  "tool": "convert_markdown_document",
+  "arguments": {
+    "markdown": "# Report\n\nSee **results** in the [appendix](https://example.org).",
+    "options": { "heading_ids": true, "table_support": true }
+  }
+}</pre>
+  </div>
+
+  <div class="section-head">Stage 2: Bind the Conversion Receipt</div>
+  <div class="stage-card">
+    <div class="stage-num">2</div>
+    <div class="stage-body">
+      <div class="stage-title">build_conversion_receipt · ART-191</div>
+      <div class="stage-desc">Bind the input digest, converter identity, parameters, and output digest into a canonical receipt. binding_sha256 is a SHA-256 over the JCS-canonical receipt with binding_sha256 removed. Checks cover hex validity, converter identity completeness, and the self-conversion case.</div>
+      <a class="stage-link" href="../art-191-conversion-receipt-builder.html">→ Open tool</a>
+    </div>
+  </div>
+
+  <div class="mcp-block">
+    <div class="mcp-tool">MCP tool: build_conversion_receipt <button class="copy-btn" onclick="copyMcp('mcp2')">copy</button></div>
+    <pre id="mcp2">{
+  "tool": "build_conversion_receipt",
+  "arguments": {
+    "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_format": "markdown",
+    "target_format": "html",
+    "converter": { "name": "art-189-markdown-document-converter", "version": "1.0.0" },
+    "parameters": { "heading_ids": true, "table_support": true }
+  }
+}</pre>
+  </div>
+
+  <div class="section-head">Stage 3: Verify the Receipt (terminal)</div>
+  <div class="stage-card">
+    <div class="stage-num">3</div>
+    <div class="stage-body">
+      <div class="stage-title">verify_conversion_receipt · ART-192</div>
+      <div class="stage-desc">Recompute binding_sha256 over the JCS-canonical receipt and compare, then optionally compare digests re-hashed from the actual files. Returns a verdict of valid, binding_mismatch, digest_mismatch, or malformed. Final stage, exportable as Policy Mandate JSON or W3C VC.</div>
+      <a class="stage-link" href="../art-192-conversion-receipt-verifier.html">→ Open tool</a>
+    </div>
+  </div>
+
+  <div class="mcp-block">
+    <div class="mcp-tool">MCP tool: verify_conversion_receipt <button class="copy-btn" onclick="copyMcp('mcp3')">copy</button></div>
+    <pre id="mcp3">{
+  "tool": "verify_conversion_receipt",
+  "arguments": {
+    "receipt": { "...": "the receipt object returned by build_conversion_receipt" },
+    "recomputed_input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recomputed_output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}</pre>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Full Chain MCP Sequence</div>
+    <p style="font-size:.8rem;color:var(--body);margin-bottom:10px">Run the three tools in order. The converter digests feed the receipt builder, and the receipt feeds the verifier, so the verdict is fully reproducible by re-hashing the files.</p>
+    <div class="mcp-block" style="border-left-color:var(--teal)">
+      <button class="copy-btn" onclick="copyMcp('mcpFull')" style="float:right;margin-top:-2px">copy full sequence</button>
+      <div class="mcp-tool">Full chain: 3 MCP calls</div>
+      <pre id="mcpFull">// Step 1: convert the document locally (Markdown branch)
+const step1 = await mcp.call("convert_markdown_document", {
+  markdown: "# Report\n\nSee **results** in the [appendix](https://example.org).",
+  options: { heading_ids: true, table_support: true }
+});
+
+// Step 2: bind the conversion edge into a receipt
+const step2 = await mcp.call("build_conversion_receipt", {
+  input_sha256: step1.input_sha256,
+  output_sha256: step1.html_sha256,
+  source_format: "markdown",
+  target_format: "html",
+  converter: { name: "art-189-markdown-document-converter", version: "1.0.0" },
+  parameters: { heading_ids: true, table_support: true }
+});
+
+// Step 3: verify the receipt (final stage)
+const step3 = await mcp.call("verify_conversion_receipt", {
+  receipt: step2.receipt,
+  recomputed_input_sha256: step1.input_sha256,
+  recomputed_output_sha256: step1.html_sha256
+});
+
+console.log("Verdict:", step3.verdict);          // "valid"
+console.log("Binding:", step2.receipt.binding_sha256);</pre>
+    </div>
+
+    <div style="margin-top:14px">
+      <button onclick="copyMcp('mcpFull')">Copy MCP Chain</button>
+      <button class="sec-btn" onclick="window.open('../art-192-conversion-receipt-verifier.html','_blank')">Open Terminal Node</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Chain Metadata</div>
+    <table style="font-family:'JetBrains Mono',monospace;font-size:.68rem;border-collapse:collapse;width:100%">
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted);width:220px">Chain slug</td><td style="color:var(--bright)">document-conversion-verification</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Nodes</td><td style="color:var(--bright)">art-189 (or art-190) → art-191 → art-192</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Branches</td><td style="color:var(--bright)">markdown · tabular</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Cluster</td><td style="color:var(--bright)">Client-Side Conversions</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Standards</td><td style="color:var(--bright)">RFC 4180 · CommonMark / GFM · RFC 8785 (JCS)</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Spec version</td><td style="color:var(--bright)">0.6.0</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Terminal export</td><td style="color:var(--bright)">Policy Mandate JSON · W3C VC (§13.11)</td></tr>
+      <tr><td style="padding:5px 12px 5px 0;color:var(--muted)">Hash scheme</td><td style="color:var(--bright)">SHA-256 over JCS-canonical {policy_parameters, output_payload}</td></tr>
+    </table>
+  </div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="../chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="../openchain-graph-spec.html" style="color:var(--muted)">Spec v0.6.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+function copyMcp(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const btns = document.querySelectorAll('.copy-btn');
+    btns.forEach(b => {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(id)) {
+        b.textContent = 'copied!';
+        setTimeout(() => b.textContent = 'copy', 1500);
+      }
+    });
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

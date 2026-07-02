@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Metadata Sanitization Prover · ART-193 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Client-side metadata sanitization prover: drops a JPEG or PNG in the browser, lists EXIF/GPS/XMP/IPTC/comment metadata found, byte-splices the metadata segments out with no re-encode, hashes both versions, and proves zero segments remain. Feeds the conversion receipt chain.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-193-metadata-sanitization-prover.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:stretch}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:90px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:3.5rem;font-weight:800;padding:.1rem .5rem;border-radius:8px;display:inline-block;line-height:1.1}
+.grade-A{color:var(--green);background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3)}
+.grade-B{color:var(--teal-lt);background:rgba(20,184,166,.08);border:2px solid rgba(20,184,166,.3)}
+.grade-C{color:var(--gold);background:rgba(212,168,71,.1);border:2px solid rgba(212,168,71,.3)}
+.grade-D{color:var(--warn);background:rgba(245,158,11,.08);border:2px solid rgba(245,158,11,.3)}
+.grade-F{color:var(--red);background:rgba(239,68,68,.08);border:2px solid rgba(239,68,68,.3)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.dim-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dim-row:last-child{border-bottom:none}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;margin-top:2px}
+.dim-body{flex:1}
+.dim-title{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);margin-bottom:2px}
+.dim-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.score-bar{height:8px;border-radius:4px;background:var(--bg-3);border:1px solid var(--border);margin:12px 0 6px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;transition:width .4s ease;background:var(--teal)}
+.gap-list{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--red);margin:8px 0}
+.gap-list li{margin:3px 0;list-style:disc;padding-left:4px;margin-left:16px}
+.drop{border:2px dashed var(--border-2);border-radius:var(--radius-lg);padding:32px 20px;text-align:center;background:var(--bg-3);cursor:pointer;transition:border-color .2s,background .2s}
+.drop.over{border-color:var(--teal);background:rgba(20,184,166,.06)}
+.drop-hint{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body)}
+.drop-sub{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-top:6px}
+.meta-tbl{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:8px}
+.meta-tbl th{text-align:left;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:.54rem;padding:5px 8px;border-bottom:1px solid var(--border-2)}
+.meta-tbl td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;word-break:break-word}
+.meta-tbl td.val{color:var(--gold)}
+.check-line{font-family:'JetBrains Mono',monospace;font-size:.66rem;margin:8px 0;padding:8px 12px;border-radius:var(--radius)}
+.check-line.ok{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.check-line.err{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+textarea{width:100%;min-height:120px;background:#06101e;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:10px;resize:vertical}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Metadata Sanitization Prover</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-193 · Client-Side Conversions</div>
+  <h1>Metadata Sanitization Prover</h1>
+  <p class="sub">Drop a JPEG or PNG in the browser. This node lists the EXIF, GPS, XMP, IPTC, and comment metadata found, splices those segments out at the byte level with no re-encode, hashes the original and the cleaned bytes, and proves zero metadata segments remain. Feeds the conversion receipt builder. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">EXIF / GPS</span>
+    <span class="flag gold">Byte-Level Splice</span>
+    <span class="flag info">No Re-encode</span>
+    <span class="flag">Zero PII Export</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.6.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    A privacy-preserving sanitization prover for the <a href="chaingraph-hub.html">Client-Side Conversions</a> cluster. JPEG and PNG are parsed and cleaned entirely in-page (byte-level marker or chunk splicing, pixel data untouched). PDF and DOCX are not parsed; use manual-entry mode to record findings. Output feeds the conversion receipt builder (art-191). Verdict: sanitized (all metadata removed), partially_sanitized (some retained), or not_verifiable (PDF/DOCX).
+  </div>
+
+  <div class="info-box">
+    <div class="ib-title">PII care by design</div>
+    Metadata values that may themselves be personal data (GPS coordinates, author names, device serials) are shown here locally for your review only. The exported record and the kernel input carry only field NAMES, CATEGORIES, and ACTIONS, never the values.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Drop a JPEG or PNG</div>
+    <div class="drop" id="drop">
+      <div class="drop-hint">Drop an image here, or click to choose a file</div>
+      <div class="drop-sub">JPEG (.jpg .jpeg) and PNG (.png) are parsed and cleaned in-page. Nothing leaves your browser.</div>
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,.jpg,.jpeg,.png" style="display:none">
+    </div>
+    <div id="fileErr" style="display:none;margin-top:10px"></div>
+
+    <div class="section-head" style="margin-top:22px">Manual entry (PDF / DOCX / other)</div>
+    <div class="info-box" style="margin-top:0">
+      PDF and DOCX are not parsed client-side. Paste findings as a JSON array of <code>{"field","category","action"}</code> objects. Categories: gps, author, device, timestamp, software, comment, other. Actions: removed, redacted, retained.
+    </div>
+    <textarea id="manualJson" placeholder='[{"field":"dc:creator","category":"author","action":"removed"},{"field":"xmp:CreateDate","category":"timestamp","action":"removed"}]'></textarea>
+    <div class="preset-row" style="margin-top:10px">
+      <button class="preset-btn" onclick="loadManualSample()">Load sample findings</button>
+    </div>
+    <div style="margin-top:6px">
+      <label class="form-label" for="manualType">Declared file type</label>
+      <select id="manualType" style="background:#06101e;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:8px">
+        <option value="pdf">pdf</option>
+        <option value="docx">docx</option>
+        <option value="generic">generic</option>
+      </select>
+    </div>
+    <div style="margin-top:14px">
+      <button onclick="runManual()">Prove Manual Sanitization</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Metadata Found (local view only)</div>
+      <div id="foundBox"></div>
+
+      <div class="section-head" style="margin-top:22px">Sanitization Results</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div id="checkBox"></div>
+      <div id="riskBox"></div>
+      <div id="flagsBox"></div>
+      <div id="hashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+        <button id="dlCleanBtn" onclick="downloadClean()" disabled>Download cleaned file</button>
+        <button onclick="downloadRecord()">Download record JSON</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.6.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-193-metadata-sanitization-prover',
+  version: '1.0.0',
+  mcp_name: 'prove_metadata_sanitization',
+  title: 'Metadata Sanitization Prover',
+  description: 'Proof-of-sanitization record binding an original digest to findings (removed/redacted/retained) to a sanitized digest, with deterministic residual-risk analysis. Receives field names, categories, and actions only, never metadata values. Returns sanitization_record, residual_risks, verdict.',
+  spec_version: '0.6.0',
+  chaingraph_version: '0.4.0',
+  chain: 'client-side-conversions',
+  node_position: 'source',
+  export_capability: ['json','pdf','vc'],
+  regulation: 'GDPR Art.5 (data minimisation) · privacy-by-design',
+  mcp_tool_definition: {
+    name: 'prove_metadata_sanitization',
+    description: 'Produce a proof-of-sanitization record binding original_sha256 -> findings (field names + categories + actions, NO values) -> sanitized_sha256, with residual-risk analysis and a verdict (sanitized / partially_sanitized / not_verifiable). Inputs are field names and categories only, never metadata values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        original_sha256: { type: 'string', description: 'SHA-256 hex of the original file bytes.' },
+        sanitized_sha256: { type: 'string', description: 'SHA-256 hex of the cleaned file bytes.' },
+        file_type: { type: 'string', enum: ['jpeg','png','pdf','docx','generic'] },
+        findings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              field: { type: 'string', description: 'Metadata field name (never a value).' },
+              category: { type: 'string', enum: ['gps','author','device','timestamp','software','comment','other'] },
+              action: { type: 'string', enum: ['removed','redacted','retained'] }
+            }
+          }
+        },
+        bytes_before: { type: 'number' },
+        bytes_after: { type: 'number' }
+      },
+      required: ['original_sha256','sanitized_sha256','file_type','findings']
+    }
+  }
+};
+
+/* ---------- shared template helpers (verbatim from art-188) ---------- */
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+
+async function sha256HexBytes(bytes){
+  const dig = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function sha256HexStr(str){
+  const buf = new TextEncoder().encode(String(str));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------- kernel-mirrored compute (field names + categories + actions only) ---------- */
+const CATEGORIES = ['gps','author','device','timestamp','software','comment','other'];
+const ACTIONS = ['removed','redacted','retained'];
+const FILE_TYPES = ['jpeg','png','pdf','docx','generic'];
+const HEX64 = /^[0-9a-f]{64}$/;
+const finiteOrNull = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+async function compute(pp) {
+  const original_sha256 = String(pp?.original_sha256 || '').trim().toLowerCase();
+  const sanitized_sha256 = String(pp?.sanitized_sha256 || '').trim().toLowerCase();
+  const file_type = FILE_TYPES.includes(pp?.file_type) ? pp.file_type : 'generic';
+  const findingsIn = Array.isArray(pp?.findings) ? pp.findings : [];
+
+  const findings = findingsIn.map((f) => ({
+    field: String(f?.field || ''),
+    category: CATEGORIES.includes(f?.category) ? f.category : 'other',
+    action: ACTIONS.includes(f?.action) ? f.action : 'retained',
+  }));
+
+  const bytes_before = finiteOrNull(pp?.bytes_before);
+  const bytes_after = finiteOrNull(pp?.bytes_after);
+
+  const retained = findings.filter((f) => f.action === 'retained');
+  const removed = findings.filter((f) => f.action === 'removed');
+  const redacted = findings.filter((f) => f.action === 'redacted');
+
+  const residual_risks = [];
+  for (const f of retained) {
+    residual_risks.push(`retained ${f.category} metadata field "${f.field}" was not removed`);
+  }
+  if (file_type === 'jpeg' && !findings.some((f) => f.category === 'comment')) {
+    residual_risks.push('JPEG COM (comment) segments were not enumerated; confirm none remain');
+  }
+  if (file_type === 'png') {
+    residual_risks.push('PNG iTXt/tEXt/zTXt textual chunks may carry residual metadata; confirm all were walked');
+  }
+  if (file_type === 'pdf' || file_type === 'docx') {
+    residual_risks.push('XMP packets and embedded-object metadata are not fully enumerable client-side for this file type');
+  }
+  const digestsValid = HEX64.test(original_sha256) && HEX64.test(sanitized_sha256);
+  if (digestsValid && original_sha256 === sanitized_sha256 && findings.length > 0) {
+    residual_risks.push('original and sanitized digests are identical: no bytes changed despite recorded findings');
+  }
+
+  let verdict;
+  if (file_type === 'pdf' || file_type === 'docx') verdict = 'not_verifiable';
+  else if (retained.length > 0) verdict = 'partially_sanitized';
+  else verdict = 'sanitized';
+
+  const recordCore = {
+    record_version: '1.0',
+    file_type,
+    original_sha256,
+    sanitized_sha256,
+    findings,
+    counts: {
+      total: findings.length,
+      removed: removed.length,
+      redacted: redacted.length,
+      retained: retained.length,
+    },
+    bytes_before,
+    bytes_after,
+    verdict,
+  };
+  const record_sha256 = await sha256HexStr(JSON.stringify(cgCanon(recordCore)));
+  const sanitization_record = { ...recordCore, record_sha256 };
+
+  const compliance_flags = { METADATA_SANITIZATION_ASSESSED: true };
+  compliance_flags['SANITIZATION_' + verdict.toUpperCase()] = true;
+  if (retained.length > 0) compliance_flags.RETAINED_METADATA_PRESENT = true;
+  if (!digestsValid) compliance_flags.DIGESTS_INCOMPLETE = true;
+
+  return {
+    output_payload: { sanitization_record, residual_risks, verdict },
+    compliance_flags,
+  };
+}
+
+/* ======================================================================
+   Byte-level image parsers and cleaners (no libraries, no re-encode)
+   ====================================================================== */
+
+/* EXIF TIFF tag id -> well-known name table (~25 common tags incl. GPS IFD) */
+const EXIF_TAGS = {
+  0x010F: 'Make', 0x0110: 'Model', 0x0131: 'Software', 0x0132: 'DateTime',
+  0x013B: 'Artist', 0x8298: 'Copyright', 0x9003: 'DateTimeOriginal',
+  0x9004: 'DateTimeDigitized', 0x010E: 'ImageDescription', 0x011A: 'XResolution',
+  0x011B: 'YResolution', 0x0128: 'ResolutionUnit', 0x0112: 'Orientation',
+  0x9286: 'UserComment', 0xA430: 'CameraOwnerName', 0xA431: 'BodySerialNumber',
+  0xA432: 'LensSpecification', 0xA433: 'LensMake', 0xA434: 'LensModel',
+  0xA435: 'LensSerialNumber', 0x8825: 'GPSInfoIFDPointer', 0x8769: 'ExifIFDPointer'
+};
+const GPS_TAGS = {
+  0x0000: 'GPSVersionID', 0x0001: 'GPSLatitudeRef', 0x0002: 'GPSLatitude',
+  0x0003: 'GPSLongitudeRef', 0x0004: 'GPSLongitude', 0x0005: 'GPSAltitudeRef',
+  0x0006: 'GPSAltitude', 0x0007: 'GPSTimeStamp', 0x0012: 'GPSMapDatum',
+  0x001D: 'GPSDateStamp', 0x0010: 'GPSImgDirectionRef', 0x0011: 'GPSImgDirection'
+};
+const TYPE_SIZE = { 1:1, 2:1, 3:2, 4:4, 5:8, 6:1, 7:1, 8:2, 9:4, 10:8, 11:4, 12:8 };
+
+/* map an EXIF tag name to a sanitization category */
+function exifCategory(name, isGps) {
+  if (isGps) return 'gps';
+  if (name === 'Make' || name === 'Model' || name === 'LensMake' || name === 'LensModel' ||
+      name === 'LensSpecification' || name === 'BodySerialNumber' || name === 'LensSerialNumber' ||
+      name === 'Orientation' || name === 'XResolution' || name === 'YResolution' ||
+      name === 'ResolutionUnit') return 'device';
+  if (name === 'Artist' || name === 'Copyright' || name === 'CameraOwnerName' ||
+      name === 'ImageDescription') return 'author';
+  if (name === 'DateTime' || name === 'DateTimeOriginal' || name === 'DateTimeDigitized') return 'timestamp';
+  if (name === 'Software') return 'software';
+  if (name === 'UserComment') return 'comment';
+  return 'other';
+}
+
+/* Parse one TIFF IFD, appending tag findings. Follows GPS pointer. Values read for local display only. */
+function parseTiffIfd(dv, tiffStart, ifdOffset, little, out, isGps, depth) {
+  if (depth > 4 || ifdOffset <= 0) return;
+  const base = tiffStart + ifdOffset;
+  if (base + 2 > dv.byteLength) return;
+  const count = dv.getUint16(base, little);
+  let gpsPointer = 0, exifPointer = 0;
+  for (let i = 0; i < count; i++) {
+    const entry = base + 2 + i * 12;
+    if (entry + 12 > dv.byteLength) break;
+    const tag = dv.getUint16(entry, little);
+    const type = dv.getUint16(entry + 2, little);
+    const num = dv.getUint32(entry + 4, little);
+    const tsz = TYPE_SIZE[type] || 1;
+    const byteLen = tsz * num;
+    let valOffset = entry + 8;
+    if (byteLen > 4) valOffset = tiffStart + dv.getUint32(entry + 8, little);
+
+    if (!isGps && tag === 0x8825) { gpsPointer = dv.getUint32(entry + 8, little); }
+    if (!isGps && tag === 0x8769) { exifPointer = dv.getUint32(entry + 8, little); }
+
+    const table = isGps ? GPS_TAGS : EXIF_TAGS;
+    const name = table[tag] || ('tag_0x' + tag.toString(16).toUpperCase().padStart(4, '0'));
+    if (name === 'GPSInfoIFDPointer' || name === 'ExifIFDPointer') continue; // structural pointers, not fields
+    const value = readTiffValue(dv, valOffset, type, num, little, byteLen);
+    out.push({ field: name, category: exifCategory(name, isGps), value, action: 'removed' });
+  }
+  if (gpsPointer > 0) parseTiffIfd(dv, tiffStart, gpsPointer, little, out, true, depth + 1);
+  if (exifPointer > 0) parseTiffIfd(dv, tiffStart, exifPointer, little, out, false, depth + 1);
+}
+
+function readTiffValue(dv, off, type, num, little, byteLen) {
+  try {
+    if (off < 0 || off + byteLen > dv.byteLength) return '(unreadable)';
+    if (type === 2) { // ASCII
+      let s = '';
+      for (let i = 0; i < byteLen; i++) { const c = dv.getUint8(off + i); if (c === 0) break; s += String.fromCharCode(c); }
+      return s;
+    }
+    const parts = [];
+    const cap = Math.min(num, 8);
+    for (let i = 0; i < cap; i++) {
+      if (type === 3) parts.push(dv.getUint16(off + i * 2, little));
+      else if (type === 4) parts.push(dv.getUint32(off + i * 4, little));
+      else if (type === 5) { const n = dv.getUint32(off + i * 8, little), d = dv.getUint32(off + i * 8 + 4, little); parts.push(d ? (n / d) : n + '/0'); }
+      else if (type === 1 || type === 6 || type === 7) parts.push(dv.getUint8(off + i));
+      else if (type === 10) { const n = dv.getInt32(off + i * 8, little), d = dv.getInt32(off + i * 8 + 4, little); parts.push(d ? (n / d) : n + '/0'); }
+      else return '(binary)';
+    }
+    return parts.join(', ') + (num > cap ? ', …' : '');
+  } catch (e) { return '(unreadable)'; }
+}
+
+/* Parse an APP1 EXIF payload (bytes after the "Exif\0\0" marker) into findings */
+function parseExifPayload(bytes) {
+  const out = [];
+  try {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    // TIFF header: byte order
+    const bom = dv.getUint16(0, false);
+    const little = (bom === 0x4949); // 'II'
+    if (bom !== 0x4949 && bom !== 0x4D4D) return out;
+    const magic = dv.getUint16(2, little);
+    if (magic !== 0x002A) return out;
+    const ifd0 = dv.getUint32(4, little);
+    parseTiffIfd(dv, 0, ifd0, little, out, false, 0);
+  } catch (e) { /* leave what we have */ }
+  return out;
+}
+
+/* JPEG walker: returns { ok, segments:[{marker,name,start,end,meta}], sosStart } and per-segment findings.
+   meta=true means it is a metadata segment to be spliced out. */
+function walkJpeg(bytes) {
+  const res = { ok: false, error: '', segments: [], sosStart: -1 };
+  if (bytes.length < 2 || bytes[0] !== 0xFF || bytes[1] !== 0xD8) { res.error = 'Not a JPEG (missing SOI FFD8).'; return res; }
+  let p = 2;
+  while (p + 1 < bytes.length) {
+    if (bytes[p] !== 0xFF) { p++; continue; }
+    let marker = bytes[p + 1];
+    // skip fill bytes
+    while (marker === 0xFF && p + 2 < bytes.length) { p++; marker = bytes[p + 1]; }
+    if (marker === 0xD9) { break; } // EOI
+    if (marker === 0xDA) { res.sosStart = p; break; } // SOS: image data begins, stop metadata scan
+    // standalone markers (RSTn, TEM) have no length
+    if (marker >= 0xD0 && marker <= 0xD7) { p += 2; continue; }
+    if (p + 4 > bytes.length) break;
+    const segLen = (bytes[p + 2] << 8) | bytes[p + 3]; // length includes the 2 length bytes
+    const segStart = p;
+    const segEnd = p + 2 + segLen; // end index (exclusive) of the marker+length+payload
+    const payloadStart = p + 4;
+    let name = 'FF' + marker.toString(16).toUpperCase().padStart(2, '0');
+    let meta = false;
+    if (marker >= 0xE0 && marker <= 0xEF) { // APP0..APPF
+      const idn = readAscii(bytes, payloadStart, Math.min(20, segEnd - payloadStart));
+      if (marker === 0xE0 && idn.startsWith('JFIF')) { name = 'APP0/JFIF'; meta = false; }
+      else if (marker === 0xE1 && matchExif(bytes, payloadStart)) { name = 'APP1/EXIF'; meta = true; }
+      else if (marker === 0xE1 && idn.startsWith('http://ns.adobe.com/xap')) { name = 'APP1/XMP'; meta = true; }
+      else if (marker === 0xE1) { name = 'APP1'; meta = true; }
+      else if (marker === 0xED) { name = 'APP13/IPTC'; meta = true; }
+      else { name = 'APP' + (marker - 0xE0); meta = false; } // other APPn structural, retain
+    } else if (marker === 0xFE) { name = 'COM'; meta = true; }
+    res.segments.push({ marker, name, start: segStart, end: segEnd, meta, payloadStart });
+    p = segEnd;
+  }
+  res.ok = true;
+  return res;
+}
+function readAscii(bytes, off, len) {
+  let s = ''; for (let i = 0; i < len && off + i < bytes.length; i++) { const c = bytes[off + i]; if (c === 0) break; s += String.fromCharCode(c); } return s;
+}
+function matchExif(bytes, off) {
+  return bytes[off] === 0x45 && bytes[off + 1] === 0x78 && bytes[off + 2] === 0x69 &&
+         bytes[off + 3] === 0x66 && bytes[off + 4] === 0x00 && bytes[off + 5] === 0x00; // "Exif\0\0"
+}
+
+/* Build findings for a JPEG from the walk, expanding EXIF into tag-level findings */
+function jpegFindings(bytes, walk) {
+  const findings = [];
+  for (const seg of walk.segments) {
+    if (!seg.meta) continue;
+    if (seg.name === 'APP1/EXIF') {
+      // payload after "Exif\0\0" is the TIFF block
+      const tiff = bytes.subarray(seg.payloadStart + 6, seg.end);
+      const tags = parseExifPayload(tiff);
+      if (tags.length === 0) {
+        findings.push({ field: 'EXIF', category: 'other', value: '(EXIF block present)', action: 'removed' });
+      } else {
+        for (const t of tags) findings.push(t);
+      }
+    } else if (seg.name === 'APP1/XMP') {
+      findings.push({ field: 'XMP', category: 'other', value: '(Adobe XMP packet)', action: 'removed' });
+    } else if (seg.name === 'APP1') {
+      findings.push({ field: 'APP1', category: 'other', value: '(APP1 segment)', action: 'removed' });
+    } else if (seg.name === 'APP13/IPTC') {
+      findings.push({ field: 'IPTC', category: 'other', value: '(APP13 Photoshop/IPTC block)', action: 'removed' });
+    } else if (seg.name === 'COM') {
+      const v = readAscii(bytes, seg.payloadStart, Math.min(120, seg.end - seg.payloadStart));
+      findings.push({ field: 'COM', category: 'comment', value: v || '(comment)', action: 'removed' });
+    }
+  }
+  return findings;
+}
+
+/* Clean a JPEG: copy all bytes except metadata marker segments (APP1/APP13/COM). SOS..EOI copied verbatim. */
+function cleanJpeg(bytes, walk) {
+  const drop = walk.segments.filter(s => s.meta).sort((a, b) => a.start - b.start);
+  const keep = [];
+  let cursor = 0;
+  for (const seg of drop) {
+    if (seg.start > cursor) keep.push(bytes.subarray(cursor, seg.start));
+    cursor = seg.end;
+  }
+  if (cursor < bytes.length) keep.push(bytes.subarray(cursor));
+  // concatenate
+  let total = 0; for (const k of keep) total += k.length;
+  const outArr = new Uint8Array(total);
+  let o = 0; for (const k of keep) { outArr.set(k, o); o += k.length; }
+  return outArr;
+}
+
+/* PNG walker: returns chunks [{type,start,end,meta}] */
+const PNG_SIG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const PNG_META_TYPES = { 'tEXt': 1, 'iTXt': 1, 'zTXt': 1, 'eXIf': 1, 'tIME': 1 };
+function walkPng(bytes) {
+  const res = { ok: false, error: '', chunks: [] };
+  for (let i = 0; i < 8; i++) if (bytes[i] !== PNG_SIG[i]) { res.error = 'Not a PNG (bad signature).'; return res; }
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let p = 8;
+  while (p + 8 <= bytes.length) {
+    const len = dv.getUint32(p, false);
+    const type = readAscii(bytes, p + 4, 4);
+    const chunkEnd = p + 12 + len; // length(4)+type(4)+data+crc(4)
+    if (chunkEnd > bytes.length) break;
+    const meta = !!PNG_META_TYPES[type];
+    res.chunks.push({ type, start: p, end: chunkEnd, meta, dataStart: p + 8, dataLen: len });
+    p = chunkEnd;
+    if (type === 'IEND') break;
+  }
+  res.ok = true;
+  return res;
+}
+function pngCategory(type) {
+  if (type === 'eXIf') return 'other';
+  if (type === 'tIME') return 'timestamp';
+  return 'comment';
+}
+function pngFindings(bytes, walk) {
+  const findings = [];
+  for (const c of walk.chunks) {
+    if (!c.meta) continue;
+    let value = '(' + c.type + ' chunk, ' + c.dataLen + ' bytes)';
+    if (c.type === 'tEXt') value = readAscii(bytes, c.dataStart, Math.min(120, c.dataLen)).replace(/\0/g, ': ');
+    findings.push({ field: c.type, category: pngCategory(c.type), value, action: 'removed' });
+  }
+  return findings;
+}
+function cleanPng(bytes, walk) {
+  const keep = [];
+  keep.push(bytes.subarray(0, 8)); // signature
+  for (const c of walk.chunks) {
+    if (c.meta) continue;
+    keep.push(bytes.subarray(c.start, c.end));
+  }
+  let total = 0; for (const k of keep) total += k.length;
+  const outArr = new Uint8Array(total);
+  let o = 0; for (const k of keep) { outArr.set(k, o); o += k.length; }
+  return outArr;
+}
+
+/* ======================================================================
+   Orchestration
+   ====================================================================== */
+let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
+let _cleanBytes=null, _cleanMime='application/octet-stream', _cleanName='cleaned.bin';
+let _lastRecord=null;
+
+function showErr(msg) {
+  const e = document.getElementById('fileErr');
+  e.style.display = 'block';
+  e.innerHTML = '<div class="verdict fail">' + msg + '</div>';
+}
+function clearErr(){ document.getElementById('fileErr').style.display='none'; }
+
+async function handleFile(file) {
+  clearErr();
+  const nameLc = (file.name || '').toLowerCase();
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let file_type, walk, findingsFull, cleanBytes, mime;
+
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
+    file_type = 'jpeg'; mime = 'image/jpeg';
+    walk = walkJpeg(bytes);
+    if (!walk.ok) { showErr(walk.error); return; }
+    findingsFull = jpegFindings(bytes, walk);
+    cleanBytes = cleanJpeg(bytes, walk);
+    _cleanName = (file.name || 'image') .replace(/\.(jpe?g)$/i,'') + '.cleaned.jpg';
+  } else if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    file_type = 'png'; mime = 'image/png';
+    walk = walkPng(bytes);
+    if (!walk.ok) { showErr(walk.error); return; }
+    findingsFull = pngFindings(bytes, walk);
+    cleanBytes = cleanPng(bytes, walk);
+    _cleanName = (file.name || 'image').replace(/\.png$/i,'') + '.cleaned.png';
+  } else {
+    showErr('Unsupported file. Drop a JPEG or PNG, or use manual-entry mode below for PDF/DOCX.');
+    return;
+  }
+
+  // verify cleaner: re-walk cleaned bytes, assert zero metadata segments
+  let reMetaCount = 0, reCheckOk = false;
+  if (file_type === 'jpeg') {
+    const rw = walkJpeg(cleanBytes);
+    reMetaCount = rw.ok ? rw.segments.filter(s => s.meta).length : -1;
+    reCheckOk = rw.ok && reMetaCount === 0;
+  } else {
+    const rw = walkPng(cleanBytes);
+    reMetaCount = rw.ok ? rw.chunks.filter(c => c.meta).length : -1;
+    reCheckOk = rw.ok && reMetaCount === 0;
+  }
+
+  const original_sha256 = await sha256HexBytes(bytes);
+  const sanitized_sha256 = await sha256HexBytes(cleanBytes);
+
+  _cleanBytes = cleanBytes; _cleanMime = mime;
+
+  await renderResults({
+    file_type,
+    findingsFull,
+    original_sha256, sanitized_sha256,
+    bytes_before: bytes.length, bytes_after: cleanBytes.length,
+    reMetaCount, reCheckOk,
+    downloadable: true
+  });
+}
+
+async function runManual() {
+  clearErr();
+  let arr;
+  try { arr = JSON.parse(document.getElementById('manualJson').value); }
+  catch (e) { showErr('Manual findings JSON did not parse: ' + e.message); return; }
+  if (!Array.isArray(arr)) { showErr('Manual findings must be a JSON array.'); return; }
+  const file_type = document.getElementById('manualType').value;
+  const findingsFull = arr.map(f => ({
+    field: String(f && f.field || ''),
+    category: CATEGORIES.includes(f && f.category) ? f.category : 'other',
+    value: '(manual entry; value not recorded)',
+    action: ACTIONS.includes(f && f.action) ? f.action : 'retained'
+  }));
+  // no byte-level artefact; digests are of the declared findings text (deterministic, no file)
+  const original_sha256 = await sha256HexStr('manual:' + file_type + ':original');
+  const sanitized_sha256 = await sha256HexStr('manual:' + file_type + ':sanitized');
+  _cleanBytes = null;
+  await renderResults({
+    file_type, findingsFull,
+    original_sha256, sanitized_sha256,
+    bytes_before: null, bytes_after: null,
+    reMetaCount: null, reCheckOk: null,
+    downloadable: false
+  });
+}
+
+async function renderResults(ctx) {
+  // findings for kernel: field names + categories + actions only (NO values)
+  const findings = ctx.findingsFull.map(f => ({ field: f.field, category: f.category, action: f.action }));
+  const pp = {
+    original_sha256: ctx.original_sha256,
+    sanitized_sha256: ctx.sanitized_sha256,
+    file_type: ctx.file_type,
+    findings,
+    bytes_before: ctx.bytes_before,
+    bytes_after: ctx.bytes_after
+  };
+  const { output_payload: op, compliance_flags } = await compute(pp);
+  const rawHash = await cgHash(pp, op);
+
+  const artifact = {
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.6.0', compute_mode:'browser',
+    mandate_type:'compliance_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags; _lastRecord=op.sanitization_record;
+
+  // Found metadata table (local view, values shown)
+  if (ctx.findingsFull.length) {
+    const rows = ctx.findingsFull.map(f =>
+      `<tr><td>${escapeHtml(f.field)}</td><td>${f.category}</td><td>${f.action}</td><td class="val">${escapeHtml(String(f.value ?? ''))}</td></tr>`
+    ).join('');
+    document.getElementById('foundBox').innerHTML =
+      `<table class="meta-tbl"><thead><tr><th>Field</th><th>Category</th><th>Action</th><th>Value (local only)</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else {
+    document.getElementById('foundBox').innerHTML = `<div class="info-box" style="margin-top:0">No removable metadata segments were found. The file is already clean of enumerated metadata.</div>`;
+  }
+
+  const verdict = op.verdict;
+  const grade = verdict === 'sanitized' ? 'A' : verdict === 'partially_sanitized' ? 'C' : 'D';
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat" style="flex:0 0 auto;padding:16px 24px">
+      <div class="hero-val"><span class="grade-badge grade-${grade}">${verdict==='sanitized'?'✓':verdict==='partially_sanitized'?'~':'?'}</span></div>
+      <div class="hero-lbl">${verdict}</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--teal-lt)">${op.sanitization_record.counts.total}</div>
+      <div class="hero-lbl">Findings</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.sanitization_record.counts.retained>0?'var(--warn)':'var(--green)'}">${op.sanitization_record.counts.removed}/${op.sanitization_record.counts.total}</div>
+      <div class="hero-lbl">Removed</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--body);font-size:1.2rem">${ctx.bytes_before==null?'—':ctx.bytes_before+' → '+ctx.bytes_after}</div>
+      <div class="hero-lbl">Bytes Before → After</div>
+    </div>
+  `;
+
+  const vClass = verdict === 'sanitized' ? 'pass' : verdict === 'partially_sanitized' ? 'warn' : 'fail';
+  const vMsg = verdict === 'sanitized' ? 'All enumerated metadata segments were removed. Pixel data was not re-encoded.'
+    : verdict === 'partially_sanitized' ? 'Some metadata was retained. Review residual risks before relying on this file.'
+    : 'This file type cannot be verified client-side. Findings were recorded from manual entry.';
+  document.getElementById('verdictBox').innerHTML = `<div class="verdict ${vClass}">${vMsg}</div>`;
+
+  // cleaner re-parse check line
+  if (ctx.reCheckOk === true) {
+    document.getElementById('checkBox').innerHTML = `<div class="check-line ok">✓ cleaned file re-parsed: ${ctx.reMetaCount} metadata segments</div>`;
+  } else if (ctx.reCheckOk === false) {
+    document.getElementById('checkBox').innerHTML = `<div class="check-line err">✗ cleaned file re-parse found ${ctx.reMetaCount} residual metadata segments</div>`;
+  } else {
+    document.getElementById('checkBox').innerHTML = '';
+  }
+
+  document.getElementById('riskBox').innerHTML = op.residual_risks.length
+    ? `<div class="form-label" style="margin-top:10px;margin-bottom:4px;color:var(--warn)">Residual risks:</div><ul class="gap-list" style="color:var(--warn)">${op.residual_risks.map(r=>`<li>${escapeHtml(r)}</li>`).join('')}</ul>`
+    : `<div class="check-line ok" style="margin-top:10px">✓ No residual risks flagged.</div>`;
+
+  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
+
+  document.getElementById('hashBox').innerHTML =
+    `<div class="form-label" style="margin-top:10px">Original SHA-256</div><div class="hash">sha256:${ctx.original_sha256}</div>` +
+    `<div class="form-label" style="margin-top:6px">Sanitized SHA-256</div><div class="hash">sha256:${ctx.sanitized_sha256}</div>` +
+    `<div class="form-label" style="margin-top:6px">Record SHA-256</div><div class="hash">sha256:${op.sanitization_record.record_sha256}</div>` +
+    `<div class="form-label" style="margin-top:6px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact, null, 2); pre.style.display='block';
+
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('dlCleanBtn').disabled = !ctx.downloadable;
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ---------- exports (template pattern) ---------- */
+function exportAP2(){if(!_lastArtifact)return;dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-193-metadata-sanitization-policy-mandate.json','application/json');}
+function exportArtifact(){if(_lastArtifact)dl(JSON.stringify(_lastArtifact,null,2),'art-193-metadata-sanitization-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-193-metadata-sanitization-vc.json','application/json');}
+function downloadClean(){if(!_cleanBytes)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([_cleanBytes],{type:_cleanMime}));a.download=_cleanName;a.click();}
+function downloadRecord(){if(!_lastRecord)return;dl(JSON.stringify(_lastRecord,null,2),'art-193-sanitization-record.json','application/json');}
+
+/* ---------- manual sample + drop wiring ---------- */
+function loadManualSample(){
+  document.getElementById('manualJson').value = JSON.stringify([
+    {field:'dc:creator', category:'author', action:'removed'},
+    {field:'xmp:CreateDate', category:'timestamp', action:'removed'},
+    {field:'pdf:Producer', category:'software', action:'removed'},
+    {field:'xmp:MetadataDate', category:'timestamp', action:'retained'}
+  ], null, 2);
+}
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]); });
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+</script>
+</body>
+</html>

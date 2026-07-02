@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tabular Data Converter · ART-190 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Deterministic client-side tabular data converter across CSV, JSON, and Markdown tables. RFC 4180 CSV parsing, optional type coercion, SHA-256 input/output digests. First node of the client-side conversions chain.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-190-tabular-data-converter.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:stretch}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:90px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:3.5rem;font-weight:800;padding:.1rem .5rem;border-radius:8px;display:inline-block;line-height:1.1}
+.grade-A{color:var(--green);background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3)}
+.grade-B{color:var(--teal-lt);background:rgba(20,184,166,.08);border:2px solid rgba(20,184,166,.3)}
+.grade-C{color:var(--gold);background:rgba(212,168,71,.1);border:2px solid rgba(212,168,71,.3)}
+.grade-D{color:var(--warn);background:rgba(245,158,11,.08);border:2px solid rgba(245,158,11,.3)}
+.grade-F{color:var(--red);background:rgba(239,68,68,.08);border:2px solid rgba(239,68,68,.3)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.dim-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dim-row:last-child{border-bottom:none}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;margin-top:2px}
+.dim-body{flex:1}
+.dim-title{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);margin-bottom:2px}
+.dim-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.score-bar{height:8px;border-radius:4px;background:var(--bg-3);border:1px solid var(--border);margin:12px 0 6px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;transition:width .4s ease;background:var(--teal)}
+.gap-list{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--red);margin:8px 0}
+.gap-list li{margin:3px 0;list-style:disc;padding-left:4px;margin-left:16px}
+textarea{width:100%;background:#06101e;color:var(--text);border:1px solid var(--border-2);border-radius:var(--radius);padding:10px;font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.5;resize:vertical;min-height:130px}
+textarea:focus{outline:none;border-color:var(--teal)}
+select{background:var(--bg-3);color:var(--text);border:1px solid var(--border-2);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;cursor:pointer}
+select:focus{outline:none;border-color:var(--teal)}
+.opt-grid{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-top:6px}
+.opt-cell{display:flex;flex-direction:column;gap:4px}
+.chk-cell{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text)}
+.chk-cell input[type=checkbox]{margin-top:0}
+.file-drop{border:1px dashed var(--border-2);border-radius:var(--radius);padding:.55rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);cursor:pointer;display:inline-block;margin-top:6px}
+.file-drop:hover{border-color:var(--teal);color:var(--teal-lt)}
+.data-table{border-collapse:collapse;width:100%;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.data-table th,.data-table td{border:1px solid var(--border);padding:4px 8px;text-align:left;white-space:nowrap}
+.data-table th{background:var(--bg-3);color:var(--bright)}
+.data-table td{color:var(--text)}
+.tbl-scroll{overflow-x:auto;max-height:320px;margin-top:10px;border-radius:var(--radius)}
+.warn-list{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--warn);margin:8px 0}
+.warn-list li{margin:3px 0;list-style:disc;padding-left:4px;margin-left:16px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Tabular Data Converter</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-190 · Client-Side Conversions</div>
+  <h1>Tabular Data Converter</h1>
+  <p class="sub">Deterministic conversion across CSV, JSON (array of objects), and Markdown pipe tables. RFC 4180 CSV parsing with quoted fields, embedded delimiters and newlines, optional strict type coercion, and SHA-256 digests over both input and output. First node of the client-side conversions chain with Policy Mandate and W3C VC export. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">CSV / JSON / Markdown</span>
+    <span class="flag gold">RFC 4180</span>
+    <span class="flag info">SHA-256 Digests</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.6.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    First node of the <a href="chaingraph-hub.html">client-side conversions chain</a> (art-190 feeds art-191). Converts a table between three interchange formats entirely in the browser. CSV parsing follows RFC 4180 (quoted fields, doubled-quote escaping, embedded delimiters and newlines). JSON key order follows header order. Numeric strings stay text unless coerce types is enabled, and then only strict finite decimals are coerced so NaN or Infinity can never be produced. Ragged rows and duplicate headers are surfaced in warnings, never silently dropped.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('csv2json')">CSV to JSON</button>
+      <button class="preset-btn" onclick="loadPreset('json2md')">JSON to Markdown</button>
+      <button class="preset-btn" onclick="loadPreset('md2csv')">Markdown to CSV</button>
+      <button class="preset-btn" onclick="loadPreset('semicolon')">Semicolon CSV</button>
+    </div>
+
+    <div class="section-head">Source Data</div>
+    <label class="form-label" for="data">Paste table data (or load a .csv / .json file below)</label>
+    <textarea id="data" spellcheck="false" placeholder="name,amount&#10;Acme,1200&#10;Globex,980"></textarea>
+    <label class="file-drop" for="fileInput">Load .csv / .json file (local only)</label>
+    <input type="file" id="fileInput" accept=".csv,.json,text/csv,application/json" style="display:none">
+
+    <div class="section-head">Formats</div>
+    <div class="opt-grid">
+      <div class="opt-cell">
+        <label class="form-label" for="source_format">Source format</label>
+        <select id="source_format">
+          <option value="csv">csv</option>
+          <option value="json">json</option>
+          <option value="markdown_table">markdown_table</option>
+        </select>
+      </div>
+      <div class="opt-cell">
+        <label class="form-label" for="target_format">Target format</label>
+        <select id="target_format">
+          <option value="json">json</option>
+          <option value="csv">csv</option>
+          <option value="markdown_table">markdown_table</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-head">Options</div>
+    <div class="opt-grid">
+      <div class="opt-cell">
+        <label class="form-label" for="delimiter">CSV delimiter</label>
+        <select id="delimiter">
+          <option value=",">, (comma)</option>
+          <option value=";">; (semicolon)</option>
+          <option value="&#9;">\t (tab)</option>
+        </select>
+      </div>
+      <label class="chk-cell"><input type="checkbox" id="has_header" checked> has_header</label>
+      <label class="chk-cell"><input type="checkbox" id="coerce_types"> coerce_types</label>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runDiagnostic()">Run Conversion</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Conversion Results</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div id="warnBox"></div>
+      <div id="previewBox"></div>
+      <div id="outputBox"></div>
+      <div id="flagsBox"></div>
+      <div id="hashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+        <button id="dlOutBtn" onclick="downloadOutput()" disabled>Download Converted</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.6.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-190-tabular-data-converter',
+  version: '1.0.0',
+  mcp_name: 'convert_tabular_data',
+  title: 'Tabular Data Converter',
+  description: 'Deterministic tabular data conversion across CSV, JSON (array of objects), and Markdown pipe tables. RFC 4180 CSV parsing, optional strict type coercion, SHA-256 input/output digests. Returns converted, source_format, target_format, row_count, column_count, columns[], warnings[], error, input_sha256, output_sha256.',
+  spec_version: '0.6.0',
+  chaingraph_version: '0.4.0',
+  chain: 'client-side-conversions',
+  node_position: 'source',
+  export_capability: ['json','pdf','vc'],
+  regulation: 'RFC 4180 (CSV) + GFM pipe tables',
+  mcp_tool_definition: {
+    name: 'convert_tabular_data',
+    description: 'Convert a table between CSV, JSON (array of objects), and Markdown pipe tables. RFC 4180 CSV parsing with quoted fields, embedded delimiters/newlines and doubled-quote escaping. Optional strict finite-decimal type coercion (never emits NaN/Infinity). Returns converted text, source_format, target_format, row_count, column_count, columns[], warnings[], error, input_sha256, output_sha256.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        data: { type: 'string', description: 'The tabular text to convert.' },
+        source_format: { type: 'string', enum: ['csv','json','markdown_table'] },
+        target_format: { type: 'string', enum: ['csv','json','markdown_table'] },
+        options: {
+          type: 'object',
+          properties: {
+            delimiter: { type: 'string', enum: [',',';','\t'] },
+            has_header: { type: 'boolean' },
+            coerce_types: { type: 'boolean' }
+          }
+        }
+      },
+      required: ['data']
+    }
+  }
+};
+
+/* ---- Kernel mirror: byte-identical to art-190-tabular-data-converter.kernel.mjs ---- */
+
+// RFC 4180 CSV parse: string -> string[][]
+function parseCsv(text, delimiter) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  const src = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') { field += '"'; i++; } // escaped quote
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === delimiter) {
+      row.push(field); field = '';
+    } else if (c === '\n') {
+      row.push(field); field = ''; rows.push(row); row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// CSV field serialization (RFC 4180)
+function csvField(v, delimiter) {
+  const s = String(v ?? '');
+  if (s.includes(delimiter) || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+const DECIMAL_RE = /^[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?$/;
+function coerce(v) {
+  const s = String(v).trim();
+  if (DECIMAL_RE.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n)) return n;
+  }
+  return v;
+}
+
+function mdCell(v) {
+  return String(v ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+}
+
+function dedupeHeaders(header, warnings) {
+  const seen = Object.create(null);
+  return header.map((h, idx) => {
+    const name = h === '' ? `column_${idx + 1}` : h;
+    if (seen[name]) {
+      warnings.push(`duplicate header "${name}" renamed to "${name}_${seen[name] + 1}"`);
+      seen[name]++;
+      return `${name}_${seen[name]}`;
+    }
+    seen[name] = 1;
+    return name;
+  });
+}
+
+function toTable(data, sourceFormat, opts, warnings) {
+  const hasHeader = opts.has_header !== false;
+  const delimiter = opts.delimiter || ',';
+
+  if (sourceFormat === 'json') {
+    let parsed;
+    try { parsed = JSON.parse(String(data || '[]')); }
+    catch (e) { throw new Error('JSON parse error: ' + e.message); }
+    if (!Array.isArray(parsed)) throw new Error('JSON input must be an array of objects.');
+    const columns = [];
+    for (const obj of parsed) {
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+        for (const k of Object.keys(obj)) if (!columns.includes(k)) columns.push(k);
+      }
+    }
+    const rows = parsed.map((obj) => {
+      const r = {};
+      for (const c of columns) r[c] = (obj && typeof obj === 'object' && c in obj) ? obj[c] : '';
+      return r;
+    });
+    return { columns, rows };
+  }
+
+  let grid;
+  if (sourceFormat === 'markdown_table') {
+    const lines = String(data).replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
+    const split = (r) => r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim());
+    grid = lines
+      .filter((l) => !/^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)+\|?\s*$/.test(l))
+      .map(split);
+  } else { // csv
+    grid = parseCsv(data, delimiter).filter((r) => !(r.length === 1 && r[0] === ''));
+  }
+
+  if (grid.length === 0) return { columns: [], rows: [] };
+
+  let header, bodyStart;
+  if (hasHeader) { header = grid[0]; bodyStart = 1; }
+  else { header = grid[0].map((_, idx) => `column_${idx + 1}`); bodyStart = 0; }
+  const columns = dedupeHeaders(header, warnings);
+
+  const rows = [];
+  for (let r = bodyStart; r < grid.length; r++) {
+    const cells = grid[r];
+    if (cells.length !== columns.length) {
+      warnings.push(`row ${r + 1} has ${cells.length} field(s), expected ${columns.length} (ragged row padded/truncated to header width)`);
+    }
+    const obj = {};
+    columns.forEach((c, ci) => { obj[c] = cells[ci] ?? ''; });
+    rows.push(obj);
+  }
+  return { columns, rows };
+}
+
+function fromTable(table, targetFormat, opts, warnings) {
+  const delimiter = opts.delimiter || ',';
+  const coerceTypes = opts.coerce_types === true;
+  const { columns, rows } = table;
+
+  const cellVal = (v) => {
+    if (coerceTypes && typeof v === 'string') {
+      const c = coerce(v);
+      if (typeof c === 'number') warnings.push(`coerced "${v}" to number ${c}`);
+      return c;
+    }
+    return v;
+  };
+
+  if (targetFormat === 'json') {
+    const arr = rows.map((row) => {
+      const o = {};
+      for (const c of columns) o[c] = cellVal(row[c]);
+      return o;
+    });
+    return JSON.stringify(arr, null, 2);
+  }
+
+  if (targetFormat === 'markdown_table') {
+    const head = '| ' + columns.map(mdCell).join(' | ') + ' |';
+    const sep = '| ' + columns.map(() => '---').join(' | ') + ' |';
+    const body = rows.map((row) =>
+      '| ' + columns.map((c) => mdCell(cellVal(row[c]))).join(' | ') + ' |').join('\n');
+    return [head, sep, body].filter((s) => s !== '').join('\n');
+  }
+
+  // csv
+  const head = columns.map((c) => csvField(c, delimiter)).join(delimiter);
+  const body = rows.map((row) =>
+    columns.map((c) => csvField(cellVal(row[c]), delimiter)).join(delimiter)).join('\n');
+  return [head, body].filter((s) => s !== '').join('\n');
+}
+
+async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(String(str));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const FORMATS = ['csv', 'json', 'markdown_table'];
+
+// Mirrors kernel compute(); also returns the parsed table for preview rendering.
+async function computeKernel(pp) {
+  const data = typeof pp?.data === 'string' ? pp.data : '';
+  const source_format = FORMATS.includes(pp?.source_format) ? pp.source_format : 'csv';
+  const target_format = FORMATS.includes(pp?.target_format) ? pp.target_format : 'json';
+  const options = (pp && typeof pp.options === 'object' && pp.options) ? pp.options : {};
+  const opts = {
+    delimiter: (options.delimiter === ';' || options.delimiter === '\t') ? options.delimiter : ',',
+    has_header: options.has_header !== false,
+    coerce_types: options.coerce_types === true,
+  };
+
+  const warnings = [];
+  let converted = '', columns = [], row_count = 0, error = null, tbl = { columns: [], rows: [] };
+  try {
+    const table = toTable(data, source_format, opts, warnings);
+    tbl = table;
+    columns = table.columns;
+    row_count = table.rows.length;
+    converted = fromTable(table, target_format, opts, warnings);
+  } catch (e) {
+    error = String(e.message || e);
+  }
+
+  const [input_sha256, output_sha256] = await Promise.all([
+    sha256Hex(data), sha256Hex(converted),
+  ]);
+
+  const compliance_flags = { TABULAR_CONVERSION_PERFORMED: !error };
+  if (error) compliance_flags.CONVERSION_ERROR = true;
+  if (warnings.length > 0) compliance_flags.WARNINGS_PRESENT = true;
+
+  return {
+    output_payload: {
+      converted,
+      source_format, target_format,
+      row_count,
+      column_count: columns.length,
+      columns,
+      warnings,
+      error,
+      input_sha256, output_sha256,
+    },
+    compliance_flags,
+    _table: tbl,
+  };
+}
+
+/* ---- Envelope helpers (mirror art-188) ---- */
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+
+let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null, _lastConverted='';
+
+function getParams() {
+  const delimiter = document.getElementById('delimiter').value;
+  return {
+    data: document.getElementById('data').value,
+    source_format: document.getElementById('source_format').value,
+    target_format: document.getElementById('target_format').value,
+    options: {
+      delimiter,
+      has_header: document.getElementById('has_header').checked,
+      coerce_types: document.getElementById('coerce_types').checked,
+    },
+  };
+}
+
+function loadPreset(key) {
+  const P = {
+    csv2json: {
+      data: 'name,amount,region\nAcme Corp,1200.50,EU\nGlobex,980,US\n"Wayne, Inc.",4200,APAC',
+      source_format: 'csv', target_format: 'json',
+      delimiter: ',', has_header: true, coerce_types: true,
+    },
+    json2md: {
+      data: '[\n  {"ticker":"AAA","qty":100,"price":12.5},\n  {"ticker":"BBB","qty":250,"price":8.75}\n]',
+      source_format: 'json', target_format: 'markdown_table',
+      delimiter: ',', has_header: true, coerce_types: false,
+    },
+    md2csv: {
+      data: '| id | status | note |\n| --- | --- | --- |\n| 1 | open | first |\n| 2 | closed | done |',
+      source_format: 'markdown_table', target_format: 'csv',
+      delimiter: ',', has_header: true, coerce_types: false,
+    },
+    semicolon: {
+      data: 'code;label;value\nA01;Alpha;10\nA02;Beta;20',
+      source_format: 'csv', target_format: 'json',
+      delimiter: ';', has_header: true, coerce_types: true,
+    },
+  };
+  const p = P[key]; if (!p) return;
+  document.getElementById('data').value = p.data;
+  document.getElementById('source_format').value = p.source_format;
+  document.getElementById('target_format').value = p.target_format;
+  document.getElementById('delimiter').value = p.delimiter;
+  document.getElementById('has_header').checked = p.has_header;
+  document.getElementById('coerce_types').checked = p.coerce_types;
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e){
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    document.getElementById('data').value = String(reader.result || '');
+    if (/\.json$/i.test(f.name)) document.getElementById('source_format').value = 'json';
+    else if (/\.csv$/i.test(f.name)) document.getElementById('source_format').value = 'csv';
+  };
+  reader.readAsText(f);
+});
+
+async function runDiagnostic() {
+  const pp = getParams();
+  const { output_payload: op, compliance_flags, _table } = await computeKernel(pp);
+  const rawHash = await cgHash(pp, op);
+
+  const artifact = {
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.6.0', compute_mode:'browser',
+    mandate_type:'compliance_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags; _lastConverted=op.converted;
+
+  const ok = !op.error;
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${ok?'var(--teal-lt)':'var(--red)'}">${op.row_count}</div>
+      <div class="hero-lbl">Rows</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--teal-lt)">${op.column_count}</div>
+      <div class="hero-lbl">Columns</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.warnings.length?'var(--gold)':'var(--green)'}">${op.warnings.length}</div>
+      <div class="hero-lbl">Warnings</div>
+    </div>
+  `;
+
+  const vClass = op.error ? 'fail' : op.warnings.length ? 'warn' : 'pass';
+  const vMsg = op.error
+    ? 'Conversion error: ' + op.error
+    : `Converted ${op.row_count} row(s) from ${op.source_format} to ${op.target_format}` + (op.warnings.length ? ' with warnings.' : '.');
+  document.getElementById('verdictBox').innerHTML = `<div class="verdict ${vClass}"></div>`;
+  document.getElementById('verdictBox').querySelector('.verdict').textContent = vMsg;
+
+  // Warnings (textContent per item)
+  const warnBox = document.getElementById('warnBox');
+  warnBox.innerHTML = '';
+  if (op.warnings.length) {
+    const lbl = document.createElement('div');
+    lbl.className = 'form-label';
+    lbl.style.cssText = 'margin-top:10px;margin-bottom:4px;color:var(--warn)';
+    lbl.textContent = 'Warnings:';
+    const ul = document.createElement('ul');
+    ul.className = 'warn-list';
+    op.warnings.forEach(w => { const li = document.createElement('li'); li.textContent = w; ul.appendChild(li); });
+    warnBox.appendChild(lbl); warnBox.appendChild(ul);
+  }
+
+  // Preview table from parsed rows — textContent for every cell.
+  const previewBox = document.getElementById('previewBox');
+  previewBox.innerHTML = '';
+  if (_table && _table.columns.length) {
+    const lbl = document.createElement('div');
+    lbl.className = 'form-label';
+    lbl.style.marginTop = '12px';
+    lbl.textContent = 'Parsed preview (first 20 rows):';
+    previewBox.appendChild(lbl);
+    const scroll = document.createElement('div');
+    scroll.className = 'tbl-scroll';
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    const thead = document.createElement('thead');
+    const htr = document.createElement('tr');
+    _table.columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; htr.appendChild(th); });
+    thead.appendChild(htr); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    _table.rows.slice(0, 20).forEach(row => {
+      const tr = document.createElement('tr');
+      _table.columns.forEach(c => { const td = document.createElement('td'); td.textContent = String(row[c] ?? ''); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); scroll.appendChild(table); previewBox.appendChild(scroll);
+  }
+
+  // Converted output — textContent into a <pre>.
+  const outputBox = document.getElementById('outputBox');
+  outputBox.innerHTML = '';
+  if (!op.error) {
+    const lbl = document.createElement('div');
+    lbl.className = 'form-label';
+    lbl.style.marginTop = '12px';
+    lbl.textContent = `Converted output (${op.target_format}):`;
+    const pre = document.createElement('pre');
+    pre.textContent = op.converted;
+    outputBox.appendChild(lbl); outputBox.appendChild(pre);
+  }
+
+  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
+
+  document.getElementById('hashBox').innerHTML =
+    `<div class="form-label" style="margin-top:10px">Input digest (SHA-256)</div><div class="hash">${op.input_sha256}</div>` +
+    `<div class="form-label" style="margin-top:6px">Output digest (SHA-256)</div><div class="hash">${op.output_sha256}</div>` +
+    `<div class="form-label" style="margin-top:6px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact, null, 2); pre.style.display='block';
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('dlOutBtn').disabled = !!op.error;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2(){if(!_lastArtifact)return;dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-190-tabular-data-converter-policy-mandate.json','application/json');}
+function exportArtifact(){if(_lastArtifact)dl(JSON.stringify(_lastArtifact,null,2),'art-190-tabular-data-converter-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-190-tabular-data-converter-vc.json','application/json');}
+function downloadOutput(){if(!_lastConverted&&_lastConverted!=='')return;const fmt=_lastOP?_lastOP.target_format:'csv';const ext=fmt==='json'?'json':fmt==='markdown_table'?'md':'csv';const type=fmt==='json'?'application/json':fmt==='markdown_table'?'text/markdown':'text/csv';dl(_lastConverted,'converted.'+ext,type);}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>
