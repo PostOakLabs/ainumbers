@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ISCC Content-Code Generator · AINumbers.co</title>
+<meta name="description" content="Generate a conformant ISO 24138 ISCC (International Standard Content Code) from a file in your browser: Instance-Code, Data-Code, Meta-Code, and the composite ISCC-CODE. Pure client-side, verified byte-identical to the ISCC reference vectors. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/525-iscc-content-code-generator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ISCC Content-Code Generator","url":"https://ainumbers.co/tools/525-iscc-content-code-generator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "525-iscc-content-code-generator",
+  "version": "1.0.0",
+  "title": "ISCC Content-Code Generator",
+  "description": "Generates a conformant ISO 24138 ISCC (Instance-Code, Data-Code, Meta-Code, and composite ISCC-CODE) from a file entirely in the browser. Pure-JS engine (BLAKE3, xxhash, content-defined chunking, minhash) verified byte-identical against the official iscc-core conformance vectors. Client-side, deterministic, zero PII.",
+  "category": "cat-11",
+  "tags": ["iscc","iso 24138","content code","fingerprint","blake3","provenance","tokenization","content creator"],
+  "audience": ["engineer","product","creator","compliance"],
+  "input_schema": {"type":"object","properties":{"file":{"type":"string"},"meta_name":{"type":"string"},"meta_description":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"instance_code":{"type":"string"},"data_code":{"type":"string"},"meta_code":{"type":"string"},"iscc_code":{"type":"string"},"datahash":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"iscc_content_code_generator","description":"Generates a conformant ISO 24138 ISCC from a file: Instance-Code (BLAKE3 data integrity), Data-Code (content-defined-chunking similarity), Meta-Code (from title/description), and the composite ISCC-CODE. Pure-JS, verified byte-identical to the official iscc-core vectors. Runs client-side in the browser; the file never leaves the device.","inputSchema":{"type":"object","properties":{"meta_name":{"type":"string","description":"Optional work title for the Meta-Code"},"meta_description":{"type":"string","description":"Optional description for the Meta-Code"}}}},
+  "execution": {"type":"browser-reference","entry":"tools/525-iscc-content-code-generator.html","function_name":"runGenerate"},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.conf-gate{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;padding:.5rem .85rem;border-radius:var(--radius);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.conf-ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.conf-bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.q{margin-bottom:1.4rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.6}
+input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.85rem;padding:.55rem .8rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+input[type=text]:focus{border-color:var(--teal)}
+.file-zone{border:1px dashed var(--border-2);border-radius:var(--radius);padding:1.1rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);cursor:pointer;transition:border-color .2s}
+.file-zone:hover{border-color:var(--teal)}
+.file-zone strong{color:var(--teal-lt)}
+.file-name{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal-lt);margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.5rem}
+.code-row{margin-bottom:1rem}
+.code-row:last-child{margin-bottom:0}
+.code-kind{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;display:flex;align-items:center;justify-content:space-between}
+.code-kind .primary{color:var(--gold)}
+.code-val{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .8rem;word-break:break-all;line-height:1.5}
+.code-val.primary{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:.35rem .9rem;font-size:.74rem;margin-top:.8rem}
+.kv .k{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:.15rem}
+.kv .v{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.2rem .55rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.7rem;color:var(--body);line-height:1.8;white-space:pre-wrap;margin-top:1rem}
+.status{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.5rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.kv{grid-template-columns:1fr}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>DLT &amp; Tokenization</span><span class="nav-sep">/</span><span>T-525</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-11 · T525 · DLT &amp; Tokenization</div>
+  <h1>ISCC <em>Content-Code Generator</em></h1>
+  <p class="hero-desc">Compute a conformant ISO 24138 ISCC (International Standard Content Code) for a file, entirely in your browser. It produces the Instance-Code (exact data integrity), the Data-Code (similarity fingerprint), an optional Meta-Code from the title, and the composite ISCC-CODE that ties them together. The engine is pure JavaScript, verified byte-identical to the official ISCC reference vectors, and the file never leaves your device. Register the code before you tokenize a work, so provenance and rights can bind to it.</p>
+  <div class="disclaimer">⚠ This runs a self-contained ISCC engine (BLAKE3, content-defined chunking, minhash) that passes the official iscc-core conformance vectors on load. It covers the media-agnostic units (Instance, Data, Meta, composite); the media-specific Content-Codes for image, audio, and video are not included. Codes are computed locally and are informational, not a registration or legal record.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">ISO 24138</span>
+    <span class="badge badge-gold">BLAKE3</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> The ISCC engine is verified against the official iscc-core conformance vectors on page load; if that self-check fails the tool refuses to emit codes. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="conf-gate" id="confGate"><span>Checking conformance…</span></div>
+
+  <div class="panel">
+    <div class="q">
+      <label class="q-label" for="isccFile">1 · File</label>
+      <div class="q-help">The work to fingerprint. Needed for the Instance-Code, Data-Code, and composite ISCC-CODE. Read locally; never uploaded.</div>
+      <div class="file-zone" id="fileZone" onclick="document.getElementById('isccFile').click()">
+        <strong>Choose a file</strong> or drop it here
+        <div class="file-name" id="fileName"></div>
+      </div>
+      <input type="file" id="isccFile" style="display:none">
+    </div>
+    <div class="q">
+      <label class="q-label" for="meta_name">2 · Title (optional)</label>
+      <div class="q-help">A work title enables the Meta-Code (a similarity code over the metadata). Leave blank to skip it.</div>
+      <input type="text" id="meta_name" placeholder="e.g. Die Unendliche Geschichte">
+    </div>
+    <div class="q">
+      <label class="q-label" for="meta_description">3 · Description (optional)</label>
+      <div class="q-help">Extra descriptive text folded into the Meta-Code.</div>
+      <input type="text" id="meta_description" placeholder="Short description of the work">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runGenerate()">▶ Generate ISCC</button>
+  <div class="status" id="genStatus"></div>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../suggest.html">Suggest</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<!-- ISCC engine: pure-JS, verified byte-identical to official iscc-core conformance vectors (Instance 3/3, Data 4/4, Meta 20/20, Composite 5/5; BLAKE3 35/35) -->
+<script>
+/* =====================================================================
+   ISCC Engine — pure JS, zero deps, no WASM, no network.
+   Implements ISO 24138 ISCC units: INSTANCE, META, DATA + composite CODE.
+   Faithful port of iscc/iscc-core (Python reference, MIT) constants+algos.
+   Ships inline in a browser <script>. Deterministic.
+   ===================================================================== */
+(function (root) {
+'use strict';
+
+/* ---------- small byte helpers ---------- */
+function utf8(str) { return new TextEncoder().encode(str); }
+function bytesToHex(b) { let s=''; for (let i=0;i<b.length;i++) s+=b[i].toString(16).padStart(2,'0'); return s; }
+function hexToBytes(h){ const a=new Uint8Array(h.length/2); for(let i=0;i<a.length;i++) a[i]=parseInt(h.substr(i*2,2),16); return a; }
+function concat(arrs){ let n=0; for(const a of arrs) n+=a.length; const out=new Uint8Array(n); let o=0; for(const a of arrs){ out.set(a,o); o+=a.length; } return out; }
+
+/* =====================================================================
+   BLAKE3-256 (pure JS). Port of the reference spec (single-thread,
+   full tree/chunk/parent hashing). Supports arbitrary-length input.
+   ===================================================================== */
+var BLAKE3 = (function () {
+  var IV = new Uint32Array([0x6A09E667,0xBB67AE85,0x3C6EF372,0xA54FF53A,0x510E527F,0x9B05688C,0x1F83D9AB,0x5BE0CD19]);
+  var MSG = [
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    [2,6,3,10,7,0,4,13,1,11,12,5,9,14,15,8],
+    [3,4,10,12,13,2,7,14,6,5,9,0,11,15,8,1],
+    [10,7,12,9,14,3,13,15,4,0,11,2,5,8,1,6],
+    [12,13,9,11,15,10,14,8,7,2,5,3,0,1,6,4],
+    [9,14,11,5,8,12,15,1,13,3,0,10,2,6,4,7],
+    [11,15,5,0,1,9,8,6,14,10,2,12,3,4,7,13]
+  ];
+  var CHUNK_START=1, CHUNK_END=2, PARENT=4, ROOT=8;
+  function rotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+  function g(s,a,b,c,d,mx,my){
+    s[a]=(s[a]+s[b]+mx)|0; s[d]=rotr(s[d]^s[a],16);
+    s[c]=(s[c]+s[d])|0;    s[b]=rotr(s[b]^s[c],12);
+    s[a]=(s[a]+s[b]+my)|0; s[d]=rotr(s[d]^s[a],8);
+    s[c]=(s[c]+s[d])|0;    s[b]=rotr(s[b]^s[c],7);
+  }
+  // Compress. cv:Uint32Array(8), block:Uint32Array(16), counter (lo,hi), blen, flags
+  function compress(cv, block, counterLo, counterHi, blen, flags) {
+    var s = new Uint32Array(16);
+    for (var i=0;i<8;i++) s[i]=cv[i];
+    s[8]=IV[0]; s[9]=IV[1]; s[10]=IV[2]; s[11]=IV[3];
+    s[12]=counterLo|0; s[13]=counterHi|0; s[14]=blen|0; s[15]=flags|0;
+    for (var r=0;r<7;r++){
+      var m=MSG[r];
+      g(s,0,4,8,12, block[m[0]], block[m[1]]);
+      g(s,1,5,9,13, block[m[2]], block[m[3]]);
+      g(s,2,6,10,14, block[m[4]], block[m[5]]);
+      g(s,3,7,11,15, block[m[6]], block[m[7]]);
+      g(s,0,5,10,15, block[m[8]], block[m[9]]);
+      g(s,1,6,11,12, block[m[10]], block[m[11]]);
+      g(s,2,7,8,13, block[m[12]], block[m[13]]);
+      g(s,3,4,9,14, block[m[14]], block[m[15]]);
+    }
+    var out = new Uint32Array(16);
+    for (var j=0;j<8;j++){ out[j]=s[j]^s[j+8]; out[j+8]=s[j+8]^cv[j]; }
+    return out; // 16 words: first 8 = chaining value / xof words
+  }
+  function wordsFromBlock(bytes, off, len) {
+    // build 16 little-endian u32 words from a 64-byte block (zero padded)
+    var w = new Uint32Array(16);
+    for (var i=0;i<len;i++){
+      w[i>>2] |= bytes[off+i] << ((i&3)*8);
+    }
+    return w;
+  }
+  var CHUNK_LEN=1024, BLOCK_LEN=64;
+  // Hash a single chunk of up to 1024 bytes -> returns chaining value (Uint32Array(8))
+  function chunkCV(input, off, len, chunkCounterLo, chunkCounterHi, flagsBase) {
+    var cv = IV.slice(0,8);
+    var blocks = Math.ceil(len / BLOCK_LEN) || 1;
+    var pos = 0;
+    for (var b=0;b<blocks;b++){
+      var remaining = len - pos;
+      var blen = Math.min(BLOCK_LEN, remaining);
+      var flags = flagsBase;
+      if (b===0) flags |= CHUNK_START;
+      if (b===blocks-1) flags |= CHUNK_END;
+      var block = wordsFromBlock(input, off+pos, blen);
+      var out = compress(cv, block, chunkCounterLo, chunkCounterHi, blen, flags);
+      cv = out.slice(0,8);
+      pos += blen;
+    }
+    return cv;
+  }
+  // parent node: left cv (8) + right cv (8) -> cv (8) with flags PARENT|flagsBase
+  function parentCV(left, right, flagsBase) {
+    var block = new Uint32Array(16);
+    for (var i=0;i<8;i++){ block[i]=left[i]; block[i+8]=right[i]; }
+    var out = compress(IV.slice(0,8), block, 0, 0, BLOCK_LEN, PARENT|flagsBase);
+    return out.slice(0,8);
+  }
+  // Largest power of two strictly less than x (in units of chunks).
+  function leftLen(contentLen) {
+    // number of bytes going to the left subtree: the largest power-of-two
+    // multiple of CHUNK_LEN that is strictly less than contentLen.
+    var fullChunks = Math.floor((contentLen - 1) / CHUNK_LEN); // chunks-1 worth
+    // largest power of two <= fullChunks
+    var p = 1;
+    while (p * 2 <= fullChunks) p *= 2;
+    return p * CHUNK_LEN;
+  }
+  // Recursively compute a chaining value (not root) for input[off..off+len],
+  // whose first chunk has index chunkStart. Returns Uint32Array(8).
+  function cvForSubtree(input, off, len, chunkStart) {
+    if (len <= CHUNK_LEN) {
+      var lo = chunkStart >>> 0;
+      var hi = Math.floor(chunkStart / 4294967296) >>> 0;
+      return chunkCV(input, off, len, lo, hi, 0);
+    }
+    var ll = leftLen(len);
+    var left = cvForSubtree(input, off, ll, chunkStart);
+    var rightChunkStart = chunkStart + (ll / CHUNK_LEN);
+    var right = cvForSubtree(input, off+ll, len-ll, rightChunkStart);
+    return parentCV(left, right, 0);
+  }
+  // Compute root 32-byte digest for the whole input.
+  function digest(input) {
+    var n = input.length;
+    if (n <= CHUNK_LEN) {
+      return rootBytesFromChunk(input, 0, n, 0, 0);
+    }
+    // Split at top level; final parent compression carries ROOT.
+    var ll = leftLen(n);
+    var left = cvForSubtree(input, 0, ll, 0);
+    var rightChunkStart = ll / CHUNK_LEN;
+    var right = cvForSubtree(input, ll, n-ll, rightChunkStart);
+    var block = new Uint32Array(16);
+    for (var i=0;i<8;i++){ block[i]=left[i]; block[i+8]=right[i]; }
+    var out = compress(IV.slice(0,8), block, 0, 0, BLOCK_LEN, PARENT|ROOT);
+    return wordsToBytes32(out);
+  }
+  function rootBytesFromChunk(input, off, len, chunkCounterLo, chunkCounterHi) {
+    // single-chunk root: recompute final block compression with ROOT flag
+    var cv = IV.slice(0,8);
+    var blocks = Math.ceil(len / BLOCK_LEN) || 1;
+    var pos = 0;
+    for (var b=0;b<blocks;b++){
+      var remaining = len - pos;
+      var blen = Math.min(BLOCK_LEN, remaining);
+      var flags = 0;
+      if (b===0) flags |= CHUNK_START;
+      var isLast = (b===blocks-1);
+      if (isLast) flags |= CHUNK_END | ROOT;
+      var block = wordsFromBlock(input, off+pos, blen);
+      var out = compress(cv, block, chunkCounterLo, chunkCounterHi, blen, flags);
+      if (isLast) return wordsToBytes32(out);
+      cv = out.slice(0,8);
+      pos += blen;
+    }
+    return wordsToBytes32([0,0,0,0,0,0,0,0]);
+  }
+  function wordsToBytes32(words) {
+    var out = new Uint8Array(32);
+    for (var i=0;i<8;i++){
+      out[i*4]   = words[i] & 0xff;
+      out[i*4+1] = (words[i]>>>8) & 0xff;
+      out[i*4+2] = (words[i]>>>16) & 0xff;
+      out[i*4+3] = (words[i]>>>24) & 0xff;
+    }
+    return out;
+  }
+  return { digest: digest };
+})();
+
+function blake3_256(bytes) { return BLAKE3.digest(bytes); }
+
+/* =====================================================================
+   xxhash32 (pure JS, 32-bit). Matches xxhash.xxh32_intdigest(seed=0).
+   ===================================================================== */
+var XXH32 = (function () {
+  var P1=2654435761, P2=2246822519, P3=3266489917, P4=668265263, P5=374761393;
+  function rotl(x,r){ return (x<<r)|(x>>>(32-r)); }
+  function mul(a,b){ // 32-bit multiply
+    var ah=(a>>>16)&0xffff, al=a&0xffff;
+    return ((al*b) + (((ah*b)&0xffff)<<16)) >>> 0;
+  }
+  function digest(data, seed) {
+    seed = seed>>>0;
+    var len = data.length, i=0, h;
+    if (len >= 16) {
+      var v1=(seed+P1+P2)>>>0, v2=(seed+P2)>>>0, v3=(seed)>>>0, v4=(seed-P1)>>>0;
+      var limit = len - 16;
+      do {
+        v1 = mul(rotl((v1 + mul(rd32(data,i),P2))>>>0,13),P1); i+=4;
+        v2 = mul(rotl((v2 + mul(rd32(data,i),P2))>>>0,13),P1); i+=4;
+        v3 = mul(rotl((v3 + mul(rd32(data,i),P2))>>>0,13),P1); i+=4;
+        v4 = mul(rotl((v4 + mul(rd32(data,i),P2))>>>0,13),P1); i+=4;
+      } while (i <= limit);
+      h = (rotl(v1,1)+rotl(v2,7)+rotl(v3,12)+rotl(v4,18))>>>0;
+    } else {
+      h = (seed + P5)>>>0;
+    }
+    h = (h + len)>>>0;
+    while (i+4 <= len) {
+      h = (h + mul(rd32(data,i),P3))>>>0;
+      h = mul(rotl(h,17),P4);
+      i+=4;
+    }
+    while (i < len) {
+      h = (h + mul(data[i],P5))>>>0;
+      h = mul(rotl(h,11),P1);
+      i++;
+    }
+    h ^= h>>>15; h = mul(h,P2);
+    h ^= h>>>13; h = mul(h,P3);
+    h ^= h>>>16;
+    return h>>>0;
+  }
+  function rd32(d,i){ return (d[i] | (d[i+1]<<8) | (d[i+2]<<16) | (d[i+3]<<24))>>>0; }
+  return { digest: digest };
+})();
+function xxh32(bytes){ return XXH32.digest(bytes,0); }
+
+/* =====================================================================
+   Content Defined Chunking (fastcdc-compatible). Port of iscc-core cdc.py
+   ===================================================================== */
+var CDC_GEAR = [1553318008,574654857,759734804,310648967,1393527547,1195718329,694400241,1154184075,1319583805,1298164590,122602963,989043992,1918895050,933636724,1369634190,1963341198,1565176104,1296753019,1105746212,1191982839,1195494369,29065008,1635524067,722221599,1355059059,564669751,1620421856,1100048288,1018120624,1087284781,1723604070,1415454125,737834957,1854265892,1605418437,1697446953,973791659,674750707,1669838606,320299026,1130545851,1725494449,939321396,748475270,554975894,1651665064,1695413559,671470969,992078781,1935142196,1062778243,1901125066,1935811166,1644847216,744420649,2068980838,1988851904,1263854878,1979320293,111370182,817303588,478553825,694867320,685227566,345022554,2095989693,1770739427,165413158,1322704750,46251975,710520147,700507188,2104251000,1350123687,1593227923,1756802846,1179873910,1629210470,358373501,807118919,751426983,172199468,174707988,1951167187,1328704411,2129871494,1242495143,1793093310,1721521010,306195915,1609230749,1992815783,1790818204,234528824,551692332,1930351755,110996527,378457918,638641695,743517326,368806918,1583529078,1767199029,182158924,1114175764,882553770,552467890,1366456705,934589400,1574008098,1798094820,1548210079,821697741,601807702,332526858,1693310695,136360183,1189114632,506273277,397438002,620771032,676183860,1747529440,909035644,142389739,1991534368,272707803,1905681287,1210958911,596176677,1380009185,1153270606,1150188963,1067903737,1020928348,978324723,962376754,1368724127,1133797255,1367747748,1458212849,537933020,1295159285,2104731913,1647629177,1691336604,922114202,170715530,1608833393,62657989,1140989235,381784875,928003604,449509021,1057208185,1239816707,525522922,476962140,102897870,132620570,419788154,2095057491,1240747817,1271689397,973007445,1380110056,1021668229,12064370,1186917580,1017163094,597085928,2018803520,1795688603,1722115921,2015264326,506263638,1002517905,1229603330,1376031959,763839898,1970623926,1109937345,524780807,1976131071,905940439,1313298413,772929676,1578848328,1108240025,577439381,1293318580,1512203375,371003697,308046041,320070446,1252546340,568098497,1341794814,1922466690,480833267,1060838440,969079660,1836468543,2049091118,2023431210,383830867,2112679659,231203270,1551220541,1377927987,275637462,2110145570,1700335604,738389040,1688841319,1506456297,1243730675,258043479,599084776,41093802,792486733,1897397356,28077829,1520357900,361516586,1119263216,209458355,45979201,363681532,477245280,2107748241,601938891,244572459,1689418013,1141711990,1485744349,1181066840,1950794776,410494836,1445347454,2137242950,852679640,1014566730,1999335993,1871390758,1736439305,231222289,603972436,783045542,370384393,184356284,709706295,1453549767,591603172,768512391,854125182];
+
+function cdc_params(avgSize) {
+  var ceilDiv = function(x,y){ return Math.floor((x+y-1)/y); };
+  var mask = function(b){ return Math.pow(2,b)-1; };
+  var minSize = Math.floor(avgSize/4);
+  var maxSize = avgSize*8;
+  var offset = minSize + ceilDiv(minSize,2);
+  var centerSize = avgSize - offset;
+  var bits = Math.round(Math.log2(avgSize));
+  var maskS = mask(bits+1);
+  var maskL = mask(bits-1);
+  return { mi:minSize, ma:maxSize, cs:centerSize, maskS:maskS, maskL:maskL };
+}
+function cdc_offset(buf, off, size, mi, ma, cs, maskS, maskL) {
+  var pattern = 0;
+  var i = Math.min(mi, size);
+  var barrier = Math.min(cs, size);
+  while (i < barrier) {
+    pattern = ((pattern>>>1) + CDC_GEAR[buf[off+i]]) >>> 0;
+    if (!(pattern & maskS)) return i+1;
+    i++;
+  }
+  barrier = Math.min(ma, size);
+  while (i < barrier) {
+    pattern = ((pattern>>>1) + CDC_GEAR[buf[off+i]]) >>> 0;
+    if (!(pattern & maskL)) return i+1;
+    i++;
+  }
+  return i;
+}
+// Yields chunks as Uint8Array subarrays. utf32=false for data code.
+function cdc_chunks(data, utf32, avgChunkSize) {
+  var chunks = [];
+  if (data.length === 0) { chunks.push(data.subarray(0,0)); return chunks; }
+  var p = cdc_params(avgChunkSize);
+  var pos = 0, n = data.length;
+  while (pos < n) {
+    var size = n - pos;
+    var cut = cdc_offset(data, pos, size, p.mi, p.ma, p.cs, p.maskS, p.maskL);
+    if (utf32) cut -= cut % 4;
+    chunks.push(data.subarray(pos, pos+cut));
+    pos += cut;
+  }
+  return chunks;
+}
+
+/* =====================================================================
+   MinHash — port of iscc-core minhash.py (64 permutations, LSB folding).
+   Uses BigInt for exact 64-bit / 61-bit prime arithmetic.
+   ===================================================================== */
+var MAXI64 = (1n<<64n)-1n;
+var MPRIME = (1n<<61n)-1n;
+var MAXH   = (1n<<32n)-1n;
+var MPA = [853146490016488653n,1849332765672628665n,1131688930666554379n,1936485333668353377n,890837126813020267n,1988249303247129861n,1408894512544874755n,2140251716176616185n,1755124413189049421n,1355916793659431597n,546586563822844083n,497603761441203021n,2000709902557454173n,1057597903350092207n,1576204252850880253n,2078784234495706739n,1022616668454863635n,2150082342606334489n,712341150087765807n,1511757510246096559n,1525853819909660573n,1263771796138990131n,1215963627200985263n,590069150281426443n,130824646248385081n,962725325544728503n,1702561325943522847n,296074222435072629n,490211158716051523n,1255327197241792767n,699458998727907367n,32930168991409845n,1985097843455124585n,362027841570125531n,1903252144040897835n,900391845076405289n,547470123601853551n,1689373724032359119n,845594231933442371n,400331968021206285n,174967108345233429n,876513700861085019n,505848386844809885n,1920468508342256199n,1292611725303815789n,963317239501343903n,1730880032297268007n,284614929850059717n,1185026248283273081n,2167288823816985197n,1214905315086686483n,1555253098157439857n,1048013650291539723n,1238618594841147605n,1213502582686547311n,286300733803129311n,1250358511639043529n,407534797452854371n,960869149538623787n,1722699901467253087n,1325704236119824319n,196979859428570839n,1669408735473259699n,781336617016068757n];
+var MPB = [1089606993368836715n,726972438868274737n,66204585613901025n,1078410179646709132n,1343470117098523467n,698653121981343911n,1248486536592473639n,1447963007834012793n,1034598851883537815n,1474008409379745934n,793773480906057541n,980501101461882479n,963941556313537655n,233651787311327325n,243905121737149907n,570269452476776142n,297633284648631084n,1516796967247398557n,1494795672066692649n,1728741177365151059n,1029197538967983408n,1660732464170610344n,1399769594446678069n,506465470557005705n,1279720146829545181n,860096419955634036n,411519685280832908n,69539191273403207n,1960489729088056217n,605092075716397684n,1017496016211653149n,1304834535101321372n,949013511180032347n,1142776242221098779n,576980004709031232n,1071272177143100544n,1494527341093835499n,1073290814142727850n,1285904200674942617n,1277176606329477335n,343788427301735585n,2100915269685487331n,1227711252031557450n,18593166391963377n,2101884148332688233n,191808277534686888n,2170124912729392024n,918430470748151293n,1831024560113812361n,1951365515851067694n,744352348473654499n,1921518311887826722n,2020165648600700886n,1764930142256726985n,1903893374912839788n,1449378957774802122n,1435825328374066345n,833197549717762813n,2238991044337210799n,748955638857938366n,1834583747494146901n,222012292803592982n,901238460725547841n,1501611130776083278n];
+
+function minhash(features) {
+  // features: array of Number (uint32)
+  var feats = features.map(function(f){ return BigInt(f>>>0); });
+  var out = new Array(64);
+  for (var k=0;k<64;k++){
+    var a = MPA[k], b = MPB[k];
+    var mn = null;
+    for (var j=0;j<feats.length;j++){
+      var v = ((((a*feats[j]+b) & MAXI64) % MPRIME) & MAXH);
+      if (mn===null || v<mn) mn=v;
+    }
+    out[k]=mn;
+  }
+  return out;
+}
+function minhash_compress(mh, lsb) {
+  var bits = '';
+  for (var bitpos=0; bitpos<lsb; bitpos++){
+    for (var i=0;i<mh.length;i++){
+      bits += ((mh[i] >> BigInt(bitpos)) & 1n).toString();
+    }
+  }
+  var nbytes = Math.ceil(bits.length/8);
+  var out = new Uint8Array(nbytes);
+  for (var bi=0; bi<bits.length; bi++){
+    if (bits[bi]==='1') out[bi>>3] |= (1 << (7-(bi&7)));
+  }
+  return out;
+}
+function minhash_256(features) { return minhash_compress(minhash(features), 4); }
+
+/* =====================================================================
+   SimHash — port of iscc-core simhash.py
+   ===================================================================== */
+function simhash(hashDigests) {
+  var nBytes = hashDigests[0].length;
+  var nBits = nBytes*8;
+  var vector = new Array(nBits).fill(0);
+  for (var d=0; d<hashDigests.length; d++){
+    var dig = hashDigests[d];
+    for (var i=0;i<nBits;i++){
+      var bit = (dig[i>>3] >> (7-(i&7))) & 1;
+      vector[i]+=bit;
+    }
+  }
+  var minfeatures = hashDigests.length/2;
+  var out = new Uint8Array(nBytes);
+  for (var b=0;b<nBits;b++){
+    if (vector[b] >= minfeatures) out[b>>3] |= (1 << (7-(b&7)));
+  }
+  return out;
+}
+
+/* =====================================================================
+   Codec — header/varnibble/base32. Port of iscc-core codec.py
+   ===================================================================== */
+var MT = { META:0, SEMANTIC:1, CONTENT:2, DATA:3, INSTANCE:4, ISCC:5, ID:6, FLAKE:7 };
+var ST = { NONE:0 };
+var ST_ISCC = { TEXT:0, IMAGE:1, AUDIO:2, VIDEO:3, MIXED:4, SUM:5, NONE:6, WIDE:7 };
+var VS = { V0:0, V1:1 };
+var B32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+var UNITS = [ [], [MT.CONTENT], [MT.SEMANTIC], [MT.SEMANTIC,MT.CONTENT],
+              [MT.META], [MT.META,MT.CONTENT], [MT.META,MT.SEMANTIC],
+              [MT.META,MT.SEMANTIC,MT.CONTENT] ];
+
+// BitWriter: append bits (as arrays of 0/1)
+function encodeVarnibble(n) {
+  var bits = [];
+  function push(val, len) { for (var i=len-1;i>=0;i--) bits.push((val>>i)&1); }
+  if (n>=0 && n<8) { push(n,4); }
+  else if (n>=8 && n<72) { bits.push(1,0); push(n-8,6); }
+  else if (n>=72 && n<584) { bits.push(1,1,0); push(n-72,9); }
+  else if (n>=584 && n<4680) { bits.push(1,1,1,0); push(n-584,12); }
+  else throw new Error('varnibble out of range');
+  return bits;
+}
+function bitsToBytes(bits) {
+  // pad right with 0 to full byte
+  while (bits.length % 8) bits.push(0);
+  var out = new Uint8Array(bits.length/8);
+  for (var i=0;i<bits.length;i++){ if (bits[i]) out[i>>3] |= (1<<(7-(i&7))); }
+  return out;
+}
+function encodeHeader(mtype, stype, version, length) {
+  var bits = [];
+  bits = bits.concat(encodeVarnibble(mtype), encodeVarnibble(stype), encodeVarnibble(version), encodeVarnibble(length));
+  return bitsToBytes(bits);
+}
+function encodeLength(mtype, length) {
+  if (mtype===MT.META||mtype===MT.SEMANTIC||mtype===MT.CONTENT||mtype===MT.DATA||mtype===MT.INSTANCE||mtype===MT.FLAKE) {
+    if (length>=32 && length%32===0) return (length/32)-1;
+    throw new Error('Invalid length '+length);
+  } else if (mtype===MT.ISCC) {
+    if (length>=0 && length<=7) return length;
+    throw new Error('Invalid length '+length);
+  }
+  throw new Error('Invalid length '+length);
+}
+function encodeBase32(data) {
+  // RFC4648 base32, no padding
+  var out = '';
+  var bits = 0, value = 0;
+  for (var i=0;i<data.length;i++){
+    value = (value<<8) | data[i];
+    bits += 8;
+    while (bits >= 5) {
+      out += B32_ALPHABET[(value >>> (bits-5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    out += B32_ALPHABET[(value << (5-bits)) & 31];
+  }
+  return out;
+}
+function decodeBase32(code) {
+  code = code.toUpperCase().replace(/=+$/,'');
+  var bits=0, value=0, out=[];
+  for (var i=0;i<code.length;i++){
+    var idx = B32_ALPHABET.indexOf(code[i]);
+    if (idx<0) throw new Error('bad base32 char '+code[i]);
+    value = (value<<5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits-8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+}
+function encodeComponent(mtype, stype, version, bitLength, digest) {
+  var encodedLength = encodeLength(mtype, bitLength);
+  var nbytes = bitLength/8;
+  var header = encodeHeader(mtype, stype, version, encodedLength);
+  var body = digest.subarray(0, nbytes);
+  return encodeBase32(concat([header, body]));
+}
+// decode varnibble stream -> [mtype, stype, version, length, tailBytes]
+function decodeHeader(data) {
+  // convert to bit array
+  var bits=[];
+  for (var i=0;i<data.length;i++){ for (var b=7;b>=0;b--) bits.push((data[i]>>b)&1); }
+  var pos=0;
+  function readVar() {
+    if (bits[pos]===0) { var v=(bits[pos]<<3|bits[pos+1]<<2|bits[pos+2]<<1|bits[pos+3]); pos+=4; return v; }
+    if (bits[pos]===1&&bits[pos+1]===0) { var v2=0; for(var k=0;k<6;k++) v2=(v2<<1)|bits[pos+2+k]; pos+=8; return v2+8; }
+    if (bits[pos]===1&&bits[pos+1]===1&&bits[pos+2]===0){ var v3=0; for(var k2=0;k2<9;k2++) v3=(v3<<1)|bits[pos+3+k2]; pos+=12; return v3+72; }
+    if (bits[pos]===1&&bits[pos+1]===1&&bits[pos+2]===1&&bits[pos+3]===0){ var v4=0; for(var k3=0;k3<12;k3++) v4=(v4<<1)|bits[pos+4+k3]; pos+=16; return v4+584; }
+    throw new Error('bad varnibble');
+  }
+  var mtype=readVar(), stype=readVar(), version=readVar(), length=readVar();
+  // strip 4-bit padding if remaining bits not byte-aligned and next nibble is 0000
+  var remaining = bits.length - pos;
+  if (remaining % 8 !== 0 && bits[pos]===0 && bits[pos+1]===0 && bits[pos+2]===0 && bits[pos+3]===0) {
+    pos += 4;
+  }
+  // remaining bytes
+  var tailBits = bits.slice(pos);
+  var tail = new Uint8Array(tailBits.length/8);
+  for (var t=0;t<tail.length;t++){ var val=0; for(var q=0;q<8;q++) val=(val<<1)|tailBits[t*8+q]; tail[t]=val; }
+  return [mtype, stype, version, length, tail];
+}
+function encodeUnits(units) {
+  for (var i=0;i<UNITS.length;i++){
+    var u=UNITS[i];
+    if (u.length===units.length && u.every(function(x,idx){return x===units[idx];})) return i;
+  }
+  throw new Error('Invalid ISCC-UNIT combination');
+}
+function decodeLength(mtype, length) {
+  if (mtype===MT.META||mtype===MT.SEMANTIC||mtype===MT.CONTENT||mtype===MT.DATA||mtype===MT.INSTANCE||mtype===MT.FLAKE)
+    return (length+1)*32;
+  return 0;
+}
+function isccClean(iscc) {
+  var split = iscc.trim().split(':').map(function(p){return p.trim();});
+  if (split.length===1) {
+    var code = split[0];
+    if ('fbvzu'.indexOf(code[0]) < 0) code = code.split('-').join('');
+    return code;
+  } else if (split.length===2) {
+    var scheme=split[0], code2=split[1];
+    if (scheme.toLowerCase()!=='iscc') throw new Error('bad scheme');
+    return code2.split('-').join('');
+  }
+  throw new Error('bad iscc');
+}
+
+/* =====================================================================
+   Text normalization — port of iscc-core (NFKC/NFD, filters).
+   Uses JS String.prototype.normalize (ICU) which matches Python's
+   unicodedata for NFC/NFD/NFKC. Category classification is emulated
+   via Unicode property escapes in RegExp (\p{...}).
+   ===================================================================== */
+// Unicode "newline" chars used by text_clean
+var TEXT_NEWLINES = new Set([0x0a,0x0b,0x0c,0x0d,0x85,0x2028,0x2029].map(function(c){return String.fromCharCode(c);}));
+
+// Is a codepoint a "Control/format/etc" (category major 'C')?
+var RE_C = /\p{C}/u;      // Cc, Cf, Cs, Co, Cn
+var RE_M = /\p{M}/u;      // marks
+var RE_P = /\p{P}/u;      // punctuation
+var RE_WS = /\s/u;        // whitespace (Python str.isspace superset handled below)
+
+// Python str.isspace() set — includes ASCII ws + unicode Zs/Zl/Zp + some controls.
+function pyIsSpace(ch) {
+  // JS \s misses some, and includes ZWNBSP(FEFF) which Python does not.
+  // Python isspace true for: \t\n\v\f\r \x1c\x1d\x1e\x1f\x85 + Zs/Zl/Zp
+  var cp = ch.codePointAt(0);
+  if (cp===0x09||cp===0x0a||cp===0x0b||cp===0x0c||cp===0x0d||cp===0x20) return true;
+  if (cp===0x1c||cp===0x1d||cp===0x1e||cp===0x1f||cp===0x85) return true;
+  if (cp===0xa0) return true; // NBSP (Zs) -> Python isspace True
+  // General Zs/Zl/Zp
+  return /\p{Zs}|\p{Zl}|\p{Zp}/u.test(ch);
+}
+function catMajorIsC(ch) { return RE_C.test(ch); }
+
+function text_clean(text) {
+  text = text.normalize('NFKC');
+  // remove control chars except newlines
+  var kept = '';
+  for (var ch of text) {
+    if (!catMajorIsC(ch) || TEXT_NEWLINES.has(ch)) kept += ch;
+  }
+  // splitlines: Python splits on all unicode line boundaries
+  var lines = splitLines(kept);
+  var result = [];
+  var newlineCount = 0;
+  for (var li=0; li<lines.length; li++){
+    var line = lines[li];
+    if (line.trim()==='' && !hasNonWhitespace(line)) {
+      if (newlineCount < 1) { result.push(''); newlineCount++; }
+    } else if (isWhitespaceOnly(line)) {
+      if (newlineCount < 1) { result.push(''); newlineCount++; }
+    } else {
+      result.push(line); newlineCount=0;
+    }
+  }
+  return result.join('\n').replace(/^\s+|\s+$/gu,'').trim();
+}
+function isWhitespaceOnly(s){ for (var ch of s){ if (!pyIsSpace(ch)) return false; } return true; }
+function hasNonWhitespace(s){ return !isWhitespaceOnly(s); }
+// Python str.splitlines boundaries
+var LINE_BOUNDARIES = [0x0a,0x0b,0x0c,0x0d,0x1c,0x1d,0x1e,0x85,0x2028,0x2029].map(function(c){return String.fromCharCode(c);});
+function splitLines(s) {
+  var out=[]; var cur='';
+  for (var i=0;i<s.length;i++){
+    var ch=s[i];
+    if (ch==='\r' && s[i+1]==='\n') { out.push(cur); cur=''; i++; continue; }
+    if (LINE_BOUNDARIES.indexOf(ch)>=0) { out.push(cur); cur=''; continue; }
+    cur+=ch;
+  }
+  out.push(cur);
+  // Python splitlines drops trailing empty when string ends with a boundary; but here
+  // we always push final cur (matches iterating result). We must not add an extra empty
+  // if the string ended exactly on a boundary.
+  return out;
+}
+function text_remove_newlines(text) {
+  // " ".join(text.split())  -> split on any whitespace run, drop empties
+  var parts = text.split(/\s+/u).filter(function(x){return x.length>0;});
+  return parts.join(' ');
+}
+function text_trim(text, nbytes) {
+  var bytes = utf8(text);
+  if (bytes.length <= nbytes) return text.replace(/^\s+|\s+$/gu,'').trim();
+  var sliced = bytes.subarray(0, nbytes);
+  var decoded = new TextDecoder('utf-8', {fatal:false}).decode(sliced); // 'ignore' errors
+  return decoded.replace(/^\s+|\s+$/gu,'').trim();
+}
+function text_collapse(text) {
+  text = text.normalize('NFD').toLowerCase();
+  var out='';
+  for (var ch of text) {
+    if (pyIsSpace(ch)) continue;
+    if (RE_C.test(ch) || RE_M.test(ch) || RE_P.test(ch)) continue;
+    out += ch;
+  }
+  return out.normalize('NFKC');
+}
+// sliding window over array-of-characters or bytes. Returns list of slices.
+function slidingWindowChars(chars, width) {
+  var n = chars.length;
+  var idxMax = Math.max(n - width + 1, 1);
+  var out=[];
+  for (var i=0;i<idxMax;i++){ out.push(chars.slice(i, i+width)); }
+  return out;
+}
+function slidingWindowBytes(bytes, width) {
+  var n = bytes.length;
+  var idxMax = Math.max(n - width + 1, 1);
+  var out=[];
+  for (var i=0;i<idxMax;i++){ out.push(bytes.subarray(i, i+width)); }
+  return out;
+}
+// char array helper: split string into array of code points (multibyte chars)
+function toChars(s){ return Array.from(s); }
+
+/* =====================================================================
+   JCS — RFC 8785 JSON Canonicalization (subset needed for meta vectors:
+   objects, strings, numbers, booleans, null, arrays). Number formatting
+   follows ECMAScript Number-to-String (Ryu-equivalent via String()).
+   ===================================================================== */
+function jcsCanonicalize(value) { return utf8(jcsSerialize(value)); }
+function jcsSerialize(v) {
+  if (v === null) return 'null';
+  var t = typeof v;
+  if (t === 'boolean') return v ? 'true' : 'false';
+  if (t === 'number') return jcsNumber(v);
+  if (t === 'string') return jcsString(v);
+  if (Array.isArray(v)) {
+    return '[' + v.map(jcsSerialize).join(',') + ']';
+  }
+  if (t === 'object') {
+    var keys = Object.keys(v);
+    // RFC8785: sort by UTF-16 code units of the key
+    keys.sort(function(a,b){ return a<b?-1:a>b?1:0; });
+    var parts = keys.map(function(k){ return jcsString(k) + ':' + jcsSerialize(v[k]); });
+    return '{' + parts.join(',') + '}';
+  }
+  throw new Error('unsupported JCS type');
+}
+function jcsNumber(n) {
+  if (!isFinite(n)) throw new Error('non-finite number in JCS');
+  if (Number.isInteger(n) && Math.abs(n) < 1e21) {
+    // integers print without decimal/exponent
+    return String(n);
+  }
+  // ECMAScript Number::toString produces the shortest round-trippable form,
+  // which is exactly what RFC8785 mandates.
+  return String(n);
+}
+function jcsString(s) {
+  var out = '"';
+  for (var i=0;i<s.length;i++){
+    var c = s.charCodeAt(i);
+    var ch = s[i];
+    switch (ch) {
+      case '"': out+='\\"'; break;
+      case '\\': out+='\\\\'; break;
+      case '\b': out+='\\b'; break;
+      case '\f': out+='\\f'; break;
+      case '\n': out+='\\n'; break;
+      case '\r': out+='\\r'; break;
+      case '\t': out+='\\t'; break;
+      default:
+        if (c < 0x20) { out += '\\u' + c.toString(16).padStart(4,'0'); }
+        else out += ch;
+    }
+  }
+  return out + '"';
+}
+
+/* =====================================================================
+   Data URL — parse (for meta input) and build (for meta output).
+   ===================================================================== */
+function b64encodeStd(bytes) {
+  var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  var out=''; var i;
+  for (i=0;i+3<=bytes.length;i+=3){
+    var n=(bytes[i]<<16)|(bytes[i+1]<<8)|bytes[i+2];
+    out+=chars[(n>>18)&63]+chars[(n>>12)&63]+chars[(n>>6)&63]+chars[n&63];
+  }
+  var rem=bytes.length-i;
+  if (rem===1){ var n1=bytes[i]<<16; out+=chars[(n1>>18)&63]+chars[(n1>>12)&63]+'=='; }
+  else if (rem===2){ var n2=(bytes[i]<<16)|(bytes[i+1]<<8); out+=chars[(n2>>18)&63]+chars[(n2>>12)&63]+chars[(n2>>6)&63]+'='; }
+  return out;
+}
+function b64decodeStd(str) {
+  var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  str = str.replace(/=+$/,'').replace(/\s+/g,'');
+  var out=[]; var buf=0, bits=0;
+  for (var i=0;i<str.length;i++){
+    var idx=chars.indexOf(str[i]);
+    if (idx<0) continue;
+    buf=(buf<<6)|idx; bits+=6;
+    if (bits>=8){ out.push((buf>>(bits-8))&0xff); bits-=8; }
+  }
+  return new Uint8Array(out);
+}
+// Parse a data: URL -> {mediatype, data:Uint8Array}
+function parseDataUrl(url) {
+  var m = /^data:([^,]*),(.*)$/s.exec(url);
+  if (!m) throw new Error('bad data url');
+  var meta = m[1], body = m[2];
+  var isBase64 = /;base64$/i.test(meta) || /;base64;/i.test(meta) || /;base64/i.test(meta);
+  var data;
+  if (/;base64/i.test(meta)) data = b64decodeStd(body);
+  else data = utf8(decodeURIComponent(body));
+  return { data: data };
+}
+
+/* =====================================================================
+   GENERATORS
+   ===================================================================== */
+var META_TRIM_NAME=128, META_TRIM_DESCRIPTION=4096, META_TRIM_META=128000;
+var META_NGRAM_TEXT=3, META_NGRAM_BYTES=4;
+var DATA_AVG_CHUNK_SIZE=1024;
+
+function multiHashBlake3(bytes) {
+  return bytesToHex(concat([new Uint8Array([0x1e,0x20]), blake3_256(bytes)]));
+}
+
+// ---- Instance-Code ----
+function gen_instance_code_v0(streamBytes, bits) {
+  bits = bits || 64;
+  var digest = blake3_256(streamBytes);
+  var iscc = 'ISCC:' + encodeComponent(MT.INSTANCE, ST.NONE, VS.V0, bits, digest);
+  return {
+    iscc: iscc,
+    datahash: bytesToHex(concat([new Uint8Array([0x1e,0x20]), digest])),
+    filesize: streamBytes.length
+  };
+}
+
+// ---- Data-Code ----
+function soft_hash_data_v0(streamBytes) {
+  var chunks = cdc_chunks(streamBytes, false, DATA_AVG_CHUNK_SIZE);
+  var features = [];
+  for (var i=0;i<chunks.length;i++){
+    features.push(xxh32(chunks[i]));
+  }
+  return minhash_256(features);
+}
+function gen_data_code_v0(streamBytes, bits) {
+  bits = bits || 64;
+  var digest = soft_hash_data_v0(streamBytes);
+  var iscc = 'ISCC:' + encodeComponent(MT.DATA, ST.NONE, VS.V0, bits, digest);
+  return { iscc: iscc };
+}
+
+// ---- Meta-Code ----
+function soft_hash_meta_v0(name, extra) {
+  // name path
+  var nameC = text_collapse(name);
+  var nameChars = toChars(nameC);
+  var nameGrams = slidingWindowChars(nameChars, META_NGRAM_TEXT).map(function(g){ return g.join(''); });
+  var nameDigests = nameGrams.map(function(s){ return blake3_256(utf8(s)); });
+  var simhashDigest = simhash(nameDigests);
+
+  var extraEmpty = (extra===null || extra===undefined || extra==='' ||
+                    (extra instanceof Uint8Array && extra.length===0));
+  if (extraEmpty) return simhashDigest;
+
+  var extraDigests;
+  if (extra instanceof Uint8Array) {
+    var grams = slidingWindowBytes(extra, META_NGRAM_BYTES);
+    extraDigests = grams.map(function(g){ return blake3_256(g); });
+  } else {
+    var ec = text_collapse(extra);
+    var ecChars = toChars(ec);
+    var egrams = slidingWindowChars(ecChars, META_NGRAM_TEXT).map(function(g){ return g.join(''); });
+    extraDigests = egrams.map(function(s){ return blake3_256(utf8(s)); });
+  }
+  var extraSimhash = simhash(extraDigests);
+  // interleave first 16 bytes in 4-byte chunks
+  var out = [];
+  for (var c=0;c<16;c+=4){
+    out.push(simhashDigest.subarray(c,c+4));
+    out.push(extraSimhash.subarray(c,c+4));
+  }
+  return concat(out);
+}
+function gen_meta_code_v0(name, description, meta, bits) {
+  bits = bits || 64;
+  // 1. normalize name
+  name = (name===null||name===undefined) ? '' : name;
+  name = text_clean(name);
+  name = text_remove_newlines(name);
+  name = text_trim(name, META_TRIM_NAME);
+  if (!name) throw new Error('Meta-Code requires non-empty name element');
+
+  // 2. normalize description
+  description = (description===null||description===undefined) ? '' : description;
+  description = text_clean(description);
+  description = text_trim(description, META_TRIM_DESCRIPTION);
+
+  var metaCodeDigest, metahash, metadataValue = null;
+  if (meta !== null && meta !== undefined && meta !== '') {
+    var payload, durl;
+    if (typeof meta === 'string') {
+      durl = meta;
+      payload = parseDataUrl(durl).data;
+    } else if (typeof meta === 'object') {
+      payload = jcsCanonicalize(meta);
+    } else {
+      throw new Error('metadata must be Data-URL string or dict');
+    }
+    if (META_TRIM_META && payload.length > META_TRIM_META) throw new Error('meta payload too large');
+    metaCodeDigest = soft_hash_meta_v0(name, payload);
+    metahash = multiHashBlake3(payload);
+    if (typeof meta === 'string') {
+      metadataValue = durl;
+    } else {
+      var mediaType = ('@context' in meta) ? 'application/ld+json' : 'application/json';
+      metadataValue = 'data:' + mediaType + ';base64,' + b64encodeStd(payload);
+    }
+  } else {
+    var joined = (name + ' ' + description).trim();
+    var payloadBytes = utf8(joined);
+    metaCodeDigest = soft_hash_meta_v0(name, description);
+    metahash = multiHashBlake3(payloadBytes);
+    metadataValue = null;
+  }
+
+  var iscc = 'ISCC:' + encodeComponent(MT.META, ST.NONE, VS.V0, bits, metaCodeDigest);
+  var result = { iscc: iscc };
+  if (name) result.name = name;
+  if (description) result.description = description;
+  if (metadataValue) result.meta = metadataValue;
+  result.metahash = metahash;
+  return result;
+}
+
+// ---- Composite ISCC-CODE ----
+function gen_iscc_code_v0(codes, wide) {
+  wide = !!wide;
+  codes = codes.map(isccClean);
+  if (codes.length < 2) throw new Error('Minimum two ISCC units required');
+  for (var i=0;i<codes.length;i++){ if (codes[i].length<16) throw new Error('unit too short'); }
+
+  var decoded = codes.map(function(c){ return decodeHeader(decodeBase32(c)); });
+  // sort by MainType
+  decoded.sort(function(a,b){ return a[0]-b[0]; });
+  var mainTypes = decoded.map(function(d){ return d[0]; });
+  var lastTwo = mainTypes.slice(-2);
+  if (!(lastTwo[0]===MT.DATA && lastTwo[1]===MT.INSTANCE)) throw new Error('requires DATA and INSTANCE');
+
+  var isWide = wide && codes.length===2 && mainTypes.length===2 &&
+               mainTypes[0]===MT.DATA && mainTypes[1]===MT.INSTANCE &&
+               decoded.every(function(t){ return decodeLength(t[0], t[3]) >= 128; });
+
+  var st;
+  if (isWide) {
+    st = ST_ISCC.WIDE;
+  } else {
+    var subTypes = decoded.filter(function(t){ return t[0]===MT.SEMANTIC||t[0]===MT.CONTENT; }).map(function(t){ return t[1]; });
+    var uniq = Array.from(new Set(subTypes));
+    if (uniq.length > 1) throw new Error('Semantic/Content SubType mismatch');
+    if (subTypes.length) st = subTypes[subTypes.length-1];
+    else if (codes.length===2) st = ST_ISCC.SUM;
+    else st = ST_ISCC.NONE;
+  }
+
+  var encodedLength = encodeUnits(mainTypes.slice(0, mainTypes.length-2));
+  var parts = [];
+  if (isWide) {
+    for (var w=0;w<decoded.length;w++) parts.push(decoded[w][4].subarray(0,16));
+  } else {
+    for (var d=0;d<decoded.length;d++) parts.push(decoded[d][4].subarray(0,8));
+  }
+  var digest = concat(parts);
+  var header = encodeHeader(MT.ISCC, st, VS.V0, encodedLength);
+  var iscc = 'ISCC:' + encodeBase32(concat([header, digest]));
+  return { iscc: iscc };
+}
+
+/* =====================================================================
+   Self-check gate: embeds a few official vectors, runs on load.
+   ===================================================================== */
+function isccSelfCheck() {
+  var detail = [];
+  var ok = true;
+  function eq(a,b,label){ if (a!==b){ ok=false; detail.push(label+': got '+a+' want '+b); } else detail.push(label+': ok'); }
+  try {
+    // Instance empty
+    var i0 = gen_instance_code_v0(new Uint8Array(0), 64);
+    eq(i0.iscc, 'ISCC:IAA26E2JXH27TING', 'instance_empty');
+    eq(i0.datahash, '1e20af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262', 'instance_datahash');
+    // Data two bytes ff00
+    var dcode = gen_data_code_v0(new Uint8Array([0xff,0x00]), 64);
+    eq(dcode.iscc, 'ISCC:GAAXL2XYM5BQIAZ3', 'data_ff00');
+    // Meta title only
+    var m0 = gen_meta_code_v0('Die Unendliche Geschichte', '', null, 64);
+    eq(m0.iscc, 'ISCC:AAAZXZ6OU74YAZIM', 'meta_title');
+    // Composite
+    var comp = gen_iscc_code_v0(['AAAYPXW445FTYNJ3','EAARMJLTQCUWAND2','GABVVC5DMJJGYKZ4ZBYVNYABFFYXG','IADWIK7A7JTUAQ2D6QARX7OBEIK3OOUAM42LOBLCZ4ZOGDLRHMDL6TQ']);
+    eq(comp.iscc, 'ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY', 'composite');
+  } catch (e) {
+    ok = false; detail.push('exception: '+e.message);
+  }
+  return { ok: ok, detail: detail };
+}
+
+/* ---------- exports ---------- */
+var API = {
+  gen_instance_code_v0: gen_instance_code_v0,
+  gen_data_code_v0: gen_data_code_v0,
+  gen_meta_code_v0: gen_meta_code_v0,
+  gen_iscc_code_v0: gen_iscc_code_v0,
+  encodeComponent: encodeComponent,
+  encodeBase32: encodeBase32,
+  decodeBase32: decodeBase32,
+  blake3_256: blake3_256,
+  xxh32: xxh32,
+  minhash_256: minhash_256,
+  simhash: simhash,
+  cdc_chunks: cdc_chunks,
+  text_collapse: text_collapse,
+  text_clean: text_clean,
+  soft_hash_meta_v0: soft_hash_meta_v0,
+  isccSelfCheck: isccSelfCheck,
+  _bytesToHex: bytesToHex,
+  _hexToBytes: hexToBytes,
+  _utf8: utf8
+};
+if (typeof module !== 'undefined' && module.exports) module.exports = API;
+root.ISCC = API;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+
+<script>
+// ISCC Content-Code Generator UI — client-side only (CONTRACT §1.2). Engine verified on load.
+var _selectedFile = null;
+
+(function initGate(){
+  try {
+    var res = (self.ISCC && self.ISCC.isccSelfCheck) ? self.ISCC.isccSelfCheck() : {ok:false,detail:['engine missing']};
+    var g = document.getElementById('confGate');
+    if (res.ok) {
+      g.className = 'conf-gate conf-ok';
+      g.innerHTML = '<span>✓ ISCC engine conformance verified against the official reference vectors (Instance, Data, Meta, composite).</span>';
+    } else {
+      g.className = 'conf-gate conf-bad';
+      g.innerHTML = '<span>✗ Conformance self-check failed. Output disabled. Detail: ' + (res.detail||[]).join('; ') + '</span>';
+      document.getElementById('runBtn').disabled = true;
+    }
+  } catch(e){
+    var g2 = document.getElementById('confGate');
+    g2.className = 'conf-gate conf-bad';
+    g2.textContent = '✗ Engine error: ' + e.message;
+    document.getElementById('runBtn').disabled = true;
+  }
+})();
+
+document.getElementById('isccFile').addEventListener('change', function(){
+  _selectedFile = this.files && this.files[0] ? this.files[0] : null;
+  document.getElementById('fileName').textContent = _selectedFile ? (_selectedFile.name + ' (' + _selectedFile.size + ' bytes)') : '';
+});
+var fz = document.getElementById('fileZone');
+fz.addEventListener('dragover', function(e){ e.preventDefault(); fz.style.borderColor='var(--teal)'; });
+fz.addEventListener('dragleave', function(){ fz.style.borderColor='var(--border-2)'; });
+fz.addEventListener('drop', function(e){ e.preventDefault(); fz.style.borderColor='var(--border-2)'; var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f){ _selectedFile=f; document.getElementById('fileName').textContent=f.name+' ('+f.size+' bytes)'; } });
+
+function codeRow(kind, val, primary, copyId) {
+  return '<div class="code-row"><div class="code-kind"><span class="' + (primary?'primary':'') + '">' + kind + '</span>' +
+    '<button class="copy-btn" onclick="copyText(\'' + copyId + '\')">Copy</button></div>' +
+    '<div class="code-val ' + (primary?'primary':'') + '" id="' + copyId + '">' + val + '</div></div>';
+}
+
+async function runGenerate() {
+  var status = document.getElementById('genStatus');
+  var name = document.getElementById('meta_name').value.trim();
+  var desc = document.getElementById('meta_description').value.trim();
+  if (!self.ISCC) { status.textContent = 'Engine not loaded.'; return; }
+  if (!_selectedFile && !name) { status.textContent = 'Choose a file, or enter a title for a Meta-Code.'; return; }
+  status.textContent = 'Computing…';
+
+  var out = {};
+  var rows = '';
+  var units = [];
+
+  try {
+    if (_selectedFile) {
+      var buf = new Uint8Array(await _selectedFile.arrayBuffer());
+      var inst = self.ISCC.gen_instance_code_v0(buf, 64);
+      var data = self.ISCC.gen_data_code_v0(buf, 64);
+      out.instance_code = inst.iscc; out.data_code = data.iscc;
+      out.datahash = inst.datahash; out.filesize = inst.filesize;
+      units.push(data.iscc, inst.iscc);
+    }
+    var metaObj = null;
+    if (name) {
+      metaObj = self.ISCC.gen_meta_code_v0(name, desc, null, 64);
+      out.meta_code = metaObj.iscc;
+      units.unshift(metaObj.iscc);
+    }
+    if (units.length >= 2 && _selectedFile) {
+      var comp = self.ISCC.gen_iscc_code_v0(units.slice());
+      out.iscc_code = comp.iscc;
+    }
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    return;
+  }
+  status.textContent = '';
+
+  if (out.iscc_code) rows += codeRow('ISCC-CODE (composite)', out.iscc_code, true, 'v_iscc');
+  if (out.instance_code) rows += codeRow('ISCC-INSTANCE (data integrity)', out.instance_code, false, 'v_inst');
+  if (out.data_code) rows += codeRow('ISCC-DATA (similarity)', out.data_code, false, 'v_data');
+  if (out.meta_code) rows += codeRow('ISCC-META (metadata)', out.meta_code, false, 'v_meta');
+
+  var kv = '';
+  if (out.datahash) kv += '<div class="kv"><span class="k">datahash</span><span class="v">' + out.datahash + '</span></div>';
+  if (typeof out.filesize === 'number') kv += '<div class="kv"><span class="k">filesize</span><span class="v">' + out.filesize + ' bytes</span></div>';
+
+  var memoLines = [
+    'ISCC CONTENT-CODE',
+    'Generated: ' + new Date().toLocaleDateString(),
+    'Standard: ISO 24138:2024 (ISCC). Engine verified against official iscc-core vectors.',
+    ''
+  ];
+  if (out.iscc_code) memoLines.push('ISCC-CODE (composite): ' + out.iscc_code);
+  if (out.instance_code) memoLines.push('ISCC-INSTANCE: ' + out.instance_code);
+  if (out.data_code) memoLines.push('ISCC-DATA: ' + out.data_code);
+  if (out.meta_code) memoLines.push('ISCC-META: ' + out.meta_code);
+  if (out.datahash) memoLines.push('datahash: ' + out.datahash);
+  if (typeof out.filesize === 'number') memoLines.push('filesize: ' + out.filesize);
+  var memo = memoLines.join('\n');
+
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section"><div class="out-header"><span class="out-title">ISCC Result</span>' +
+    '<button class="copy-btn" onclick="copyMemo()">Copy all</button></div><div class="out-body">' +
+    rows + kv + '<div class="memo-block" id="isccMemo">' + memo.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div></div></div>';
+
+  window._memo = memo;
+  window._isccResult = out;
+}
+function copyText(id){ var el=document.getElementById(id); if(el) navigator.clipboard.writeText(el.textContent); }
+function copyMemo(){ if(window._memo) navigator.clipboard.writeText(window._memo); }
+</script>
+
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"525-iscc-content-code-generator","version":"1.0.0","title":"ISCC Content-Code Generator","description":"Generates a conformant ISO 24138 ISCC (Instance, Data, Meta, and composite ISCC-CODE) from a file in the browser. Pure-JS engine verified byte-identical against the official iscc-core conformance vectors. Client-side, deterministic, zero PII.","category":"cat-11","tags":["iscc","iso 24138","content code","fingerprint","blake3","provenance","tokenization"],"audience":["engineer","product","creator","compliance"],"input_schema":{"type":"object","properties":{"meta_name":{"type":"string"},"meta_description":{"type":"string"}}},"output_schema":{"type":"object","properties":{"instance_code":{"type":"string"},"data_code":{"type":"string"},"meta_code":{"type":"string"},"iscc_code":{"type":"string"},"datahash":{"type":"string"}}},"mcp_tool_definition":{"name":"iscc_content_code_generator","description":"Generates a conformant ISO 24138 ISCC from a file: Instance-Code (BLAKE3 data integrity), Data-Code (content-defined-chunking similarity), Meta-Code (from title/description), and the composite ISCC-CODE. Pure-JS, verified byte-identical to the official iscc-core vectors. Runs client-side; the file never leaves the device.","inputSchema":{"type":"object","properties":{"meta_name":{"type":"string","description":"Optional work title for the Meta-Code"},"meta_description":{"type":"string","description":"Optional description for the Meta-Code"}}}},"execution":{"type":"browser-reference","entry":"tools/525-iscc-content-code-generator.html","function_name":"runGenerate"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3–§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    var inputs={};
+    document.querySelectorAll('input[type=text]').forEach(function(f){if(f.id&&f.value)inputs[f.id]=f.value;});
+    window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'525-iscc-content-code-generator';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'content_code_receipt',
+    jurisdiction:['ZZ'],regulatory_frameworks:['ISO 24138'],
+    payload:window._ap2Result,
+    iscc:window._isccResult||null,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — ISCC '+ts.slice(0,10),
+    disclaimer:'ISCC computed locally by a vector-verified engine. Informational content code, not a registration or legal record.',
+    agent_instructions:['Use the composite ISCC-CODE as the content identifier; bind provenance, licensing, or rights records to it.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 — prefill deep-links (#in=<base64url JSON>[&run=1]) ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:null,intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    if(el.type==='file')return;
+    el.value=String(fields[id]);
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=document.querySelector('.scope-note')||document.body.firstElementChild;if(a&&a.parentNode)a.parentNode.insertBefore(d,a);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0) notice('🔗 Title/description prefilled from link — add a file, then Generate ('+n+' fields)','ok');
+}
+window.AINBridge={version:'1.0',apply:applyFields,makeLink:function(fields){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields));}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
