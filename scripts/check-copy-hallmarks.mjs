@@ -46,7 +46,7 @@ const JARGON = [
 // Advisory only — rhetorical tic, too fuzzy for a hard gate.
 const TWOTONE = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'scripts']);
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'scripts', '.claude']);
 
 function htmlFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {
