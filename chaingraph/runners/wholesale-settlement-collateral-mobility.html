@@ -82,6 +82,10 @@ iframe.tool{width:100%;height:520px;border:0;display:block;background:var(--bg)}
 .json-code{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.55;white-space:pre}
 footer{border-top:1px solid var(--border);padding:1.5rem;margin-top:2rem}
 .footer-inner{max-width:1040px;margin:0 auto;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:flex;gap:1.25rem;flex-wrap:wrap}
+/* embed mode — loaded via Workbench iframe */
+.embed-mode nav,.embed-mode .hero,.embed-mode .pii-notice,.embed-mode footer{display:none!important}
+.embed-mode body{overflow:hidden}
+.embed-mode .container{padding-top:.5rem}
 </style>
 </head>
 <body>
@@ -190,11 +194,15 @@ const CHAIN = {
 };
 const CHAIN_MANIFEST = { chain_id: CHAIN.chain_id };
 
-let collected = [];
+const collected = [];
+window.collected = collected; /* same-origin parent access for step ladder */
 let CHAIN_HASH = null;
 let CHAIN_ARTIFACT = null;
 const ready = {};
 const readyP = CHAIN.steps.map((_, i) => new Promise(res => { ready[i] = res; }));
+
+/* embed mode detection: hide site chrome when loaded inside Workbench iframe */
+(function(){if(location.hash==='#embed'||/[?&]embed=1/.test(location.search)){document.body.classList.add('embed-mode');}})();
 
 (function buildStages() {
   const host = document.getElementById('stages');
@@ -274,7 +282,7 @@ async function driveStep(i, prior) {
 async function runChain() {
   document.getElementById('runBtn').disabled = true;
   document.getElementById('resultSection').style.display = 'none';
-  collected = [];
+  collected.length = 0;
   setStatus('running\u2026');
   try {
     let prior = null;
@@ -294,7 +302,7 @@ async function runChain() {
 }
 
 function resetChain() {
-  collected = []; CHAIN_HASH = null; CHAIN_ARTIFACT = null;
+  collected.length = 0; CHAIN_HASH = null; CHAIN_ARTIFACT = null;
   document.getElementById('resultSection').style.display = 'none';
   CHAIN.steps.forEach((s, i) => {
     setState(i, 'st-idle', 'idle');
