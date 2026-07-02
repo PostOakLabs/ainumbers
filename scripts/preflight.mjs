@@ -40,6 +40,7 @@ const GATES = [
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
   ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],
+  ['SSOT spec-page parity',        'node chaingraph/standard/spec-page-parity.mjs'],
   ['verify_repo (PII/sitemap/AP2)','python scripts/verify_repo.py'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
   ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
