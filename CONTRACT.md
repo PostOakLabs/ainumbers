@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.5
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.6
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -50,7 +50,18 @@ When bandwidth allows, a proper implementation (translated metadata layer for ES
 ```text
 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 ```
-*All tools MUST use this exact phrasing for legal consistency.*
+*All tools MUST use this exact phrasing for legal consistency.* This banner is the **one sanctioned em-dash** in reader-facing copy; the §1.4 copy-hallmarks gate exempts its exact string verbatim.
+
+### 1.4 Reader-Facing Copy Style (Amendment A6)
+Public HTML pages and the `chaingraph.json` descriptions served to agents are read by outside practitioners; their prose MUST NOT read as machine-generated. The following are **hard rules**, gated by `scripts/check-copy-hallmarks.mjs` (preflight + CI):
+
+- **No em-dashes (—) in human-visible HTML text or in `chaingraph.json` node/chain descriptions.** Rewrite by context: `label — value` → `label: value`; a parenthetical aside → commas or parentheses; a sentence splice → a period, colon, semicolon, or comma. En-dashes (–) in numeric ranges are correct typography and stay. The §1.3 PII banner is the sole exempt em-dash (stripped by the gate verbatim).
+- **No internal build codes in visible prose:** `Wave N`, `W-A`…`W-G`, standalone `D0`. Rewrite the sentence plainly. `ART-xx` / `T-xxx` node ids remain allowed in small monospace metadata lines and technical contexts.
+- **No AI rhetorical tics:** telegraphic "It is not X. It is Y." twotone constructions, punchy `X, not Y` card fragments, and defensive meta-phrasing ("no workflow fabricates details…"). Keep contrasts that carry real technical meaning; rewrite the conspicuous ones plainly.
+- **Guide hubs carry an audience statement** (who the hub is for), in plain prose.
+- **In user-facing prose, call OpenChainGraph chains "workflows."** Slugs, file paths, `chaingraph.json` identifiers, and the OpenChainGraph standard vocabulary in `standard/` are unaffected.
+
+**Gate mechanics.** `scripts/copy-hallmarks-baseline.json` holds not-yet-swept legacy debt (Tier 2/3 tool + guide + chain files, the hub CHAIN_INDEX grid, the tool-directory mirrors in `tools.html`/`sitemap.html`, and the `chaingraph.json#descriptions` bucket until Phase C). A baselined file may carry **at most** its recorded count, so counts only ever go down; any file absent from the baseline must be clean, so new hallmarks fail immediately. Regenerate the baseline with `--update` **only** for a deliberate, reviewed exception, never to paper over a regression.
 
 ---
 

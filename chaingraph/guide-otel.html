@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Using OpenChainGraph with OpenTelemetry — Integration Guide</title>
-<meta name="description" content="Map OpenChainGraph v0.3 decision chains to OpenTelemetry distributed traces. execution_hash → spanId, parent_hashes[0] → parentSpanId, root → traceId. Adapter function, Datadog/Jaeger/Grafana Tempo integration, and OTLP export — zero new infrastructure required.">
-<meta property="og:title" content="OpenChainGraph + OpenTelemetry — Integration Guide">
-<meta property="og:description" content="Map OCG v0.3 decision chains to distributed traces. One adapter function. Works with any OTel-compatible backend — Datadog, Jaeger, Grafana Tempo — via your existing collector.">
+<title>Using OpenChainGraph with OpenTelemetry: Integration Guide</title>
+<meta name="description" content="Map OpenChainGraph v0.3 decision chains to OpenTelemetry distributed traces. execution_hash → spanId, parent_hashes[0] → parentSpanId, root → traceId. Adapter function, Datadog/Jaeger/Grafana Tempo integration, and OTLP export, with zero new infrastructure required.">
+<meta property="og:title" content="OpenChainGraph + OpenTelemetry: Integration Guide">
+<meta property="og:description" content="Map OCG v0.3 decision chains to distributed traces. One adapter function. Works with any OTel-compatible backend (Datadog, Jaeger, Grafana Tempo) via your existing collector.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index, follow">
@@ -178,7 +178,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="eyebrow">OpenChainGraph v0.3 · Integration How-To</div>
     <h1>Using OpenChainGraph with <em>OpenTelemetry</em></h1>
-    <p class="hero-desc">Every OCG v0.3 decision chain is already a distributed trace waiting to be emitted. The <code>execution_hash</code> maps to a <code>spanId</code>, <code>parent_hashes[0]</code> maps to a <code>parentSpanId</code>, and the root artifact's hash anchors the <code>traceId</code>. This guide covers the canonical field mapping, the <code>artifactToOtelSpan()</code> adapter function, OTLP export, and how to surface full decision chains — credit scoring, risk evaluation, compliance gating, capital adequacy — as end-to-end distributed traces in Datadog, Jaeger, or Grafana Tempo. No new infrastructure required if you already run an OTel collector.</p>
+    <p class="hero-desc">Every OCG v0.3 decision chain is already a distributed trace waiting to be emitted. The <code>execution_hash</code> maps to a <code>spanId</code>, <code>parent_hashes[0]</code> maps to a <code>parentSpanId</code>, and the root artifact's hash anchors the <code>traceId</code>. This guide covers the canonical field mapping, the <code>artifactToOtelSpan()</code> adapter function, OTLP export, and how to surface full decision chains (credit scoring, risk evaluation, compliance gating, capital adequacy) as end-to-end distributed traces in Datadog, Jaeger, or Grafana Tempo. No new infrastructure required if you already run an OTel collector.</p>
     <div class="guide-pills">
       <a class="guide-pill" href="guide-prov-dm.html">W3C PROV-DM</a>
       <a class="guide-pill" href="guide-buildtype.html">buildType / SLSA</a>
@@ -197,8 +197,8 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="sec-num">§1</div>
     <h2>Why OCG decision chains are already distributed traces</h2>
     <p>OpenTelemetry's distributed tracing model describes a <code>trace</code> as a tree of <code>spans</code>, where each span has a unique 8-byte <code>spanId</code>, an optional 8-byte <code>parentSpanId</code>, and both share a common 16-byte <code>traceId</code>. A span also carries a name, a start and end timestamp, and a set of key-value attributes describing what happened.</p>
-    <p>An OCG v0.3 decision chain has the same shape. A root artifact (say, an AP2 mandate validator) runs and produces an <code>execution_hash</code>. A downstream artifact (say, a capital adequacy assessor) declares that root hash in its <code>parent_hashes[]</code> field, establishing the parent-child relationship. A full decision chain — mandate → risk → compliance → capital — is a depth-4 span tree with a shared root hash as the trace anchor.</p>
-    <p>The mapping is not an approximation. It is structurally exact: OCG's hash-based chaining mechanism and OTel's ID-based parent linking describe identical DAGs. The <code>artifactToOtelSpan()</code> adapter (§4) is a pure conversion — no information is added or lost.</p>
+    <p>An OCG v0.3 decision chain has the same shape. A root artifact (say, an AP2 mandate validator) runs and produces an <code>execution_hash</code>. A downstream artifact (say, a capital adequacy assessor) declares that root hash in its <code>parent_hashes[]</code> field, establishing the parent-child relationship. A full decision chain (mandate → risk → compliance → capital) is a depth-4 span tree with a shared root hash as the trace anchor.</p>
+    <p>The mapping is not an approximation. It is structurally exact: OCG's hash-based chaining mechanism and OTel's ID-based parent linking describe identical DAGs. The <code>artifactToOtelSpan()</code> adapter (§4) is a pure conversion; no information is added or lost.</p>
 
     <table class="spec-table">
       <thead>
@@ -217,7 +217,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
         <tr>
           <td>spanId (8 bytes)</td>
           <td><code>execution_hash</code> of this artifact, first 8 bytes</td>
-          <td>Unique within the trace by construction — SHA-256 collisions are not a practical concern at this key space.</td>
+          <td>Unique within the trace by construction; SHA-256 collisions are not a practical concern at this key space.</td>
         </tr>
         <tr>
           <td>parentSpanId (8 bytes)</td>
@@ -254,7 +254,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 
     <div class="callout callout-teal">
       <div class="lab">Why first N bytes?</div>
-      <p>OTel <code>traceId</code> is exactly 16 bytes (128 bits) and <code>spanId</code> is exactly 8 bytes (64 bits), expressed as lowercase hex strings. <code>execution_hash</code> is a full SHA-256 hex string (64 hex chars = 32 bytes). Taking the first 32 hex chars (16 bytes) for <code>traceId</code> and the first 16 hex chars (8 bytes) for <code>spanId</code> is the canonical truncation — it preserves the uniqueness properties of SHA-256 at the required bit widths. The full 64-char hash is preserved in the <code>ocg.execution_hash</code> span attribute for verification purposes.</p>
+      <p>OTel <code>traceId</code> is exactly 16 bytes (128 bits) and <code>spanId</code> is exactly 8 bytes (64 bits), expressed as lowercase hex strings. <code>execution_hash</code> is a full SHA-256 hex string (64 hex chars = 32 bytes). Taking the first 32 hex chars (16 bytes) for <code>traceId</code> and the first 16 hex chars (8 bytes) for <code>spanId</code> is the canonical truncation: it preserves the uniqueness properties of SHA-256 at the required bit widths. The full 64-char hash is preserved in the <code>ocg.execution_hash</code> span attribute for verification purposes.</p>
     </div>
   </div>
 </div>
@@ -295,13 +295,13 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
         <div class="map-ocg">mandate_type + tool_id</div>
         <div class="map-arrow">→</div>
         <div class="map-otel">name</div>
-        <div class="map-desc"><code>`${mandate_type}/${tool_id}`</code> — e.g. <code>"liquidity_mandate/lcr-monitor"</code>.</div>
+        <div class="map-desc"><code>`${mandate_type}/${tool_id}`</code>, e.g. <code>"liquidity_mandate/lcr-monitor"</code>.</div>
       </div>
       <div class="map-row">
         <div class="map-ocg">generated_at</div>
         <div class="map-arrow">→</div>
         <div class="map-otel">startTimeUnixNano</div>
-        <div class="map-desc"><code>new Date(generated_at).getTime() * 1_000_000</code> — ISO 8601 to Unix nanoseconds.</div>
+        <div class="map-desc"><code>new Date(generated_at).getTime() * 1_000_000</code>, ISO 8601 to Unix nanoseconds.</div>
       </div>
       <div class="map-row">
         <div class="map-ocg">generated_at (+ 1 ms)</div>
@@ -319,13 +319,13 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
         <div class="map-ocg">tool_id, tool_version, ap2_version, mandate_type, execution_hash (full), audit_signature.signatures[0].keyid, parent_hashes[1+]</div>
         <div class="map-arrow">→</div>
         <div class="map-otel">attributes (ocg.*)</div>
-        <div class="map-desc">All prefixed <code>ocg.</code> — e.g. <code>ocg.tool_id</code>, <code>ocg.execution_hash</code>, <code>ocg.signer_keyid</code>, <code>ocg.secondary_parent_hashes</code>.</div>
+        <div class="map-desc">All prefixed <code>ocg.</code>, e.g. <code>ocg.tool_id</code>, <code>ocg.execution_hash</code>, <code>ocg.signer_keyid</code>, <code>ocg.secondary_parent_hashes</code>.</div>
       </div>
       <div class="map-row">
         <div class="map-ocg">audit_signature.signatures[0].sig</div>
         <div class="map-arrow">→</div>
         <div class="map-otel">ocg.audit_sig (attribute)</div>
-        <div class="map-desc">Base64url Ed25519 signature — carried as an attribute for downstream audit. Not included in OTel security model.</div>
+        <div class="map-desc">Base64url Ed25519 signature, carried as an attribute for downstream audit. Not included in OTel security model.</div>
       </div>
     </div>
   </div>
@@ -336,10 +336,10 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="sec-num">§3</div>
     <h2>What a decision-chain trace looks like in a backend</h2>
-    <p>A four-tool payment authorization chain — AP2 mandate validation, risk scoring, compliance gating, and capital adequacy — produces four OCG artifacts. Converted to OTel spans and emitted to a backend, they appear as a single end-to-end trace with the mandate validator at the root. This is what Datadog's trace view, Jaeger, and Grafana Tempo all render from the same span data.</p>
+    <p>A four-tool payment authorization chain (AP2 mandate validation, risk scoring, compliance gating, and capital adequacy) produces four OCG artifacts. Converted to OTel spans and emitted to a backend, they appear as a single end-to-end trace with the mandate validator at the root. This is what Datadog's trace view, Jaeger, and Grafana Tempo all render from the same span data.</p>
 
     <div class="trace-diagram">
-      <div class="trace-title">Decision-chain trace — four OCG artifacts as OTel spans</div>
+      <div class="trace-title">Decision-chain trace · four OCG artifacts as OTel spans</div>
       <div class="trace-row">
         <div class="trace-label">root · traceId anchor</div>
         <div class="trace-bar trace-bar-root">liquidity_mandate / ap2-mandate-chain-validator · 12ms</div>
@@ -362,7 +362,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
       </div>
     </div>
 
-    <p>Each bar is a single OCG artifact. The parent-child relationships are established by matching each span's <code>parentSpanId</code> (derived from the parent artifact's <code>execution_hash</code>) to the corresponding <code>spanId</code>. The tracing backend assembles the tree — OCG provides the hash wiring; OTel provides the rendering.</p>
+    <p>Each bar is a single OCG artifact. The parent-child relationships are established by matching each span's <code>parentSpanId</code> (derived from the parent artifact's <code>execution_hash</code>) to the corresponding <code>spanId</code>. The tracing backend assembles the tree: OCG provides the hash wiring; OTel provides the rendering.</p>
 
     <div class="callout callout-gold">
       <div class="lab">Root artifact identification</div>
@@ -381,7 +381,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
     <div class="code-block">
       <div class="code-header">
         <span class="code-lang">javascript</span>
-        <span class="code-note">artifactToOtelSpan() — canonical OCG → OTel adapter</span>
+        <span class="code-note">artifactToOtelSpan() · canonical OCG → OTel adapter</span>
       </div>
       <pre><span class="c">/**
  * artifactToOtelSpan(artifact, options)
@@ -503,7 +503,7 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
 
     <div class="callout">
       <div class="lab">Span kind: CLIENT</div>
-      <p>OTel defines five span kinds: SERVER, CLIENT, PRODUCER, CONSUMER, and INTERNAL. OCG tools are modeled as CLIENT spans (kind 3) because they initiate a deterministic operation and wait for a result — analogous to an RPC call in a microservices trace. This makes OCG decision spans visually distinct from your application's server spans in Datadog and Jaeger while keeping them correctly positioned in the trace hierarchy.</p>
+      <p>OTel defines five span kinds: SERVER, CLIENT, PRODUCER, CONSUMER, and INTERNAL. OCG tools are modeled as CLIENT spans (kind 3) because they initiate a deterministic operation and wait for a result, analogous to an RPC call in a microservices trace. This makes OCG decision spans visually distinct from your application's server spans in Datadog and Jaeger while keeping them correctly positioned in the trace hierarchy.</p>
     </div>
   </div>
 </div>
@@ -513,12 +513,12 @@ footer{padding:2.5rem 0 3rem;border-top:1px solid var(--border);margin-top:1rem}
   <div class="wrap">
     <div class="sec-num">§5</div>
     <h2>Exporting to an OTel Collector via OTLP/HTTP</h2>
-    <p>The OTLP/HTTP endpoint (<code>/v1/traces</code>) is the lowest-friction export path: a single <code>fetch()</code> call, no SDK required. If your environment already runs an OTel Collector — even just the default agent that forwards to Datadog, Jaeger, or Grafana Tempo — OCG spans flow through it with zero additional infrastructure.</p>
+    <p>The OTLP/HTTP endpoint (<code>/v1/traces</code>) is the lowest-friction export path: a single <code>fetch()</code> call, no SDK required. If your environment already runs an OTel Collector (even just the default agent that forwards to Datadog, Jaeger, or Grafana Tempo) OCG spans flow through it with zero additional infrastructure.</p>
 
     <div class="code-block">
       <div class="code-header">
         <span class="code-lang">javascript</span>
-        <span class="code-note">Send a decision chain to any OTel Collector via OTLP/HTTP — no SDK required</span>
+        <span class="code-note">Send a decision chain to any OTel Collector via OTLP/HTTP · no SDK required</span>
       </div>
       <pre><span class="c">/**
  * exportChainToOtel(artifacts, collectorUrl, options)
@@ -565,8 +565,8 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
     </div>
 
     <div class="callout callout-teal">
-      <div class="lab">OCG is zero-egress — OTel export is opt-in</div>
-      <p>OCG tools run entirely in-browser with no network calls during execution. The OTLP export call above happens <em>after</em> execution completes, triggered explicitly by the application layer — not by the tool itself. The artifacts are already computed and signed; the OTel call is an optional downstream delivery step. This means OTel export can be conditionally enabled, batched, or omitted entirely without affecting the integrity of the artifact or its <code>execution_hash</code>.</p>
+      <div class="lab">OCG is zero-egress · OTel export is opt-in</div>
+      <p>OCG tools run entirely in-browser with no network calls during execution. The OTLP export call above happens <em>after</em> execution completes, triggered explicitly by the application layer, not by the tool itself. The artifacts are already computed and signed; the OTel call is an optional downstream delivery step. This means OTel export can be conditionally enabled, batched, or omitted entirely without affecting the integrity of the artifact or its <code>execution_hash</code>.</p>
     </div>
   </div>
 </div>
@@ -576,13 +576,13 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
   <div class="wrap">
     <div class="sec-num">§6</div>
     <h2>Backend-specific configuration: Datadog, Jaeger, Grafana Tempo</h2>
-    <p>The OTLP payload format is identical for all three backends. The only differences are the collector URL, the authentication header, and minor backend-specific attribute conventions. In each case, the existing OTel Collector in your environment handles translation — you do not need a separate OCG integration per backend.</p>
+    <p>The OTLP payload format is identical for all three backends. The only differences are the collector URL, the authentication header, and minor backend-specific attribute conventions. In each case, the existing OTel Collector in your environment handles translation; you do not need a separate OCG integration per backend.</p>
 
     <div class="backend-grid">
       <div class="backend-card">
         <div class="backend-name">Datadog</div>
         <div class="backend-url">https://http-intake.logs.datadoghq.com/api/v2/traces (via agent)</div>
-        <div class="backend-desc">Point <code>exportChainToOtel()</code> at your local Datadog Agent's OTLP receiver (<code>localhost:4318</code> by default when <code>otlp_config.receiver.protocols.http</code> is enabled in <code>datadog.yaml</code>). The agent translates OTLP to Datadog's native trace format. Decision chains appear in APM → Traces with full waterfall view. The <code>service.name</code> resource attribute sets the Datadog service. No API key needed in the <code>fetch()</code> call — authentication is the agent's responsibility.</div>
+        <div class="backend-desc">Point <code>exportChainToOtel()</code> at your local Datadog Agent's OTLP receiver (<code>localhost:4318</code> by default when <code>otlp_config.receiver.protocols.http</code> is enabled in <code>datadog.yaml</code>). The agent translates OTLP to Datadog's native trace format. Decision chains appear in APM → Traces with full waterfall view. The <code>service.name</code> resource attribute sets the Datadog service. No API key needed in the <code>fetch()</code> call; authentication is the agent's responsibility.</div>
       </div>
       <div class="backend-card">
         <div class="backend-name">Jaeger</div>
@@ -599,7 +599,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
     <div class="code-block">
       <div class="code-header">
         <span class="code-lang">yaml</span>
-        <span class="code-note">OTel Collector config — receive OCG spans and forward to multiple backends</span>
+        <span class="code-note">OTel Collector config · receive OCG spans and forward to multiple backends</span>
       </div>
       <pre><span class="c"># otel-collector-config.yaml</span>
 <span class="k">receivers</span>:
@@ -643,7 +643,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
 
     <div class="callout callout-purple">
       <div class="lab">CORS on the Collector receiver</div>
-      <p>Because OCG tools run in-browser, <code>exportChainToOtel()</code> is a cross-origin <code>fetch()</code> if the Collector is on a different host or port. The OTel Collector's HTTP receiver supports CORS via the <code>cors.allowed_origins</code> configuration key. In development, <code>"*"</code> is fine. In production, restrict to your application's origin. Alternatively, route through your own backend proxy to avoid CORS entirely — the proxy forwards the OTLP payload to the Collector server-side.</p>
+      <p>Because OCG tools run in-browser, <code>exportChainToOtel()</code> is a cross-origin <code>fetch()</code> if the Collector is on a different host or port. The OTel Collector's HTTP receiver supports CORS via the <code>cors.allowed_origins</code> configuration key. In development, <code>"*"</code> is fine. In production, restrict to your application's origin. Alternatively, route through your own backend proxy to avoid CORS entirely: the proxy forwards the OTLP payload to the Collector server-side.</p>
     </div>
   </div>
 </div>
@@ -653,12 +653,12 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
   <div class="wrap">
     <div class="sec-num">§7</div>
     <h2>Python adapter: batch export for server-side pipelines</h2>
-    <p>When OCG artifacts are generated or aggregated server-side — in a compliance pipeline, an MCP orchestrator, or a batch audit job — the Python adapter below converts an entire artifact chain to OTLP and submits it directly. Compatible with the same Collector configuration from §6.</p>
+    <p>When OCG artifacts are generated or aggregated server-side (in a compliance pipeline, an MCP orchestrator, or a batch audit job) the Python adapter below converts an entire artifact chain to OTLP and submits it directly. Compatible with the same Collector configuration from §6.</p>
 
     <div class="code-block">
       <div class="code-header">
         <span class="code-lang">python</span>
-        <span class="code-note">Python OTLP export — no OTel SDK required, uses requests</span>
+        <span class="code-note">Python OTLP export · no OTel SDK required, uses requests</span>
       </div>
       <pre><span class="k">import</span> json, requests
 <span class="k">from</span> datetime <span class="k">import</span> datetime, timezone
@@ -758,7 +758,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
   <div class="wrap">
     <div class="sec-num">§8</div>
     <h2>Exposing OTel export via the MCP <code>tools/call</code> endpoint</h2>
-    <p>For agentic orchestration scenarios — where an MCP agent coordinates a decision chain and wants to emit a trace automatically after the chain completes — the OTel export function can be exposed as a named MCP tool. This allows an agent to request trace emission without knowing the collector URL or payload format.</p>
+    <p>For agentic orchestration scenarios (where an MCP agent coordinates a decision chain and wants to emit a trace automatically after the chain completes) the OTel export function can be exposed as a named MCP tool. This allows an agent to request trace emission without knowing the collector URL or payload format.</p>
 
     <div class="code-block">
       <div class="code-header">
@@ -799,7 +799,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
 
     <div class="callout callout-green">
       <div class="lab">Why the Collector URL is not an agent input</div>
-      <p>The OTel Collector endpoint is infrastructure configuration, not agent input. Exposing it as an agent-controllable parameter would allow an agent to redirect trace traffic to an arbitrary URL — a data-exfiltration path. The MCP server resolves the Collector URL from its own configuration (environment variable, secrets manager) and never exposes it in the <code>tools/list</code> response or the tool's <code>inputSchema</code>.</p>
+      <p>The OTel Collector endpoint is infrastructure configuration, not agent input. Exposing it as an agent-controllable parameter would allow an agent to redirect trace traffic to an arbitrary URL, a data-exfiltration path. The MCP server resolves the Collector URL from its own configuration (environment variable, secrets manager) and never exposes it in the <code>tools/list</code> response or the tool's <code>inputSchema</code>.</p>
     </div>
   </div>
 </div>
@@ -809,12 +809,12 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
   <div class="wrap">
     <div class="sec-num">§9</div>
     <h2>Sampling, filtering, and compliance-aware trace retention</h2>
-    <p>Not every OCG decision chain needs to be exported as a trace. High-volume environments — batch sanction screening, automated settlement validation — may generate thousands of artifacts per minute. The OTel Collector's tail sampling and attribute filtering processors let you selectively retain traces based on OCG-specific attributes without changing the adapter code.</p>
+    <p>Not every OCG decision chain needs to be exported as a trace. High-volume environments (batch sanction screening, automated settlement validation) may generate thousands of artifacts per minute. The OTel Collector's tail sampling and attribute filtering processors let you selectively retain traces based on OCG-specific attributes without changing the adapter code.</p>
 
     <div class="code-block">
       <div class="code-header">
         <span class="code-lang">yaml</span>
-        <span class="code-note">Collector tail-sampling policy — retain FAIL chains and all capital assessments</span>
+        <span class="code-note">Collector tail-sampling policy · retain FAIL chains and all capital assessments</span>
       </div>
       <pre><span class="c"># Add to the processors section of otel-collector-config.yaml</span>
 <span class="k">processors</span>:
@@ -849,7 +849,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
 
     <div class="callout callout-gold">
       <div class="lab">Regulatory retention vs. trace retention</div>
-      <p>OTel trace retention is for operational observability — debugging, latency profiling, alerting. It is separate from regulatory artifact retention. OCG artifacts (the signed AP2 JSON with <code>execution_hash</code> and <code>audit_signature</code>) must be retained per your compliance obligations regardless of whether a corresponding OTel trace exists. Dropping a trace from Datadog does not affect the artifact's integrity or audit trail. Keep artifact retention and trace retention policies independent.</p>
+      <p>OTel trace retention is for operational observability: debugging, latency profiling, alerting. It is separate from regulatory artifact retention. OCG artifacts (the signed AP2 JSON with <code>execution_hash</code> and <code>audit_signature</code>) must be retained per your compliance obligations regardless of whether a corresponding OTel trace exists. Dropping a trace from Datadog does not affect the artifact's integrity or audit trail. Keep artifact retention and trace retention policies independent.</p>
     </div>
   </div>
 </div>
@@ -910,7 +910,7 @@ console.log(result);  <span class="c">// { ok: true, status: 200, message: "Span
 
     <div class="callout">
       <div class="lab">What you don't need for OCG trace emission</div>
-      <p>The OTel adapter described in this guide requires no OTel SDK, no auto-instrumentation agent, no OpenTelemetry API package, and no modifications to the OCG tool itself. It is a pure JSON construction and a single <code>fetch()</code> call. If you already run an OTel Collector — which most teams with Datadog, Grafana Cloud, or a managed observability platform do — OCG decision-chain tracing requires zero new infrastructure. The only new code is <code>artifactToOtelSpan()</code> and <code>chainToOtlpPayload()</code>, both of which fit in a single file under 100 lines.</p>
+      <p>The OTel adapter described in this guide requires no OTel SDK, no auto-instrumentation agent, no OpenTelemetry API package, and no modifications to the OCG tool itself. It is a pure JSON construction and a single <code>fetch()</code> call. If you already run an OTel Collector (which most teams with Datadog, Grafana Cloud, or a managed observability platform do) OCG decision-chain tracing requires zero new infrastructure. The only new code is <code>artifactToOtelSpan()</code> and <code>chainToOtlpPayload()</code>, both of which fit in a single file under 100 lines.</p>
     </div>
   </div>
 </div>
