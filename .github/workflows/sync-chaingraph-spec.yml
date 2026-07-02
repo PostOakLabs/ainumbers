@@ -57,17 +57,21 @@ jobs:
           cp site/chaingraph/standard/SPEC.md                          mirror/SPEC.md
           cp site/chaingraph/standard/openchain-graph-v0.4.schema.json mirror/schema/openchain-graph-v0.4.schema.json
           cp site/chaingraph/openchain-graph-spec.html                 mirror/spec.html
+          # The mirror is pure static (HTML/MD/JSON) — disable Jekyll so Pages does a fast static build.
+          # Without this, Pages runs Jekyll and a spec commit can error the build, leaving live Pages stale.
+          touch mirror/.nojekyll
 
       - name: Commit & push if changed
         working-directory: mirror
         run: |
           git config user.name  "${{ steps.app-token.outputs.app-slug }}[bot]"
           git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
-          if git diff --quiet; then
+          # -A of the explicit paths only (never a blanket add — mirror-owned index.html/profiles/ must stay untouched)
+          if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard .nojekyll)" ]; then
             echo "Mirror already in sync — nothing to push."
             exit 0
           fi
-          git add SPEC.md schema/openchain-graph-v0.4.schema.json spec.html
+          git add SPEC.md schema/openchain-graph-v0.4.schema.json spec.html .nojekyll
           git commit -m "sync: mirror OpenChainGraph spec from PostOakLabs/ainumbers@${GITHUB_SHA:0:7}"
           git push origin main
           echo "Pushed spec sync to PostOakLabs/chaingraph."

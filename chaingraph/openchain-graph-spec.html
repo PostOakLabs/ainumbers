@@ -991,6 +991,9 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
     <h3>§16.2: Privacy tradeoff (default-off)</h3>
     <p>A §16 proof makes a run linkable to a key, eroding the default zero-PII anonymous posture (a feature for some users). Proof Binding therefore <strong>MUST default OFF</strong> and MUST NOT be auto-applied; a tool offering it MUST surface that signing de-anonymizes the run. <code>zero_pii_verified</code> semantics are unchanged: inputs stay PII-free; the <em>signer</em> becomes known.</p>
 
+    <h3>§16.3: Relation to §13.11</h3>
+    <p>A §16 proof secures the <strong>canonical OCG artifact</strong>, not the <code>vc</code> re-expression (§13.11). When that artifact is exported as a VC, its <code>ocg:hashAnchor</code> routes a verifier back to the canonical JSON where the proof lives, so the secured artifact stays verifiable through the VC. A deployer needing a proof <em>on the VC document itself</em> re-runs the same <code>eddsa-jcs-2022</code> pipeline over the VC (a distinct proof, outside §16 scope).</p>
+
     <h3>§16.4: Issuer identity: did:key vs did:web</h3>
     <p>For <em>ephemeral</em> / fully client-side signing a <code>did:key</code> suffices and is the only CONTRACT-compatible option (a private key MUST NOT ship in client HTML or storage). A <em>stable institutional</em> issuer SHOULD anchor to <code>did:web</code> over the publisher's domain with the private key held in an HSM/KMS and signing performed server-side (e.g. the §12 compute path). Both are interoperable <code>verificationMethod</code> values.</p>
   </div>
@@ -1051,6 +1054,12 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 
     <h3>§18.4: The strength-of-verifiable ladder</h3>
     <p>§17 = advisory claim of <em>which</em> kernel; §18 = cryptographic proof that <em>that</em> program produced <em>this</em> output; §16 = a named key vouching for the whole artifact. They compose: a §18 receipt MAY itself be covered by a §16 proof. <strong>L1</strong> §4 hash (tamper-evidence) → <strong>L2</strong> §16 proof (authenticated attestation) → <strong>L3</strong> §18 receipt (succinct compute-integrity, optionally confidential).</p>
+
+    <h3>§18.5: Deterministic guest-equivalent kernels</h3>
+    <p>A §18 proof runs the kernel in a fixed zkVM guest (a pinned JS runtime), not the browser's V8. Where a rule would otherwise depend on a V8 platform API that is locale- or environment-sensitive, or whose faithful in-guest port is infeasible to prove, the kernel MUST use a <strong>deterministic, fully specified replacement</strong> applied <strong>identically on every surface</strong> (guest, browser tool, Worker) so the verdict is byte-identical everywhere and the proof binds the rule users actually see. Shipped instances: a pinned <code>en-US</code> number formatter in place of <code>toLocaleString</code>; a deterministic https-scheme plus non-empty-authority check in place of WHATWG URL parsing (faithful parsing measured near 5.4 billion guest cycles, infeasible to prove); and a shared pure-JS fdlibm port for transcendental math (<code>Math.exp/log/sin/cos/pow</code>), since only the four arithmetic operations and square root are IEEE bit-portable across engines. Each replacement documents its scope: it defines the rule, not an approximation of richer V8 behavior. A node whose deterministic proving cost is still prohibitive (for example tens of thousands of transcendental calls in a Monte-Carlo loop) MAY carry the replacement for cross-surface determinism yet stay <code>compute_proof_ready:"deferred"</code> until a larger prover exists.</p>
+
+    <h3>§18.6: Deterministic-node proof profile (<code>ocg-p18-deterministic</code>)</h3>
+    <p>The base standard keeps §18 OPTIONAL. An implementation MAY additionally declare conformance to the <strong>deterministic-node proof profile</strong>. Under it, every <code>status:"live"</code> node with <code>gpu:false</code> MUST either carry a <code>compute_proof</code> that verifies against its published <code>imageId</code> (§18.1) or declare <code>compute_proof_ready:"deferred"</code> with a stated <code>deferral_reason</code>; a node with neither is non-conformant to the profile. A <code>gpu:true</code> node is <strong>out of scope</strong> (heavy or parallel compute whose faithful in-guest proving cost is prohibitive, §18.2; it MAY still attach a proof voluntarily). A blanket §18 MUST is impossible because legitimate heavy or nondeterministic-cost nodes cannot be proven at acceptable cost, while an all-optional posture makes a proof an unreliable, and therefore unusable, trust signal. The profile is the middle path: a MUST exactly over the class where it is achievable, leaving the base standard unchanged for external implementers. Conformance is machine-checked by <code>check-compute-proof-coverage.mjs</code>. Its endgame, zero deferrals on <code>gpu:false</code>, is the state where every deterministic live node carries a real compute-integrity proof; the AINumbers reference deployment conforms with zero deferrals.</p>
   </div>
 </div>
 
@@ -1072,7 +1081,15 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
     <div class="sec-num">§14 · Changelog</div>
     <h2>Changelog</h2>
 
-    <h3 style="margin-top:.4rem">v0.5.0 → v0.6.0: 2026-06-27</h3>
+    <h3 style="margin-top:.4rem">v0.6.0 → v0.6.1: 2026-07-02</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§18.6 (new)</span>
+        <span class="change-desc"><strong>Deterministic-node proof profile</strong> (<code>ocg-p18-deterministic</code>). Additive, opt-in conformance profile: under it every <code>status:"live"</code> <code>gpu:false</code> node MUST carry a verifying <code>compute_proof</code> or declare <code>compute_proof_ready:"deferred"</code> with a reason; <code>gpu:true</code> is out of scope (prohibitive in-guest proving cost, §18.2). Base §18 stays OPTIONAL for external implementers. Machine-checked by <code>check-compute-proof-coverage.mjs</code>. No envelope, hash, or schema change: <code>chaingraph_version</code> stays <code>"0.4.0"</code>; only <code>spec_version</code> bumps to 0.6.1. The AINumbers reference deployment conforms with zero deferrals.</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.6rem">v0.5.0 → v0.6.0: 2026-06-27</h3>
     <div style="margin-top:.6rem">
       <div class="change-row">
         <span class="change-ref">§17 (new)</span>
