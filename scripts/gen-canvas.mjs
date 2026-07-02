@@ -72,8 +72,48 @@ console.log(`gen-canvas: ${catalog.length} nodes (${runnableCount} browser-runna
 
 const NODES_JSON = JSON.stringify(catalog);
 
+/* ── G5: curated template chains ────────────────────────────────── */
+const NODE_BY_TOOL = Object.fromEntries(catalog.map(n => [n.tool_id, n]));
+/* Chains whose steps are ALL canvas-renderable art-* nodes */
+const TEMPLATE_NAMES = [
+  'agent-identity-trust',          // Agent identity · 3 steps
+  'agent-commerce-conformance',     // Agent commerce · 4 steps
+  'digital-trade-ebl-enforceability', // Digital trade · 3 steps
+  'digital-trade-doc-integrity',    // Trade doc integrity · 3 steps
+  'treasury-clearing-repo-margin',  // Repo margin · 4 steps
+  'treasury-clearing-collateral',   // Collateral · 3 steps
+  'canton-margin-call',             // Canton / DvP · 3 steps
+  'wholesale-settlement-deposit-token', // Settlement · 3 steps
+  'nis2-entity-scope-and-obligations',  // NIS2 · 3 steps
+  'eudr-due-diligence-statement-validation', // EUDR · 3 steps
+];
+
+function chainGState(chain) {
+  const NW_S = 224, GAP_S = 80, Y_S = 280;
+  const n = chain.steps.map((s, i) => ({ i: i + 1, t: s.tool_id, x: 80 + i * (NW_S + GAP_S), y: Y_S }));
+  const e = [];
+  for (let i = 0; i < chain.steps.length - 1; i++) e.push({ f: i + 1, t: i + 2 });
+  return Buffer.from(JSON.stringify({ n, e })).toString('base64url');
+}
+
+const templateCards = TEMPLATE_NAMES.map(name => {
+  const chain = cg.chains.find(c => c.name === name);
+  if (!chain) return null;
+  /* all steps must be art-* nodes known to the canvas catalog */
+  if (!chain.steps.every(s => NODE_BY_TOOL[s.tool_id])) return null;
+  const g = chainGState(chain);
+  const safeTitle = chain.title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return '<div class="cv-tmpl" data-g="' + g + '">'
+    + '<div class="cv-tmpl-title">' + safeTitle + '</div>'
+    + '<div class="cv-tmpl-steps">' + chain.steps.length + ' steps</div>'
+    + '</div>';
+}).filter(Boolean);
+
+const TEMPLATES_HTML = templateCards.join('');
+
 /* ── HTML template ──────────────────────────────────────────────── */
 const NODES_PH = '/*__NODES_DATA__*/';
+const TEMPLATES_PH = '/*__TEMPLATES_HTML__*/';
 
 function renderCanvas() {
   const html = `<!DOCTYPE html>
@@ -151,11 +191,17 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .cv-edge{fill:none;stroke:var(--border-2);stroke-width:1.5}
 .cv-edge.valid{stroke:rgba(20,184,166,.5)}
 .cv-preview{fill:none;stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5,3;pointer-events:none}
-/* Empty canvas state */
-.cv-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;pointer-events:none}
+/* Empty canvas state + G5 template cards */
+.cv-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;pointer-events:none;padding:1rem}
 .cv-empty-icon{font-size:2.5rem;opacity:.2}
 .cv-empty-title{font-size:.9rem;color:var(--body)}
 .cv-empty-hint{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);text-align:center}
+.cv-tmpl-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.cv-templates{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;max-width:680px;pointer-events:auto}
+.cv-tmpl{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.4rem .65rem;cursor:pointer;transition:all .15s;text-align:center;min-width:120px}
+.cv-tmpl:hover{border-color:var(--teal);background:var(--teal-dim)}
+.cv-tmpl-title{font-size:.65rem;color:var(--bright);font-weight:400;line-height:1.25}
+.cv-tmpl-steps{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.15rem}
 /* Right pane — artifact */
 .pane-right{background:var(--bg-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
 .pane-right::-webkit-scrollbar{width:3px}
@@ -215,6 +261,7 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
     <div class="cv-toolbar">
       <button class="cv-btn cv-btn-teal" id="runBtn" onclick="runCanvas()" disabled>&#x25B6; Run</button>
       <button class="cv-btn cv-btn-dim" onclick="clearCanvas()">&#x2715; Clear</button>
+      <button class="cv-btn cv-btn-dim" id="layoutBtn" onclick="autoLayout()" title="Auto-arrange nodes by topology">&#x25A4; Layout</button>
       <button class="cv-btn cv-btn-dim" onclick="copyDeepLink()" id="linkBtn" title="Copy deep-link to clipboard">&#x1F517; Link</button>
       <span class="cv-status" id="cvStatus">Add nodes from the palette to begin</span>
       <span class="cv-hint" id="cvHint"></span>
@@ -223,8 +270,10 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
       <svg id="canvas-svg" xmlns="http://www.w3.org/2000/svg" width="3000" height="2000"></svg>
       <div class="cv-empty" id="cvEmpty">
         <div class="cv-empty-icon">&#x26D3;</div>
-        <div class="cv-empty-title">Drag nodes from the palette</div>
-        <div class="cv-empty-hint">Click a node in the left panel to add it to the canvas.<br>Connect output ports (&bull;) to input ports to define data flow.<br>Edge validity enforced via OCG feeds/consumes graph.</div>
+        <div class="cv-empty-title">Start from a chain or drag nodes from the palette</div>
+        <div class="cv-empty-hint">Click a starting point below, or add nodes from the left panel.<br>Connect output ports (&bull;) to input ports &mdash; edges enforced via OCG feeds/consumes.</div>
+        <div class="cv-tmpl-label">Starting points</div>
+        <div class="cv-templates" id="cvTemplates">${TEMPLATES_PH}</div>
       </div>
     </div>
   </div>
@@ -594,6 +643,75 @@ function fallbackCopy(t) {
   document.body.removeChild(ta);
 }
 
+/* ── G4: bespoke auto-layout (longest-path layering + barycenter ordering) ── */
+function autoLayout() {
+  if (!canvasNodes.length) return;
+  /* build adjacency + reverse adjacency */
+  var adj = {}, radj = {};
+  for (var i = 0; i < canvasNodes.length; i++) { adj[canvasNodes[i].id] = []; radj[canvasNodes[i].id] = []; }
+  for (var ei = 0; ei < edges.length; ei++) {
+    adj[edges[ei].from_id].push(edges[ei].to_id);
+    radj[edges[ei].to_id].push(edges[ei].from_id);
+  }
+  /* longest-path layering: layer[id] = max dist to any successor */
+  var lp = {};
+  function longestPath(id) {
+    if (lp[id] !== undefined) return lp[id];
+    var succ = adj[id] || [], mx = 0;
+    for (var k = 0; k < succ.length; k++) { var v = longestPath(succ[k]) + 1; if (v > mx) mx = v; }
+    lp[id] = mx; return mx;
+  }
+  for (var n0 = 0; n0 < canvasNodes.length; n0++) longestPath(canvasNodes[n0].id);
+  /* flip so sources = layer 0 */
+  var maxL = 0;
+  for (var n1 = 0; n1 < canvasNodes.length; n1++) if (lp[canvasNodes[n1].id] > maxL) maxL = lp[canvasNodes[n1].id];
+  var layer = {};
+  for (var n2 = 0; n2 < canvasNodes.length; n2++) layer[canvasNodes[n2].id] = maxL - lp[canvasNodes[n2].id];
+  /* group by layer */
+  var layers = {};
+  for (var n3 = 0; n3 < canvasNodes.length; n3++) {
+    var l = layer[canvasNodes[n3].id];
+    if (!layers[l]) layers[l] = [];
+    layers[l].push(canvasNodes[n3].id);
+  }
+  /* barycenter ordering within each layer */
+  var prevPos = {};
+  var layerNums = Object.keys(layers).map(Number).sort(function(a,b){return a-b;});
+  for (var li = 0; li < layerNums.length; li++) {
+    var lNum = layerNums[li];
+    var ids = layers[lNum].slice();
+    if (li === 0) {
+      ids.sort(function(a,b){
+        var na = canvasNodes.find(function(n){return n.id===a;});
+        var nb = canvasNodes.find(function(n){return n.id===b;});
+        return (na?na.y:0)-(nb?nb.y:0);
+      });
+    } else {
+      ids.sort(function(a,b){
+        function bc(id){
+          var preds=radj[id]||[], sum=0, cnt=0;
+          for(var p=0;p<preds.length;p++){if(prevPos[preds[p]]!==undefined){sum+=prevPos[preds[p]];cnt++;}}
+          return cnt?sum/cnt:999;
+        }
+        return bc(a)-bc(b);
+      });
+    }
+    for (var oi = 0; oi < ids.length; oi++) prevPos[ids[oi]] = oi;
+    layers[lNum] = ids;
+  }
+  /* assign positions */
+  var H_STRIDE = NW + 80, V_STRIDE = NH + 48, SX = 80, SY = 80;
+  for (var li2 = 0; li2 < layerNums.length; li2++) {
+    var lNum2 = layerNums[li2];
+    var ids2 = layers[lNum2];
+    for (var ni = 0; ni < ids2.length; ni++) {
+      var cn = canvasNodes.find(function(n){return n.id===ids2[ni];});
+      if (cn) { cn.x = snap(SX + li2 * H_STRIDE); cn.y = snap(SY + ni * V_STRIDE); }
+    }
+  }
+  render(); saveHash();
+}
+
 /* ── topological sort ── */
 function topoSort() {
   var adj = {}, inDeg = {};
@@ -822,6 +940,23 @@ function apExportVC() {
   dl(JSON.stringify(vc,null,2), 'canvas-composition_'+ts14()+'.vc.json','application/vc+json');
 }
 
+/* ── G5: template card click handler ── */
+document.getElementById('cvTemplates').addEventListener('click', function(e) {
+  var card = e.target.closest('.cv-tmpl');
+  if (!card || !card.dataset.g) return;
+  clearCanvas();
+  var b64 = card.dataset.g.replace(/-/g,'+').replace(/_/g,'/');
+  var padded = b64 + '=='.slice((b64.length+2)%4);
+  try {
+    var bytes = Uint8Array.from(atob(padded), function(c){return c.charCodeAt(0);});
+    var state = JSON.parse(new TextDecoder().decode(bytes));
+    for (var i = 0; i < state.n.length; i++) {
+      var sn = state.n[i]; addNode(sn.t, sn.x, sn.y, sn.i);
+    }
+    for (var j = 0; j < state.e.length; j++) { addEdge(state.e[j].f, state.e[j].t); }
+  } catch(err) {}
+});
+
 /* ── init ── */
 window.addEventListener('DOMContentLoaded', function() {
   renderPalette();
@@ -882,7 +1017,7 @@ async function apVerifySig(){
 </body>
 </html>`;
 
-  return html.replace(NODES_PH, () => NODES_JSON);
+  return html.replace(NODES_PH, () => NODES_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML);
 }
 
 /* ── check or write ──────────────────────────────────────────────── */

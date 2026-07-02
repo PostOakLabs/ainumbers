@@ -94,6 +94,23 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .snap-title{font-size:.72rem;color:var(--text);flex:1;line-height:1.25}
 .snap-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--teal)}
 .rp-empty{padding:1.5rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);line-height:1.7}
+/* Step ladder — G2 */
+.step-ladder{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.4rem .9rem;flex-shrink:0;max-height:160px;overflow-y:auto}
+.step-ladder::-webkit-scrollbar{width:3px}
+.step-ladder::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:2px}
+.sl-row{display:flex;align-items:center;gap:.5rem;padding:.25rem .3rem;border-radius:3px;transition:background .1s;cursor:default}
+.sl-row.sl-clickable{cursor:pointer}.sl-row.sl-clickable:hover{background:var(--bg-3)}
+.sl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--muted);transition:background .2s}
+.sl-dot.running{background:var(--warn)}.sl-dot.done{background:var(--green)}.sl-dot.fail{background:var(--red)}
+.sl-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-state{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);flex-shrink:0}
+.sl-detail{background:var(--bg-3);border:1px solid var(--border);border-radius:3px;padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--text);white-space:pre-wrap;word-break:break-all;max-height:100px;overflow-y:auto;margin:.2rem 0 .1rem 1.3rem}
+/* Accordion — G1b */
+.acc-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:.55rem 0;border-top:1px solid var(--border)}
+.acc-header:first-child{border-top:none}
+.acc-chevron{font-size:.6rem;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.acc-header.open .acc-chevron{transform:rotate(180deg)}
+.acc-body{overflow:hidden}
 /* Responsive: stack on narrow screens */
 @media(max-width:900px){
   body{overflow:auto}
@@ -138,6 +155,8 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
       <button class="run-btn" id="wbRunBtn" onclick="wbRunChain()" disabled>&#x25B6; Run Chain</button>
       <span class="center-chain-name" id="centerChainName">— select a chain —</span>
     </div>
+    <!-- Step ladder — per-step run status (G2) -->
+    <div class="step-ladder" id="stepLadder" style="display:none"></div>
     <!-- Empty state -->
     <div class="center-state" id="emptyState">
       <div class="cs-icon">&#x26D3;</div>
@@ -180,30 +199,38 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
       </div>
     </div>
 
-    <!-- Artifact section (visible after run) -->
+    <!-- Artifact section (visible after run) — G1b: export sections accordioned -->
     <div id="artifactSection" style="display:none">
       <div class="rp-section">
-        <div class="rp-label">&#167;4 Composite Execution Hash</div>
+        <div class="rp-label">&#167;4 Execution Hash</div>
         <div class="hash-display"><span class="hash-label">execution_hash:</span><span id="apHash"></span></div>
         <div class="verify-row">
           <button class="ex-btn ex-primary" onclick="apVerify()">&#x2713; Verify</button>
           <span class="verify-out" id="apVerifyOut"></span>
         </div>
-      </div>
-      <div class="rp-section">
-        <div class="rp-label">Export</div>
-        <div class="ex-row">
-          <button class="ex-btn ex-primary" onclick="apExportArtifact()">&#x2B07; &#167;4 Artifact</button>
-          <button class="ex-btn ex-purple" onclick="apExportVC()">&#x2B07; W3C VC (&#167;13.11)</button>
+        <!-- Accordion: §4 + §13.11 exports -->
+        <div class="acc-header" id="accExportHdr" onclick="toggleAcc('export')" aria-expanded="false">
+          <span class="rp-label" style="margin:0">Export</span>
+          <span class="acc-chevron">&#x25BC;</span>
         </div>
-        <div class="ex-row">
-          <button class="ex-btn ex-secondary" onclick="apSign()">&#x2B07; Sign (Ed25519 &middot; &#167;16)</button>
-          <button class="ex-btn ex-secondary" onclick="apVerifySig()">&#x1F510; Verify signature</button>
+        <div class="acc-body" id="accExportBody" style="display:none">
+          <div class="ex-row" style="margin-top:.4rem">
+            <button class="ex-btn ex-primary" onclick="apExportArtifact()">&#x2B07; &#167;4 Artifact</button>
+            <button class="ex-btn ex-purple" onclick="apExportVC()">&#x2B07; W3C VC (&#167;13.11)</button>
+          </div>
+          <div class="ex-row">
+            <button class="ex-btn ex-secondary" onclick="apSign()">&#x2B07; Sign (Ed25519 &middot; &#167;16)</button>
+            <button class="ex-btn ex-secondary" onclick="apVerifySig()">&#x1F510; Verify sig</button>
+          </div>
         </div>
-      </div>
-      <div class="rp-section" id="snapSection" style="display:none">
-        <div class="rp-label">&#x27A1; Snap-Compatible Downstream</div>
-        <div id="snapList"></div>
+        <!-- Accordion: snap-compat -->
+        <div class="acc-header" id="accSnapHdr" onclick="toggleAcc('snap')" aria-expanded="false" style="display:none">
+          <span class="rp-label" style="margin:0">&#x27A1; Downstream</span>
+          <span class="acc-chevron">&#x25BC;</span>
+        </div>
+        <div class="acc-body" id="accSnapBody" style="display:none">
+          <div id="snapList" style="margin-top:.35rem"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -298,14 +325,35 @@ function selectChain(name) {
   var item = document.querySelector('.chain-item[data-name="'+escHtml(name)+'"]');
   if (item) { item.classList.add('selected'); item.scrollIntoView({ block:'nearest' }); }
 
-  /* center pane */
+  /* center pane — clear step ladder before re-populating */
   document.getElementById('centerChainName').textContent = chain.title;
+  (function(){ var sl = document.getElementById('stepLadder'); sl.innerHTML = ''; sl.style.display = 'none'; })();
+  _slDetailShown = null;
+  var old = document.getElementById('slDetail'); if (old) old.remove();
   var frame = document.getElementById('runnerFrame');
   if (chain.has_runner) {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('noRunnerState').style.display = 'none';
     frame.style.display = 'block';
-    frame.src = '../runners/' + name + '.html';
+    frame.src = '../runners/' + name + '.html#embed';
+    /* pre-populate step ladder with pending rows from catalog step names */
+    (function() {
+      var ladder = document.getElementById('stepLadder');
+      var h = '';
+      for (var si = 0; si < chain.step_names.length; si++) {
+        h += '<div class="sl-row" id="slRow' + si + '" data-step="' + si + '">'
+          + '<span class="sl-dot" id="slDot' + si + '"></span>'
+          + '<span class="sl-name">' + escHtml(chain.step_names[si]) + '</span>'
+          + '<span class="sl-state" id="slSt' + si + '">pending</span>'
+          + '</div>';
+      }
+      ladder.innerHTML = h;
+      ladder.style.display = chain.step_names.length ? 'block' : 'none';
+      ladder.onclick = function(ev) {
+        var row = ev.target.closest('.sl-row');
+        if (row && row.dataset.step !== undefined) showStepDetail(parseInt(row.dataset.step));
+      };
+    })();
     var btn = document.getElementById('wbRunBtn');
     btn.disabled = true;
     btn.textContent = '▶ Run Chain';
@@ -325,7 +373,8 @@ function selectChain(name) {
   var stepPreview = chain.step_names.slice(0, 3).join(' → ') + (chain.step_count > 3 ? ' …' : '');
   document.getElementById('rpMeta').textContent = chain.step_count + ' steps · ' + stepPreview;
   document.getElementById('artifactSection').style.display = 'none';
-  document.getElementById('snapSection').style.display = 'none';
+  document.getElementById('accSnapHdr').style.display = 'none';
+  document.getElementById('accSnapBody').style.display = 'none';
   document.getElementById('apVerifyOut').textContent = '';
 
   /* MCP snippet */
@@ -377,6 +426,8 @@ function checkForResult() {
   try {
     var doc = frame.contentDocument;
     if (!doc) return;
+    /* G2: update step ladder from runner stage-state elements */
+    updateStepLadder(frame, doc);
     var rs = doc.getElementById('resultSection');
     if (!rs || rs.style.display === 'none') return;
     var hashEl = doc.getElementById('hashValue');
@@ -387,6 +438,64 @@ function checkForResult() {
     try { currentArtifact = jsonEl ? JSON.parse(jsonEl.textContent) : null; } catch(e2) { currentArtifact = null; }
     showArtifact();
   } catch(e) { /* cross-origin guard */ }
+}
+
+/* ── G2: step ladder update ── */
+function updateStepLadder(frame, doc) {
+  var i = 0;
+  while (true) {
+    var stEl = doc.getElementById('state' + i);
+    if (!stEl) break;
+    var dot = document.getElementById('slDot' + i);
+    var st  = document.getElementById('slSt' + i);
+    var row = document.getElementById('slRow' + i);
+    if (dot && st && row) {
+      var cls = stEl.className || '';
+      if (cls.indexOf('st-running') >= 0) {
+        dot.className = 'sl-dot running'; st.textContent = 'running'; row.className = 'sl-row';
+      } else if (cls.indexOf('st-done') >= 0) {
+        dot.className = 'sl-dot done'; st.textContent = 'done'; row.className = 'sl-row sl-clickable';
+      } else if (cls.indexOf('st-empty') >= 0) {
+        dot.className = 'sl-dot fail'; st.textContent = 'no output'; row.className = 'sl-row sl-clickable';
+      } else {
+        dot.className = 'sl-dot'; st.textContent = 'pending'; row.className = 'sl-row';
+      }
+    }
+    i++;
+  }
+}
+
+var _slDetailShown = null;
+function showStepDetail(idx) {
+  var old = document.getElementById('slDetail');
+  if (old) old.remove();
+  if (_slDetailShown === idx) { _slDetailShown = null; return; }
+  _slDetailShown = idx;
+  var frame = document.getElementById('runnerFrame');
+  try {
+    var col = frame.contentWindow.collected;
+    if (!col || !col[idx]) return;
+    var step = col[idx];
+    var text = step.mandate
+      ? JSON.stringify(step.mandate.payload || step.mandate, null, 2)
+      : (step.error || 'no mandate produced');
+    var det = document.createElement('div');
+    det.id = 'slDetail'; det.className = 'sl-detail';
+    det.textContent = text;
+    var row = document.getElementById('slRow' + idx);
+    if (row) row.after(det);
+  } catch(e) { /* guard */ }
+}
+
+/* ── G1b: accordion toggle ── */
+function toggleAcc(key) {
+  var hdr = document.getElementById('acc' + key.charAt(0).toUpperCase() + key.slice(1) + 'Hdr');
+  var body = document.getElementById('acc' + key.charAt(0).toUpperCase() + key.slice(1) + 'Body');
+  if (!hdr || !body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  hdr.classList.toggle('open', !open);
+  hdr.setAttribute('aria-expanded', String(!open));
 }
 
 /* ── show artifact ── */
@@ -427,7 +536,7 @@ function updateSnapSuggestions() {
     var item = e.target.closest('.snap-item');
     if (item && item.dataset.name) selectChain(item.dataset.name);
   };
-  document.getElementById('snapSection').style.display = 'block';
+  document.getElementById('accSnapHdr').style.display = 'flex';
 }
 
 /* ── right panel verify ── */
