@@ -30,6 +30,7 @@ ainumbers/
 - **Storage:** All client storage forbidden — `sessionStorage`, `localStorage`, `cookies`, `IndexedDB`. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see `CONTRACT.md` §1.1.)
 - **Routing:** Tools in `tools/` must use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes for all internal links. Absolute URLs reserved strictly for `suite-registry.json` & external MCP endpoints.
 - **License:** CC BY 4.0. Code must be readable, commented, and attribution-ready.
+- **Reader-facing copy (CONTRACT §1.4):** Public HTML prose and `chaingraph.json` descriptions must pass the copy-hallmarks gate — no em-dashes (en-dash ranges fine; §1.3 banner exempt) and no build codes (`Wave N`, `W-A`…`W-G`, `D0`) in visible text. Gate: `node scripts/check-copy-hallmarks.mjs` (in preflight + CI); `scripts/copy-hallmarks-baseline.json` shields unswept legacy debt, counts only go down.
 
 ## 🤖 MCP / tool-registration invariants (CONTRACT §A4 — MUST)
 

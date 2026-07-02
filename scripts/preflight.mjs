@@ -34,6 +34,7 @@ const GATES = [
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
+  ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
