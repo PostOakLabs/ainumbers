@@ -527,6 +527,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | Live server registers every expected mcp_name | **`verify-mcp-registered.mjs`** (Addendum A) | post-deploy |
 | §1 envelope + node object well-formed | **`schema-validate.mjs`** (this schema) | validate |
 | single version of record across surfaces | **`spec-version-consistency.mjs`** | validate |
+| rendered spec page (openchain-graph-spec.html) section + TOC parity with SPEC.md §s | **`spec-page-parity.mjs`** | validate |
 | every surface count == chaingraph.json (Resources/Tools/Prompts) | **`surface-parity.mjs`** (Addendum A) | validate |
 | every node `url` page + chain page exists (no orphans) | `catalog-parity.mjs` | validate |
 | unique mcp_name (nodes+pilot+utility) | `check-tool-names.mjs` | validate |
