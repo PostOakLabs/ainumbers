@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Conversion Receipt Builder · ART-191 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Bind one client-side file conversion into a canonical receipt: input digest, converter identity, parameters, output digest. Emits binding_sha256 that round-trips through the Conversion Receipt Verifier. Zero network, zero PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-191-conversion-receipt-builder.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:stretch}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:90px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:3.5rem;font-weight:800;padding:.1rem .5rem;border-radius:8px;display:inline-block;line-height:1.1}
+.grade-A{color:var(--green);background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3)}
+.grade-B{color:var(--teal-lt);background:rgba(20,184,166,.08);border:2px solid rgba(20,184,166,.3)}
+.grade-C{color:var(--gold);background:rgba(212,168,71,.1);border:2px solid rgba(212,168,71,.3)}
+.grade-D{color:var(--warn);background:rgba(245,158,11,.08);border:2px solid rgba(245,158,11,.3)}
+.grade-F{color:var(--red);background:rgba(239,68,68,.08);border:2px solid rgba(239,68,68,.3)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.field{margin:10px 0}
+.field input[type=text],.field textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.55rem .7rem}
+.field input[type=text]:focus,.field textarea:focus{outline:none;border-color:var(--teal)}
+.field textarea{resize:vertical;min-height:64px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.field-grid{grid-template-columns:1fr}}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:3px}
+.prefill-bar{display:none;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:var(--radius);padding:.4rem .75rem;margin:10px 0}
+.prefill-bar.show{display:block}
+.anchor-cta{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;color:var(--muted);background:var(--bg-3);border:1px dashed var(--border-2);border-radius:var(--radius);padding:.45rem .85rem;margin-top:10px;cursor:not-allowed;pointer-events:none;opacity:.6}
+.send-link{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--gold);color:#06121f;border-radius:var(--radius);padding:.6rem 1.2rem;font-weight:600}
+.send-link:hover{opacity:.9}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Conversion Receipt Builder</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-191 · Client-Side Conversions</div>
+  <h1>Conversion Receipt Builder</h1>
+  <p class="sub">Bind one client-side file conversion into a canonical receipt: input digest, converter identity, parameters, and output digest. Emits a binding_sha256 over the JCS-canonical receipt that round-trips through the Conversion Receipt Verifier. Origin node of the client-side conversion provenance chain with Policy Mandate and W3C VC export. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Conversion Receipt</span>
+    <span class="flag gold">binding_sha256</span>
+    <span class="flag info">Transformation Edge</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.6.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div id="prefillBar" class="prefill-bar">Fields prefilled from link.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    This node binds a transformation edge between two digests: an input file digest and the output file digest produced by a named converter under stated parameters. That is distinct from <a href="art-121-document-integrity-anchor.html">anchor_document_integrity (art-121)</a>, which anchors the existence and timestamp of one single document rather than a conversion relationship between two of them, and from the timestamp attestation node <a href="art-122-timestamp-attestation-verifier.html">art-122</a>. Any external converter, including heavy WASM conversion tools, can feed it digests. This node is also the documented hand-off point for BrowserChain anchoring: build the receipt here, then anchor it once BrowserChain is live.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('docx_pdf')">DOCX → PDF (complete)</button>
+      <button class="preset-btn" onclick="loadPreset('png_webp')">PNG → WebP (no version)</button>
+      <button class="preset-btn" onclick="loadPreset('self')">Self-conversion (flagged)</button>
+      <button class="preset-btn" onclick="clearForm()">Clear</button>
+    </div>
+
+    <div class="section-head">Input Digest</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label" for="input_sha256">input_sha256 (64-hex)</label>
+        <input type="text" id="input_sha256" spellcheck="false" placeholder="64-character lowercase hex digest of the source file">
+      </div>
+      <div class="field">
+        <label class="form-label" for="source_format">source_format</label>
+        <input type="text" id="source_format" spellcheck="false" placeholder="e.g. docx">
+      </div>
+    </div>
+    <div class="field">
+      <label class="form-label" for="input_filename">input_filename (optional)</label>
+      <input type="text" id="input_filename" spellcheck="false" placeholder="name only, e.g. report.docx">
+      <div class="field-hint">Paths are stripped to a basename. Do not enter real personal file names.</div>
+    </div>
+
+    <div class="section-head">Output Digest</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label" for="output_sha256">output_sha256 (64-hex)</label>
+        <input type="text" id="output_sha256" spellcheck="false" placeholder="64-character lowercase hex digest of the output file">
+      </div>
+      <div class="field">
+        <label class="form-label" for="target_format">target_format</label>
+        <input type="text" id="target_format" spellcheck="false" placeholder="e.g. pdf">
+      </div>
+    </div>
+    <div class="field">
+      <label class="form-label" for="output_filename">output_filename (optional)</label>
+      <input type="text" id="output_filename" spellcheck="false" placeholder="name only, e.g. report.pdf">
+    </div>
+
+    <div class="section-head">Converter Identity</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label" for="converter_name">converter_name</label>
+        <input type="text" id="converter_name" spellcheck="false" placeholder="e.g. libreoffice">
+      </div>
+      <div class="field">
+        <label class="form-label" for="converter_version">converter_version</label>
+        <input type="text" id="converter_version" spellcheck="false" placeholder="e.g. 7.6.4">
+      </div>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label" for="converter_engine_sha256">converter_engine_sha256 (optional, 64-hex)</label>
+        <input type="text" id="converter_engine_sha256" spellcheck="false" placeholder="digest of the converter engine binary or WASM">
+      </div>
+      <div class="field">
+        <label class="form-label" for="converter_url">converter_url (optional)</label>
+        <input type="text" id="converter_url" spellcheck="false" placeholder="e.g. https://ainumbers.co/tools/...">
+      </div>
+    </div>
+
+    <div class="section-head">Parameters</div>
+    <div class="field">
+      <label class="form-label" for="parameters">parameters (JSON object)</label>
+      <textarea id="parameters" spellcheck="false">{}</textarea>
+      <div class="field-hint">Top-level PII-carrier keys (name, email, address, phone, ssn, dob) raise a warning.</div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button id="buildBtn" onclick="runBuild()">Build Conversion Receipt</button>
+    </div>
+
+    <a class="anchor-cta" aria-disabled="true" title="BrowserChain anchoring is not yet live">Anchor to BrowserChain (coming soon)</a>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Receipt</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div class="form-label" style="margin-top:12px">binding_sha256</div>
+      <div class="hash" id="bindingBox"></div>
+      <div id="checksBox"></div>
+      <div id="flagsBox"></div>
+      <div class="form-label" style="margin-top:12px">Receipt JSON</div>
+      <pre id="receiptPre"></pre>
+      <div id="hashBox"></div>
+      <div class="results-export-row">
+        <button onclick="downloadReceipt()">Download Receipt JSON</button>
+        <a id="sendToVerifier" class="send-link" href="#">Send to Verifier →</a>
+      </div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.6.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-191-conversion-receipt-builder',
+  version: '1.0.0',
+  mcp_name: 'build_conversion_receipt',
+  title: 'Conversion Receipt Builder',
+  description: 'Bind one client-side file conversion into a canonical receipt (input digest, converter identity, parameters, output digest) and emit a binding_sha256 over the JCS-canonical receipt. Returns receipt, checks[], all_checks_pass. Round-trips through build_conversion_receipt verification.',
+  spec_version: '0.6.0',
+  chaingraph_version: '0.4.0',
+  chain: 'client-side-conversion-provenance',
+  node_position: 'origin',
+  export_capability: ['json','pdf','vc'],
+  regulation: 'RFC 8785 JCS canonicalization',
+  mcp_tool_definition: {
+    name: 'build_conversion_receipt',
+    description: 'Bind one file conversion into a canonical receipt. binding_sha256 = SHA-256 over the JCS-canonical form of { receipt_version, input, output, converter, parameters }. Returns { receipt, checks[], all_checks_pass }. Deterministic, zero network, zero PII.',
+    inputSchema: {
+      type: 'object',
+      required: ['input_sha256','output_sha256'],
+      properties: {
+        input_sha256: { type: 'string', description: '64-character lowercase hex digest of the source file.' },
+        output_sha256: { type: 'string', description: '64-character lowercase hex digest of the output file.' },
+        source_format: { type: 'string', description: 'Source file format, e.g. docx.' },
+        target_format: { type: 'string', description: 'Target file format, e.g. pdf.' },
+        converter: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Converter name.' },
+            version: { type: 'string', description: 'Converter version.' },
+            engine_sha256: { type: 'string', description: 'Optional 64-hex digest of the converter engine binary or WASM.' },
+            url: { type: 'string', description: 'Optional converter reference URL.' }
+          }
+        },
+        parameters: { type: 'object', description: 'Conversion parameters as a JSON object.' },
+        input_filename: { type: 'string', description: 'Optional source file name (reduced to a basename).' },
+        output_filename: { type: 'string', description: 'Optional output file name (reduced to a basename).' }
+      }
+    }
+  }
+};
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const PII_KEYS = ['name','email','address','phone','ssn','dob'];
+
+// Recursive key-sort canonicalizer — byte-identical to chaingraph/kernels/_hash.mjs.
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+
+async function sha256Hex(str){
+  const bytes=new TextEncoder().encode(String(str));
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Execution hash over { policy_parameters, output_payload } — §4 artifact preimage.
+async function cgHash(pp,op){
+  const obj=cgCanon({policy_parameters:pp,output_payload:op});
+  const buf=new TextEncoder().encode(JSON.stringify(obj));
+  const dig=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Names only, never paths: strip everything up to the last / or backslash.
+function basename(v){
+  const s=String(v||'');
+  const cut=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\'));
+  return cut>=0?s.slice(cut+1):s;
+}
+
+// base64url encode/decode of a UTF-8 string, no padding dependence.
+function b64urlEncode(str){
+  const bytes=new TextEncoder().encode(str);
+  let bin='';
+  for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64urlDecode(s){
+  let t=String(s).replace(/-/g,'+').replace(/_/g,'/');
+  while(t.length%4)t+='=';
+  const bin=atob(t);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// Assemble the kernel input object (policy_parameters) from the form fields.
+function getParams(){
+  const converter={};
+  const cn=document.getElementById('converter_name').value;
+  const cv=document.getElementById('converter_version').value;
+  if(cn)converter.name=cn;
+  if(cv)converter.version=cv;
+  const ce=document.getElementById('converter_engine_sha256').value.trim();
+  if(ce)converter.engine_sha256=ce;
+  const cu=document.getElementById('converter_url').value.trim();
+  if(cu)converter.url=cu;
+  let parameters={};
+  const ptxt=document.getElementById('parameters').value.trim();
+  if(ptxt){try{const p=JSON.parse(ptxt);if(p&&typeof p==='object'&&!Array.isArray(p))parameters=p;}catch(e){/* invalid JSON falls back to {} */}}
+  const pp={
+    input_sha256:document.getElementById('input_sha256').value,
+    output_sha256:document.getElementById('output_sha256').value,
+    source_format:document.getElementById('source_format').value,
+    target_format:document.getElementById('target_format').value,
+    converter,
+    parameters
+  };
+  const inf=document.getElementById('input_filename').value;
+  const ouf=document.getElementById('output_filename').value;
+  if(inf)pp.input_filename=inf;
+  if(ouf)pp.output_filename=ouf;
+  return pp;
+}
+
+// Mirror of kernel compute(): byte-identical receiptCore + binding_sha256 so
+// the receipt round-trips through build_conversion_receipt verification.
+async function compute(pp){
+  const input_sha256=String(pp&&pp.input_sha256||'').trim().toLowerCase();
+  const output_sha256=String(pp&&pp.output_sha256||'').trim().toLowerCase();
+  const source_format=typeof (pp&&pp.source_format)==='string'?pp.source_format:'';
+  const target_format=typeof (pp&&pp.target_format)==='string'?pp.target_format:'';
+  const converterIn=(pp&&typeof pp.converter==='object'&&pp.converter)?pp.converter:{};
+  const parameters=(pp&&typeof pp.parameters==='object'&&pp.parameters&&!Array.isArray(pp.parameters))?pp.parameters:{};
+
+  const converter={name:String(converterIn.name||''),version:String(converterIn.version||'')};
+  if(typeof converterIn.engine_sha256==='string'&&HEX64.test(converterIn.engine_sha256.toLowerCase())){
+    converter.engine_sha256=converterIn.engine_sha256.toLowerCase();
+  }
+  if(typeof converterIn.url==='string'&&converterIn.url)converter.url=converterIn.url;
+
+  const checks=[];
+  const push=(check,pass,detail)=>checks.push({check,pass,detail});
+
+  push('input_sha256_is_64_hex',HEX64.test(input_sha256),
+    HEX64.test(input_sha256)?'valid':'input_sha256 is not a 64-character lowercase hex digest');
+  push('output_sha256_is_64_hex',HEX64.test(output_sha256),
+    HEX64.test(output_sha256)?'valid':'output_sha256 is not a 64-character lowercase hex digest');
+
+  const identityComplete=converter.name!==''&&converter.version!=='';
+  push('converter_identity_complete',identityComplete,
+    identityComplete?'name and version present':'converter name and/or version missing');
+
+  const selfConversion=HEX64.test(input_sha256)&&input_sha256===output_sha256;
+  push('not_self_conversion',!selfConversion,
+    selfConversion?'input and output digests are identical (self-conversion)':'input and output digests differ');
+
+  const piiHits=Object.keys(parameters).filter(k=>PII_KEYS.includes(k.toLowerCase()));
+  push('parameters_free_of_pii_keys',piiHits.length===0,
+    piiHits.length?`parameter key(s) look like PII carriers: ${piiHits.join(', ')}`:'no PII-carrier keys detected');
+
+  const input={sha256:input_sha256,format:source_format};
+  if(pp&&pp.input_filename)input.filename=basename(pp.input_filename);
+  const output={sha256:output_sha256,format:target_format};
+  if(pp&&pp.output_filename)output.filename=basename(pp.output_filename);
+
+  const receiptCore={
+    receipt_version:'1.0',
+    input,output,converter,parameters
+  };
+  const binding_sha256=await sha256Hex(JSON.stringify(cgCanon(receiptCore)));
+  const receipt={...receiptCore,binding_sha256};
+
+  const all_checks_pass=checks.every(c=>c.pass);
+  const compliance_flags={CONVERSION_RECEIPT_BUILT:true};
+  compliance_flags[all_checks_pass?'RECEIPT_CHECKS_PASS':'RECEIPT_CHECKS_HAVE_WARNINGS']=true;
+  if(selfConversion)compliance_flags.SELF_CONVERSION_FLAGGED=true;
+  if(piiHits.length)compliance_flags.PII_CARRIER_KEYS_FLAGGED=true;
+
+  return {output_payload:{receipt,checks,all_checks_pass},compliance_flags};
+}
+
+function clearForm(){
+  ['input_sha256','output_sha256','source_format','target_format','converter_name','converter_version','converter_engine_sha256','converter_url','input_filename','output_filename'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('parameters').value='{}';
+}
+
+function loadPreset(key){
+  clearForm();
+  const h1='a'.repeat(64), h2='b'.repeat(64);
+  if(key==='docx_pdf'){
+    document.getElementById('input_sha256').value=h1;
+    document.getElementById('output_sha256').value=h2;
+    document.getElementById('source_format').value='docx';
+    document.getElementById('target_format').value='pdf';
+    document.getElementById('converter_name').value='libreoffice';
+    document.getElementById('converter_version').value='7.6.4';
+    document.getElementById('input_filename').value='report.docx';
+    document.getElementById('output_filename').value='report.pdf';
+  }else if(key==='png_webp'){
+    document.getElementById('input_sha256').value='c'.repeat(64);
+    document.getElementById('output_sha256').value='d'.repeat(64);
+    document.getElementById('source_format').value='png';
+    document.getElementById('target_format').value='webp';
+    document.getElementById('converter_name').value='squoosh';
+  }else if(key==='self'){
+    document.getElementById('input_sha256').value=h1;
+    document.getElementById('output_sha256').value=h1;
+    document.getElementById('source_format').value='pdf';
+    document.getElementById('target_format').value='pdf';
+    document.getElementById('converter_name').value='noop';
+    document.getElementById('converter_version').value='1.0';
+  }
+}
+
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastFlags=null,_lastReceipt=null;
+
+async function runBuild(){
+  const pp=getParams();
+  const {output_payload:op,compliance_flags}=await compute(pp);
+  const rawHash=await cgHash(pp,op);
+  const receipt=op.receipt;
+
+  const artifact={
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.6.0', compute_mode:'browser',
+    mandate_type:'cryptographic_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at:new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags; _lastReceipt=receipt;
+
+  const grade=op.all_checks_pass?'A':'C';
+  const passCount=op.checks.filter(c=>c.pass).length;
+  document.getElementById('heroRow').innerHTML=`
+    <div class="hero-stat" style="flex:0 0 auto;padding:16px 24px">
+      <div class="hero-val"><span class="grade-badge grade-${grade}">${grade}</span></div>
+      <div class="hero-lbl">Receipt Status</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.all_checks_pass?'var(--green)':'var(--gold)'}">${passCount} / ${op.checks.length}</div>
+      <div class="hero-lbl">Checks Passed</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--teal-lt)">1.0</div>
+      <div class="hero-lbl">Receipt Version</div>
+    </div>
+  `;
+
+  const vClass=op.all_checks_pass?'pass':'warn';
+  document.getElementById('verdictBox').innerHTML=`<div class="verdict ${vClass}">${op.all_checks_pass?'Receipt built — all checks pass. binding_sha256 is ready to verify.':'Receipt built with warnings. Review the checks below; the binding_sha256 is still computed over the canonical receipt.'}</div>`;
+
+  document.getElementById('bindingBox').textContent=receipt.binding_sha256;
+
+  const checksHtml=op.checks.map(c=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-family:'JetBrains Mono',monospace;font-size:.66rem;border-bottom:1px solid var(--border)">
+      <span class="badge ${c.pass?'ok':'err'}">${c.pass?'PASS':'WARN'}</span>
+      <span style="color:var(--bright)">${c.check}</span>
+      <span style="color:var(--muted);margin-left:auto;text-align:right">${c.detail}</span>
+    </div>`).join('');
+  document.getElementById('checksBox').innerHTML=`<div class="form-label" style="margin-top:14px">Checks</div><div style="margin:6px 0">${checksHtml}</div>`;
+
+  const fHtml=Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML=`<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
+
+  const rpre=document.getElementById('receiptPre');
+  rpre.textContent=JSON.stringify(receipt,null,2);
+
+  document.getElementById('hashBox').innerHTML=`<div class="form-label" style="margin-top:12px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+
+  const apre=document.getElementById('artifactPre');
+  apre.textContent=JSON.stringify(artifact,null,2); apre.style.display='block';
+
+  // Send to Verifier: pass the receipt JSON string so art-192 can verify the binding.
+  const payload=b64urlEncode(JSON.stringify({receipt_json:JSON.stringify(receipt)}));
+  document.getElementById('sendToVerifier').href='art-192-conversion-receipt-verifier.html#in='+payload;
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function downloadReceipt(){if(_lastReceipt)dl(JSON.stringify(_lastReceipt,null,2),'art-191-conversion-receipt.json','application/json');}
+function exportAP2(){if(!_lastArtifact)return;dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'cryptographic_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-191-conversion-receipt-policy-mandate.json','application/json');}
+function exportArtifact(){if(_lastArtifact)dl(JSON.stringify(_lastArtifact,null,2),'art-191-conversion-receipt-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-191-conversion-receipt-vc.json','application/json');}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+
+// Prefill bridge: read location.hash, base64url-decode a JSON field map, assign
+// via .value only. Supports a flat { element_id: value } map or { fields:{...} }.
+// Zero network. Values are synthetic only. Malformed input is ignored silently.
+(function prefillFromHash(){
+  try{
+    const hash=location.hash||'';
+    if(!hash.startsWith('#in='))return;
+    const rest=hash.slice(4);
+    const amp=rest.indexOf('&');
+    const b64=amp>=0?rest.slice(0,amp):rest;
+    const flags=amp>=0?rest.slice(amp+1):'';
+    const json=b64urlDecode(b64);
+    const parsed=JSON.parse(json);
+    if(!parsed||typeof parsed!=='object')return;
+    const map=(parsed.fields&&typeof parsed.fields==='object'&&!Array.isArray(parsed.fields))?parsed.fields:parsed;
+    const ids=['input_sha256','output_sha256','source_format','target_format','converter_name','converter_version','converter_engine_sha256','converter_url','parameters','input_filename','output_filename'];
+    let filled=false;
+    ids.forEach(id=>{
+      if(Object.prototype.hasOwnProperty.call(map,id)&&map[id]!=null){
+        const el=document.getElementById(id);
+        if(el){el.value=String(map[id]);filled=true;}
+      }
+    });
+    if(filled)document.getElementById('prefillBar').classList.add('show');
+    if(filled&&/(^|&)run=1(&|$)/.test(flags)){
+      document.getElementById('buildBtn').click();
+    }
+  }catch(e){/* malformed base64 or JSON — ignore, no throw */}
+})();
+</script>
+</body>
+</html>

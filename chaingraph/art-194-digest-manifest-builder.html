@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Digest Manifest Builder · ART-194 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Drop files to hash their bytes locally with SHA-256 and bind N digests into one canonical, hash-anchored manifest. manifest_sha256 over the JCS-canonical sorted entries. Flat manifests, no Merkle tree. Feeds art-191. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-194-digest-manifest-builder.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:stretch}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:90px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.grade-badge{font-family:'JetBrains Mono',monospace;font-size:3.5rem;font-weight:800;padding:.1rem .5rem;border-radius:8px;display:inline-block;line-height:1.1}
+.grade-A{color:var(--green);background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3)}
+.grade-B{color:var(--teal-lt);background:rgba(20,184,166,.08);border:2px solid rgba(20,184,166,.3)}
+.grade-C{color:var(--gold);background:rgba(212,168,71,.1);border:2px solid rgba(212,168,71,.3)}
+.grade-D{color:var(--warn);background:rgba(245,158,11,.08);border:2px solid rgba(245,158,11,.3)}
+.grade-F{color:var(--red);background:rgba(239,68,68,.08);border:2px solid rgba(239,68,68,.3)}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.dim-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dim-row:last-child{border-bottom:none}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;margin-top:2px}
+.dim-body{flex:1}
+.dim-title{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);margin-bottom:2px}
+.dim-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.score-bar{height:8px;border-radius:4px;background:var(--bg-3);border:1px solid var(--border);margin:12px 0 6px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;transition:width .4s ease;background:var(--teal)}
+.gap-list{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--red);margin:8px 0}
+.gap-list li{margin:3px 0;list-style:disc;padding-left:4px;margin-left:16px}
+input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+input[type=text]:focus{outline:none;border-color:var(--teal)}
+select{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.45rem .6rem;cursor:pointer}
+.dropzone{border:1.5px dashed var(--border-2);border-radius:var(--radius-lg);padding:26px 16px;text-align:center;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.7rem;cursor:pointer;transition:border-color .2s,background .2s}
+.dropzone:hover,.dropzone.drag{border-color:var(--teal);background:rgba(20,184,166,.05);color:var(--teal-lt)}
+.entry-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.64rem}
+.entry-row:last-child{border-bottom:none}
+.entry-name{color:var(--bright);flex:0 0 32%;word-break:break-all}
+.entry-hash{color:var(--green);flex:1;word-break:break-all;font-size:.58rem}
+.entry-meta{color:var(--muted);flex:0 0 auto;white-space:nowrap}
+.rm-btn{background:none;border:1px solid var(--border-2);color:var(--muted);font-size:.55rem;padding:.15rem .5rem;text-transform:none;letter-spacing:0}
+.rm-btn:hover{border-color:var(--red);color:var(--red);opacity:1}
+.progress-line{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-top:8px}
+.manual-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.manual-row input[type=text]{flex:1;min-width:120px;width:auto}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Digest Manifest Builder</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub →</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-194 · Client-Side Conversions</div>
+  <h1>Digest Manifest Builder</h1>
+  <p class="sub">Drop files to hash their bytes locally with SHA-256, then bind N digests into one canonical, hash-anchored manifest. The manifest_sha256 is computed over the JCS-canonical, deterministically sorted entries array. Feeds art-191. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">SHA-256</span>
+    <span class="flag gold">Canonical Manifest</span>
+    <span class="flag info">Client-Side</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">W3C VC §13.11</span>
+    <span class="flag info">v0.6.0</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    Binds N file digests into one canonical, hash-anchored manifest. This BUILDS flat manifests (no tree), which is distinct from <a href="cry-04-merkle-batch-verifier.html">verify_merkle_batch</a> (cry-04), which verifies Merkle PROOFS. BrowserChain's log owns Merkle trees. Files are hashed byte-for-byte in your browser; only the digests, sizes, and media types enter the manifest.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Files</div>
+    <div class="dropzone" id="dropzone">Drop files here, or click to choose. Each file is hashed locally with SHA-256; bytes never leave the page.</div>
+    <input type="file" id="fileInput" multiple style="display:none">
+    <div class="progress-line" id="progressLine" style="display:none"></div>
+
+    <div class="section-head" style="margin-top:18px">Manual entry</div>
+    <div class="manual-row">
+      <input type="text" id="manualName" placeholder="name (e.g. report.pdf)">
+      <input type="text" id="manualHash" placeholder="sha256 (64 hex)">
+      <button class="preset-btn" onclick="addManual()">Add entry</button>
+    </div>
+
+    <div class="section-head" style="margin-top:18px">Entries (<span id="entryN">0</span>)</div>
+    <div id="entryList"></div>
+
+    <div class="section-head" style="margin-top:18px">Manifest parameters</div>
+    <label class="form-label" for="purpose">Purpose</label>
+    <input type="text" id="purpose" placeholder="e.g. Q3 filing package checksum set" style="margin-bottom:12px">
+    <label class="form-label" for="sort">Sort entries by</label>
+    <select id="sort">
+      <option value="name" selected>name</option>
+      <option value="digest">digest</option>
+    </select>
+
+    <div style="margin-top:20px">
+      <button onclick="runBuild()">Build Digest Manifest</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Manifest</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div id="checksBox"></div>
+      <div id="hashBox"></div>
+      <div class="form-label" style="margin-top:12px">Manifest preview</div>
+      <pre id="manifestPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+        <button class="preset-btn" onclick="downloadManifestJson()">Download manifest JSON</button>
+        <button class="preset-btn" onclick="downloadChecksumTable()">Download Markdown checksum table</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.6.0</a></div>
+    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-194-digest-manifest-builder',
+  version: '1.0.0',
+  mcp_name: 'build_digest_manifest',
+  title: 'Digest Manifest Builder',
+  description: 'Bind N file digests into one canonical, hash-anchored manifest. manifest_sha256 is SHA-256 over the JCS-canonical sorted entries array. Builds flat manifests (no Merkle tree). Returns manifest, checks[], all_checks_pass.',
+  spec_version: '0.6.0',
+  chaingraph_version: '0.4.0',
+  chain: 'client-side-conversions',
+  node_position: 'internal',
+  export_capability: ['json','pdf','vc'],
+  regulation: 'RFC 8785 JCS + SHA-256',
+  mcp_tool_definition: {
+    name: 'build_digest_manifest',
+    description: 'Bind N file digests into one canonical, hash-anchored manifest. manifest_sha256 = SHA-256 over the JCS-canonical, deterministically sorted entries array. Returns manifest, checks[], all_checks_pass. Flat manifests only, no Merkle tree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entries: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              sha256: { type: 'string' },
+              bytes: { type: 'number' },
+              media_type: { type: 'string' }
+            },
+            required: ['name','sha256']
+          }
+        },
+        purpose: { type: 'string' },
+        sort: { type: 'string', enum: ['name','digest'], default: 'name' }
+      }
+    }
+  }
+};
+
+// Live in-memory entry set. Each: { name, sha256, bytes(optional), media_type(optional) }
+let _entries = [];
+let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const finiteOrNull = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+function basename(v) {
+  const s = String(v || '');
+  const cut = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  return cut >= 0 ? s.slice(cut + 1) : s;
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+
+async function sha256HexStr(str){
+  const bytes = new TextEncoder().encode(String(str));
+  const dig = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function sha256HexBytes(buf){
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Mirror of the art-194 kernel compute(), byte-for-byte on manifest_sha256.
+async function compute(pp) {
+  const entriesIn = Array.isArray(pp?.entries) ? pp.entries : [];
+  const purpose = typeof pp?.purpose === 'string' ? pp.purpose : '';
+  const sort = pp?.sort === 'digest' ? 'digest' : 'name';
+
+  const checks = [];
+  const push = (check, pass, detail) => checks.push({ check, pass, detail });
+
+  const nameSeen = Object.create(null);
+  const digestSeen = Object.create(null);
+  const dupNames = [];
+  const dupDigests = [];
+  const malformed = [];
+  const pathLike = [];
+
+  const entries = entriesIn.map((e, idx) => {
+    const rawName = String(e?.name || '');
+    let name = rawName;
+    if (rawName.includes('/') || rawName.includes('\\')) {
+      pathLike.push(rawName);
+      name = basename(rawName);
+    }
+    const sha256 = String(e?.sha256 || '').trim().toLowerCase();
+    if (!HEX64.test(sha256)) malformed.push(name || `entry_${idx + 1}`);
+    if (name) { if (nameSeen[name]) dupNames.push(name); nameSeen[name] = (nameSeen[name] || 0) + 1; }
+    if (HEX64.test(sha256)) { if (digestSeen[sha256]) dupDigests.push(sha256); digestSeen[sha256] = (digestSeen[sha256] || 0) + 1; }
+
+    const entry = { name, sha256 };
+    const bytes = finiteOrNull(e?.bytes);
+    if (bytes !== null) entry.bytes = bytes;
+    if (typeof e?.media_type === 'string' && e.media_type) entry.media_type = e.media_type;
+    return entry;
+  });
+
+  entries.sort((a, b) => sort === 'digest'
+    ? (cmp(a.sha256, b.sha256) || cmp(a.name, b.name))
+    : (cmp(a.name, b.name) || cmp(a.sha256, b.sha256)));
+
+  push('all_digests_64_hex', malformed.length === 0,
+    malformed.length ? `malformed hex digest for: ${malformed.join(', ')}` : 'all digests are 64 hex');
+  push('no_duplicate_names', dupNames.length === 0,
+    dupNames.length ? `duplicate name(s): ${[...new Set(dupNames)].join(', ')}` : 'no duplicate names');
+  push('no_duplicate_digests', dupDigests.length === 0,
+    dupDigests.length ? `duplicate digest(s) present (${[...new Set(dupDigests)].length})` : 'no duplicate digests');
+  push('no_path_like_names', pathLike.length === 0,
+    pathLike.length ? `path-like name(s) flagged and basenamed: ${pathLike.join(', ')}` : 'no path-like names');
+
+  const allHaveBytes = entries.length > 0 && entries.every((e) => typeof e.bytes === 'number');
+  const total_bytes = allHaveBytes ? entries.reduce((s, e) => s + e.bytes, 0) : null;
+
+  const manifest_sha256 = await sha256HexStr(JSON.stringify(cgCanon(entries)));
+
+  const manifest = {
+    manifest_version: '1.0',
+    purpose,
+    entry_count: entries.length,
+    total_bytes,
+    sort,
+    entries,
+    manifest_sha256,
+  };
+
+  const all_checks_pass = checks.every((c) => c.pass);
+  const compliance_flags = { DIGEST_MANIFEST_BUILT: true };
+  compliance_flags[all_checks_pass ? 'MANIFEST_CHECKS_PASS' : 'MANIFEST_CHECKS_HAVE_WARNINGS'] = true;
+  if (dupDigests.length) compliance_flags.DUPLICATE_DIGESTS_FLAGGED = true;
+
+  return { output_payload: { manifest, checks, all_checks_pass }, compliance_flags };
+}
+
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── File drop + hashing (sequential await, per-file progress, NO workers) ──
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const progressLine = document.getElementById('progressLine');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if (e.dataTransfer && e.dataTransfer.files) hashFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => { hashFiles([...fileInput.files]); fileInput.value = ''; });
+
+async function hashFiles(files) {
+  if (!files.length) return;
+  progressLine.style.display = 'block';
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    progressLine.textContent = `Hashing ${i + 1} / ${files.length}: ${f.name} (${f.size} bytes)…`;
+    const buf = await f.arrayBuffer();
+    const sha256 = await sha256HexBytes(buf);
+    _entries.push({ name: basename(f.name), sha256, bytes: f.size, media_type: f.type || '' });
+    renderEntries();
+  }
+  progressLine.textContent = `Hashed ${files.length} file(s).`;
+}
+
+function addManual() {
+  const name = document.getElementById('manualName').value.trim();
+  const hash = document.getElementById('manualHash').value.trim().toLowerCase();
+  if (!name && !hash) return;
+  _entries.push({ name, sha256: hash });
+  document.getElementById('manualName').value = '';
+  document.getElementById('manualHash').value = '';
+  renderEntries();
+}
+
+function removeEntry(idx) { _entries.splice(idx, 1); renderEntries(); }
+
+function renderEntries() {
+  document.getElementById('entryN').textContent = _entries.length;
+  const list = document.getElementById('entryList');
+  if (!_entries.length) { list.innerHTML = '<div class="dim-hint" style="padding:8px 0">No entries yet. Drop files or add a manual entry.</div>'; return; }
+  list.innerHTML = _entries.map((e, i) => {
+    const okHash = HEX64.test(String(e.sha256 || '').toLowerCase());
+    const meta = (typeof e.bytes === 'number' ? `${e.bytes} B` : '') + (e.media_type ? ` · ${e.media_type}` : '');
+    return `<div class="entry-row">
+      <span class="entry-name">${escapeHtml(e.name || '(unnamed)')}</span>
+      <span class="entry-hash" style="color:${okHash?'var(--green)':'var(--red)'}">${escapeHtml(e.sha256 || '(no digest)')}</span>
+      <span class="entry-meta">${escapeHtml(meta)}</span>
+      <button class="rm-btn" onclick="removeEntry(${i})">remove</button>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function getParams() {
+  const entries = _entries.map(e => {
+    const o = { name: e.name, sha256: e.sha256 };
+    if (typeof e.bytes === 'number') o.bytes = e.bytes;
+    if (e.media_type) o.media_type = e.media_type;
+    return o;
+  });
+  return {
+    entries,
+    purpose: document.getElementById('purpose').value,
+    sort: document.getElementById('sort').value === 'digest' ? 'digest' : 'name',
+  };
+}
+
+async function runBuild() {
+  const pp = getParams();
+  const { output_payload: op, compliance_flags } = await compute(pp);
+  const rawHash = await cgHash(pp, op);
+
+  const artifact = {
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.6.0', compute_mode:'browser',
+    mandate_type:'cryptographic_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags;
+
+  const m = op.manifest;
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--teal-lt)">${m.entry_count}</div>
+      <div class="hero-lbl">Entries</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:var(--gold);font-size:1.4rem">${m.total_bytes === null ? 'n/a' : m.total_bytes}</div>
+      <div class="hero-lbl">Total Bytes</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.all_checks_pass?'var(--green)':'var(--warn)'};font-size:1.4rem">${op.all_checks_pass?'PASS':'WARN'}</div>
+      <div class="hero-lbl">Checks</div>
+    </div>
+  `;
+
+  const vClass = op.all_checks_pass ? 'pass' : 'warn';
+  const vMsg = op.all_checks_pass
+    ? 'All manifest checks passed. The manifest is canonical and hash-anchored.'
+    : 'Manifest built with warnings. Review the checks below before relying on this manifest.';
+  document.getElementById('verdictBox').innerHTML = `<div class="verdict ${vClass}">${vMsg}</div>`;
+
+  const checksHtml = op.checks.map(c => `<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-family:'JetBrains Mono',monospace;font-size:.66rem;border-bottom:1px solid var(--border)">
+      <span class="badge ${c.pass?'ok':'err'}">${c.pass?'PASS':'WARN'}</span>
+      <span style="flex:1"><span style="color:var(--bright)">${escapeHtml(c.check)}</span> <span style="color:var(--muted)">${escapeHtml(c.detail)}</span></span>
+    </div>`).join('');
+  document.getElementById('checksBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Checks</div>${checksHtml}</div>`;
+
+  document.getElementById('hashBox').innerHTML =
+    `<div class="form-label" style="margin-top:10px">manifest_sha256</div><div class="hash">${m.manifest_sha256}</div>`
+    + `<div class="form-label" style="margin-top:8px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+
+  document.getElementById('manifestPre').textContent = JSON.stringify(m, null, 2);
+
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact, null, 2); pre.style.display='none';
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// GFM checksum table built from the SORTED entries in output_payload.manifest.
+function buildChecksumTable(manifest) {
+  const rows = manifest.entries.map(e => `| ${e.name || ''} | ${e.sha256 || ''} | ${typeof e.bytes === 'number' ? e.bytes : ''} |`);
+  return ['| name | sha256 | bytes |', '| --- | --- | --- |', ...rows].join('\n') + '\n';
+}
+
+function downloadManifestJson(){ if(_lastOP) dl(JSON.stringify(_lastOP.manifest, null, 2), 'art-194-digest-manifest.json', 'application/json'); }
+function downloadChecksumTable(){ if(_lastOP) dl(buildChecksumTable(_lastOP.manifest), 'art-194-digest-manifest-checksums.md', 'text/markdown'); }
+
+function exportAP2(){if(!_lastArtifact)return;dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'cryptographic_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-194-digest-manifest-policy-mandate.json','application/json');}
+function exportArtifact(){if(_lastArtifact)dl(JSON.stringify(_lastArtifact,null,2),'art-194-digest-manifest-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-194-digest-manifest-vc.json','application/json');}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+
+renderEntries();
+</script>
+</body>
+</html>
