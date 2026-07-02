@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.6.0
+spec_version: 0.6.1
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -10,7 +10,7 @@ renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consis
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.6.0
+# OpenChainGraph Standard — v0.6.1
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -37,7 +37,7 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 
 | Identifier | Where it lives | Answers | Current | Bumps when |
 |---|---|---|---|---|
-| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.6.0` | every release (additive or breaking) |
+| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.6.1` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
 | `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
@@ -505,9 +505,32 @@ know exactly what the proof attests. A node whose deterministic in-guest proving
 cross-surface determinism yet remain `compute_proof_ready:"deferred"` until a larger prover is available; the
 replacement and the proof are independent.
 
+**§18.6 Deterministic-node proof profile — `ocg-p18-deterministic` (NORMATIVE, profile-scoped).** The base
+standard keeps §18 OPTIONAL (an artifact with no `compute_proof` is fully v0.6-conformant). An implementation
+MAY additionally declare conformance to the **deterministic-node proof profile**. Under it, **every
+`status:"live"` node with `gpu:false` MUST** either (a) carry a `compute_proof` that verifies against its
+published `imageId` (§18.1) — `type:"ZkVmReceipt"`, `receiptFormat` ∈ {`groth16-bn254`,`stark`}, the `imageId`
+present in the node's Graph Index `compute_images`, and the `journal` committed output equal to `output_payload`
+(§18.0) — OR (b) declare `compute_proof_ready:"deferred"` with a stated `deferral_reason`. A node with neither is
+NON-CONFORMANT to the profile. A `gpu:true` node is **OUT OF SCOPE** of this profile: its compute is
+heavy/parallel and its faithful in-guest proving cost is prohibitive (§18.2), so the profile neither requires nor
+forbids a proof on it (a `gpu:true` node MAY still attach one voluntarily). The `gpu` flag is the profile's
+determinism/cost boundary because it is already the published, gated signal for "kernel runs as a small
+deterministic server compute" (the §15 kernel-coverage gate); the profile introduces no new taxonomy.
+Conformance to this profile is machine-checked by `check-compute-proof-coverage.mjs` (coverage + binding-shape +
+a downward-only ratchet on the deferred count); the cryptographic pairing check stays with
+`compute-proof.test.mjs` (§15). Rationale (INFORMATIVE): a blanket §18 MUST is impossible — legitimate
+heavy/nondeterministic-cost nodes cannot be proven at acceptable cost — while an all-OPTIONAL posture makes a
+proof an unreliable, and therefore unusable, trust signal (a consumer cannot depend on a proof that "might" be
+present). The profile is the middle path: a MUST exactly over the class where it is achievable, leaving the base
+standard unchanged for external implementers and for nondeterministic nodes. Its endgame — zero `deferred` on
+`gpu:false` — is the state "every deterministic live node carries a real compute-integrity proof"; the AINumbers
+reference deployment conforms with zero deferrals.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.6.0 = Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM,
-software-only) over v0.5.0. v0.5.0 = Proof Binding (§16) over v0.4.1.
+See `standard/CHANGELOG.md`. v0.6.1 = §18.6 deterministic-node proof profile (`ocg-p18-deterministic`) over
+v0.6.0 (additive, profile-scoped; no envelope/hash/schema change). v0.6.0 = Kernel Identity Binding (§17) +
+Compute-Integrity Proof (§18, zkVM, software-only) over v0.5.0. v0.5.0 = Proof Binding (§16) over v0.4.1.
 v0.4.1 = Verifiable Credentials export profile (§13.11) over v0.4.0.
 v0.4.0 = Compute Binding (§12) + Export Profiles (§13) over v0.3.1. The artifact envelope and hash
 preimage are **unchanged** in v0.4.1 (export profiles are not part of the envelope) — artifacts continue
