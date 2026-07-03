@@ -64,6 +64,7 @@ const catalog = cg.nodes.map(n => {
     can_run,
     feeds:        n.feeds   || [],
     consumes:     n.consumes || [],
+    mcp_name:     n.mcp_name || null,
   };
 });
 
@@ -71,6 +72,13 @@ const runnableCount = catalog.filter(n => n.can_run).length;
 console.log(`gen-canvas: ${catalog.length} nodes (${runnableCount} browser-runnable)`);
 
 const NODES_JSON = JSON.stringify(catalog);
+
+/* ── H2: slim chain list for named-chain matching ────────────────── */
+const CHAINS_SLIM = cg.chains.map(c => ({
+  name:          c.name,
+  step_tool_ids: c.steps.map(s => s.tool_id),
+}));
+const CHAINS_JSON = JSON.stringify(CHAINS_SLIM);
 
 /* ── G5: curated template chains ────────────────────────────────── */
 const NODE_BY_TOOL = Object.fromEntries(catalog.map(n => [n.tool_id, n]));
@@ -113,6 +121,7 @@ const TEMPLATES_HTML = templateCards.join('');
 
 /* ── HTML template ──────────────────────────────────────────────── */
 const NODES_PH = '/*__NODES_DATA__*/';
+const CHAINS_PH = '/*__CHAINS_DATA__*/';
 const TEMPLATES_PH = '/*__TEMPLATES_HTML__*/';
 
 function renderCanvas() {
@@ -248,6 +257,22 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .cmd-item .ci-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--teal);flex-shrink:0}
 .cmd-item .ci-compat{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--green-lt);flex-shrink:0}
 .cmd-hint-bar{padding:.3rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);border-top:1px solid var(--border)}
+/* H1: node inputs editor */
+.ni-section{padding:.7rem .95rem;border-bottom:1px solid var(--border)}
+.ni-json{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.52rem;border-radius:var(--radius);padding:.5rem .65rem;resize:vertical;min-height:72px;outline:none;line-height:1.5}
+.ni-json:focus{border-color:var(--teal)}
+.ni-hint{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);margin-top:.3rem;line-height:1.5}
+.ni-err{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--red);margin-top:.2rem;display:none}
+/* H2/H3: MCP panel */
+.mcp-panel-section{padding:.7rem .95rem;border-bottom:1px solid var(--border);display:none}
+.mcp-panel-section.open{display:block}
+.mcp-code{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--text);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .7rem;margin-bottom:.4rem;white-space:pre;overflow-x:auto;line-height:1.45;max-height:220px;overflow-y:auto}
+.mcp-copy-btn{background:var(--bg-4);border:1px solid var(--border-2);color:var(--body);padding:.4rem .85rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;margin-right:.35rem}
+.mcp-copy-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.mcp-dl-btn{background:var(--bg-4);border:1px solid var(--border-2);color:var(--body);padding:.4rem .85rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;transition:all .2s}
+.mcp-dl-btn:hover{border-color:var(--gold);color:var(--gold)}
+.mcp-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-bottom:.45rem;line-height:1.5}
+.mcp-divider{border:none;border-top:1px solid var(--border);margin:.55rem 0}
 </style>
 </head>
 <body>
@@ -285,7 +310,9 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
       <button class="cv-btn cv-btn-dim" onclick="clearCanvas()">&#x2715; Clear</button>
       <button class="cv-btn cv-btn-dim" id="layoutBtn" onclick="autoLayout()" title="Auto-arrange nodes by topology">&#x25A4; Layout</button>
       <button class="cv-btn cv-btn-dim" onclick="fitView()" title="Fit all nodes in view (F)">&#x26F6; Fit</button>
-      <button class="cv-btn cv-btn-dim" onclick="copyDeepLink()" id="linkBtn" title="Copy deep-link to clipboard">&#x1F517; Link</button>
+      <button class="cv-btn cv-btn-dim" onclick="copyDeepLink()" id="linkBtn" title="Copy permalink to this composition">&#x1F517; Link</button>
+      <button class="cv-btn cv-btn-dim" onclick="toggleMcpPanel()" id="mcpBtn" title="Copy as MCP call">&#x1F4CB; MCP</button>
+      <button class="cv-btn cv-btn-dim" onclick="proposeAsChain()" id="proposeBtn" title="Propose as named workflow">&#x1F4E8; Propose</button>
       <button class="cv-btn cv-btn-dim" onclick="openPalette()" title="Insert node (Ctrl+K)">&#x2318;K</button>
       <span class="cv-status" id="cvStatus">Add nodes from the palette to begin</span>
       <span class="cv-zoom" id="zoomPct">100%</span>
@@ -305,6 +332,26 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 
   <!-- ══ RIGHT PANE — artifact ══ -->
   <div class="pane-right">
+    <!-- H2: MCP call panel (toggle) -->
+    <div id="rpMcpPanel" class="mcp-panel-section">
+      <div class="rp-label">&#x1F4CB; MCP Call</div>
+      <div class="mcp-label" id="mcpLabel"></div>
+      <pre class="mcp-code" id="mcpSnippet"></pre>
+      <button class="mcp-copy-btn" onclick="copyMcpSnippet()">&#x1F4CB; Copy snippet</button>
+      <button class="mcp-dl-btn" id="mcpDlBtn" onclick="dlChainJson()" style="display:none">&#x2B07; Chain JSON</button>
+      <hr class="mcp-divider">
+      <div class="mcp-label" id="mcpSeqLabel" style="display:none"></div>
+      <pre class="mcp-code" id="mcpSeqSnippet" style="display:none"></pre>
+      <button class="mcp-copy-btn" id="mcpSeqCopyBtn" onclick="copyMcpSeq()" style="display:none">&#x1F4CB; Copy sequence</button>
+    </div>
+    <!-- H1: node inputs editor (shown when a node is selected) -->
+    <div id="rpNodeInputs" class="ni-section" style="display:none">
+      <div class="rp-label">Initial Inputs</div>
+      <div class="rp-meta" id="rpNiLabel" style="margin-bottom:.4rem"></div>
+      <textarea id="rpNiJson" class="ni-json" placeholder='{"field_id": "value"}' spellcheck="false" autocomplete="off"></textarea>
+      <div class="ni-hint">JSON keys = form element IDs in the tool page. Applied to the selected node when running.</div>
+      <div class="ni-err" id="rpNiErr">Invalid JSON</div>
+    </div>
     <div id="rpEmpty" class="rp-empty">
       Compose and run a graph to see the composite artifact here.
     </div>
@@ -356,6 +403,8 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 'use strict';
 /* Node catalog — inlined at build time by gen-canvas.mjs. Zero network calls. */
 var NODES = ${NODES_PH};
+/* Chain catalog (slim) — for H2 named-chain matching. */
+var CHAINS = ${CHAINS_PH};
 
 /* ── node lookup ── */
 var NODE_BY_ID = {};
@@ -460,14 +509,14 @@ document.getElementById('palSearch').addEventListener('input', renderPalette);
 document.getElementById('runnableOnly').addEventListener('change', renderPalette);
 
 /* ── add / remove nodes ── */
-function addNode(tool_id, x, y, forceId) {
+function addNode(tool_id, x, y, forceId, inp) {
   var n = NODE_BY_ID[tool_id];
   if (!n) return null;
   var id = forceId || nextNodeId++;
   if (id >= nextNodeId) nextNodeId = id + 1;
-  canvasNodes.push({id: id, tool_id: tool_id, x: x, y: y});
+  canvasNodes.push({id: id, tool_id: tool_id, x: x, y: y, inp: inp || {}});
   if (!forceId && !_loading) pushHistory(); /* push after so undo restores post-op state */
-  updateRunBtn(); render(); saveHash();
+  updateRunBtn(); render(); saveHash(); updateNodeInfoPanel();
   return id;
 }
 
@@ -477,7 +526,7 @@ function removeNode(id) {
   if (selectedNodeId === id) selectedNodeId = null;
   if (selectedEdgeId) { var eids = edges.map(function(e){return e.id;}); if (eids.indexOf(selectedEdgeId)<0) selectedEdgeId=null; }
   if (!_loading) pushHistory();
-  updateRunBtn(); render(); saveHash();
+  updateRunBtn(); render(); saveHash(); updateNodeInfoPanel();
 }
 
 function clearCanvas() {
@@ -487,7 +536,7 @@ function clearCanvas() {
   currentArtifact = null; lastHash = null;
   document.getElementById('rpEmpty').style.display = 'block';
   document.getElementById('rpArtifact').style.display = 'none';
-  updateRunBtn(); render();
+  updateRunBtn(); render(); updateNodeInfoPanel();
   history.replaceState(null, '', location.pathname + location.search);
 }
 
@@ -644,21 +693,21 @@ svg.addEventListener('mousedown', function(e) {
     if (cn) {
       drag = {nodeId: nid, ox: pt.x - cn.x, oy: pt.y - cn.y, startX: cn.x, startY: cn.y};
       selectedNodeId = nid; selectedEdgeId = null;
-      render();
+      render(); updateNodeInfoPanel();
     }
     e.preventDefault(); return;
   }
   if (eid) {
     /* edge click: select */
     selectedEdgeId = eid; selectedNodeId = null; connecting = null;
-    render(); setStatus('Edge selected. Delete to remove.'); e.preventDefault(); return;
+    render(); updateNodeInfoPanel(); setStatus('Edge selected. Delete to remove.'); e.preventDefault(); return;
   }
 
   /* empty area: deselect + start viewport pan (keep connecting active for click-click) */
   selectedNodeId = null; selectedEdgeId = null;
   pan = {startX: e.clientX, startY: e.clientY, startVpX: vpX, startVpY: vpY};
   svg.style.cursor = 'grabbing';
-  render();
+  render(); updateNodeInfoPanel();
 });
 
 svg.addEventListener('mousemove', function(e) {
@@ -765,7 +814,7 @@ document.addEventListener('keydown', function(e) {
 /* ── undo / redo ── */
 function _snapshot() {
   return {
-    nodes: canvasNodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y}; }),
+    nodes: canvasNodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y, inp:n.inp||{}}; }),
     edges: edges.map(function(e){ return {id:e.id, from_id:e.from_id, to_id:e.to_id}; }),
     nid: nextNodeId, eid: nextEdgeId
   };
@@ -778,11 +827,11 @@ function pushHistory() {
   _histIdx = _history.length - 1;
 }
 function _restoreSnap(snap) {
-  canvasNodes = snap.nodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y}; });
+  canvasNodes = snap.nodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y, inp:n.inp||{}}; });
   edges = snap.edges.map(function(e){ return {id:e.id, from_id:e.from_id, to_id:e.to_id}; });
   nextNodeId = snap.nid; nextEdgeId = snap.eid;
   selectedNodeId = null; selectedEdgeId = null; connecting = null; moveTarget = null;
-  render(); updateRunBtn(); saveHash();
+  render(); updateRunBtn(); saveHash(); updateNodeInfoPanel();
 }
 /* hist[histIdx] = current state (push-after pattern) */
 function undo() { if (_histIdx > 0) { _histIdx--; _loading = true; _restoreSnap(_history[_histIdx]); _loading = false; } }
@@ -876,11 +925,17 @@ document.getElementById('cmdPalette').addEventListener('mousedown', function(e) 
   if (e.target === this) closePalette();
 });
 
-/* ── deep-link (#g=) ── */
+/* ── deep-link (#g=) ── v2 adds schema version + per-node inp; v1 (no 'v') loads silently ── */
 function saveHash() {
   if (!canvasNodes.length) { history.replaceState(null,'',location.pathname+location.search); return; }
+  var hasInp = canvasNodes.some(function(n){ return n.inp && Object.keys(n.inp).length; });
   var state = {
-    n: canvasNodes.map(function(n){ return {i:n.id, t:n.tool_id, x:n.x, y:n.y}; }),
+    v: 2,
+    n: canvasNodes.map(function(n){
+      var entry = {i:n.id, t:n.tool_id, x:n.x, y:n.y};
+      if (hasInp) entry.inp = n.inp || {};
+      return entry;
+    }),
     e: edges.map(function(e){ return {f:e.from_id, t:e.to_id}; })
   };
   var json = JSON.stringify(state);
@@ -898,8 +953,11 @@ function loadHash() {
     var padded = b64 + '=='.slice((b64.length+2)%4);
     var bytes = Uint8Array.from(atob(padded), function(c){return c.charCodeAt(0);});
     var state = JSON.parse(new TextDecoder().decode(bytes));
+    /* v1: {n:[{i,t,x,y}...],e:[...]} no 'v' field; v2: {v:2,n:[{i,t,x,y,inp?:{}}...],e:[...]} */
+    var isV2 = state.v === 2;
     for (var i = 0; i < state.n.length; i++) {
-      var sn = state.n[i]; addNode(sn.t, sn.x, sn.y, sn.i);
+      var sn = state.n[i];
+      addNode(sn.t, sn.x, sn.y, sn.i, isV2 ? (sn.inp || {}) : {});
     }
     for (var j = 0; j < state.e.length; j++) { addEdge(state.e[j].f, state.e[j].t); }
   } catch(err) { /* ignore bad hash */ }
@@ -923,6 +981,191 @@ function fallbackCopy(t) {
   document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); } catch(e){}
   document.body.removeChild(ta);
+}
+
+/* ── H1: node inputs panel ── */
+var _niTimer = null;
+function updateNodeInfoPanel() {
+  var panel = document.getElementById('rpNodeInputs');
+  if (!panel) return;
+  if (!selectedNodeId) { panel.style.display = 'none'; return; }
+  var cn = canvasNodes.find(function(n){ return n.id === selectedNodeId; });
+  if (!cn) { panel.style.display = 'none'; return; }
+  var nd = NODE_BY_ID[cn.tool_id];
+  var label = document.getElementById('rpNiLabel');
+  if (label) label.textContent = (nd ? nd.display_name : cn.tool_id) + ' (node ' + cn.id + ')';
+  var ta = document.getElementById('rpNiJson');
+  if (ta && !_niEditing) {
+    var existing = cn.inp && Object.keys(cn.inp).length ? JSON.stringify(cn.inp, null, 2) : '';
+    ta.value = existing;
+    document.getElementById('rpNiErr').style.display = 'none';
+  }
+  panel.style.display = 'block';
+}
+var _niEditing = false;
+document.addEventListener('DOMContentLoaded', function() {
+  var ta = document.getElementById('rpNiJson');
+  if (!ta) return;
+  ta.addEventListener('focus', function(){ _niEditing = true; });
+  ta.addEventListener('blur',  function(){ _niEditing = false; });
+  ta.addEventListener('input', function() {
+    var errEl = document.getElementById('rpNiErr');
+    var raw = ta.value.trim();
+    if (!raw) {
+      /* clear inputs for selected node */
+      var cn = selectedNodeId ? canvasNodes.find(function(n){ return n.id === selectedNodeId; }) : null;
+      if (cn) { cn.inp = {}; if (_niTimer) clearTimeout(_niTimer); _niTimer = setTimeout(saveHash, 400); }
+      errEl.style.display = 'none'; return;
+    }
+    try {
+      var parsed = JSON.parse(raw);
+      errEl.style.display = 'none';
+      var cn2 = selectedNodeId ? canvasNodes.find(function(n){ return n.id === selectedNodeId; }) : null;
+      if (cn2) { cn2.inp = parsed; if (_niTimer) clearTimeout(_niTimer); _niTimer = setTimeout(saveHash, 400); }
+    } catch(e) {
+      errEl.style.display = 'block';
+    }
+  });
+});
+
+/* ── H2: toggle MCP panel ── */
+var _mcpPanelOpen = false;
+var _lastChainJson = null;
+var _lastSeqJson = null;
+function toggleMcpPanel() {
+  if (!canvasNodes.length) { setStatus('Add nodes to the canvas first.'); return; }
+  _mcpPanelOpen = !_mcpPanelOpen;
+  var panel = document.getElementById('rpMcpPanel');
+  if (!_mcpPanelOpen) { panel.classList.remove('open'); return; }
+  panel.classList.add('open');
+  buildMcpPanel();
+}
+function buildMcpPanel() {
+  var ordered = topoSort();
+  if (!ordered.length) return;
+  var toolIds = ordered.map(function(n){ return n.tool_id; });
+
+  /* check if composition matches a named chain */
+  var matchedChain = null;
+  for (var ci = 0; ci < CHAINS.length; ci++) {
+    var c = CHAINS[ci];
+    if (c.step_tool_ids.length === toolIds.length) {
+      var match = true;
+      for (var k = 0; k < toolIds.length; k++) { if (c.step_tool_ids[k] !== toolIds[k]) { match = false; break; } }
+      if (match) { matchedChain = c; break; }
+    }
+  }
+
+  var labelEl = document.getElementById('mcpLabel');
+  var snippetEl = document.getElementById('mcpSnippet');
+  var dlBtn = document.getElementById('mcpDlBtn');
+  var seqLabel = document.getElementById('mcpSeqLabel');
+  var seqSnippet = document.getElementById('mcpSeqSnippet');
+  var seqCopy = document.getElementById('mcpSeqCopyBtn');
+
+  _lastChainJson = null; _lastSeqJson = null;
+
+  if (matchedChain) {
+    labelEl.textContent = 'Named chain match: ' + matchedChain.name + '. Runs against mcp.ainumbers.co.';
+    snippetEl.textContent = JSON.stringify({
+      method: 'tools/call',
+      params: { name: 'run_chain', arguments: { chain: matchedChain.name } }
+    }, null, 2);
+    dlBtn.style.display = 'none';
+    seqLabel.style.display = 'none';
+    seqSnippet.style.display = 'none';
+    seqCopy.style.display = 'none';
+  } else {
+    /* unnamed composition: chain JSON + per-step MCP sequence */
+    var slug = buildSlug(ordered);
+    var chainObj = buildChainObj(ordered, slug);
+    _lastChainJson = JSON.stringify(chainObj, null, 2);
+
+    var firstNodeInp = (ordered[0].inp && Object.keys(ordered[0].inp).length) ? ordered[0].inp : {};
+    var seq = ordered.map(function(n, i) {
+      var nd = NODE_BY_ID[n.tool_id];
+      var mcpN = nd && nd.mcp_name ? nd.mcp_name : n.tool_id;
+      return { method: 'tools/call', params: { name: mcpN, arguments: i === 0 ? firstNodeInp : {} } };
+    });
+    _lastSeqJson = JSON.stringify(seq, null, 2);
+
+    labelEl.textContent = 'Unnamed composition. Download chain JSON, then run each step via mcp.ainumbers.co.';
+    snippetEl.textContent = _lastChainJson;
+    dlBtn.style.display = 'inline-block';
+
+    seqLabel.textContent = 'Per-step MCP sequence (runs each step independently):';
+    seqLabel.style.display = 'block';
+    seqSnippet.textContent = _lastSeqJson;
+    seqSnippet.style.display = 'block';
+    seqCopy.style.display = 'inline-block';
+  }
+}
+function copyMcpSnippet() {
+  var text = document.getElementById('mcpSnippet').textContent;
+  var btn = document.querySelector('#rpMcpPanel .mcp-copy-btn');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){
+      btn.textContent = '&#x2713; Copied!'; setTimeout(function(){ btn.textContent = '&#x1F4CB; Copy snippet'; }, 1600);
+    }).catch(function(){ fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+}
+function copyMcpSeq() {
+  var text = _lastSeqJson || document.getElementById('mcpSeqSnippet').textContent;
+  var btn = document.getElementById('mcpSeqCopyBtn');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){
+      btn.textContent = '&#x2713; Copied!'; setTimeout(function(){ btn.textContent = '&#x1F4CB; Copy sequence'; }, 1600);
+    }).catch(function(){ fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+}
+function dlChainJson() {
+  if (!_lastChainJson) { buildMcpPanel(); }
+  if (_lastChainJson) dl(_lastChainJson, buildSlug(topoSort()) + '.chain.json', 'application/json');
+}
+
+/* ── H3: propose as named chain ── */
+function buildSlug(ordered) {
+  /* §A3.3: <domain-word>-<specifics>, lowercase-kebab, spelled out */
+  var parts = ordered.map(function(n) {
+    var nd = NODE_BY_ID[n.tool_id];
+    var name = nd ? nd.display_name : n.tool_id;
+    return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  });
+  var slug = parts.join('-to-');
+  if (slug.length > 80) slug = slug.slice(0, 80).replace(/-+$/, '');
+  return slug;
+}
+function buildChainObj(ordered, slug) {
+  return {
+    name:        slug,
+    title:       ordered.map(function(n){ var nd=NODE_BY_ID[n.tool_id]; return nd?nd.display_name:n.tool_id; }).join(' + '),
+    description: 'Composed on AINumbers.co Canvas.',
+    steps:       ordered.map(function(n, i) {
+      return { tool_id: n.tool_id, handoff: i < ordered.length - 1 };
+    })
+  };
+}
+function proposeAsChain() {
+  if (!canvasNodes.length) { setStatus('Add nodes to the canvas first.'); return; }
+  var ordered = topoSort();
+  var slug = buildSlug(ordered);
+  var chainObj = buildChainObj(ordered, slug);
+  var chainJson = JSON.stringify(chainObj, null, 2);
+  var subject = '[AINumbers Chain Proposal] ' + slug;
+  var body = 'Proposed workflow: ' + slug + '\\n\\nChain JSON:\\n' + chainJson;
+  var mailto = 'mailto:contact@ainumbers.co?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  if (mailto.length <= 2000) {
+    window.location.href = mailto;
+  } else {
+    /* body too large for mailto — copy JSON to clipboard, open suggest.html */
+    var doOpen = function() {
+      window.open('../../suggest.html', '_blank');
+      setStatus('Chain JSON copied — paste it in the description field on the suggestion page.');
+    };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(chainJson).then(doOpen).catch(function(){ fallbackCopy(chainJson); doOpen(); });
+    } else { fallbackCopy(chainJson); doOpen(); }
+  }
 }
 
 /* ── G4: bespoke auto-layout (longest-path layering + barycenter ordering) ── */
@@ -1102,6 +1345,11 @@ async function runCanvas() {
       continue;
     }
     var applied = 0;
+    /* H1: apply per-node inputs first, then override with prior step's payload */
+    var nodeInp = step.inp && Object.keys(step.inp).length ? flattenScalars(step.inp) : {};
+    if (Object.keys(nodeInp).length) {
+      try { win.AINBridge.apply(nodeInp); } catch(e2){}
+    }
     if (prior && prior.mandate && prior.mandate.payload) {
       try { applied = win.AINBridge.apply(flattenScalars(prior.mandate.payload)) || 0; } catch(e){ applied = 0; }
     }
@@ -1309,7 +1557,7 @@ async function apVerifySig(){
 </body>
 </html>`;
 
-  return html.replace(NODES_PH, () => NODES_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML);
+  return html.replace(NODES_PH, () => NODES_JSON).replace(CHAINS_PH, () => CHAINS_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML);
 }
 
 /* ── check or write ──────────────────────────────────────────────── */
