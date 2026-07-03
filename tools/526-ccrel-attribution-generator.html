@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ccREL Attribution Generator · AINumbers.co</title>
+<meta name="description" content="Generate a human-readable TASL attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/526-ccrel-attribution-generator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ccREL Attribution Generator","url":"https://ainumbers.co/tools/526-ccrel-attribution-generator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "526-ccrel-attribution-generator",
+  "version": "1.0.0",
+  "title": "ccREL Attribution Generator",
+  "description": "Generates a human-readable TASL attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Inputs: title, creator, source URL, license, optional work URL. Outputs: formatted attribution, JSON-LD, RDFa. Client-side, deterministic, zero PII.",
+  "category": "cat-11",
+  "tags": ["ccrel","creative commons","attribution","tasl","json-ld","rdfa","license","tokenization","content creator","ip"],
+  "audience": ["creator","engineer","product","compliance"],
+  "input_schema": {"type":"object","required":["title","creator","source_url","license"],"properties":{"title":{"type":"string"},"creator":{"type":"string"},"source_url":{"type":"string"},"license":{"type":"string","enum":["CC0-1.0","CC-BY-4.0","CC-BY-SA-4.0","CC-BY-ND-4.0","CC-BY-NC-4.0","CC-BY-NC-SA-4.0","CC-BY-NC-ND-4.0"]},"work_url":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"tasl_line":{"type":"string"},"json_ld":{"type":"object"},"rdfa_html":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"generate_ccrel_attribution","description":"Generates a human-readable TASL attribution line, a ccREL JSON-LD block, and an RDFa block for a Creative Commons licensed work. Use to produce machine-readable license metadata for tokenized content.","inputSchema":{"type":"object","required":["title","creator","source_url","license"],"properties":{"title":{"type":"string","description":"Work title"},"creator":{"type":"string","description":"Creator or author name"},"source_url":{"type":"string","description":"URL where the work is published"},"license":{"type":"string","enum":["CC0-1.0","CC-BY-4.0","CC-BY-SA-4.0","CC-BY-ND-4.0","CC-BY-NC-4.0","CC-BY-NC-SA-4.0","CC-BY-NC-ND-4.0"],"description":"SPDX license identifier"},"work_url":{"type":"string","description":"Optional canonical work URL for attribution link"}}}},
+  "execution": {"type":"browser-reference","entry":"tools/526-ccrel-attribution-generator.html","function_name":"runGenerate"},
+  "ap2_export": false,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.q{margin-bottom:1.4rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.6}
+select,input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.85rem;padding:.55rem .8rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+input[type=text]{font-family:'JetBrains Mono',monospace;font-size:.76rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233A5270' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .8rem center;padding-right:2.4rem}
+select:focus,input[type=text]:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.5rem}
+.blk-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .4rem;display:flex;align-items:center;justify-content:space-between}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.code-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);line-height:1.65;white-space:pre;overflow-x:auto;margin-bottom:.4rem}
+.tasl-line{font-family:'Sora',sans-serif;font-size:.88rem;color:var(--bright);line-height:1.7;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.4rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>DLT &amp; Tokenization</span><span class="nav-sep">/</span><span>T-526</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-11 · T526 · DLT &amp; Tokenization</div>
+  <h1>ccREL Attribution <em>Generator</em></h1>
+  <p class="hero-desc">Enter the four TASL fields for a Creative Commons licensed work and get a human-readable attribution line, a machine-readable ccREL JSON-LD block, and an RDFa snippet ready to embed in HTML. Follows the Creative Commons Rights Expression Language (ccREL) specification so crawlers, agents, and NFT platforms can parse the license relationship automatically.</p>
+  <div class="disclaimer">This tool generates standards-conformant ccREL attribution metadata from your inputs. It is a formatting and selection aid, not legal advice. Verify the output against the current CC ccREL specification before relying on it for commercial or legal purposes.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">CC ccREL</span>
+    <span class="badge badge-gold">JSON-LD · RDFa</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="q">
+      <label class="q-label" for="title">1 · Work title</label>
+      <div class="q-help">The title of the work being licensed. Required for TASL and ccREL.</div>
+      <input type="text" id="title" placeholder="My Photograph" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="creator">2 · Creator / author</label>
+      <div class="q-help">The name of the creator or rights holder to be credited.</div>
+      <input type="text" id="creator" placeholder="Jane Smith" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="source_url">3 · Source URL</label>
+      <div class="q-help">The URL where the work is hosted or originally published. Used as the attribution link.</div>
+      <input type="text" id="source_url" placeholder="https://example.com/works/my-photograph" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="license">4 · License</label>
+      <div class="q-help">The Creative Commons license applied to the work.</div>
+      <select id="license">
+        <option value="CC0-1.0">CC0 1.0 Universal (Public Domain Dedication)</option>
+        <option value="CC-BY-4.0" selected>CC BY 4.0 (Attribution)</option>
+        <option value="CC-BY-SA-4.0">CC BY-SA 4.0 (Attribution-ShareAlike)</option>
+        <option value="CC-BY-ND-4.0">CC BY-ND 4.0 (Attribution-NoDerivatives)</option>
+        <option value="CC-BY-NC-4.0">CC BY-NC 4.0 (Attribution-NonCommercial)</option>
+        <option value="CC-BY-NC-SA-4.0">CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike)</option>
+        <option value="CC-BY-NC-ND-4.0">CC BY-NC-ND 4.0 (Attribution-NonCommercial-NoDerivatives)</option>
+      </select>
+    </div>
+    <div class="q">
+      <label class="q-label" for="work_url">5 · Work URL (optional)</label>
+      <div class="q-help">A canonical URL for the work itself, if different from the source URL. Used as the cc:attributionURL in ccREL. Leave blank to use the source URL.</div>
+      <input type="text" id="work_url" placeholder="https://example.com/works/my-photograph" value="">
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runGenerate()">&#9654; Generate Attribution</button>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../suggest.html">Suggest</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// engine: reusable by art-207 node
+var CC_LICENSES = {
+  'CC0-1.0': {
+    name: 'CC0 1.0 Universal',
+    url: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    spdx: 'CC0-1.0',
+    short: 'CC0 1.0'
+  },
+  'CC-BY-4.0': {
+    name: 'Creative Commons Attribution 4.0 International',
+    url: 'https://creativecommons.org/licenses/by/4.0/',
+    spdx: 'CC-BY-4.0',
+    short: 'CC BY 4.0'
+  },
+  'CC-BY-SA-4.0': {
+    name: 'Creative Commons Attribution-ShareAlike 4.0 International',
+    url: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    spdx: 'CC-BY-SA-4.0',
+    short: 'CC BY-SA 4.0'
+  },
+  'CC-BY-ND-4.0': {
+    name: 'Creative Commons Attribution-NoDerivatives 4.0 International',
+    url: 'https://creativecommons.org/licenses/by-nd/4.0/',
+    spdx: 'CC-BY-ND-4.0',
+    short: 'CC BY-ND 4.0'
+  },
+  'CC-BY-NC-4.0': {
+    name: 'Creative Commons Attribution-NonCommercial 4.0 International',
+    url: 'https://creativecommons.org/licenses/by-nc/4.0/',
+    spdx: 'CC-BY-NC-4.0',
+    short: 'CC BY-NC 4.0'
+  },
+  'CC-BY-NC-SA-4.0': {
+    name: 'Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International',
+    url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+    spdx: 'CC-BY-NC-SA-4.0',
+    short: 'CC BY-NC-SA 4.0'
+  },
+  'CC-BY-NC-ND-4.0': {
+    name: 'Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International',
+    url: 'https://creativecommons.org/licenses/by-nc-nd/4.0/',
+    spdx: 'CC-BY-NC-ND-4.0',
+    short: 'CC BY-NC-ND 4.0'
+  }
+};
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function generateAttribution(title, creator, sourceUrl, licenseId, workUrl) {
+  var lic = CC_LICENSES[licenseId];
+  if (!lic) return null;
+  var attrUrl = workUrl || sourceUrl;
+
+  // (a) human-readable TASL line
+  var tasl;
+  if (licenseId === 'CC0-1.0') {
+    tasl = '"' + title + '" by ' + creator + ' is marked with ' + lic.short + '.';
+    if (attrUrl) tasl = '"' + title + '" (' + attrUrl + ') by ' + creator + ' is marked with ' + lic.short + ' (' + lic.url + ').';
+  } else {
+    tasl = '"' + title + '" by ' + creator;
+    if (attrUrl) tasl += ' (' + attrUrl + ')';
+    tasl += ' is licensed under ' + lic.short + ' (' + lic.url + ').';
+  }
+
+  // (b) JSON-LD ccREL block
+  var jsonLd = {
+    '@context': {
+      'cc': 'https://creativecommons.org/ns#',
+      'dc': 'http://purl.org/dc/elements/1.1/',
+      'dct': 'http://purl.org/dc/terms/'
+    },
+    '@type': 'cc:Work'
+  };
+  if (attrUrl) jsonLd['@id'] = attrUrl;
+  jsonLd['dc:title'] = title;
+  jsonLd['dc:creator'] = creator;
+  if (sourceUrl) jsonLd['dc:source'] = sourceUrl;
+  jsonLd['cc:license'] = lic.url;
+  if (attrUrl) jsonLd['cc:attributionURL'] = attrUrl;
+  jsonLd['cc:attributionName'] = creator;
+
+  // (c) RDFa block
+  var about = attrUrl ? ' about="' + esc(attrUrl) + '"' : '';
+  var rdfa;
+  if (licenseId === 'CC0-1.0') {
+    rdfa = '<p xmlns:cc="https://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"' + about + '>\n' +
+      '  <span property="dct:title">' + esc(title) + '</span>\n' +
+      '  by <span property="cc:attributionName">' + esc(creator) + '</span>\n' +
+      '  is marked with\n' +
+      '  <a rel="license" href="' + esc(lic.url) + '">' + esc(lic.short) + '</a>.\n' +
+      '</p>';
+  } else {
+    rdfa = '<p xmlns:cc="https://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"' + about + '>\n' +
+      '  <span property="dct:title">' + esc(title) + '</span> by\n' +
+      '  <a rel="cc:attributionURL" href="' + esc(attrUrl || sourceUrl) + '" property="cc:attributionName">' + esc(creator) + '</a>\n' +
+      '  is licensed under\n' +
+      '  <a rel="license" href="' + esc(lic.url) + '">' + esc(lic.short) + '</a>.\n' +
+      '</p>';
+  }
+
+  return { tasl: tasl, jsonLd: jsonLd, rdfa: rdfa, license: lic };
+}
+
+function runGenerate() {
+  var title = document.getElementById('title').value.trim();
+  var creator = document.getElementById('creator').value.trim();
+  var sourceUrl = document.getElementById('source_url').value.trim();
+  var licenseId = document.getElementById('license').value;
+  var workUrl = document.getElementById('work_url').value.trim();
+
+  var errors = [];
+  if (!title) errors.push('Work title is required.');
+  if (!creator) errors.push('Creator name is required.');
+  if (!sourceUrl) errors.push('Source URL is required.');
+
+  if (errors.length) {
+    document.getElementById('outputSection').innerHTML =
+      '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.85rem 1rem;margin-top:1.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--red)">' +
+      errors.map(function(e){return '&#9888; '+esc(e);}).join('<br>') + '</div>';
+    return;
+  }
+
+  var result = generateAttribution(title, creator, sourceUrl, licenseId, workUrl);
+  if (!result) {
+    document.getElementById('outputSection').innerHTML = '<div style="color:var(--red);margin-top:1rem">Unknown license selected.</div>';
+    return;
+  }
+
+  var jsonLdStr = JSON.stringify(result.jsonLd, null, 2);
+  window._ccrelResult = result;
+  window._ccrelJsonLd = jsonLdStr;
+
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section">' +
+      '<div class="out-header"><span class="out-title">ccREL Attribution Output</span><span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">' + esc(result.license.spdx) + '</span></div>' +
+      '<div class="out-body">' +
+        '<div class="blk-label"><span>(a) Human-readable TASL attribution line</span><button class="copy-btn" onclick="copyText(0)">Copy</button></div>' +
+        '<div class="tasl-line" id="taslOut">' + esc(result.tasl) + '</div>' +
+        '<div style="font-size:.7rem;color:var(--muted);margin-bottom:1.2rem">Cite this line when reproducing or distributing the work, per the ' + esc(result.license.short) + ' terms.</div>' +
+
+        '<div class="blk-label"><span>(b) ccREL JSON-LD (embed in &lt;script type="application/ld+json"&gt;)</span><button class="copy-btn" onclick="copyText(1)">Copy</button></div>' +
+        '<div class="code-block" id="jsonldOut">' + esc(jsonLdStr) + '</div>' +
+        '<div style="font-size:.7rem;color:var(--muted);margin-bottom:1.2rem">Source: <a href="https://wiki.creativecommons.org/wiki/CcREL" style="color:var(--teal)" target="_blank" rel="noopener">CC ccREL specification</a> (external link, opens in new tab).</div>' +
+
+        '<div class="blk-label"><span>(c) RDFa snippet (embed in HTML body)</span><button class="copy-btn" onclick="copyText(2)">Copy</button></div>' +
+        '<div class="code-block" id="rdfaOut">' + esc(result.rdfa) + '</div>' +
+        '<div style="font-size:.7rem;color:var(--muted)">RDFa embeds the license relationship in the HTML itself so search engines and semantic crawlers can read it directly from the page source.</div>' +
+      '</div>' +
+    '</div>';
+
+  window._ccrelBlocks = [result.tasl, jsonLdStr, result.rdfa];
+}
+
+function copyText(i) {
+  var t = (window._ccrelBlocks || [])[i];
+  if (t) navigator.clipboard.writeText(t);
+}
+</script>
+
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"526-ccrel-attribution-generator","version":"1.0.0","title":"ccREL Attribution Generator","description":"Generates a human-readable TASL attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Client-side, deterministic, zero PII.","category":"cat-11","tags":["ccrel","creative commons","attribution","tasl","json-ld","rdfa","license","tokenization","content creator","ip"],"audience":["creator","engineer","product","compliance"],"input_schema":{"type":"object","required":["title","creator","source_url","license"],"properties":{"title":{"type":"string"},"creator":{"type":"string"},"source_url":{"type":"string"},"license":{"type":"string","enum":["CC0-1.0","CC-BY-4.0","CC-BY-SA-4.0","CC-BY-ND-4.0","CC-BY-NC-4.0","CC-BY-NC-SA-4.0","CC-BY-NC-ND-4.0"]},"work_url":{"type":"string"}}},"output_schema":{"type":"object","properties":{"tasl_line":{"type":"string"},"json_ld":{"type":"object"},"rdfa_html":{"type":"string"}}},"mcp_tool_definition":{"name":"generate_ccrel_attribution","description":"Generates a human-readable TASL attribution line, a ccREL JSON-LD block, and an RDFa block for a Creative Commons licensed work. Use to produce machine-readable license metadata for tokenized content.","inputSchema":{"type":"object","required":["title","creator","source_url","license"],"properties":{"title":{"type":"string","description":"Work title"},"creator":{"type":"string","description":"Creator or author name"},"source_url":{"type":"string","description":"URL where the work is published"},"license":{"type":"string","enum":["CC0-1.0","CC-BY-4.0","CC-BY-SA-4.0","CC-BY-ND-4.0","CC-BY-NC-4.0","CC-BY-NC-SA-4.0","CC-BY-NC-ND-4.0"],"description":"SPDX license identifier"},"work_url":{"type":"string","description":"Optional canonical work URL for attribution link"}}}},"execution":{"type":"browser-reference","entry":"tools/526-ccrel-attribution-generator.html","function_name":"runGenerate"},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- AIN Bridge v1.0 -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runGenerate',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;el.value=String(fields[id]);try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0&&/[#&]run=1/.test(h))runTool();}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initPrefill);else initPrefill();
+})();
+</script>
+</body>
+</html>
