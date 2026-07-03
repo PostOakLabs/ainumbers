@@ -409,3 +409,26 @@ Eight agent-native MCP tools for the full MiCA Title V CASP lifecycle. MiCA Titl
 
 ### §4 Artifact Schema (OpenChainGraph)
 All OpenChainGraph nodes emit: `{ap2_version:"1.0.0", mandate_id, tool_id, execution_hash, chain:{parent_hashes, parent_tool_ids, chain_depth}, policy_parameters, output_payload, compliance_flags, audit_signature}`. execution_hash is WebCrypto SHA-256 over sorted-key JSON of policy_parameters + output_payload — verifiable client-side. Wave 9 artifacts additionally carry `dct:conformsTo` (W3C PROF profile URI) and `semantic_profile` token (iso20022:pacs.008-subset or iso20022:party-identification) per OpenChainGraph v0.3.1.
+
+## Anchor Suite (anchor.ainumbers.co)
+Browser-based document timestamping. No file leaves the browser. No account required.
+
+- **Home:** https://anchor.ainumbers.co/
+- **Anchor a document:** https://anchor.ainumbers.co/anchor.html — WebCrypto SHA-256 hash computed client-side; hash sent to one or more timestamp authorities; receipt downloaded as anchors.json.
+- **Verify a receipt:** https://anchor.ainumbers.co/verify.html — drop an anchors.json and the tool verifies each RFC 3161 DER binding and each OpenTimestamps proof offline using pinned CA roots.
+- **Library:** https://anchor.ainumbers.co/artifacts.html — IndexedDB-backed local receipt store; import/filter/export; OTS upgrade polling.
+- **Integrate:** https://anchor.ainumbers.co/integrate.html — post-anchoring workflows (save with document, email, Git embedding, DMS/cloud); integration recipes for Bitcoin/OTS, Ethereum, Solana, IPFS, CI/CD pipelines, Hyperledger Fabric, enterprise systems, and cloud object storage.
+- **Docs:** https://anchor.ainumbers.co/docs/ — anchors.json binding format, openssl ts -verify recipe, timestamp authority table, pinned root certificates, OCG support, security model.
+- **Machine-readable site map:** https://anchor.ainumbers.co/sitemap.xml
+
+### anchors.json format
+Each receipt is a JSON file with a top-level `anchor_bindings` array per OCG v0.7 §20. RFC 3161 entry fields: `type`, `anchored_hash` (sha256:hex), `log_origin`, `proof` (base64 DER TimeStampToken), `policy_oid`, `serial`, `gen_time`, `signer_cert_chain_b64`. OpenTimestamps entry fields: `type`, `anchored_hash`, `log_origin` (bitcoin), `proof` (base64 .ots bytes).
+
+### Timestamp authorities
+Six choices: Sigstore TSA (browser-direct, CORS open), DigiCert (relay), Sectigo (relay, 15 s pacing), FreeTSA (relay), GitHub TSA (browser-direct), OpenTimestamps (browser-direct, Bitcoin-anchored, proof pending a few hours). Relay is a stateless Cloudflare Worker that pipes DER bytes verbatim; stores nothing.
+
+### OCG v0.7 §20 support
+Drop an OCG artifact on the Anchor page and it reads the `execution_hash` field directly. The receipt is re-emitted with `anchor_bindings` appended; `execution_hash` and all other fields are untouched (anchor data sits outside the hash scope). MCP tool `anchor_document_integrity` at mcp.ainumbers.co/mcp accepts an artifact hash and returns an anchor receipt for use in downstream OCG nodes.
+
+### Security model
+CSP: `script-src 'self'`, `connect-src` exact allowlist, `require-trusted-types-for 'script'`, `font-src 'self'`. No analytics, no third-party scripts, no CDNs. Post Oak Labs has no copy of any hash; timestamp authorities listed in each receipt are the issuers of the evidence. Source: https://github.com/PostOakLabs/anchor-suite
