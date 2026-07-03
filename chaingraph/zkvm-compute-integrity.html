@@ -73,6 +73,7 @@ section p{color:var(--text);font-size:.94rem;max-width:760px;margin-bottom:1rem}
 .lesson{background:var(--bg-2);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:var(--radius);padding:.95rem 1.15rem;margin:.8rem 0;max-width:780px}
 .lesson h3{margin:0 0 .35rem;font-family:'Sora',sans-serif;font-size:.95rem;font-weight:500;color:var(--bright)}
 .lesson p{margin:0;font-size:.9rem;color:var(--text)}
+.lesson p+p{margin-top:.65rem}
 .lesson .code,.lesson .math{margin:.7rem 0 0;font-size:.72rem}
 .cmp{width:100%;border-collapse:collapse;margin:1.4rem 0;font-size:.86rem;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;max-width:780px}
 .cmp th{background:var(--bg-3);color:var(--bright);text-align:left;padding:.7rem .9rem;font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
@@ -81,6 +82,8 @@ section p{color:var(--text);font-size:.94rem;max-width:760px;margin-bottom:1rem}
 .note{background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);border-left:2px solid var(--gold);border-radius:var(--radius);padding:.95rem 1.15rem;margin:1.2rem 0;font-size:.9rem;color:var(--text);max-width:780px}
 .sources{font-size:.82rem;color:var(--muted);max-width:760px}
 .sources a{color:var(--body)}
+.sources ol{margin:0;padding-left:1.5rem;display:grid;gap:.55rem}
+.sources li{color:var(--muted)}
 footer{padding:2.5rem 0 3rem}
 .foot{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:2.2;letter-spacing:.04em}
 .foot a{color:var(--body)}
@@ -228,8 +231,8 @@ const ok = await verifySeal(
 <section>
   <div class="wrap">
     <div class="sec-eyebrow">03 · What we learned building it</div>
-    <h2>What worked, what did not, and what surprised us</h2>
-    <p>We took the AINumbers suite from zero §18 coverage to a real proof on every clean kernel. None of it was faked (more on that below). Here is the honest account, so you can plan around the same problems instead of discovering them.</p>
+    <h2>What worked, and what did not</h2>
+    <p>We took the AINumbers suite from zero §18 coverage to a real proof on every clean kernel. None of it was faked (more on that below). Here is the honest account, so your team can plan around the same problems instead of discovering them.</p>
 
     <div class="lesson">
       <h3>One universal guest beats porting every kernel</h3>
@@ -237,7 +240,12 @@ const ok = await verifySeal(
     </div>
 
     <div class="lesson">
-      <h3>Floating point is what bit us, and it bit late</h3>
+      <h3>Shared code inlines, it does not import</h3>
+      <p>Because the guest takes the kernel source as its input, a kernel cannot pull in a shared helper by import. The guest loader resolves only the hashing helper; any other import resolves back to the kernel source and fails to instantiate. That was the cause of the lazy-import class described further below. The rule is firm: shared code a kernel needs, a number formatter, a math library, an encoder, must be inlined into the kernel file itself, so the source that hashes to the kernel digest is the source that runs. You cannot patch the guest to add a capability without changing the ImageID and invalidating every existing proof.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Floating point is not portable</h3>
       <p>The arithmetic standard (IEEE-754) only guarantees the same bits across engines for the basic operations. The library functions do not carry that guarantee, and they can differ in the last unit in the last place between two correct engines. A handful of our kernels (the machine-learning and quantitative ones) produced guest output that differed from the browser by exactly that last bit, and a last-bit difference means the proof does not match the canonical result.</p>
       <div class="code">Math.exp(0.5)   // V8  vs  QuickJS-on-RV64IM (soft-float): can differ in the last ULP
 
@@ -246,10 +254,11 @@ const ok = await verifySeal(
 
 import { exp } from "./_detmath.bundle.mjs";   // identical bits in browser, server, AND guest</div>
       <p>The fix was a shared deterministic math library, used identically in all three places. Those roughly twelve transcendental kernels were the last and hardest part of the entire effort. If your kernels do pricing, risk, or ML math, budget for this first, not last.</p>
+      <p>Only five operations are identical bit for bit across JavaScript engines: add, subtract, multiply, divide, and square root. Every transcendental function, exp, log, pow, and the trig family, is implementation-defined, and V8, a WebAssembly build of QuickJS, and the RISC-V guest each link a different math library, so their last bits diverge. The fix was to stop calling the engine math and call one pinned pure-JavaScript library instead, cross-checked against the same algorithm the guest toolchain links. A pure-JavaScript implementation has a second advantage: it is not subject to the fused-multiply-add contraction that makes even a portable C library non-portable in practice.</p>
     </div>
 
     <div class="lesson">
-      <h3>Some faithful code is simply too expensive to prove</h3>
+      <h3>When faithful code is too expensive to prove</h3>
       <p>One kernel validated URLs with a spec-faithful parser. Inside the guest, that cost roughly 5.4 billion cycles, which is effectively un-provable at any sane price. We replaced it with a small deterministic check and used that same check on every path, so the output never diverged.</p>
       <div class="math">faithful WHATWG URL parser, in-guest        ~ 5.4 x 10^9 cycles   (un-provable)
 deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper, identical output)</div>
@@ -257,7 +266,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
     </div>
 
     <div class="lesson">
-      <h3>Non-determinism hides in boring places</h3>
+      <h3>Where non-determinism hides</h3>
       <p>Two more classes of bug had nothing to do with math. One kernel imported a helper module lazily, which let execution order vary; making the import eager fixed it. Another formatted numbers with the locale-aware formatter, which quietly picked up the host's locale and changed the output.</p>
       <div class="code">(1234.5).toLocaleString()   // "1,234.5" or "1.234,5" depending on host ICU locale  (non-deterministic)
 fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywhere</div>
@@ -265,18 +274,29 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <div class="lesson">
-      <h3>Never let development mode lie</h3>
+      <h3>No fake proofs, ever</h3>
       <p>The prover has a development mode (<code>RISC0_DEV_MODE=1</code>) that emits a fake receipt which still passes verification. A fake proof sitting in a standards repository is the worst outcome we could ship, worse than shipping no proof at all, because it looks real. We ran every single proof with <code>RISC0_DEV_MODE=0</code>, and the rule we held to was simple: if we could not produce a real proof, we shipped nothing for that kernel and said so. Hold the same line.</p>
     </div>
 
     <div class="lesson">
-      <h3>What it actually costs, so you can set expectations</h3>
+      <h3>What it costs</h3>
       <p>The full suite proved on a single consumer GPU (an RTX 3080) in about five and a half hours. The Groth16 wrap ran roughly 252 seconds per kernel. The first toolchain build took 5 to 15 minutes. Verifying any of the proofs is milliseconds. Proving is the investment and it is a one-time, off-line cost; verifying is free and universal. If you have no GPU, a proving network (such as Boundless or Succinct) is an option for the proving step, but keep it out of the verify path.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Segment size, not a broken proof</h3>
+      <p>On a consumer GPU, proving can fail in a way that looks like a broken proof and is not. At the default segment size (<code>segment_limit_po2 = 20</code>), the succinct prove failed on a 10 GB card under sustained load with a segment-verification error. It was not out of memory and not a session limit; the executor ran the full computation fine. Lowering the segment size by one, to 19, produced smaller segments and the error went away. The segment size is a prover parameter, not part of the guest, so lowering it does not change the ImageID or invalidate any existing proof, and it changes the number of segments, not peak memory. If a large job fails to prove on a consumer card, lower the segment size before assuming the receipt is wrong.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>A large job needs time, not a large GPU</h3>
+      <p>A large computation does not need a large GPU. The prover breaks execution into fixed-size segments, proves each at the same peak memory, then recursively joins them, and the join is cheaper than proving a segment. The most expensive node in the suite ran a Monte Carlo loop of over a billion cycles and proved on the same 10 GB card as everything else, over a longer run. The right question about a heavy job is how much time it needs, not whether it fits in memory.</p>
     </div>
 
     <div class="lesson">
       <h3>Triage before you prove</h3>
       <p>Before generating a single proof, sort your kernels into three buckets: the ones using only basic arithmetic are ready immediately, the ones using integer powers need a quick check that the exponent really is an integer, and the transcendental ones need the deterministic math work first. That sort is your project plan. We classified all of ours up front, and it told us exactly where the hard work was.</p>
+      <p>Measure before you prove. The host can run a kernel in the guest in execute mode, which reports the cycle count and produces no proof. A normal node runs in a few million cycles; the practical ceiling for proving one on a consumer GPU is around fifty million. Reading the cycle count first is what kept a faithful URL parser from ever reaching the prover: execute mode reported over five billion cycles, and the decision to find a cheaper predicate was made in seconds instead of after a failed overnight run.</p>
     </div>
 
     <h3 id="full-coverage">Reaching full coverage: the deferred set, and how each class fell</h3>
@@ -288,6 +308,11 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <div class="lesson">
+      <h3>Why the pipeline is two binaries</h3>
+      <p>The proving step is split across two binaries for a concrete reason. A single build that does both the GPU work and the final Groth16 wrap crashes on a 10 GB card: the native CUDA Groth16 prover hits an illegal memory access right after the seal is produced, and the Groth16 backend is selected at compile time, so a CUDA build cannot fall back to the CPU path at run time. The working arrangement is one CUDA binary that produces a GPU-recursion-compressed succinct receipt, then a separate non-CUDA binary that wraps it to Groth16 through a Docker gnark step. The split is the fix, not a preference.</p>
+    </div>
+
+    <div class="lesson">
       <h3>Class B: lazy imports resolved by moving the import inside the function</h3>
       <p>Several kernels imported a signing helper at module top level. The guest could not resolve it, and the kernel failed to load. The fix was to move each import inside the function body, where it is evaluated only on a branch that never runs in the proving path. Output was unchanged; execution hashes were unchanged.</p>
     </div>
@@ -295,6 +320,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="lesson">
       <h3>Class C: hidden locale in number formatting</h3>
       <p>Three kernels called <code>toLocaleString()</code> for formatted output. Locale-dependent in the browser; the guest has no locale at all. Each call was replaced with a pinned deterministic <code>fmtEnUS</code> formatter. Output-preserving; hashes unchanged, because the formatted strings were identical on every platform after the fix.</p>
+      <p>A change described as output-preserving has to be proven so, not asserted. When the locale-dependent formatter was replaced, the pure-JavaScript replacement was checked against the engine output over more than a hundred thousand values, integers, decimals, negatives, and rounding edges, with zero differences, before it shipped. An output-preserving rewrite is a claim about every input, so the test has to look like every input, not a handful of samples.</p>
     </div>
 
     <div class="lesson">
@@ -302,6 +328,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
       <p>One node validated URLs via the browser <code>URL</code> global, which is absent in the guest. A faithful WHATWG parser was ported into the guest and run; the cost was over five billion cycles, effectively unprovable at any sane price. The resolution: a small deterministic <code>isHttpsUrl</code> check (HTTPS scheme and non-empty authority), used identically in the kernel, the guest, the browser tool, and the Worker. No engine-specific reference remains, so no verdict can flip between environments.</p>
       <div class="math">faithful WHATWG URL parser, in-guest        ~ 5.0 x 10^9 cycles   (un-provable)
 deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper, identical output)</div>
+      <p><strong>Do not parse inside the proof.</strong> Expensive parsing does not belong inside a zkVM execution. The same conclusion shows up across the field: match a pattern outside the circuit and verify the match inside it, validate a scheme against an allowlist rather than parse a whole URL. A billion-cycle parser in the guest is the anti-pattern. When an operation genuinely must be both expensive and trusted, there is a second pattern: let a trusted component run it and sign the result as a precondition, then have the zkVM prove only the decision logic over that signed input. The proof stays cheap and the expensive step stays outside it.</p>
     </div>
 
     <div class="lesson">
@@ -372,7 +399,7 @@ RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (nev
 <section>
   <div class="wrap">
     <div class="sec-eyebrow">06 · Limits</div>
-    <h2>Where to be straight about it</h2>
+    <h2>Limits</h2>
     <ul class="list">
       <li>A proof shows the output follows from the inputs by this logic. It does not prove the inputs were true, or that a human acted on the result. Where you need non-repudiation against a known identity, add the optional §16 signature (an Ed25519 did:key proof) and accept the key-custody burden that comes with it.</li>
       <li>Proving costs real compute and a real toolchain. It is off-line and not free. Verifying is cheap and universal, but someone has to do the proving.</li>
@@ -386,15 +413,24 @@ RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (nev
   <div class="wrap">
     <div class="sec-eyebrow">Sources</div>
     <h2>References</h2>
-    <p class="sources">
-      OpenChainGraph Standard §17 (kernel identity) and §18 (compute-integrity), in the <a href="openchain-graph-spec.html">technical spec</a>.
-      <a href="https://www.mintlify.com/risc0/risc0/concepts/receipts-and-verification">RISC Zero receipts (journal and seal)</a>.
-      <a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0 (RV64IM)</a>.
-      <a href="https://arxiv.org/pdf/2602.11887">Software provenance by running an interpreter in a zkVM (arXiv 2026)</a>.
-      <a href="https://blog.icme.io/a-review-on-floating-points-in-zero-knowledge-proof-systems/">Floating point in zero-knowledge systems</a>.
-      <a href="https://bellard.org/quickjs/quickjs.html">QuickJS</a>.
-      <a href="https://www.rfc-editor.org/rfc/rfc8785">RFC 8785 (JSON Canonicalization Scheme)</a>.
-    </p>
+    <ol class="sources">
+      <li>OpenChainGraph Standard §17 (kernel identity) and §18 (compute-integrity), in the <a href="openchain-graph-spec.html">technical spec</a>.</li>
+      <li><a href="https://url.spec.whatwg.org/">WHATWG URL Standard</a> (the faithful URL parser reference).</li>
+      <li><a href="https://www.rfc-editor.org/rfc/rfc8785">RFC 8785</a> (JSON Canonicalization Scheme, used for the execution_hash preimage).</li>
+      <li><a href="https://eprint.iacr.org/2016/260">Groth16: "On the Size of Pairing-based Non-interactive Arguments"</a>, Groth, EUROCRYPT 2016.</li>
+      <li><a href="https://zkevm.ethereum.foundation/blog/zkevm-standards-v0-release">Ethereum Foundation zkVM Standards v0 (RV64IM)</a>.</li>
+      <li><a href="https://www.mintlify.com/risc0/risc0/concepts/receipts-and-verification">RISC Zero receipts (journal and seal)</a>.</li>
+      <li><a href="https://dev.risczero.com/api/recursion">RISC Zero proof composition and continuations (recursion)</a>.</li>
+      <li><a href="https://github.com/Consensys/gnark">gnark: the STARK-to-SNARK Groth16 wrap prover</a> (the Docker gnark step in the pipeline).</li>
+      <li><a href="https://docs.succinct.xyz/">Succinct SP1: a proving network for the no-GPU proving path</a>.</li>
+      <li><a href="https://bellard.org/quickjs/quickjs.html">QuickJS</a> (the JavaScript engine embedded in the universal guest).</li>
+      <li><a href="https://github.com/rust-lang/libm">rust-lang/libm</a> (the Rust libm implementation linked by the RISC-V guest toolchain).</li>
+      <li><a href="https://www.netlib.org/fdlibm/">fdlibm reference implementation</a> (the algorithm base for the pinned JavaScript math library).</li>
+      <li><a href="https://github.com/zkemail/zk-regex">zk-regex: match-off-circuit, verify-in-circuit</a> (the pattern for avoiding expensive parsing in the guest).</li>
+      <li><a href="https://arxiv.org/pdf/2602.11887">Software provenance by running an interpreter in a zkVM (arXiv 2026)</a>.</li>
+      <li><a href="https://blog.icme.io/a-review-on-floating-points-in-zero-knowledge-proof-systems/">Floating point in zero-knowledge systems</a>.</li>
+      <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP Server Side Request Forgery Prevention Cheat Sheet</a> (the allowlist-over-parse principle).</li>
+    </ol>
   </div>
 </section>
 
