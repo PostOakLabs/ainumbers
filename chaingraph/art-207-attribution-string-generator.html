@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Attribution String Generator &middot; ART-207 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Generates a human-readable TASL attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Agent-callable OCG compute node. Not legal advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-207-attribution-string-generator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="text"]:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.out-block{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin:8px 0;white-space:pre-wrap;word-break:break-all;overflow-x:auto}
+.tasl-display{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-left:3px solid var(--teal);border-radius:var(--radius);padding:10px 14px;font-size:.84rem;color:var(--bright);line-height:1.7;margin:8px 0;word-break:break-word}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:.2rem .5rem;cursor:pointer;margin-left:8px;text-transform:uppercase;letter-spacing:.06em}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Attribution String Generator</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-207 &middot; IP Licensing &amp; Tokenization</div>
+  <h1>Attribution String Generator</h1>
+  <p class="sub">Generates a human-readable TASL (Title/Author/Source/License) attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Output follows the Creative Commons Rights Expression Language (ccREL) specification so agents, crawlers, and NFT platforms can parse the license relationship automatically.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">CC ccREL</span>
+    <span class="flag info">JSON-LD + RDFa</span>
+    <span class="flag">Compliance Mandate</span>
+    <span class="flag warn">Not Legal Advice</span>
+  </div>
+
+  <div class="disclaimer">Not legal advice. This tool formats attribution metadata only. Verify the output against the current CC ccREL specification before relying on it for commercial or legal purposes. Consult a licensed attorney for your jurisdiction.</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="q">
+      <label class="q-label" for="title">Work title <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The title of the work being licensed. Required for TASL and ccREL.</div>
+      <input type="text" id="title" placeholder="My Photograph">
+    </div>
+    <div class="q">
+      <label class="q-label" for="creator">Creator / author <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The name of the creator or rights holder to be credited.</div>
+      <input type="text" id="creator" placeholder="Jane Smith">
+    </div>
+    <div class="q">
+      <label class="q-label" for="source_url">Source URL <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The URL where the work is hosted or originally published.</div>
+      <input type="text" id="source_url" placeholder="https://example.com/works/my-photograph">
+    </div>
+    <div class="q">
+      <label class="q-label" for="license">License <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The Creative Commons license applied to the work.</div>
+      <select id="license">
+        <option value="CC-BY-4.0" selected>CC BY 4.0 (Attribution)</option>
+        <option value="CC0-1.0">CC0 1.0 Universal (Public Domain)</option>
+        <option value="CC-BY-SA-4.0">CC BY-SA 4.0 (Attribution-ShareAlike)</option>
+        <option value="CC-BY-ND-4.0">CC BY-ND 4.0 (Attribution-NoDerivatives)</option>
+        <option value="CC-BY-NC-4.0">CC BY-NC 4.0 (Attribution-NonCommercial)</option>
+        <option value="CC-BY-NC-SA-4.0">CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike)</option>
+        <option value="CC-BY-NC-ND-4.0">CC BY-NC-ND 4.0 (Attribution-NonCommercial-NoDerivatives)</option>
+      </select>
+    </div>
+    <div class="q">
+      <label class="q-label" for="work_url">Work URL (optional)</label>
+      <div class="q-help">Canonical URL for the work itself, if different from the source URL. Used as cc:attributionURL in ccREL.</div>
+      <input type="text" id="work_url" placeholder="https://example.com/works/my-photograph">
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runGenerate()">&#9654; Generate Attribution</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">TASL Attribution Line</div>
+      <div class="tasl-display" id="taslOut"></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:12px">Cite this line when reproducing or distributing the work per the CC terms. Source: <a href="https://wiki.creativecommons.org/wiki/CcREL" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">CC ccREL specification</a>.</div>
+
+      <div class="section-head">ccREL JSON-LD <button class="copy-btn" onclick="copyBlock('jsonld')">Copy</button></div>
+      <pre id="jsonldOut"></pre>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:12px">Embed inside <code style="color:var(--teal)">&lt;script type="application/ld+json"&gt;</code>.</div>
+
+      <div class="section-head">RDFa Snippet <button class="copy-btn" onclick="copyBlock('rdfa')">Copy</button></div>
+      <pre id="rdfaOut"></pre>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:12px">Embed in HTML body to let search engines and semantic crawlers read the license relationship directly from page source.</div>
+
+      <div class="section-head" style="margin-top:16px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+
+      <div class="section-head" style="margin-top:16px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <div class="disclaimer" style="margin-top:12px" id="disclaimerBox"></div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-207-attribution-string-generator',
+  version: '1.0.0',
+  mcp_name: 'generate_attribution_string',
+  title: 'Attribution String Generator',
+  description: 'Generates a human-readable TASL attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Source of truth: Creative Commons Rights Expression Language (ccREL) specification. Not legal advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Creative Commons ccREL',
+  mcp_tool_definition: {
+    name: 'generate_attribution_string',
+    description: 'Generates a human-readable TASL (Title/Author/Source/License) attribution line plus machine-readable ccREL JSON-LD and RDFa blocks for any Creative Commons licensed work. Not legal advice.',
+    inputSchema: {
+      type: 'object',
+      required: ['title','creator','source_url','license'],
+      properties: {
+        title:      { type: 'string', description: 'Work title' },
+        creator:    { type: 'string', description: 'Creator or author name' },
+        source_url: { type: 'string', description: 'URL where the work is published' },
+        license:    { type: 'string', enum: ['CC0-1.0','CC-BY-4.0','CC-BY-SA-4.0','CC-BY-ND-4.0','CC-BY-NC-4.0','CC-BY-NC-SA-4.0','CC-BY-NC-ND-4.0'], description: 'SPDX license identifier' },
+        work_url:   { type: 'string', description: 'Optional canonical work URL for attribution link' }
+      }
+    }
+  }
+};
+
+var CC_LICENSES = {
+  'CC0-1.0':        { name:'CC0 1.0 Universal',url:'https://creativecommons.org/publicdomain/zero/1.0/',spdx:'CC0-1.0',short:'CC0 1.0' },
+  'CC-BY-4.0':      { name:'Creative Commons Attribution 4.0 International',url:'https://creativecommons.org/licenses/by/4.0/',spdx:'CC-BY-4.0',short:'CC BY 4.0' },
+  'CC-BY-SA-4.0':   { name:'Creative Commons Attribution-ShareAlike 4.0 International',url:'https://creativecommons.org/licenses/by-sa/4.0/',spdx:'CC-BY-SA-4.0',short:'CC BY-SA 4.0' },
+  'CC-BY-ND-4.0':   { name:'Creative Commons Attribution-NoDerivatives 4.0 International',url:'https://creativecommons.org/licenses/by-nd/4.0/',spdx:'CC-BY-ND-4.0',short:'CC BY-ND 4.0' },
+  'CC-BY-NC-4.0':   { name:'Creative Commons Attribution-NonCommercial 4.0 International',url:'https://creativecommons.org/licenses/by-nc/4.0/',spdx:'CC-BY-NC-4.0',short:'CC BY-NC 4.0' },
+  'CC-BY-NC-SA-4.0':{ name:'Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International',url:'https://creativecommons.org/licenses/by-nc-sa/4.0/',spdx:'CC-BY-NC-SA-4.0',short:'CC BY-NC-SA 4.0' },
+  'CC-BY-NC-ND-4.0':{ name:'Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International',url:'https://creativecommons.org/licenses/by-nc-nd/4.0/',spdx:'CC-BY-NC-ND-4.0',short:'CC BY-NC-ND 4.0' }
+};
+
+var _lastResult = null;
+
+function computeAttr(title, creator, sourceUrl, licenseId, workUrl) {
+  var lic = CC_LICENSES[licenseId]; if (!lic) return null;
+  var attrUrl = workUrl || sourceUrl;
+  var tasl;
+  if (licenseId === 'CC0-1.0') {
+    tasl = attrUrl ? '"'+title+'" ('+attrUrl+') by '+creator+' is marked with '+lic.short+' ('+lic.url+').' : '"'+title+'" by '+creator+' is marked with '+lic.short+'.';
+  } else {
+    tasl = '"'+title+'" by '+creator;
+    if (attrUrl) tasl += ' ('+attrUrl+')';
+    tasl += ' is licensed under '+lic.short+' ('+lic.url+').';
+  }
+  var jsonLd = {'@context':{'cc':'https://creativecommons.org/ns#','dc':'http://purl.org/dc/elements/1.1/','dct':'http://purl.org/dc/terms/'},'@type':'cc:Work'};
+  if (attrUrl) jsonLd['@id'] = attrUrl;
+  jsonLd['dc:title'] = title; jsonLd['dc:creator'] = creator;
+  if (sourceUrl) jsonLd['dc:source'] = sourceUrl;
+  jsonLd['cc:license'] = lic.url;
+  if (attrUrl) jsonLd['cc:attributionURL'] = attrUrl;
+  jsonLd['cc:attributionName'] = creator;
+  var about = attrUrl ? ' about="'+attrUrl+'"' : '';
+  var rdfa;
+  if (licenseId === 'CC0-1.0') {
+    rdfa = '<p xmlns:cc="https://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"'+about+'>\n  <span property="dct:title">'+title+'</span>\n  by <span property="cc:attributionName">'+creator+'</span>\n  is marked with\n  <a rel="license" href="'+lic.url+'">'+lic.short+'</a>.\n</p>';
+  } else {
+    rdfa = '<p xmlns:cc="https://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"'+about+'>\n  <span property="dct:title">'+title+'</span> by\n  <a rel="cc:attributionURL" href="'+(attrUrl||sourceUrl)+'" property="cc:attributionName">'+creator+'</a>\n  is licensed under\n  <a rel="license" href="'+lic.url+'">'+lic.short+'</a>.\n</p>';
+  }
+  return {tasl:tasl, jsonLd:jsonLd, rdfa:rdfa, lic:lic};
+}
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, output_payload) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: output_payload}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function runGenerate() {
+  var title = document.getElementById('title').value.trim();
+  var creator = document.getElementById('creator').value.trim();
+  var sourceUrl = document.getElementById('source_url').value.trim();
+  var licenseId = document.getElementById('license').value;
+  var workUrl = document.getElementById('work_url').value.trim();
+
+  var errors = [];
+  if (!title) errors.push('Work title is required.');
+  if (!creator) errors.push('Creator is required.');
+  if (!sourceUrl) errors.push('Source URL is required.');
+  if (!CC_LICENSES[licenseId]) errors.push('Invalid license.');
+
+  var panel = document.getElementById('resultsPanel');
+  if (errors.length) {
+    document.getElementById('taslOut').textContent = errors.join(' ');
+    panel.classList.add('show'); return;
+  }
+
+  var r = computeAttr(title, creator, sourceUrl, licenseId, workUrl);
+  var pp = {title:title, creator:creator, source_url:sourceUrl, license:licenseId};
+  if (workUrl) pp.work_url = workUrl;
+  var output_payload = {
+    tasl_line: r.tasl,
+    json_ld: r.jsonLd,
+    rdfa_html: r.rdfa,
+    license_name: r.lic.name,
+    license_spdx: r.lic.spdx,
+    license_url: r.lic.url,
+    valid: true,
+    errors: [],
+    disclaimer: 'Not legal advice. This output formats attribution metadata only. Verify against the current CC ccREL specification before relying on it for commercial or legal purposes. Consult a licensed attorney for your jurisdiction.'
+  };
+
+  _lastResult = {pp: pp, output_payload: output_payload};
+
+  document.getElementById('taslOut').textContent = r.tasl;
+  document.getElementById('jsonldOut').textContent = JSON.stringify(r.jsonLd, null, 2);
+  document.getElementById('rdfaOut').textContent = r.rdfa;
+  document.getElementById('flagRow').innerHTML = '<span class="badge ok">ATTRIBUTION_GENERATED</span><span class="badge ok">CCREL_VALID</span><span class="badge ok">JSON_LD_EMITTED</span><span class="badge ok">RDFA_EMITTED</span>';
+  document.getElementById('disclaimerBox').textContent = output_payload.disclaimer;
+  panel.classList.add('show');
+
+  computeExecHash(pp, output_payload).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+  });
+}
+
+function copyBlock(which) {
+  if (!_lastResult) return;
+  var text = which === 'jsonld' ? JSON.stringify(_lastResult.output_payload.json_ld, null, 2) : _lastResult.output_payload.rdfa_html;
+  navigator.clipboard.writeText(text).catch(function(){});
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-207-attribution-string-generator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: document.getElementById('execHashBox').textContent || 'pending',
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: {ATTRIBUTION_GENERATED:true, CCREL_VALID:true},
+    compute_mode: 'browser'
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-207-artifact.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

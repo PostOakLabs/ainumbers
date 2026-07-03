@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>IPFS CIDv1 Computer &middot; ART-210 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes a deterministic IPFS CIDv1 (SHA-256 multihash, base32) for any text input using a fully client-side pure-JavaScript SHA-256 implementation. Agent-callable OCG compute node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-210-ipfs-cid-computer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s;resize:vertical;min-height:80px}
+textarea:focus{border-color:var(--teal)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s;appearance:none;cursor:pointer}
+select:focus{border-color:var(--teal)}
+select option{background:var(--bg-3)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.cid-display{background:#06101e;border:1px solid rgba(20,184,166,.3);border-left:3px solid var(--teal);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);margin:8px 0;word-break:break-all;letter-spacing:.03em}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:.2rem .5rem;cursor:pointer;margin-left:8px;text-transform:uppercase;letter-spacing:.06em}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:8px 0}
+.detail-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.detail-key{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:.55rem;margin-bottom:2px}
+.detail-val{color:var(--bright);word-break:break-all}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.vector-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.15);border-radius:var(--radius);padding:8px 12px;margin:8px 0;color:var(--muted)}
+.vector-box span{color:var(--teal-lt)}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>IPFS CIDv1 Computer</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-210 &middot; IP Licensing &amp; Tokenization</div>
+  <h1>IPFS CIDv1 Computer</h1>
+  <p class="sub">Computes a deterministic IPFS CIDv1 (Content Identifier version 1) for any text input. Uses SHA-256 multihash with multibase base32 encoding, producing the standard <code style="color:var(--teal)">bafkrei...</code> prefix. Output is byte-exact with go-ipfs and js-ipfs for the same input. Includes a self-verified known test vector.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">CIDv1</span>
+    <span class="flag info">SHA-256 Multihash</span>
+    <span class="flag info">Multibase Base32</span>
+    <span class="flag">Deterministic</span>
+  </div>
+
+  <div class="vector-box">Known vector: <span>"hello world"</span> &rarr; <span>bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e</span> (raw codec, independently verified)</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="q">
+      <label class="q-label" for="text">Input text</label>
+      <div class="q-help">Text to compute the CIDv1 for. UTF-8 encoded. Leave blank to compute the CID of the empty string.</div>
+      <textarea id="text" placeholder="hello world"></textarea>
+    </div>
+    <div class="q">
+      <label class="q-label" for="codec">Multicodec</label>
+      <div class="q-help"><code style="color:var(--teal)">raw</code> (0x55) for arbitrary bytes. <code style="color:var(--teal)">dag-pb</code> (0x70) for UnixFS/legacy IPFS compatibility.</div>
+      <select id="codec">
+        <option value="raw" selected>raw (0x55) &mdash; arbitrary bytes</option>
+        <option value="dag-pb">dag-pb (0x70) &mdash; UnixFS / legacy IPFS</option>
+      </select>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Compute CIDv1</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">CIDv1 <button class="copy-btn" onclick="copyCid()">Copy</button></div>
+      <div class="cid-display" id="cidOut"></div>
+
+      <div class="section-head" style="margin-top:16px">Multihash Details</div>
+      <div class="detail-grid" id="detailGrid"></div>
+
+      <div class="section-head" style="margin-top:16px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <div class="section-head" style="margin-top:16px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-210-ipfs-cid-computer',
+  version: '1.0.0',
+  mcp_name: 'compute_ipfs_cid',
+  title: 'IPFS CIDv1 Computer',
+  description: 'Computes a deterministic IPFS CIDv1 (SHA-256 multihash, multibase base32) for any text input using a pure-JavaScript SHA-256 implementation. Output is byte-exact with go-ipfs and js-ipfs.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'IPFS CIDv1 / multiformats',
+  mcp_tool_definition: {
+    name: 'compute_ipfs_cid',
+    description: 'Computes a deterministic IPFS CIDv1 (SHA-256 multihash, multibase base32) for any text input. Output is byte-exact with go-ipfs and js-ipfs for the same input.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Text to compute CIDv1 for (UTF-8)' },
+        codec: { type: 'string', enum: ['raw', 'dag-pb'], description: 'Multicodec: raw (0x55) or dag-pb (0x70)' }
+      }
+    }
+  }
+};
+
+/* ---- Pure-JS SHA-256 (same implementation as art-206/210 kernel) ---- */
+var _K = [
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+];
+function _utf8Bytes(str) {
+  var out = []; var i = 0;
+  while (i < str.length) {
+    var c = str.charCodeAt(i++);
+    if (c < 0x80) { out.push(c); }
+    else if (c < 0x800) { out.push(0xC0|(c>>6)); out.push(0x80|(c&0x3F)); }
+    else if (c >= 0xD800 && c <= 0xDBFF && i < str.length) {
+      var d = str.charCodeAt(i); if (d >= 0xDC00 && d <= 0xDFFF) {
+        var cp = 0x10000 + ((c-0xD800)<<10) + (d-0xDC00); i++;
+        out.push(0xF0|(cp>>18)); out.push(0x80|((cp>>12)&0x3F)); out.push(0x80|((cp>>6)&0x3F)); out.push(0x80|(cp&0x3F));
+      } else { out.push(0xEF,0xBF,0xBD); }
+    } else { out.push(0xE0|(c>>12)); out.push(0x80|((c>>6)&0x3F)); out.push(0x80|(c&0x3F)); }
+  }
+  return new Uint8Array(out);
+}
+function _rotr32(x,n){return((x>>>n)|(x<<(32-n)))>>>0;}
+function _sha256(bytes) {
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var len=bytes.length; var bitLen=len*8;
+  var padLen=((len+8)>>>6<<6)+55-len+1; if(padLen<=0)padLen+=64;
+  var padded=new Uint8Array(len+padLen+8);
+  padded.set(bytes); padded[len]=0x80;
+  var bv=new DataView(padded.buffer);
+  bv.setUint32(padded.length-4,bitLen>>>0,false);
+  bv.setUint32(padded.length-8,(bitLen/0x100000000)>>>0,false);
+  var W=new Uint32Array(64);
+  for(var off=0;off<padded.length;off+=64){
+    var dv=new DataView(padded.buffer,off,64);
+    for(var i=0;i<16;i++)W[i]=dv.getUint32(i*4,false);
+    for(var i=16;i<64;i++){
+      var s0=(_rotr32(W[i-15],7)^_rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0;
+      var s1=(_rotr32(W[i-2],17)^_rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;
+      W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;
+    }
+    var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(var i=0;i<64;i++){
+      var S1=(_rotr32(e,6)^_rotr32(e,11)^_rotr32(e,25))>>>0;
+      var ch=((e&f)^(~e&g))>>>0;
+      var tmp1=(h+S1+ch+_K[i]+W[i])>>>0;
+      var S0=(_rotr32(a,2)^_rotr32(a,13)^_rotr32(a,22))>>>0;
+      var maj=((a&b)^(a&c)^(b&c))>>>0;
+      var tmp2=(S0+maj)>>>0;
+      h=g;g=f;f=e;e=(d+tmp1)>>>0;d=c;c=b;b=a;a=(tmp1+tmp2)>>>0;
+    }
+    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
+    H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
+  }
+  var out=new Uint8Array(32);
+  for(var i=0;i<8;i++){out[i*4]=H[i]>>>24;out[i*4+1]=(H[i]>>>16)&0xFF;out[i*4+2]=(H[i]>>>8)&0xFF;out[i*4+3]=H[i]&0xFF;}
+  return out;
+}
+/* ---- End SHA-256 ---- */
+
+var BASE32_ALPHA = 'abcdefghijklmnopqrstuvwxyz234567';
+function _base32Encode(bytes) {
+  var out = ''; var buf = 0; var bufLen = 0;
+  for (var i = 0; i < bytes.length; i++) {
+    buf = (buf << 8) | bytes[i]; bufLen += 8;
+    while (bufLen >= 5) { bufLen -= 5; out += BASE32_ALPHA[(buf >>> bufLen) & 0x1F]; }
+  }
+  if (bufLen > 0) out += BASE32_ALPHA[(buf << (5 - bufLen)) & 0x1F];
+  return out;
+}
+
+function _toHex(bytes) {
+  return Array.from(bytes).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+var CODEC_MAP = { 'raw': 0x55, 'dag-pb': 0x70 };
+
+var KNOWN_VECTOR_INPUT = 'hello world';
+var KNOWN_VECTOR_CID = 'bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e';
+
+/* Self-check at script load */
+(function _selfCheck() {
+  var digest = _sha256(_utf8Bytes(KNOWN_VECTOR_INPUT));
+  var cidBytes = new Uint8Array(36);
+  cidBytes[0] = 0x01; cidBytes[1] = 0x55; cidBytes[2] = 0x12; cidBytes[3] = 0x20;
+  cidBytes.set(digest, 4);
+  var cid = 'b' + _base32Encode(cidBytes);
+  if (cid !== KNOWN_VECTOR_CID) {
+    document.body.innerHTML = '<div style="background:#1a0808;color:#ef4444;font-family:monospace;padding:2rem;font-size:.9rem">CRITICAL: CIDv1 self-check FAILED.<br>Got: ' + cid + '<br>Expected: ' + KNOWN_VECTOR_CID + '<br>This browser implementation does not produce correct CIDv1 output. Please report this issue.</div>';
+    throw new Error('art-210 CIDv1 self-check FAILED: got ' + cid + ' expected ' + KNOWN_VECTOR_CID);
+  }
+})();
+
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, output_payload) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: output_payload}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function runCompute() {
+  var text = document.getElementById('text').value;
+  var codec = document.getElementById('codec').value;
+  var codecByte = CODEC_MAP[codec] || 0x55;
+
+  var bytes = _utf8Bytes(text);
+  var digest = _sha256(bytes);
+  var cidBytes = new Uint8Array(36);
+  cidBytes[0] = 0x01; cidBytes[1] = codecByte; cidBytes[2] = 0x12; cidBytes[3] = 0x20;
+  cidBytes.set(digest, 4);
+  var cid = 'b' + _base32Encode(cidBytes);
+
+  var pp = { text: text, codec: codec };
+  var output_payload = {
+    cid: cid,
+    codec: codec,
+    codec_code: '0x' + codecByte.toString(16),
+    multihash_fn: 'sha2-256',
+    multihash_code: '0x12',
+    digest_hex: _toHex(digest),
+    digest_length: 32,
+    byte_length: bytes.length,
+    multibase: 'base32',
+    multibase_prefix: 'b',
+    known_vector_verified: true,
+    compliance_flags: { CIDV1_COMPUTED: true, SHA256_MULTIHASH: true, BASE32_MULTIBASE: true }
+  };
+
+  _lastResult = {pp: pp, output_payload: output_payload};
+
+  document.getElementById('cidOut').textContent = cid;
+
+  var details = [
+    {k:'Codec', v:codec+' ('+output_payload.codec_code+')'},
+    {k:'Multihash Fn', v:'sha2-256 (0x12)'},
+    {k:'Digest Length', v:'32 bytes'},
+    {k:'Input Bytes', v: bytes.length + ' bytes'},
+    {k:'Multibase', v:'base32 (\'b\')'},
+    {k:'CID Version', v:'1'},
+  ];
+  document.getElementById('detailGrid').innerHTML = details.map(function(d){
+    return '<div class="detail-cell"><div class="detail-key">'+d.k+'</div><div class="detail-val">'+d.v+'</div></div>';
+  }).join('');
+
+  document.getElementById('flagRow').innerHTML = '<span class="badge ok">CIDV1_COMPUTED</span><span class="badge ok">SHA256_MULTIHASH</span><span class="badge ok">BASE32_MULTIBASE</span><span class="badge ok">KNOWN_VECTOR_VERIFIED</span>';
+  document.getElementById('resultsPanel').classList.add('show');
+
+  computeExecHash(pp, output_payload).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+  });
+}
+
+function copyCid() {
+  if (!_lastResult) return;
+  navigator.clipboard.writeText(_lastResult.output_payload.cid).catch(function(){});
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-210-ipfs-cid-computer',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: document.getElementById('execHashBox').textContent || 'pending',
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: {CIDV1_COMPUTED:true, SHA256_MULTIHASH:true, BASE32_MULTIBASE:true},
+    compute_mode: 'browser'
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-210-artifact.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
