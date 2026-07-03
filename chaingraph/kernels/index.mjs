@@ -131,7 +131,10 @@ import * as art194 from './art-194-digest-manifest-builder.kernel.mjs';
 import * as art195 from './art-195-creative-commons-license-chooser.kernel.mjs';
 import * as art196 from './art-196-cant-be-evil-license-selector.kernel.mjs';
 import * as art197 from './art-197-pil-flavor-mapper.kernel.mjs';
+import * as art198 from './art-198-cross-license-rights-comparator.kernel.mjs';
+import * as art199 from './art-199-license-election-certifier.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
+import * as art200 from './art-200-license-election-verifier.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
 import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
@@ -358,7 +361,10 @@ export const KERNELS = {
   'art-195-creative-commons-license-chooser':                 art195,
   'art-196-cant-be-evil-license-selector':                    art196,
   'art-197-pil-flavor-mapper':                                art197,
+  'art-198-cross-license-rights-comparator':                  art198,
+  'art-199-license-election-certifier':                       art199,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
+  'art-200-license-election-verifier':                        art200,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
   'art-22-agentic-payments-protocol-comparator':              art22,
   'art-23-visa-trusted-agent-protocol-inspector':             art23,
