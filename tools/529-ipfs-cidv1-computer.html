@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>IPFS CIDv1 Computer · AINumbers.co</title>
+<meta name="description" content="Compute a CIDv1 (SHA-256 multihash, raw or dag-pb codec, base32 multibase) for any file or text in your browser. No pinning, no network. Verify your tokenURI pre-mint.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/529-ipfs-cidv1-computer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"IPFS CIDv1 Computer","url":"https://ainumbers.co/tools/529-ipfs-cidv1-computer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "529-ipfs-cidv1-computer",
+  "version": "1.0.0",
+  "title": "IPFS CIDv1 Computer",
+  "description": "Computes a CIDv1 (SHA-256 multihash, raw codec 0x55 or dag-pb 0x70, base32 lowercase multibase prefix 'b') for a file upload or text input entirely in the browser using WebCrypto. Shows the CID string plus the full multihash breakdown. No pinning, no network calls. Use to verify what tokenURI resolves to before minting.",
+  "category": "cat-11",
+  "tags": ["ipfs","cidv1","cid","multihash","sha-256","base32","tokenuri","nft","tokenization","pre-mint","content addressing"],
+  "audience": ["engineer","product","creator"],
+  "input_schema": {"type":"object","required":[],"properties":{"text":{"type":"string","description":"Text to compute CID for (alternative to file upload)"},"codec":{"type":"string","enum":["raw","dag-pb"],"description":"Multicodec: raw (0x55) for unstructured bytes, dag-pb (0x70) for UnixFS"}}},
+  "output_schema": {"type":"object","properties":{"cid":{"type":"string"},"codec":{"type":"string"},"multihash_fn":{"type":"string"},"multihash_fn_code":{"type":"string"},"digest_length":{"type":"integer"},"digest_hex":{"type":"string"},"byte_length":{"type":"integer"}}},
+  "mcp_tool_definition": {"name":"compute_ipfs_cidv1","description":"Computes a CIDv1 (SHA-256 multihash, raw or dag-pb codec, base32 lowercase multibase) for content in the browser using WebCrypto. Shows the CID string and the full multihash breakdown. No network. Use to verify a tokenURI CID before minting an NFT.","inputSchema":{"type":"object","properties":{"text":{"type":"string","description":"Text content to hash (if no file provided)"},"codec":{"type":"string","enum":["raw","dag-pb"],"description":"Codec: raw (0x55) for unstructured bytes, dag-pb (0x70) for UnixFS"}}}},
+  "execution": {"type":"browser-reference","entry":"tools/529-ipfs-cidv1-computer.html","function_name":"runCompute"},
+  "ap2_export": false,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.q{margin-bottom:1.4rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.6}
+select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .8rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233A5270' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .8rem center;padding-right:2.4rem}
+select:focus,textarea:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+textarea{min-height:100px;resize:vertical;line-height:1.55;font-family:'JetBrains Mono',monospace}
+.file-zone{border:1px dashed var(--border-2);border-radius:var(--radius);padding:1.4rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);cursor:pointer;transition:border-color .2s;position:relative}
+.file-zone:hover{border-color:var(--teal)}
+.file-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-zone strong{color:var(--teal-lt)}
+.file-name{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal-lt);margin-top:.5rem;text-align:center}
+.or-divider{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:.9rem 0;display:flex;align-items:center;gap:.75rem}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.5rem}
+.cid-display{font-family:'JetBrains Mono',monospace;font-size:.95rem;color:var(--teal-lt);word-break:break-all;margin-bottom:.4rem;line-height:1.5}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;margin-left:.5rem}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.breakdown-table{width:100%;border-collapse:collapse;margin-top:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.breakdown-table th{text-align:left;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border);font-weight:400}
+.breakdown-table td{padding:.45rem .6rem;border-bottom:1px solid rgba(30,47,74,.4);color:var(--text);vertical-align:top}
+.breakdown-table tr:last-child td{border-bottom:none}
+.breakdown-table td:first-child{color:var(--muted);white-space:nowrap;padding-right:1rem}
+.breakdown-table td:last-child{color:var(--bright);word-break:break-all}
+.progress-bar{height:3px;background:var(--teal);border-radius:2px;width:0;transition:width .3s;margin-bottom:1rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>DLT &amp; Tokenization</span><span class="nav-sep">/</span><span>T-529</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-11 · T529 · DLT &amp; Tokenization</div>
+  <h1>IPFS CIDv1 <em>Computer</em></h1>
+  <p class="hero-desc">Drop a file or paste text and compute its CIDv1 (Content Identifier, version 1) entirely in your browser using WebCrypto SHA-256. Outputs the CID string in base32 lowercase multibase encoding, along with the full multihash breakdown (function code, digest length, digest hex, and CID bytes). Use it to verify what <code style="color:var(--gold)">tokenURI</code> your file will resolve to on IPFS before minting, without uploading anything to a pinning service.</p>
+  <div class="disclaimer">This tool computes a CIDv1 using the raw or dag-pb codec with SHA-256 multihash. The result matches what IPFS produces for the same bytes with <code>ipfs add --cid-version=1</code> under the same codec. The file never leaves your browser. No pinning, no upload, no network calls.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">CIDv1 · SHA-256</span>
+    <span class="badge badge-gold">Multibase b32</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="q">
+      <label class="q-label">1 · Input (file or text)</label>
+      <div class="q-help">Upload a file to compute its CID, or paste text below. When both are provided, the file takes priority.</div>
+      <div class="file-zone" id="fileZone">
+        <input type="file" id="fileInput" onchange="onFileChange(this)">
+        <div><strong>Click to choose a file</strong> or drag and drop</div>
+        <div style="color:var(--muted);font-size:.58rem;margin-top:.35rem">Any file type · processed locally · not uploaded</div>
+      </div>
+      <div class="file-name" id="fileName"></div>
+      <div class="or-divider">or enter text</div>
+      <textarea id="textInput" spellcheck="false" placeholder="Paste text content here to compute its CID..."></textarea>
+    </div>
+    <div class="q">
+      <label class="q-label" for="codec">2 · Codec</label>
+      <div class="q-help">
+        <strong style="color:var(--teal)">raw (0x55)</strong>: unstructured byte content, one-to-one hash of the bytes. Use for images, JSON files, any single file stored as raw bytes on IPFS.<br>
+        <strong style="color:var(--gold)">dag-pb (0x70)</strong>: IPFS UnixFS directory-aware format. This is what <code>ipfs add</code> uses by default for file chunking (note: multi-chunk files will differ from the raw CID).
+      </div>
+      <select id="codec">
+        <option value="raw" selected>raw (0x55): unstructured bytes, recommended for single files</option>
+        <option value="dag-pb">dag-pb (0x70): IPFS UnixFS / ipfs add default</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runCompute()">&#9654; Compute CID</button>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../suggest.html">Suggest</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// engine: reusable by art-210 node
+// Uses WebCrypto crypto.subtle for SHA-256 (tools are not zkVM kernels; kernel-determinism rules do not apply here).
+
+var CODECS = { 'raw': 0x55, 'dag-pb': 0x70 };
+
+// RFC 4648 base32 lowercase alphabet (multibase 'b' prefix = base32lower)
+var BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
+
+function base32Encode(bytes) {
+  var bits = 0, value = 0, out = '';
+  for (var i = 0; i < bytes.length; i++) {
+    value = (value << 8) | bytes[i];
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += BASE32_ALPHABET[(value >>> bits) & 0x1f];
+    }
+  }
+  if (bits > 0) {
+    out += BASE32_ALPHABET[(value << (5 - bits)) & 0x1f];
+  }
+  return out;
+}
+
+function toHex(bytes) {
+  var out = '';
+  for (var i = 0; i < bytes.length; i++) {
+    out += ('00' + bytes[i].toString(16)).slice(-2);
+  }
+  return out;
+}
+
+function toHexSpaced(bytes) {
+  var parts = [];
+  for (var i = 0; i < bytes.length; i++) {
+    parts.push(('00' + bytes[i].toString(16)).slice(-2));
+  }
+  return parts.join(' ');
+}
+
+// Build CIDv1 bytes: [version=0x01, codec, 0x12 (sha2-256), 0x20 (32), ...digest]
+function buildCIDBytes(codecByte, digestBytes) {
+  var out = new Uint8Array(2 + 2 + digestBytes.length);
+  out[0] = 0x01;           // version 1
+  out[1] = codecByte;      // codec varint (single byte since both fit < 128)
+  out[2] = 0x12;           // sha2-256 multihash function code
+  out[3] = 0x20;           // digest length = 32
+  out.set(digestBytes, 4);
+  return out;
+}
+
+function computeCIDv1(arrayBuffer, codec) {
+  var codecByte = CODECS[codec] || CODECS['raw'];
+  return crypto.subtle.digest('SHA-256', arrayBuffer).then(function(hashBuf) {
+    var digestBytes = new Uint8Array(hashBuf);
+    var cidBytes = buildCIDBytes(codecByte, digestBytes);
+    var cid = 'b' + base32Encode(cidBytes);
+
+    return {
+      cid: cid,
+      codec: codec,
+      codecCode: '0x' + codecByte.toString(16).padStart(2, '0'),
+      multihashFn: 'sha2-256',
+      multihashFnCode: '0x12',
+      digestLength: digestBytes.length,
+      digestHex: toHex(digestBytes),
+      cidBytesHex: toHex(cidBytes),
+      cidBytesAnnotated: [
+        '01 (CIDv1)',
+        ('00' + codecByte.toString(16)).slice(-2) + ' (' + codec + ')',
+        '12 (sha2-256)',
+        '20 (32 bytes)',
+        toHexSpaced(digestBytes)
+      ].join(' | '),
+      byteLength: arrayBuffer.byteLength
+    };
+  });
+}
+
+// State
+var _fileBuffer = null;
+var _fileName = '';
+
+function onFileChange(input) {
+  var file = input.files && input.files[0];
+  if (!file) { _fileBuffer = null; _fileName = ''; document.getElementById('fileName').textContent = ''; return; }
+  _fileName = file.name;
+  document.getElementById('fileName').textContent = 'Selected: ' + file.name + ' (' + file.size.toLocaleString() + ' bytes)';
+  var reader = new FileReader();
+  reader.onload = function(e) { _fileBuffer = e.target.result; };
+  reader.readAsArrayBuffer(file);
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showError(msg) {
+  document.getElementById('outputSection').innerHTML =
+    '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.85rem 1rem;margin-top:1.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--red)">&#9888; ' + esc(msg) + '</div>';
+}
+
+function showResult(r) {
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section">' +
+      '<div class="out-header"><span class="out-title">CIDv1 Result</span><span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">' + esc(r.codec) + ' · SHA-256 · base32lower</span></div>' +
+      '<div class="out-body">' +
+        '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">CIDv1</div>' +
+        '<div class="cid-display" id="cidOut">' + esc(r.cid) + '<button class="copy-btn" onclick="copyCID()">Copy</button></div>' +
+        '<div style="font-size:.7rem;color:var(--muted);margin-bottom:1.5rem">Source content: ' + esc(r.byteLength.toLocaleString()) + ' bytes</div>' +
+
+        '<table class="breakdown-table">' +
+          '<thead><tr><th>Field</th><th>Value</th></tr></thead>' +
+          '<tbody>' +
+            '<tr><td>CID version</td><td>1 (0x01)</td></tr>' +
+            '<tr><td>Multibase prefix</td><td>b (base32 lowercase, RFC 4648)</td></tr>' +
+            '<tr><td>Codec</td><td>' + esc(r.codec) + ' (' + esc(r.codecCode) + ')</td></tr>' +
+            '<tr><td>Hash function</td><td>' + esc(r.multihashFn) + ' (' + esc(r.multihashFnCode) + ')</td></tr>' +
+            '<tr><td>Digest length</td><td>' + r.digestLength + ' bytes (0x20)</td></tr>' +
+            '<tr><td>Digest (hex)</td><td>' + esc(r.digestHex) + '</td></tr>' +
+            '<tr><td>CID bytes (hex)</td><td style="font-size:.65rem">' + esc(r.cidBytesHex) + '</td></tr>' +
+            '<tr><td>CID bytes annotated</td><td style="font-size:.65rem;line-height:1.6">' + esc(r.cidBytesAnnotated) + '</td></tr>' +
+          '</tbody>' +
+        '</table>' +
+
+        '<div style="font-size:.68rem;color:var(--muted);margin-top:1.25rem">Multihash format: [fn-code 0x12] [length 0x20] [32-byte SHA-256 digest]. CIDv1 = [version 0x01] [codec] [multihash]. Multibase "b" = RFC 4648 base32 lowercase, no padding. Matches <code>ipfs add --cid-version=1 --raw-leaves</code> for raw codec on a single small file.</div>' +
+      '</div>' +
+    '</div>';
+  window._cidResult = r;
+}
+
+function runCompute() {
+  var codec = document.getElementById('codec').value;
+  var textVal = document.getElementById('textInput').value;
+  var btn = document.getElementById('runBtn');
+
+  var bufferPromise;
+  if (_fileBuffer) {
+    bufferPromise = Promise.resolve(_fileBuffer);
+  } else if (textVal.trim().length > 0) {
+    var enc = new TextEncoder();
+    bufferPromise = Promise.resolve(enc.encode(textVal).buffer);
+  } else {
+    showError('Provide a file or paste text to compute a CID.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Computing...';
+  document.getElementById('outputSection').innerHTML = '<div id="cidProgress" class="progress-bar" style="margin-top:1.5rem"></div>';
+
+  bufferPromise.then(function(buf) {
+    return computeCIDv1(buf, codec);
+  }).then(function(result) {
+    btn.disabled = false;
+    btn.textContent = '▶ Compute CID';
+    showResult(result);
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = '▶ Compute CID';
+    showError('Computation error: ' + err.message);
+  });
+}
+
+function copyCID() {
+  if (window._cidResult) navigator.clipboard.writeText(window._cidResult.cid);
+}
+</script>
+
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"529-ipfs-cidv1-computer","version":"1.0.0","title":"IPFS CIDv1 Computer","description":"Computes a CIDv1 (SHA-256 multihash, raw codec 0x55 or dag-pb 0x70, base32 lowercase multibase) for a file upload or text input in the browser using WebCrypto. Shows the CID string and full multihash breakdown. No pinning, no network. Use to verify tokenURI pre-mint.","category":"cat-11","tags":["ipfs","cidv1","cid","multihash","sha-256","base32","tokenuri","nft","tokenization","pre-mint","content addressing"],"audience":["engineer","product","creator"],"input_schema":{"type":"object","properties":{"text":{"type":"string"},"codec":{"type":"string","enum":["raw","dag-pb"]}}},"output_schema":{"type":"object","properties":{"cid":{"type":"string"},"codec":{"type":"string"},"multihash_fn":{"type":"string"},"multihash_fn_code":{"type":"string"},"digest_length":{"type":"integer"},"digest_hex":{"type":"string"},"byte_length":{"type":"integer"}}},"mcp_tool_definition":{"name":"compute_ipfs_cidv1","description":"Computes a CIDv1 (SHA-256 multihash, raw or dag-pb codec, base32 lowercase multibase) for content in the browser using WebCrypto. Shows the CID string and the full multihash breakdown. No network. Use to verify a tokenURI CID before minting.","inputSchema":{"type":"object","properties":{"text":{"type":"string","description":"Text content to hash"},"codec":{"type":"string","enum":["raw","dag-pb"],"description":"Codec: raw (0x55) or dag-pb (0x70)"}}}},"execution":{"type":"browser-reference","entry":"tools/529-ipfs-cidv1-computer.html","function_name":"runCompute"},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

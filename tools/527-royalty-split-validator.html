@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Royalty-Split Config Validator · AINumbers.co</title>
+<meta name="description" content="Validate a royalty-split config (ERC-2981 / 0xSplits) against share-sum, per-recipient cap, address format, and duplication rules. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/527-royalty-split-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Royalty-Split Config Validator","url":"https://ainumbers.co/tools/527-royalty-split-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "527-royalty-split-validator",
+  "version": "1.0.0",
+  "title": "Royalty-Split Config Validator",
+  "description": "Validates a royalty-split config (ERC-2981 single receiver, 0xSplits multi-recipient) against: share-sum rule (10000 bps or 100%), per-recipient cap, no duplicate addresses, no zero/blank address, basis-point range 0-10000, and Ethereum address format. Reports per-rule pass/fail and a config fingerprint hash. Validation only, no on-chain calls. Client-side, deterministic, zero PII.",
+  "category": "cat-11",
+  "tags": ["erc-2981","0xsplits","royalty","split","validation","compliance","nft","tokenization","ip","on-chain"],
+  "audience": ["engineer","compliance","product"],
+  "input_schema": {"type":"object","required":["config"],"properties":{"config":{"type":"string","description":"JSON array of split entries"},"cap_bps":{"type":"integer","description":"Max basis points per recipient (default 5000)"}}},
+  "output_schema": {"type":"object","properties":{"valid":{"type":"boolean"},"rules":{"type":"array"},"config_hash":{"type":"string"},"mode":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"validate_royalty_split_config","description":"Validates a royalty-split config (ERC-2981 / 0xSplits) against share-sum, per-recipient cap, address format, and duplication rules. Reports per-rule pass/fail and a config fingerprint. Validation only, no on-chain calls. Use before deploying a royalty contract or 0xSplits instance.","inputSchema":{"type":"object","required":["config"],"properties":{"config":{"type":"string","description":"JSON array of {address, basis_points} or {address, percent} entries"},"cap_bps":{"type":"integer","description":"Max basis points per single recipient (default 5000 = 50%)"}}}},
+  "execution": {"type":"browser-reference","entry":"tools/527-royalty-split-validator.html","function_name":"runValidate"},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.q{margin-bottom:1.4rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.6}
+input[type=text],input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .8rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+textarea{min-height:180px;resize:vertical;line-height:1.55}
+input[type=number]{width:120px}
+input:focus,textarea:focus{border-color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.5rem}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;margin-bottom:1.25rem;padding:.65rem 1rem;border-radius:var(--radius)}
+.verdict-pass{color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.verdict-fail{color:var(--red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3)}
+.rule-list{list-style:none;margin-bottom:1.25rem}
+.rule-item{display:flex;gap:.7rem;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.rule-item:last-child{border-bottom:none}
+.rule-status{font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600;min-width:3.2rem;padding:.15rem .4rem;border-radius:3px;text-align:center}
+.rule-pass{color:var(--green);background:var(--green-dim)}
+.rule-fail{color:var(--red);background:rgba(239,68,68,.08)}
+.rule-warn{color:var(--warn);background:rgba(245,158,11,.08)}
+.rule-text{flex:1;color:var(--text);line-height:1.55}
+.rule-detail{color:var(--muted);font-size:.75rem;margin-top:.15rem}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.25rem}
+.stat-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .9rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--bright)}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.75rem;word-break:break-all}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>DLT &amp; Tokenization</span><span class="nav-sep">/</span><span>T-527</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-11 · T527 · DLT &amp; Tokenization</div>
+  <h1>Royalty-Split Config <em>Validator</em></h1>
+  <p class="hero-desc">Paste a royalty-split config as a JSON array and validate it against the rules that govern both ERC-2981 (single-receiver, basis-point royalty) and 0xSplits (multi-recipient percentage splits). The tool checks that shares sum to the declared total, that no single address exceeds the cap, that addresses are correctly formatted, and that there are no duplicates or blank entries. Validation only: no on-chain calls, no distribution, no minting.</p>
+  <div class="disclaimer">This tool checks the structure and arithmetic of a royalty-split config against the ERC-2981 advisory and 0xSplits operational rules. It does not constitute legal advice, and it does not interact with any blockchain network.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">ERC-2981</span>
+    <span class="badge badge-gold">0xSplits</span>
+    <span class="badge badge-green">Validate Only</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="q">
+      <label class="q-label" for="config">1 · Split config (JSON array)</label>
+      <div class="q-help">Paste a JSON array of split entries. Each entry must have an <code style="color:var(--teal)">address</code> and either <code style="color:var(--teal)">basis_points</code> (0–10000, sums to 10000) or <code style="color:var(--teal)">percent</code> (sums to 100). Aliases accepted: <code style="color:var(--teal)">bps</code>, <code style="color:var(--teal)">shares</code>, <code style="color:var(--teal)">pct</code>.</div>
+      <textarea id="config" spellcheck="false" placeholder='[
+  {"address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12", "basis_points": 5000},
+  {"address": "0x1234567890ABCDEF1234567890ABCDEF12345678", "basis_points": 5000}
+]'></textarea>
+    </div>
+    <div class="q">
+      <label class="q-label" for="cap_bps">2 · Per-recipient cap (basis points)</label>
+      <div class="q-help">Maximum share any single address may hold, in basis points (100 bps = 1%). Default 5000 (50%). Set to 10000 to disable the cap check.</div>
+      <input type="number" id="cap_bps" value="5000" min="1" max="10000">
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runValidate()">&#9654; Validate Config</button>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../suggest.html">Suggest</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// engine: reusable by art-208 node
+
+function djb2Hash(str) {
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) ^ str.charCodeAt(i);
+    h = h >>> 0;
+  }
+  return '0x' + h.toString(16).padStart(8, '0');
+}
+
+function normalizeAddr(a) {
+  return (a || '').toString().toLowerCase().trim();
+}
+
+function isValidEthAddr(a) {
+  return /^0x[0-9a-fA-F]{40}$/.test((a || '').trim());
+}
+
+function validateRoyaltySplit(entries, capBps) {
+  // Detect mode: bps or percent
+  var mode = 'bps';
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    var v = e.percent !== undefined ? e.percent : (e.pct !== undefined ? e.pct : undefined);
+    if (v !== undefined) { mode = 'percent'; break; }
+  }
+
+  var total = mode === 'bps' ? 10000 : 100;
+  var capInMode = mode === 'bps' ? capBps : (capBps / 100);
+  var tolerance = mode === 'percent' ? 0.001 : 0;
+
+  // Extract shares
+  var shares = entries.map(function(e) {
+    if (mode === 'bps') {
+      var v = e.basis_points !== undefined ? e.basis_points : (e.bps !== undefined ? e.bps : (e.shares !== undefined ? e.shares : null));
+      return { address: e.address, share: v };
+    } else {
+      var v2 = e.percent !== undefined ? e.percent : (e.pct !== undefined ? e.pct : null);
+      return { address: e.address, share: v2 };
+    }
+  });
+
+  var rules = [];
+
+  // Rule 1: Share sum
+  var sum = 0;
+  for (var j = 0; j < shares.length; j++) {
+    var s = Number(shares[j].share);
+    if (!isNaN(s)) sum += s;
+  }
+  var sumOk = Math.abs(sum - total) <= tolerance;
+  rules.push({
+    id: 'sum',
+    label: 'Share sum',
+    pass: sumOk,
+    detail: 'Sum: ' + sum + (mode === 'bps' ? ' bps (must equal 10000)' : '% (must equal 100)') + (sumOk ? '' : ' — off by ' + Math.abs(sum - total).toFixed(mode === 'percent' ? 4 : 0))
+  });
+
+  // Rule 2: Per-recipient cap
+  var capOk = true;
+  var capViolators = [];
+  for (var k = 0; k < shares.length; k++) {
+    var sv = Number(shares[k].share);
+    if (!isNaN(sv) && sv > capInMode) {
+      capOk = false;
+      capViolators.push((shares[k].address || '(blank)').slice(0, 12) + '... (' + sv + ')');
+    }
+  }
+  rules.push({
+    id: 'cap',
+    label: 'Per-recipient cap',
+    pass: capOk,
+    detail: 'Cap: ' + capBps + ' bps (' + (capBps / 100) + '%)' + (capOk ? ' — all entries within cap' : ' — exceeds cap: ' + capViolators.join(', '))
+  });
+
+  // Rule 3: No duplicate addresses
+  var seen = {};
+  var dups = [];
+  for (var d = 0; d < shares.length; d++) {
+    var na = normalizeAddr(shares[d].address);
+    if (na && seen[na]) { dups.push(shares[d].address.slice(0, 12) + '...'); }
+    seen[na] = true;
+  }
+  rules.push({
+    id: 'dups',
+    label: 'No duplicate addresses',
+    pass: dups.length === 0,
+    detail: dups.length === 0 ? 'All addresses are unique' : 'Duplicates found: ' + dups.join(', ')
+  });
+
+  // Rule 4: No zero/blank addresses
+  var zeroAddr = '0x' + '0'.repeat(40);
+  var blanks = [];
+  for (var b = 0; b < shares.length; b++) {
+    var addr = (shares[b].address || '').toString().trim();
+    if (!addr || addr === '0x' || normalizeAddr(addr) === zeroAddr) {
+      blanks.push('entry ' + (b + 1));
+    }
+  }
+  rules.push({
+    id: 'no_blank',
+    label: 'No zero/blank addresses',
+    pass: blanks.length === 0,
+    detail: blanks.length === 0 ? 'No blank or zero addresses' : 'Blank or zero address at: ' + blanks.join(', ')
+  });
+
+  // Rule 5: Basis-point range 0–10000 (or 0–100 in percent mode)
+  var rangeMax = mode === 'bps' ? 10000 : 100;
+  var outOfRange = [];
+  for (var r = 0; r < shares.length; r++) {
+    var sv2 = Number(shares[r].share);
+    if (isNaN(sv2) || sv2 < 0 || sv2 > rangeMax) {
+      outOfRange.push('entry ' + (r + 1) + ' (' + shares[r].share + ')');
+    }
+  }
+  rules.push({
+    id: 'range',
+    label: mode === 'bps' ? 'Share values 0–10000 bps' : 'Share values 0–100%',
+    pass: outOfRange.length === 0,
+    detail: outOfRange.length === 0 ? 'All values in range' : 'Out of range: ' + outOfRange.join(', ')
+  });
+
+  // Rule 6: Ethereum address format
+  var badAddr = [];
+  for (var a = 0; a < shares.length; a++) {
+    var addr2 = (shares[a].address || '').toString().trim();
+    if (!isValidEthAddr(addr2)) {
+      badAddr.push('entry ' + (a + 1) + ': ' + (addr2.slice(0, 16) || '(empty)') + (addr2.length > 16 ? '...' : ''));
+    }
+  }
+  rules.push({
+    id: 'addr_fmt',
+    label: 'Address format (0x + 40 hex chars)',
+    pass: badAddr.length === 0,
+    detail: badAddr.length === 0 ? 'All addresses pass format check' : 'Format failures: ' + badAddr.join('; ')
+  });
+
+  var allPass = rules.every(function(r) { return r.pass; });
+
+  // Config fingerprint
+  var canonical = JSON.stringify(entries.map(function(e) {
+    var addr = normalizeAddr(e.address);
+    var sv = mode === 'bps'
+      ? (e.basis_points !== undefined ? e.basis_points : (e.bps !== undefined ? e.bps : e.shares))
+      : (e.percent !== undefined ? e.percent : e.pct);
+    return { address: addr, share: sv };
+  }).sort(function(a, b) { return a.address < b.address ? -1 : 1; }));
+  var configHash = djb2Hash(canonical);
+
+  return {
+    valid: allPass,
+    mode: mode,
+    recipientCount: entries.length,
+    sum: sum,
+    capBps: capBps,
+    rules: rules,
+    configHash: configHash
+  };
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function runValidate() {
+  var raw = document.getElementById('config').value.trim();
+  var capBps = parseInt(document.getElementById('cap_bps').value, 10) || 5000;
+  if (capBps < 1 || capBps > 10000) capBps = 5000;
+
+  var entries;
+  try {
+    entries = JSON.parse(raw);
+  } catch (e) {
+    document.getElementById('outputSection').innerHTML =
+      '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.85rem 1rem;margin-top:1.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--red)">&#9888; JSON parse error: ' + esc(e.message) + '</div>';
+    return;
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    document.getElementById('outputSection').innerHTML =
+      '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.85rem 1rem;margin-top:1.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--red)">&#9888; Input must be a non-empty JSON array.</div>';
+    return;
+  }
+
+  var result = validateRoyaltySplit(entries, capBps);
+  window._splitResult = result;
+  window._splitEntries = entries;
+
+  var rulesHtml = result.rules.map(function(r) {
+    var cls = r.pass ? 'rule-pass' : 'rule-fail';
+    var label = r.pass ? 'PASS' : 'FAIL';
+    return '<li class="rule-item">' +
+      '<span class="rule-status ' + cls + '">' + label + '</span>' +
+      '<div class="rule-text">' + esc(r.label) + '<div class="rule-detail">' + esc(r.detail) + '</div></div>' +
+      '</li>';
+  }).join('');
+
+  var verdictClass = result.valid ? 'verdict-pass' : 'verdict-fail';
+  var verdictText = result.valid ? '&#10003; Config VALID' : '&#10007; Config INVALID';
+
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section">' +
+      '<div class="out-header"><span class="out-title">Validation Report</span><span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">' + esc(result.mode.toUpperCase()) + ' MODE</span></div>' +
+      '<div class="out-body">' +
+        '<div class="verdict ' + verdictClass + '">' + verdictText + '</div>' +
+        '<div class="stat-grid">' +
+          '<div class="stat-card"><div class="stat-label">Recipients</div><div class="stat-val">' + result.recipientCount + '</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Total shares</div><div class="stat-val">' + result.sum + (result.mode === 'bps' ? ' bps' : '%') + '</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Cap per recipient</div><div class="stat-val">' + result.capBps + ' bps</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Rules passed</div><div class="stat-val">' + result.rules.filter(function(r){return r.pass;}).length + ' / ' + result.rules.length + '</div></div>' +
+        '</div>' +
+        '<ul class="rule-list">' + rulesHtml + '</ul>' +
+        '<div class="hash-row">Config fingerprint (djb2): <span style="color:var(--teal)">' + esc(result.configHash) + '</span></div>' +
+        '<div style="font-size:.68rem;color:var(--muted);margin-top:.5rem">ERC-2981 (IERC2981) defines a royaltyInfo() function returning a single receiver and royaltyAmount in basis points. 0xSplits supports multi-recipient splits where all shares sum to 10000 bps. This tool validates against both models.</div>' +
+      '</div>' +
+    '</div>';
+
+  enableAP2Btn();
+}
+</script>
+
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"527-royalty-split-validator","version":"1.0.0","title":"Royalty-Split Config Validator","description":"Validates a royalty-split config (ERC-2981 single receiver, 0xSplits multi-recipient) against: share-sum rule, per-recipient cap, no duplicate addresses, no zero/blank address, basis-point range, and Ethereum address format. Reports per-rule pass/fail and a config fingerprint. Validation only, no on-chain calls. Client-side, deterministic, zero PII.","category":"cat-11","tags":["erc-2981","0xsplits","royalty","split","validation","compliance","nft","tokenization","ip"],"audience":["engineer","compliance","product"],"input_schema":{"type":"object","required":["config"],"properties":{"config":{"type":"string"},"cap_bps":{"type":"integer"}}},"output_schema":{"type":"object","properties":{"valid":{"type":"boolean"},"rules":{"type":"array"},"config_hash":{"type":"string"},"mode":{"type":"string"}}},"mcp_tool_definition":{"name":"validate_royalty_split_config","description":"Validates a royalty-split config (ERC-2981 / 0xSplits) against share-sum, per-recipient cap, address format, and duplication rules. Reports per-rule pass/fail and a config fingerprint. Validation only, no on-chain calls.","inputSchema":{"type":"object","required":["config"],"properties":{"config":{"type":"string","description":"JSON array of {address, basis_points} or {address, percent} entries"},"cap_bps":{"type":"integer","description":"Max basis points per single recipient (default 5000)"}}}},"execution":{"type":"browser-reference","entry":"tools/527-royalty-split-validator.html","function_name":"runValidate"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3-§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=null;
+window.exportAP2=function(){
+  if(!window._splitResult){alert('Run the validation first.');return;}
+  var ts=new Date().toISOString();
+  var tid='527-royalty-split-validator';
+  var r=window._splitResult;
+  var mandate={
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:[],
+    regulatory_frameworks:['ERC-2981','0xSplits'],
+    payload:{
+      valid:r.valid,
+      mode:r.mode,
+      recipient_count:r.recipientCount,
+      total_shares:r.sum,
+      cap_bps:r.capBps,
+      config_hash:r.configHash,
+      rules:r.rules,
+      entries_count:(window._splitEntries||[]).length
+    },
+    summary:'Royalty-split config validation (' + r.recipientCount + ' recipients, ' + r.mode + ' mode): ' + (r.valid ? 'VALID' : 'INVALID') + '. Config fingerprint: ' + r.configHash + '.',
+    agent_instructions:[
+      r.valid ? 'Config passed all validation rules. Proceed to deploy the royalty split contract.' : 'Config failed validation. Fix the reported rule failures before deploying.',
+      'Reference: ERC-2981 (IERC2981) for single-receiver royalties; 0xSplits for multi-recipient splits.'
+    ],
+    valid_from:ts.slice(0,10),
+    valid_until:ts.slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    source_tool_inputs:{cap_bps:r.capBps},
+    regulatory_citations:['ERC-2981: NFT Royalty Standard','0xSplits Protocol'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<!-- AIN Bridge v1.0 -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runValidate',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;el.value=String(fields[id]);try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0&&/[#&]run=1/.test(h))runTool();}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initPrefill);else initPrefill();
+})();
+</script>
+</body>
+</html>
