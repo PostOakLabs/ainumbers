@@ -84,6 +84,12 @@ const HARD_BANS = [
   ['FinalizationRegistry', /\bFinalizationRegistry\b/],
   ['process.',             /\bprocess\s*\./],
   ['performance.now',      /\bperformance\s*\.\s*now\b/],
+  // Raw C0 control characters in source (NUL..BS, VT, FF, SO..US) — excludes
+  // tab/LF/CR. A raw control char inside a string-literal sentinel is parsed
+  // differently by V8 vs JavaScriptCore (caught art-189's raw-NUL sentinel:
+  // identical on V8/QuickJS-ng, divergent on JSC/Bun). Use an escape ()
+  // or a printable sentinel instead.
+  ['raw control char in source', /[\x00-\x08\x0B\x0C\x0E-\x1F]/],
 ];
 
 const TRANSCENDENTAL_RE = /\bMath\.(exp|expm1|log1p|log2|log10|log|sin|cos|tan|asin|acos|atan2|atan|sinh|cosh|tanh|cbrt|pow|hypot)\s*\(/;
