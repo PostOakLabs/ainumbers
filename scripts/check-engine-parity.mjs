@@ -112,7 +112,9 @@ function* iterFixtures() {
     const kernelId = f.replace('.fixtures.json', '');
     const kernelPath = resolve(KERNELS_DIR, kernelId + '.kernel.mjs');
     if (!existsSync(kernelPath)) continue;
-    const vectors = JSON.parse(readFileSync(resolve(FIXTURES_DIR, f), 'utf8'));
+    const fixture = JSON.parse(readFileSync(resolve(FIXTURES_DIR, f), 'utf8'));
+    // Fixture format: { tool_id, vectors: [{ name, policy_parameters, ... }] }
+    const vectors = Array.isArray(fixture) ? fixture : (fixture.vectors ?? []);
     yield { kernelId, kernelPath, vectors };
   }
 }
@@ -184,8 +186,9 @@ if (bundleFile) {
     lines.push(`{`);
     lines.push(`  const _v = ${JSON.stringify(vectors)};`);
     lines.push(`  MANIFEST[${JSON.stringify(kernelId)}] = {};`);
-    lines.push(`  for (const [vname, vdata] of Object.entries(_v)) {`);
-    lines.push(`    const pp = vdata.policy_parameters ?? {};`);
+    lines.push(`  for (const vector of _v) {`);
+    lines.push(`    const vname = vector.name ?? '(unnamed)';`);
+    lines.push(`    const pp = vector.policy_parameters ?? {};`);
     lines.push(`    const result = _compute_${safeId}(pp);`);
     lines.push(`    const op = result && result.output_payload !== undefined ? result.output_payload : result;`);
     lines.push(`    MANIFEST[${JSON.stringify(kernelId)}][vname] = sha256hex(preimage(pp, op));`);
@@ -218,8 +221,9 @@ for (const { kernelId, kernelPath, vectors } of iterFixtures()) {
   }
 
   MANIFEST[kernelId] = {};
-  for (const [vname, vdata] of Object.entries(vectors)) {
-    const pp = vdata.policy_parameters ?? {};
+  for (const vector of vectors) {
+    const vname = vector.name ?? '(unnamed)';
+    const pp = vector.policy_parameters ?? {};
     let result;
     try {
       result = computeFn(pp);
