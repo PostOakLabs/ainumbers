@@ -111,6 +111,14 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .acc-chevron{font-size:.6rem;color:var(--muted);transition:transform .2s;flex-shrink:0}
 .acc-header.open .acc-chevron{transform:rotate(180deg)}
 .acc-body{overflow:hidden}
+/* H1: center-bar link button */
+.wb-link-btn{background:var(--bg-4);border:1px solid var(--border-2);color:var(--body);padding:.45rem .75rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;flex-shrink:0}
+.wb-link-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+/* H1: initial inputs textarea */
+.rp-inputs-ta{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);border-radius:var(--radius);padding:.45rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;resize:vertical;min-height:80px;outline:none;line-height:1.5}
+.rp-inputs-ta:focus{border-color:var(--teal)}
+.rp-inputs-hint{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.3rem;line-height:1.5}
+.rp-inputs-err{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--red);margin-top:.25rem;display:none}
 /* Responsive: stack on narrow screens */
 @media(max-width:900px){
   body{overflow:auto}
@@ -154,6 +162,7 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
     <div class="center-bar">
       <button class="run-btn" id="wbRunBtn" onclick="wbRunChain()" disabled>&#x25B6; Run Chain</button>
       <span class="center-chain-name" id="centerChainName">— select a chain —</span>
+      <button class="wb-link-btn" id="wbLinkBtn" onclick="wbCopyLink()" title="Copy permalink to this chain">&#x1F517; Link</button>
     </div>
     <!-- Step ladder — per-step run status (G2) -->
     <div class="step-ladder" id="stepLadder" style="display:none"></div>
@@ -196,6 +205,14 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
         <div class="rp-label">MCP Call &middot; run_chain</div>
         <pre class="mcp-code" id="mcpSnippet"></pre>
         <button class="copy-btn" id="copyMcpBtn" onclick="copyMcp()">&#x1F4CB; Copy</button>
+      </div>
+      <!-- H1: initial inputs for permalink and prefill -->
+      <div class="rp-section" id="rpInputsSection" style="display:none">
+        <div class="rp-label">Initial Inputs</div>
+        <div class="rp-meta" style="margin-bottom:.4rem">JSON keys = form element IDs in step 0. Encoded in permalink and applied before run.</div>
+        <textarea id="wbInputsTa" class="rp-inputs-ta" placeholder='{"field_id": "value"}' spellcheck="false" autocomplete="off"></textarea>
+        <div class="rp-inputs-hint">Leave blank to run the chain with default inputs.</div>
+        <div class="rp-inputs-err" id="wbInputsErr">Invalid JSON</div>
       </div>
     </div>
 
@@ -376,6 +393,7 @@ function selectChain(name) {
   document.getElementById('accSnapHdr').style.display = 'none';
   document.getElementById('accSnapBody').style.display = 'none';
   document.getElementById('apVerifyOut').textContent = '';
+  document.getElementById('rpInputsSection').style.display = 'block';
 
   /* MCP snippet */
   document.getElementById('mcpSnippet').textContent = JSON.stringify({
@@ -386,6 +404,7 @@ function selectChain(name) {
     }
   }, null, 2);
 
+  updateHash();
   startPolling();
 }
 
@@ -396,6 +415,8 @@ document.getElementById('runnerFrame').addEventListener('load', function() {
     var btn = document.getElementById('wbRunBtn');
     btn.disabled = false;
   }
+  /* H1: apply initial inputs after inner step-0 iframe has a moment to load */
+  setTimeout(applyInitialInputs, 600);
 });
 
 /* ── workbench-level Run Chain ── */
@@ -608,6 +629,76 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
+/* ── H1: Workbench permalinks ── */
+function wbInputsJson() {
+  var ta = document.getElementById('wbInputsTa');
+  var raw = ta ? ta.value.trim() : '';
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+function wbInputsB64() {
+  var obj = wbInputsJson();
+  if (!obj || !Object.keys(obj).length) return '';
+  var json = JSON.stringify(obj);
+  var bytes = new TextEncoder().encode(json);
+  return btoa(String.fromCharCode.apply(null, bytes)).replace(/[+]/g,'-').replace(/[/]/g,'_').replace(/=+$/,'');
+}
+function updateHash() {
+  if (!selectedChain) { history.replaceState(null,'',location.pathname+location.search); return; }
+  var inB64 = wbInputsB64();
+  var frag = '#chain=' + encodeURIComponent(selectedChain) + (inB64 ? '&in=' + inB64 : '');
+  history.replaceState(null, '', frag);
+}
+function wbCopyLink() {
+  updateHash();
+  var url = location.href;
+  var btn = document.getElementById('wbLinkBtn');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      btn.textContent = '&#x2713; Copied!';
+      setTimeout(function(){ btn.textContent = '&#x1F517; Link'; }, 1600);
+    }).catch(function(){ fallbackCopy(url); });
+  } else { fallbackCopy(url); }
+}
+function loadFromHash() {
+  var hash = location.hash;
+  if (!hash || hash.indexOf('chain=') < 0) return;
+  var params = {};
+  hash.slice(1).split('&').forEach(function(part) {
+    var eq = part.indexOf('=');
+    if (eq < 0) return;
+    try { params[decodeURIComponent(part.slice(0, eq))] = decodeURIComponent(part.slice(eq + 1)); } catch(e) {}
+  });
+  var chainName = params['chain'];
+  if (!chainName) return;
+  var found = false;
+  for (var i = 0; i < CATALOG_DATA.length; i++) { if (CATALOG_DATA[i].name === chainName) { found = true; break; } }
+  if (!found) return;
+  if (params['in']) {
+    try {
+      var b64 = params['in'].replace(/-/g,'+').replace(/_/g,'/');
+      var padded = b64 + '=='.slice((b64.length+2)%4);
+      var bytes = Uint8Array.from(atob(padded), function(c){ return c.charCodeAt(0); });
+      var obj = JSON.parse(new TextDecoder().decode(bytes));
+      var ta = document.getElementById('wbInputsTa');
+      if (ta) ta.value = JSON.stringify(obj, null, 2);
+    } catch(e) { /* ignore bad in= */ }
+  }
+  selectChain(chainName);
+}
+function applyInitialInputs() {
+  var obj = wbInputsJson();
+  if (!obj || !Object.keys(obj).length) return;
+  var frame = document.getElementById('runnerFrame');
+  if (!frame || !frame.contentWindow) return;
+  try {
+    var innerFrame = frame.contentWindow.document.getElementById('frame0');
+    if (innerFrame && innerFrame.contentWindow && typeof frame.contentWindow.applySeed === 'function') {
+      frame.contentWindow.applySeed(innerFrame.contentWindow, obj);
+    }
+  } catch(e) { /* cross-origin or not ready */ }
+}
+
 /* ── init ── */
 window.addEventListener('DOMContentLoaded', function() {
   var hint = document.getElementById('emptyHint');
@@ -618,6 +709,21 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('catalogCount').textContent = CATALOG_DATA.length + ' chains';
   document.getElementById('searchInput').addEventListener('input', applyFilter);
   document.getElementById('runnersOnly').addEventListener('change', applyFilter);
+
+  /* H1: inputs textarea wiring */
+  var ta = document.getElementById('wbInputsTa');
+  if (ta) {
+    ta.addEventListener('input', function() {
+      var errEl = document.getElementById('wbInputsErr');
+      var raw = ta.value.trim();
+      if (!raw) { errEl.style.display = 'none'; updateHash(); return; }
+      try { JSON.parse(raw); errEl.style.display = 'none'; updateHash(); }
+      catch(e) { errEl.style.display = 'block'; }
+    });
+  }
+
+  /* H1: load from hash after catalog is ready */
+  loadFromHash();
 });
 </script>
 
