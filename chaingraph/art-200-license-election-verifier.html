@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>License Election Verifier &middot; ART-200 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Verifies a certificate produced by ART-199 by recomputing the SHA-256 terms_hash over the JCS-canonical election core. Returns verdict, binding_ok, recomputed hash, and per-check results. Not legal advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-200-license-election-verifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.55rem .7rem;outline:none;transition:border-color .2s;resize:vertical;min-height:180px;line-height:1.5}
+textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.verdict-block{padding:14px 16px;border-radius:var(--radius-lg);margin-bottom:12px;font-family:'JetBrains Mono',monospace}
+.verdict-block.valid{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.25)}
+.verdict-block.binding_mismatch{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25)}
+.verdict-block.incomplete_fields{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25)}
+.verdict-block.malformed{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25)}
+.verdict-label{font-size:1rem;font-weight:600;margin-bottom:.3rem}
+.verdict-label.valid{color:var(--green)}
+.verdict-label.binding_mismatch{color:var(--red)}
+.verdict-label.incomplete_fields{color:var(--warn)}
+.verdict-label.malformed{color:var(--red)}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.hash.mismatch{color:var(--red)}
+.check-row{display:flex;align-items:flex-start;gap:8px;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.check-pass{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.65rem;flex-shrink:0}
+.check-fail{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;flex-shrink:0}
+.check-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);flex-shrink:0;min-width:210px}
+.check-detail{color:var(--body);font-size:.68rem;word-break:break-all}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>License Election Verifier</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-200 &middot; IP Licensing &amp; Tokenization</div>
+  <h1>License Election Verifier</h1>
+  <p class="sub">Verifies a certificate produced by the License Election Certifier (ART-199). Recomputes the SHA-256 terms_hash over the JCS-canonical election core and compares it against the stored hash. Returns verdict, binding_ok flag, recomputed hash, and per-check results.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Cryptographic Mandate</span>
+    <span class="flag info">JCS SHA-256 Verify</span>
+    <span class="flag">Tamper Detection</span>
+    <span class="flag gold">Selection Only</span>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="disclaimer">&#9888; This tool verifies the cryptographic integrity of a license election certificate. A passing result confirms the certificate fields are internally consistent and have not been tampered with. It does not guarantee the license is valid, applicable, or legally enforceable. <strong>Not legal advice.</strong></div>
+
+  <div class="card">
+    <div class="preset-row">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);align-self:center">Presets:</span>
+      <button class="preset-btn" onclick="loadPreset('valid')">Valid CC BY 4.0 Certificate</button>
+      <button class="preset-btn" onclick="loadPreset('tampered')">Tampered Asset Ref</button>
+      <button class="preset-btn" onclick="loadPreset('pil_valid')">Valid PIL Commercial Remix</button>
+    </div>
+
+    <div class="q">
+      <label class="q-label" for="certInput">Certificate JSON</label>
+      <div class="q-help">Paste the certificate object from ART-199 output. Must contain certificate_version, asset_ref, licensor_did, license_election, and terms_hash.</div>
+      <textarea id="certInput" placeholder='{"certificate_version":"1.0","asset_ref":"...","licensor_did":"...","license_election":{...},"terms_hash":"..."}'></textarea>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runVerifier()">&#9654; Verify Certificate</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Verification Result</div>
+      <div class="verdict-block" id="verdictBlock">
+        <div class="verdict-label" id="verdictLabel"></div>
+        <div style="font-size:.72rem;color:var(--body);margin-top:4px" id="verdictDesc"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:8px">Hash Comparison</div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:4px">Stored terms_hash:</div>
+      <div class="hash" id="storedHash"></div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:4px;margin-top:8px">Recomputed terms_hash:</div>
+      <div class="hash" id="recomputedHash"></div>
+
+      <div class="section-head" style="margin-top:16px">Per-Check Results</div>
+      <div id="checksDiv"></div>
+
+      <div class="section-head" style="margin-top:16px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="hashBox"></div>
+
+      <div class="section-head" style="margin-top:16px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-200-license-election-verifier',
+  version: '1.0.0',
+  mcp_name: 'verify_license_election',
+  title: 'License Election Verifier',
+  description: 'Verifies a certificate produced by the License Election Certifier by recomputing the SHA-256 terms_hash over the JCS-canonical election core and comparing it against the stored hash. Returns verdict (valid | binding_mismatch | incomplete_fields | malformed), binding_ok flag, recomputed_terms_hash, and per-check results. Not legal advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  chain: 'ip-licensing-tokenization',
+  node_position: 'terminal',
+  export_capability: ['json'],
+  regulation: 'CC / CBE / Story PIL',
+  mcp_tool_definition: {
+    name: 'verify_license_election',
+    description: 'Verifies a license election certificate from ART-199. Recomputes the SHA-256 terms_hash over the JCS-canonical election core and compares it to the stored hash. Returns verdict (valid | binding_mismatch | incomplete_fields | malformed), binding_ok, recomputed_terms_hash, checks. Not legal advice.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        certificate: { type: ['object','string'], description: 'Certificate object from ART-199, or its JSON string.' }
+      }
+    }
+  }
+};
+
+// JCS canonical sort (mirrors kernel _cgCanon)
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);var o={};var ks=Object.keys(v).sort();for(var i=0;i<ks.length;i++)o[ks[i]]=cgCanon(v[ks[i]]);return o;}
+
+async function sha256hex(str) {
+  var buf = new TextEncoder().encode(str);
+  var dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function cgHash(pp,op){return sha256hex(JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op})));}
+
+// Preset certificates (matching art-199 fixture outputs byte-for-byte)
+var PRESETS = {
+  valid: {
+    certificate_version:'1.0',
+    asset_ref:'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    licensor_did:'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    license_election:{family:'cc',id:'CC-BY-4.0',params:{}},
+    terms_hash:'0d311512d1c99e9924f8d1b9f45673f8382bfdab46ed11e49b41b35c9bf50588',
+    certification_note:"This certificate records the licensor's stated election of a published license for the named asset. It is not a legal opinion, not a legal guarantee, and does not constitute on-chain registration. Consult the canonical license texts and a licensed attorney before relying on it.",
+    disclaimer:'Not legal advice. Selection only.'
+  },
+  tampered: {
+    certificate_version:'1.0',
+    asset_ref:'ipfs://TAMPERED-asset-ref',
+    licensor_did:'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    license_election:{family:'cc',id:'CC-BY-4.0',params:{}},
+    terms_hash:'0d311512d1c99e9924f8d1b9f45673f8382bfdab46ed11e49b41b35c9bf50588',
+    certification_note:"This certificate records the licensor's stated election of a published license for the named asset. It is not a legal opinion, not a legal guarantee, and does not constitute on-chain registration. Consult the canonical license texts and a licensed attorney before relying on it.",
+    disclaimer:'Not legal advice. Selection only.'
+  },
+  pil_valid: {
+    certificate_version:'1.0',
+    asset_ref:'https://example.com/artwork.png',
+    licensor_did:'did:story:1234abcd',
+    license_election:{family:'pil',id:'commercial_remix',params:{rev_share_pct:10}},
+    terms_hash:'fbb64a42e4a7b0415ac7d8b73f19d75dc0e9527d4eaa8450892515c74e392a40',
+    certification_note:"This certificate records the licensor's stated election of a published license for the named asset. It is not a legal opinion, not a legal guarantee, and does not constitute on-chain registration. Consult the canonical license texts and a licensed attorney before relying on it.",
+    disclaimer:'Not legal advice. Selection only.'
+  }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return;
+  document.getElementById('certInput').value = JSON.stringify(p, null, 2);
+}
+
+var _lastPP=null, _lastOP=null, _lastFlags=null, _lastArtifact=null;
+
+function structOk(cert) {
+  return cert && typeof cert === 'object' &&
+    cert.certificate_version === '1.0' &&
+    cert.asset_ref !== undefined &&
+    cert.licensor_did !== undefined &&
+    cert.license_election !== undefined &&
+    cert.terms_hash !== undefined;
+}
+
+async function runVerifier() {
+  var raw = document.getElementById('certInput').value.trim();
+  var cert = null;
+  if (raw.length > 0) {
+    try { cert = JSON.parse(raw); } catch(e) { cert = null; }
+  }
+  if (typeof cert === 'string') {
+    try { cert = JSON.parse(cert); } catch(e) { cert = null; }
+  }
+
+  var pp = {certificate: cert !== null ? cert : raw};
+  var verdict, binding_ok = false, recomputed_terms_hash = null, checks = [];
+
+  if (!structOk(cert)) {
+    verdict = 'malformed';
+    checks.push({check:'certificate_structure_and_version', pass:false, detail:'missing or malformed certificate structure (expected certificate_version 1.0)'});
+  } else {
+    checks.push({check:'certificate_structure_and_version', pass:true, detail:'certificate_version 1.0 with asset_ref/licensor_did/license_election/terms_hash present'});
+    var election_core = cgCanon({asset_ref:cert.asset_ref, licensor_did:cert.licensor_did, license_election:cert.license_election});
+    recomputed_terms_hash = await sha256hex(JSON.stringify(election_core));
+    binding_ok = recomputed_terms_hash === String(cert.terms_hash).toLowerCase();
+    checks.push({check:'terms_hash_matches', pass:binding_ok, detail: binding_ok ? 'recomputed terms_hash equals stored terms_hash' : 'recomputed '+recomputed_terms_hash+' != stored '+cert.terms_hash});
+
+    var assetOk = typeof cert.asset_ref === 'string' && cert.asset_ref.length > 0;
+    var didOk   = typeof cert.licensor_did === 'string' && cert.licensor_did.length > 0;
+    var elecOk  = cert.license_election && typeof cert.license_election.family === 'string' && cert.license_election.family.length > 0 && typeof cert.license_election.id === 'string' && cert.license_election.id.length > 0;
+    checks.push({check:'asset_ref_present',              pass:assetOk, detail: assetOk ? 'asset_ref: '+cert.asset_ref : 'asset_ref missing or empty'});
+    checks.push({check:'licensor_did_present',           pass:didOk,   detail: didOk   ? 'licensor_did: '+cert.licensor_did : 'licensor_did missing or empty'});
+    checks.push({check:'license_election_has_family_and_id', pass:elecOk, detail: elecOk ? 'family: '+cert.license_election.family+', id: '+cert.license_election.id : 'license_election missing family or id'});
+
+    if (!binding_ok) {
+      verdict = 'binding_mismatch';
+    } else if (!assetOk || !didOk || !elecOk) {
+      verdict = 'incomplete_fields';
+    } else {
+      verdict = 'valid';
+    }
+  }
+
+  var output_payload = {verdict:verdict, binding_ok:binding_ok};
+  if (recomputed_terms_hash !== null) output_payload.recomputed_terms_hash = recomputed_terms_hash;
+  output_payload.checks = checks;
+
+  var compliance_flags = {
+    BINDING_OK: binding_ok,
+    VERDICT_VALID: verdict === 'valid',
+    SELECTION_NOT_ADVICE: true
+  };
+  _lastPP=pp; _lastOP=output_payload; _lastFlags=compliance_flags;
+
+  // Verdict block
+  var vb = document.getElementById('verdictBlock');
+  var vl = document.getElementById('verdictLabel');
+  var vd = document.getElementById('verdictDesc');
+  var DESCS = {
+    valid: 'Certificate is structurally valid and the terms_hash is cryptographically consistent with the stored election fields.',
+    binding_mismatch: 'The recomputed terms_hash does not match the stored value. The certificate fields may have been tampered with after issuance.',
+    incomplete_fields: 'The terms_hash is consistent but one or more required fields (asset_ref, licensor_did, license_election) are missing or empty.',
+    malformed: 'The input is not a valid certificate object (missing required fields or certificate_version 1.0).'
+  };
+  vb.className = 'verdict-block ' + verdict;
+  vl.className = 'verdict-label ' + verdict;
+  vl.textContent = verdict.toUpperCase().replace(/_/g,' ');
+  vd.textContent = DESCS[verdict] || '';
+
+  // Hash comparison
+  var storedEl = document.getElementById('storedHash');
+  var recompEl = document.getElementById('recomputedHash');
+  if (cert && cert.terms_hash) {
+    storedEl.textContent = 'sha256:'+cert.terms_hash;
+  } else {
+    storedEl.textContent = '(not available)';
+  }
+  if (recomputed_terms_hash) {
+    recompEl.className = 'hash' + (binding_ok ? '' : ' mismatch');
+    recompEl.textContent = 'sha256:'+recomputed_terms_hash;
+  } else {
+    recompEl.textContent = '(not computed)';
+  }
+
+  // Checks
+  var checksHtml='';
+  for(var i=0;i<checks.length;i++){
+    var c=checks[i];
+    checksHtml+='<div class="check-row"><span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'PASS':'FAIL')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span></div>';
+  }
+  document.getElementById('checksDiv').innerHTML=checksHtml;
+
+  // Execution hash
+  var h = await cgHash(pp, output_payload);
+  document.getElementById('hashBox').textContent = 'sha256:'+h;
+
+  // Flags
+  var flagHtml='';
+  for(var k in compliance_flags){if(Object.prototype.hasOwnProperty.call(compliance_flags,k)){
+    var cls = (k === 'SELECTION_NOT_ADVICE') ? 'ok' : (compliance_flags[k] ? 'ok' : 'bad');
+    flagHtml+='<span class="badge '+cls+'">'+k+'='+(compliance_flags[k]?'true':'false')+'</span>';
+  }}
+  document.getElementById('flagRow').innerHTML=flagHtml;
+
+  _lastArtifact = {
+    spec_version:'0.7.0', chaingraph_version:'0.4.0',
+    tool_id:'art-200-license-election-verifier', tool_version:'1.0.0',
+    mcp_name:'verify_license_election',
+    policy_parameters:pp, output_payload:output_payload, compliance_flags:compliance_flags,
+    execution_hash:'sha256:'+h
+  };
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('artifactPre').style.display='none';
+}
+
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  document.getElementById('artifactPre').textContent=JSON.stringify(_lastArtifact,null,2);
+  document.getElementById('artifactPre').style.display='block';
+  var blob=new Blob([JSON.stringify(_lastArtifact,null,2)],{type:'application/json'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='art200-license-election-verify.json'; a.click();
+}
+
+function toggleMfst() {
+  var b=document.getElementById('mfstBody');
+  var on=b.style.display==='none'||!b.style.display;
+  b.style.display=on?'block':'none';
+  if(on) document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
