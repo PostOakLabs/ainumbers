@@ -128,6 +128,9 @@ import * as art191 from './art-191-conversion-receipt-builder.kernel.mjs';
 import * as art192 from './art-192-conversion-receipt-verifier.kernel.mjs';
 import * as art193 from './art-193-metadata-sanitization-prover.kernel.mjs';
 import * as art194 from './art-194-digest-manifest-builder.kernel.mjs';
+import * as art195 from './art-195-creative-commons-license-chooser.kernel.mjs';
+import * as art196 from './art-196-cant-be-evil-license-selector.kernel.mjs';
+import * as art197 from './art-197-pil-flavor-mapper.kernel.mjs';
 import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
@@ -352,6 +355,9 @@ export const KERNELS = {
   'art-192-conversion-receipt-verifier':                      art192,
   'art-193-metadata-sanitization-prover':                     art193,
   'art-194-digest-manifest-builder':                          art194,
+  'art-195-creative-commons-license-chooser':                 art195,
+  'art-196-cant-be-evil-license-selector':                    art196,
+  'art-197-pil-flavor-mapper':                                art197,
   'art-20-acp-ucp-product-feed-conformance-auditor':          art20,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
   'art-22-agentic-payments-protocol-comparator':              art22,
