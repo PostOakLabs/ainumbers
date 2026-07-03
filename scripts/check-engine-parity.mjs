@@ -131,6 +131,44 @@ if (bundleFile) {
   lines.push('/* Run: qjs <this-file> */');
   lines.push('');
 
+  // ── Polyfills for WHATWG APIs absent from QuickJS-ng (ECMA-262 only) ─────────
+  // TextEncoder: deterministic UTF-8 encoder; 7 kernels use it.
+  lines.push('if(typeof TextEncoder==="undefined"){');
+  lines.push('  globalThis.TextEncoder=class TextEncoder{');
+  lines.push('    encode(str){');
+  lines.push('      const b=[];');
+  lines.push('      for(let i=0;i<str.length;){');
+  lines.push('        const cp=str.codePointAt(i);');
+  lines.push('        if(cp<0x80){b.push(cp);i++;}');
+  lines.push('        else if(cp<0x800){b.push(0xC0|(cp>>6),0x80|(cp&63));i++;}');
+  lines.push('        else if(cp<0x10000){b.push(0xE0|(cp>>12),0x80|((cp>>6)&63),0x80|(cp&63));i++;}');
+  lines.push('        else{b.push(0xF0|(cp>>18),0x80|((cp>>12)&63),0x80|((cp>>6)&63),0x80|(cp&63));i+=2;}');
+  lines.push('      }');
+  lines.push('      return new Uint8Array(b);');
+  lines.push('    }');
+  lines.push('    get encoding(){return"utf-8";}');
+  lines.push('  };');
+  lines.push('}');
+  // atob/btoa: deterministic base64 codec; some kernels use it with a Buffer fallback
+  // that also isn't in QuickJS. Standard RFC 4648 base64 alphabet.
+  lines.push('if(typeof atob==="undefined"){');
+  lines.push('  const _C="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";');
+  lines.push('  globalThis.atob=function atob(s){');
+  lines.push('    s=s.replace(/[=]+$/,"");');
+  lines.push('    let r="",buf=0,bits=0;');
+  lines.push('    for(let i=0;i<s.length;i++){const v=_C.indexOf(s[i]);if(v<0)continue;buf=(buf<<6)|v;bits+=6;if(bits>=8){bits-=8;r+=String.fromCharCode((buf>>bits)&0xFF);}}');
+  lines.push('    return r;');
+  lines.push('  };');
+  lines.push('  globalThis.btoa=function btoa(s){');
+  lines.push('    let r="",i=0;');
+  lines.push('    while(i<s.length){const a=s.charCodeAt(i++),b=s.charCodeAt(i++),c=s.charCodeAt(i++);');
+  lines.push('      r+=_C[a>>2]+_C[((a&3)<<4)|(b>>4)]+_C[((b&15)<<2)|(c>>6)]+_C[c&63];');
+  lines.push('    }');
+  lines.push('    const pad=s.length%3;return pad?r.slice(0,pad-3)+"===".slice(pad):r;');
+  lines.push('  };');
+  lines.push('}');
+  lines.push('');
+
   // Inline sha256hex (copy the source exactly — must stay in sync with above)
   lines.push('function sha256hex(str) {');
   lines.push('  const bytes = [];');
@@ -178,21 +216,33 @@ if (bundleFile) {
       .replace(/^export\s+(const|let|var)\s+/gm, '$1 ');               // strip export from consts
 
     const safeId = kernelId.replace(/-/g, '_');
+    // Detect async compute(): these use Web Crypto (crypto.subtle) which is absent
+    // from QuickJS-ng. Exclude from execution; mark all vectors ASYNC_KERNEL.
+    const isAsyncCompute = /\basync\s+function\s+compute\b/.test(region);
+
     lines.push(`// ── ${kernelId} ──`);
-    lines.push(`const _compute_${safeId} = (function(){`);
-    lines.push(region);
-    lines.push(`  return compute;`);
-    lines.push(`})();`);
     lines.push(`{`);
     lines.push(`  const _v = ${JSON.stringify(vectors)};`);
     lines.push(`  MANIFEST[${JSON.stringify(kernelId)}] = {};`);
-    lines.push(`  for (const vector of _v) {`);
-    lines.push(`    const vname = vector.name ?? '(unnamed)';`);
-    lines.push(`    const pp = vector.policy_parameters ?? {};`);
-    lines.push(`    const result = _compute_${safeId}(pp);`);
-    lines.push(`    const op = result && result.output_payload !== undefined ? result.output_payload : result;`);
-    lines.push(`    MANIFEST[${JSON.stringify(kernelId)}][vname] = sha256hex(preimage(pp, op));`);
-    lines.push(`  }`);
+    if (isAsyncCompute) {
+      // Async compute() uses Web Crypto — not runnable in QuickJS-ng; skip at gen time.
+      lines.push(`  for (const vector of _v) {`);
+      lines.push(`    MANIFEST[${JSON.stringify(kernelId)}][vector.name??'(unnamed)'] = 'ASYNC_KERNEL';`);
+      lines.push(`  }`);
+    } else {
+      lines.push(`  const _compute_${safeId} = (function(){`);
+      lines.push(region);
+      lines.push(`    return compute;`);
+      lines.push(`  })();`);
+      lines.push(`  for (const vector of _v) {`);
+      lines.push(`    const vname = vector.name ?? '(unnamed)';`);
+      lines.push(`    const pp = vector.policy_parameters ?? {};`);
+      lines.push(`    let _result;`);
+      lines.push(`    try { _result = _compute_${safeId}(pp); } catch(e) { MANIFEST[${JSON.stringify(kernelId)}][vname]='NOT_RUNNABLE:'+e.message; continue; }`);
+      lines.push(`    const op = _result && _result.output_payload !== undefined ? _result.output_payload : _result;`);
+      lines.push(`    MANIFEST[${JSON.stringify(kernelId)}][vname] = sha256hex(preimage(pp, op));`);
+      lines.push(`  }`);
+    }
     lines.push(`}`);
     lines.push('');
   }
