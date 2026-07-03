@@ -176,8 +176,9 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .cv-btn:disabled{opacity:.4;cursor:not-allowed}
 .cv-status{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body);margin-left:.4rem;flex:1}
 .cv-hint{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);text-align:right}
-.canvas-wrap{flex:1;overflow:auto;position:relative}
-#canvas-svg{display:block;cursor:default}
+.canvas-wrap{flex:1;overflow:hidden;position:relative}
+#canvas-svg{display:block;width:100%;height:100%;cursor:default}
+.cv-zoom{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);min-width:3rem;text-align:right;flex-shrink:0}
 /* Canvas node SVG styles (applied via class on <g>) */
 .cn rect.cn-bg{fill:var(--bg-3);stroke:var(--border-2);stroke-width:1.5;rx:5}
 .cn.runnable rect.cn-bg{stroke:rgba(20,184,166,.4)}
@@ -190,7 +191,14 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .cn text.cn-run{font-family:'JetBrains Mono',monospace;font-size:8px;fill:var(--teal);pointer-events:none}
 .cv-edge{fill:none;stroke:var(--border-2);stroke-width:1.5}
 .cv-edge.valid{stroke:rgba(20,184,166,.5)}
+.cv-edge.selected{stroke:var(--teal);stroke-width:2.5}
+.cv-edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}
 .cv-preview{fill:none;stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5,3;pointer-events:none}
+.cn-drag-bar{fill:rgba(20,184,166,.05);cursor:move}
+.cn-drag-bar:hover{fill:rgba(20,184,166,.18)}
+.cn.selected .cn-drag-bar{fill:rgba(20,184,166,.12)}
+.cn-drag-icon{font-size:7px;fill:rgba(20,184,166,.35);pointer-events:none}
+.cn.selected .cn-drag-icon{fill:rgba(20,184,166,.65)}
 /* Empty canvas state + G5 template cards */
 .cv-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;pointer-events:none;padding:1rem}
 .cv-empty-icon{font-size:2.5rem;opacity:.2}
@@ -226,6 +234,20 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 .step-log .sl-ok{color:var(--green-lt)}.step-log .sl-skip{color:var(--muted)}.step-log .sl-err{color:var(--red)}
 /* Iframe farm — off-screen execution */
 #iframe-farm{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden}
+/* ── G2: command palette ── */
+.cmd-palette{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:none;align-items:flex-start;justify-content:center;padding-top:72px}
+.cmd-palette.open{display:flex}
+.cmd-p-inner{background:var(--bg-2);border:1px solid rgba(20,184,166,.35);border-radius:var(--radius-lg);width:520px;max-width:95vw;box-shadow:0 16px 48px rgba(0,0,0,.7);overflow:hidden}
+.cmd-input{width:100%;box-sizing:border-box;background:transparent;border:none;border-bottom:1px solid var(--border-2);color:var(--bright);font-size:.85rem;font-family:'Sora',sans-serif;padding:.7rem 1rem;outline:none}
+.cmd-results{max-height:300px;overflow-y:auto}
+.cmd-results::-webkit-scrollbar{width:3px}
+.cmd-results::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:2px}
+.cmd-item{padding:.45rem 1rem;cursor:pointer;font-size:.75rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid rgba(30,47,74,.4);color:var(--text)}
+.cmd-item:hover,.cmd-item.active{background:rgba(20,184,166,.1);color:var(--bright)}
+.cmd-item .ci-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmd-item .ci-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--teal);flex-shrink:0}
+.cmd-item .ci-compat{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--green-lt);flex-shrink:0}
+.cmd-hint-bar{padding:.3rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -233,7 +255,7 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 <nav><div class="nav-inner">
   <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
   <div class="nav-bc"><a href="../../index.html">All Tools</a> / <a href="../chaingraph-hub.html">OpenChainGraph Hub</a> / <a href="workbench.html">Workbench</a> / Canvas</div>
-  <span class="nav-badge">Phase E &middot; Canvas</span>
+  <span class="nav-badge">Canvas</span>
 </div></nav>
 
 <div class="pii-bar">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
@@ -262,16 +284,19 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
       <button class="cv-btn cv-btn-teal" id="runBtn" onclick="runCanvas()" disabled>&#x25B6; Run</button>
       <button class="cv-btn cv-btn-dim" onclick="clearCanvas()">&#x2715; Clear</button>
       <button class="cv-btn cv-btn-dim" id="layoutBtn" onclick="autoLayout()" title="Auto-arrange nodes by topology">&#x25A4; Layout</button>
+      <button class="cv-btn cv-btn-dim" onclick="fitView()" title="Fit all nodes in view (F)">&#x26F6; Fit</button>
       <button class="cv-btn cv-btn-dim" onclick="copyDeepLink()" id="linkBtn" title="Copy deep-link to clipboard">&#x1F517; Link</button>
+      <button class="cv-btn cv-btn-dim" onclick="openPalette()" title="Insert node (Ctrl+K)">&#x2318;K</button>
       <span class="cv-status" id="cvStatus">Add nodes from the palette to begin</span>
+      <span class="cv-zoom" id="zoomPct">100%</span>
       <span class="cv-hint" id="cvHint"></span>
     </div>
     <div class="canvas-wrap" id="canvasWrap">
-      <svg id="canvas-svg" xmlns="http://www.w3.org/2000/svg" width="3000" height="2000"></svg>
+      <svg id="canvas-svg" xmlns="http://www.w3.org/2000/svg"><g id="viewport"></g></svg>
       <div class="cv-empty" id="cvEmpty">
         <div class="cv-empty-icon">&#x26D3;</div>
         <div class="cv-empty-title">Start from a chain or drag nodes from the palette</div>
-        <div class="cv-empty-hint">Click a starting point below, or add nodes from the left panel.<br>Connect output ports (&bull;) to input ports &mdash; edges enforced via OCG feeds/consumes.</div>
+        <div class="cv-empty-hint">Click a starting point below, or add nodes from the left panel.<br>Connect output ports (&bull;) to input ports: edges enforced via OCG feeds/consumes.</div>
         <div class="cv-tmpl-label">Starting points</div>
         <div class="cv-templates" id="cvTemplates">${TEMPLATES_PH}</div>
       </div>
@@ -314,6 +339,15 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 
 </div>
 
+<!-- G2: command palette overlay -->
+<div id="cmdPalette" class="cmd-palette" role="dialog" aria-modal="true" aria-label="Insert node">
+  <div class="cmd-p-inner">
+    <input id="cmdInput" class="cmd-input" placeholder="Search nodes&hellip; (Ctrl+K to open)" autocomplete="off" spellcheck="false"/>
+    <div id="cmdResults" class="cmd-results" role="listbox"></div>
+    <div class="cmd-hint-bar">&uarr;&darr; navigate &middot; Enter insert &middot; Esc close</div>
+  </div>
+</div>
+
 <!-- Hidden iframe farm for AINBridge execution -->
 <div id="iframe-farm"></div>
 
@@ -338,21 +372,51 @@ var edges = [];         /* [{id, from_id, to_id}] */
 var nextNodeId = 1;
 var nextEdgeId = 1;
 var selectedNodeId = null;
-var drag = null;        /* {nodeId, dx, dy} when dragging a node */
-var connecting = null;  /* {fromNodeId} when drawing an edge */
+var selectedEdgeId = null;
+var drag = null;        /* {nodeId, ox, oy} when dragging a node */
+var connecting = null;  /* {fromNodeId} when drawing an edge (click-click or drag) */
 var mousePos = {x:0, y:0}; /* current mouse in SVG coords */
+var pan = null;         /* {startX, startY, startVpX, startVpY} during viewport pan */
+var moveTarget = null;  /* nodeId waiting for click-to-position (WCAG 2.5.7) */
 var currentArtifact = null;
 var lastHash = null;
+/* ── viewport (zoom/pan) ── */
+var vpX = 0, vpY = 0, vpScale = 1;
+var vp = null; /* <g id="viewport"> element, resolved on first use */
+/* ── undo/redo ── */
+var _history = [], _histIdx = -1;
+var _loading = false; /* suppress pushHistory during batch load */
+/* ── command palette ── */
+var _paletteOpen = false, _paletteActiveIdx = 0, _cmdNodes = [];
 
 /* ── SVG helpers ── */
 var svg = document.getElementById('canvas-svg');
+function getVp() { if (!vp) vp = document.getElementById('viewport'); return vp; }
 function svgPt(e) {
   var r = svg.getBoundingClientRect();
-  var wrap = document.getElementById('canvasWrap');
-  return {
-    x: e.clientX - r.left + wrap.scrollLeft,
-    y: e.clientY - r.top  + wrap.scrollTop
-  };
+  return { x: (e.clientX - r.left - vpX) / vpScale, y: (e.clientY - r.top - vpY) / vpScale };
+}
+function applyViewport() {
+  getVp().setAttribute('transform', 'translate(' + vpX + ',' + vpY + ') scale(' + vpScale + ')');
+}
+function updateZoomPct() {
+  var el = document.getElementById('zoomPct');
+  if (el) el.textContent = Math.round(vpScale * 100) + '%';
+}
+function fitView() {
+  if (!canvasNodes.length) return;
+  var minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  for (var i = 0; i < canvasNodes.length; i++) {
+    var n = canvasNodes[i];
+    if (n.x < minX) minX = n.x; if (n.y < minY) minY = n.y;
+    if (n.x + NW > maxX) maxX = n.x + NW; if (n.y + NH > maxY) maxY = n.y + NH;
+  }
+  var r = svg.getBoundingClientRect(), W = r.width || 800, H = r.height || 500, PAD = 48;
+  var cw = maxX - minX || 1, ch = maxY - minY || 1;
+  vpScale = Math.min(3, Math.max(0.1, Math.min((W - PAD*2) / cw, (H - PAD*2) / ch)));
+  vpX = PAD + (W - PAD*2 - cw*vpScale) / 2 - minX*vpScale;
+  vpY = PAD + (H - PAD*2 - ch*vpScale) / 2 - minY*vpScale;
+  applyViewport(); updateZoomPct();
 }
 function snap(v) { return Math.round(v / GRID) * GRID; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -398,31 +462,32 @@ document.getElementById('runnableOnly').addEventListener('change', renderPalette
 /* ── add / remove nodes ── */
 function addNode(tool_id, x, y, forceId) {
   var n = NODE_BY_ID[tool_id];
-  if (!n) return;
+  if (!n) return null;
   var id = forceId || nextNodeId++;
   if (id >= nextNodeId) nextNodeId = id + 1;
   canvasNodes.push({id: id, tool_id: tool_id, x: x, y: y});
-  updateRunBtn();
-  render();
-  saveHash();
+  if (!forceId && !_loading) pushHistory(); /* push after so undo restores post-op state */
+  updateRunBtn(); render(); saveHash();
+  return id;
 }
 
 function removeNode(id) {
   canvasNodes = canvasNodes.filter(function(n) { return n.id !== id; });
   edges = edges.filter(function(e) { return e.from_id !== id && e.to_id !== id; });
   if (selectedNodeId === id) selectedNodeId = null;
-  updateRunBtn();
-  render();
-  saveHash();
+  if (selectedEdgeId) { var eids = edges.map(function(e){return e.id;}); if (eids.indexOf(selectedEdgeId)<0) selectedEdgeId=null; }
+  if (!_loading) pushHistory();
+  updateRunBtn(); render(); saveHash();
 }
 
 function clearCanvas() {
-  canvasNodes = []; edges = []; selectedNodeId = null; drag = null; connecting = null;
+  canvasNodes = []; edges = []; nextNodeId = 1; nextEdgeId = 1;
+  selectedNodeId = null; selectedEdgeId = null;
+  drag = null; connecting = null; moveTarget = null; pan = null;
   currentArtifact = null; lastHash = null;
   document.getElementById('rpEmpty').style.display = 'block';
   document.getElementById('rpArtifact').style.display = 'none';
-  updateRunBtn();
-  render();
+  updateRunBtn(); render();
   history.replaceState(null, '', location.pathname + location.search);
 }
 
@@ -454,9 +519,8 @@ function addEdge(fromId, toId) {
     return;
   }
   edges.push({id: nextEdgeId++, from_id: fromId, to_id: toId});
-  updateRunBtn();
-  render();
-  saveHash();
+  if (!_loading) pushHistory();
+  updateRunBtn(); render(); saveHash();
 }
 
 /* ── bezier edge path ── */
@@ -481,7 +545,7 @@ function render() {
     + '<circle cx="' + (GRID/2) + '" cy="' + (GRID/2) + '" r="0.8" fill="rgba(30,47,74,.5)"/></pattern>');
   parts.push('<rect width="' + CANVAS_W + '" height="' + CANVAS_H + '" fill="url(#grid-dots)"/>');
 
-  /* edges */
+  /* edges — hit area first, then visible path */
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
     var fn = canvasNodes.find(function(n){return n.id===e.from_id;});
@@ -490,7 +554,10 @@ function render() {
     var x1 = fn.x + NW, y1 = fn.y + PORT_Y;
     var x2 = tn.x,      y2 = tn.y + PORT_Y;
     var isValid = canConnect(fn.tool_id, tn.tool_id);
-    parts.push('<path class="cv-edge' + (isValid?' valid':'') + '" d="' + bezierPath(x1,y1,x2,y2) + '" marker-end="url(#' + (isValid?'arrowhead-valid':'arrowhead') + ')"/>');
+    var isSel = (e.id === selectedEdgeId);
+    var d = bezierPath(x1,y1,x2,y2);
+    parts.push('<path class="cv-edge-hit" d="' + d + '" data-eid="' + e.id + '"/>');
+    parts.push('<path class="cv-edge' + (isValid?' valid':'') + (isSel?' selected':'') + '" d="' + d + '" marker-end="url(#' + (isValid?'arrowhead-valid':'arrowhead') + ')"/>');
   }
 
   /* preview edge while connecting */
@@ -507,15 +574,19 @@ function render() {
     var cn = canvasNodes[ni];
     var nd = NODE_BY_ID[cn.tool_id];
     if (!nd) continue;
-    var cls = 'cn' + (nd.can_run?' runnable':'') + (cn.id===selectedNodeId?' selected':'');
+    var isSeln = (cn.id === selectedNodeId);
+    var cls = 'cn' + (nd.can_run?' runnable':'') + (isSeln?' selected':'') + (cn.id===moveTarget?' move-active':'');
     var tidShort = cn.tool_id.length > 28 ? cn.tool_id.slice(0,25)+'…' : cn.tool_id;
     var runMark = nd.can_run ? '<text class="cn-run" x="' + (NW-6) + '" y="14" text-anchor="end">&#x25B6;</text>' : '';
+    var moveHandle = '<rect class="cn-drag-bar" data-nid="' + cn.id + '" data-role="move" x="16" y="3" width="' + (NW-32) + '" height="7" rx="2"/>'
+      + '<text class="cn-drag-icon" x="' + (NW/2) + '" y="9" text-anchor="middle">&#x2807;</text>';
     parts.push(
       '<g class="' + cls + '" id="cn-' + cn.id + '" transform="translate(' + cn.x + ',' + cn.y + ')">'
       + '<rect class="cn-bg" width="' + NW + '" height="' + NH + '" rx="5"/>'
+      + moveHandle
       + runMark
-      + '<text class="cn-name" x="14" y="23" clip-path="url(#clip-' + cn.id + ')">' + esc(nd.display_name.length>22?nd.display_name.slice(0,20)+'…':nd.display_name) + '</text>'
-      + '<text class="cn-tid" x="14" y="40">' + esc(tidShort) + '</text>'
+      + '<text class="cn-name" x="14" y="27">' + esc(nd.display_name.length>22?nd.display_name.slice(0,20)+'…':nd.display_name) + '</text>'
+      + '<text class="cn-tid" x="14" y="42">' + esc(tidShort) + '</text>'
       + '<circle class="port in-port" data-nid="' + cn.id + '" data-port="in" cx="0" cy="' + PORT_Y + '" r="' + PORT_R + '"/>'
       + '<circle class="port out-port" data-nid="' + cn.id + '" data-port="out" cx="' + NW + '" cy="' + PORT_Y + '" r="' + PORT_R + '"/>'
       + '<rect class="cn-hit" width="' + NW + '" height="' + NH + '" rx="5" fill="transparent" data-nid="' + cn.id + '" data-role="body"/>'
@@ -523,47 +594,70 @@ function render() {
     );
   }
 
-  svg.innerHTML = parts.join('');
+  getVp().innerHTML = parts.join('');
 }
 
 /* ── SVG mouse events ── */
 svg.addEventListener('mousedown', function(e) {
   var pt = svgPt(e);
   var target = e.target;
-  var nid = target.dataset.nid ? parseInt(target.dataset.nid) : null;
-  var port = target.dataset.port;
+  var nid = target.dataset && target.dataset.nid ? parseInt(target.dataset.nid) : null;
+  var port = target.dataset ? target.dataset.port : null;
+  var role = target.dataset ? target.dataset.role : null;
+  var eid = target.dataset && target.dataset.eid ? parseInt(target.dataset.eid) : null;
+
+  /* move handle: enter click-to-position mode */
+  if (nid && role === 'move') {
+    moveTarget = nid; selectedNodeId = nid; selectedEdgeId = null;
+    svg.style.cursor = 'crosshair';
+    setStatus('Click anywhere on the canvas to position the node. Esc to cancel.');
+    render(); e.preventDefault(); return;
+  }
+
+  /* resolve a pending click-to-position */
+  if (moveTarget && !nid && !port && !eid) {
+    var mn = canvasNodes.find(function(n){return n.id===moveTarget;});
+    if (mn) { mn.x = snap(pt.x - NW/2); mn.y = snap(pt.y - NH/2); pushHistory(); render(); saveHash(); }
+    moveTarget = null; svg.style.cursor = 'default'; setStatus('');
+    e.preventDefault(); return;
+  }
 
   if (nid && port === 'out') {
-    /* start edge drawing from output port */
+    /* start edge connect from output port (click-click mode; drag also works) */
+    var fromNd = canvasNodes.find(function(n){return n.id===nid;});
     connecting = {fromNodeId: nid};
     mousePos = pt;
-    e.preventDefault();
-    return;
+    var label = fromNd ? NODE_BY_ID[fromNd.tool_id] : null;
+    setStatus('Connecting from ' + (label ? label.display_name : '?') + ' — click an input port (&#x25CF;) to connect, or press Esc to cancel.');
+    e.preventDefault(); return;
   }
   if (nid && port === 'in') {
-    /* complete edge if connecting */
+    /* complete edge (addEdge will pushHistory internally) */
     if (connecting && connecting.fromNodeId !== nid) {
       addEdge(connecting.fromNodeId, nid);
     }
-    connecting = null;
-    render();
-    e.preventDefault();
-    return;
+    connecting = null; render(); e.preventDefault(); return;
   }
-  if (nid && target.dataset.role === 'body') {
-    /* start dragging node */
+  if (nid && role === 'body') {
+    /* start node drag; history pushed on mouseup after move */
     var cn = canvasNodes.find(function(n){return n.id===nid;});
     if (cn) {
-      drag = {nodeId: nid, ox: pt.x - cn.x, oy: pt.y - cn.y};
-      selectedNodeId = nid;
+      drag = {nodeId: nid, ox: pt.x - cn.x, oy: pt.y - cn.y, startX: cn.x, startY: cn.y};
+      selectedNodeId = nid; selectedEdgeId = null;
       render();
     }
-    e.preventDefault();
-    return;
+    e.preventDefault(); return;
   }
-  /* click empty area = cancel connecting, deselect */
-  if (connecting) { connecting = null; render(); }
-  selectedNodeId = null;
+  if (eid) {
+    /* edge click: select */
+    selectedEdgeId = eid; selectedNodeId = null; connecting = null;
+    render(); setStatus('Edge selected. Delete to remove.'); e.preventDefault(); return;
+  }
+
+  /* empty area: deselect + start viewport pan (keep connecting active for click-click) */
+  selectedNodeId = null; selectedEdgeId = null;
+  pan = {startX: e.clientX, startY: e.clientY, startVpX: vpX, startVpY: vpY};
+  svg.style.cursor = 'grabbing';
   render();
 });
 
@@ -571,26 +665,215 @@ svg.addEventListener('mousemove', function(e) {
   mousePos = svgPt(e);
   if (drag) {
     var cn = canvasNodes.find(function(n){return n.id===drag.nodeId;});
-    if (cn) {
-      cn.x = snap(mousePos.x - drag.ox);
-      cn.y = snap(mousePos.y - drag.oy);
-      render();
-    }
+    if (cn) { cn.x = snap(mousePos.x - drag.ox); cn.y = snap(mousePos.y - drag.oy); render(); }
+  } else if (pan) {
+    vpX = pan.startVpX + (e.clientX - pan.startX);
+    vpY = pan.startVpY + (e.clientY - pan.startY);
+    applyViewport();
   } else if (connecting) {
     render();
   }
 });
 
 svg.addEventListener('mouseup', function(e) {
-  if (drag) { drag = null; saveHash(); }
-  /* if mouseup on empty area while connecting, cancel */
-  var port = e.target.dataset ? e.target.dataset.port : null;
-  if (connecting && port !== 'in') { connecting = null; render(); }
+  if (drag) {
+    /* push history if node actually moved */
+    var mover = canvasNodes.find(function(n){return n.id===drag.nodeId;});
+    if (mover && (mover.x !== drag.startX || mover.y !== drag.startY)) pushHistory();
+    drag = null; saveHash();
+  }
+  if (pan) { pan = null; svg.style.cursor = moveTarget ? 'crosshair' : 'default'; }
 });
 
 svg.addEventListener('dblclick', function(e) {
+  /* removeNode pushes history internally */
   var nid = e.target.dataset ? parseInt(e.target.dataset.nid) : null;
-  if (nid) removeNode(nid);
+  if (nid && e.target.dataset.role === 'body') removeNode(nid);
+});
+
+/* ── wheel zoom ── */
+svg.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var r = svg.getBoundingClientRect(), cx = e.clientX - r.left, cy = e.clientY - r.top;
+  var factor = e.deltaY < 0 ? 1.12 : (1/1.12);
+  var ns = Math.min(4, Math.max(0.08, vpScale * factor));
+  vpX = cx - (cx - vpX) * (ns / vpScale);
+  vpY = cy - (cy - vpY) * (ns / vpScale);
+  vpScale = ns;
+  applyViewport(); updateZoomPct();
+}, {passive: false});
+
+/* ── pinch zoom (trackpad/touch) ── */
+var _pinchDist = null;
+svg.addEventListener('touchstart', function(e) {
+  if (e.touches.length === 2) {
+    _pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    e.preventDefault();
+  }
+}, {passive: false});
+svg.addEventListener('touchmove', function(e) {
+  if (e.touches.length !== 2 || !_pinchDist) return;
+  e.preventDefault();
+  var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  var r = svg.getBoundingClientRect();
+  var cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+  var cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+  var ns = Math.min(4, Math.max(0.08, vpScale * (d / _pinchDist)));
+  vpX = cx - (cx - vpX) * (ns / vpScale);
+  vpY = cy - (cy - vpY) * (ns / vpScale);
+  vpScale = ns; _pinchDist = d;
+  applyViewport(); updateZoomPct();
+}, {passive: false});
+svg.addEventListener('touchend', function() { _pinchDist = null; }, {passive: false});
+
+/* ── keyboard ── */
+document.addEventListener('keydown', function(e) {
+  if (_paletteOpen) return; /* palette handles its own keys */
+  var tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+  if (e.key === 'Escape') {
+    if (moveTarget) { moveTarget = null; svg.style.cursor = 'default'; render(); setStatus(''); }
+    else if (connecting) { connecting = null; mousePos = {x:0,y:0}; render(); setStatus('Cancelled.'); }
+    e.preventDefault(); return;
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey) {
+    /* removeNode / removeEdge push history themselves */
+    if (selectedNodeId) { removeNode(selectedNodeId); e.preventDefault(); }
+    else if (selectedEdgeId) { removeEdge(selectedEdgeId); e.preventDefault(); }
+    return;
+  }
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) { undo(); e.preventDefault(); return; }
+  if ((e.key === 'Z' && (e.ctrlKey || e.metaKey) && e.shiftKey) || (e.key === 'y' && (e.ctrlKey || e.metaKey))) { redo(); e.preventDefault(); return; }
+  if (e.key === 'k' && (e.ctrlKey || e.metaKey)) { openPalette(); e.preventDefault(); return; }
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey) { fitView(); e.preventDefault(); return; }
+
+  if (selectedNodeId && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) >= 0) {
+    e.preventDefault();
+    var cn2 = canvasNodes.find(function(n){return n.id===selectedNodeId;});
+    if (cn2) {
+      if (e.key === 'ArrowLeft')  cn2.x = snap(cn2.x - GRID);
+      if (e.key === 'ArrowRight') cn2.x = snap(cn2.x + GRID);
+      if (e.key === 'ArrowUp')    cn2.y = snap(cn2.y - GRID);
+      if (e.key === 'ArrowDown')  cn2.y = snap(cn2.y + GRID);
+      pushHistory(); /* push after nudge */
+      render(); saveHash();
+    }
+  }
+});
+
+/* ── undo / redo ── */
+function _snapshot() {
+  return {
+    nodes: canvasNodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y}; }),
+    edges: edges.map(function(e){ return {id:e.id, from_id:e.from_id, to_id:e.to_id}; }),
+    nid: nextNodeId, eid: nextEdgeId
+  };
+}
+function pushHistory() {
+  if (_loading) return;
+  _history = _history.slice(0, _histIdx + 1);
+  _history.push(_snapshot());
+  if (_history.length > 100) _history = _history.slice(_history.length - 100);
+  _histIdx = _history.length - 1;
+}
+function _restoreSnap(snap) {
+  canvasNodes = snap.nodes.map(function(n){ return {id:n.id, tool_id:n.tool_id, x:n.x, y:n.y}; });
+  edges = snap.edges.map(function(e){ return {id:e.id, from_id:e.from_id, to_id:e.to_id}; });
+  nextNodeId = snap.nid; nextEdgeId = snap.eid;
+  selectedNodeId = null; selectedEdgeId = null; connecting = null; moveTarget = null;
+  render(); updateRunBtn(); saveHash();
+}
+/* hist[histIdx] = current state (push-after pattern) */
+function undo() { if (_histIdx > 0) { _histIdx--; _loading = true; _restoreSnap(_history[_histIdx]); _loading = false; } }
+function redo() { if (_histIdx < _history.length - 1) { _histIdx++; _loading = true; _restoreSnap(_history[_histIdx]); _loading = false; } }
+
+/* ── remove edge ── */
+function removeEdge(eid) {
+  edges = edges.filter(function(e){ return e.id !== eid; });
+  selectedEdgeId = null;
+  pushHistory();
+  render(); updateRunBtn(); saveHash();
+}
+
+/* ── G2: command palette ── */
+function openPalette() {
+  _paletteOpen = true; _paletteActiveIdx = 0;
+  var fromNd = connecting ? canvasNodes.find(function(n){return n.id===connecting.fromNodeId;}) : null;
+  _cmdNodes = fromNd
+    ? NODES.filter(function(n){ return canConnect(fromNd.tool_id, n.tool_id); })
+    : NODES.slice();
+  document.getElementById('cmdPalette').classList.add('open');
+  document.getElementById('cmdInput').value = '';
+  document.getElementById('cmdInput').focus();
+  _renderCmdResults();
+}
+function closePalette() {
+  _paletteOpen = false;
+  document.getElementById('cmdPalette').classList.remove('open');
+}
+function _filteredCmd() {
+  var q = (document.getElementById('cmdInput').value || '').toLowerCase().trim();
+  var fromNd = connecting ? canvasNodes.find(function(n){return n.id===connecting.fromNodeId;}) : null;
+  var pool = q ? NODES.filter(function(n){
+    return (n.display_name + ' ' + n.tool_id + ' ' + (n.mcp_name||'')).toLowerCase().indexOf(q) >= 0;
+  }) : _cmdNodes.slice();
+  if (fromNd) pool = pool.filter(function(n){ return canConnect(fromNd.tool_id, n.tool_id); });
+  return pool;
+}
+function _renderCmdResults() {
+  var filtered = _filteredCmd();
+  var fromNd = connecting ? canvasNodes.find(function(n){return n.id===connecting.fromNodeId;}) : null;
+  _paletteActiveIdx = Math.max(0, Math.min(_paletteActiveIdx, filtered.length - 1));
+  var html = '';
+  var max = Math.min(filtered.length, 40);
+  for (var i = 0; i < max; i++) {
+    var n = filtered[i];
+    var compat = fromNd ? '<span class="ci-compat">compatible &#x25B8; auto-wire</span>' : '';
+    html += '<div class="cmd-item' + (i === _paletteActiveIdx ? ' active' : '') + '" data-tid="' + esc(n.tool_id) + '">'
+      + '<span class="ci-name">' + esc(n.display_name) + '</span>'
+      + '<span class="ci-badge">' + (n.can_run ? '&#x25B6;' : '&#x2B21;') + '</span>'
+      + compat + '</div>';
+  }
+  if (!html) html = '<div class="cmd-item" style="color:#64748b;cursor:default">No matching nodes</div>';
+  document.getElementById('cmdResults').innerHTML = html;
+  var activeEl = document.getElementById('cmdResults').querySelector('.active');
+  if (activeEl) activeEl.scrollIntoView({block:'nearest'});
+}
+function _cmdInsert(toolId) {
+  var fromNd = connecting ? canvasNodes.find(function(n){return n.id===connecting.fromNodeId;}) : null;
+  var fromConn = connecting ? {fromNodeId: connecting.fromNodeId} : null;
+  closePalette();
+  var r = svg.getBoundingClientRect();
+  var cx = snap((r.width/2 - vpX) / vpScale - NW/2);
+  var cy = snap((r.height/2 - vpY) / vpScale - NH/2);
+  var newId = addNode(toolId, cx, cy);
+  if (fromNd && newId && canConnect(fromNd.tool_id, toolId)) {
+    addEdge(fromConn.fromNodeId, newId);
+    connecting = null;
+  }
+  render();
+}
+
+document.getElementById('cmdInput').addEventListener('input', function() {
+  _paletteActiveIdx = 0; _renderCmdResults();
+});
+document.getElementById('cmdInput').addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowDown') { _paletteActiveIdx++; _renderCmdResults(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { _paletteActiveIdx--; _renderCmdResults(); e.preventDefault(); }
+  else if (e.key === 'Enter') {
+    var filtered = _filteredCmd();
+    var n = filtered[Math.min(_paletteActiveIdx, filtered.length - 1)];
+    if (n) _cmdInsert(n.tool_id);
+    e.preventDefault();
+  } else if (e.key === 'Escape') { closePalette(); e.preventDefault(); }
+});
+document.getElementById('cmdResults').addEventListener('click', function(e) {
+  var item = e.target.closest('.cmd-item');
+  if (item && item.dataset.tid) _cmdInsert(item.dataset.tid);
+});
+document.getElementById('cmdPalette').addEventListener('mousedown', function(e) {
+  if (e.target === this) closePalette();
 });
 
 /* ── deep-link (#g=) ── */
@@ -609,19 +892,18 @@ function saveHash() {
 function loadHash() {
   var hash = location.hash;
   if (!hash.startsWith('#g=')) return;
+  _loading = true;
   try {
     var b64 = hash.slice(3).replace(/-/g,'+').replace(/_/g,'/');
     var padded = b64 + '=='.slice((b64.length+2)%4);
     var bytes = Uint8Array.from(atob(padded), function(c){return c.charCodeAt(0);});
     var state = JSON.parse(new TextDecoder().decode(bytes));
     for (var i = 0; i < state.n.length; i++) {
-      var sn = state.n[i];
-      addNode(sn.t, sn.x, sn.y, sn.i);
+      var sn = state.n[i]; addNode(sn.t, sn.x, sn.y, sn.i);
     }
-    for (var j = 0; j < state.e.length; j++) {
-      addEdge(state.e[j].f, state.e[j].t);
-    }
+    for (var j = 0; j < state.e.length; j++) { addEdge(state.e[j].f, state.e[j].t); }
   } catch(err) { /* ignore bad hash */ }
+  _loading = false;
 }
 
 function copyDeepLink() {
@@ -709,6 +991,7 @@ function autoLayout() {
       if (cn) { cn.x = snap(SX + li2 * H_STRIDE); cn.y = snap(SY + ni * V_STRIDE); }
     }
   }
+  if (!_loading) pushHistory();
   render(); saveHash();
 }
 
@@ -944,6 +1227,8 @@ function apExportVC() {
 document.getElementById('cvTemplates').addEventListener('click', function(e) {
   var card = e.target.closest('.cv-tmpl');
   if (!card || !card.dataset.g) return;
+  pushHistory(); /* capture pre-load state as one undo step */
+  _loading = true;
   clearCanvas();
   var b64 = card.dataset.g.replace(/-/g,'+').replace(/_/g,'/');
   var padded = b64 + '=='.slice((b64.length+2)%4);
@@ -954,16 +1239,23 @@ document.getElementById('cvTemplates').addEventListener('click', function(e) {
       var sn = state.n[i]; addNode(sn.t, sn.x, sn.y, sn.i);
     }
     for (var j = 0; j < state.e.length; j++) { addEdge(state.e[j].f, state.e[j].t); }
-  } catch(err) {}
+    _loading = false;
+    autoLayout(); /* 6a: auto-trigger layout after template load */
+  } catch(err) { _loading = false; }
 });
 
 /* ── init ── */
 window.addEventListener('DOMContentLoaded', function() {
+  vp = document.getElementById('viewport');
   renderPalette();
   render();
+  applyViewport();
   loadHash();
+  if (canvasNodes.length) fitView(); /* fit if hash loaded a graph */
+  _history = [_snapshot()]; _histIdx = 0; /* initial undo anchor */
   var hint = document.getElementById('cvHint');
   if (hint) hint.textContent = NODES.filter(function(n){return n.can_run;}).length + ' of ' + NODES.length + ' nodes browser-runnable';
+  updateZoomPct();
 });
 </script>
 

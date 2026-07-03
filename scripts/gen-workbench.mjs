@@ -197,7 +197,7 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 <nav><div class="nav-inner">
   <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
   <div class="nav-bc"><a href="../../index.html">All Tools</a> / <a href="../chaingraph-hub.html">OpenChainGraph Hub</a> / Workbench</div>
-  <span class="nav-badge">Phase C · Workbench</span>
+  <span class="nav-badge">Workbench</span>
 </div></nav>
 
 <div class="pii-bar">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
