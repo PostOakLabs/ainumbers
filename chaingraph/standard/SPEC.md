@@ -551,6 +551,8 @@ standard unchanged for external implementers and for nondeterministic nodes. Its
 `gpu:false` — is the state "every deterministic live node carries a real compute-integrity proof"; the AINumbers
 reference deployment conforms with zero deferrals.
 
+> Informative: a narrated walkthrough of how the AINumbers reference deployment reached full §18.6 coverage (universal guest, the deferred set, and the cross-engine determinism gate) is at [chaingraph/zkvm-compute-integrity.html](../chaingraph/zkvm-compute-integrity.html).
+
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
 transparency log or timestamp service by a point in time. Anchor evidence attaches at the OPTIONAL

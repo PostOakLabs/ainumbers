@@ -152,7 +152,7 @@ export function compute(pp) {
     <p>Why it matters: a proof of a computation is only meaningful if the computation is reproducible in the first place. Determinism is the foundation everything else sits on.</p>
 
     <h3>Step 2: Fingerprint the source (§17)</h3>
-    <p>Take the SHA-256 of the kernel's source code. That hash is the kernel's identity, and it is published next to the tool so "the published model" becomes a precise, checkable claim rather than a label.</p>
+    <p>Take the SHA-256 of the kernel's source code. That hash is the kernel's identity, and it is published next to the tool so "the published model" becomes a precise, checkable claim rather than a label. The <code>sha256-source</code> entry in <code>compute_images[]</code> sits alongside the zkVM <code>imageId</code>: together they bind a published receipt to a specific kernel source, so a proof cannot be silently re-pointed at different code.</p>
     <div class="cap">§17 kernel identity</div>
     <div class="code">kernel_digest = SHA-256( utf8( source_of(compute) ) )      // e.g. sha256:a3f1c2...
 
@@ -277,6 +277,51 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="lesson">
       <h3>Triage before you prove</h3>
       <p>Before generating a single proof, sort your kernels into three buckets: the ones using only basic arithmetic are ready immediately, the ones using integer powers need a quick check that the exponent really is an integer, and the transcendental ones need the deterministic math work first. That sort is your project plan. We classified all of ours up front, and it told us exactly where the hard work was.</p>
+    </div>
+
+    <h3 id="full-coverage">Reaching full coverage: the deferred set, and how each class fell</h3>
+    <p>Coverage started partial and honest. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up. Reaching zero meant working through five distinct failure classes. The current state: <strong>207 of 207</strong> <code>gpu:false</code> nodes carry a real groth16-bn254 proof; deferred count is <strong>0</strong>; the 15 <code>gpu:true</code> nodes are out of scope by design.</p>
+
+    <div class="lesson">
+      <h3>The mass rollout: one guest, a hybrid pipeline</h3>
+      <p>The bulk of deterministic nodes were proven in a single pipeline run: GPU-accelerated succinct proving on an RTX 3080, then a Docker-based Groth16 wrap, about five and a half hours for the full batch. Every receipt was BN254-verified and every journal byte-identical to the V8 output. Six separate gated PRs, zero dev mode. One QuickJS-ng guest (ImageID <code>a1a0bc89</code>) covered every kernel; the kernel source travels as an input, so one compiled program handles all of them.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Class B: lazy imports resolved by moving the import inside the function</h3>
+      <p>Several kernels imported a signing helper at module top level. The guest could not resolve it, and the kernel failed to load. The fix was to move each import inside the function body, where it is evaluated only on a branch that never runs in the proving path. Output was unchanged; execution hashes were unchanged.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Class C: hidden locale in number formatting</h3>
+      <p>Three kernels called <code>toLocaleString()</code> for formatted output. Locale-dependent in the browser; the guest has no locale at all. Each call was replaced with a pinned deterministic <code>fmtEnUS</code> formatter. Output-preserving; hashes unchanged, because the formatted strings were identical on every platform after the fix.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>The URL node: five billion cycles and a simpler answer</h3>
+      <p>One node validated URLs via the browser <code>URL</code> global, which is absent in the guest. A faithful WHATWG parser was ported into the guest and run; the cost was over five billion cycles, effectively unprovable at any sane price. The resolution: a small deterministic <code>isHttpsUrl</code> check (HTTPS scheme and non-empty authority), used identically in the kernel, the guest, the browser tool, and the Worker. No engine-specific reference remains, so no verdict can flip between environments.</p>
+      <div class="math">faithful WHATWG URL parser, in-guest        ~ 5.0 x 10^9 cycles   (un-provable)
+deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper, identical output)</div>
+    </div>
+
+    <div class="lesson">
+      <h3>Transcendental math: four kernels, one pinned library</h3>
+      <p>Four kernels used <code>Math.exp</code>, <code>Math.log</code>, or <code>Math.pow</code>, whose last bit is not guaranteed to be identical across engines by specification. A difference in the last unit in the last place means the journal does not match the canonical output, and the proof fails. Each transcendental call was replaced with a pinned pure-JS fdlibm port (<code>_detmath.bundle.mjs</code>) called identically on every surface, so V8, QuickJS, and the guest all return the same bits. This was a deliberate one-time re-baseline: the new last-bit values differ from V8's native <code>Math.*</code>, so the affected nodes' <code>execution_hash</code> values were re-pinned to the corrected results.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>The last four: async crypto rewritten to synchronous pure-JS SHA-256</h3>
+      <p>Four crypto kernels computed hashes using <code>async crypto.subtle</code> with <code>TextEncoder</code>, neither of which is available in the QuickJS guest. Each was rewritten to use a synchronous pure-JavaScript SHA-256 already used and proven elsewhere in the suite. Output-preserving; fixture hashes were unchanged on both V8 and the guest. These four were the final nodes to receive a real proof, closing the deferred set at zero.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Making it a rule (§18.6)</h3>
+      <p>An optional proof that an agent cannot assume is present is worthless as a credential. The deterministic-node proof profile (<code>ocg-p18-deterministic</code>, v0.6.1) makes it a MUST: every live <code>gpu:false</code> node carries a verifying proof or an explicit deferral. With deferred at zero, the baseline is zero; no new deterministic node ships without a real proof. The downward-only ratchet gate enforces this on every subsequent push.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>Proving determinism holds, every push</h3>
+      <p>A proof says "this exact program ran on these inputs and produced this output." That claim is only meaningful if the program gives the same output regardless of which JavaScript engine evaluates it. A cross-engine gate runs each kernel's fixture inputs through three engines: V8 (Node), JavaScriptCore (Bun), and the guest's QuickJS-ng; then fails if their canonical outputs differ by a single byte. It already caught a kernel that stored data with raw NUL sentinels, which V8 and QuickJS parse one way and JavaScriptCore another. The proof attests to execution; this gate attests that execution is the same everywhere, the property a decade-old proof depends on.</p>
     </div>
   </div>
 </section>
