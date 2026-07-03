@@ -1,4 +1,4 @@
-// art-09 — DORA Major-Incident Reporting Threshold Classifier: pure decision kernel.
+﻿// art-09 â€” DORA Major-Incident Reporting Threshold Classifier: pure decision kernel.
 // Faithful port of runClassification() in
 //   repo/chaingraph/art-09-dora-incident-classifier.html
 // Pure: no DOM, no window, no network.
@@ -6,39 +6,69 @@
 
 import { executionHash } from './_hash.mjs';
 
+// Deterministic en-US number format â€” exact pure-JS replica of (n).toLocaleString('en-US') default options
+// (group-3 integer digits, 0..3 fraction digits, halfExpand rounding). Used instead of toLocaleString so the
+// OCG runner-guest (QuickJS-ng, no ICU) produces output byte-identical to V8. Verified vs V8 over 105k+ values.
+function fmtEnUS(n) {
+  n = Number(n);
+  if (Number.isNaN(n)) return 'NaN';
+  if (!Number.isFinite(n)) return n > 0 ? 'âˆž' : '-âˆž';
+  const sign = (n < 0) ? '-' : '';
+  let s = Math.abs(n).toString();
+  if (s.includes('e') || s.includes('E')) return sign + s;
+  let [intPart, fracPart = ''] = s.split('.');
+  if (fracPart.length > 3) {
+    const keep = fracPart.slice(0, 3);
+    const nextDigit = fracPart.charCodeAt(3) - 48;
+    const digits = (intPart + keep).split('').map((c) => c.charCodeAt(0) - 48);
+    if (nextDigit >= 5) {
+      let i = digits.length - 1;
+      for (; i >= 0; i--) { if (digits[i] === 9) { digits[i] = 0; } else { digits[i]++; break; } }
+      if (i < 0) digits.unshift(1);
+    }
+    const all = digits.join('');
+    intPart = all.slice(0, all.length - keep.length) || '0';
+    fracPart = all.slice(all.length - keep.length);
+  }
+  fracPart = fracPart.replace(/0+$/, '');
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return sign + grouped + (fracPart ? '.' + fracPart : '');
+}
+
 const TOOL_ID = 'art-09-dora-incident-classifier';
 const TOOL_VERSION = '1.0.0';
 
-// ESA Joint RTS thresholds — EBA/RTS/2023/11
+// ESA Joint RTS thresholds â€” EBA/RTS/2023/11
 const THRESHOLDS = {
-  clients_pct_min:                     10,   // ≥10% of total clients
-  clients_abs_min:                 100000,   // OR ≥100,000 clients
-  duration_critical_fn_minutes:       120,   // 2h — critical/important function
-  duration_payment_minutes:            30,   // 30 min — payment services
-  duration_other_minutes:             240,   // 4h — other functions
-  tx_value_eur_millions_payment:       10,   // €10M for payment/credit institutions
-  tx_value_eur_millions_other:         50,   // €50M for other entity types
-  geographic_member_states_min:         2,   // ≥2 member states
+  clients_pct_min:                     10,   // â‰¥10% of total clients
+  clients_abs_min:                 100000,   // OR â‰¥100,000 clients
+  duration_critical_fn_minutes:       120,   // 2h â€” critical/important function
+  duration_payment_minutes:            30,   // 30 min â€” payment services
+  duration_other_minutes:             240,   // 4h â€” other functions
+  tx_value_eur_millions_payment:       10,   // â‚¬10M for payment/credit institutions
+  tx_value_eur_millions_other:         50,   // â‚¬50M for other entity types
+  geographic_member_states_min:         2,   // â‰¥2 member states
 };
 
 const PAYMENT_ENTITY_TYPES = new Set(['payment_institution', 'credit_institution']);
 
 /**
- * compute(pp) — pure DORA major-incident classification engine.
+ * compute(pp) â€” pure DORA major-incident classification engine.
  * pp: {
  *   incident_type?:         'ict_outage' | 'cyber_attack' | 'data_breach' | 'third_party_failure' | 'other',
  *   entity_type?:           'credit_institution' | 'payment_institution' | 'investment_firm' | 'insurance' | 'crypto_asset' | 'other',
- *   detection_dt?:          string,   // ISO 8601 datetime — classification clock reference
- *   classification_dt?:     string,   // ISO 8601 datetime — 4h initial notification starts here
- *   resolution_dt?:         string,   // ISO 8601 datetime — final report 30d from here
+ *   detection_dt?:          string,   // ISO 8601 datetime â€” classification clock reference
+ *   classification_dt?:     string,   // ISO 8601 datetime â€” 4h initial notification starts here
+ *   resolution_dt?:         string,   // ISO 8601 datetime â€” final report 30d from here
  *   clients_affected?:      number,   // clients / counterparties / transactions at risk
  *   total_clients?:         number,   // total client base (required for % calc)
  *   tx_value_eur?:          number,   // transaction value in EUR millions; 0 = not applicable
  *   outage_duration_mins?:  number,   // service disruption minutes; 0 = no outage
- *   member_states?:         number,   // EU member states affected (1–27)
+ *   member_states?:         number,   // EU member states affected (1â€“27)
  *   data_loss?:             boolean,  // confidentiality/integrity/availability breach
  *   critical_fn?:           boolean,  // critical or important function affected
- *   cross_border?:          boolean,  // cross-border operations across ≥2 member states
+ *   cross_border?:          boolean,  // cross-border operations across â‰¥2 member states
  *   tp_ict?:                boolean,  // third-party ICT provider involved
  * }
  */
@@ -61,7 +91,7 @@ export function compute(pp) {
     : isPayment ? THRESHOLDS.duration_payment_minutes : THRESHOLDS.duration_other_minutes;
   const txThreshold = isPayment ? THRESHOLDS.tx_value_eur_millions_payment : THRESHOLDS.tx_value_eur_millions_other;
 
-  // Six criteria — each with met/not_assessed/value/article
+  // Six criteria â€” each with met/not_assessed/value/article
   const criteria = [
     {
       id: 'critical_fn',
@@ -73,10 +103,10 @@ export function compute(pp) {
     },
     {
       id: 'clients',
-      label: `Clients affected (≥${THRESHOLDS.clients_pct_min}% or ≥${THRESHOLDS.clients_abs_min.toLocaleString()})`,
+      label: `Clients affected (â‰¥${THRESHOLDS.clients_pct_min}% or â‰¥${fmtEnUS(THRESHOLDS.clients_abs_min)})`,
       met: clientPct >= THRESHOLDS.clients_pct_min || clientsAffected >= THRESHOLDS.clients_abs_min,
       not_assessed: clientsAffected === 0 && totalClients <= 1,
-      value: `${clientsAffected.toLocaleString()} (${clientPct.toFixed(1)}%)`,
+      value: `${fmtEnUS(clientsAffected)} (${clientPct.toFixed(1)}%)`,
       article: 'DORA Art. 23(1)(b) / ESA RTS Art. 4',
     },
     {
@@ -89,15 +119,15 @@ export function compute(pp) {
     },
     {
       id: 'tx_value',
-      label: `Transaction value ≥ €${txThreshold}M`,
+      label: `Transaction value â‰¥ â‚¬${txThreshold}M`,
       met: txValueEur > 0 && txValueEur >= txThreshold,
       not_assessed: txValueEur === 0,
-      value: txValueEur > 0 ? `€${txValueEur}M` : 'Not applicable',
+      value: txValueEur > 0 ? `â‚¬${txValueEur}M` : 'Not applicable',
       article: 'DORA Art. 23(1)(d) / ESA RTS Art. 6',
     },
     {
       id: 'duration',
-      label: `Outage ≥ ${durationThreshold} min (${criticalFn ? 'critical fn' : isPayment ? 'payment' : 'other'})`,
+      label: `Outage â‰¥ ${durationThreshold} min (${criticalFn ? 'critical fn' : isPayment ? 'payment' : 'other'})`,
       met: outageMins > 0 && outageMins >= durationThreshold,
       not_assessed: outageMins === 0,
       value: outageMins > 0 ? `${outageMins} min` : 'Not applicable',
@@ -105,7 +135,7 @@ export function compute(pp) {
     },
     {
       id: 'geographic',
-      label: `Geographic spread ≥ ${THRESHOLDS.geographic_member_states_min} EU member states`,
+      label: `Geographic spread â‰¥ ${THRESHOLDS.geographic_member_states_min} EU member states`,
       met: memberStates >= THRESHOLDS.geographic_member_states_min,
       not_assessed: memberStates < 1,
       value: `${memberStates} member state${memberStates !== 1 ? 's' : ''}`,

@@ -1,0 +1,45 @@
+{
+  "_comment": "Kernel determinism gate allowlist. See scripts/check-kernel-determinism.mjs for gate logic.",
+
+  "transcendentals": {
+    "_comment": "Files permitted to call engine-approximated transcendental Math functions (Math.exp/log/sin/cos/tan/pow/atan/asin/acos/sinh/cosh/tanh/cbrt/expm1/log1p/log2/log10/atan2/hypot). These are implementation-defined by libm (ECMA-262 Annex B). Outputs may differ across JS engines for irrational inputs. The §17/§18 guest (QuickJS-ng, ImageID a1a0bc89) is empirically identical to V8 for the numeric ranges in these kernels — see cross-engine-parity.yml. DOWNWARD RATCHET: removing a file is always safe; adding a file requires a deliberate human decision.",
+    "files": [
+      "ml-01-isolation-forest.kernel.mjs",
+      "ml-02-credit-default-risk-scorer.kernel.mjs",
+      "ml-03-timeseries-anomaly-detector.kernel.mjs",
+      "pnr-01-dora-ict-cascade-simulator.kernel.mjs",
+      "qfa-01-options-greeks.kernel.mjs",
+      "qfa-02-portfolio-var-engine.kernel.mjs",
+      "qfa-03-stress-test-engine.kernel.mjs",
+      "qfa-04-xva-cva-calculator.kernel.mjs",
+      "rca-01-frtb-ima-pre-validator.kernel.mjs",
+      "rca-02-mica-reserve-stress.kernel.mjs",
+      "sim-01-lcr-nsfr-liquidity-stress-test.kernel.mjs",
+      "sim-03-basel-rwa-scenario-modeler.kernel.mjs"
+    ]
+  },
+
+  "hard_ban_baseline": {
+    "_comment": "Pre-existing hard-ban violations that existed before this gate was introduced (2026-07-02). Each entry WARNS but does not fail the gate. DOWNWARD RATCHET ONLY: once the underlying code is fixed, remove the entry. Adding new entries requires a deliberate decision and a note explaining why immediate remediation is impractical.",
+    "entries": [
+      {
+        "file": "art-04-agent-identity-attestation-checker.kernel.mjs",
+        "line": 35,
+        "pattern": "Date.now()",
+        "note": "Fallback when pp.validate_at_unix is not provided: Math.floor(Date.now() / 1000). Makes kernel non-deterministic when called without a timestamp. Fix: remove fallback, require pp.validate_at_unix, or accept null result when timestamp missing."
+      },
+      {
+        "file": "art-11-vop-batch-match-rate-analyser.kernel.mjs",
+        "line": 49,
+        "pattern": ".normalize()",
+        "note": "NFD normalization for fuzzy IBAN/name matching: .normalize('NFD').replace(...). ICU-dependent; may differ in QuickJS guest. Fix: port to a pure-JS Unicode NFC/NFD table or restrict the character range to ASCII-safe decompositions."
+      },
+      {
+        "file": "art-55-trade-document-provenance-verifier.kernel.mjs",
+        "line": 139,
+        "pattern": ".localeCompare()",
+        "note": "Locale-default sort of doc_type strings: [...docs].sort((a,b) => a.localeCompare(b)). For ASCII-only doc_type values this is stable, but localeCompare without a locale arg is technically ICU-dependent. Fix: use explicit locale arg (a.localeCompare(b,'en-US')) or a simple a > b ? 1 : -1 comparator."
+      }
+    ]
+  }
+}
