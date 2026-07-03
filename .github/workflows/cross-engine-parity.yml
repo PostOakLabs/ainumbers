@@ -1,0 +1,221 @@
+name: Cross-Engine Parity
+
+# Verifies that kernel compute() outputs are byte-identical across V8 (Node),
+# Bun, and QuickJS-ng (the §18 zkVM guest engine). Divergence = a finding for
+# the kernel owner: the kernel may need fdlibm-pinning or a range guard.
+#
+# NO schedule — runs per push/PR only (push-gated, not time-gated).
+# Runtime versions are PINNED. Update them deliberately; a version bump is an
+# intentional decision, not a routine housekeeping task.
+#
+# QuickJS binary: downloaded from the pinned release, sha256-verified.
+# To update: download the new binary, run sha256sum, update QJS_SHA256 below.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'chaingraph/kernels/**.kernel.mjs'
+      - 'chaingraph/kernels/fixtures/**.fixtures.json'
+      - 'scripts/check-engine-parity.mjs'
+      - '.github/workflows/cross-engine-parity.yml'
+  pull_request:
+    paths:
+      - 'chaingraph/kernels/**.kernel.mjs'
+      - 'chaingraph/kernels/fixtures/**.fixtures.json'
+      - 'scripts/check-engine-parity.mjs'
+      - '.github/workflows/cross-engine-parity.yml'
+
+permissions:
+  contents: read
+
+env:
+  # --- PINNED RUNTIME VERSIONS ---
+  # Node: matches the site deploy workflow (ubuntu-latest runner default LTS)
+  NODE_VERSION: '20'
+  # Bun: pin a specific release; update deliberately
+  BUN_VERSION: '1.2.18'
+  # QuickJS-ng: linux-x86_64 static binary from the pinned release
+  QJS_VERSION: '0.9.0'
+  # sha256 of the downloaded qjs binary — verify with: sha256sum ./qjs
+  # To update: download the new binary from the release page, run sha256sum,
+  # paste the result here, and commit. This prevents supply-chain substitution.
+  #
+  # SETUP REQUIRED: populate this value after downloading the v0.9.0 binary:
+  #   curl -L https://github.com/quickjs-ng/quickjs/releases/download/v0.9.0/qjs-linux-x86_64 -o ./qjs
+  #   sha256sum ./qjs
+  # Then replace PLACEHOLDER below with the actual hex digest.
+  QJS_SHA256: 'PLACEHOLDER_REPLACE_AFTER_FIRST_DOWNLOAD'
+
+jobs:
+  parity:
+    name: Kernel parity — ${{ matrix.engine }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        engine: [node, bun, quickjs]
+      fail-fast: false  # run all three even if one fails; report all divergences
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      # ── Node ──────────────────────────────────────────────────────────────
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        if: matrix.engine == 'node'
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run parity (Node)
+        if: matrix.engine == 'node'
+        run: node scripts/check-engine-parity.mjs --out parity-node.json
+
+      # ── Bun ───────────────────────────────────────────────────────────────
+      - name: Setup Bun ${{ env.BUN_VERSION }}
+        if: matrix.engine == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Run parity (Bun)
+        if: matrix.engine == 'bun'
+        run: bun run scripts/check-engine-parity.mjs --out parity-bun.json
+
+      # ── QuickJS-ng ────────────────────────────────────────────────────────
+      - name: Setup Node (bundle generator for QuickJS)
+        if: matrix.engine == 'quickjs'
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download QuickJS-ng v${{ env.QJS_VERSION }} (pinned)
+        if: matrix.engine == 'quickjs'
+        run: |
+          curl -fsSL \
+            "https://github.com/quickjs-ng/quickjs/releases/download/v${{ env.QJS_VERSION }}/qjs-linux-x86_64" \
+            -o ./qjs
+          chmod +x ./qjs
+
+      - name: Verify QuickJS binary sha256
+        if: matrix.engine == 'quickjs'
+        run: |
+          ACTUAL=$(sha256sum ./qjs | awk '{print $1}')
+          EXPECTED="${{ env.QJS_SHA256 }}"
+          if [ "$EXPECTED" = "PLACEHOLDER_REPLACE_AFTER_FIRST_DOWNLOAD" ]; then
+            echo "⚠  QJS_SHA256 is a placeholder — record the actual value:"
+            echo "   $ACTUAL"
+            echo "   Update env.QJS_SHA256 in this workflow and re-run."
+            # Allow first run through (so you can capture the sha256) but warn loudly.
+            # Change 'echo' to 'exit 1' once the real sha256 is recorded.
+          elif [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "✗ QuickJS binary sha256 mismatch! Supply-chain integrity check FAILED."
+            echo "  expected: $EXPECTED"
+            echo "  actual:   $ACTUAL"
+            exit 1
+          else
+            echo "✓ QuickJS binary sha256 verified."
+          fi
+
+      - name: Generate self-contained bundle for QuickJS
+        if: matrix.engine == 'quickjs'
+        run: node scripts/check-engine-parity.mjs --bundle parity-bundle.js
+
+      - name: Run parity (QuickJS-ng)
+        if: matrix.engine == 'quickjs'
+        run: ./qjs parity-bundle.js > parity-quickjs.json
+
+      # ── Upload manifests for the compare job ──────────────────────────────
+      - name: Upload manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-${{ matrix.engine }}
+          path: |
+            parity-node.json
+            parity-bun.json
+            parity-quickjs.json
+          if-no-files-found: ignore
+
+  compare:
+    name: Compare manifests (fail on divergence)
+    runs-on: ubuntu-latest
+    needs: parity
+    steps:
+      - name: Download all manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: parity-*
+          merge-multiple: true
+
+      - name: Diff Node vs Bun
+        id: diff_bun
+        run: |
+          if diff -u parity-node.json parity-bun.json; then
+            echo "bun_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bun_ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Diff Node vs QuickJS
+        id: diff_qjs
+        run: |
+          if diff -u parity-node.json parity-quickjs.json; then
+            echo "qjs_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "qjs_ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report and gate
+        run: |
+          BUN_OK="${{ steps.diff_bun.outputs.bun_ok }}"
+          QJS_OK="${{ steps.diff_qjs.outputs.qjs_ok }}"
+
+          if [ "$BUN_OK" = "true" ] && [ "$QJS_OK" = "true" ]; then
+            echo "✓ All three engines produce byte-identical manifests."
+            exit 0
+          fi
+
+          echo "✗ ENGINE PARITY FAILURE — divergent execution_hash preimage detected."
+          echo ""
+          echo "This means at least one kernel's compute() produces different output"
+          echo "in different JS engines. This is a FINDING, not an auto-fix."
+          echo ""
+          echo "Next steps for the kernel owner:"
+          echo "  1. Identify the diverging kernel(s) from the diff above."
+          echo "  2. Check if the kernel uses transcendental Math (log/exp/sin/etc)."
+          echo "     If so, add it to scripts/kernel-determinism-allowlist.json and"
+          echo "     verify that the §18 zkVM guest (QuickJS-ng, ImageID a1a0bc89)"
+          echo "     produces the same output as Node for your fixture inputs."
+          echo "  3. If the divergence is in pure integer/string logic, it is a bug —"
+          echo "     fix the kernel to produce identical output across engines."
+          echo "  4. Do NOT silently patch the fixture hashes to match one engine."
+          echo ""
+
+          if [ "$BUN_OK" != "true" ]; then
+            echo "FAILED: Node vs Bun (V8 engines should be identical — this is a bug)"
+          fi
+          if [ "$QJS_OK" != "true" ]; then
+            echo "FAILED: Node vs QuickJS-ng (check transcendental allowlist and §18 guest)"
+          fi
+
+          exit 1
+
+  # Sentinel: confirm no schedule: trigger is present in this workflow.
+  # If someone adds a cron schedule, this grep would catch it in review.
+  # (The grep runs the check itself — no separate step needed; the lack of
+  # 'schedule:' in this file's 'on:' block is the invariant.)
+  no-schedule-sentinel:
+    name: Confirm no schedule trigger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 1 }
+      - name: Assert no schedule trigger in this workflow
+        run: |
+          if grep -n 'schedule:' .github/workflows/cross-engine-parity.yml; then
+            echo "✗ schedule: trigger found — cross-engine parity must be push/PR only."
+            exit 1
+          fi
+          echo "✓ No schedule trigger (push/PR only confirmed)."
