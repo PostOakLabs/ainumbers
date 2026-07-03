@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Rights Record Builder &middot; ART-206 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Builds a structured, hash-anchored rights record for a licensed IP asset. Captures licensor, licensee, license ID, territory, term, and a 9-field rights vector. Produces a deterministic record_hash for on-chain or off-chain anchoring.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-206-rights-record-builder.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}
+.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}
+.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="text"]:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.field-grid{grid-template-columns:1fr}}
+.rights-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:4px}
+.rv-item{display:flex;align-items:center;gap:8px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.4rem .7rem;cursor:pointer;transition:border-color .2s}
+.rv-item:hover{border-color:var(--teal)}
+.rv-item.on{border-color:var(--green);background:rgba(34,197,94,.06)}
+.rv-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted);flex-shrink:0;transition:all .2s}
+.rv-item.on .rv-dot{background:var(--green);border-color:var(--green)}
+.rv-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)}
+.rv-item.on .rv-label{color:var(--green)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}.results-panel.show{display:block}
+.check-row{display:flex;align-items:flex-start;gap:8px;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.check-pass{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.65rem;flex-shrink:0}
+.check-fail{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;flex-shrink:0}
+.check-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);flex-shrink:0;min-width:200px}
+.check-detail{color:var(--body);font-size:.68rem;word-break:break-all}
+.record-hash-box{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--green);background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;word-break:break-all;margin:8px 0}
+.kv{display:flex;gap:8px;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.kv-k{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);flex-shrink:0;min-width:180px}
+.kv-v{color:var(--bright);word-break:break-all}
+.rv-summary{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.rv-badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .5rem;border-radius:10px}
+.rv-badge.on{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.rv-badge.off{background:rgba(58,82,112,.2);color:var(--muted);border:1px solid var(--border)}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Rights Record Builder</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-206 &middot; IP Licensing &amp; Tokenization</div>
+  <h1>Rights Record Builder</h1>
+  <p class="sub">Builds a structured, hash-anchored rights record for a licensed IP asset. Captures licensor, licensee, license ID, territory, term, and a 9-field rights vector. Produces a deterministic <code style="font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt)">record_hash</code> (SHA-256 over the canonical rights row) suitable for on-chain or off-chain anchoring via the OpenChainGraph anchor pipeline.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Compliance Mandate</span>
+    <span class="flag info">SHA-256 Record Hash</span>
+    <span class="flag">9-Field Rights Vector</span>
+    <span class="flag warn">Not Legal Advice</span>
+  </div>
+
+  <div class="disclaimer">Not legal advice. This tool structures and hashes rights data for record-keeping. The published license texts govern all rights. Consult a licensed attorney for your jurisdiction.</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="preset-row">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);align-self:center">Presets:</span>
+      <button class="preset-btn" onclick="loadPreset('cc_by_usa_3yr')">CC-BY USA 3yr</button>
+      <button class="preset-btn" onclick="loadPreset('cc0_worldwide_5yr')">CC0 Worldwide 5yr</button>
+      <button class="preset-btn" onclick="loadPreset('pil_commercial')">PIL-COMMERCIAL</button>
+      <button class="preset-btn" onclick="loadPreset('empty')">Empty (clear all)</button>
+    </div>
+
+    <div class="section-head">Asset &amp; Parties</div>
+    <div class="field-grid">
+      <div class="q">
+        <label class="q-label" for="assetRef">Asset Reference <span style="color:var(--red)">*</span></label>
+        <div class="q-help">Unique identifier for the IP asset (e.g. contract address, IPFS CID, or descriptive ID).</div>
+        <input type="text" id="assetRef" placeholder="e.g. 0xABCD...1234 or ipfs://QmXyz">
+      </div>
+      <div class="q">
+        <label class="q-label" for="licenseId">License ID <span style="color:var(--red)">*</span></label>
+        <div class="q-help">SPDX ID or custom identifier (e.g. CC-BY-4.0, PIL-COMMERCIAL, CBE-ECR).</div>
+        <input type="text" id="licenseId" placeholder="e.g. CC-BY-4.0">
+      </div>
+      <div class="q">
+        <label class="q-label" for="licensor">Licensor <span style="color:var(--red)">*</span></label>
+        <div class="q-help">Name or entity granting the license.</div>
+        <input type="text" id="licensor" placeholder="e.g. Genesis Studio LLC">
+      </div>
+      <div class="q">
+        <label class="q-label" for="licensee">Licensee <span style="color:var(--red)">*</span></label>
+        <div class="q-help">Name or entity receiving the license.</div>
+        <input type="text" id="licensee" placeholder="e.g. Apex Ventures Ltd">
+      </div>
+    </div>
+
+    <div class="section-head">Terms</div>
+    <div class="field-grid">
+      <div class="q">
+        <label class="q-label" for="territory">Territory</label>
+        <div class="q-help">Geographic scope. Defaults to Worldwide.</div>
+        <input type="text" id="territory" placeholder="Worldwide">
+      </div>
+      <div class="q">
+        <label class="q-label" for="termYears">Term (years)</label>
+        <div class="q-help">License duration in years. 0 = perpetual.</div>
+        <input type="text" id="termYears" placeholder="e.g. 3">
+      </div>
+      <div class="q">
+        <label class="q-label" for="renewal">Renewal</label>
+        <div class="q-help">Renewal option. Defaults to none.</div>
+        <input type="text" id="renewal" placeholder="e.g. Auto-renew or none">
+      </div>
+    </div>
+
+    <div class="section-head">Rights Vector</div>
+    <p class="q-help" style="margin-bottom:10px">Toggle each right granted under this license. These fields are encoded into the record hash.</p>
+    <div class="rights-grid" id="rightsGrid">
+      <!-- Rendered by initRightsGrid() -->
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runBuilder()">&#9654; Build Rights Record</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Record Hash</div>
+      <div class="record-hash-box" id="recordHashBox"></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:4px">SHA-256 of canonical JSON rights row. Suitable for on-chain anchoring via the anchor pipeline.</div>
+
+      <div class="section-head" style="margin-top:16px">Rights Record</div>
+      <div id="kvDiv"></div>
+
+      <div class="section-head" style="margin-top:16px">Rights Vector Summary</div>
+      <div class="rv-summary" id="rvSummary"></div>
+
+      <div class="section-head" style="margin-top:16px">Record Checks</div>
+      <div id="checksDiv"></div>
+
+      <div class="section-head" style="margin-top:16px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+
+      <div class="section-head" style="margin-top:16px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <div class="disclaimer" style="margin-top:12px" id="disclaimerBox"></div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-206-rights-record-builder',
+  version: '1.0.0',
+  mcp_name: 'build_rights_record',
+  title: 'Rights Record Builder',
+  description: 'Builds a structured, hash-anchored rights record for a licensed IP asset. Produces a deterministic record_hash (SHA-256 over canonical JCS rights row) plus a 9-field rights_vector (copy, display, commercial, exclusive, modify, sublicense, share_alike, attribution, revocable). Suitable for on-chain or off-chain anchoring via the OpenChainGraph anchor pipeline. Not legal advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  chain: 'ip-licensing-tokenization',
+  node_position: 'pass4',
+  export_capability: ['json'],
+  regulation: 'CC / CBE / Story PIL / NFT embedded / general IP',
+  mcp_tool_definition: {
+    name: 'build_rights_record',
+    description: 'Builds a structured rights record for a licensed IP asset and produces a deterministic record_hash (SHA-256 over canonical JCS rights row). Returns rights_row with licensor/licensee/license_id/territory/term_years/rights_vector/renewal plus record checks. Not legal advice.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        asset_ref:   { type: 'string', description: 'Unique identifier for the IP asset (contract address, IPFS CID, or descriptive ID).' },
+        licensor:    { type: 'string', description: 'Licensor name or entity.' },
+        licensee:    { type: 'string', description: 'Licensee name or entity.' },
+        license_id:  { type: 'string', description: 'License identifier (e.g. CC-BY-4.0, PIL-COMMERCIAL, CBE-ECR).' },
+        territory:   { type: 'string', description: 'Territory (default: Worldwide).' },
+        term_years:  { type: 'number', description: 'Term in years (0 = perpetual).' },
+        renewal:     { type: 'string', description: 'Renewal option (default: none).' },
+        rights_vector: {
+          type: 'object',
+          description: 'Rights granted under this license.',
+          properties: {
+            copy:        { type: 'boolean' },
+            display:     { type: 'boolean' },
+            commercial:  { type: 'boolean' },
+            exclusive:   { type: 'boolean' },
+            modify:      { type: 'boolean' },
+            sublicense:  { type: 'boolean' },
+            share_alike: { type: 'boolean' },
+            attribution: { type: 'boolean' },
+            revocable:   { type: 'boolean' }
+          }
+        }
+      },
+      required: ['asset_ref', 'licensor', 'licensee', 'license_id']
+    }
+  }
+};
+
+var RV_FIELDS = [
+  {key:'copy',        label:'Copy'},
+  {key:'display',     label:'Display'},
+  {key:'commercial',  label:'Commercial'},
+  {key:'exclusive',   label:'Exclusive'},
+  {key:'modify',      label:'Modify'},
+  {key:'sublicense',  label:'Sublicense'},
+  {key:'share_alike', label:'Share Alike'},
+  {key:'attribution', label:'Attribution'},
+  {key:'revocable',   label:'Revocable'}
+];
+
+var rvState = {};
+RV_FIELDS.forEach(function(f){ rvState[f.key] = false; });
+
+function initRightsGrid() {
+  var g = document.getElementById('rightsGrid');
+  g.innerHTML = '';
+  RV_FIELDS.forEach(function(f) {
+    var d = document.createElement('div');
+    d.className = 'rv-item' + (rvState[f.key] ? ' on' : '');
+    d.id = 'rv-item-'+f.key;
+    d.onclick = function(){ toggleRv(f.key); };
+    d.innerHTML = '<div class="rv-dot" id="rv-dot-'+f.key+'"></div><span class="rv-label" id="rv-lbl-'+f.key+'">'+f.label+'</span>';
+    g.appendChild(d);
+  });
+}
+
+function toggleRv(key) {
+  rvState[key] = !rvState[key];
+  var item = document.getElementById('rv-item-'+key);
+  if (rvState[key]) item.classList.add('on'); else item.classList.remove('on');
+}
+
+function setRv(vals) {
+  RV_FIELDS.forEach(function(f){ rvState[f.key] = !!vals[f.key]; });
+  initRightsGrid();
+}
+
+var PRESETS = {
+  cc_by_usa_3yr: { asset_ref:'ipfs://QmExample123', licensor:'Post Oak Labs', licensee:'Apex Ventures Ltd', license_id:'CC-BY-4.0', territory:'United States', term_years:3, renewal:'none', rights_vector:{copy:true,display:true,commercial:true,exclusive:false,modify:true,sublicense:false,share_alike:false,attribution:true,revocable:false} },
+  cc0_worldwide_5yr: { asset_ref:'ipfs://QmExample456', licensor:'Genesis Studio LLC', licensee:'Public', license_id:'CC0-1.0', territory:'Worldwide', term_years:5, renewal:'none', rights_vector:{copy:true,display:true,commercial:true,exclusive:false,modify:true,sublicense:true,share_alike:false,attribution:false,revocable:false} },
+  pil_commercial: { asset_ref:'story://asset/0xDEADBEEF', licensor:'Chromatic Studio', licensee:'Nexus Media Corp', license_id:'PIL-COMMERCIAL', territory:'Worldwide', term_years:2, renewal:'Auto-renew', rights_vector:{copy:true,display:true,commercial:true,exclusive:false,modify:false,sublicense:false,share_alike:false,attribution:true,revocable:true} },
+  empty: { asset_ref:'', licensor:'', licensee:'', license_id:'', territory:'', term_years:0, renewal:'', rights_vector:{copy:false,display:false,commercial:false,exclusive:false,modify:false,sublicense:false,share_alike:false,attribution:false,revocable:false} }
+};
+
+function loadPreset(key) {
+  var p = PRESETS[key]; if (!p) return;
+  document.getElementById('assetRef').value  = p.asset_ref  || '';
+  document.getElementById('licensor').value  = p.licensor   || '';
+  document.getElementById('licensee').value  = p.licensee   || '';
+  document.getElementById('licenseId').value = p.license_id || '';
+  document.getElementById('territory').value = p.territory  || '';
+  document.getElementById('termYears').value = (p.term_years !== undefined && p.term_years !== 0) ? p.term_years : '';
+  document.getElementById('renewal').value   = p.renewal    || '';
+  setRv(p.rights_vector || {});
+}
+
+function collectPP() {
+  var tv = document.getElementById('termYears').value.trim();
+  var rv = {};
+  RV_FIELDS.forEach(function(f){ rv[f.key] = rvState[f.key]; });
+  return {
+    asset_ref:  document.getElementById('assetRef').value.trim(),
+    licensor:   document.getElementById('licensor').value.trim(),
+    licensee:   document.getElementById('licensee').value.trim(),
+    license_id: document.getElementById('licenseId').value.trim(),
+    territory:  document.getElementById('territory').value.trim() || 'Worldwide',
+    term_years: tv !== '' ? (parseFloat(tv)||0) : 0,
+    renewal:    document.getElementById('renewal').value.trim() || 'none',
+    rights_vector: rv
+  };
+}
+
+function _utf8Bytes(s){var b=[];for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);if(c<0x80){b.push(c);}else if(c<0x800){b.push(0xC0|(c>>6));b.push(0x80|(c&0x3F));}else if(c>=0xD800&&c<=0xDBFF&&i+1<s.length){var h=c,l=s.charCodeAt(i+1);var cp=0x10000+((h-0xD800)<<10)+(l-0xDC00);b.push(0xF0|(cp>>18));b.push(0x80|((cp>>12)&0x3F));b.push(0x80|((cp>>6)&0x3F));b.push(0x80|(cp&0x3F));i++;}else{b.push(0xE0|(c>>12));b.push(0x80|((c>>6)&0x3F));b.push(0x80|(c&0x3F));}}return new Uint8Array(b);}
+function _sha256(data){function rightRotate(v,a){return(v>>>a)|(v<<(32-a));}var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];var bytes=data instanceof Uint8Array?data:_utf8Bytes(data);var len=bytes.length;var bitLen=len*8;var extra=((55-len)%64+64)%64;var padded=new Uint8Array(len+1+extra+8);padded.set(bytes);padded[len]=0x80;var dv=new DataView(padded.buffer);dv.setUint32(padded.length-4,bitLen>>>0,false);dv.setUint32(padded.length-8,Math.floor(bitLen/0x100000000)>>>0,false);for(var off=0;off<padded.length;off+=64){var w=new Array(64);for(var i=0;i<16;i++)w[i]=dv.getInt32(off+i*4,false);for(var i=16;i<64;i++){var s0=rightRotate(w[i-15],7)^rightRotate(w[i-15],18)^(w[i-15]>>>3);var s1=rightRotate(w[i-2],17)^rightRotate(w[i-2],19)^(w[i-2]>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];for(var i=0;i<64;i++){var S1=rightRotate(e,6)^rightRotate(e,11)^rightRotate(e,25);var ch=(e&f)^(~e&g);var temp1=(h+S1+ch+K[i]+w[i])|0;var S0=rightRotate(a,2)^rightRotate(a,13)^rightRotate(a,22);var maj=(a&b)^(a&c)^(b&c);var temp2=(S0+maj)|0;h=g;g=f;f=e;e=(d+temp1)|0;d=c;c=b;b=a;a=(temp1+temp2)|0;}H[0]=(H[0]+a)|0;H[1]=(H[1]+b)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;}var result='';for(var i=0;i<8;i++){result+=('00000000'+((H[i]>>>0).toString(16))).slice(-8);}return result;}
+function sha256Hex(s){return _sha256(typeof s==='string'?_utf8Bytes(s):s);}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);var o={};var ks=Object.keys(v).sort();for(var i=0;i<ks.length;i++)o[ks[i]]=cgCanon(v[ks[i]]);return o;}
+
+function computeBuilder(pp) {
+  var asset_ref  = (pp.asset_ref  || '').trim();
+  var licensor   = (pp.licensor   || '').trim();
+  var licensee   = (pp.licensee   || '').trim();
+  var license_id = (pp.license_id || '').trim();
+  var territory  = (pp.territory  || 'Worldwide').trim();
+  var term_years = typeof pp.term_years === 'number' ? pp.term_years : (parseFloat(pp.term_years)||0);
+  var renewal    = (pp.renewal    || 'none').trim();
+  var rv_in      = pp.rights_vector || {};
+
+  var rights_vector = {
+    copy:        !!rv_in.copy,
+    display:     !!rv_in.display,
+    commercial:  !!rv_in.commercial,
+    exclusive:   !!rv_in.exclusive,
+    modify:      !!rv_in.modify,
+    sublicense:  !!rv_in.sublicense,
+    share_alike: !!rv_in.share_alike,
+    attribution: !!rv_in.attribution,
+    revocable:   !!rv_in.revocable
+  };
+
+  var rights_row = { asset_ref: asset_ref, licensor: licensor, licensee: licensee, license_id: license_id, territory: territory, term_years: term_years, rights_vector: rights_vector, renewal: renewal };
+
+  var record_hash = (asset_ref && licensor && licensee && license_id) ? sha256Hex(JSON.stringify(cgCanon(rights_row))) : '';
+
+  var checks = [];
+  checks.push({check:'asset_ref_present',  pass:!!asset_ref,  detail: asset_ref  ? 'asset_ref: '+asset_ref : 'asset_ref required'});
+  checks.push({check:'licensor_present',   pass:!!licensor,   detail: licensor   ? 'licensor: '+licensor   : 'licensor required'});
+  checks.push({check:'licensee_present',   pass:!!licensee,   detail: licensee   ? 'licensee: '+licensee   : 'licensee required'});
+  checks.push({check:'license_id_present', pass:!!license_id, detail: license_id ? 'license_id: '+license_id : 'license_id required'});
+  checks.push({check:'term_years_finite',  pass:isFinite(term_years), detail:'term_years: '+term_years});
+  checks.push({check:'record_hash_computed', pass:!!record_hash, detail: record_hash ? 'sha256:'+record_hash.slice(0,16)+'...' : 'hash skipped (required fields missing)'});
+
+  var all_checks_pass = checks.every(function(c){return c.pass;});
+
+  return {
+    output_payload: { record_hash: record_hash, rights_row: rights_row, checks: checks, all_checks_pass: all_checks_pass, disclaimer: 'Not legal advice. Selection only. The published license terms govern all rights. Consult a licensed attorney for your jurisdiction.' },
+    compliance_flags: { RIGHTS_RECORD_BUILT: true, HASH_ANCHORED: !!record_hash, ALL_CHECKS_PASS: all_checks_pass }
+  };
+}
+
+async function cgHash(pp, op) {
+  var s = JSON.stringify(cgCanon({policy_parameters:pp, output_payload:op}));
+  var buf = new TextEncoder().encode(s);
+  var dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+var _lastPP=null, _lastOP=null, _lastFlags=null;
+
+async function runBuilder() {
+  var pp = collectPP();
+  var res = computeBuilder(pp);
+  var op = res.output_payload, flags = res.compliance_flags;
+  _lastPP = pp; _lastOP = op; _lastFlags = flags;
+
+  document.getElementById('recordHashBox').textContent = op.record_hash || '(hash will appear once required fields are filled)';
+
+  var kv = document.getElementById('kvDiv'); kv.innerHTML = '';
+  var rr = op.rights_row;
+  var fields = ['asset_ref','licensor','licensee','license_id','territory','term_years','renewal'];
+  fields.forEach(function(k){
+    var row = document.createElement('div'); row.className='kv';
+    row.innerHTML = '<span class="kv-k">'+k+'</span><span class="kv-v">'+(rr[k]!==undefined&&rr[k]!==''?rr[k]:'&mdash;')+'</span>';
+    kv.appendChild(row);
+  });
+
+  var rvs = document.getElementById('rvSummary'); rvs.innerHTML = '';
+  RV_FIELDS.forEach(function(f) {
+    var val = op.rights_row.rights_vector[f.key];
+    var b = document.createElement('span');
+    b.className = 'rv-badge '+(val?'on':'off');
+    b.textContent = f.label;
+    rvs.appendChild(b);
+  });
+
+  var cd = document.getElementById('checksDiv'); cd.innerHTML = '';
+  op.checks.forEach(function(c){
+    var row = document.createElement('div'); row.className='check-row';
+    row.innerHTML = '<span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'&#10003;':'&#10007;')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span>';
+    cd.appendChild(row);
+  });
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('execHashBox').textContent = hash;
+
+  var fr = document.getElementById('flagRow'); fr.innerHTML = '';
+  for (var k in flags) {
+    if (flags[k]) { var b=document.createElement('span'); b.className='badge ok'; b.textContent=k; fr.appendChild(b); }
+  }
+
+  document.getElementById('disclaimerBox').textContent = op.disclaimer;
+  document.getElementById('artifactPre').style.display = 'none';
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+async function exportArtifact() {
+  if (!_lastPP) return;
+  var hash = await cgHash(_lastPP, _lastOP);
+  var artifact = { '@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld', chaingraph_version:'0.4.0', mandate_type:'compliance_mandate', tool_id:'art-206-rights-record-builder', tool_version:'1.0.0', generated_at:null, execution_hash:hash, chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0}, policy_parameters:_lastPP, output_payload:_lastOP, compliance_flags:_lastFlags, compute_mode:'browser', audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]} };
+  var pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(artifact,null,2); pre.style.display='block';
+  var blob = new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='art-206-rights-record-builder-artifact.json'; a.click();
+}
+
+function toggleMfst() {
+  var body=document.getElementById('mfstBody');
+  if(body.style.display==='none'||!body.style.display){document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);body.style.display='block';}
+  else{body.style.display='none';}
+}
+
+initRightsGrid();
+</script>
+</body>
+</html>

@@ -137,6 +137,10 @@ import * as art20  from './art-20-acp-ucp-product-feed-conformance-auditor.kerne
 import * as art200 from './art-200-license-election-verifier.kernel.mjs';
 import * as art201 from './art-201-iscc-content-code-generator.kernel.mjs';
 import * as art202 from './art-202-tdmrep-reservation-builder.kernel.mjs';
+import * as art203 from './art-203-embedded-license-selector.kernel.mjs';
+import * as art204 from './art-204-license-compatibility-checker.kernel.mjs';
+import * as art205 from './art-205-license-terms-assembler.kernel.mjs';
+import * as art206 from './art-206-rights-record-builder.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
 import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
@@ -369,6 +373,10 @@ export const KERNELS = {
   'art-200-license-election-verifier':                        art200,
   'art-201-iscc-content-code-generator':                      art201,
   'art-202-tdmrep-reservation-builder':                       art202,
+  'art-203-embedded-license-selector':                        art203,
+  'art-204-license-compatibility-checker':                    art204,
+  'art-205-license-terms-assembler':                          art205,
+  'art-206-rights-record-builder':                            art206,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
   'art-22-agentic-payments-protocol-comparator':              art22,
   'art-23-visa-trusted-agent-protocol-inspector':             art23,
