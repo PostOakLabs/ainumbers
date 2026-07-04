@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Prediction Market Mechanics: Binary vs Scalar Payoffs &middot; Autonity Explainer E-01 &middot; AINumbers.co</title>
+<meta name="description" content="Interactive explainer: how scalar and binary event-market contracts pay out, the difference in payoff shape, and how Autonity's AFP ran forecast futures in Season 1. Try the live PnL calculator.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/explainers/at-e01-prediction-market.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --teal-glow:rgba(20,184,166,.35);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;--purple:#9B72F5;
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
+
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:900px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.55rem;color:var(--muted);flex-wrap:wrap}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .7rem;border-radius:4px;flex-shrink:0;text-decoration:none}
+
+.hero{padding:3rem 0 2rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.6rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:1rem;color:var(--bright);max-width:700px;margin-bottom:.5rem;line-height:1.8}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1.2rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.2rem .55rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-hist{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.badge-edu{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-live{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+
+section{padding:2.4rem 0;border-bottom:1px solid var(--border)}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+section h2{font-size:clamp(1.2rem,2.2vw,1.6rem);color:var(--white);margin-bottom:.7rem}
+.prose{color:var(--body);font-size:.93rem;line-height:1.8;max-width:720px;margin-bottom:1rem}
+.prose strong{color:var(--text);font-weight:500}
+
+.callout{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:1rem 1.2rem;margin:1.2rem 0;font-size:.88rem;line-height:1.7}
+.callout-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem}
+.callout p{color:var(--body)}
+.callout strong{color:var(--bright)}
+
+.formula-box{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text);line-height:1.8}
+.formula-box .comment{color:var(--muted);font-style:italic}
+
+.comparison-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1rem 0}
+@media(max-width:600px){.comparison-grid{grid-template-columns:1fr}}
+.cmp-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem}
+.cmp-head{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+.cmp-head.scalar{color:var(--teal-lt)}.cmp-head.binary{color:var(--gold)}
+.cmp-body{font-size:.85rem;color:var(--body);line-height:1.6}
+.cmp-example{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--bright);margin-top:.5rem;padding:.4rem .6rem;background:var(--bg-3);border-radius:4px}
+
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:14px 0}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:16px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.1rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.4rem;line-height:1.5}
+input[type=number],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.42rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:4px;padding:.28rem .6rem;cursor:pointer;transition:all .15s}
+.preset-btn:hover{color:var(--teal-lt);border-color:var(--teal)}
+.preset-btn.active{background:var(--teal-dim);color:var(--teal-lt);border-color:var(--teal)}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+@media(max-width:580px){.input-grid{grid-template-columns:1fr}}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.7rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.result-hero{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin:10px 0;display:flex;align-items:center;gap:16px}
+.result-val{font-family:'JetBrains Mono',monospace;font-size:1.7rem;font-weight:500;line-height:1}
+.pnl-pos{color:var(--green)}.pnl-neg{color:var(--red)}.pnl-zero{color:var(--text)}
+.result-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--bright)}
+.insight-box{background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.7rem 1rem;margin:10px 0;font-size:.82rem;color:var(--text);line-height:1.6}
+.insight-box strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+
+.heir-table{width:100%;border-collapse:collapse;font-size:.83rem;margin:1rem 0}
+.heir-table th{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--border)}
+.heir-table td{padding:.6rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--body)}
+.heir-table td:first-child{color:var(--text);font-weight:500;white-space:nowrap}
+.heir-table tr:last-child td{border-bottom:none}
+
+.nav-row{display:flex;gap:10px;flex-wrap:wrap;margin:1.5rem 0}
+.nav-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem 1rem;font-size:.78rem;color:var(--body);flex:1;min-width:160px}
+.nav-card:hover{border-color:var(--teal);text-decoration:none;color:var(--text)}
+.nav-card-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.nav-card-title{color:var(--bright);font-size:.82rem}
+
+footer{border-top:1px solid var(--border);padding:1.5rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.8rem;align-items:center}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <a href="../../index.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../education-hub.html">Education Hub</a><span class="nav-sep">/</span>
+    <span>E-01 Prediction Markets</span>
+  </div>
+  <a href="../education-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Autonity Historical Series &middot; E-01 &middot; Event Markets</div>
+  <h1>Prediction Market Mechanics:<br><em>Binary vs Scalar Payoffs</em></h1>
+  <p class="hero-desc">How event contracts pay out, why the payoff shape changes everything, and how Autonity ran forecast futures in Season 1 of the Forecastathon.</p>
+  <p class="hero-sub">Autonity stood down in February 2026. This explainer preserves its core ideas and shows where each mechanic lives today. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-hist">Historical &middot; Feb 2026</span>
+    <span class="badge badge-edu">Educational</span>
+    <span class="badge badge-live">Interactive demo</span>
+    <span class="badge badge-edu">Zero PII</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-label">01 &middot; The core idea</div>
+  <h2>Two ways to bet on an outcome</h2>
+  <p class="prose">Every prediction market lets you express a view on whether something will happen. But the <strong>payoff structure</strong> divides markets into two fundamentally different animals. Understanding that difference is the entry point for everything else in derivatives pricing.</p>
+
+  <div class="comparison-grid">
+    <div class="cmp-card">
+      <div class="cmp-head binary">Binary (event) contract</div>
+      <div class="cmp-body">Pays a fixed amount if the event occurs, zero if it does not. Your profit is the same whether you were right by a little or right by a lot. Price trades as an implied probability (0 to 1).</div>
+      <div class="cmp-example">Win $1 if CPI &gt; 3%.<br>Price: $0.62 &rarr; implies 62% chance.</div>
+    </div>
+    <div class="cmp-card">
+      <div class="cmp-head scalar">Scalar (linear) contract</div>
+      <div class="cmp-body">Pays proportional to how far the settlement value lands from the strike. A bigger surprise means a bigger payoff. This is the forecast-future model Autonity used.</div>
+      <div class="cmp-example">Long CPI at 3.50. Settles at 4.10.<br>Delta: +0.60 &times; $200/pt = +$120.</div>
+    </div>
+  </div>
+
+  <p class="prose" style="margin-top:.8rem">The Autonity AFP ran scalar contracts on economic data points using USDZ as collateral. Each Forecastathon Season 1 product was a <strong>forecast future</strong>: you bought or sold at a strike, and at expiry the contract settled to the actual data release. A good forecast that was directionally right but not by much still earned less than one that was right by a lot.</p>
+</section>
+
+<section>
+  <div class="sec-label">02 &middot; The math</div>
+  <h2>Payoff formulas side by side</h2>
+
+  <div class="formula-box">
+<span style="color:var(--gold)">SCALAR / LINEAR (AFP forecast future):</span>
+pnl = side_sign &times; (settlement &minus; strike) &times; unit_value &times; n_contracts
+
+<span class="comment">   side_sign: LONG = +1, SHORT = &minus;1</span>
+<span class="comment">   settlement is clamped to [min_price, max_price] before the delta</span>
+<span class="comment">   unit_value: notional per unit (e.g. $200/point for AFP CPI contracts)</span>
+
+<span style="color:var(--teal)">BINARY (event contract):</span>
+pnl = n_contracts &times; (payout &times; won &minus; entry_price) &minus; fees
+<span class="comment">   payout: fixed ($1 on Kalshi, $100 on CME events)</span>
+<span class="comment">   entry_price: what you paid per contract (= implied probability &times; payout)</span>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">Key insight</div>
+    <p><strong>A forecast future keeps scaling with the size of the surprise; a binary market pays the same for any winning margin.</strong> This makes scalars better for calibrated forecasters who care about how far they were right, and binaries better for pure yes/no views. Season 1 of the Forecastathon used scalars precisely to reward magnitude accuracy.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">03 &middot; Interactive demo</div>
+  <h2>Try the PnL calculator</h2>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Preset</div>
+    <div class="preset-bar">
+      <button class="preset-btn active" onclick="applyPreset('autonity',this)">Autonity S1 (historical)</button>
+      <button class="preset-btn" onclick="applyPreset('kalshi_scalar',this)">Kalshi Scalar</button>
+      <button class="preset-btn" onclick="applyPreset('cme_weather',this)">CME Weather</button>
+      <button class="preset-btn" onclick="applyPreset('binary',this)">Binary Example</button>
+      <button class="preset-btn" onclick="applyPreset('custom',this)">Custom</button>
+    </div>
+
+    <div id="modeLabel" style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal);margin-bottom:12px;letter-spacing:.1em;text-transform:uppercase"></div>
+
+    <div class="section-head">Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="underlying">Underlying</label>
+        <input type="text" id="underlying" value="US_CPI_YOY_PCT" placeholder="e.g. US_CPI_YOY_PCT" style="background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.42rem .7rem;width:100%;outline:none">
+      </div>
+      <div class="q">
+        <label class="q-label" for="side">Direction</label>
+        <select id="side">
+          <option value="LONG" selected>LONG (buy / expect up)</option>
+          <option value="SHORT">SHORT (sell / expect down)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="strike">Strike</label>
+        <div class="q-help">The price you entered the contract at</div>
+        <input type="number" id="strike" value="3.5" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="settlement_value">Settlement Value</label>
+        <div class="q-help">Final price the contract settled to at expiry</div>
+        <input type="number" id="settlement_value" value="4.1" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="unit_value">Unit Value ($/point)</label>
+        <div class="q-help">Notional per unit &mdash; $200/point for AFP CPI contracts</div>
+        <input type="number" id="unit_value" value="200" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="n_contracts">Number of Contracts</label>
+        <input type="number" id="n_contracts" value="1" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="min_price">Min Price (floor)</label>
+        <input type="number" id="min_price" value="0.0" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="max_price">Max Price (cap)</label>
+        <input type="number" id="max_price" value="10.0" step="any">
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="runCompute()">[ COMPUTE PnL &rarr; ]</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="result-hero">
+        <div style="font-size:2rem;flex-shrink:0" id="pnlIcon">&#9670;</div>
+        <div>
+          <div class="result-label">Net PnL (scalar)</div>
+          <div class="result-val" id="pnlValue">--</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="result-label">Equiv binary PnL</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;color:var(--text)" id="binaryVal">--</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)">if contract were binary</div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="insight-box" id="insightBox" style="display:none"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">04 &middot; Autonity context</div>
+  <h2>How Season 1 used this</h2>
+  <p class="prose">The AFP (Autonity Financial Protocol) ran scalar contracts on macroeconomic indices. In Season 1 of the Forecastathon (a trading competition on the Autonity testnet), participants took positions on US CPI year-over-year, NFP, and other releases using USDZ as collateral.</p>
+  <p class="prose">Each position was opened with an intent-signing key and margined via the DCC (Decentralized Clearing Contract). At expiry, an oracle settled the contract to the actual release value, and the AFP computed the PnL using exactly the formula above.</p>
+  <p class="prose" style="margin-bottom:0">The competition also included a <strong>referral component</strong> and a <strong>self-reported accuracy percentage</strong> &mdash; these were aggregated into the composite Forecastathon score (see <a href="at-e04-forecastathon-scoring.html">E-04</a>).</p>
+</section>
+
+<section>
+  <div class="sec-label">05 &middot; Where this lives now</div>
+  <h2>The Autonity mechanics live on</h2>
+  <p class="prose">Autonity stood down in February 2026. The payoff math did not.</p>
+  <table class="heir-table">
+    <tr><th>Autonity mechanic</th><th>2026 heir</th></tr>
+    <tr><td>Scalar forecast futures (AFP)</td><td>Kalshi scalar markets (proportional settlement, live Feb 2026); CME weather futures ($20 &times; HDD/CDD index point, continuous trading)</td></tr>
+    <tr><td>USDZ collateral / on-chain clearing</td><td>USDH on Hyperliquid HIP-4 binary contracts (live May 2026); USDC on Polymarket via QCX DCM</td></tr>
+    <tr><td>Forecastathon scoring (self-reported accuracy)</td><td>Metaculus community scoring; Cultivate Labs enterprise forecasting; Manifold Markets</td></tr>
+    <tr><td>Competition format (PnL + volume leaderboard)</td><td>Polymarket/Kalshi season-style competitions; Prediction Global ranking</td></tr>
+  </table>
+
+  <div class="nav-row">
+    <a class="nav-card" href="at-e02-margin-liquidation.html">
+      <div class="nav-card-label">Next &rarr; E-02</div>
+      <div class="nav-card-title">Margin &amp; Liquidation</div>
+    </a>
+    <a class="nav-card" href="at-e03-afp-dcc-clearing.html">
+      <div class="nav-card-label">Then &rarr; E-03</div>
+      <div class="nav-card-title">AFP/DCC Clearing (centerpiece)</div>
+    </a>
+    <a class="nav-card" href="at-e04-forecastathon-scoring.html">
+      <div class="nav-card-label">See also &rarr; E-04</div>
+      <div class="nav-card-title">Forecastathon Scoring</div>
+    </a>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+      <a href="../education-hub.html" style="color:var(--muted)">Education Hub</a>
+      <a href="../chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Hub</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only &middot; Not financial advice</div>
+  </div>
+</footer>
+
+<script>
+var PRESETS = {
+  autonity:     { underlying:'US_CPI_YOY_PCT', strike:3.5, settlement_value:4.1, unit_value:200, n_contracts:1, min_price:0.0, max_price:10.0, side:'LONG', mode:'scalar' },
+  kalshi_scalar:{ underlying:'US_CPI_YOY_PCT', strike:3.5, settlement_value:4.1, unit_value:100, n_contracts:1, min_price:0.0, max_price:1.0,  side:'LONG', mode:'scalar' },
+  cme_weather:  { underlying:'HDD_65F', strike:100, settlement_value:115, unit_value:20, n_contracts:1, min_price:0, max_price:300, side:'LONG', mode:'scalar' },
+  binary:       { underlying:'CPI_ABOVE_3PCT', strike:0.62, settlement_value:1.0, unit_value:1, n_contracts:10, min_price:0, max_price:1, side:'LONG', mode:'binary' },
+  custom: null
+};
+var MODE_LABELS = {
+  scalar: 'MODE: SCALAR / LINEAR (forecast future)',
+  binary: 'MODE: BINARY (event contract)'
+};
+
+function applyPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+  if (btn) btn.classList.add('active');
+  var p = PRESETS[name];
+  if (!p) return;
+  document.getElementById('underlying').value = p.underlying;
+  document.getElementById('strike').value = p.strike;
+  document.getElementById('settlement_value').value = p.settlement_value;
+  document.getElementById('unit_value').value = p.unit_value;
+  document.getElementById('n_contracts').value = p.n_contracts;
+  document.getElementById('min_price').value = p.min_price;
+  document.getElementById('max_price').value = p.max_price;
+  document.getElementById('side').value = p.side;
+  document.getElementById('modeLabel').textContent = MODE_LABELS[p.mode] || '';
+}
+applyPreset('autonity', null);
+
+function r4(v) { return Math.round(v * 1e4) / 1e4; }
+
+function runCompute() {
+  var side = document.getElementById('side').value;
+  var strike = parseFloat(document.getElementById('strike').value) || 0;
+  var sv = parseFloat(document.getElementById('settlement_value').value);
+  var unit_value = parseFloat(document.getElementById('unit_value').value) || 1;
+  var n = Math.max(1, parseInt(document.getElementById('n_contracts').value) || 1);
+  var min_p = parseFloat(document.getElementById('min_price').value);
+  var max_p = parseFloat(document.getElementById('max_price').value);
+  if (!isFinite(sv)) sv = strike;
+  if (!isFinite(min_p)) min_p = 0;
+  if (!isFinite(max_p) || max_p <= min_p) max_p = min_p + 10;
+  var side_sign = side === 'LONG' ? 1 : -1;
+  var settlement = Math.min(Math.max(sv, min_p), max_p);
+  var in_range = sv >= min_p && sv <= max_p;
+  var delta = r4(settlement - strike);
+  var pnl = r4(side_sign * delta * unit_value * n);
+  var equiv_binary = r4(side_sign * unit_value * n);
+
+  var pnlEl = document.getElementById('pnlValue');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4});
+  pnlEl.className = 'result-val ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : 'pnl-zero');
+  document.getElementById('pnlIcon').textContent = pnl > 0 ? '&#9650;' : pnl < 0 ? '&#9660;' : '&#9670;';
+  document.getElementById('binaryVal').textContent = (equiv_binary >= 0 ? '+' : '') + equiv_binary.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4});
+
+  var stats = [
+    {k:'Strike', v: strike},
+    {k:'Settlement', v: sv + (in_range ? '' : ' (CLAMPED)')},
+    {k:'Delta', v: (delta >= 0 ? '+' : '') + delta},
+    {k:'Unit Value', v: '$' + unit_value + '/pt'},
+    {k:'Contracts', v: n},
+    {k:'In Range', v: in_range ? 'YES' : 'OUT OF RANGE'}
+  ];
+  document.getElementById('statsGrid').innerHTML = stats.map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val">'+s.v+'</div></div>';
+  }).join('');
+
+  var insight = document.getElementById('insightBox');
+  if (Math.abs(delta) > 0) {
+    insight.style.display = 'block';
+    var ratio = pnl / equiv_binary;
+    insight.innerHTML = '<strong>Key insight:</strong> '
+      + 'Your scalar PnL is <b style="color:var(--bright)">'+(ratio*100).toFixed(0)+'%</b> of what a binary contract in the same direction would have paid. '
+      + (Math.abs(ratio) < 0.5 ? 'A small move &mdash; your directional call was right but the settlement landed close to the strike.' :
+         Math.abs(ratio) > 1.5 ? 'A large move &mdash; the scalar structure rewarded you much more than a binary would have.' :
+         'A moderate move &mdash; scalar and binary payoffs are in the same ballpark.');
+  } else {
+    insight.style.display = 'none';
+  }
+  document.getElementById('resultsPanel').classList.add('show');
+}
+</script>
+</body>
+</html>

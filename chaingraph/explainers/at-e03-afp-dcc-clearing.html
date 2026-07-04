@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AFP/DCC Venue-Agnostic Clearing: The Two-Key Model &middot; Autonity Explainer E-03 &middot; AINumbers.co</title>
+<meta name="description" content="The centerpiece Autonity explainer: how the AFP DCC separated margin custody from trade intent using two keys, enabling venue-agnostic clearing. The computations outlive the chain.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/explainers/at-e03-afp-dcc-clearing.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --teal-glow:rgba(20,184,166,.35);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;--purple:#9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
+
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:900px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.55rem;color:var(--muted);flex-wrap:wrap}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .7rem;border-radius:4px;flex-shrink:0;text-decoration:none}
+
+.hero{padding:3rem 0 2rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3.2vw,2.5rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:1rem;color:var(--bright);max-width:700px;margin-bottom:.5rem;line-height:1.8}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1.2rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.2rem .55rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-hist{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.badge-edu{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-live{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-center{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.3)}
+
+section{padding:2.4rem 0;border-bottom:1px solid var(--border)}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+section h2{font-size:clamp(1.2rem,2.2vw,1.6rem);color:var(--white);margin-bottom:.7rem}
+.prose{color:var(--body);font-size:.93rem;line-height:1.8;max-width:720px;margin-bottom:1rem}
+.prose strong{color:var(--text);font-weight:500}
+
+.callout{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:1rem 1.2rem;margin:1.2rem 0;font-size:.88rem;line-height:1.7}
+.callout-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem}
+.callout p{color:var(--body)}
+.callout strong{color:var(--bright)}
+
+.callout-gold{background:var(--gold-dim);border-left-color:var(--gold)}
+.callout-gold .callout-label{color:var(--gold)}
+.callout-gold p{color:var(--text)}
+
+.callout-purple{background:var(--purple-dim);border-left-color:var(--purple)}
+.callout-purple .callout-label{color:var(--purple)}
+.callout-purple p{color:var(--text)}
+
+.two-key-diagram{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin:1.5rem 0;align-items:center}
+@media(max-width:560px){.two-key-diagram{grid-template-columns:1fr;grid-template-rows:auto auto auto}}
+.key-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem;text-align:center}
+.key-box.margin-key{border-color:var(--teal);border-top:3px solid var(--teal)}
+.key-box.intent-key{border-color:var(--gold);border-top:3px solid var(--gold)}
+.key-head{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem}
+.margin-key .key-head{color:var(--teal-lt)}
+.intent-key .key-head{color:var(--gold)}
+.key-body{font-size:.82rem;color:var(--body);line-height:1.6}
+.key-arrow{text-align:center;color:var(--muted);font-size:1.2rem;padding:0 .5rem}
+.key-dcc{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem 1rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);margin-top:.8rem}
+
+.flow-steps{counter-reset:step;margin:1.2rem 0}
+.flow-step{display:flex;gap:1rem;margin-bottom:1rem;align-items:flex-start}
+.flow-step-num{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#06121f;background:var(--teal);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.flow-step-body{font-size:.88rem;color:var(--body);line-height:1.6}
+.flow-step-body strong{color:var(--text);font-weight:500}
+
+.formula-box{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);line-height:1.9}
+.formula-box .comment{color:var(--muted);font-size:.72rem}
+
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:14px 0}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:16px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.1rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.4rem;line-height:1.5}
+input[type=number],input[type=text],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.42rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:4px;padding:.28rem .6rem;cursor:pointer;transition:all .15s}
+.preset-btn:hover{color:var(--teal-lt);border-color:var(--teal)}
+.preset-btn.active{background:var(--teal-dim);color:var(--teal-lt);border-color:var(--teal)}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+@media(max-width:580px){.input-grid{grid-template-columns:1fr}}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.7rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+.sim-stages{display:none}
+.sim-stages.show{display:block}
+
+.stage-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin:10px 0;position:relative}
+.stage-badge{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);border-radius:3px;padding:.15rem .4rem;display:inline-block;margin-bottom:.4rem}
+.stage-title{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--bright);margin-bottom:.3rem}
+.stage-body{font-size:.82rem;color:var(--body);line-height:1.6}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt)}
+.stage-connector{text-align:center;color:var(--muted);font-size:1.1rem;margin:2px 0}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--bright)}
+.stat-val.pos{color:var(--green)}.stat-val.neg{color:var(--red)}
+
+.heir-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.2rem 0}
+@media(max-width:580px){.heir-grid{grid-template-columns:1fr}}
+.heir-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem}
+.heir-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.4rem}
+.heir-body{font-size:.82rem;color:var(--body);line-height:1.6}
+
+.nav-row{display:flex;gap:10px;flex-wrap:wrap;margin:1.5rem 0}
+.nav-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem 1rem;font-size:.78rem;color:var(--body);flex:1;min-width:160px;text-decoration:none}
+.nav-card:hover{border-color:var(--teal);color:var(--text)}
+.nav-card-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.nav-card-title{color:var(--bright);font-size:.82rem}
+
+footer{border-top:1px solid var(--border);padding:1.5rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.8rem;align-items:center}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <a href="../../index.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../education-hub.html">Education Hub</a><span class="nav-sep">/</span>
+    <span>E-03 AFP/DCC Clearing</span>
+  </div>
+  <a href="../education-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Autonity Historical Series &middot; E-03 &middot; Clearing Design</div>
+  <h1>AFP/DCC Venue-Agnostic Clearing:<br><em>The Two-Key Model</em></h1>
+  <p class="hero-desc">The most important idea Autonity contributed: separating <strong>margin custody</strong> from <strong>trade intent</strong>. One key holds your capital. Another signs your orders. The clearing layer works regardless of which venue you traded on.</p>
+  <p class="hero-sub">The computations outlive the chain. Every mechanic this explainer describes now runs somewhere in production under a different name. Autonity stood down in February 2026. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-center">Centerpiece</span>
+    <span class="badge badge-hist">Historical &middot; Feb 2026</span>
+    <span class="badge badge-edu">Educational</span>
+    <span class="badge badge-live">Interactive simulation</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-label">01 &middot; The problem clearing solves</div>
+  <h2>Why clearing is hard without a central intermediary</h2>
+  <p class="prose">In traditional finance, a clearinghouse sits between every trade. When you buy a futures contract on CME, CME Clearing becomes your counterparty. It holds your margin, enforces the rules, and guarantees settlement. This works because there is one central entity everyone trusts.</p>
+  <p class="prose">On-chain derivatives remove the central intermediary &mdash; but that creates a problem. If Alice trades on Venue A and Bob trades on Venue B, who holds their margin? Who enforces liquidations? Who guarantees settlement when the oracle fires? Without an answer, every venue becomes its own silo: margin on Venue A cannot offset a position on Venue B.</p>
+  <p class="prose">Autonity's answer was the <strong>DCC (Decentralized Clearing Contract)</strong>. It held margin at the protocol layer, independent of any specific venue. Venues matched trades; the DCC enforced the rules.</p>
+</section>
+
+<section>
+  <div class="sec-label">02 &middot; The two-key model</div>
+  <h2>Separating capital from intent</h2>
+
+  <div class="two-key-diagram">
+    <div class="key-box margin-key">
+      <div class="key-head">Margin Account Key</div>
+      <div class="key-body">Controls capital &mdash; deposits and withdrawals to the DCC. Holds the collateral backing your positions. Does not authenticate orders to any venue.</div>
+      <div class="key-dcc">Connects to DCC (protocol layer)</div>
+    </div>
+    <div class="key-arrow">&#8596;</div>
+    <div class="key-box intent-key">
+      <div class="key-head">Intent-Signing Key</div>
+      <div class="key-body">Authenticates your orders to a specific venue. Tells AutEx (the AFP execution venue) that you want to open or close a position. Does not touch capital.</div>
+      <div class="key-dcc">Connects to Venue (matching layer)</div>
+    </div>
+  </div>
+
+  <div class="callout callout-gold">
+    <div class="callout-label">The key insight</div>
+    <p><strong>Two keys may be the same key &mdash; but they need not be.</strong> This separation is why a position opened via one venue could be managed by any other: the DCC tracks the margin account, not the venue's key. A new venue joins the AFP ecosystem by registering with the DCC; existing positions are immediately manageable from that venue. No liquidity migration needed.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">03 &middot; The full lifecycle</div>
+  <h2>From intent to settlement</h2>
+
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">1</div>
+      <div class="flow-step-body"><strong>Deposit margin.</strong> You send collateral (ATN or USDZ) to the DCC using your margin account key. The DCC records your available balance on-chain.</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-body"><strong>Sign an intent.</strong> You sign an order with your intent-signing key and submit it to AutEx (the AFP execution venue). AutEx matches it against the order book.</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">3</div>
+      <div class="flow-step-body"><strong>DCC validates margin.</strong> AutEx notifies the DCC of the match. The DCC checks that your margin account holds sufficient collateral (<code>notional &times; IMR</code>). If not, the order is rejected. If yes, the margin is locked.</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">4</div>
+      <div class="flow-step-body"><strong>Position is open.</strong> The DCC records a deterministic position identifier (derived from the execution hash of the open computation). The position chains to the margin health snapshot at open time.</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-body"><strong>Ongoing health checks.</strong> Before each settlement epoch, the DCC recomputes margin health for every open position using the oracle-aggregated mark price. Positions below MMR are queued for liquidation.</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-body"><strong>Settlement or close.</strong> At expiry (oracle settlement) or voluntary close, the DCC computes final PnL, returns remaining margin to the margin account, and marks the position closed. The full chain of hashes is preserved.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">04 &middot; Interactive demo</div>
+  <h2>Simulate a position lifecycle</h2>
+  <p class="prose" style="margin-bottom:.5rem">Run the two computations the DCC performed: opening a position (margin validation) and closing it (settlement). Fill in the open parameters, compute, then adjust the close price to see PnL.</p>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Preset</div>
+    <div class="preset-bar">
+      <button class="preset-btn active" onclick="applyPreset('afp_s1',this)">AFP Season 1 (historical)</button>
+      <button class="preset-btn" onclick="applyPreset('afp_loss',this)">AFP Loss scenario</button>
+      <button class="preset-btn" onclick="applyPreset('custom',this)">Custom</button>
+    </div>
+
+    <div class="section-head">Open Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="product_id">Product</label>
+        <input type="text" id="product_id" value="US_CPI_FUTURES_Q1_2026">
+      </div>
+      <div class="q">
+        <label class="q-label" for="side">Direction</label>
+        <select id="side">
+          <option value="LONG" selected>LONG</option>
+          <option value="SHORT">SHORT</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="size_contracts">Size (contracts)</label>
+        <input type="number" id="size_contracts" value="5" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="contract_size">Contract Size ($/contract)</label>
+        <input type="number" id="contract_size" value="200" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="open_price">Open Price (strike)</label>
+        <input type="number" id="open_price" value="3.5" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="imr">Initial Margin Rate (IMR)</label>
+        <div class="q-help">e.g. 0.10 = 10% of notional</div>
+        <input type="number" id="imr" value="0.10" step="any" min="0.001" max="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="margin_deposited">Margin Deposited</label>
+        <input type="number" id="margin_deposited" value="100" step="any">
+      </div>
+    </div>
+
+    <div class="section-head" style="margin-top:16px">Close Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="close_price">Settlement Price (close)</label>
+        <div class="q-help">The oracle price at expiry or your voluntary close price</div>
+        <input type="number" id="close_price" value="4.1" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="close_method">Close Method</label>
+        <select id="close_method">
+          <option value="VOLUNTARY" selected>VOLUNTARY</option>
+          <option value="EXPIRY_SETTLEMENT">EXPIRY_SETTLEMENT (oracle)</option>
+          <option value="LIQUIDATION">LIQUIDATION</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="runSimulation()">[ SIMULATE LIFECYCLE &rarr; ]</button>
+  </div>
+
+  <div class="sim-stages" id="simStages">
+    <div class="stage-card">
+      <div class="stage-badge">Stage 1: Open</div>
+      <div class="stage-title">DCC validates margin &amp; creates position</div>
+      <div class="stage-body" id="openBody">--</div>
+    </div>
+    <div class="stage-connector">&#8595;</div>
+    <div class="stage-card">
+      <div class="stage-badge">Stage 2: Close</div>
+      <div class="stage-title">DCC computes final PnL &amp; returns margin</div>
+      <div class="stage-body" id="closeBody">--</div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="section-head">Full Lifecycle Summary</div>
+      <div class="stats-grid" id="summaryGrid"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">05 &middot; The computations outlive the chain</div>
+  <h2>Where every Autonity mechanic lives today</h2>
+  <p class="prose">Autonity stood down in February 2026. None of the mechanics it pioneered died with it. The DCC's venue-agnostic clearing model is now a first-principles design goal for multiple live systems.</p>
+
+  <div class="heir-grid">
+    <div class="heir-card">
+      <div class="heir-name">FMX &times; LCH Cross-Margin</div>
+      <div class="heir-body">FMX (cleared by LCH) competes with CME by allowing US Treasury futures margins to offset against LCH's existing rates book. The same principle: one clearing layer, multiple execution venues.</div>
+    </div>
+    <div class="heir-card">
+      <div class="heir-name">Copper ClearLoop</div>
+      <div class="heir-body">Off-exchange settlement for crypto: margin stays in Copper's custody while positions are live across Bybit, Deribit, OKX, and others. Exactly the DCC's separation of custody from execution, applied to crypto prime.</div>
+    </div>
+    <div class="heir-card">
+      <div class="heir-name">Hyperliquid HIP-3</div>
+      <div class="heir-body">Hyperliquid's cross-venue margin proposal aims to let positions on external venues post margin against the Hyperliquid clearinghouse. The two-key structure is the natural interface.</div>
+    </div>
+    <div class="heir-card">
+      <div class="heir-name">US Treasury Clearing Mandate</div>
+      <div class="heir-body">DTCC/FICC now requires centralized clearing for US cash Treasuries (deadline: Dec 31 2026) and repo (June 30 2027). Multi-venue positions will clear through one CCP &mdash; the exact problem the DCC was designed to solve.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-purple">
+    <div class="callout-label">The conceptual bridge</div>
+    <p>Venue-agnostic clearing is not a niche idea. It is the direction the entire derivatives infrastructure is moving, in both crypto and TradFi. The AFP DCC was an early, working implementation that ran in production on the Autonity testnet. The mechanics it proved out now have names like ClearLoop, sponsored clearing, and principal-model netting.</p>
+  </div>
+
+  <div class="nav-row">
+    <a class="nav-card" href="at-e02-margin-liquidation.html">
+      <div class="nav-card-label">&larr; Previous</div>
+      <div class="nav-card-title">E-02: Margin &amp; Liquidation</div>
+    </a>
+    <a class="nav-card" href="at-e04-forecastathon-scoring.html">
+      <div class="nav-card-label">Next &rarr;</div>
+      <div class="nav-card-title">E-04: Forecastathon Scoring</div>
+    </a>
+    <a class="nav-card" href="at-e05-acu-basket.html">
+      <div class="nav-card-label">Also &rarr;</div>
+      <div class="nav-card-title">E-05: ACU Currency Basket</div>
+    </a>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+      <a href="../education-hub.html" style="color:var(--muted)">Education Hub</a>
+      <a href="../chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Hub</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only &middot; Not financial advice</div>
+  </div>
+</footer>
+
+<script>
+var PRESETS = {
+  afp_s1:  { product_id:'US_CPI_FUTURES_Q1_2026', side:'LONG', size_contracts:5, contract_size:200, open_price:3.5, imr:0.10, margin_deposited:100, close_price:4.1, close_method:'EXPIRY_SETTLEMENT' },
+  afp_loss:{ product_id:'US_NFP_DEC2025', side:'LONG', size_contracts:3, contract_size:200, open_price:220, imr:0.10, margin_deposited:132, close_price:185, close_method:'VOLUNTARY' },
+  custom: null
+};
+
+function applyPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  var p = PRESETS[name];
+  if(!p) return;
+  document.getElementById('product_id').value = p.product_id;
+  document.getElementById('side').value = p.side;
+  document.getElementById('size_contracts').value = p.size_contracts;
+  document.getElementById('contract_size').value = p.contract_size;
+  document.getElementById('open_price').value = p.open_price;
+  document.getElementById('imr').value = p.imr;
+  document.getElementById('margin_deposited').value = p.margin_deposited;
+  document.getElementById('close_price').value = p.close_price;
+  document.getElementById('close_method').value = p.close_method;
+}
+
+function r4(v){ return Math.round(v*1e4)/1e4; }
+
+function runSimulation() {
+  var side = document.getElementById('side').value;
+  var size = Math.max(1, parseInt(document.getElementById('size_contracts').value)||1);
+  var cs = parseFloat(document.getElementById('contract_size').value)||200;
+  var op = parseFloat(document.getElementById('open_price').value)||1;
+  var imr = parseFloat(document.getElementById('imr').value)||0.10;
+  var dep = parseFloat(document.getElementById('margin_deposited').value)||0;
+  var cp = parseFloat(document.getElementById('close_price').value)||op;
+  var method = document.getElementById('close_method').value;
+
+  var notional = r4(size * cs);
+  var margin_required = r4(notional * imr);
+  var margin_excess = r4(dep - margin_required);
+  var margin_accepted = dep >= margin_required;
+
+  var ss = side === 'LONG' ? 1 : -1;
+  var price_delta = r4(ss * (cp - op));
+  var final_pnl = r4(price_delta * cs * size);
+  var margin_returned = r4(Math.max(0, dep + final_pnl));
+
+  var openFlags = [];
+  if(!margin_accepted) openFlags.push('INSUFFICIENT_MARGIN');
+  if(margin_excess >= 0 && margin_excess < margin_required * 0.10) openFlags.push('MARGIN_TIGHT');
+
+  var closeFlags = [];
+  if(method === 'LIQUIDATION') closeFlags.push('LIQUIDATION_TRIGGERED');
+  if(final_pnl < 0) closeFlags.push('NEGATIVE_PNL');
+  if(method === 'EXPIRY_SETTLEMENT') closeFlags.push('ORACLE_SETTLEMENT');
+
+  document.getElementById('openBody').innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Notional: <b style="color:var(--teal-lt)">$'+notional+'</b></span>&nbsp;&nbsp;' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Required margin: <b style="color:var(--teal-lt)">$'+margin_required+'</b></span>&nbsp;&nbsp;' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Excess: <b style="color:'+(margin_excess>=0?'var(--green)':'var(--red)')+'">$'+margin_excess+'</b></span>' +
+    '</div>' +
+    '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;padding:.18rem .5rem;border-radius:10px;background:'+(margin_accepted?'var(--green-dim)':'var(--red-dim)')+';color:'+(margin_accepted?'var(--green)':'var(--red)')+';border:1px solid '+(margin_accepted?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)')+'">'+
+    (margin_accepted?'MARGIN_ACCEPTED':'MARGIN_REJECTED')+'</span>' +
+    openFlags.map(function(f){return '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;padding:.18rem .5rem;border-radius:10px;background:rgba(245,158,11,.08);color:var(--amber);border:1px solid rgba(245,158,11,.3)">'+f+'</span>';}).join('') +
+    '</div>';
+
+  document.getElementById('closeBody').innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Price delta: <b style="color:'+(price_delta>=0?'var(--green)':'var(--red)')+'">'+price_delta+'</b></span>&nbsp;&nbsp;' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Final PnL: <b style="color:'+(final_pnl>=0?'var(--green)':'var(--red)')+'">$'+final_pnl+'</b></span>&nbsp;&nbsp;' +
+    '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--text)">Margin returned: <b style="color:var(--bright)">$'+margin_returned+'</b></span>' +
+    '</div>' +
+    '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+    closeFlags.map(function(f){
+      var col = f==='LIQUIDATION_TRIGGERED'?'var(--red)':f==='NEGATIVE_PNL'?'var(--body)':'var(--teal-lt)';
+      var bg = f==='LIQUIDATION_TRIGGERED'?'var(--red-dim)':f==='NEGATIVE_PNL'?'rgba(168,196,222,.06)':'var(--teal-dim)';
+      return '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;padding:.18rem .5rem;border-radius:10px;background:'+bg+';color:'+col+';border:1px solid '+col.replace('var(--','rgba(').replace(')','')+',0.3)">'+f+'</span>';
+    }).join('') +
+    (closeFlags.length===0?'<span style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">No flags</span>':'') +
+    '</div>';
+
+  var summary = [
+    {k:'Notional', v:'$'+notional},
+    {k:'Open Price', v:op},
+    {k:'Close Price', v:cp},
+    {k:'Final PnL', v:(final_pnl>=0?'+':'')+'$'+final_pnl, cls:final_pnl>=0?'pos':'neg'},
+    {k:'Margin Deposited', v:'$'+dep},
+    {k:'Margin Returned', v:'$'+margin_returned, cls:''},
+    {k:'Close Method', v:method}
+  ];
+  document.getElementById('summaryGrid').innerHTML = summary.map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val'+(s.cls?' '+s.cls:'')+'">'+s.v+'</div></div>';
+  }).join('');
+
+  document.getElementById('simStages').classList.add('show');
+}
+</script>
+</body>
+</html>
