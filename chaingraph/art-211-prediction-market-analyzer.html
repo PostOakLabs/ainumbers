@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Prediction Market Analyzer &middot; ART-211 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes prediction market PnL, implied probability, no-vig fair value, Kelly stake, and odds conversion for binary and scalar contracts on Polymarket, Kalshi, CME Event, and Robinhood. Not financial advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-211-prediction-market-analyzer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.anchor-btn:hover{border-color:var(--gold)}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-btn:hover{border-color:var(--teal-lt)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.mode-toggle{display:flex;gap:8px;margin-bottom:14px}
+.mode-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;border:1px solid var(--border);background:var(--bg-3);color:var(--body);letter-spacing:.06em;text-transform:uppercase}
+.mode-btn.active{background:var(--teal);color:#06121f;border-color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Prediction Market Analyzer</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-211 &middot; Prediction Markets</div>
+  <h1>Prediction Market Analyzer</h1>
+  <p class="sub">Compute PnL, implied probability, no-vig fair value, expected value, Kelly stake, and odds conversion for binary and scalar contracts. Covers Polymarket, Kalshi, CME Event, and Robinhood. Includes Brier and log-score forecast accuracy metrics.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Polymarket</span>
+    <span class="flag info">Kalshi</span>
+    <span class="flag info">CME Event</span>
+    <span class="flag">Kelly Criterion</span>
+    <span class="flag warn">Not Financial Advice</span>
+  </div>
+
+  <div class="disclaimer">Not financial advice. For informational purposes only. Verify all fee schedules and contract terms with the venue before trading. This tool does not access live prices or execute orders.</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Contract Mode</div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeBtnBinary" onclick="setMode('binary')">Binary</button>
+      <button class="mode-btn" id="modeBtnScalar" onclick="setMode('scalar')">Scalar</button>
+    </div>
+
+    <div id="binaryInputs">
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="venue">Venue</label>
+          <select id="venue">
+            <option value="polymarket">Polymarket (~0 fee)</option>
+            <option value="kalshi">Kalshi (parabolic fee)</option>
+            <option value="cme_event">CME Event ($0.50/contract)</option>
+            <option value="robinhood">Robinhood ($0.10/contract)</option>
+          </select>
+        </div>
+        <div class="q">
+          <label class="q-label" for="side">Side</label>
+          <select id="side">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="entryPrice">Entry price (USD per contract)</label>
+          <div class="q-help">$0.01&ndash;$0.99 for $1 payout. E.g. $0.60 = 60% implied probability.</div>
+          <input type="number" id="entryPrice" value="0.60" min="0.001" max="0.999" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="nContracts">Number of contracts</label>
+          <input type="number" id="nContracts" value="100" min="1" step="1">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="payout">Payout per winning contract (USD)</label>
+          <div class="q-help">Usually $1.00 for binary markets.</div>
+          <input type="number" id="payout" value="1.00" min="0.01" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="noAsk">No-side ask (optional, for devigging)</label>
+          <div class="q-help">The current No ask price. Used to compute no-vig fair value.</div>
+          <input type="number" id="noAsk" placeholder="e.g. 0.42" min="0.001" max="0.999" step="0.01">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="won">Outcome</label>
+          <select id="won">
+            <option value="1">Yes won</option>
+            <option value="0">Yes lost</option>
+          </select>
+        </div>
+        <div class="q">
+          <label class="q-label" for="bankroll">Bankroll (USD, for Kelly sizing)</label>
+          <input type="number" id="bankroll" value="1000" min="1" step="100">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="userProb">Your probability estimate (optional)</label>
+          <div class="q-help">0.01&ndash;0.99. Used to compute EV, Kelly fraction, and edge.</div>
+          <input type="number" id="userProb" placeholder="e.g. 0.70" min="0.01" max="0.99" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="forecastProb">Forecast probability (for scoring)</label>
+          <div class="q-help">Your stated probability before the event resolved. Used for Brier and log-score.</div>
+          <input type="number" id="forecastProb" placeholder="e.g. 0.65" min="0.0001" max="0.9999" step="0.01">
+        </div>
+      </div>
+      <div class="q">
+        <label class="q-label" for="outcome">Event outcome (for scoring)</label>
+        <select id="outcome">
+          <option value="">Not provided</option>
+          <option value="1">Yes occurred (1)</option>
+          <option value="0">No occurred (0)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="scalarInputs" style="display:none">
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="sVenue">Venue</label>
+          <select id="sVenue">
+            <option value="cme_event">CME Event</option>
+            <option value="kalshi">Kalshi</option>
+            <option value="polymarket">Polymarket</option>
+          </select>
+        </div>
+        <div class="q">
+          <label class="q-label" for="sSide">Side</label>
+          <select id="sSide">
+            <option value="long">Long</option>
+            <option value="short">Short</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="strike">Strike (index level at entry)</label>
+          <input type="number" id="strike" value="4.5" step="0.1">
+        </div>
+        <div class="q">
+          <label class="q-label" for="settlementVal">Settlement value (actual outcome)</label>
+          <input type="number" id="settlementVal" value="5.2" step="0.1">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="unitVal">Unit value per point (USD)</label>
+          <input type="number" id="unitVal" value="200" min="1" step="10">
+        </div>
+        <div class="q">
+          <label class="q-label" for="sNContracts">Number of contracts</label>
+          <input type="number" id="sNContracts" value="1" min="1" step="1">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="contractMin">Contract floor (min)</label>
+          <input type="number" id="contractMin" value="0" step="0.1">
+        </div>
+        <div class="q">
+          <label class="q-label" for="contractMax">Contract cap (max)</label>
+          <input type="number" id="contractMax" value="10" step="0.1">
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runAnalyze()">&#9654; Analyze Position</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Key Metrics</div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Full Output</div>
+      <div id="kvDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor this artifact &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-211-prediction-market-analyzer',
+  version: '1.0.0',
+  mcp_name: 'analyze_prediction_market',
+  title: 'Prediction Market Analyzer',
+  description: 'Computes prediction market PnL, implied probability, break-even, no-vig fair value, expected value, Kelly stake, and odds conversion for binary and scalar contracts on Polymarket, Kalshi, CME Event, and Robinhood. Not financial advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Prediction Markets / Binary Contracts',
+  mcp_tool_definition: {
+    name: 'analyze_prediction_market',
+    description: 'Computes prediction market PnL, implied probability, no-vig fair value, expected value, Kelly stake, and odds conversion for binary and scalar contracts. Covers Polymarket, Kalshi, CME Event, and Robinhood.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mode: { type: 'string', enum: ['binary', 'scalar'], description: 'Contract mode. Default: binary' },
+        venue: { type: 'string', description: 'polymarket | kalshi | cme_event | robinhood' },
+        side: { type: 'string', description: 'yes | no (binary) or long | short (scalar)' },
+        entry_price: { type: 'number', description: 'Entry price per contract (USD). Binary: 0.01-0.99 for $1 payout' },
+        n_contracts: { type: 'number', description: 'Number of contracts' },
+        payout: { type: 'number', description: 'Payout per winning contract (USD). Default: 1.0' },
+        won: { type: 'number', description: '1 if Yes won, 0 if Yes lost' },
+        no_ask: { type: 'number', description: 'No-side ask price (optional, for devigging)' },
+        user_probability: { type: 'number', description: 'Your probability estimate (0-1, optional, for EV + Kelly)' },
+        bankroll: { type: 'number', description: 'Bankroll in USD for Kelly sizing (default 1000)' },
+        forecast_prob: { type: 'number', description: 'Forecast probability for scoring (0-1, optional)' },
+        outcome: { type: 'number', description: 'Actual outcome for scoring: 1=Yes occurred, 0=No occurred' },
+        strike: { type: 'number', description: 'Scalar: strike index level' },
+        settlement_value: { type: 'number', description: 'Scalar: actual settlement value' },
+        unit_value: { type: 'number', description: 'Scalar: USD per index point. Default: 200' },
+        contract_min: { type: 'number', description: 'Scalar: contract floor' },
+        contract_max: { type: 'number', description: 'Scalar: contract cap' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _currentMode = 'binary';
+var _lastResult = null;
+
+function setMode(m) {
+  _currentMode = m;
+  document.getElementById('binaryInputs').style.display = m === 'binary' ? '' : 'none';
+  document.getElementById('scalarInputs').style.display = m === 'scalar' ? '' : 'none';
+  document.getElementById('modeBtnBinary').className = 'mode-btn' + (m === 'binary' ? ' active' : '');
+  document.getElementById('modeBtnScalar').className = 'mode-btn' + (m === 'scalar' ? ' active' : '');
+}
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function r4(v) { return Math.round(v * 1e4) / 1e4; }
+function r2(v) { return Math.round(v * 100) / 100; }
+function r6(v) { return Math.round(v * 1e6) / 1e6; }
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+
+function kalshiFee(n, p) {
+  if (!Number.isFinite(p) || p <= 0 || p >= 1) return 0;
+  return Math.ceil(0.07 * n * p * (1-p) * 100) / 100;
+}
+function venueFee(venue, n, p) {
+  var pp = Math.max(0.001, Math.min(0.999, Number(p) || 0.5));
+  if (venue === 'kalshi') return kalshiFee(n, pp);
+  if (venue === 'cme_event') return 0.5 * n;
+  if (venue === 'robinhood') return 0.1 * n;
+  return 0;
+}
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+function fracOdds(dec) {
+  var f = dec - 1; if (!Number.isFinite(f) || f <= 0) return 'N/A';
+  var be = 1, bd = 1, berr = Math.abs(f - 1);
+  for (var d = 1; d <= 99; d++) { var n2 = Math.round(f * d); if (n2 > 0) { var err = Math.abs(f - n2/d); if (err < berr) { berr = err; be = n2; bd = d; } } }
+  var g = gcd(be, bd); return (be/g) + '/' + (bd/g);
+}
+
+// Browser-side log (IEEE-754 native -- only used for log_score display, not for the hash preimage that must match kernel)
+function detLog(x) { return Math.log(x); }
+
+function runAnalyze() {
+  var flags = [];
+  var pp = {}, op = {};
+
+  if (_currentMode === 'binary') {
+    var venue = document.getElementById('venue').value;
+    var side = document.getElementById('side').value;
+    var payout = Math.max(0.01, safe(document.getElementById('payout').value, 1.0));
+    var n = Math.max(1, Math.round(safe(document.getElementById('nContracts').value, 1)));
+    var entry = Math.min(payout*0.9999, Math.max(payout*0.0001, safe(document.getElementById('entryPrice').value, 0.5)));
+    var won = document.getElementById('won').value === '1' ? 1 : 0;
+    var bankroll = Math.max(1, safe(document.getElementById('bankroll').value, 1000));
+    var noAskRaw = document.getElementById('noAsk').value.trim();
+    var noAsk = noAskRaw !== '' ? Math.min(payout*0.9999, Math.max(payout*0.0001, safe(noAskRaw, null))) : null;
+    var upRaw = document.getElementById('userProb').value.trim();
+    var userProb = upRaw !== '' ? Math.min(0.9999, Math.max(0.0001, safe(upRaw, null))) : null;
+    var fpRaw = document.getElementById('forecastProb').value.trim();
+    var forecastProb = fpRaw !== '' ? Math.min(0.9999, Math.max(0.0001, safe(fpRaw, null))) : null;
+    var outcomeRaw = document.getElementById('outcome').value;
+    var outcome = outcomeRaw === '1' ? 1 : outcomeRaw === '0' ? 0 : null;
+
+    pp = {mode:'binary', venue:venue, side:side, entry_price:entry, n_contracts:n, payout:payout, won:won, bankroll:bankroll};
+    if (noAsk !== null) pp.no_ask = noAsk;
+    if (userProb !== null) pp.user_probability = userProb;
+    if (forecastProb !== null) pp.forecast_prob = forecastProb;
+    if (outcome !== null) pp.outcome = outcome;
+
+    var isYes = side !== 'no';
+    var holdingWon = isYes ? (won === 1) : (won === 0);
+    var payoutRcvd = holdingWon ? payout : 0;
+    var fee = venueFee(venue, n, entry / payout);
+    var pnl = r2(n * (payoutRcvd - entry) - fee);
+    var impliedProb = r4(entry / payout);
+    var breakEven = r4((entry + fee/n) / payout);
+    var fairYes = noAsk !== null ? r4(entry / (entry + noAsk)) : impliedProb;
+    var decOdds = r4(payout / entry);
+    var amOdds = decOdds >= 2 ? Math.round((decOdds-1)*100) : decOdds > 1 ? Math.round(-100/(decOdds-1)) : -9999;
+    var ev = null, kf = null, hks = null;
+    if (userProb !== null) {
+      var pnlWin = n * (payout - entry) - fee;
+      var pnlLose = -n * entry - fee;
+      ev = r4(userProb * pnlWin + (1 - userProb) * pnlLose);
+      var b = (payout - entry) / entry;
+      if (b > 0) { kf = r4(Math.max(0, (userProb * b - (1-userProb)) / b)); hks = r2(0.5 * kf * bankroll); }
+      else { kf = 0; hks = 0; }
+    }
+    var brier = null, logScore = null;
+    if (forecastProb !== null && outcome !== null) {
+      var pCorr = outcome === 1 ? forecastProb : (1 - forecastProb);
+      brier = r6(Math.pow(forecastProb - outcome, 2));
+      logScore = r6(detLog(Math.max(1e-9, pCorr)));
+    }
+
+    if (impliedProb < 0.05 || impliedProb > 0.95) flags.push('EXTREME_PROBABILITY');
+    if (won === 0) flags.push('POSITION_EXPIRED_LOSS');
+    if (kf !== null && kf === 0 && userProb !== null) flags.push('NEGATIVE_EDGE');
+
+    op = {
+      mode:'binary', venue:venue, side:isYes?'yes':'no',
+      entry_price:r6(entry), n_contracts:n, payout:r6(payout), won:won,
+      pnl:pnl, fee_paid:r2(fee), implied_probability:impliedProb,
+      break_even_probability:breakEven, no_vig_fair_value:fairYes,
+      expected_value:ev, kelly_fraction:kf, half_kelly_stake:hks,
+      odds_decimal:decOdds, odds_american:amOdds, odds_fractional:fracOdds(decOdds),
+      brier_score:brier, log_score:logScore,
+      disclaimer:'Not financial advice. For informational purposes only. Verify all fee schedules with the venue before trading.'
+    };
+
+    var pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('statRow').innerHTML =
+      '<div class="stat"><span class="stat-val" style="color:'+pnlColor+'">$'+pnl+'</span><span class="stat-key">PnL</span></div>'+
+      '<div class="stat"><span class="stat-val">'+(impliedProb*100).toFixed(1)+'%</span><span class="stat-key">Implied Prob</span></div>'+
+      '<div class="stat"><span class="stat-val">'+decOdds+'x</span><span class="stat-key">Decimal Odds</span></div>'+
+      (kf !== null ? '<div class="stat"><span class="stat-val">'+(kf*100).toFixed(1)+'%</span><span class="stat-key">Kelly %</span></div>' : '');
+
+    var kvItems = [
+      ['Fee paid','$'+op.fee_paid],['Break-even prob',(breakEven*100).toFixed(2)+'%'],
+      ['No-vig fair value',(fairYes*100).toFixed(1)+'%'],
+      ['American odds',amOdds > 0 ? '+'+amOdds : ''+amOdds],
+      ['Fractional odds',op.odds_fractional]
+    ];
+    if (ev !== null) kvItems.push(['Expected value ($'+n+' contracts)','$'+ev]);
+    if (hks !== null) kvItems.push(['Half-Kelly stake','$'+hks]);
+    if (brier !== null) kvItems.push(['Brier score',brier]);
+    if (logScore !== null) kvItems.push(['Log-score',logScore]);
+    document.getElementById('kvDiv').innerHTML = kvItems.map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  } else {
+    // scalar mode
+    var venue2 = document.getElementById('sVenue').value;
+    var side2 = document.getElementById('sSide').value;
+    var strike = safe(document.getElementById('strike').value, 3.5);
+    var settleVal = safe(document.getElementById('settlementVal').value, 4.0);
+    var unitVal = Math.max(1, safe(document.getElementById('unitVal').value, 200));
+    var sn = Math.max(1, Math.round(safe(document.getElementById('sNContracts').value, 1)));
+    var cMin = safe(document.getElementById('contractMin').value, 0);
+    var cMax = safe(document.getElementById('contractMax').value, 100);
+    var ss = side2 === 'long' ? 1 : -1;
+    var clamped = Math.max(cMin, Math.min(cMax, settleVal));
+    var delta = clamped - strike;
+    var pnl2 = r2(ss * delta * unitVal * sn);
+    var inRange = settleVal >= cMin && settleVal <= cMax;
+    if (!inRange) flags.push('OUT_OF_RANGE');
+    if (pnl2 < 0) flags.push('NEGATIVE_PNL');
+
+    pp = {mode:'scalar', venue:venue2, side:side2, strike:strike, settlement_value:settleVal, unit_value:unitVal, n_contracts:sn, contract_min:cMin, contract_max:cMax};
+    op = {mode:'scalar', venue:venue2, side:side2 === 'long'?'long':'short',
+      strike:r6(strike), settlement_value:r6(settleVal), settlement_clamped:r6(clamped),
+      settlement_delta:r6(delta), unit_value:unitVal, n_contracts:sn, pnl:pnl2, settlement_in_range:inRange,
+      disclaimer:'Not financial advice. For informational purposes only.'
+    };
+    var pnlColor2 = pnl2 >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('statRow').innerHTML =
+      '<div class="stat"><span class="stat-val" style="color:'+pnlColor2+'">$'+pnl2+'</span><span class="stat-key">PnL</span></div>'+
+      '<div class="stat"><span class="stat-val">'+r6(delta)+'</span><span class="stat-key">Delta</span></div>'+
+      '<div class="stat"><span class="stat-val">'+(inRange?'Yes':'No')+'</span><span class="stat-key">In Range</span></div>';
+    document.getElementById('kvDiv').innerHTML =
+      ['Settlement clamped: '+r6(clamped),'Settlement delta: '+r6(delta),'Unit value: $'+unitVal+'/pt'].map(function(x){
+        return '<div class="kv"><span class="kv-k">'+x.split(':')[0]+'</span><span class="kv-v">'+x.split(':').slice(1).join(':').trim()+'</span></div>';
+      }).join('');
+  }
+
+  _lastResult = {pp: pp, output_payload: op, compliance_flags: flags};
+
+  document.getElementById('flagRow').innerHTML = flags.length
+    ? flags.map(function(f){return '<span class="badge warn">'+f+'</span>';}).join('')
+    : '<span class="badge ok">OK</span>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    var el = document.getElementById('verifyResult');
+    if (h === cur) {
+      el.textContent = '&#10003; Hash verified';
+      el.style.color = 'var(--green)';
+    } else {
+      el.textContent = '&#10007; Mismatch';
+      el.style.color = 'var(--red)';
+    }
+    el.innerHTML = el.textContent;
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'event_market_pnl',
+    tool_id: 'art-211-prediction-market-analyzer',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-211-prediction-market-analyzer.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
