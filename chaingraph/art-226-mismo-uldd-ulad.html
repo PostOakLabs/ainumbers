@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ULDD/ULAD Structural Linter &middot; ART-226 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Structural lint of Fannie Mae ULDD Phase 5 and Freddie Mac ULAD required data points and enumerations. Checks field presence, enum values, ARM conditionality, range constraints, and indicator consistency. ULDD Phase 5 mandate effective 2025-07-28.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-226-mismo-uldd-ulad.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.pii-notice-strong{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--bright);background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.3);border-left:4px solid var(--teal);border-radius:4px;padding:.65rem 1rem;line-height:1.6;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.65rem .8rem;outline:none;transition:border-color .2s;resize:vertical;min-height:260px;line-height:1.6}
+textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:8px 0}
+.rc-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.3rem .8rem;border-radius:20px;margin:2px 4px 2px 0;font-weight:600}
+.badge-pass{background:rgba(34,197,94,.14);color:var(--green);border:1px solid rgba(34,197,94,.35)}
+.badge-fail{background:rgba(239,68,68,.14);color:var(--red);border:1px solid rgba(239,68,68,.35)}
+.badge-warn{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.lint-item{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.lint-item:last-child{border-bottom:none}
+.lint-code{flex-shrink:0;color:var(--muted);min-width:180px}
+.lint-msg-err{color:var(--red)}.lint-msg-warn{color:var(--warn)}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.5rem .85rem;color:var(--warn);margin:12px 0}
+.reg-disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(212,168,71,.05);border:1px solid rgba(212,168,71,.2);border-radius:4px;padding:.5rem .85rem;color:var(--gold);margin:12px 0;line-height:1.6}
+.license-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(168,196,222,.04);border:1px solid var(--border-2);border-radius:4px;padding:.5rem .85rem;color:var(--body);margin:12px 0;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.summary-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>ULDD/ULAD Structural Linter</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-226 &middot; US Mortgage Agency and Government Loan Pricing</div>
+  <h1>ULDD/ULAD Structural Linter</h1>
+  <p class="sub">Structural lint of Fannie Mae ULDD Phase 5 and Freddie Mac ULAD required data points and enumerations. Checks field presence, enum values from public data dictionaries, ARM conditionality, range constraints, and indicator consistency. ULDD Phase 5 mandate effective 2025-07-28. Inputs are bounded structural fields only; loan PII never leaves the browser. Uses public ULDD Phase 5 / ULAD data dictionaries only, not the membership-licensed MISMO v3.x Reference Model schema. Table: ULDD-PHASE5-ULAD-1.3-2025-07-28.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ULDD Phase 5 (2025-07-28)</span>
+    <span class="flag info">ULAD 1.3</span>
+    <span class="flag">Fannie Mae</span>
+    <span class="flag">Freddie Mac</span>
+    <span class="flag">Structural Lint</span>
+  </div>
+
+  <div class="pii-notice-strong">&#128274; This tool accepts structural loan fields only. Loan data is personally identifiable information. All processing is local in your browser. No data is transmitted.</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="reg-disclaimer">&#9432; Not legal or compliance advice. Verify all outputs against current HUD/VA/FHFA/MISMO publications before use in production decisions.</div>
+  <div class="license-notice">&#9432; License notice: This tool lints against public ULDD Phase 5 and ULAD data dictionaries. It does not validate against the membership-licensed MISMO v3.x Reference Model schema.</div>
+
+  <div class="card">
+    <div class="section-head">Loan Data (Structural Fields Only)</div>
+    <div class="q">
+      <label class="q-label" for="loanDataJson">Paste or edit loan JSON below</label>
+      <div class="q-help">Enter structural loan fields as JSON. Enumeration values must match ULDD Phase 5 / ULAD 1.3 public data dictionaries exactly. ARM-conditional fields (arm_index_type, etc.) are only required when amortization_type is AdjustableRate.</div>
+      <textarea id="loanDataJson" spellcheck="false">{
+  "loan_purpose_type": "Purchase",
+  "amortization_type": "FixedRate",
+  "loan_amount": 425000,
+  "ltv_pct": 80.0,
+  "occupancy_type": "PrimaryResidence",
+  "property_type": "Detached",
+  "number_of_units": 1,
+  "interest_rate_pct": 6.875,
+  "loan_term_months": 360,
+  "credit_score": 740,
+  "dti_pct": 38.5,
+  "channel_type": "Retail",
+  "doc_type": "FullDocumentation"
+}</textarea>
+    </div>
+    <div style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button onclick="runLint()">&#9654; Run Structural Lint</button>
+      <button onclick="resetExample()" style="background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);padding:.6rem 1rem">Reset to Example</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Lint Results</div>
+      <div id="summaryCard" class="result-card"></div>
+
+      <div id="errorsSection" style="display:none">
+        <div class="section-head" style="margin-top:14px">Errors</div>
+        <div id="errorsCard" class="result-card"></div>
+      </div>
+
+      <div id="warningsSection" style="display:none">
+        <div class="section-head" style="margin-top:14px">Warnings</div>
+        <div id="warningsCard" class="result-card"></div>
+      </div>
+
+      <div id="passedSection" style="display:none">
+        <div class="section-head" style="margin-top:14px">Passed Checks</div>
+        <div id="passedCard" class="result-card"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-226-mismo-uldd-ulad',
+  version: '1.0.0',
+  mcp_name: 'lint_mismo_uldd_ulad',
+  title: 'ULDD/ULAD Structural Linter',
+  cluster: '㉑',
+  description: 'Structural lint of Fannie Mae ULDD Phase 5 and Freddie Mac ULAD required data points and enumerations. Checks field presence, enum values from public data dictionaries, ARM conditionality, range constraints, and indicator consistency. ULDD Phase 5 mandate effective 2025-07-28. Table: ULDD-PHASE5-ULAD-1.3-2025-07-28.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ULDD Phase 5 (2025-07-28) / ULAD 1.3',
+  mcp_tool_definition: {
+    name: 'lint_mismo_uldd_ulad',
+    description: 'Structural lint of loan data against Fannie Mae ULDD Phase 5 and Freddie Mac ULAD public data dictionaries. Checks required field presence, enum validity, range constraints, ARM conditionality, and indicator consistency. Returns pass/fail, error list, and warning list.',
+    inputSchema: {
+      type: 'object',
+      required: ['loan_data'],
+      properties: {
+        loan_data: {
+          type: 'object',
+          description: 'Structural loan fields to lint. Required: loan_purpose_type, amortization_type, loan_amount, ltv_pct, occupancy_type, property_type, number_of_units, interest_rate_pct, loan_term_months, credit_score, dti_pct, channel_type, doc_type. ARM-conditional: arm_index_type (required when amortization_type is AdjustableRate).',
+          properties: {
+            loan_purpose_type: { type: 'string' },
+            amortization_type: { type: 'string' },
+            loan_amount: { type: 'number' },
+            ltv_pct: { type: 'number' },
+            occupancy_type: { type: 'string' },
+            property_type: { type: 'string' },
+            number_of_units: { type: 'number' },
+            interest_rate_pct: { type: 'number' },
+            loan_term_months: { type: 'number' },
+            credit_score: { type: 'number' },
+            dti_pct: { type: 'number' },
+            channel_type: { type: 'string' },
+            doc_type: { type: 'string' },
+            arm_index_type: { type: 'string' },
+            down_payment_source_type: { type: 'string' },
+            mi_type: { type: 'string' }
+          }
+        }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var REQUIRED_FIELDS = [
+  'loan_purpose_type','amortization_type','loan_amount','ltv_pct',
+  'occupancy_type','property_type','number_of_units','interest_rate_pct',
+  'loan_term_months','credit_score','dti_pct','channel_type','doc_type'
+];
+
+var ENUM = {
+  loan_purpose_type: ['Purchase','CashOutRefinance','NoCashOutRefinance','Other'],
+  amortization_type: ['AdjustableRate','FixedRate','GraduatedPaymentMortgage','OtherAmortizationType'],
+  occupancy_type: ['InvestorProperty','PrimaryResidence','SecondHome'],
+  property_type: ['Attached','Condominium','Cooperative','Detached','HighRiseCondominium','ManufacturedHousing','ManufacturedHousingCondo','MH-Advantage','PlanedUnitDevelopment','DetachedCondominium'],
+  arm_index_type: ['CmtIndex1Yr','CmtIndex3Yr','CmtIndex5Yr','CmtIndex7Yr','CmtIndex10Yr','LIBOR6Month','SOFR30DayAverage','SOFR90DayAverage','SOFR180DayAverage','TBillAuction6Mo','Other'],
+  down_payment_source_type: ['Borrower','Bridge','CashDeposit','CheckingOrSavingsAccount','CommunityNonprofit','EmployerAssistanceProgram','FHAGift','Gift','GiftOfEquity','GovernmentAssistanceProgram','LifeInsuranceCashValue','LotEquity','Other','RealEstatePropertyForSale','RetirementFunds','SecuredBorrowedFunds','StocksBonds','SweatEquity','TradeEquityFromPropertySwap','TrustFunds','UnsecuredBorrowedFunds'],
+  mi_type: ['BorrowerPaid','LenderPaid','NoMI','Split','Other'],
+  channel_type: ['Broker','Correspondent','Retail','Wholesale','Other'],
+  doc_type: ['FullDocumentation','LimitedDocumentation','NoDocumentation','NoRatioDocumentation','StatedAssets','StatedIncome','StatedIncome-StatedAssets']
+};
+
+var RANGE_CHECKS = {
+  loan_amount:       { min: 1,    max: 50000000, label: 'Loan amount' },
+  ltv_pct:           { min: 0,    max: 100,      label: 'LTV percent' },
+  interest_rate_pct: { min: 0,    max: 25,       label: 'Interest rate percent' },
+  loan_term_months:  { min: 12,   max: 480,      label: 'Loan term (months)' },
+  credit_score:      { min: 300,  max: 850,      label: 'Credit score' },
+  dti_pct:           { min: 0,    max: 100,      label: 'DTI percent' },
+  number_of_units:   { min: 1,    max: 4,        label: 'Number of units' }
+};
+
+// Optional fields that have enum constraints if present
+var OPTIONAL_ENUM_FIELDS = ['arm_index_type', 'down_payment_source_type', 'mi_type'];
+
+var EXAMPLE_JSON = JSON.stringify({
+  loan_purpose_type: 'Purchase',
+  amortization_type: 'FixedRate',
+  loan_amount: 425000,
+  ltv_pct: 80.0,
+  occupancy_type: 'PrimaryResidence',
+  property_type: 'Detached',
+  number_of_units: 1,
+  interest_rate_pct: 6.875,
+  loan_term_months: 360,
+  credit_score: 740,
+  dti_pct: 38.5,
+  channel_type: 'Retail',
+  doc_type: 'FullDocumentation'
+}, null, 2);
+
+function resetExample() {
+  document.getElementById('loanDataJson').value = EXAMPLE_JSON;
+}
+
+function lintLoanData(loan_data) {
+  var errors = [];
+  var warnings = [];
+  var passed = [];
+
+  // 1. Required field presence
+  REQUIRED_FIELDS.forEach(function(field) {
+    if (loan_data[field] === undefined || loan_data[field] === null || loan_data[field] === '') {
+      errors.push({ code: 'ULDD.MISSING_REQUIRED_FIELD', field: field, message: 'Required field "' + field + '" is absent or null' });
+    } else {
+      passed.push({ code: 'ULDD.REQUIRED_FIELD_PRESENT', field: field, message: 'Required field present' });
+    }
+  });
+
+  // 2. Enum checks for present fields
+  Object.keys(ENUM).forEach(function(field) {
+    if (loan_data[field] !== undefined && loan_data[field] !== null) {
+      var allowed = ENUM[field];
+      if (allowed.indexOf(loan_data[field]) === -1) {
+        errors.push({ code: 'ULDD.INVALID_ENUM_VALUE', field: field, message: '"' + loan_data[field] + '" is not a valid ULDD/ULAD value for ' + field + '. Allowed: ' + allowed.join(', ') });
+      } else {
+        passed.push({ code: 'ULDD.ENUM_VALUE_VALID', field: field, message: 'Enum value "' + loan_data[field] + '" is valid' });
+      }
+    }
+  });
+
+  // 3. Range checks
+  Object.keys(RANGE_CHECKS).forEach(function(field) {
+    if (loan_data[field] !== undefined && loan_data[field] !== null) {
+      var r = RANGE_CHECKS[field];
+      var v = Number(loan_data[field]);
+      if (isNaN(v)) {
+        errors.push({ code: 'ULDD.TYPE_ERROR', field: field, message: r.label + ' must be numeric; got "' + loan_data[field] + '"' });
+      } else if (v < r.min || v > r.max) {
+        errors.push({ code: 'ULDD.OUT_OF_RANGE', field: field, message: r.label + ' value ' + v + ' is outside allowed range [' + r.min + ', ' + r.max + ']' });
+      } else {
+        passed.push({ code: 'ULDD.RANGE_CHECK_PASSED', field: field, message: r.label + ' ' + v + ' is within range [' + r.min + ', ' + r.max + ']' });
+      }
+    }
+  });
+
+  // 4. ARM conditionality: arm_index_type required when amortization_type is AdjustableRate
+  if (loan_data.amortization_type === 'AdjustableRate') {
+    if (!loan_data.arm_index_type) {
+      errors.push({ code: 'ULDD.ARM_INDEX_REQUIRED', field: 'arm_index_type', message: 'arm_index_type is required when amortization_type is AdjustableRate' });
+    } else {
+      passed.push({ code: 'ULDD.ARM_CONDITIONALITY_MET', field: 'arm_index_type', message: 'arm_index_type present as required for AdjustableRate' });
+    }
+  }
+
+  // 5. DTI advisory warnings
+  if (typeof loan_data.dti_pct === 'number' && loan_data.dti_pct > 45) {
+    warnings.push({ code: 'ULDD.HIGH_DTI', field: 'dti_pct', message: 'DTI ' + loan_data.dti_pct + '% exceeds typical agency eligibility ceiling of 45%; manual review expected' });
+  }
+  if (typeof loan_data.dti_pct === 'number' && loan_data.dti_pct > 36 && loan_data.dti_pct <= 45) {
+    warnings.push({ code: 'ULDD.ELEVATED_DTI', field: 'dti_pct', message: 'DTI ' + loan_data.dti_pct + '% above 36% standard threshold; compensating factors may be required' });
+  }
+
+  // 6. LTV advisory warnings
+  if (typeof loan_data.ltv_pct === 'number' && loan_data.ltv_pct > 95) {
+    warnings.push({ code: 'ULDD.HIGH_LTV', field: 'ltv_pct', message: 'LTV ' + loan_data.ltv_pct + '% exceeds 95%; verify MI requirement and program eligibility' });
+  }
+  if (typeof loan_data.ltv_pct === 'number' && loan_data.ltv_pct > 80 && loan_data.ltv_pct <= 95) {
+    if (!loan_data.mi_type || loan_data.mi_type === 'NoMI') {
+      warnings.push({ code: 'ULDD.LTV_OVER_80_NO_MI', field: 'mi_type', message: 'LTV above 80% with no MI or missing mi_type; verify MI requirement' });
+    }
+  }
+
+  // 7. Credit score advisory
+  if (typeof loan_data.credit_score === 'number' && loan_data.credit_score < 620) {
+    warnings.push({ code: 'ULDD.LOW_CREDIT_SCORE', field: 'credit_score', message: 'Credit score ' + loan_data.credit_score + ' is below typical conventional agency minimum of 620' });
+  }
+
+  // 8. Manufactured housing conditionality
+  if (loan_data.property_type === 'ManufacturedHousing' || loan_data.property_type === 'ManufacturedHousingCondo' || loan_data.property_type === 'MH-Advantage') {
+    warnings.push({ code: 'ULDD.MANUFACTURED_HOUSING', field: 'property_type', message: 'Manufactured housing property type: verify additional ULDD manufactured housing data points are present in full delivery file' });
+  }
+
+  // 9. number_of_units consistency
+  if (typeof loan_data.number_of_units === 'number' && loan_data.number_of_units > 1 && loan_data.occupancy_type === 'SecondHome') {
+    errors.push({ code: 'ULDD.MULTI_UNIT_SECOND_HOME_CONFLICT', field: 'number_of_units', message: 'Multi-unit property (' + loan_data.number_of_units + ' units) combined with SecondHome occupancy_type is not a valid ULDD combination' });
+  }
+
+  // 10. GraduatedPaymentMortgage advisory
+  if (loan_data.amortization_type === 'GraduatedPaymentMortgage') {
+    warnings.push({ code: 'ULDD.GPM_DELIVERY', field: 'amortization_type', message: 'GraduatedPaymentMortgage requires additional GPM data elements in full ULDD delivery file' });
+  }
+
+  var passed_count = passed.length;
+  var error_count = errors.length;
+  var warning_count = warnings.length;
+  var total_checks = passed_count + error_count + warning_count;
+
+  return {
+    pass: error_count === 0,
+    error_count: error_count,
+    warning_count: warning_count,
+    passed_count: passed_count,
+    total_checks: total_checks,
+    errors: errors,
+    warnings: warnings,
+    passed: passed,
+    table_version: 'ULDD-PHASE5-ULAD-1.3-2025-07-28',
+    note: 'Checks field presence and enum values from public ULDD Phase 5 / ULAD 1.3 data dictionaries only. Does not validate against membership-licensed MISMO v3.x Reference Model schema.'
+  };
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function runLint() {
+  var raw = document.getElementById('loanDataJson').value.trim();
+  var loan_data;
+  try {
+    loan_data = JSON.parse(raw);
+  } catch(e) {
+    alert('Invalid JSON: ' + e.message);
+    return;
+  }
+  if (typeof loan_data !== 'object' || Array.isArray(loan_data) || loan_data === null) {
+    alert('Input must be a JSON object, not an array or primitive.');
+    return;
+  }
+
+  var op = lintLoanData(loan_data);
+  var pp = { loan_data: loan_data };
+  _lastResult = { pp: pp, output_payload: op };
+
+  // Summary card
+  var sumHtml = '<div class="summary-row">';
+  if (op.pass) {
+    sumHtml += '<span class="badge badge-pass">&#10003; PASS</span>';
+  } else {
+    sumHtml += '<span class="badge badge-fail">&#10007; FAIL</span>';
+  }
+  sumHtml += '<span class="badge badge-fail" style="' + (op.error_count === 0 ? 'opacity:.4' : '') + '">' + op.error_count + ' error' + (op.error_count !== 1 ? 's' : '') + '</span>';
+  sumHtml += '<span class="badge badge-warn" style="' + (op.warning_count === 0 ? 'opacity:.4' : '') + '">' + op.warning_count + ' warning' + (op.warning_count !== 1 ? 's' : '') + '</span>';
+  sumHtml += '<span class="badge" style="background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)">' + op.passed_count + ' passed</span>';
+  sumHtml += '</div>';
+  sumHtml += '<div class="kv"><span class="kv-k">Total checks run</span><span class="kv-v">' + op.total_checks + '</span></div>';
+  sumHtml += '<div class="kv"><span class="kv-k">Table version</span><span class="kv-v">' + op.table_version + '</span></div>';
+  sumHtml += '<div class="kv"><span class="kv-k">amortization_type</span><span class="kv-v">' + (loan_data.amortization_type || 'absent') + '</span></div>';
+  document.getElementById('summaryCard').innerHTML = sumHtml;
+
+  // Errors section
+  if (op.errors.length > 0) {
+    var errHtml = '<div class="rc-title">Errors (' + op.errors.length + ')</div>';
+    op.errors.forEach(function(e) {
+      errHtml += '<div class="lint-item"><span class="lint-code">[' + e.code + ']<br><span style="color:var(--teal);font-size:.6rem">' + (e.field || '') + '</span></span><span class="lint-msg-err">' + e.message + '</span></div>';
+    });
+    document.getElementById('errorsCard').innerHTML = errHtml;
+    document.getElementById('errorsSection').style.display = 'block';
+  } else {
+    document.getElementById('errorsSection').style.display = 'none';
+  }
+
+  // Warnings section
+  if (op.warnings.length > 0) {
+    var warnHtml = '<div class="rc-title">Warnings (' + op.warnings.length + ')</div>';
+    op.warnings.forEach(function(w) {
+      warnHtml += '<div class="lint-item"><span class="lint-code">[' + w.code + ']<br><span style="color:var(--teal);font-size:.6rem">' + (w.field || '') + '</span></span><span class="lint-msg-warn">' + w.message + '</span></div>';
+    });
+    document.getElementById('warningsCard').innerHTML = warnHtml;
+    document.getElementById('warningsSection').style.display = 'block';
+  } else {
+    document.getElementById('warningsSection').style.display = 'none';
+  }
+
+  // Passed section (collapsed summary)
+  if (op.passed.length > 0) {
+    var passHtml = '<div class="rc-title">Passed Checks (' + op.passed.length + ')</div>';
+    op.passed.forEach(function(p) {
+      passHtml += '<div class="lint-item"><span class="lint-code">[' + p.code + ']<br><span style="color:var(--teal);font-size:.6rem">' + (p.field || '') + '</span></span><span style="color:var(--green);font-size:.65rem">' + p.message + '</span></div>';
+    });
+    document.getElementById('passedCard').innerHTML = passHtml;
+    document.getElementById('passedSection').style.display = 'block';
+  } else {
+    document.getElementById('passedSection').style.display = 'none';
+  }
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-226-mismo-uldd-ulad',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.output_payload.errors.map(function(e){ return { code: e.code, field: e.field, message: e.message }; }),
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-226-mismo-uldd-ulad.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agency Eligibility Matrix &middot; ART-222 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Fannie Mae DU and Freddie Mac LPA agency eligibility checks. Tests DTI caps, LTV/CLTV/HCLTV limits by occupancy and loan purpose, and multi-unit constraints. Returns ELIGIBLE or INELIGIBLE with per-check detail. Table: FNM-LPA-ELIGIBILITY-2026-01-01.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-222-agency-eligibility-matrix.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type=number],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-hero{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:16px 20px;margin:4px 0 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hero-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase}
+.hero-value{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-value.eligible{color:var(--green)}
+.hero-value.ineligible{color:var(--red)}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.check-item:last-child{border-bottom:none}
+.check-icon{flex-shrink:0;font-size:.85rem;margin-top:1px}
+.check-label{color:var(--body);flex:1}
+.check-detail{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:2px}
+.check-status-pass{color:var(--green)}
+.check-status-fail{color:var(--red)}
+.fail-summary{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:.6rem .9rem;color:var(--red);margin:10px 0}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.5rem .85rem;color:var(--warn);margin:12px 0}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Agency Eligibility Matrix</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-222 &middot; US Mortgage Agency and Government Loan Pricing</div>
+  <h1>Agency Eligibility Matrix</h1>
+  <p class="sub">Fannie Mae DU and Freddie Mac LPA agency eligibility checks. Tests DTI caps (DU/LPA: 50%; manual UW: 36% housing / 45% total), LTV/CLTV/HCLTV limits by occupancy type and loan purpose, and multi-unit constraints. Returns ELIGIBLE or INELIGIBLE with per-check detail. Table: FNM-LPA-ELIGIBILITY-2026-01-01.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Fannie Mae DU</span>
+    <span class="flag info">Freddie Mac LPA</span>
+    <span class="flag info">FNM-LPA-ELIGIBILITY-2026-01-01</span>
+    <span class="flag">DTI Caps</span>
+    <span class="flag">LTV Limits</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</div>
+  <div class="warn-box">&#9888; Eligibility limits are version-pinned at build time. Agency guidelines update periodically. Verify against current Fannie Mae and Freddie Mac Selling Guides before using in production underwriting decisions. Not legal or compliance advice.</div>
+
+  <div class="card">
+    <div class="section-head">Loan and Borrower Inputs</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="ficoScore">FICO Score</label>
+        <div class="q-help">Representative borrower credit score (300&#8211;850).</div>
+        <input type="number" id="ficoScore" min="300" max="850" value="720" placeholder="720">
+      </div>
+      <div class="q">
+        <label class="q-label" for="ltvPct">LTV (%)</label>
+        <div class="q-help">Loan-to-value (0&#8211;100).</div>
+        <input type="number" id="ltvPct" min="0" max="100" step="0.01" value="80" placeholder="80">
+      </div>
+      <div class="q">
+        <label class="q-label" for="cltvPct">CLTV (%)</label>
+        <div class="q-help">Combined LTV including subordinate liens.</div>
+        <input type="number" id="cltvPct" min="0" max="100" step="0.01" value="80" placeholder="80">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="hcltvPct">HCLTV (%)</label>
+        <div class="q-help">Home equity CLTV including HELOCs.</div>
+        <input type="number" id="hcltvPct" min="0" max="100" step="0.01" value="80" placeholder="80">
+      </div>
+      <div class="q">
+        <label class="q-label" for="dtiPct">Total DTI (%)</label>
+        <div class="q-help">Total debt-to-income ratio (0&#8211;100).</div>
+        <input type="number" id="dtiPct" min="0" max="100" step="0.01" value="38" placeholder="38">
+      </div>
+      <div class="q">
+        <label class="q-label" for="housingDtiPct">Housing DTI (%)</label>
+        <div class="q-help">Front-end / housing expense ratio.</div>
+        <input type="number" id="housingDtiPct" min="0" max="100" step="0.01" value="28" placeholder="28">
+      </div>
+    </div>
+    <div class="section-head">Loan Characteristics</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="occupancyType">Occupancy</label>
+        <select id="occupancyType">
+          <option value="primary" selected>Primary Residence</option>
+          <option value="second_home">Second Home</option>
+          <option value="investment">Investment Property</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="loanPurpose">Loan Purpose</label>
+        <select id="loanPurpose">
+          <option value="purchase" selected>Purchase</option>
+          <option value="rate_term_refi">Rate/Term Refi</option>
+          <option value="cash_out_refi">Cash-Out Refi</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="underwritingType">Underwriting Type</label>
+        <select id="underwritingType">
+          <option value="du" selected>DU (Fannie Mae)</option>
+          <option value="lpa">LPA (Freddie Mac)</option>
+          <option value="manual">Manual Underwriting</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="units">Units</label>
+        <select id="units">
+          <option value="1" selected>1 Unit</option>
+          <option value="2">2 Units</option>
+          <option value="3">3 Units</option>
+          <option value="4">4 Units</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="checkEligibility()">&#9654; Check Agency Eligibility</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Eligibility Result</div>
+      <div class="result-hero">
+        <div>
+          <div class="hero-label">Overall Determination</div>
+          <div class="hero-value" id="heroValue">--</div>
+        </div>
+        <div style="text-align:right">
+          <div class="hero-label">Table Version</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--teal-lt)">FNM-LPA-ELIGIBILITY-2026-01-01</div>
+        </div>
+      </div>
+      <div id="failSummary"></div>
+      <div class="section-head">Per-Check Detail</div>
+      <div id="checksDiv"></div>
+      <div class="section-head" style="margin-top:14px">Summary Fields</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+    <div class="warn-box">&#9888; Not legal or compliance advice. Outputs are computed from version-pinned tables and your inputs only. Consult qualified counsel before relying on any result for production decisions.</div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-222-agency-eligibility-matrix',
+  version: '1.0.0',
+  mcp_name: 'check_agency_eligibility_matrix',
+  title: 'Agency Eligibility Matrix',
+  description: 'Fannie Mae DU and Freddie Mac LPA agency eligibility checks. Tests DTI caps (DU/LPA: 50%; manual UW: 36% housing / 45% total), LTV/CLTV/HCLTV limits by occupancy type and loan purpose, and multi-unit constraints. Returns ELIGIBLE or INELIGIBLE with per-check detail. Table: FNM-LPA-ELIGIBILITY-2026-01-01.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  cluster: 21,
+  regulation: 'Fannie Mae / Freddie Mac Selling Guide / FNM-LPA-ELIGIBILITY-2026-01-01',
+  mcp_tool_definition: {
+    name: 'check_agency_eligibility_matrix',
+    description: 'Check Fannie Mae DU / Freddie Mac LPA agency eligibility: DTI caps, LTV/CLTV/HCLTV limits by occupancy and loan purpose, multi-unit constraints. Returns ELIGIBLE or INELIGIBLE with per-check detail.',
+    inputSchema: {
+      type: 'object',
+      required: ['fico_score', 'ltv_pct', 'cltv_pct', 'hcltv_pct', 'dti_pct', 'housing_dti_pct', 'occupancy_type', 'loan_purpose', 'underwriting_type', 'units'],
+      properties: {
+        fico_score: { type: 'number', description: 'Borrower FICO score (300-850)' },
+        ltv_pct: { type: 'number', description: 'Loan-to-value ratio 0-100' },
+        cltv_pct: { type: 'number', description: 'Combined LTV including subordinate liens 0-100' },
+        hcltv_pct: { type: 'number', description: 'Home equity CLTV including HELOCs 0-100' },
+        dti_pct: { type: 'number', description: 'Total debt-to-income ratio 0-100' },
+        housing_dti_pct: { type: 'number', description: 'Front-end housing DTI ratio 0-100' },
+        occupancy_type: { type: 'string', enum: ['primary', 'second_home', 'investment'] },
+        loan_purpose: { type: 'string', enum: ['purchase', 'rate_term_refi', 'cash_out_refi'] },
+        underwriting_type: { type: 'string', enum: ['du', 'lpa', 'manual'] },
+        units: { type: 'number', enum: [1, 2, 3, 4], description: 'Number of units (1-4)' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+// ---- Agency eligibility limits (FNM-LPA-ELIGIBILITY-2026-01-01) ----
+// LTV/CLTV/HCLTV max limits: keyed by occupancy + loan_purpose + units
+// Format: [max_ltv, max_cltv, max_hcltv]  (all as percentages)
+var LTV_LIMITS = {
+  primary: {
+    purchase:       { 1: [97, 97, 97], 2: [85, 85, 85], 3: [75, 75, 75], 4: [75, 75, 75] },
+    rate_term_refi: { 1: [97, 97, 97], 2: [85, 85, 85], 3: [75, 75, 75], 4: [75, 75, 75] },
+    cash_out_refi:  { 1: [80, 80, 80], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] }
+  },
+  second_home: {
+    purchase:       { 1: [90, 90, 90], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] },
+    rate_term_refi: { 1: [90, 90, 90], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] },
+    cash_out_refi:  { 1: [75, 75, 75], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] }
+  },
+  investment: {
+    purchase:       { 1: [85, 85, 85], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] },
+    rate_term_refi: { 1: [85, 85, 85], 2: [75, 75, 75], 3: [75, 75, 75], 4: [75, 75, 75] },
+    cash_out_refi:  { 1: [75, 75, 75], 2: [70, 70, 70], 3: [70, 70, 70], 4: [70, 70, 70] }
+  }
+};
+
+// Minimum FICO by occupancy + units for AUS
+var MIN_FICO = {
+  primary:     { 1: 620, 2: 620, 3: 620, 4: 620 },
+  second_home: { 1: 640, 2: 640, 3: 640, 4: 640 },
+  investment:  { 1: 640, 2: 640, 3: 640, 4: 640 }
+};
+
+function r4(v) { return Math.round(v * 1e4) / 1e4; }
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{})
+    : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function checkEligibility() {
+  var fico        = parseInt(document.getElementById('ficoScore').value) || 720;
+  var ltv         = parseFloat(document.getElementById('ltvPct').value) || 80;
+  var cltv        = parseFloat(document.getElementById('cltvPct').value) || 80;
+  var hcltv       = parseFloat(document.getElementById('hcltvPct').value) || 80;
+  var dti         = parseFloat(document.getElementById('dtiPct').value) || 38;
+  var housingDti  = parseFloat(document.getElementById('housingDtiPct').value) || 28;
+  var occupancy   = document.getElementById('occupancyType').value;
+  var loanPurpose = document.getElementById('loanPurpose').value;
+  var uwType      = document.getElementById('underwritingType').value;
+  var units       = parseInt(document.getElementById('units').value) || 1;
+
+  fico      = Math.max(300, Math.min(850, fico));
+  ltv       = Math.max(0, Math.min(100, ltv));
+  cltv      = Math.max(0, Math.min(100, cltv));
+  hcltv     = Math.max(0, Math.min(100, hcltv));
+  dti       = Math.max(0, Math.min(100, dti));
+  housingDti= Math.max(0, Math.min(100, housingDti));
+
+  var checks = [];
+  var fails  = [];
+
+  // ---- DTI check ----
+  var dtiCapTotal   = (uwType === 'manual') ? 45 : 50;
+  var dtiCapHousing = (uwType === 'manual') ? 36 : null;
+
+  var dtiPass = dti <= dtiCapTotal;
+  var dtiDetail = 'Total DTI ' + dti.toFixed(2) + '% vs cap ' + dtiCapTotal + '%';
+  checks.push({ name: 'Total DTI Cap', pass: dtiPass, detail: dtiDetail, rule: uwType === 'manual' ? 'Manual UW: 45% total' : (uwType === 'du' ? 'DU: 50% total' : 'LPA: 50% total') });
+  if (!dtiPass) fails.push('Total DTI exceeds ' + dtiCapTotal + '% cap');
+
+  if (uwType === 'manual' && dtiCapHousing !== null) {
+    var hdtiPass = housingDti <= dtiCapHousing;
+    checks.push({ name: 'Housing DTI Cap (Manual)', pass: hdtiPass, detail: 'Housing DTI ' + housingDti.toFixed(2) + '% vs cap ' + dtiCapHousing + '%', rule: 'Manual UW: 36% housing' });
+    if (!hdtiPass) fails.push('Housing DTI exceeds 36% manual UW cap');
+  }
+
+  // ---- FICO minimum check ----
+  var minFico = (MIN_FICO[occupancy] || {})[units] || 620;
+  var ficoPass = fico >= minFico;
+  checks.push({ name: 'Minimum FICO', pass: ficoPass, detail: 'FICO ' + fico + ' vs minimum ' + minFico, rule: occupancy + ' / ' + units + '-unit AUS minimum' });
+  if (!ficoPass) fails.push('FICO ' + fico + ' below minimum ' + minFico + ' for ' + occupancy + ' / ' + units + '-unit');
+
+  // ---- LTV / CLTV / HCLTV limits ----
+  var ltvEntry = ((LTV_LIMITS[occupancy] || {})[loanPurpose] || {})[units];
+  if (!ltvEntry) ltvEntry = [75, 75, 75]; // conservative fallback
+  var maxLtv = ltvEntry[0], maxCltv = ltvEntry[1], maxHcltv = ltvEntry[2];
+
+  var ltvPass = ltv <= maxLtv;
+  checks.push({ name: 'LTV Limit', pass: ltvPass, detail: 'LTV ' + ltv.toFixed(2) + '% vs max ' + maxLtv + '%', rule: occupancy + ' / ' + loanPurpose + ' / ' + units + '-unit' });
+  if (!ltvPass) fails.push('LTV ' + ltv.toFixed(2) + '% exceeds max ' + maxLtv + '%');
+
+  var cltvPass = cltv <= maxCltv;
+  checks.push({ name: 'CLTV Limit', pass: cltvPass, detail: 'CLTV ' + cltv.toFixed(2) + '% vs max ' + maxCltv + '%', rule: 'Combined LTV limit' });
+  if (!cltvPass) fails.push('CLTV ' + cltv.toFixed(2) + '% exceeds max ' + maxCltv + '%');
+
+  var hcltvPass = hcltv <= maxHcltv;
+  checks.push({ name: 'HCLTV Limit', pass: hcltvPass, detail: 'HCLTV ' + hcltv.toFixed(2) + '% vs max ' + maxHcltv + '%', rule: 'Home equity CLTV limit' });
+  if (!hcltvPass) fails.push('HCLTV ' + hcltv.toFixed(2) + '% exceeds max ' + maxHcltv + '%');
+
+  // ---- Multi-unit investment restriction ----
+  if (occupancy === 'investment' && units >= 3) {
+    var mu3Pass = fico >= 680;
+    checks.push({ name: 'Multi-unit Investment FICO', pass: mu3Pass, detail: 'FICO ' + fico + ' vs minimum 680 for 3-4 unit investment', rule: 'Investment 3-4 units: FICO >= 680' });
+    if (!mu3Pass) fails.push('FICO below 680 required for 3-4 unit investment property');
+  }
+
+  // ---- Second home restriction: no 2-4 units ----
+  if (occupancy === 'second_home' && units > 1) {
+    checks.push({ name: 'Second Home Unit Restriction', pass: false, detail: 'Second home limited to 1 unit; ' + units + ' units submitted', rule: 'Agency: second home = 1 unit only' });
+    fails.push('Second home ineligible for 2-4 unit properties');
+  }
+
+  var eligible = fails.length === 0;
+  var eligible_flag = eligible ? 'ELIGIBLE' : 'INELIGIBLE';
+
+  var pp = { fico_score: fico, ltv_pct: ltv, cltv_pct: cltv, hcltv_pct: hcltv, dti_pct: dti, housing_dti_pct: housingDti, occupancy_type: occupancy, loan_purpose: loanPurpose, underwriting_type: uwType, units: units };
+  var op = {
+    eligible: eligible,
+    eligible_flag: eligible_flag,
+    fails: fails,
+    checks: checks.map(function(c){ return { name: c.name, pass: c.pass, detail: c.detail, rule: c.rule }; }),
+    max_ltv_applied: maxLtv,
+    max_cltv_applied: maxCltv,
+    max_hcltv_applied: maxHcltv,
+    dti_cap_applied: dtiCapTotal,
+    table_version: 'FNM-LPA-ELIGIBILITY-2026-01-01'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: fails.map(function(f){ return { flag: 'INELIGIBLE', detail: f }; }) };
+
+  // Render hero
+  var heroEl = document.getElementById('heroValue');
+  heroEl.textContent = eligible_flag;
+  heroEl.className = 'hero-value ' + (eligible ? 'eligible' : 'ineligible');
+
+  // Fail summary
+  var fsEl = document.getElementById('failSummary');
+  if (fails.length > 0) {
+    fsEl.innerHTML = '<div class="fail-summary">&#10007; ' + fails.length + ' check' + (fails.length > 1 ? 's' : '') + ' failed: ' + fails.join('; ') + '</div>';
+  } else {
+    fsEl.innerHTML = '';
+  }
+
+  // Per-check detail
+  document.getElementById('checksDiv').innerHTML = checks.map(function(c) {
+    return '<div class="check-item">'
+      + '<span class="check-icon ' + (c.pass ? 'check-status-pass' : 'check-status-fail') + '">' + (c.pass ? '&#10003;' : '&#10007;') + '</span>'
+      + '<div><div class="check-label">' + c.name + '</div>'
+      + '<div class="check-detail">' + c.detail + ' &mdash; ' + c.rule + '</div></div>'
+      + '</div>';
+  }).join('');
+
+  // Summary KVs
+  var kvRows = [
+    { k: 'eligible_flag', v: eligible_flag },
+    { k: 'fails_count', v: String(fails.length) },
+    { k: 'max_ltv_applied', v: maxLtv + '%' },
+    { k: 'max_cltv_applied', v: maxCltv + '%' },
+    { k: 'max_hcltv_applied', v: maxHcltv + '%' },
+    { k: 'dti_cap_applied', v: dtiCapTotal + '%' },
+    { k: 'underwriting_type', v: uwType },
+    { k: 'table_version', v: 'FNM-LPA-ELIGIBILITY-2026-01-01' }
+  ];
+  document.getElementById('kvDiv').innerHTML = kvRows.map(function(r) {
+    return '<div class="kv"><span class="kv-k">' + r.k + '</span><span class="kv-v">' + r.v + '</span></div>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur
+      ? '<span style="color:var(--green)">&#10003; Hash verified</span>'
+      : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-222-agency-eligibility-matrix',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-222-agency-eligibility-matrix.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
