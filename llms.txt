@@ -409,6 +409,20 @@ Eight agent-native MCP tools for the full MiCA Title V CASP lifecycle. MiCA Titl
 - `chaingraph/art-104-tfr-travel-rule-batch-validator.html` — ART-104 · Originator/beneficiary field completeness on synthetic transfer batches; unhosted-wallet enhanced DD per TFR recast Art 19(2). No real PII. mandate_type: compliance_mandate. MCP: validate_tfr_travel_rule_batch.
 - `chaingraph/art-105-mica-token-service-scoper.html` — ART-105 · ART/EMT-issuer (Title III/IV, existing chains) vs CASP-service (Title V, Wave-20 chains) disambiguation router. mandate_type: agent_guardrail_mandate. MCP: scope_mica_token_and_service.
 
+### US Mortgage Compliance Core (cluster 21, ART-215..220)
+Six tools covering the US residential mortgage compliance stack. All in force (12 CFR). Version-pinned QM and HOEPA threshold tables (2021-2026) with FR citations baked into kernels. Two chains: mortgage-compliance-preflight (first live OCG §21.4 gated chain) and mortgage-apr-accuracy-and-tolerance-cure (linear TRID remediation chain).
+
+- `chaingraph/art-215-reg-z-appendix-j-apr.html` — ART-215 · Newton-Raphson APR solver over Reg Z Appendix J general actuarial equation. Fractional first period (odd days), irregular schedules, advances/payments arrays. Outputs apr_pct (4dp), periodic_rate, iterations, converged. mandate_type: compliance_mandate. MCP: compute_reg_z_appendix_j_apr.
+- `chaingraph/art-216-trid-tolerance-cure.html` — ART-216 · TRID fee tolerance and cure per 12 CFR §1026.19(e)(3). Three buckets: zero_tolerance (any increase = violation), ten_pct_cumulative (10% aggregate limit), no_tolerance_limit. Dynamic fee rows. Outputs cure_amount, violations. mandate_type: compliance_mandate. MCP: compute_trid_tolerance_cure.
+- `chaingraph/art-217-trid-apr-accuracy.html` — ART-217 · APR accuracy verification per 12 CFR §1026.22(a). Regular: 1/8 pp tolerance; irregular: 1/4 pp. Verdicts: accurate, accurate_overstated_ok, understated_violation, overstated_violation. Flags TRID_APR_UNDERSTATED_VIOLATION. mandate_type: compliance_mandate. MCP: verify_trid_apr_accuracy.
+- `chaingraph/art-218-qm-points-and-fees.html` — ART-218 · QM points-and-fees test per 12 CFR §1026.43(e)(3). Five-tier table version-pinned 2021-2026 with FR citations. Pass/fail + limit. Feeds §21.4 gate in mortgage-compliance-preflight. mandate_type: compliance_mandate. MCP: check_qm_points_and_fees.
+- `chaingraph/art-219-qm-apr-apor-spread.html` — ART-219 · QM APR-APOR spread classifier per §1026.43(e)(2)(vi). First-lien thresholds: safe harbor 1.5pp, rebuttable 1.5-2.25pp, fail >2.25pp. HPCT at 1.5pp. Flags QM_APR_SPREAD_FAIL, HPCT_LOAN, QM_REBUTTABLE_PRESUMPTION. mandate_type: compliance_mandate. MCP: classify_qm_apr_apor_spread.
+- `chaingraph/art-220-reg-z-threshold-lookup.html` — ART-220 · Version-pinned Reg Z threshold lookup. QM points-and-fees dollar thresholds and HOEPA rate-spread + points-and-fees thresholds 2021-2026. No numeric inputs. Anti-hallucination moat for agents. mandate_type: compliance_mandate. MCP: lookup_reg_z_thresholds.
+
+Chains:
+- `chaingraph/chains/mortgage-compliance-preflight.html` — 4-step gated chain (OCG v0.8.0). ART-220 > ART-217 [gate: verdict=understated_violation->END] > ART-218 [gate: pass=false->END] > ART-219. First live OCG §21.4 decision-gate chain.
+- `chaingraph/chains/mortgage-apr-accuracy-and-tolerance-cure.html` — 3-step linear TRID remediation chain (OCG v0.8.0). ART-215 > ART-217 > ART-216. Computes actual APR, verifies accuracy, produces cure package.
+
 ### §4 Artifact Schema (OpenChainGraph)
 All OpenChainGraph nodes emit: `{ap2_version:"1.0.0", mandate_id, tool_id, execution_hash, chain:{parent_hashes, parent_tool_ids, chain_depth}, policy_parameters, output_payload, compliance_flags, audit_signature}`. execution_hash is WebCrypto SHA-256 over sorted-key JSON of policy_parameters + output_payload — verifiable client-side. Wave 9 artifacts additionally carry `dct:conformsTo` (W3C PROF profile URI) and `semantic_profile` token (iso20022:pacs.008-subset or iso20022:party-identification) per OpenChainGraph v0.3.1.
 
