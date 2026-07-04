@@ -207,9 +207,29 @@ h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);mar
     </a>
   </div>
 
+  <!-- HOEPA / HPML tools -->
+  <h2>HOEPA and HPML: high-cost mortgage and escrow screens</h2>
+  <div class="sub">HOEPA three-trigger test (§1026.32(a)(1)) and HPML escrow requirement (§1026.35(a)+(b)). Run the high-cost screen first; the HPML screen only applies when no HOEPA trigger fires. Both consume art-220 threshold tables.</div>
+  <div class="grid">
+    <a class="card" href="art-234-test-hoepa-high-cost.html">
+      <div class="num">ART-234 &middot; compliance_mandate</div>
+      <div class="name">HOEPA High-Cost Mortgage Trigger Test</div>
+      <div class="d">Tests all three HOEPA high-cost triggers per §1026.32(a)(1). (i) APR trigger: APOR+6.5pp first-lien, APOR+8.5pp subordinate or dwelling below $50,000. (ii) Points-and-fees trigger: 5% of loan or $1,380 floor (2026, FR 2025-22773). (iii) Prepayment penalty trigger: applies beyond 36 months or exceeds 2% of prepaid amount. Returns is_high_cost and triggers_fired. Feeds §21.4 gate in mortgage-high-cost-and-hpml-screen chain.</div>
+      <span class="mcp">test_hoepa_high_cost</span>
+      <span class="status inforce">IN FORCE &middot; §1026.32(a)(1) &middot; HOEPA 2026</span>
+    </a>
+    <a class="card" href="art-235-test-hpml-escrow.html">
+      <div class="num">ART-235 &middot; compliance_mandate</div>
+      <div class="name">HPML Escrow Requirement Test</div>
+      <div class="d">HPML higher-priced mortgage loan definition per §1026.35(a) and escrow obligation per §1026.35(b). Spread thresholds: APOR+1.5pp first-lien standard, APOR+2.5pp jumbo, APOR+3.5pp subordinate lien. Dodd-Frank structural thresholds, unchanged since 2014. Escrow required for first-lien HPML (5-year minimum). Exemptions: rural/underserved small creditor (assets &lt;$2B + &le;500 HPMLs), condo master policy. Returns is_hpml and escrow_required.</div>
+      <span class="mcp">test_hpml_escrow</span>
+      <span class="status inforce">IN FORCE &middot; §1026.35(a)+(b) &middot; Dodd-Frank</span>
+    </a>
+  </div>
+
   <!-- Chains -->
-  <h2>Chains: 4 chains (3 gated, 1 linear)</h2>
-  <div class="sub">Four chains cover mortgage compliance, TRID remediation, agency pricing decisioning, and government loan program routing. Chains with §21.4 gates exit early or fork when a condition is met.</div>
+  <h2>Chains: 5 chains (4 gated, 1 linear)</h2>
+  <div class="sub">Five chains cover mortgage compliance, TRID remediation, agency pricing decisioning, government loan program routing, and HOEPA/HPML screening. Chains with §21.4 gates exit early or fork when a condition is met.</div>
 
   <div class="topology">
     <span class="h">mortgage-compliance-preflight (§21.4 gated, 2 gates):</span><br>
@@ -220,7 +240,9 @@ h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);mar
     &nbsp;&nbsp;<span class="h">ART-223</span> [CLL check] &rarr; <span class="g">ART-222</span> [eligibility <span class="g">GATE: INELIGIBLE &rarr; END</span>] &rarr; <span class="h">ART-221</span> [LLPA stack]<br><br>
     <span class="h">mortgage-government-loan-fit (§21.4 fork gate):</span><br>
     &nbsp;&nbsp;<span class="g">ART-223</span> [CLL + program <span class="g">FORK: loan_program=VA &rarr; ART-225; default &rarr; ART-224</span>]<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;Branch A (VA): <span class="h">ART-225</span> [VA fee + residual] &nbsp;|&nbsp; Branch B (FHA/default): <span class="h">ART-224</span> [FHA MIP]
+    &nbsp;&nbsp;&nbsp;&nbsp;Branch A (VA): <span class="h">ART-225</span> [VA fee + residual] &nbsp;|&nbsp; Branch B (FHA/default): <span class="h">ART-224</span> [FHA MIP]<br><br>
+    <span class="h">mortgage-high-cost-and-hpml-screen (§21.4 gated, 1 gate):</span><br>
+    &nbsp;&nbsp;<span class="g">ART-234</span> [HOEPA triggers <span class="g">GATE: is_high_cost=true &rarr; END</span>] &rarr; <span class="h">ART-235</span> [HPML escrow]
   </div>
 
   <div class="grid">
@@ -251,6 +273,13 @@ h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);mar
       <div class="steps">&rarr; ART-223 [FORK: VA &rarr; ART-225 | default &rarr; ART-224]</div>
       <span class="gate-badge">&#9889; §21.4 Fork Gate (VA/FHA router)</span>
     </a>
+    <a class="card chain" href="chains/mortgage-high-cost-and-hpml-screen.html">
+      <div class="num">mortgage-high-cost-and-hpml-screen &middot; 2 nodes &middot; OCG v0.8.0</div>
+      <div class="name">Mortgage High-Cost and HPML Screen</div>
+      <div class="d">Gated two-step HOEPA/HPML screen. Step 1 tests all three HOEPA high-cost triggers (APR, points-and-fees, prepayment penalty) per §1026.32(a)(1). Gate exits immediately if any trigger fires. If no HOEPA trigger, default path continues to step 2: HPML escrow requirement per §1026.35(a)+(b). Covers rural/underserved and condo master-policy escrow exemptions.</div>
+      <div class="steps">&rarr; ART-234 [GATE: is_high_cost=true &rarr; END] &rarr; ART-235</div>
+      <span class="gate-badge">&#9889; §21.4 Decision Gate (1 gate)</span>
+    </a>
   </div>
 
   <!-- Agent usage -->
@@ -279,7 +308,8 @@ h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);mar
   <div class="ref-row"><b>TRID fee tolerance:</b> 12 CFR §1026.19(e)(3) -- zero-tolerance, ten-percent-cumulative, no-tolerance-limit buckets; cure timing and amount rules</div>
   <div class="ref-row"><b>QM points-and-fees:</b> 12 CFR §1026.43(e)(3) -- five-tier table; annual CFPB adjustments published in the Federal Register (FR Vol. 87, 88, 89, 90 for 2022-2026 thresholds)</div>
   <div class="ref-row"><b>QM APR-APOR spread:</b> 12 CFR §1026.43(e)(2)(vi) safe harbor / rebuttable presumption thresholds; §1026.43(b)(4) HPCT definition; §1026.43(e)(3)(ii) fee failure interaction</div>
-  <div class="ref-row"><b>HOEPA thresholds:</b> 12 CFR §1026.32 -- annual CFPB adjustments; rate-spread triggers and points-and-fees dollar floors</div>
+  <div class="ref-row"><b>HOEPA high-cost triggers (§1026.32(a)(1)):</b> 12 CFR §1026.32(a)(1) -- three triggers: (i) APR: APOR+6.5pp first-lien, APOR+8.5pp subordinate or dwelling below $50,000; (ii) Points-and-fees: 5% or $1,380 floor (2026, FR 2025-22773; effective 2026-01-01); (iii) Prepayment penalty: applies beyond 36 months or exceeds 2% of prepaid amount. Table: HOEPA-REGZ-2026-01-01.</div>
+  <div class="ref-row"><b>HPML definition and escrow (§1026.35):</b> Reg Z §1026.35(a)(1) HPML definition -- APR exceeds APOR by 1.5pp (first-lien standard), 2.5pp (jumbo, above FHFA conforming limit), or 3.5pp (subordinate lien). Dodd-Frank structural thresholds, unchanged since 2014 (FR 2013-01730). §1026.35(b)(1) escrow requirement: first-lien HPML must maintain property-tax-and-insurance escrow for minimum 5 years. Exemptions: §1026.35(b)(2)(iii) rural/underserved area + assets below $2B + 500 or fewer first-lien HPMLs; §1026.35(b)(2)(ii) condo HOA master policy. Table: HPML-REGZ-2026-01-01.</div>
   <div class="ref-row"><b>FHFA Conforming Loan Limits 2026:</b> 12 USC 1454 (Freddie Mac Charter §305); 12 USC 1717 (Fannie Mae Charter §304(b)); HERA 2008 §201; FHFA Annual CLL Adjustment -- baseline $806,500 (1-unit); 150% ceiling $1,209,750; AK/HI/GU/VI at ceiling. Source: FHFA FullCountyLoanLimitList2026.xlsx (public). Table: FHFA-CLL-2026.</div>
   <div class="ref-row"><b>Fannie Mae Agency Eligibility (DU/LPA):</b> Fannie Mae Selling Guide B3-2-01 (DU eligibility); Freddie Mac Guide Ch.5100 (LPA eligibility) -- DTI caps, LTV/CLTV/HCLTV grids by occupancy and purpose, multi-unit overlays. Table: FNM-LPA-ELIGIBILITY-2026-01-01.</div>
   <div class="ref-row"><b>Fannie Mae LLPA Matrix:</b> Fannie Mae Selling Guide B3-4.1-02; LLPA matrix effective 2025-11-01 (public, FNM website) -- FICO-by-LTV base grid, purpose/property/subordinate-financing adjustments; SEL-2023-07 FTHB AMI waiver. Table: FNM-LLPA-2025-11-01.</div>
@@ -301,9 +331,11 @@ h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);mar
     <a href="art-223-conforming-loan-limit.html">ART-223</a> &nbsp;&middot;&nbsp;
     <a href="art-224-fha-mip-eligibility.html">ART-224</a> &nbsp;&middot;&nbsp;
     <a href="art-225-va-funding-fee-residual.html">ART-225</a> &nbsp;&middot;&nbsp;
-    <a href="art-226-mismo-uldd-ulad.html">ART-226</a>
+    <a href="art-226-mismo-uldd-ulad.html">ART-226</a> &nbsp;&middot;&nbsp;
+    <a href="art-234-test-hoepa-high-cost.html">ART-234</a> &nbsp;&middot;&nbsp;
+    <a href="art-235-test-hpml-escrow.html">ART-235</a>
     <br><br>
-    Post Oak Labs &middot; CC BY 4.0 &middot; OpenChainGraph Suite &middot; US Mortgage Compliance &middot; Agency and Government Loan Pricing &middot; Cluster &#x3251;
+    Post Oak Labs &middot; CC BY 4.0 &middot; OpenChainGraph Suite &middot; US Mortgage Compliance &middot; Agency and Government Loan Pricing &middot; HOEPA and HPML &middot; Cluster &#x3251;
   </div>
 
 </div><!-- /wrap -->

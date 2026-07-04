@@ -171,6 +171,8 @@ import * as art230 from './art-230-compute-hmda-rate-spread.kernel.mjs';
 import * as art231 from './art-231-compute-mla-mapr.kernel.mjs';
 import * as art232 from './art-232-compute-scra-rate-cap.kernel.mjs';
 import * as art233 from './art-233-check-card-act-ability-to-pay.kernel.mjs';
+import * as art234 from './art-234-test-hoepa-high-cost.kernel.mjs';
+import * as art235 from './art-235-test-hpml-escrow.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
@@ -434,6 +436,8 @@ export const KERNELS = {
   'art-231-compute-mla-mapr':                                 art231,
   'art-232-compute-scra-rate-cap':                            art232,
   'art-233-check-card-act-ability-to-pay':                    art233,
+  'art-234-test-hoepa-high-cost':                             art234,
+  'art-235-test-hpml-escrow':                                 art235,
   'art-24-mastercard-agentic-token-builder':                  art24,
   'art-25-a2a-agent-card-validator':                          art25,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
