@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FHA MIP Eligibility Calculator &middot; ART-224 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="FHA mortgage insurance premium eligibility and cost calculation per HUD Handbook 4000.1. UFMIP: 1.75% of base loan amount. Annual MIP grid by loan size, LTV, and term. MIP duration by LTV. Credit score and DTI qualifying ratios.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-224-fha-mip-eligibility.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus{border-color:var(--teal)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:8px 0}
+.rc-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.25rem .65rem;border-radius:20px;margin:2px}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge-warn{background:rgba(245,158,11,.10);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.5rem .85rem;color:var(--warn);margin:12px 0}
+.reg-disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(212,168,71,.05);border:1px solid rgba(212,168,71,.2);border-radius:4px;padding:.5rem .85rem;color:var(--gold);margin:12px 0;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>FHA MIP Eligibility Calculator</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-224 &middot; US Mortgage Agency and Government Loan Pricing</div>
+  <h1>FHA MIP Eligibility Calculator</h1>
+  <p class="sub">FHA mortgage insurance premium eligibility and cost calculation per HUD Handbook 4000.1. UFMIP: 1.75% of base loan amount. Annual MIP grid (0.15%&ndash;0.75%) by loan size vs $726,200 threshold, LTV, and term. MIP duration: 11 years if original LTV at or below 90%; life-of-loan if above 90%. Qualifying ratios: 31% front-end / 43% back-end. Credit score requirements: 580 for 96.5% max LTV; 500&ndash;579 for 90% max. Table: HUD-MIP-ML2023-05-ML2024-01.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">HUD Handbook 4000.1</span>
+    <span class="flag info">ML2023-05 / ML2024-01</span>
+    <span class="flag">UFMIP</span>
+    <span class="flag">Annual MIP</span>
+    <span class="flag">FHA Eligibility</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="warn-box">&#9888; Loan data is personally identifiable. All inputs are processed locally in your browser. No data is transmitted.</div>
+  <div class="reg-disclaimer">&#9432; Not legal or compliance advice. Verify all outputs against current HUD/VA/FHFA/MISMO publications before use in production decisions.</div>
+
+  <div class="card">
+    <div class="section-head">Loan Characteristics</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="baseLoanAmount">Base loan amount (USD)</label>
+        <div class="q-help">Principal loan amount before UFMIP financing. Used for MIP tier comparison against $726,200.</div>
+        <input type="number" id="baseLoanAmount" value="400000" min="1" max="50000000" step="1000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="ltvPct">LTV percent (%)</label>
+        <div class="q-help">Loan-to-value ratio at origination. Drives MIP rate and duration; also caps max LTV by FICO.</div>
+        <input type="number" id="ltvPct" value="96.5" min="0" max="100" step="0.01">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="termYears">Loan term</label>
+        <div class="q-help">Amortization term determines which MIP rate table applies (15 years or less vs. over 15 years).</div>
+        <select id="termYears">
+          <option value="30" selected>30 years</option>
+          <option value="20">20 years</option>
+          <option value="15">15 years</option>
+          <option value="10">10 years</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="loanPurpose">Loan purpose</label>
+        <div class="q-help">Purchase, rate/term refinance, or cash-out refinance.</div>
+        <select id="loanPurpose">
+          <option value="purchase" selected>Purchase</option>
+          <option value="rate_term_refi">Rate/Term Refinance</option>
+          <option value="cash_out_refi">Cash-Out Refinance</option>
+        </select>
+      </div>
+    </div>
+    <div class="section-head">Borrower Qualification</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="ficoScore">FICO score</label>
+        <div class="q-help">580+ enables 96.5% max LTV. 500&ndash;579 caps at 90% LTV. Below 500 is ineligible.</div>
+        <input type="number" id="ficoScore" value="660" min="300" max="850" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="frontEndDti">Front-end DTI (%)</label>
+        <div class="q-help">Housing expense ratio. FHA guideline: 31%.</div>
+        <input type="number" id="frontEndDti" value="28" min="0" max="100" step="0.1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="backEndDti">Back-end DTI (%)</label>
+        <div class="q-help">Total debt ratio. FHA guideline: 43%. Higher allowed with compensating factors.</div>
+        <input type="number" id="backEndDti" value="40" min="0" max="100" step="0.1">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Calculate FHA MIP</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">FHA Eligibility</div>
+      <div id="eligibilityCard" class="result-card"></div>
+
+      <div class="section-head" style="margin-top:14px">UFMIP (Upfront MIP)</div>
+      <div id="ufmipCard" class="result-card"></div>
+
+      <div class="section-head" style="margin-top:14px">Annual MIP</div>
+      <div id="annualMipCard" class="result-card"></div>
+
+      <div class="section-head" style="margin-top:14px">DTI Qualification</div>
+      <div id="dtiCard" class="result-card"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-224-fha-mip-eligibility',
+  version: '1.0.0',
+  mcp_name: 'compute_fha_mip_eligibility',
+  title: 'FHA MIP Eligibility Calculator',
+  cluster: '㉑',
+  description: 'FHA mortgage insurance premium eligibility and cost calculation per HUD Handbook 4000.1. UFMIP: 1.75% of base loan amount. Annual MIP grid (0.15%-0.75%) by loan size vs $726,200 threshold, LTV, and term. MIP duration: 11 years if original LTV at or below 90%; life-of-loan if above 90%. Qualifying ratios: 31% front-end / 43% back-end. Credit score requirements: 580 for 96.5% max LTV; 500-579 for 90% max. Table: HUD-MIP-ML2023-05-ML2024-01.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'HUD Handbook 4000.1 / ML2023-05 / ML2024-01',
+  mcp_tool_definition: {
+    name: 'compute_fha_mip_eligibility',
+    description: 'Compute FHA MIP eligibility, UFMIP, and annual MIP per HUD Handbook 4000.1. Returns UFMIP amount, monthly MIP, MIP duration, DTI flag, and eligibility status.',
+    inputSchema: {
+      type: 'object',
+      required: ['base_loan_amount', 'ltv_pct', 'term_years', 'fico_score', 'front_end_dti_pct', 'back_end_dti_pct', 'loan_purpose'],
+      properties: {
+        base_loan_amount: { type: 'number', description: 'Base loan amount in USD before UFMIP financing' },
+        ltv_pct: { type: 'number', description: 'Loan-to-value ratio at origination (0-100)' },
+        term_years: { type: 'number', enum: [10, 15, 20, 30], description: 'Amortization term in years' },
+        fico_score: { type: 'number', description: 'Representative FICO credit score (300-850)' },
+        front_end_dti_pct: { type: 'number', description: 'Front-end (housing) debt-to-income ratio (0-100)' },
+        back_end_dti_pct: { type: 'number', description: 'Back-end (total) debt-to-income ratio (0-100)' },
+        loan_purpose: { type: 'string', enum: ['purchase', 'rate_term_refi', 'cash_out_refi'], description: 'Loan purpose type' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var MIP_LOAN_THRESHOLD = 726200;
+
+function annualMipRate(base_loan, ltv, term_years) {
+  if (term_years <= 15) {
+    if (ltv <= 90.00) return base_loan <= MIP_LOAN_THRESHOLD ? 0.0015 : 0.0040;
+    return base_loan <= MIP_LOAN_THRESHOLD ? 0.0040 : 0.0065;
+  }
+  if (ltv <= 90.00) return base_loan <= MIP_LOAN_THRESHOLD ? 0.0050 : 0.0070;
+  if (ltv <= 95.00) return base_loan <= MIP_LOAN_THRESHOLD ? 0.0050 : 0.0070;
+  return base_loan <= MIP_LOAN_THRESHOLD ? 0.0055 : 0.0075;
+}
+
+function computeFhaMip(pp) {
+  var base_loan = pp.base_loan_amount;
+  var ltv = pp.ltv_pct;
+  var term = pp.term_years;
+  var fico = pp.fico_score;
+  var fe_dti = pp.front_end_dti_pct;
+  var be_dti = pp.back_end_dti_pct;
+
+  // Max LTV by FICO
+  var max_ltv_by_fico;
+  var fha_eligible = true;
+  var ineligible_reason = null;
+  if (fico >= 580) {
+    max_ltv_by_fico = 96.5;
+  } else if (fico >= 500) {
+    max_ltv_by_fico = 90.0;
+  } else {
+    max_ltv_by_fico = 0;
+    fha_eligible = false;
+    ineligible_reason = 'FICO below 500 is ineligible for FHA financing';
+  }
+
+  if (fha_eligible && ltv > max_ltv_by_fico) {
+    fha_eligible = false;
+    ineligible_reason = 'LTV ' + ltv.toFixed(2) + '% exceeds FICO-based max LTV of ' + max_ltv_by_fico + '%';
+  }
+
+  // UFMIP: 1.75%
+  var ufmip_rate = 0.0175;
+  var ufmip_amount = Math.round(base_loan * ufmip_rate * 100) / 100;
+
+  // Annual MIP
+  var mip_rate = annualMipRate(base_loan, ltv, term);
+  var monthly_mip = Math.round(base_loan * mip_rate / 12 * 100) / 100;
+  var mip_duration = ltv <= 90 ? '11_years' : 'life_of_loan';
+  var mip_duration_label = ltv <= 90 ? '11 years (LTV at or below 90%)' : 'Life of loan (LTV above 90%)';
+
+  var financed_loan_amount = Math.round((base_loan + ufmip_amount) * 100) / 100;
+
+  var compliance_flags = [];
+  if (!fha_eligible) compliance_flags.push({ code: 'FHA_INELIGIBLE', message: ineligible_reason });
+  if (fe_dti > 31) compliance_flags.push({ code: 'FE_DTI_EXCEEDS_GUIDELINE', message: 'Front-end DTI ' + fe_dti + '% exceeds FHA guideline of 31%' });
+  if (be_dti > 43) compliance_flags.push({ code: 'BE_DTI_EXCEEDS_GUIDELINE', message: 'Back-end DTI ' + be_dti + '% exceeds FHA guideline of 43%' });
+
+  return {
+    fha_eligible: fha_eligible,
+    ineligible_reason: ineligible_reason,
+    max_ltv_by_fico_pct: max_ltv_by_fico,
+    ufmip: {
+      rate_pct: (ufmip_rate * 100).toFixed(2),
+      amount: ufmip_amount,
+      financed_loan_amount: financed_loan_amount
+    },
+    annual_mip: {
+      rate_pct: (mip_rate * 100).toFixed(4),
+      monthly_amount: monthly_mip,
+      annual_amount: Math.round(monthly_mip * 12 * 100) / 100,
+      duration: mip_duration,
+      duration_label: mip_duration_label
+    },
+    dti: {
+      front_end_guideline_pct: 31,
+      back_end_guideline_pct: 43,
+      actual_front_end_pct: fe_dti,
+      actual_back_end_pct: be_dti,
+      front_end_ok: fe_dti <= 31,
+      back_end_ok: be_dti <= 43
+    },
+    table_version: 'HUD-MIP-ML2023-05-ML2024-01',
+    loan_size_tier: base_loan <= MIP_LOAN_THRESHOLD ? 'standard' : 'high_balance',
+    loan_size_threshold: MIP_LOAN_THRESHOLD,
+    compliance_flags: compliance_flags
+  };
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function fmt$(v) { return '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(v) { return Number(v).toFixed(4) + '%'; }
+
+function runCompute() {
+  var base_loan = parseFloat(document.getElementById('baseLoanAmount').value) || 0;
+  var ltv = parseFloat(document.getElementById('ltvPct').value) || 0;
+  var term = parseInt(document.getElementById('termYears').value) || 30;
+  var fico = parseInt(document.getElementById('ficoScore').value) || 0;
+  var fe_dti = parseFloat(document.getElementById('frontEndDti').value) || 0;
+  var be_dti = parseFloat(document.getElementById('backEndDti').value) || 0;
+  var loan_purpose = document.getElementById('loanPurpose').value;
+
+  if (base_loan <= 0) { alert('Base loan amount must be greater than zero.'); return; }
+  if (ltv <= 0 || ltv > 100) { alert('LTV must be between 0 and 100.'); return; }
+
+  var pp = { base_loan_amount: base_loan, ltv_pct: ltv, term_years: term, fico_score: fico, front_end_dti_pct: fe_dti, back_end_dti_pct: be_dti, loan_purpose: loan_purpose };
+  var op = computeFhaMip(pp);
+
+  _lastResult = { pp: pp, output_payload: op };
+
+  // Eligibility card
+  var eligHtml = '<div class="rc-title">FHA Eligibility Status</div>';
+  eligHtml += '<div style="margin-bottom:8px">';
+  if (op.fha_eligible) {
+    eligHtml += '<span class="badge badge-green">&#10003; FHA Eligible</span>';
+  } else {
+    eligHtml += '<span class="badge badge-red">&#10007; Not Eligible</span>';
+    eligHtml += '<div style="margin-top:6px;font-size:.72rem;color:var(--text)">' + (op.ineligible_reason || '') + '</div>';
+  }
+  eligHtml += '</div>';
+  eligHtml += '<div class="kv"><span class="kv-k">FICO score</span><span class="kv-v">' + fico + '</span></div>';
+  eligHtml += '<div class="kv"><span class="kv-k">Max LTV by FICO</span><span class="kv-v">' + (op.max_ltv_by_fico_pct > 0 ? op.max_ltv_by_fico_pct + '%' : 'Ineligible') + '</span></div>';
+  eligHtml += '<div class="kv"><span class="kv-k">Requested LTV</span><span class="kv-v">' + ltv.toFixed(2) + '%</span></div>';
+  eligHtml += '<div class="kv"><span class="kv-k">Loan size tier</span><span class="kv-v">' + op.loan_size_tier + '</span></div>';
+  eligHtml += '<div class="kv"><span class="kv-k">Table version</span><span class="kv-v">' + op.table_version + '</span></div>';
+  document.getElementById('eligibilityCard').innerHTML = eligHtml;
+
+  // UFMIP card
+  var ufmipHtml = '<div class="rc-title">Upfront MIP (UFMIP)</div>';
+  ufmipHtml += '<div class="kv"><span class="kv-k">UFMIP rate</span><span class="kv-v">' + op.ufmip.rate_pct + '%</span></div>';
+  ufmipHtml += '<div class="kv"><span class="kv-k">UFMIP amount</span><span class="kv-v">' + fmt$(op.ufmip.amount) + '</span></div>';
+  ufmipHtml += '<div class="kv"><span class="kv-k">Base loan amount</span><span class="kv-v">' + fmt$(base_loan) + '</span></div>';
+  ufmipHtml += '<div class="kv"><span class="kv-k">Financed loan amount</span><span class="kv-v">' + fmt$(op.ufmip.financed_loan_amount) + '</span></div>';
+  document.getElementById('ufmipCard').innerHTML = ufmipHtml;
+
+  // Annual MIP card
+  var mipHtml = '<div class="rc-title">Annual MIP</div>';
+  mipHtml += '<div class="kv"><span class="kv-k">Annual MIP rate</span><span class="kv-v">' + op.annual_mip.rate_pct + '%</span></div>';
+  mipHtml += '<div class="kv"><span class="kv-k">Monthly MIP payment</span><span class="kv-v">' + fmt$(op.annual_mip.monthly_amount) + '</span></div>';
+  mipHtml += '<div class="kv"><span class="kv-k">Annual MIP cost</span><span class="kv-v">' + fmt$(op.annual_mip.annual_amount) + '</span></div>';
+  mipHtml += '<div class="kv"><span class="kv-k">MIP duration</span><span class="kv-v">' + op.annual_mip.duration_label + '</span></div>';
+  document.getElementById('annualMipCard').innerHTML = mipHtml;
+
+  // DTI card
+  var dtiHtml = '<div class="rc-title">DTI Qualification</div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Front-end DTI (actual)</span><span class="kv-v">' + fe_dti.toFixed(1) + '%</span></div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Front-end guideline</span><span class="kv-v">31%</span></div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Front-end status</span><span class="kv-v">' + (op.dti.front_end_ok ? '<span style="color:var(--green)">Within guideline</span>' : '<span style="color:var(--warn)">Exceeds guideline</span>') + '</span></div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Back-end DTI (actual)</span><span class="kv-v">' + be_dti.toFixed(1) + '%</span></div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Back-end guideline</span><span class="kv-v">43%</span></div>';
+  dtiHtml += '<div class="kv"><span class="kv-k">Back-end status</span><span class="kv-v">' + (op.dti.back_end_ok ? '<span style="color:var(--green)">Within guideline</span>' : '<span style="color:var(--warn)">Exceeds guideline</span>') + '</span></div>';
+  if (op.compliance_flags && op.compliance_flags.length > 0) {
+    dtiHtml += '<div style="margin-top:8px;font-size:.7rem;color:var(--warn)">';
+    op.compliance_flags.forEach(function(f){ dtiHtml += '<div>&#9888; [' + f.code + '] ' + f.message + '</div>'; });
+    dtiHtml += '</div>';
+  }
+  document.getElementById('dtiCard').innerHTML = dtiHtml;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-224-fha-mip-eligibility',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.output_payload.compliance_flags || [],
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-224-fha-mip-eligibility.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

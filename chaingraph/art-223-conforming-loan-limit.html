@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Conforming Loan Limit Check &middot; ART-223 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="FHFA 2026 conforming loan limit classifier. 2026 baseline: $806,500 (1-unit). High-cost counties and AK/HI/Guam/USVI receive 150% ceiling. Classifies loans as conforming, super-conforming, or jumbo. Table: FHFA-CLL-2026.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type=number],input[type=text],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--teal)}
+.check-row{display:flex;align-items:center;gap:.6rem;margin-top:.3rem}
+.check-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--teal);flex-shrink:0}
+.check-row label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body);cursor:pointer}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-hero{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:16px 20px;margin:4px 0 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hero-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase}
+.hero-value{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-value.conforming{color:var(--green)}
+.hero-value.super-conforming{color:var(--warn)}
+.hero-value.jumbo{color:var(--red)}
+.limit-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.68rem;margin:8px 0}
+.limit-table th{color:var(--teal-lt);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border-2);font-weight:600;letter-spacing:.05em}
+.limit-table td{color:var(--body);padding:5px 8px;border-bottom:1px solid var(--border)}
+.limit-table tr:last-child td{border-bottom:none}
+.limit-table td.active{color:var(--bright);font-weight:600}
+.limit-table td.val{color:var(--teal-lt)}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.5rem .85rem;color:var(--warn);margin:12px 0}
+.info-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.2);border-radius:4px;padding:.5rem .85rem;color:var(--teal-lt);margin:12px 0}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Conforming Loan Limit Check</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-223 &middot; US Mortgage Agency and Government Loan Pricing</div>
+  <h1>Conforming Loan Limit Check</h1>
+  <p class="sub">FHFA 2026 conforming loan limit classifier. 2026 baseline: $806,500 (1-unit), $1,032,650 (2-unit), $1,248,150 (3-unit), $1,550,400 (4-unit). High-cost counties and AK/HI/Guam/USVI receive a 150% ceiling. Classifies loans as conforming, super-conforming, or jumbo. Not a Reg Z consumer threshold lookup: use the Reg Z Threshold Lookup node for QM fees and HOEPA thresholds. Table: FHFA-CLL-2026.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">FHFA-CLL-2026</span>
+    <span class="flag info">Version-Pinned</span>
+    <span class="flag">Conforming</span>
+    <span class="flag">Super-Conforming</span>
+    <span class="flag">Jumbo</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</div>
+  <div class="warn-box">&#9888; Limits are pinned at build time to FHFA 2026 announced values. FHFA adjusts annually each November. For county-specific super-conforming limits, verify at fhfa.gov. Not legal or compliance advice.</div>
+
+  <div class="card">
+    <div class="section-head">Loan Details</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="loanAmount">Loan Amount ($)</label>
+        <div class="q-help">Total loan amount in US dollars.</div>
+        <input type="number" id="loanAmount" min="1" step="1" value="750000" placeholder="750000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="units">Units</label>
+        <select id="units">
+          <option value="1" selected>1 Unit</option>
+          <option value="2">2 Units</option>
+          <option value="3">3 Units</option>
+          <option value="4">4 Units</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="loanProgram">Loan Program</label>
+        <select id="loanProgram">
+          <option value="Conventional" selected>Conventional</option>
+          <option value="FHA">FHA</option>
+          <option value="VA">VA</option>
+          <option value="USDA">USDA</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="state">State / Territory (2-letter)</label>
+        <div class="q-help">Enter state abbreviation. AK, HI, GU, VI receive high-cost ceiling.</div>
+        <input type="text" id="state" maxlength="2" value="TX" placeholder="TX" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="section-head">County Override</div>
+    <div class="row2">
+      <div class="q">
+        <div class="check-row">
+          <input type="checkbox" id="highCostCounty" onchange="toggleCountyOverride()">
+          <label for="highCostCounty">High-Cost County</label>
+        </div>
+        <div class="q-help" style="margin-top:.5rem">Check if the property is in a designated FHFA high-cost county. The applicable limit will be raised up to the 150% ceiling.</div>
+      </div>
+      <div class="q" id="overrideRow" style="opacity:.4;pointer-events:none">
+        <label class="q-label" for="countyLimitOverride">County-Specific Limit Override ($, optional)</label>
+        <div class="q-help">Enter the published FHFA county limit if known. Leave blank to use the 150% ceiling.</div>
+        <input type="number" id="countyLimitOverride" min="1" step="1" placeholder="Leave blank to use 150% ceiling">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="checkCLL()">&#9654; Classify Loan</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Classification Result</div>
+      <div class="result-hero">
+        <div>
+          <div class="hero-label">Classification</div>
+          <div class="hero-value" id="heroValue">--</div>
+        </div>
+        <div style="text-align:right">
+          <div class="hero-label">Applicable Limit</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright)" id="heroLimit">--</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:2px">FHFA-CLL-2026</div>
+        </div>
+      </div>
+      <div class="section-head">2026 Baseline Limits by Unit Count</div>
+      <table class="limit-table" id="limitsTable">
+        <thead>
+          <tr><th>Units</th><th>Baseline Limit</th><th>High-Cost / AK-HI Ceiling (150%)</th></tr>
+        </thead>
+        <tbody id="limitsBody"></tbody>
+      </table>
+      <div class="section-head" style="margin-top:14px">Output Fields</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+    <div class="info-box">&#8505; This node classifies conventional loan size only. For QM points-and-fees caps or HOEPA thresholds, use the Reg Z Threshold Lookup node (ART-220).</div>
+    <div class="warn-box">&#9888; Not legal or compliance advice. Outputs are computed from version-pinned tables and your inputs only. Consult qualified counsel before relying on any result for production decisions.</div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-223-conforming-loan-limit',
+  version: '1.0.0',
+  mcp_name: 'check_conforming_loan_limit',
+  title: 'Conforming Loan Limit Check',
+  description: 'FHFA 2026 conforming loan limit classifier. 2026 baseline: $806,500 (1-unit), $1,032,650 (2-unit), $1,248,150 (3-unit), $1,550,400 (4-unit). High-cost counties and AK/HI/Guam/USVI receive 150% ceiling. Classifies loans as conforming, super-conforming, or jumbo. Not a Reg Z consumer threshold lookup. Table: FHFA-CLL-2026.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  cluster: 21,
+  regulation: 'FHFA / HERA 12 USC 1717(b)(2) / FHFA-CLL-2026',
+  mcp_tool_definition: {
+    name: 'check_conforming_loan_limit',
+    description: 'Classify a loan as conforming, super-conforming, or jumbo using FHFA 2026 conforming loan limits. Supports 1-4 unit, high-cost county override, and AK/HI/Guam/USVI ceiling. Returns classification, applicable limit, and conforming boolean.',
+    inputSchema: {
+      type: 'object',
+      required: ['loan_amount', 'units', 'state', 'loan_program'],
+      properties: {
+        loan_amount: { type: 'number', description: 'Total loan amount in USD' },
+        units: { type: 'number', enum: [1, 2, 3, 4], description: 'Number of units (1-4)' },
+        state: { type: 'string', description: '2-letter US state or territory code' },
+        loan_program: { type: 'string', enum: ['Conventional', 'FHA', 'VA', 'USDA'], description: 'Loan program' },
+        high_cost_county: { type: 'boolean', description: 'Property is in a designated FHFA high-cost county' },
+        county_limit_override: { type: 'number', description: 'Published FHFA county-specific limit (optional; overrides 150% ceiling if provided)' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+// ---- FHFA 2026 Conforming Loan Limits (FHFA-CLL-2026) ----
+// Baseline limits by unit count (announced November 2025, effective 2026-01-01)
+var BASELINE = { 1: 806500, 2: 1032650, 3: 1248150, 4: 1550400 };
+// High-cost ceiling = 150% of baseline
+var HIGH_COST_MULT = 1.50;
+// States/territories that always receive the high-cost ceiling
+var ALWAYS_HIGH_COST = ['AK', 'HI', 'GU', 'VI'];
+
+function fmt$(v) { return '$' + Number(v).toLocaleString(); }
+function r4(v)   { return Math.round(v * 1e4) / 1e4; }
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{})
+    : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function toggleCountyOverride() {
+  var checked = document.getElementById('highCostCounty').checked;
+  var row = document.getElementById('overrideRow');
+  row.style.opacity = checked ? '1' : '.4';
+  row.style.pointerEvents = checked ? 'auto' : 'none';
+}
+
+function checkCLL() {
+  var loanAmount = parseFloat(document.getElementById('loanAmount').value) || 0;
+  var units = parseInt(document.getElementById('units').value) || 1;
+  var state = (document.getElementById('state').value || '').toUpperCase().trim();
+  var loanProgram = document.getElementById('loanProgram').value;
+  var highCostCounty = document.getElementById('highCostCounty').checked;
+  var countyOverrideRaw = document.getElementById('countyLimitOverride').value;
+  var countyLimitOverride = countyOverrideRaw ? parseFloat(countyOverrideRaw) : null;
+
+  if (units < 1 || units > 4) units = 1;
+
+  var baseline = BASELINE[units];
+  var highCostCeiling = Math.round(baseline * HIGH_COST_MULT);
+
+  // Determine if high-cost rules apply
+  var stateIsAlwaysHigh = ALWAYS_HIGH_COST.indexOf(state) >= 0;
+  var useHighCost = highCostCounty || stateIsAlwaysHigh;
+
+  // Applicable conforming limit
+  var applicableLimit;
+  var limitBasis;
+  if (useHighCost) {
+    if (countyLimitOverride && countyLimitOverride > baseline && countyLimitOverride <= highCostCeiling) {
+      applicableLimit = countyLimitOverride;
+      limitBasis = 'county_override';
+    } else {
+      applicableLimit = highCostCeiling;
+      limitBasis = stateIsAlwaysHigh ? 'ak_hi_gu_vi_ceiling' : 'high_cost_ceiling';
+    }
+  } else {
+    applicableLimit = baseline;
+    limitBasis = 'baseline';
+  }
+
+  // Classification
+  var classification, conforming;
+  if (loanAmount <= applicableLimit) {
+    if (useHighCost && loanAmount > baseline) {
+      classification = 'super_conforming';
+    } else {
+      classification = 'conforming';
+    }
+    conforming = true;
+  } else {
+    classification = 'jumbo';
+    conforming = false;
+  }
+
+  var pp = {
+    loan_amount: loanAmount,
+    units: units,
+    state: state,
+    loan_program: loanProgram,
+    high_cost_county: highCostCounty,
+    county_limit_override: countyLimitOverride
+  };
+  var op = {
+    classification: classification,
+    conforming: conforming,
+    loan_program: loanProgram,
+    applicable_limit: applicableLimit,
+    baseline_limit: baseline,
+    high_cost_ceiling: highCostCeiling,
+    limit_basis: limitBasis,
+    state_always_high_cost: stateIsAlwaysHigh,
+    excess_above_limit: conforming ? 0 : Math.round(loanAmount - applicableLimit),
+    table_version: 'FHFA-CLL-2026'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: [] };
+  if (!conforming) {
+    _lastResult.compliance_flags.push({ flag: 'JUMBO', detail: 'Loan amount ' + fmt$(loanAmount) + ' exceeds conforming limit ' + fmt$(applicableLimit) });
+  }
+
+  // Render hero
+  var heroEl = document.getElementById('heroValue');
+  heroEl.textContent = classification.replace('_', '-');
+  heroEl.className = 'hero-value ' + classification.replace('_', '-');
+  document.getElementById('heroLimit').textContent = fmt$(applicableLimit);
+
+  // Render limits table
+  var activeUnits = units;
+  var tbody = document.getElementById('limitsBody');
+  tbody.innerHTML = [1, 2, 3, 4].map(function(u) {
+    var bl = BASELINE[u];
+    var hc = Math.round(bl * HIGH_COST_MULT);
+    var isActive = u === activeUnits;
+    return '<tr>'
+      + '<td class="' + (isActive ? 'active' : '') + '">' + u + (isActive ? ' *' : '') + '</td>'
+      + '<td class="' + (isActive ? 'active' : 'val') + '">' + fmt$(bl) + '</td>'
+      + '<td class="' + (isActive ? 'active' : 'val') + '">' + fmt$(hc) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  // KV rows
+  var kvRows = [
+    { k: 'classification', v: classification },
+    { k: 'conforming', v: String(conforming) },
+    { k: 'loan_program', v: loanProgram },
+    { k: 'loan_amount', v: fmt$(loanAmount) },
+    { k: 'applicable_limit', v: fmt$(applicableLimit) },
+    { k: 'baseline_limit', v: fmt$(baseline) },
+    { k: 'high_cost_ceiling', v: fmt$(highCostCeiling) },
+    { k: 'limit_basis', v: limitBasis },
+    { k: 'excess_above_limit', v: conforming ? 'n/a' : fmt$(op.excess_above_limit) },
+    { k: 'state', v: state || '(not provided)' },
+    { k: 'state_always_high_cost', v: String(stateIsAlwaysHigh) },
+    { k: 'table_version', v: 'FHFA-CLL-2026' }
+  ];
+  document.getElementById('kvDiv').innerHTML = kvRows.map(function(r) {
+    return '<div class="kv"><span class="kv-k">' + r.k + '</span><span class="kv-v">' + r.v + '</span></div>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur
+      ? '<span style="color:var(--green)">&#10003; Hash verified</span>'
+      : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-223-conforming-loan-limit',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-223-conforming-loan-limit.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

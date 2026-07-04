@@ -157,6 +157,12 @@ import * as art218 from './art-218-qm-points-and-fees.kernel.mjs';
 import * as art219 from './art-219-qm-apr-apor-spread.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
 import * as art220 from './art-220-reg-z-threshold-lookup.kernel.mjs';
+import * as art221 from './art-221-llpa-stack.kernel.mjs';
+import * as art222 from './art-222-agency-eligibility-matrix.kernel.mjs';
+import * as art223 from './art-223-conforming-loan-limit.kernel.mjs';
+import * as art224 from './art-224-fha-mip-eligibility.kernel.mjs';
+import * as art225 from './art-225-va-funding-fee-residual.kernel.mjs';
+import * as art226 from './art-226-mismo-uldd-ulad.kernel.mjs';
 import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
@@ -407,6 +413,12 @@ export const KERNELS = {
   'art-219-qm-apr-apor-spread':                               art219,
   'art-22-agentic-payments-protocol-comparator':              art22,
   'art-220-reg-z-threshold-lookup':                           art220,
+  'art-221-llpa-stack':                                       art221,
+  'art-222-agency-eligibility-matrix':                        art222,
+  'art-223-conforming-loan-limit':                            art223,
+  'art-224-fha-mip-eligibility':                              art224,
+  'art-225-va-funding-fee-residual':                          art225,
+  'art-226-mismo-uldd-ulad':                                  art226,
   'art-23-visa-trusted-agent-protocol-inspector':             art23,
   'art-24-mastercard-agentic-token-builder':                  art24,
   'art-25-a2a-agent-card-validator':                          art25,
