@@ -49,31 +49,62 @@ const skipped = [];
 
 /* ─── helpers ─── */
 
-function deriveBreadcrumb(filename) {
-  const toolId   = filename.replace(/\.html$/, '');        // e.g. art-01-ap2-mandate-...
-  const artM     = filename.match(/^art-(\d+)/);
-  const artNN    = artM ? `ART-${artM[1]}` : null;
-  const display  = DISPLAY_NAME.get(toolId);
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g,  '&')
+    .replace(/&lt;/g,   '<')
+    .replace(/&gt;/g,   '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&nbsp;/g, ' ');
+}
 
-  if (!artNN)    return null;                              // not an art-NN page → skip
-  if (!display)  return null;                              // no chaingraph.json entry → skip
+/**
+ * Derive breadcrumb for a page.
+ * Primary: chaingraph.json display_name.
+ * Fallback (only for pages not in chaingraph.json): h1 text.
+ * The html argument is passed for the h1 fallback.
+ */
+function deriveBreadcrumb(filename, html) {
+  const toolId  = filename.replace(/\.html$/, '');
+  const artM    = filename.match(/^art-(\d+)/);
+  const artNN   = artM ? `ART-${artM[1]}` : null;
+  if (!artNN) return null;
 
-  return `${artNN} · ${display}`;                    // e.g. "ART-01 · AP2 Mandate-Chain Validator"
+  const display = DISPLAY_NAME.get(toolId);
+  // §1.4: em-dashes banned in reader-facing copy; en-dashes allowed.
+  if (display) return `${artNN} · ${display.replace(/—/g, '–')}`;
+
+  // Fallback: h1 text (for pages not in chaingraph.json — art-15/16/17/18)
+  if (html) {
+    const h1M = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+    if (h1M) {
+      const text = decodeEntities(h1M[1].replace(/<[^>]+>/g, '')).trim();
+      if (text && text.length > 3) return `${artNN} · ${text}`;
+    }
+  }
+
+  return null; // still no source → skip
 }
 
 /* ─── main transform ─── */
 
-function processFile(filename) {
-  // Breadcrumb from chaingraph.json only
-  const breadcrumb = deriveBreadcrumb(filename);
-  if (!breadcrumb) {
-    skipped.push({ file: filename, reason: 'no display_name in chaingraph.json' });
-    return;
-  }
+// Signal used to classify a footer block as "chrome" vs "body tool content".
+// If ALL footer blocks in a multi-footer page match this pattern, they are
+// chrome and safe to collapse into one canonical footer.
+const CHROME_FOOTER_SIGNAL = /AINumbers\.co|Post Oak Labs|CC BY|client-side only|Zero PII/i;
 
+function processFile(filename) {
   const path     = resolve(CG, filename);
   const original = readFileSync(path, 'utf-8');
   let html       = original;
+
+  // Breadcrumb: chaingraph.json first, h1 fallback for pages not in chaingraph.json
+  const breadcrumb = deriveBreadcrumb(filename, html);
+  if (!breadcrumb) {
+    skipped.push({ file: filename, reason: 'no display_name in chaingraph.json and no usable h1' });
+    return;
+  }
 
   // ── guard: exactly one <nav>…</nav> ──
   const navOpens  = (html.match(/<nav[^>]*>/g) || []).length;
@@ -83,19 +114,44 @@ function processFile(filename) {
     return;
   }
 
-  // ── guard: exactly one <footer>…</footer> ──
-  const ftrOpens  = (html.match(/<footer[^>]*>/g) || []).length;
-  const ftrCloses = (html.match(/<\/footer>/g) || []).length;
-  if (ftrOpens !== 1 || ftrCloses !== 1) {
-    skipped.push({ file: filename, reason: `footer count (${ftrOpens}/${ftrCloses})` });
-    return;
-  }
-
   // ── REPLACE nav (handle optional attributes on opening tag) ──
   html = html.replace(/<nav[^>]*>[\s\S]*?<\/nav>/, buildNav(breadcrumb));
 
-  // ── REPLACE footer ──
-  html = html.replace(/<footer[^>]*>[\s\S]*?<\/footer>/, FOOTER);
+  // ── handle footer: 1 footer → replace; N footers (all chrome) → collapse → insert ──
+  const ftrOpens  = (html.match(/<footer[^>]*>/g) || []).length;
+  const ftrCloses = (html.match(/<\/footer>/g) || []).length;
+
+  if (ftrOpens !== ftrCloses) {
+    skipped.push({ file: filename, reason: `footer count asymmetric (${ftrOpens}/${ftrCloses})` });
+    return;
+  }
+
+  if (ftrOpens === 1) {
+    // Standard single-footer replacement
+    html = html.replace(/<footer[^>]*>[\s\S]*?<\/footer>/, FOOTER);
+  } else if (ftrOpens > 1) {
+    // Multiple footers: safe to collapse only if every block is chrome-type
+    const blocks = [...html.matchAll(/<footer[^>]*>[\s\S]*?<\/footer>/g)].map(m => m[0]);
+    const allChrome = blocks.every(b => CHROME_FOOTER_SIGNAL.test(b));
+    if (!allChrome) {
+      skipped.push({ file: filename, reason: `footer count (${ftrOpens}/${ftrCloses}) — non-chrome footer detected, scope fence` });
+      return;
+    }
+    // Strip all footer blocks, then insert canonical before </body>
+    html = html.replace(/<footer[^>]*>[\s\S]*?<\/footer>/g, '');
+    if (!html.includes('</body>')) {
+      skipped.push({ file: filename, reason: 'no </body> after footer collapse' });
+      return;
+    }
+    html = html.replace('</body>', `\n${FOOTER}\n</body>`);
+  } else {
+    // Zero footers — insert before </body>
+    if (!html.includes('</body>')) {
+      skipped.push({ file: filename, reason: 'no footer and no </body>' });
+      return;
+    }
+    html = html.replace('</body>', `\n${FOOTER}\n</body>`);
+  }
 
   // ── inject CSS (idempotent) ──
   // Use </head> injection (new <style> block) to avoid hitting </style> tags inside
