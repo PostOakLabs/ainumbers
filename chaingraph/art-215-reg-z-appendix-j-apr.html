@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reg Z Appendix J APR Solver &middot; ART-215 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regular and irregular payment schedules with odd-days fractional first period.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Reg Z Appendix J APR Solver</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-215 &middot; US Mortgage Compliance</div>
+  <h1>Reg Z Appendix J APR Solver</h1>
+  <p class="sub">Actuarial APR computation per 12 CFR 1026 Appendix J. Newton-Raphson iteration over the general actuarial equation. Handles regular and irregular payment schedules with odd-days fractional first period. Input for TRID APR accuracy and QM spread tests.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Reg Z Appendix J</span>
+    <span class="flag info">TRID APR Disclosure</span>
+    <span class="flag">Newton-Raphson</span>
+    <span class="flag">Odd Days Support</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Loan Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="loanAmount">Loan amount ($)</label>
+        <div class="q-help">Total advance disbursed at consummation.</div>
+        <input type="number" id="loanAmount" value="400000" min="1" step="1000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="paymentAmount">Payment amount ($)</label>
+        <div class="q-help">Regular periodic payment (P&I).</div>
+        <input type="number" id="paymentAmount" value="2528.27" min="0.01" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="numPayments">Number of payments</label>
+        <div class="q-help">Total scheduled payments (e.g. 360 for 30yr).</div>
+        <input type="number" id="numPayments" value="360" min="1" step="1">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="periodsPerYear">Periods per year</label>
+        <div class="q-help">12 = monthly, 52 = weekly, 365 = daily.</div>
+        <input type="number" id="periodsPerYear" value="12" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="oddDays">Odd days (optional)</label>
+        <div class="q-help">Days from consummation to first unit period. 0 = regular.</div>
+        <input type="number" id="oddDays" value="0" min="0" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="unitPeriodDays">Unit period days</label>
+        <div class="q-help">Days in one payment period (30 for monthly).</div>
+        <input type="number" id="unitPeriodDays" value="30" min="1" step="1">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runAPR()">&#9654; Compute APR</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">APR Result</div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="flag-row" id="flagRow"></div>
+      <div class="section-head" style="margin-top:14px">Loan Summary</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-215-reg-z-appendix-j-apr',
+  version: '1.0.0',
+  mcp_name: 'compute_reg_z_appendix_j_apr',
+  title: 'Reg Z Appendix J APR Solver',
+  description: 'Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regular and irregular payment schedules with odd-days fractional first period.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Reg Z Appendix J, 12 CFR 1026 Appendix J',
+  mcp_tool_definition: {
+    name: 'compute_reg_z_appendix_j_apr',
+    description: 'Compute actuarial APR per Reg Z Appendix J general equation. Newton-Raphson iteration. Handles odd-days irregular first period.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        loan_amount: { type: 'number', description: 'Loan amount in dollars' },
+        payment_amount: { type: 'number', description: 'Regular periodic payment amount' },
+        num_payments: { type: 'number', description: 'Total number of payments' },
+        periods_per_year: { type: 'number', description: 'Payment periods per year (12=monthly)' },
+        odd_days: { type: 'number', description: 'Odd days in first period (0 = regular)' },
+        unit_period_days: { type: 'number', description: 'Days in one unit period (30 for monthly)' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function r4(v) { return isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+
+// Appendix J actuarial equation: sum of discounted payments = advance total
+// For odd days: first payment at time (1 + u) where u = odd_days / unit_period_days
+function solveAPR(advances, payments, periodsPerYear, aprGuess) {
+  var r = aprGuess / 100 / periodsPerYear; // periodic rate initial guess
+  var MAX_ITER = 300;
+  var TOL = 1e-12;
+  for (var iter = 0; iter < MAX_ITER; iter++) {
+    // f(r) = sum of discounted payments - sum of advances
+    var f = 0, fp = 0;
+    for (var j = 0; j < payments.length; j++) {
+      var t = payments[j].t; // time in periods from consummation
+      var pmt = payments[j].amount;
+      var disc = Math.pow(1 + r, -t);
+      f += pmt * disc;
+      fp += -t * pmt * disc / (1 + r);
+    }
+    for (var k = 0; k < advances.length; k++) {
+      var ta = advances[k].t;
+      var adv = advances[k].amount;
+      var ddisc = Math.pow(1 + r, -ta);
+      f -= adv * ddisc;
+      fp -= -ta * adv * ddisc / (1 + r);
+    }
+    if (Math.abs(fp) < 1e-20) break;
+    var rNew = r - f / fp;
+    if (rNew < 0) rNew = r / 2; // clamp negative rates
+    if (Math.abs(rNew - r) < TOL) { r = rNew; return { r: r, iterations: iter + 1, converged: true }; }
+    r = rNew;
+  }
+  return { r: r, iterations: MAX_ITER, converged: false };
+}
+
+function runAPR() {
+  var loanAmount = Math.max(1, safe(document.getElementById('loanAmount').value, 400000));
+  var paymentAmount = Math.max(0.01, safe(document.getElementById('paymentAmount').value, 2528.27));
+  var numPayments = Math.max(1, Math.round(safe(document.getElementById('numPayments').value, 360)));
+  var periodsPerYear = Math.max(1, Math.round(safe(document.getElementById('periodsPerYear').value, 12)));
+  var oddDays = Math.max(0, Math.round(safe(document.getElementById('oddDays').value, 0)));
+  var unitPeriodDays = Math.max(1, Math.round(safe(document.getElementById('unitPeriodDays').value, 30)));
+
+  var u = oddDays > 0 ? oddDays / unitPeriodDays : 0; // fractional period
+
+  // Build advances and payments arrays
+  var advances = [{ t: 0, amount: loanAmount }];
+  var payments = [];
+  for (var i = 1; i <= numPayments; i++) {
+    payments.push({ t: i + u, amount: paymentAmount });
+  }
+
+  var result = solveAPR(advances, payments, periodsPerYear, 6.0); // guess 6% APR
+  var periodicRate = r4(result.r * 4) / 4; // will use actual value
+  periodicRate = result.r;
+  var aprPct = r4(result.r * periodsPerYear * 100);
+  var paymentTotal = r2(paymentAmount * numPayments);
+  var financeCharge = r2(paymentTotal - loanAmount);
+
+  var pp = {
+    loan_amount: loanAmount,
+    payment_amount: paymentAmount,
+    num_payments: numPayments,
+    periods_per_year: periodsPerYear
+  };
+  if (oddDays > 0) { pp.odd_days = oddDays; pp.unit_period_days = unitPeriodDays; }
+
+  var op = {
+    apr_pct: aprPct,
+    periodic_rate: r4(result.r * 1e6) / 1e6,
+    periods_per_year: periodsPerYear,
+    num_payments: numPayments,
+    advance_total: loanAmount,
+    payment_total: paymentTotal,
+    finance_charge: financeCharge,
+    iterations: result.iterations,
+    converged: result.converged,
+    regulatory_basis: 'Reg Z Appendix J, 12 CFR 1026 Appendix J (general actuarial equation)',
+    note: 'APR computed via Appendix J actuarial method. Odd-days fraction included when advances/payments supplied with fractional periods_from_consummation. Input APOR separately for QM spread test.'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: [] };
+
+  var aprColor = result.converged ? 'var(--teal-lt)' : 'var(--warn)';
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+aprPct+'%</span><span class="stat-key">APR</span></div>'+
+    '<div class="stat"><span class="stat-val">'+result.iterations+'</span><span class="stat-key">Iterations</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+r4(result.r * 1e6) / 1e6+'</span><span class="stat-key">Periodic Rate</span></div>'+
+    '<div class="stat"><span class="stat-val">$'+financeCharge.toLocaleString()+'</span><span class="stat-key">Finance Charge</span></div>';
+
+  document.getElementById('kvDiv').innerHTML = [
+    ['Advance total', '$'+loanAmount.toLocaleString()],
+    ['Payment amount', '$'+paymentAmount],
+    ['Number of payments', numPayments],
+    ['Periods per year', periodsPerYear],
+    ['Odd days / unit period days', oddDays > 0 ? oddDays + ' / ' + unitPeriodDays : 'none'],
+    ['Fractional period u', r4(u)],
+    ['Periodic rate', r4(result.r * 1e6) / 1e6],
+    ['APR', aprPct + '%'],
+    ['Payment total', '$'+paymentTotal.toLocaleString()],
+    ['Finance charge', '$'+financeCharge.toLocaleString()],
+    ['Converged', result.converged ? 'Yes' : 'No (check inputs)'],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('flagRow').innerHTML = result.converged
+    ? '<span class="badge ok">CONVERGED</span>'
+    : '<span class="badge warn">NOT_CONVERGED</span>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-215-reg-z-appendix-j-apr',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-215-reg-z-appendix-j-apr.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

@@ -150,7 +150,13 @@ import * as art211 from './art-211-prediction-market-analyzer.kernel.mjs';
 import * as art212 from './art-212-prediction-market-arbitrage.kernel.mjs';
 import * as art213 from './art-213-perp-liquidation-calculator.kernel.mjs';
 import * as art214 from './art-214-perp-position-lifecycle.kernel.mjs';
+import * as art215 from './art-215-reg-z-appendix-j-apr.kernel.mjs';
+import * as art216 from './art-216-trid-tolerance-cure.kernel.mjs';
+import * as art217 from './art-217-trid-apr-accuracy.kernel.mjs';
+import * as art218 from './art-218-qm-points-and-fees.kernel.mjs';
+import * as art219 from './art-219-qm-apr-apor-spread.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
+import * as art220 from './art-220-reg-z-threshold-lookup.kernel.mjs';
 import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
@@ -394,7 +400,13 @@ export const KERNELS = {
   'art-212-prediction-market-arbitrage':                      art212,
   'art-213-perp-liquidation-calculator':                      art213,
   'art-214-perp-position-lifecycle':                          art214,
+  'art-215-reg-z-appendix-j-apr':                             art215,
+  'art-216-trid-tolerance-cure':                              art216,
+  'art-217-trid-apr-accuracy':                                art217,
+  'art-218-qm-points-and-fees':                               art218,
+  'art-219-qm-apr-apor-spread':                               art219,
   'art-22-agentic-payments-protocol-comparator':              art22,
+  'art-220-reg-z-threshold-lookup':                           art220,
   'art-23-visa-trusted-agent-protocol-inspector':             art23,
   'art-24-mastercard-agentic-token-builder':                  art24,
   'art-25-a2a-agent-card-validator':                          art25,

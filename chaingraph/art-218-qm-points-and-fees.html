@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>QM Points and Fees Test &middot; ART-218 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table lookup with version-pinned CFPB annual adjustments. Returns pass/fail with limit type, tier label, and headroom.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.tier-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.65rem;margin:12px 0}
+.tier-table th{color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);font-weight:400;text-transform:uppercase;font-size:.56rem;letter-spacing:.08em}
+.tier-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.tier-table tr.active-tier td{background:rgba(20,184,166,.06);color:var(--bright)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>QM Points and Fees Test</span>
+  </div>
+  <a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-218 &middot; US Mortgage Compliance</div>
+  <h1>QM Points and Fees Test</h1>
+  <p class="sub">Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3). Five-tier table lookup with version-pinned CFPB annual dollar adjustments. Returns pass/fail with applicable tier label, limit amount, and headroom. Prerequisite for QM APR-APOR spread test.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Reg Z §1026.43(e)(3)</span>
+    <span class="flag info">QM General</span>
+    <span class="flag">5-Tier Table</span>
+    <span class="flag">Version-Pinned 2021-2026</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Loan and Fee Inputs</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="loanAmount">Loan amount ($)</label>
+        <div class="q-help">Total principal, used to determine which tier applies.</div>
+        <input type="number" id="loanAmount" value="450000" min="1" step="1000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="totalFees">Total points and fees ($)</label>
+        <div class="q-help">Sum of all QM-qualified points and fees per §1026.32(b)(1).</div>
+        <input type="number" id="totalFees" value="12000" min="0" step="100">
+      </div>
+      <div class="q">
+        <label class="q-label" for="tableYear">Table year</label>
+        <div class="q-help">CFPB adjusts thresholds annually. Use consummation year.</div>
+        <select id="tableYear">
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+          <option value="2021">2021</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runQMFees()">&#9654; Run QM Points and Fees Test</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">QM Points and Fees Result</div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Applicable Tier</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Full <span id="yearLabel"></span> Tier Table</div>
+      <table class="tier-table" id="tierTable">
+        <thead><tr><th>Tier</th><th>Loan range</th><th>Limit</th></tr></thead>
+        <tbody id="tierBody"></tbody>
+      </table>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">
+  <div style="max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap"><a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a><a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.8.0</a></div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-218-qm-points-and-fees',
+  version: '1.0.0',
+  mcp_name: 'check_qm_points_and_fees',
+  title: 'QM Points and Fees Test',
+  description: 'QM points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table, version-pinned 2021-2026 CFPB adjustments.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Reg Z §1026.43(e)(3)',
+  mcp_tool_definition: {
+    name: 'check_qm_points_and_fees',
+    description: 'Check QM points-and-fees limit per Reg Z §1026.43(e)(3). Returns pass, limit, tier_label, headroom.',
+    inputSchema: {
+      type: 'object',
+      required: ['loan_amount', 'total_points_and_fees'],
+      properties: {
+        loan_amount: { type: 'number' },
+        total_points_and_fees: { type: 'number' },
+        table_year: { type: 'number', description: 'Year for threshold lookup (default 2026)' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+// Version-pinned QM points-and-fees thresholds 2021-2026 (FR citations)
+var QM_TABLES = {
+  2026: { fr: 'FR 2025-22773', effective: '2026-01-01', tier1_min: 137958, tier1_pct: 3, tier2_fixed: 4139, tier3_min: 27592, tier3_pct: 5, tier4_fixed: 1380, tier5_pct: 8 },
+  2025: { fr: 'FR 2024-28921', effective: '2025-01-01', tier1_min: 130084, tier1_pct: 3, tier2_fixed: 3903, tier3_min: 26017, tier3_pct: 5, tier4_fixed: 1301, tier5_pct: 8 },
+  2024: { fr: 'FR 2023-27045', effective: '2024-01-01', tier1_min: 124331, tier1_pct: 3, tier2_fixed: 3730, tier3_min: 24866, tier3_pct: 5, tier4_fixed: 1244, tier5_pct: 8 },
+  2023: { fr: 'FR 2022-26739', effective: '2023-01-01', tier1_min: 114847, tier1_pct: 3, tier2_fixed: 3445, tier3_min: 22969, tier3_pct: 5, tier4_fixed: 1148, tier5_pct: 8 },
+  2022: { fr: 'FR 2021-28308', effective: '2022-01-01', tier1_min: 110260, tier1_pct: 3, tier2_fixed: 3308, tier3_min: 22052, tier3_pct: 5, tier4_fixed: 1103, tier5_pct: 8 },
+  2021: { fr: 'FR 2020-27567', effective: '2021-01-01', tier1_min: 109626, tier1_pct: 3, tier2_fixed: 3289, tier3_min: 21925, tier3_pct: 5, tier4_fixed: 1097, tier5_pct: 8 }
+};
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function fmt$(v) { return '$' + Number(v).toLocaleString(); }
+
+function getTier(loan, t) {
+  // Tier 1: >= tier1_min → 3%
+  if (loan >= t.tier1_min) return { label: '>= ' + fmt$(t.tier1_min) + ': 3%', type: 'pct', pct: t.tier1_pct, fixed: null, limit: r2(loan * t.tier1_pct / 100) };
+  // Tier 2: tier3_min * 2 <= loan < tier1_min → $tier2_fixed
+  var mid = t.tier3_min * 2;
+  if (loan >= mid && loan < t.tier1_min) return { label: fmt$(mid) + ' - ' + fmt$(t.tier1_min - 0.01) + ': ' + fmt$(t.tier2_fixed), type: 'fixed', pct: null, fixed: t.tier2_fixed, limit: t.tier2_fixed };
+  // Tier 3: tier3_min <= loan < mid → 5%
+  if (loan >= t.tier3_min && loan < mid) return { label: fmt$(t.tier3_min) + ' - ' + fmt$(mid - 0.01) + ': 5%', type: 'pct', pct: t.tier3_pct, fixed: null, limit: r2(loan * t.tier3_pct / 100) };
+  // Tier 4: tier4_fixed*2 <= loan < tier3_min → $tier4_fixed
+  var low = t.tier4_fixed * 2;
+  if (loan >= low && loan < t.tier3_min) return { label: fmt$(low) + ' - ' + fmt$(t.tier3_min - 0.01) + ': ' + fmt$(t.tier4_fixed), type: 'fixed', pct: null, fixed: t.tier4_fixed, limit: t.tier4_fixed };
+  // Tier 5: < tier4_fixed*2 → 8%
+  return { label: '< ' + fmt$(low) + ': 8%', type: 'pct', pct: t.tier5_pct, fixed: null, limit: r2(loan * t.tier5_pct / 100) };
+}
+
+function buildTierRows(loan, t, activeTier) {
+  var tiers = [
+    { name: 'Tier 1', range: '>= ' + fmt$(t.tier1_min), limit: '3% of loan', limitVal: r2(loan * t.tier1_pct / 100), active: activeTier === 1 },
+    { name: 'Tier 2', range: fmt$(t.tier3_min * 2) + ' – ' + fmt$(t.tier1_min - 0.01), limit: fmt$(t.tier2_fixed) + ' fixed', limitVal: t.tier2_fixed, active: activeTier === 2 },
+    { name: 'Tier 3', range: fmt$(t.tier3_min) + ' – ' + fmt$(t.tier3_min * 2 - 0.01), limit: '5% of loan', limitVal: r2(loan * t.tier3_pct / 100), active: activeTier === 3 },
+    { name: 'Tier 4', range: fmt$(t.tier4_fixed * 2) + ' – ' + fmt$(t.tier3_min - 0.01), limit: fmt$(t.tier4_fixed) + ' fixed', limitVal: t.tier4_fixed, active: activeTier === 4 },
+    { name: 'Tier 5', range: '< ' + fmt$(t.tier4_fixed * 2), limit: '8% of loan', limitVal: r2(loan * t.tier5_pct / 100), active: activeTier === 5 },
+  ];
+  return tiers;
+}
+
+function runQMFees() {
+  var loan = Math.max(1, safe(document.getElementById('loanAmount').value, 450000));
+  var fees = Math.max(0, safe(document.getElementById('totalFees').value, 12000));
+  var year = parseInt(document.getElementById('tableYear').value) || 2026;
+  var t = QM_TABLES[year] || QM_TABLES[2026];
+
+  var tier = getTier(loan, t);
+  var limit = tier.limit;
+  var pass = fees <= limit + 0.005;
+  var headroom = r2(limit - fees);
+  var flags = pass ? [] : ['QM_POINTS_AND_FEES_EXCEEDED'];
+
+  // Determine tier number for highlighting
+  var tierNum;
+  if (loan >= t.tier1_min) tierNum = 1;
+  else if (loan >= t.tier3_min * 2) tierNum = 2;
+  else if (loan >= t.tier3_min) tierNum = 3;
+  else if (loan >= t.tier4_fixed * 2) tierNum = 4;
+  else tierNum = 5;
+
+  var pp = { loan_amount: loan, total_points_and_fees: fees, table_year: year };
+  var op = {
+    pass: pass,
+    loan_amount: loan,
+    total_points_and_fees: fees,
+    limit: limit,
+    limit_type: tier.type,
+    limit_pct: tier.pct !== null ? tier.pct : null,
+    limit_fixed: tier.fixed !== null ? tier.fixed : null,
+    tier_label: tier.label,
+    headroom: headroom,
+    table_year: year,
+    fr_citation: t.fr + ', effective ' + t.effective,
+    regulatory_basis: 'Reg Z §1026.43(e)(3), QM general points-and-fees test',
+    note: 'Thresholds version-pinned at build time. CFPB adjusts annually. CARD Act late fee cap ($8) vacated May 2025 — consult current FR for latest adjustments.'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var passColor = pass ? 'var(--green)' : 'var(--red)';
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val" style="color:'+passColor+'">'+(pass?'PASS':'FAIL')+'</span><span class="stat-key">QM Result</span></div>'+
+    '<div class="stat"><span class="stat-val">'+fmt$(fees)+'</span><span class="stat-key">Total Fees</span></div>'+
+    '<div class="stat"><span class="stat-val">'+fmt$(limit)+'</span><span class="stat-key">Limit</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+(headroom < 0?'var(--red)':'var(--text)')+'">'+fmt$(Math.abs(headroom))+'</span><span class="stat-key">'+(headroom < 0 ? 'Excess' : 'Headroom')+'</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.length
+    ? '<span class="badge fail">'+flags[0]+'</span>'
+    : '<span class="badge ok">QM POINTS AND FEES PASS</span>';
+
+  document.getElementById('kvDiv').innerHTML = [
+    ['Loan amount', fmt$(loan)],
+    ['Total points and fees', fmt$(fees)],
+    ['Applicable tier', tier.label],
+    ['Limit type', tier.type === 'pct' ? tier.pct + '% of loan' : 'Fixed dollar'],
+    ['Limit', fmt$(limit)],
+    ['Headroom / excess', fmt$(Math.abs(headroom)) + (headroom < 0 ? ' excess' : ' headroom')],
+    ['Result', pass ? 'PASS' : 'FAIL'],
+    ['Table year / FR citation', year + ' / ' + t.fr],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('yearLabel').textContent = year;
+  var tiers = buildTierRows(loan, t, tierNum);
+  document.getElementById('tierBody').innerHTML = tiers.map(function(r) {
+    return '<tr'+(r.active?' class="active-tier"':'')+'><td>'+r.name+'</td><td>'+r.range+'</td><td>'+r.limit+'</td></tr>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-218-qm-points-and-fees',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-218-qm-points-and-fees.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
