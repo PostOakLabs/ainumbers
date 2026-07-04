@@ -22,8 +22,9 @@ import { fileURLToPath } from 'node:url';
 import { executionHash } from './_hash.mjs';
 import {
   sha256, derRead, derChildrenOf, derOidToString, derEnc,
-  cborDecode, CborTag, cborEncode, leafHash, rootFromInclusion,
+  cborDecode, CborTag, cborEncode, leafHash, nodeHash, mth, auditPath, rootFromInclusion,
   rawToPublicKey, ed25519Verify, parseNote, verifyNoteSig, verifyCosigV1,
+  verifyMerkleInclusion,
 } from './_anchor-testutil.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -388,6 +389,56 @@ ok(scittRes.ok, `(d) COSE receipt verifies (RFC9162_SHA256 inclusion + EdDSA Sig
 
 // schema-shape sanity for the rfc3161 REQUIRED members (§20 / anchorBinding oneOf)
 ok(['policy_oid', 'serial', 'gen_time', 'signer_cert_chain_b64'].every((k) => rfc[k] !== undefined), 'rfc3161 binding carries all four REQUIRED additional members');
+
+// ── (f) §20 merkle_inclusion (v0.8) — batch anchoring: exec_hash is a LEAF, anchored_hash is ROOT ──
+// OFFLINE fixture: synthesize a small RFC 6962 tree over deterministic test hashes (no network),
+// pick one leaf as "our" artifact, build its inclusion proof, and set anchored_hash = tree root.
+// Reuses the shipped leafHash/mth/auditPath/rootFromInclusion (no second Merkle implementation).
+{
+  const TREE_N = 6;                                   // deliberately non-power-of-two
+  const execHashes = Array.from({ length: TREE_N }, (_, i) => sha256(Buffer.from('ocg-v0.8-merkle-leaf-' + i)).toString('hex'));
+  const leafHashes = execHashes.map((h) => leafHash(Buffer.from(h, 'hex')));
+  const root = mth(leafHashes);
+  const K = 3;                                        // the artifact we hold is leaf #3
+  const path = auditPath(K, leafHashes);
+  const execHashHex = execHashes[K];
+  const anchoredHashHex = root.toString('hex');
+  const mi = {
+    leaf: execHashHex,
+    index: K,
+    path: path.map((b) => b.toString('hex')),
+    tree_size: TREE_N,
+    algorithm: 'rfc6962',
+  };
+  // A synthetic artifact whose execution_hash is the leaf, carrying a merkle-inclusion binding.
+  const mArtifact = { execution_hash: execHashHex };
+  const okInc = attempt(() => verifyMerkleInclusion(mi, { anchoredHashHex, execHashHex: mArtifact.execution_hash }));
+  ok(okInc.ok && okInc.value.rootHex === anchoredHashHex, `(f) merkle_inclusion reconstructs the anchored root from leaf+path (tree_size ${TREE_N}, index ${K})`);
+  // sanity: the root actually equals the direct MTH over all leaves
+  ok(anchoredHashHex === mth(leafHashes).toString('hex'), '(f) synthesized RFC 6962 root is the tree MTH');
+  // (e) tamper: corrupt one path node -> root no longer equals anchored_hash
+  {
+    const bad = { ...mi, path: [...mi.path] };
+    bad.path[0] = sha256(Buffer.from('poison')).toString('hex');
+    const r = attempt(() => verifyMerkleInclusion(bad, { anchoredHashHex, execHashHex }));
+    ok(!r.ok, '(f) merkle_inclusion tampered path fails (root != anchored_hash)');
+  }
+  // (e) leaf != artifact execution_hash MUST fail
+  {
+    const r = attempt(() => verifyMerkleInclusion(mi, { anchoredHashHex, execHashHex: 'f'.repeat(64) }));
+    ok(!r.ok, '(f) merkle_inclusion leaf != artifact execution_hash rejected');
+  }
+  // (e) mismatched anchored_hash (wrong root) MUST fail
+  {
+    const r = attempt(() => verifyMerkleInclusion(mi, { anchoredHashHex: '0'.repeat(64), execHashHex }));
+    ok(!r.ok, '(f) merkle_inclusion wrong anchored_hash rejected');
+  }
+  // wrong index (proof no longer reconstructs) MUST fail
+  {
+    const r = attempt(() => verifyMerkleInclusion({ ...mi, index: 0 }, { anchoredHashHex, execHashHex }));
+    ok(!r.ok, '(f) merkle_inclusion wrong index rejected');
+  }
+}
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all anchor-binding assertions passed');
 process.exit(fail ? 1 : 0);

@@ -3,7 +3,7 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.7.0",
+  "spec_version": "0.8.0",
   "$defs": {
     "anchorBinding": {
       "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
@@ -20,7 +20,8 @@
             "policy_oid": { "type": "string", "minLength": 1 },
             "serial": { "type": "string", "minLength": 1 },
             "gen_time": { "type": "string", "minLength": 1 },
-            "signer_cert_chain_b64": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+            "signer_cert_chain_b64": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion" }
           }
         },
         {
@@ -28,10 +29,22 @@
           "additionalProperties": false,
           "required": ["type", "anchored_hash", "log_origin", "proof"],
           "properties": {
-            "type": { "enum": ["opentimestamps", "c2sp-tlog-proof-v1", "scitt-receipt-rfc9942"] },
+            "type": { "const": "opentimestamps" },
             "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
             "log_origin": { "type": "string", "minLength": 1 },
-            "proof": { "type": "string", "minLength": 1, "description": "Base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt." }
+            "proof": { "type": "string", "minLength": 1, "description": "Base64 OTS proof." },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof"],
+          "properties": {
+            "type": { "enum": ["c2sp-tlog-proof-v1", "scitt-receipt-rfc9942"] },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "tlog-proof@v1 text | base64 COSE receipt (carries its own inclusion proof)." }
           }
         }
       ]
@@ -93,6 +106,43 @@
       "type": "string",
       "description": "Either a bare 64-char hex digest or a sha256:-prefixed digest.",
       "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "merkleInclusion": {
+      "type": "object",
+      "description": "OCG Standard §20 (v0.8) — OPTIONAL member on rfc3161-tst / opentimestamps anchor bindings. Batch anchoring: the artifact execution_hash is a LEAF of an RFC 6962 tree whose ROOT is the anchored value, so one timestamp covers many artifacts. When present a verifier MUST reconstruct the root from leaf+path and require root == anchored_hash AND leaf == artifact execution_hash (anchor-binding.test.mjs).",
+      "additionalProperties": false,
+      "required": ["leaf", "index", "path", "tree_size", "algorithm"],
+      "properties": {
+        "leaf": { "$ref": "#/$defs/sha256ref", "description": "The artifact execution_hash (a tree leaf entry)." },
+        "index": { "type": "integer", "minimum": 0 },
+        "path": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" }, "description": "RFC 6962 inclusion-proof node hashes." },
+        "tree_size": { "type": "integer", "minimum": 1 },
+        "algorithm": { "const": "rfc6962" }
+      }
+    },
+    "decisionGate": {
+      "type": "object",
+      "description": "OCG Standard §21.4 (v0.8) — OPTIONAL decision gate on a chain step. Evaluated against THIS step's output_payload; routes control FORWARD (a later step id or \"end\"). First-match; default REQUIRED (total function). Closed op enum; strict typing, no coercion. Static-validated by validate-chains (forward-only, targets resolve, no unreachable step); evaluated by the shared kernels/_gateval.mjs on every surface.",
+      "additionalProperties": false,
+      "required": ["input", "rules", "default"],
+      "properties": {
+        "input": { "type": "string", "description": "RFC 6901 JSON Pointer into this step's output_payload." },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["op", "next"],
+            "properties": {
+              "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "present", "absent"] },
+              "value": { "description": "Comparison operand (required for value ops; absent for present/absent). For gt/gte/lt/lte a finite number; for in a literal array." },
+              "next": { "type": "string", "minLength": 1, "description": "Target step id or the literal \"end\". MUST be forward-only." }
+            }
+          }
+        },
+        "default": { "type": "string", "minLength": 1, "description": "Target step id or \"end\" when no rule matches. REQUIRED and forward-only." }
+      }
     },
     "artifact": {
       "type": "object",
@@ -300,7 +350,9 @@
             "required": ["tool_id"],
             "properties": {
               "tool_id": { "type": "string", "minLength": 1 },
-              "handoff": { "type": "string" }
+              "handoff": { "type": "string" },
+              "id": { "type": "string", "minLength": 1, "description": "OCG §21.4 (v0.8) OPTIONAL step id (defaults to tool_id; MUST be unique within a GATED chain). Gate targets reference step ids." },
+              "gate": { "$ref": "#/$defs/decisionGate" }
             }
           }
         }
@@ -314,7 +366,7 @@
       "description": "A chaingraph.json catalog document.",
       "required": ["spec_version", "nodes", "chains"],
       "properties": {
-        "spec_version": { "type": "string", "pattern": "^0\\.[4567]\\.[0-9]+$" },
+        "spec_version": { "type": "string", "pattern": "^0\\.[45678]\\.[0-9]+$" },
         "version": { "type": "string" },
         "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
         "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }

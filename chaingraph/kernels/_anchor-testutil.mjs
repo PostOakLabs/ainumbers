@@ -171,6 +171,33 @@ export function rootFromInclusion(leaf, index, size, path) {
   return sn === 0n ? r : null;
 }
 
+// ── §20 merkle_inclusion verifier (OCG Standard §20, v0.8) ────────────────────────────────────────
+// OPTIONAL member on rfc3161-tst / opentimestamps bindings. When present, the artifact's
+// execution_hash is a LEAF of an RFC 6962 (RFC 9162) Merkle tree whose ROOT is the value the
+// timestamp service anchored (so ONE timestamp covers many artifacts — batch anchoring). Verifier:
+//   1. mi.leaf MUST equal the artifact execution_hash (bare 64-hex);
+//   2. reconstruct the root from leafHash(<32-byte exec hash>) + mi.path via rootFromInclusion;
+//   3. the reconstructed root MUST equal the binding anchored_hash.
+// Reuses the SAME leafHash/nodeHash/rootFromInclusion the c2sp/scitt verifiers use — no second
+// Merkle implementation. Throws on any failure; returns { rootHex } on success.
+export function verifyMerkleInclusion(mi, { anchoredHashHex, execHashHex }) {
+  if (!mi || typeof mi !== 'object') throw new Error('merkle_inclusion must be an object');
+  if (mi.algorithm !== 'rfc6962') throw new Error('merkle_inclusion.algorithm must be "rfc6962"');
+  const leafHex = String(mi.leaf).replace(/^sha256:/, '');
+  if (!/^[0-9a-f]{64}$/.test(leafHex)) throw new Error('merkle_inclusion.leaf must be a 64-hex digest');
+  if (leafHex !== execHashHex) throw new Error('merkle_inclusion.leaf != artifact execution_hash');
+  if (!Number.isInteger(mi.index) || mi.index < 0) throw new Error('merkle_inclusion.index must be a non-negative integer');
+  if (!Number.isInteger(mi.tree_size) || mi.tree_size <= 0) throw new Error('merkle_inclusion.tree_size must be a positive integer');
+  if (!Array.isArray(mi.path)) throw new Error('merkle_inclusion.path must be an array');
+  const L = leafHash(Buffer.from(leafHex, 'hex'));
+  const path = mi.path.map((h) => Buffer.from(String(h).replace(/^sha256:/, ''), 'hex'));
+  const root = rootFromInclusion(L, mi.index, mi.tree_size, path);
+  if (!root) throw new Error('merkle_inclusion path does not reconstruct a root (index/size/path inconsistent)');
+  const rootHex = root.toString('hex');
+  if (rootHex !== String(anchoredHashHex).replace(/^sha256:/, '')) throw new Error('reconstructed Merkle root != anchored_hash');
+  return { rootHex };
+}
+
 // ── Ed25519 raw-key plumbing (node:crypto) ───────────────────────────────────────────────────────
 const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 export const rawToPublicKey = (raw32) => createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, raw32]), format: 'der', type: 'spki' });

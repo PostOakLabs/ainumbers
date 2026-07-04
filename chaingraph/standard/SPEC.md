@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.7.0
+spec_version: 0.8.0
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -10,7 +10,7 @@ renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consis
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.7.0
+# OpenChainGraph Standard — v0.8.0
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -37,7 +37,7 @@ additive updates). No single one of these should be read as "the OpenChainGraph 
 
 | Identifier | Where it lives | Answers | Current | Bumps when |
 |---|---|---|---|---|
-| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.7.0` | every release (additive or breaking) |
+| `spec_version` | `chaingraph.json` (the version of record) | which OCG **release** is this? | `0.8.0` | every release (additive or breaking) |
 | `chaingraph_version` | every **artifact** envelope | which **schema** do I parse/validate this with? | `0.4.0` (frozen) | **only a breaking envelope change** |
 | `@context` URL | the artifact (`…/context/v0.3/…`) | which JSON-LD **vocabulary** applies? | `v0.3` | only when the context vocabulary changes |
 | `payloadType` `;version=` | `audit_signature` (the DSSE shell) | which **signing-envelope** shell? | `0.2` | only when the DSSE shell changes |
@@ -569,9 +569,10 @@ EXCLUDED from `execution_hash` scope. Each entry:
 }
 ```
 
-`anchored_hash` MUST equal the artifact's `execution_hash`. The last four members (`policy_oid`,
-`serial`, `gen_time`, `signer_cert_chain_b64`) are `rfc3161-tst` additional members — all REQUIRED for
-that type, absent otherwise.
+`anchored_hash` MUST equal the artifact's `execution_hash` — EXCEPT when a `merkle_inclusion` member is
+present (§20.1), in which case `anchored_hash` is a Merkle ROOT and the artifact `execution_hash` is a
+LEAF of that tree. The last four members (`policy_oid`, `serial`, `gen_time`, `signer_cert_chain_b64`)
+are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise.
 
 Verification (per type): `rfc3161-tst` — RFC 3161 TimeStampToken verification: messageImprint matches
 `anchored_hash`, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing
@@ -585,7 +586,33 @@ inclusion proof for the leaf committing `anchored_hash`, `anchored_hash` == `exe
 for interop; OCG implementations are NOT SCITT Transparency Services and SCRAPI is out of scope).
 Multi-TSA redundancy across independent authorities/algorithms is RECOMMENDED per RFC 4998 (informative).
 A verifier MUST reject a binding whose `anchored_hash` differs from the artifact's recomputed
-`execution_hash`. Multiple bindings MAY coexist (several logs, plus OTS).
+`execution_hash` (or, under §20.1, whose reconstructed Merkle root differs from `anchored_hash`).
+Multiple bindings MAY coexist (several logs, plus OTS).
+
+### §20.1 Merkle inclusion — batch anchoring (NORMATIVE, OPTIONAL — new in v0.8)
+A `rfc3161-tst` or `opentimestamps` binding MAY carry an OPTIONAL `merkle_inclusion` member so that ONE
+timestamp covers MANY artifacts: the anchored value is the ROOT of an [RFC 6962](https://www.rfc-editor.org/rfc/rfc9162)
+Merkle tree and each covered artifact's `execution_hash` is a LEAF. (The `c2sp-tlog-proof-v1` and
+`scitt-receipt-rfc9942` types already carry their own inclusion proof inside `proof`, so they do NOT
+use this member.)
+
+```json
+"merkle_inclusion": {
+  "leaf": "<the artifact execution_hash>",
+  "index": 0,
+  "path": ["sha256:…", "…"],
+  "tree_size": 6,
+  "algorithm": "rfc6962"
+}
+```
+
+When `merkle_inclusion` is present a verifier MUST: (1) confirm `merkle_inclusion.leaf` equals the
+artifact's recomputed `execution_hash`; (2) reconstruct the tree root from `leafHash(leaf)` + `path`
+using the RFC 6962 inclusion-proof procedure (the SAME `leafHash`/`nodeHash`/`rootFromInclusion` used by
+the `c2sp`/`scitt` verifiers — no second Merkle implementation); and (3) require the reconstructed root
+to equal the binding's `anchored_hash`. Any mismatch FAILS the binding. Absent this member, `anchored_hash`
+== `execution_hash` directly (unchanged v0.7 behavior). `merkle_inclusion` rides OUTSIDE the
+`execution_hash` preimage like the rest of `anchor_bindings`.
 
 Semantics (NORMATIVE honesty): an anchor binding proves EXISTENCE of the artifact bytes by a time and
 INCLUSION in the named log. It does not prove computational correctness (§18), authorship (§16), or
@@ -593,8 +620,96 @@ kernel identity (§17); the four are independent, composable claims. Because inc
 SHA-256 Merkle data, anchor bindings retain their timestamp value even against a future signature
 break (informative).
 
+## §21 Chain Execution (NORMATIVE — new in v0.8)
+Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
+makes the **existing linear contract** normative (§21.1–§21.3, descriptive of shipped behavior) and adds
+**decision gates** on top (§21.4). A chain is a `chaingraph.json` `chains[]` entry: `{ name, title?,
+steps: [{ tool_id, handoff?, id?, gate? }] }`. Execution is deterministic, zero-PII, zero payload
+logging. The reference surfaces are the Worker `run_chain` and the byte-identical embedded `runChain`;
+both MUST produce the identical `composite_execution_hash` for the same chain + inputs.
+
+### §21.1 Linear execution model (descriptive of shipped behavior)
+Steps run in **array order**. For each step, by `tool_id`: an unknown node → status `unknown_node`; a
+`gpu:true` node → `gpu_browser_only`; a node with no registered kernel → `no_kernel_browser_only`;
+otherwise the kernel's `buildArtifact(policy_parameters, opts)` runs. `policy_parameters` for a step are
+the caller-supplied `inputs[tool_id]`, else the vendored chain fixture, else `{}`; a kernel that throws
+for missing required inputs yields status `input_required` (never a silent failure). A step that
+produces an artifact has status `ok` and is a **RAN** step.
+
+Parent threading: `opts.parent_hashes = [previous RAN step's execution_hash]` (or `[]` for the first RAN
+step), `opts.parent_tool_ids` likewise, and `opts.chain_depth = <the step's zero-based array index>`.
+Only a RAN step advances the "previous" pointer; a skipped/failed step does not. §17 `build_identity` and
+§18 `compute_proof` are attached to a step artifact exactly as in the single-node compute path
+(hash-excluded).
+
+### §21.2 Composite preimage (NORMATIVE — the chain-level integrity anchor)
+The chain emits ONE composite artifact whose `execution_hash` is the §4 canonical hash over exactly
+`{ policy_parameters: composite_policy, output_payload: composite_output }`, computed over the **RAN
+steps only** (steps with status `ok`), via the same `kernels/_hash.mjs` canonicalizer (no new hash path):
+
+```
+composite_policy = { compute_mode: "server", chain, chain_title, step_count: <#ran>, step_tool_ids: [<ran tool_ids>] }
+composite_output = { chain, steps: [ { tool_id, mandate_type, execution_hash, output_payload } … per RAN step ] }
+```
+
+Per-step timestamps and `mandate_id`s are EXCLUDED from the preimage, so the composite hash is
+reproducible. If no step ran, `composite_execution_hash` is `null` and no composite artifact is emitted.
+
+### §21.3 Composite artifact
+The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
+`tool_id:"chaingraph/chains/<name>"`, `chain.parent_hashes = [<each RAN step execution_hash>]`,
+`chain.parent_tool_ids = [<ran tool_ids>]`, `chain.chain_depth = <#ran>`, `policy_parameters =
+composite_policy`, `output_payload = composite_output`. It re-verifies under §4 like any artifact.
+
+### §21.4 Decision gates (NORMATIVE — new in v0.8)
+A step MAY carry an OPTIONAL string `id` (defaults to `tool_id`; MUST be unique within a GATED chain) and
+an OPTIONAL `gate` that routes control conditionally after the step runs:
+
+```
+gate = { input: <RFC 6901 pointer into THIS step's output_payload>,
+         rules: [ { op, value?, next } … ],
+         default: <step id | "end"> }
+```
+
+- `op` ∈ the **closed enum** `{ eq, neq, gt, gte, lt, lte, in, present, absent }`. Comparison is **strict
+  — no type coercion**; `gt/gte/lt/lte` require FINITE numbers on both sides (a type-mismatched or absent
+  operand simply does not match); `in` tests membership in a literal array; `present`/`absent` test
+  existence only and carry no `value`. Existence is tested ONLY with `present`/`absent`; every other op
+  requires the pointer to resolve.
+- Rules are evaluated **first-match**. When none match, the REQUIRED `default` is taken — so a gate is a
+  **total function** and an agent runs a gated chain end-to-end with no human in the loop.
+- All `next`/`default` targets are **FORWARD-ONLY** (a later array index) or the literal `"end"`. Forward
+  targets make the chain **acyclic and guaranteed-terminating** by construction. No loops, no backward
+  jumps, no parallel branches, no human-in-the-loop gate type.
+- A step evaluated to be jumped over gets status **`skipped_by_gate`** (distinct from `input_required` /
+  `no_kernel_browser_only`). A step with no `gate` falls through **linearly** to the next array index. A
+  gate is evaluated ONLY when its step produced output (`ok`); a step that did not run falls through
+  linearly (no decision recorded).
+
+**Hash binding — CONDITIONAL-PRESENCE (only when the chain defines ≥1 gate).** A chain with no gate is
+pure linear and its `composite_execution_hash` is UNCHANGED from §21.2 — this is the single most
+important compatibility rule (a golden-fixture freeze gate enforces it). When the chain has ≥1 gate, and
+ONLY then, three members enter the composite preimage:
+
+- `composite_policy.route_plan_digest` — bare-hex SHA-256 over the JCS-canonical (`kernels/_hash.mjs`,
+  the ONE canonicalizer) full `steps[]` definition (the decision policy, including gates);
+- `composite_output.decisions[]` — one record per EVALUATED gate: `{ step_id, input_pointer,
+  observed_value, matched_rule_index, op, value, next }`, recomputable by a verifier from the recorded
+  `output_payload`s (tamper-evident: mutate a decision or an observed value and the recompute fails);
+- `composite_output.path_taken[]` — the ordered executed step ids.
+
+These keys are absent for linear chains, so no linear chain's composite hash moves. The evaluator is ONE
+pure ECMA-262 module (`kernels/_gateval.mjs`) — no expression language, no second canonicalizer — used
+byte-identically on every executing surface.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.7.0 = Anchor Binding (§20) + selective-disclosure export (§13.12) +
+See `standard/CHANGELOG.md`. v0.8.0 = Chain Execution (§21: the shipped linear `run_chain` contract made
+normative, plus forward-only decision gates with conditional-presence hash binding) + §20.1
+`merkle_inclusion` (batch anchoring: exec_hash-as-leaf, root-as-anchor) over v0.7.0 (additive; no
+envelope/hash change — every linear chain's `composite_execution_hash` is frozen, gate metadata is
+conditional-presence; schema change is limited to the catalog `spec_version` pattern + optional
+`id`/`gate` on chain steps + optional `merkle_inclusion` on two anchor types; `chaingraph_version` stays
+`0.4.0`). v0.7.0 = Anchor Binding (§20) + selective-disclosure export (§13.12) +
 proof sets/endorsement chains (§16.5) + optional `supersedes` (§1) over v0.6.1 (additive; no
 envelope/hash/schema change). v0.6.1 = §18.6 deterministic-node proof profile (`ocg-p18-deterministic`) over
 v0.6.0 (additive, profile-scoped; no envelope/hash/schema change). v0.6.0 = Kernel Identity Binding (§17) +
@@ -632,6 +747,12 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
 | §16.5 proof sets/chains: parallel proof set verifies, endorsement `previousProof` chain verifies in dependency order, broken `previousProof` MUST fail | `proof-binding.test.mjs` | validate |
 | §1 `supersedes` shape: array of `sha256:`-prefixed execution_hashes | `schema-validate.mjs` | validate |
+| §21.1–§21.3 linear composite contract: NO existing linear chain's `composite_execution_hash` moves (golden freeze over ≥10 chains, captured pre-change) | `linear-hash-freeze.mjs` | validate |
+| §21.4 gate static validity: RFC 6901 pointer syntax, closed op enum + value typing, `default` present, all targets resolve + FORWARD-ONLY, unique step ids, no unreachable step | `validate-chains.mjs` (Layer 4) + `gate-static.test.mjs` | validate |
+| §21.4 evaluator semantics: each op × type mismatch × first-match × mandatory default, determinism, decision recomputable + tamper-detect | `gate-semantics.test.mjs` | validate |
+| §21.4 both-branch coverage: a gated chain's fixtures drive every branch (each rule + default) ≥1; a single-branch set is flagged | `gate-branch-coverage.test.mjs` | validate |
+| §21.4 evaluator byte-parity: Worker `run_chain` and embedded `runChain` yield identical route + decisions + `composite_execution_hash` for gated chains | `gate-parity.test.mjs` | validate |
+| §20.1 `merkle_inclusion`: reconstruct RFC 6962 root from leaf+path, root == `anchored_hash`, leaf == recomputed `execution_hash`, tampered path / wrong leaf / wrong root MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
