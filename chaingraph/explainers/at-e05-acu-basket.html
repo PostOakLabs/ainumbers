@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ACU Currency Basket: SDR-Method Valuation &middot; Autonity Explainer E-05 &middot; AINumbers.co</title>
+<meta name="description" content="How Autonity's Auton Currency Unit (ACU) basket worked: seven currencies with fixed SDR-method amounts, floating USD weights, and a daily recomputed index value.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/explainers/at-e05-acu-basket.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --teal-glow:rgba(20,184,166,.35);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;--purple:#9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
+
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:900px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.55rem;color:var(--muted);flex-wrap:wrap}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .7rem;border-radius:4px;flex-shrink:0;text-decoration:none}
+
+.hero{padding:3rem 0 2rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3.2vw,2.4rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:1rem;color:var(--bright);max-width:700px;margin-bottom:.5rem;line-height:1.8}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1.2rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.2rem .55rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-hist{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.badge-edu{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-live{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+
+section{padding:2.4rem 0;border-bottom:1px solid var(--border)}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+section h2{font-size:clamp(1.2rem,2.2vw,1.55rem);color:var(--white);margin-bottom:.7rem}
+.prose{color:var(--body);font-size:.93rem;line-height:1.8;max-width:720px;margin-bottom:1rem}
+.prose strong{color:var(--text);font-weight:500}
+
+.callout{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:1rem 1.2rem;margin:1.2rem 0;font-size:.88rem;line-height:1.7}
+.callout-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem}
+.callout p{color:var(--body)}
+.callout strong{color:var(--bright)}
+
+.callout-gold{background:var(--gold-dim);border-left-color:var(--gold)}
+.callout-gold .callout-label{color:var(--gold)}
+.callout-gold p{color:var(--text)}
+
+.basket-table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.basket-table th{text-align:left;padding:.5rem .7rem;background:var(--bg-3);color:var(--muted);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);border-top:1px solid var(--border)}
+.basket-table td{padding:.45rem .7rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.basket-table tr:last-child td{border-bottom:none}
+.basket-table tr:hover td{background:var(--bg-3)}
+.curr-badge{display:inline-block;padding:.1rem .4rem;border-radius:3px;font-size:.65rem;font-weight:500;margin-right:4px}
+.aud-b{background:rgba(20,184,166,.15);color:var(--teal-lt)}
+.cad-b{background:rgba(212,168,71,.15);color:var(--gold)}
+.eur-b{background:rgba(155,114,245,.15);color:var(--purple)}
+.gbp-b{background:rgba(34,197,94,.15);color:var(--green)}
+.jpy-b{background:rgba(239,68,68,.15);color:#f87171}
+.usd-b{background:rgba(168,196,222,.15);color:var(--text)}
+.sek-b{background:rgba(245,158,11,.15);color:var(--amber)}
+
+.formula-box{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);line-height:1.9}
+.formula-box .comment{color:var(--muted);font-size:.72rem}
+
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:14px 0}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:16px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.1rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.4rem;line-height:1.5}
+input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.42rem .7rem;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--teal)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:4px;padding:.28rem .6rem;cursor:pointer;transition:all .15s}
+.preset-btn:hover{color:var(--teal-lt);border-color:var(--teal)}
+.preset-btn.active{background:var(--teal-dim);color:var(--teal-lt);border-color:var(--teal)}
+.rate-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 18px}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.7rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+
+.result-area{display:none}.result-area.show{display:block}
+.index-display{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:12px 0;text-align:center}
+.index-main{font-family:'DM Serif Display',serif;font-size:2.8rem;color:var(--teal-lt);margin-bottom:.2rem}
+.index-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.weight-bars{margin:16px 0}
+.w-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.w-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);width:36px;flex-shrink:0}
+.w-bar-wrap{flex:1;background:var(--bg-3);border-radius:4px;height:18px;overflow:hidden;border:1px solid var(--border)}
+.w-bar-fill{height:100%;border-radius:4px;transition:width .4s ease;display:flex;align-items:center;padding-left:6px;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:#06121f;font-weight:600;white-space:nowrap;overflow:hidden}
+.w-val{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);width:54px;text-align:right;flex-shrink:0}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--bright)}
+
+.nav-row{display:flex;gap:10px;flex-wrap:wrap;margin:1.5rem 0}
+.nav-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem 1rem;font-size:.78rem;color:var(--body);flex:1;min-width:160px;text-decoration:none}
+.nav-card:hover{border-color:var(--teal);color:var(--text)}
+.nav-card-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.nav-card-title{color:var(--bright);font-size:.82rem}
+
+footer{border-top:1px solid var(--border);padding:1.5rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:900px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.8rem;align-items:center}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <a href="../../index.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="../education-hub.html">Education Hub</a><span class="nav-sep">/</span>
+    <span>E-05 ACU Basket</span>
+  </div>
+  <a href="../education-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Autonity Historical Series &middot; E-05 &middot; Monetary Design</div>
+  <h1>ACU Currency Basket:<br><em>SDR-Method Valuation</em></h1>
+  <p class="hero-desc">The Auton Currency Unit (ACU) was Autonity's basket-pegged reference currency. It tracked a fixed-quantity basket of seven major currencies using the same methodology the IMF uses for the Special Drawing Right (SDR): fixed amounts, floating daily weights.</p>
+  <p class="hero-sub">ACU was a design reference for USDZ, the AFP's primary settlement token. The basket mechanic is presented here for educational record. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-hist">Historical &middot; Autonity Design</span>
+    <span class="badge badge-edu">Educational</span>
+    <span class="badge badge-live">Interactive basket calculator</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-label">01 &middot; The SDR method</div>
+  <h2>Fixed amounts, floating weights</h2>
+  <p class="prose">The IMF's Special Drawing Right (SDR) is the canonical basket currency. Its value is computed daily by multiplying each constituent currency's <strong>fixed amount</strong> by that currency's <strong>USD exchange rate</strong>, then summing. The basket amounts are set by the IMF every five years; the weights drift daily as exchange rates move.</p>
+  <p class="prose">Autonity adopted exactly this methodology for the ACU. Seven currencies received fixed amounts at basket inception. Each day, the ACU index value in USD was computed as the sum of (fixed amount &times; USD rate) across all seven currencies. Each currency's weight at any moment was its contribution to that sum &mdash; not a fixed target.</p>
+
+  <div class="callout callout-gold">
+    <div class="callout-label">Why fixed amounts, not fixed weights?</div>
+    <p>If you fix a currency's <em>weight</em> (say, "EUR = 30% of the basket"), you have to rebalance the basket every day as exchange rates move. This requires a transaction, a cost, and a discretionary choice. If you fix the <em>amount</em> (say, "EUR = 0.143 in the basket"), no rebalancing is ever needed &mdash; the weight simply drifts. The SDR has used this method since 1974. Autonity's ACU uses it for the same reason: the basket is stable by construction, not by intervention.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">02 &middot; The ACU basket constituents</div>
+  <h2>Seven currencies at fixed amounts</h2>
+  <p class="prose">The ACU basket used amounts specified at scale 10<sup>5</sup> (i.e., divide by 100,000 for the actual amount per unit of ACU). The seven constituents and their fixed amounts were:</p>
+
+  <table class="basket-table">
+    <thead>
+      <tr>
+        <th>Currency</th>
+        <th>Code</th>
+        <th>Amount (raw &times;10<sup>5</sup>)</th>
+        <th>Actual Amount</th>
+        <th>Basis</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="curr-badge aud-b">AUD</span> Australian Dollar</td>
+        <td style="color:var(--teal-lt)">AUD</td>
+        <td style="font-family:'JetBrains Mono',monospace">21,300</td>
+        <td style="font-family:'JetBrains Mono',monospace">0.21300</td>
+        <td>G10 trade weight</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge cad-b">CAD</span> Canadian Dollar</td>
+        <td style="color:var(--gold)">CAD</td>
+        <td style="font-family:'JetBrains Mono',monospace">18,700</td>
+        <td style="font-family:'JetBrains Mono',monospace">0.18700</td>
+        <td>G10 trade weight</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge eur-b">EUR</span> Euro</td>
+        <td style="color:var(--purple)">EUR</td>
+        <td style="font-family:'JetBrains Mono',monospace">14,300</td>
+        <td style="font-family:'JetBrains Mono',monospace">0.14300</td>
+        <td>SDR EUR component</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge gbp-b">GBP</span> British Pound</td>
+        <td style="color:var(--green)">GBP</td>
+        <td style="font-family:'JetBrains Mono',monospace">10,400</td>
+        <td style="font-family:'JetBrains Mono',monospace">0.10400</td>
+        <td>SDR GBP component</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge jpy-b">JPY</span> Japanese Yen</td>
+        <td style="color:#f87171">JPY</td>
+        <td style="font-family:'JetBrains Mono',monospace">1,760,000</td>
+        <td style="font-family:'JetBrains Mono',monospace">17.60000</td>
+        <td>SDR JPY component</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge usd-b">USD</span> US Dollar</td>
+        <td style="color:var(--text)">USD</td>
+        <td style="font-family:'JetBrains Mono',monospace">18,000</td>
+        <td style="font-family:'JetBrains Mono',monospace">0.18000</td>
+        <td>SDR USD component</td>
+      </tr>
+      <tr>
+        <td><span class="curr-badge sek-b">SEK</span> Swedish Krona</td>
+        <td style="color:var(--amber)">SEK</td>
+        <td style="font-family:'JetBrains Mono',monospace">141,000</td>
+        <td style="font-family:'JetBrains Mono',monospace">1.41000</td>
+        <td>Nordic inclusion</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="prose" style="margin-top:.5rem">JPY has a much larger raw amount because the yen is denominated in small units per dollar. The actual USD contribution from JPY is comparable to the other currencies once multiplied by the USD/JPY exchange rate.</p>
+</section>
+
+<section>
+  <div class="sec-label">03 &middot; Formula reference</div>
+  <h2>Computing the index and weights</h2>
+
+  <div class="formula-box">
+    <span class="comment">// ACU index value in USD</span><br>
+    index_usd = &Sigma; (fixed_amount_i &times; usd_rate_i)<br><br>
+    <span class="comment">// fixed_amount_i = raw_amount_i / 100000</span><br>
+    <span class="comment">// usd_rate_i = how many USD per 1 unit of currency i (direct quote)</span><br>
+    <span class="comment">// e.g. AUD/USD = 0.6500 means 1 AUD = 0.65 USD</span><br>
+    <span class="comment">// for JPY: JPY/USD = 0.0065 means 1 JPY = 0.0065 USD</span><br><br>
+    <span class="comment">// Daily weight for currency i (not fixed &mdash; recomputed from live rates)</span><br>
+    weight_i = (fixed_amount_i &times; usd_rate_i) / index_usd &times; 100 <span class="comment">// as %</span>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">04 &middot; Interactive basket calculator</div>
+  <h2>Recompute the ACU index from live-ish rates</h2>
+  <p class="prose" style="margin-bottom:.5rem">Enter today's USD rates for each currency. The calculator derives the ACU index value and the floating weight of each constituent. Use the presets to see how rate movements shift weights.</p>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Preset Scenarios</div>
+    <div class="preset-bar">
+      <button class="preset-btn active" onclick="applyPreset('baseline',this)">Baseline (2024 avg)</button>
+      <button class="preset-btn" onclick="applyPreset('usd_strong',this)">Strong USD scenario</button>
+      <button class="preset-btn" onclick="applyPreset('usd_weak',this)">Weak USD scenario</button>
+      <button class="preset-btn" onclick="applyPreset('custom',this)">Custom</button>
+    </div>
+
+    <div class="section-head">USD Rates (1 currency unit = ? USD)</div>
+    <div class="rate-grid">
+      <div class="q">
+        <label class="q-label" for="r_aud"><span class="curr-badge aud-b">AUD</span> AUD/USD</label>
+        <div class="q-help">e.g. 0.650</div>
+        <input type="number" id="r_aud" value="0.650" step="0.0001" min="0.0001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_cad"><span class="curr-badge cad-b">CAD</span> CAD/USD</label>
+        <div class="q-help">e.g. 0.730</div>
+        <input type="number" id="r_cad" value="0.730" step="0.0001" min="0.0001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_eur"><span class="curr-badge eur-b">EUR</span> EUR/USD</label>
+        <div class="q-help">e.g. 1.085</div>
+        <input type="number" id="r_eur" value="1.085" step="0.0001" min="0.0001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_gbp"><span class="curr-badge gbp-b">GBP</span> GBP/USD</label>
+        <div class="q-help">e.g. 1.265</div>
+        <input type="number" id="r_gbp" value="1.265" step="0.0001" min="0.0001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_jpy"><span class="curr-badge jpy-b">JPY</span> JPY/USD</label>
+        <div class="q-help">e.g. 0.00659 (1/151.7)</div>
+        <input type="number" id="r_jpy" value="0.00659" step="0.000001" min="0.000001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_usd"><span class="curr-badge usd-b">USD</span> USD/USD</label>
+        <div class="q-help">Always 1.000</div>
+        <input type="number" id="r_usd" value="1.000" step="0.0001" min="1" max="1" readonly style="opacity:.5;cursor:not-allowed">
+      </div>
+      <div class="q">
+        <label class="q-label" for="r_sek"><span class="curr-badge sek-b">SEK</span> SEK/USD</label>
+        <div class="q-help">e.g. 0.0953 (1/10.49)</div>
+        <input type="number" id="r_sek" value="0.0953" step="0.0001" min="0.0001">
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="computeACU()">[ COMPUTE ACU INDEX &rarr; ]</button>
+  </div>
+
+  <div class="result-area" id="resultArea">
+    <div class="index-display">
+      <div class="index-main" id="indexMain">--</div>
+      <div class="index-label">ACU Index (USD)</div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div style="margin-top:16px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">Floating Weights</div>
+      <div class="weight-bars" id="weightBars"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-label">05 &middot; ACU and the IMF SDR today</div>
+  <h2>The basket method in live production</h2>
+  <p class="prose">The IMF SDR basket currently contains five currencies: USD, EUR, CNY, JPY, GBP. Weights are recomputed daily from fixed amounts &mdash; exactly the ACU method. The SDR basket composition is reviewed and reset every five years (last reset: August 2022). The ACU basket added AUD, CAD, and SEK; it excluded CNY.</p>
+  <p class="prose">Multi-currency basket stablecoins remain an active research area. The BIS Innovation Hub, Project mBridge, and several CBDC interoperability proposals have explored basket structures similar to the ACU. None have shipped at production scale yet. The ACU was a working testbed.</p>
+
+  <div class="callout">
+    <div class="callout-label">Live equivalents</div>
+    <p><strong>IMF SDR</strong> &mdash; 5-currency basket, recomputed daily, used for IMF lending and reserve accounting. <strong>Project mBridge mCBDC</strong> &mdash; multi-CBDC bridge that explored basket settlement. <strong>Libra / Diem (2019&ndash;2022)</strong> &mdash; Facebook's proposed multi-currency basket stablecoin; abandoned under regulatory pressure. The ACU predated all of these as a live on-chain implementation.</p>
+  </div>
+
+  <div class="nav-row">
+    <a class="nav-card" href="at-e04-forecastathon-scoring.html">
+      <div class="nav-card-label">&larr; Previous</div>
+      <div class="nav-card-title">E-04: Forecastathon Scoring</div>
+    </a>
+    <a class="nav-card" href="at-e01-prediction-market.html">
+      <div class="nav-card-label">Start over &rarr;</div>
+      <div class="nav-card-title">E-01: Prediction Markets</div>
+    </a>
+    <a class="nav-card" href="../education-hub.html">
+      <div class="nav-card-label">Browse &rarr;</div>
+      <div class="nav-card-title">Education Hub</div>
+    </a>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+      <a href="../education-hub.html" style="color:var(--muted)">Education Hub</a>
+      <a href="../chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Hub</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only &middot; Not financial advice</div>
+  </div>
+</footer>
+
+<script>
+var FIXED = {
+  AUD: 21300 / 1e5,
+  CAD: 18700 / 1e5,
+  EUR: 14300 / 1e5,
+  GBP: 10400 / 1e5,
+  JPY: 1760000 / 1e5,
+  USD: 18000 / 1e5,
+  SEK: 141000 / 1e5
+};
+
+var CURRENCY_COLORS = {
+  AUD: '#2DD4BF', CAD: '#D4A847', EUR: '#9B72F5',
+  GBP: '#22C55E', JPY: '#f87171', USD: '#A8C4DE', SEK: '#F59E0B'
+};
+
+var PRESETS = {
+  baseline:  { r_aud:0.650, r_cad:0.730, r_eur:1.085, r_gbp:1.265, r_jpy:0.00659, r_usd:1.000, r_sek:0.0953 },
+  usd_strong:{ r_aud:0.590, r_cad:0.700, r_eur:1.040, r_gbp:1.220, r_jpy:0.00588, r_usd:1.000, r_sek:0.0850 },
+  usd_weak:  { r_aud:0.720, r_cad:0.780, r_eur:1.150, r_gbp:1.340, r_jpy:0.00755, r_usd:1.000, r_sek:0.1080 },
+  custom: null
+};
+
+function applyPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  var p = PRESETS[name];
+  if(!p) return;
+  Object.keys(p).forEach(function(k){ document.getElementById(k).value = p[k]; });
+}
+
+function r4(v){ return Math.round(v*1e4)/1e4; }
+function r6(v){ return Math.round(v*1e6)/1e6; }
+function pct(v){ return (v*100).toFixed(2)+'%'; }
+
+function computeACU() {
+  var rates = {
+    AUD: parseFloat(document.getElementById('r_aud').value)||0.65,
+    CAD: parseFloat(document.getElementById('r_cad').value)||0.73,
+    EUR: parseFloat(document.getElementById('r_eur').value)||1.085,
+    GBP: parseFloat(document.getElementById('r_gbp').value)||1.265,
+    JPY: parseFloat(document.getElementById('r_jpy').value)||0.0066,
+    USD: 1.0,
+    SEK: parseFloat(document.getElementById('r_sek').value)||0.095
+  };
+
+  var contribs = {};
+  var total = 0;
+  Object.keys(FIXED).forEach(function(c){
+    var contrib = FIXED[c] * rates[c];
+    contribs[c] = contrib;
+    total += contrib;
+  });
+
+  var indexVal = r4(total);
+  document.getElementById('indexMain').textContent = '$' + indexVal;
+
+  document.getElementById('statsGrid').innerHTML = [
+    {k:'Index (USD)',v:'$'+indexVal},
+    {k:'Largest Weight',v:largestContrib(contribs,total)},
+    {k:'USD Contribution',v:'$'+r6(contribs.USD)+' ('+pct(contribs.USD/total)+')'},
+    {k:'EUR Contribution',v:'$'+r6(contribs.EUR)+' ('+pct(contribs.EUR/total)+')'},
+    {k:'JPY Contribution',v:'$'+r6(contribs.JPY)+' ('+pct(contribs.JPY/total)+')'},
+    {k:'AUD+CAD+SEK',v:pct((contribs.AUD+contribs.CAD+contribs.SEK)/total)}
+  ].map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val">'+s.v+'</div></div>';
+  }).join('');
+
+  var currencies = Object.keys(FIXED);
+  var weights = currencies.map(function(c){ return {c:c, w:contribs[c]/total}; });
+  weights.sort(function(a,b){return b.w-a.w;});
+
+  document.getElementById('weightBars').innerHTML = weights.map(function(item){
+    var pctVal = (item.w*100).toFixed(2);
+    var color = CURRENCY_COLORS[item.c] || 'var(--teal)';
+    return '<div class="w-row">'+
+      '<div class="w-label">'+item.c+'</div>'+
+      '<div class="w-bar-wrap">'+
+        '<div class="w-bar-fill" style="width:'+pctVal+'%;background:'+color+'">'+
+          (item.w > 0.08 ? pctVal+'%' : '')+
+        '</div>'+
+      '</div>'+
+      '<div class="w-val">'+pctVal+'%</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('resultArea').classList.add('show');
+}
+
+function largestContrib(contribs, total) {
+  var max = 0, maxC = '';
+  Object.keys(contribs).forEach(function(c){
+    if(contribs[c] > max){ max = contribs[c]; maxC = c; }
+  });
+  return maxC + ' (' + pct(max/total) + ')';
+}
+</script>
+</body>
+</html>
