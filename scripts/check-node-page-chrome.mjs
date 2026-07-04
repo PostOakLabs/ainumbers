@@ -19,21 +19,8 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
 const CG    = resolve(REPO, 'chaingraph');
 
-// Pages with pre-existing structural issues that cannot be fixed by the normalizer
-// without touching body content (scope fence). Manual follow-up needed.
-const KNOWN_SKIPS = new Set([
-  // 5 pages: original body-embedded bare <footer> element + original attributed footer
-  'art-139-cra-annex1-completeness-checker.html',
-  'art-140-cra-vuln-reporting-readiness.html',
-  'art-142-nis2-art21-gap-checker.html',
-  'art-143-nis2-penalty-exposure-calculator.html',
-  'art-146-nis2-governance-readiness-checker.html',
-  // 4 pages: no chaingraph.json entry (display_name missing → can't generate breadcrumb)
-  'art-15-agentic-mandate-sandbox.html',
-  'art-16-google-ap2-mandate-builder.html',
-  'art-17-ap2-mcp-policy-validator.html',
-  'art-18-mcp-developer-readiness-scorecard.html',
-]);
+// All pages now normalized — no skips.
+const KNOWN_SKIPS = new Set();
 
 const files = readdirSync(CG).filter(f => /^art-\d+.*\.html$/.test(f)).sort();
 
