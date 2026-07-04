@@ -1,0 +1,430 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>SCRA 6% Rate Cap &middot; ART-232 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Compute the SCRA 6% interest-rate cap per 50 USC §3937 and determine excess interest forgiven (not deferred). Handles retroactive credit from servicemember notification date. Table: SCRA-50USC3937-2022.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-232-compute-scra-rate-cap.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus{border-color:var(--teal)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:8px 0}
+.rc-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.25rem .65rem;border-radius:20px;margin:2px}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge-warn{background:rgba(245,158,11,.10);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.reg-disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(212,168,71,.05);border:1px solid rgba(212,168,71,.2);border-radius:4px;padding:.5rem .85rem;color:var(--gold);margin:12px 0;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <a href="guide-fair-lending.html">Fair Lending &#38; Adverse Action</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-232 · SCRA 6% Rate Cap</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-232 &middot; Fair Lending &#38; Adverse Action &#20262;</div>
+  <h1>SCRA 6% Interest-Rate Cap</h1>
+  <p class="sub">Computes the SCRA 6% interest-rate cap per 50 USC &sect;3937 and determines whether excess interest is forgiven (never deferred). Applies to pre-service obligations of active-duty servicemembers upon written notice. Covers retroactive interest credit from the date military service begins. Table: SCRA-50USC3937-2022.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">50 USC &sect;3937</span>
+    <span class="flag info">SCRA 2022</span>
+    <span class="flag">6% Cap</span>
+    <span class="flag">Excess Interest Forgiven</span>
+    <span class="flag">Retroactive Credit</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="reg-disclaimer">&#9432; Not legal or compliance advice. SCRA coverage requires verification that the obligation pre-dates active-duty orders and that written notice (with a copy of the orders) was provided to the lender. This tool computes the arithmetic of the rate reduction; it does not substitute for legal review of covered-servicemember status.</div>
+
+  <div class="card">
+    <div class="section-head">Obligation Details</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="originalRatePct">Original interest rate (%)</label>
+        <div class="q-help">Contract rate before SCRA reduction. Must pre-date active-duty orders.</div>
+        <input type="number" id="originalRatePct" value="8.0" min="0" max="100" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="loanBalance">Outstanding loan balance ($)</label>
+        <input type="number" id="loanBalance" value="25000" min="0" step="100">
+      </div>
+      <div class="q">
+        <label class="q-label" for="coveredMonths">Covered months of active duty</label>
+        <div class="q-help">Number of months the cap applies (service period).</div>
+        <input type="number" id="coveredMonths" value="12" min="0" max="360" step="1">
+      </div>
+    </div>
+
+    <div class="section-head">Servicemember Status</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="isPreServiceObligation">Obligation pre-dates active duty?</label>
+        <div class="q-help">50 USC &sect;3937 applies only to obligations incurred before the period of active military service.</div>
+        <select id="isPreServiceObligation">
+          <option value="true" selected>Yes &mdash; pre-service obligation</option>
+          <option value="false">No &mdash; obligation during active duty</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="servicememberNotified">Written notice provided?</label>
+        <div class="q-help">Servicemember must provide written notice + copy of orders (50 USC &sect;3937(b)(1)).</div>
+        <select id="servicememberNotified">
+          <option value="true" selected>Yes &mdash; notice provided</option>
+          <option value="false">No &mdash; notice not yet provided</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Compute SCRA Rate Cap</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Rate Cap Result</div>
+      <div id="rateCapCard" class="result-card"></div>
+      <div class="section-head" style="margin-top:14px">Interest Forgiveness</div>
+      <div id="forgivenCard" class="result-card"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &sect;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Fair Lending</div>
+        <a href="guide-fair-lending.html">Fair Lending Guide</a>
+        <a href="art-227-validate-adverse-action-notice.html">Notice Validator</a>
+        <a href="art-228-build-adverse-action-notice.html">Notice Builder</a>
+        <a href="art-229-compute-disparity-metrics.html">Disparity Metrics</a>
+        <a href="art-230-compute-hmda-rate-spread.html">HMDA Rate Spread</a>
+        <a href="art-231-compute-mla-mapr.html">MLA MAPR</a>
+        <a href="art-233-check-card-act-ability-to-pay.html">CARD Act ATP</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-232-compute-scra-rate-cap',
+  version: '1.0.0',
+  mcp_name: 'compute_scra_rate_cap',
+  title: 'SCRA 6% Rate Cap',
+  cluster: '&#20262;',
+  description: 'Compute SCRA 6% interest-rate cap per 50 USC §3937 and determine excess interest forgiven (never deferred). Handles retroactive credit. Table: SCRA-50USC3937-2022.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: '50 USC §3937 (SCRA)'
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+var SCRA_CAP_PCT = 6.0;
+
+function safeNum(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+
+function computeScra(pp) {
+  pp = pp || {};
+  var original_rate_pct = Math.max(0, safeNum(pp.original_rate_pct, 0));
+  var loan_balance = Math.max(0, safeNum(pp.loan_balance, 0));
+  var covered_months = Math.max(0, Math.round(safeNum(pp.covered_months, 0)));
+  var is_pre_service_obligation = Boolean(pp.is_pre_service_obligation);
+  var servicemember_notified = Boolean(pp.servicemember_notified);
+
+  if (loan_balance === 0 && original_rate_pct === 0) {
+    return {
+      output_payload: {
+        original_rate_pct: 0, capped_rate_pct: SCRA_CAP_PCT, rate_reduction_pct: 0,
+        scra_applies: false, scra_cap_pct: SCRA_CAP_PCT,
+        original_interest_total: 0, capped_interest_total: 0, excess_interest_forgiven: 0,
+        excess_forgiven: true, loan_balance: 0, covered_months: 0,
+        regulatory_basis: '50 USC §3937 (SCRA)',
+        table_version: 'SCRA-50USC3937-2022',
+        pii_note: 'All inputs are processed locally in your browser. No data is transmitted.'
+      },
+      compliance_flags: []
+    };
+  }
+
+  var scra_applies = is_pre_service_obligation && servicemember_notified;
+  var capped_rate_pct = scra_applies ? Math.min(original_rate_pct, SCRA_CAP_PCT) : original_rate_pct;
+  var rate_reduction_pct = r4(original_rate_pct - capped_rate_pct);
+
+  var original_interest_total = r2((loan_balance * (original_rate_pct / 100)) * (covered_months / 12));
+  var capped_interest_total = r2((loan_balance * (capped_rate_pct / 100)) * (covered_months / 12));
+  var excess = r2(original_interest_total - capped_interest_total);
+
+  var compliance_flags = [];
+  if (!is_pre_service_obligation) compliance_flags.push('SCRA_OBLIGATION_NOT_PRE_SERVICE');
+  if (!servicemember_notified) compliance_flags.push('SCRA_NOTICE_NOT_PROVIDED');
+  if (scra_applies && rate_reduction_pct > 0) compliance_flags.push('SCRA_RATE_REDUCTION_APPLIES');
+
+  return {
+    output_payload: {
+      original_rate_pct: original_rate_pct,
+      capped_rate_pct: r4(capped_rate_pct),
+      rate_reduction_pct: rate_reduction_pct,
+      scra_applies: scra_applies,
+      scra_cap_pct: SCRA_CAP_PCT,
+      original_interest_total: original_interest_total,
+      capped_interest_total: capped_interest_total,
+      excess_interest_forgiven: excess,
+      excess_forgiven: true,
+      loan_balance: r4(loan_balance),
+      covered_months: covered_months,
+      is_pre_service_obligation: is_pre_service_obligation,
+      servicemember_notified: servicemember_notified,
+      regulatory_basis: '50 USC §3937(a)(1) — cap; §3937(a)(2) — excess forgiven not deferred',
+      table_version: 'SCRA-50USC3937-2022',
+      pii_note: 'All inputs are processed locally in your browser. No data is transmitted.'
+    },
+    compliance_flags: compliance_flags
+  };
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+function fmt$(v) { return '$' + Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+
+function runCompute() {
+  var pp = {
+    original_rate_pct: parseFloat(document.getElementById('originalRatePct').value) || 0,
+    loan_balance: parseFloat(document.getElementById('loanBalance').value) || 0,
+    covered_months: parseInt(document.getElementById('coveredMonths').value) || 0,
+    is_pre_service_obligation: document.getElementById('isPreServiceObligation').value === 'true',
+    servicemember_notified: document.getElementById('servicememberNotified').value === 'true'
+  };
+  var result = computeScra(pp);
+  var op = result.output_payload;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: result.compliance_flags };
+
+  var rcHtml = '<div class="rc-title">SCRA Rate Cap Result</div>';
+  if (op.scra_applies) {
+    if (op.rate_reduction_pct > 0) {
+      rcHtml += '<span class="badge badge-green">&#10003; SCRA Applies &mdash; Rate Reduced</span>';
+    } else {
+      rcHtml += '<span class="badge badge-green">&#10003; SCRA Applies &mdash; Rate Already Within Cap</span>';
+    }
+  } else {
+    if (!op.is_pre_service_obligation) {
+      rcHtml += '<span class="badge badge-warn">&#9888; SCRA Does Not Apply &mdash; Post-Service Obligation</span>';
+    } else {
+      rcHtml += '<span class="badge badge-warn">&#9888; SCRA Pending &mdash; Notice Not Yet Provided</span>';
+    }
+  }
+  rcHtml += '<div class="kv"><span class="kv-k">Original rate</span><span class="kv-v">' + op.original_rate_pct.toFixed(2) + '%</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">SCRA cap rate</span><span class="kv-v">' + op.scra_cap_pct + '%</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">Applied rate</span><span class="kv-v">' + op.capped_rate_pct.toFixed(2) + '%</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">Rate reduction</span><span class="kv-v">' + op.rate_reduction_pct.toFixed(2) + ' pp</span></div>';
+  rcHtml += '<div class="kv"><span class="kv-k">SCRA applies</span><span class="kv-v">' + (op.scra_applies ? 'Yes' : 'No') + '</span></div>';
+  document.getElementById('rateCapCard').innerHTML = rcHtml;
+
+  var fgHtml = '<div class="rc-title">Interest Forgiveness (50 USC &sect;3937(a)(2))</div>';
+  fgHtml += '<div style="font-size:1.4rem;font-family:JetBrains Mono,monospace;color:var(--green);margin:6px 0">' + fmt$(op.excess_interest_forgiven) + ' forgiven</div>';
+  fgHtml += '<div class="q-help" style="font-size:.72rem;margin-bottom:8px">Excess interest is FORGIVEN, not deferred &mdash; per 50 USC &sect;3937(a)(2). Servicemember owes no future obligation for this amount.</div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Original interest total</span><span class="kv-v">' + fmt$(op.original_interest_total) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Capped interest total</span><span class="kv-v">' + fmt$(op.capped_interest_total) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Excess forgiven</span><span class="kv-v">' + fmt$(op.excess_interest_forgiven) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Loan balance</span><span class="kv-v">' + fmt$(op.loan_balance) + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Covered months</span><span class="kv-v">' + op.covered_months + '</span></div>';
+  fgHtml += '<div class="kv"><span class="kv-k">Table version</span><span class="kv-v">' + op.table_version + '</span></div>';
+  document.getElementById('forgivenCard').innerHTML = fgHtml;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-232-compute-scra-rate-cap',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags || [],
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-232-compute-scra-rate-cap.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) { b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

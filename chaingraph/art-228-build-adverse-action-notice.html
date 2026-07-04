@@ -1,0 +1,539 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Adverse Action Notice Builder &middot; ART-228 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Build ECOA/Reg B adverse action notice skeletons from SHAP-ranked factor codes. Resolves FICO and VantageScore reason code descriptions, assembles required notice sections, generates FCRA §615(a) credit-score disclosure, and produces a receipt for §13.11 VC export.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-228-build-adverse-action-notice.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus{border-color:var(--teal)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.result-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:8px 0}
+.rc-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.25rem .65rem;border-radius:20px;margin:2px}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge-warn{background:rgba(245,158,11,.10);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.reg-disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(212,168,71,.05);border:1px solid rgba(212,168,71,.2);border-radius:4px;padding:.5rem .85rem;color:var(--gold);margin:12px 0;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <a href="guide-fair-lending.html">Fair Lending &#38; Adverse Action</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-228 · Adverse Action Notice Builder</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-228 &middot; Fair Lending &#38; Adverse Action &#20262;</div>
+  <h1>Adverse Action Notice Builder</h1>
+  <p class="sub">Assembles an adverse action notice skeleton from SHAP-ranked factor codes. Resolves FICO (codes 01&ndash;40) and VantageScore (VS001&ndash;VS015) reason code descriptions, assembles required Reg B &sect;1002.9 notice sections, and generates FCRA &sect;615(a) credit-score disclosure when a credit report is used. Receipt metadata supports &sect;13.11 Verifiable Credential export. Table: REG-B-NOTICE-BUILDER-2024-CFPB-CIRC-2023-03.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Reg B &sect;1002.9</span>
+    <span class="flag info">FCRA &sect;615(a)</span>
+    <span class="flag info">SHAP-ranked codes</span>
+    <span class="flag">Notice Builder</span>
+    <span class="flag">FICO / VantageScore</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="reg-disclaimer">&#9432; Not legal or compliance advice. This tool produces a notice skeleton for review; final notices must be reviewed by legal counsel before delivery to applicants.</div>
+
+  <div class="card">
+    <div class="section-head">Notice Header</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="actionTaken">Action taken</label>
+        <select id="actionTaken">
+          <option value="denied" selected>Credit denied</option>
+          <option value="counteroffer">Counteroffer (different terms)</option>
+          <option value="incomplete">Application incomplete</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="creditorName">Creditor name</label>
+        <input type="text" id="creditorName" value="First National Bank">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="dateOfAction">Date of action</label>
+        <input type="text" id="dateOfAction" value="2026-07-04">
+      </div>
+      <div class="q">
+        <label class="q-label" for="applicantPlaceholder">Applicant name placeholder</label>
+        <div class="q-help">Used in the notice skeleton only. Do not enter a real applicant name.</div>
+        <input type="text" id="applicantPlaceholder" value="[Applicant Name]">
+      </div>
+    </div>
+
+    <div class="section-head">Factor Codes (SHAP-ranked, up to 4)</div>
+    <div class="q-help" style="margin-bottom:10px">Enter reason codes in SHAP rank order (most negative impact first). Source determines the description lookup table.</div>
+    <div id="factorRows">
+      <div class="row3" style="margin-bottom:8px">
+        <div class="q"><label class="q-label">Rank 1 &mdash; code</label><input type="text" id="fc1code" value="22" placeholder="e.g. 22"></div>
+        <div class="q"><label class="q-label">Source</label><select id="fc1src"><option value="fico" selected>FICO</option><option value="vantagescore">VantageScore</option></select></div>
+        <div class="q"><label class="q-label">SHAP value (optional)</label><input type="number" id="fc1shap" value="-0.32" step="0.01" placeholder="negative = adverse"></div>
+      </div>
+      <div class="row3" style="margin-bottom:8px">
+        <div class="q"><label class="q-label">Rank 2 &mdash; code</label><input type="text" id="fc2code" value="10" placeholder="blank = unused"></div>
+        <div class="q"><label class="q-label">Source</label><select id="fc2src"><option value="fico" selected>FICO</option><option value="vantagescore">VantageScore</option></select></div>
+        <div class="q"><label class="q-label">SHAP value (optional)</label><input type="number" id="fc2shap" value="-0.18" step="0.01"></div>
+      </div>
+      <div class="row3" style="margin-bottom:8px">
+        <div class="q"><label class="q-label">Rank 3 &mdash; code</label><input type="text" id="fc3code" value="08" placeholder="blank = unused"></div>
+        <div class="q"><label class="q-label">Source</label><select id="fc3src"><option value="fico" selected>FICO</option><option value="vantagescore">VantageScore</option></select></div>
+        <div class="q"><label class="q-label">SHAP value (optional)</label><input type="number" id="fc3shap" value="-0.12" step="0.01"></div>
+      </div>
+      <div class="row3" style="margin-bottom:8px">
+        <div class="q"><label class="q-label">Rank 4 &mdash; code</label><input type="text" id="fc4code" placeholder="blank = unused"></div>
+        <div class="q"><label class="q-label">Source</label><select id="fc4src"><option value="fico" selected>FICO</option><option value="vantagescore">VantageScore</option></select></div>
+        <div class="q"><label class="q-label">SHAP value (optional)</label><input type="number" id="fc4shap" step="0.01"></div>
+      </div>
+    </div>
+
+    <div class="section-head">Credit Score Disclosure (FCRA &sect;615(a))</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="creditScoreUsed">Credit report used?</label>
+        <select id="creditScoreUsed" onchange="toggleScoreFields()">
+          <option value="true" selected>Yes &mdash; include FCRA disclosure</option>
+          <option value="false">No &mdash; omit FCRA section</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="creditScore">Credit score</label>
+        <input type="number" id="creditScore" value="620" min="300" max="900" step="1">
+      </div>
+    </div>
+    <div class="row3" id="scoreFields">
+      <div class="q">
+        <label class="q-label" for="creditScoreSource">Score model</label>
+        <input type="text" id="creditScoreSource" value="FICO 8">
+      </div>
+      <div class="q">
+        <label class="q-label" for="scoreRangeLow">Score range low</label>
+        <input type="number" id="scoreRangeLow" value="300" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="scoreRangeHigh">Score range high</label>
+        <input type="number" id="scoreRangeHigh" value="850" step="1">
+      </div>
+    </div>
+    <div class="row3" id="craFields">
+      <div class="q">
+        <label class="q-label" for="craBureau">Credit bureau name</label>
+        <input type="text" id="craBureau" value="Equifax">
+      </div>
+      <div class="q">
+        <label class="q-label" for="craPhone">Bureau phone</label>
+        <input type="text" id="craPhone" value="1-800-685-1111">
+      </div>
+      <div class="q">
+        <label class="q-label" for="craAddress">Bureau address</label>
+        <input type="text" id="craAddress" value="PO Box 740241, Atlanta GA 30374">
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Build Notice</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Notice Skeleton</div>
+      <div id="noticeCard" class="result-card"></div>
+      <div class="section-head" style="margin-top:14px">Resolved Reason Codes</div>
+      <div id="reasonsCard" class="result-card"></div>
+      <div class="section-head" style="margin-top:14px">Receipt Metadata</div>
+      <div id="receiptCard" class="result-card"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &sect;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Fair Lending</div>
+        <a href="guide-fair-lending.html">Fair Lending Guide</a>
+        <a href="art-227-validate-adverse-action-notice.html">Notice Validator</a>
+        <a href="art-229-compute-disparity-metrics.html">Disparity Metrics</a>
+        <a href="art-230-compute-hmda-rate-spread.html">HMDA Rate Spread</a>
+        <a href="art-231-compute-mla-mapr.html">MLA MAPR</a>
+        <a href="art-232-compute-scra-rate-cap.html">SCRA Rate Cap</a>
+        <a href="art-233-check-card-act-ability-to-pay.html">CARD Act ATP</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-228-build-adverse-action-notice',
+  version: '1.0.0',
+  mcp_name: 'build_adverse_action_notice',
+  title: 'Adverse Action Notice Builder',
+  cluster: '&#20262;',
+  description: 'Build adverse action notice skeleton from SHAP-ranked FICO/VantageScore factor codes. Resolves reason code descriptions, assembles Reg B §1002.9 notice sections, generates FCRA §615(a) score disclosure, and produces receipt metadata for §13.11 VC export. Table: REG-B-NOTICE-BUILDER-2024-CFPB-CIRC-2023-03.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Reg B 12 CFR §1002.9 / FCRA §615(a) / CFPB Circular 2023-03'
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var FICO_CODES = {
+  '01':'Amount owed on accounts is too high','02':'Delinquency on accounts','03':'Too few bank revolving accounts','04':'Too many bank or national revolving accounts','05':'Too many accounts with balances','06':'Too many consumer finance company accounts','07':'Account payment history is too new to rate','08':'Too many inquiries last 12 months','09':'Too many accounts recently opened','10':'Proportion of balances to credit limits on revolving accounts too high','11':'Amount owed on revolving accounts is too high','12':'Length of time revolving accounts have been established','13':'Time since delinquency is too recent or unknown','14':'Length of time accounts have been established','15':'Lack of recent bank revolving information','16':'Lack of recent revolving account information','17':'No recent non-mortgage balance information','18':'Number of accounts with delinquency','19':'Too few accounts currently paid as agreed','20':'Time since derogatory public record or collection is too short','21':'Amount past due on accounts','22':'Serious delinquency, derogatory public record or collection filed','23':'Number of bank or national revolving accounts with balances','24':'No recent revolving balances','25':'Length of time installment loan accounts have been established','26':'Number of revolving accounts','27':'Number of established accounts','28':'Number of derogatory public records','29':'Number of accounts in adverse condition','30':'Amount past due on revolving accounts','31':'Insufficient information to calculate score','32':'Total amount of accounts established','33':'Length of time mortgage accounts have been established','34':'Number of bank revolving accounts with balance','35':'Number of accounts ever delinquent by 60 or more days','36':'Number of accounts ever delinquent by 90 or more days','37':'Number of inquiries in the past 6 months','38':'Number of inquiries in the past 12 months','39':'Length of time since most recent installment loan','40':'Length of time since most recent delinquency'
+};
+
+var VS_CODES = {
+  'VS001':'Payment history','VS002':'Age and type of credit','VS003':'Percentage of credit limit used','VS004':'Total balances and debt','VS005':'Recent credit behavior and inquiries','VS006':'Available credit','VS007':'Recently reported balance','VS008':'Amount past due','VS009':'Serious delinquency, derogatory public record','VS010':'Number of accounts with delinquency','VS011':'Too many inquiries','VS012':'Too many recently opened accounts','VS013':'Proportion of balances to limits','VS014':'Length of credit history','VS015':'Lack of recent installment information'
+};
+
+function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
+function safeNum(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+
+function toggleScoreFields() {
+  var show = document.getElementById('creditScoreUsed').value === 'true';
+  ['scoreFields','craFields'].forEach(function(id){ document.getElementById(id).style.display = show ? '' : 'none'; });
+}
+
+function resolveCode(code, source) {
+  var c = String(code).trim();
+  if (source === 'vantagescore') return VS_CODES[c.toUpperCase()] || 'Reason code ' + c + ' (VantageScore)';
+  return FICO_CODES[c] || 'Reason code ' + c + ' (FICO)';
+}
+
+function computeBuild(pp) {
+  pp = pp || {};
+  var action_taken = safeStr(pp.action_taken || 'denied');
+  var creditor_name = safeStr(pp.creditor_name || '[Creditor]');
+  var date_of_action = safeStr(pp.date_of_action || '');
+  var applicant_name_placeholder = safeStr(pp.applicant_name_placeholder || '[Applicant]');
+  var factor_codes = Array.isArray(pp.factor_codes) ? pp.factor_codes.slice(0,4) : [];
+  var credit_score_used = Boolean(pp.credit_score_used);
+  var credit_score = safeNum(pp.credit_score, 0);
+  var credit_score_source = safeStr(pp.credit_score_source || '');
+  var score_range_low = safeNum(pp.score_range_low, 300);
+  var score_range_high = safeNum(pp.score_range_high, 850);
+  var credit_bureau_name = safeStr(pp.credit_bureau_name || '');
+  var credit_bureau_phone = safeStr(pp.credit_bureau_phone || '');
+  var credit_bureau_address = safeStr(pp.credit_bureau_address || '');
+
+  var resolved_reasons = factor_codes.map(function(f, i) {
+    var code = safeStr(f.code || '');
+    var src = safeStr(f.source || 'fico');
+    return {
+      rank: i + 1,
+      code: code,
+      source: src,
+      description: resolveCode(code, src),
+      shap_value: typeof f.shap_value === 'number' ? f.shap_value : null
+    };
+  });
+
+  var compliance_flags_raised = 0;
+  if (factor_codes.length === 0) compliance_flags_raised++;
+
+  var notice_sections = [];
+  notice_sections.push({
+    section: 'header',
+    content: creditor_name + '\nDate: ' + (date_of_action || '[Date]') + '\nRe: Notice of Credit Decision'
+  });
+  notice_sections.push({
+    section: 'action_taken',
+    content: 'Dear ' + applicant_name_placeholder + ',\n\nWe regret to inform you that your application for credit has been ' + action_taken + '.'
+  });
+  if (resolved_reasons.length > 0) {
+    var reasons_text = resolved_reasons.map(function(r, i){ return (i+1) + '. ' + r.description; }).join('\n');
+    notice_sections.push({ section: 'reasons', content: 'The principal reason(s) for this decision:\n' + reasons_text });
+  }
+  if (credit_score_used && credit_score > 0) {
+    notice_sections.push({
+      section: 'credit_score_disclosure',
+      content: 'Your ' + credit_score_source + ' credit score: ' + credit_score + '\nScore range: ' + score_range_low + ' to ' + score_range_high + '\nObtained from: ' + (credit_bureau_name || '[Credit Bureau]') + '\n\nYou have the right to obtain a free copy of your credit report from ' + (credit_bureau_name || '[Credit Bureau]') + ' at ' + (credit_bureau_address || '[Address]') + ', phone ' + (credit_bureau_phone || '[Phone]') + '.\nYou have the right to dispute inaccurate information in your credit report by contacting the consumer reporting agency directly.'
+    });
+    notice_sections.push({
+      section: 'fcra_rights',
+      content: 'Under the Fair Credit Reporting Act (FCRA), 15 U.S.C. § 1681 et seq., you have the right to know what is in your credit file, to dispute inaccurate or incomplete information, and to have inaccurate, incomplete or unverifiable information removed from your file.'
+    });
+  }
+  notice_sections.push({ section: 'ecoa_statement', content: 'The federal Equal Credit Opportunity Act (ECOA) prohibits creditors from discriminating against credit applicants on the basis of race, color, religion, national origin, sex, marital status, age, or because all or part of the applicant\'s income derives from a public assistance program.' });
+  notice_sections.push({ section: 'signature', content: creditor_name + '\nCompliance Department' });
+
+  var receipt_metadata = {
+    tool_id: 'art-228-build-adverse-action-notice',
+    action_taken: action_taken,
+    reason_count: factor_codes.length,
+    credit_score_used: credit_score_used,
+    compliance_flags_raised: compliance_flags_raised,
+    anchor_recommendation: 'hash and anchor this notice skeleton before delivery; see anchor.ainumbers.co',
+    vc_export_note: 'receipt_metadata supports §13.11 W3C VC 2.0 export via chaingraph export profiles'
+  };
+
+  return {
+    output_payload: {
+      notice_sections: notice_sections,
+      resolved_reasons: resolved_reasons,
+      receipt_metadata: receipt_metadata,
+      compliance_flags_raised: compliance_flags_raised,
+      regulatory_basis: 'Reg B 12 CFR §1002.9; FCRA 15 USC §1681m(a) §615(a); CFPB Circular 2022-03; CFPB Circular 2023-03; ECOA 15 USC §1691',
+      table_version: 'REG-B-NOTICE-BUILDER-2024-CFPB-CIRC-2023-03',
+      pii_note: 'All inputs are processed locally in your browser. No data is transmitted.'
+    },
+    compliance_flags: compliance_flags_raised > 0 ? ['REG_B_NO_REASONS'] : []
+  };
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function runCompute() {
+  var factor_codes = [];
+  for (var i = 1; i <= 4; i++) {
+    var code = document.getElementById('fc'+i+'code').value.trim();
+    if (code) {
+      var shapEl = document.getElementById('fc'+i+'shap');
+      factor_codes.push({ code: code, source: document.getElementById('fc'+i+'src').value, rank: i, shap_value: shapEl.value !== '' ? parseFloat(shapEl.value) : null });
+    }
+  }
+  var useScore = document.getElementById('creditScoreUsed').value === 'true';
+  var pp = {
+    action_taken: document.getElementById('actionTaken').value,
+    creditor_name: document.getElementById('creditorName').value.trim(),
+    date_of_action: document.getElementById('dateOfAction').value.trim(),
+    applicant_name_placeholder: document.getElementById('applicantPlaceholder').value.trim(),
+    factor_codes: factor_codes,
+    credit_score_used: useScore,
+    credit_score: useScore ? parseFloat(document.getElementById('creditScore').value) : 0,
+    credit_score_source: useScore ? document.getElementById('creditScoreSource').value.trim() : '',
+    score_range_low: useScore ? parseFloat(document.getElementById('scoreRangeLow').value) : 300,
+    score_range_high: useScore ? parseFloat(document.getElementById('scoreRangeHigh').value) : 850,
+    credit_bureau_name: useScore ? document.getElementById('craBureau').value.trim() : '',
+    credit_bureau_phone: useScore ? document.getElementById('craPhone').value.trim() : '',
+    credit_bureau_address: useScore ? document.getElementById('craAddress').value.trim() : ''
+  };
+  var result = computeBuild(pp);
+  var op = result.output_payload;
+  _lastResult = { pp: pp, output_payload: op };
+
+  var noticeHtml = '<div class="rc-title">Notice Sections (' + op.notice_sections.length + ')</div>';
+  op.notice_sections.forEach(function(s) {
+    noticeHtml += '<div class="kv"><span class="kv-k">' + s.section + '</span><span class="kv-v" style="max-width:70%;text-align:right;white-space:pre-line;font-size:.62rem">' + s.content.substring(0,120) + (s.content.length > 120 ? '...' : '') + '</span></div>';
+  });
+  document.getElementById('noticeCard').innerHTML = noticeHtml;
+
+  var reasonsHtml = '<div class="rc-title">Resolved Reasons (' + op.resolved_reasons.length + ')</div>';
+  if (op.resolved_reasons.length === 0) {
+    reasonsHtml += '<span class="badge badge-warn">No factor codes provided &mdash; Reg B requires at least one reason</span>';
+  } else {
+    op.resolved_reasons.forEach(function(r) {
+      reasonsHtml += '<div class="kv"><span class="kv-k">' + r.rank + '. [' + r.code + ']</span><span class="kv-v" style="max-width:65%;text-align:right;font-size:.62rem">' + r.description + '</span></div>';
+    });
+  }
+  document.getElementById('reasonsCard').innerHTML = reasonsHtml;
+
+  var rcptHtml = '<div class="rc-title">Receipt</div>';
+  rcptHtml += '<div class="kv"><span class="kv-k">Action taken</span><span class="kv-v">' + op.receipt_metadata.action_taken + '</span></div>';
+  rcptHtml += '<div class="kv"><span class="kv-k">Reason count</span><span class="kv-v">' + op.receipt_metadata.reason_count + '</span></div>';
+  rcptHtml += '<div class="kv"><span class="kv-k">Credit score used</span><span class="kv-v">' + op.receipt_metadata.credit_score_used + '</span></div>';
+  rcptHtml += '<div class="kv"><span class="kv-k">Compliance flags</span><span class="kv-v">' + op.receipt_metadata.compliance_flags_raised + '</span></div>';
+  rcptHtml += '<div style="margin-top:8px;font-size:.65rem;color:var(--muted)">' + op.receipt_metadata.anchor_recommendation + '</div>';
+  document.getElementById('receiptCard').innerHTML = rcptHtml;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-228-build-adverse-action-notice',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.output_payload.compliance_flags || [],
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-228-build-adverse-action-notice.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) { b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
