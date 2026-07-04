@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Event-Market PnL Calculator &middot; ART-211 &middot; Autonity Tool Suite &middot; AINumbers.co</title>
+<meta name="description" content="Compute PnL for scalar and linear event contracts: AFP forecast futures, Kalshi scalar markets, CME weather contracts. Strike, settlement, unit value, direction. Deterministic OCG compute node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/autonity-at01-pnl.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --teal-glow:rgba(20,184,166,.35);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;
+  --radius:6px;--radius-lg:10px;
+  --unverified:#D4A847;--unverified-dim:rgba(212,168,71,.08);
+  --unverified-border:rgba(212,168,71,.30);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.65rem;color:var(--white);margin-bottom:10px;font-weight:400;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:12px;font-size:.88rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-tool{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-mandate{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.badge-info{background:rgba(168,196,222,.06);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:14px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:16px 0}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.45rem;line-height:1.55}
+input[type=number],input[type=text],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:4px;padding:.3rem .65rem;cursor:pointer;transition:all .15s}
+.preset-btn:hover{color:var(--teal-lt);border-color:var(--teal)}
+.preset-btn.active{background:var(--teal-dim);color:var(--teal-lt);border-color:var(--teal)}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+@media(max-width:600px){.input-grid{grid-template-columns:1fr}}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.75rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:18px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.pnl-display{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:8px 0;display:flex;align-items:center;gap:16px}
+.pnl-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.pnl-value{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600;line-height:1}
+.pnl-pos{color:var(--green)}.pnl-neg{color:var(--red)}.pnl-zero{color:var(--text)}
+.pnl-icon{font-size:2rem;flex-shrink:0}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.flag{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.flag-warn{background:var(--gold-dim);color:var(--gold);border:1px solid var(--unverified-border)}
+.flag-info{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.flag-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.artifact-toggle{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem .8rem;cursor:pointer;display:block;width:100%;text-align:left;text-transform:uppercase;letter-spacing:.08em;margin-top:14px}
+.artifact-toggle:hover{color:var(--text);border-color:var(--border-2)}
+.artifact-body{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);max-height:380px;white-space:pre-wrap;word-break:break-all}
+.exec-hash-box{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0;padding:8px 10px;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.12);border-radius:var(--radius)}
+.hash-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:2px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn-sm{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer}
+.btn-sm:hover{color:var(--teal-lt);border-color:var(--teal)}
+.anchor-cta{display:block;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:.45rem .9rem;text-align:center;margin-top:10px;background:var(--teal-dim)}
+.anchor-cta:hover{border-color:var(--teal);background:rgba(20,184,166,.15)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:6px}
+.ep-block{margin-top:32px;border-top:1px solid var(--border);padding-top:16px}
+.ep-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;font-size:.72rem}
+.ep-icon{font-family:'JetBrains Mono',monospace;font-size:.65rem;width:20px;flex-shrink:0;margin-top:1px;color:var(--green)}
+.ep-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text);white-space:nowrap;margin-right:6px;margin-top:1px}
+.ep-desc{color:var(--muted);font-size:.7rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center}
+.range-hint{font-size:.65rem;color:var(--muted);margin-top:3px}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Event-Market PnL</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">Autonity Tool Suite &middot; AT-01 &middot; Derivatives &amp; Event Markets</div>
+  <h1>Event-Market PnL Calculator</h1>
+  <p class="sub">Compute profit and loss for scalar and linear event contracts. Handles AFP forecast futures, Kalshi-style scalar markets, and CME weather contracts. Enter your strike, settlement value, unit value, and position direction to see the outcome. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-tool">AT-01</span>
+    <span class="badge badge-mandate">event_market_pnl</span>
+    <span class="badge badge-info">Scalar / Linear</span>
+    <span class="badge badge-info">Zero PII</span>
+    <span class="badge badge-info">Client-side only</span>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Preset</div>
+    <div class="preset-bar" id="presetBar">
+      <button class="preset-btn active" onclick="applyPreset('autonity',this)">Autonity (Historical)</button>
+      <button class="preset-btn" onclick="applyPreset('kalshi_scalar',this)">Kalshi Scalar</button>
+      <button class="preset-btn" onclick="applyPreset('cme_weather',this)">CME Weather</button>
+      <button class="preset-btn" onclick="applyPreset('generic',this)">Generic Futures</button>
+      <button class="preset-btn" onclick="applyPreset('custom',this)">Custom</button>
+    </div>
+
+    <div class="section-head">Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="underlying">Underlying</label>
+        <input type="text" id="underlying" value="US_CPI_YOY_PCT" placeholder="e.g. US_CPI_YOY_PCT">
+      </div>
+      <div class="q">
+        <label class="q-label" for="side">Direction</label>
+        <select id="side">
+          <option value="LONG" selected>LONG (buy)</option>
+          <option value="SHORT">SHORT (sell)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="strike">Strike</label>
+        <input type="number" id="strike" value="3.5" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="settlement_value">Settlement Value</label>
+        <input type="number" id="settlement_value" value="4.1" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="unit_value">Unit Value</label>
+        <div class="q-help">Notional per unit (e.g. &#36;200/point for AFP CPI contracts)</div>
+        <input type="number" id="unit_value" value="200" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="n_contracts">Number of Contracts</label>
+        <input type="number" id="n_contracts" value="1" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="min_price">Min Price (floor)</label>
+        <input type="number" id="min_price" value="0.0" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="max_price">Max Price (cap)</label>
+        <input type="number" id="max_price" value="10.0" step="any">
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="runCompute()">[ COMPUTE &rarr; ]</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">PnL Result</div>
+      <div class="pnl-display">
+        <div class="pnl-icon" id="pnlIcon">&#9670;</div>
+        <div>
+          <div class="pnl-label">Net PnL</div>
+          <div class="pnl-value" id="pnlValue">-</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="pnl-label">Settlement Delta</div>
+          <div id="deltaValue" style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text)">-</div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="section-head" style="margin-top:14px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <button class="artifact-toggle" onclick="toggleArtifact()">[ VIEW OCG ARTIFACT &darr; ]</button>
+      <div class="artifact-body" id="artifactBody">
+        <div class="section-head">Execution Hash (SHA-256 bare hex)</div>
+        <div class="exec-hash-box">
+          <span class="hash-label">execution_hash</span>
+          <span id="execHashEl"></span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" onclick="verifyHash()">&#10003; Verify Hash</button>
+          <button class="btn-sm" onclick="copyArtifact()">Copy JSON</button>
+          <button class="btn-sm" onclick="downloadArtifact()">Download</button>
+        </div>
+        <div class="verify-result" id="verifyResult"></div>
+        <div id="anchorRow"></div>
+        <pre id="artifactPre"></pre>
+      </div>
+    </div>
+
+    <div class="ep-block">
+      <div class="ep-row">
+        <span class="ep-icon">&#10003;</span>
+        <span class="ep-label">VERIFIED</span>
+        <span class="ep-desc">Computation reproduces. Paste the artifact into any browser.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--body)">&#9702;</span>
+        <span class="ep-label">DOCUMENTED</span>
+        <span class="ep-desc">Public source (GitHub, AFP spec, venue documentation). Cited inline.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--gold)">[TIM-SOURCED]</span>
+        <span class="ep-label" style="color:var(--gold)">TIM-SOURCED</span>
+        <span class="ep-desc">Operator account; not publicly verifiable. Labelled explicitly.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-211-event-market-pnl',
+  version: '1.0.0',
+  mcp_name: 'event_market_pnl',
+  title: 'Event-Market PnL Calculator',
+  description: 'Computes PnL for scalar/linear event contracts using strike, settlement value, unit value, and direction. Models AFP forecast futures, Kalshi scalar markets, and CME weather contracts. Not financial advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'AFP / Kalshi / CME Event Contracts',
+  page_url: '/chaingraph/autonity-at01-pnl.html',
+  mandate_type: 'event_market_pnl'
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+
+var PRESETS = {
+  autonity:     { underlying:'US_CPI_YOY_PCT', strike:3.5, settlement_value:4.1, unit_value:200, n_contracts:1, min_price:0.0, max_price:10.0, side:'LONG' },
+  kalshi_scalar:{ underlying:'US_CPI_YOY_PCT', strike:3.5, settlement_value:4.1, unit_value:100, n_contracts:1, min_price:0.0, max_price:1.0, side:'LONG' },
+  cme_weather:  { underlying:'HDD_65F', strike:100, settlement_value:115, unit_value:20, n_contracts:1, min_price:0, max_price:300, side:'LONG' },
+  generic:      { underlying:'CUSTOM', strike:100, settlement_value:105, unit_value:100, n_contracts:1, min_price:0, max_price:200, side:'LONG' },
+  custom:       null
+};
+
+function applyPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+  if (btn) btn.classList.add('active');
+  var p = PRESETS[name];
+  if (!p) return;
+  document.getElementById('underlying').value = p.underlying;
+  document.getElementById('strike').value = p.strike;
+  document.getElementById('settlement_value').value = p.settlement_value;
+  document.getElementById('unit_value').value = p.unit_value;
+  document.getElementById('n_contracts').value = p.n_contracts;
+  document.getElementById('min_price').value = p.min_price;
+  document.getElementById('max_price').value = p.max_price;
+  document.getElementById('side').value = p.side;
+}
+
+/* ---- cgCanon + executionHash (WebCrypto) ---- */
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object')
+      ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{})
+      : v;
+}
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!isFinite(v)) throw new Error('Non-finite: ' + v);
+  } else if (Array.isArray(v)) { v.forEach(assertIJson); }
+  else if (v && typeof v === 'object') { Object.keys(v).forEach(function(k){assertIJson(v[k]);}); }
+}
+async function executionHash(pp, output_payload) {
+  var obj = { policy_parameters: pp, output_payload: output_payload };
+  assertIJson(obj);
+  var canonical = JSON.stringify(cgCanon(obj));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function r6(v) { return Math.round(v * 1e6) / 1e6; }
+
+var _lastPP = null;
+var _lastOutput = null;
+var _lastArtifact = null;
+
+async function runCompute() {
+  var underlying   = document.getElementById('underlying').value.trim() || 'CUSTOM';
+  var side         = document.getElementById('side').value;
+  var strike       = parseFloat(document.getElementById('strike').value) || 0;
+  var sv           = parseFloat(document.getElementById('settlement_value').value);
+  var unit_value   = parseFloat(document.getElementById('unit_value').value) || 1;
+  var n_contracts  = Math.max(1, parseInt(document.getElementById('n_contracts').value) || 1);
+  var min_price    = parseFloat(document.getElementById('min_price').value);
+  var max_price    = parseFloat(document.getElementById('max_price').value);
+
+  if (!isFinite(sv)) sv = strike;
+  if (!isFinite(min_price)) min_price = 0;
+  if (!isFinite(max_price) || max_price <= min_price) max_price = min_price + 10;
+
+  var side_sign = side === 'LONG' ? 1 : -1;
+  var settlement_value = Math.min(Math.max(sv, min_price), max_price);
+  var settlement_in_range = sv >= min_price && sv <= max_price;
+  var settlement_delta = r6(settlement_value - strike);
+  var pnl = r6(side_sign * settlement_delta * unit_value * n_contracts);
+  var equivalent_binary_pnl = r6(side_sign * unit_value * n_contracts);
+
+  var output = {
+    pnl: pnl,
+    settlement_delta: settlement_delta,
+    payoff_type: 'linear',
+    settlement_in_range: settlement_in_range,
+    equivalent_binary_pnl: equivalent_binary_pnl,
+    fees_paid: 0
+  };
+
+  var pp = {
+    execution_backend: 'js',
+    input_parameters: {
+      mode: 'scalar',
+      preset: (function(){var ab=document.querySelector('.preset-btn.active');return ab?ab.textContent.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''):'custom';})(),
+      underlying: underlying,
+      strike: strike,
+      settlement_value: sv,
+      unit_value: unit_value,
+      n_contracts: n_contracts,
+      side: side,
+      min_price: min_price,
+      max_price: max_price
+    }
+  };
+
+  var hashHex = await executionHash(pp, output);
+  _lastPP = pp; _lastOutput = output;
+
+  var compliance_flags = [];
+  if (!settlement_in_range) compliance_flags.push('OUT_OF_RANGE');
+  compliance_flags.push('FULLY_COLLATERALIZED');
+
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'event_market_pnl',
+    tool_id: 'art-211-event-market-pnl',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    buildType: 'https://ainumbers.co/chaingraph/standard/openchain-graph-spec#WebCryptoSHA256',
+    execution_hash: hashHex,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload: output,
+    compliance_flags: compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: {
+      payloadType: 'application/vnd.openchain.graph+json;version=0.2',
+      payload: '', signatures: [],
+      client_side_executed: true, zero_pii_verified: true, deterministic_run: true
+    }
+  };
+  _lastArtifact = artifact;
+
+  /* ---- Render ---- */
+  var pnlEl = document.getElementById('pnlValue');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:6});
+  pnlEl.className = 'pnl-value ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : 'pnl-zero');
+  document.getElementById('pnlIcon').textContent = pnl > 0 ? '▲' : pnl < 0 ? '▼' : '◆';
+  document.getElementById('deltaValue').textContent = (settlement_delta >= 0 ? '+' : '') + settlement_delta;
+
+  var stats = [
+    {k:'Settlement Delta', v: (settlement_delta >= 0 ? '+' : '') + settlement_delta},
+    {k:'Equiv Binary PnL', v: (equivalent_binary_pnl >= 0 ? '+' : '') + equivalent_binary_pnl},
+    {k:'Payoff Type', v:'Linear'},
+    {k:'In Range', v: settlement_in_range ? 'YES' : 'OUT OF RANGE'},
+    {k:'Unit Value', v: unit_value},
+    {k:'Contracts', v: n_contracts},
+    {k:'Fees Paid', v: '0'}
+  ];
+  document.getElementById('statsGrid').innerHTML = stats.map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val">'+s.v+'</div></div>';
+  }).join('');
+
+  var flagHtml = compliance_flags.map(function(f){
+    var cls = f === 'OUT_OF_RANGE' ? 'flag-warn' : 'flag-info';
+    return '<span class="flag '+cls+'">'+f+'</span>';
+  }).join('');
+  document.getElementById('flagRow').innerHTML = flagHtml || '<span style="color:var(--muted);font-size:.7rem">No flags</span>';
+
+  document.getElementById('execHashEl').textContent = hashHex;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('anchorRow').innerHTML =
+    '<a class="anchor-cta" href="'+ANCHOR_BASE+'/anchor.html#eh='+hashHex+'" target="_blank" rel="noopener">[ &#9875; ANCHOR THIS ARTIFACT &rarr; ]</a>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function toggleArtifact() {
+  var b = document.getElementById('artifactBody');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+async function verifyHash() {
+  if (!_lastPP || !_lastOutput) { alert('Compute first.'); return; }
+  var recomputed = await executionHash(_lastPP, _lastOutput);
+  var stored = document.getElementById('execHashEl').textContent;
+  var el = document.getElementById('verifyResult');
+  if (recomputed === stored) {
+    el.innerHTML = '&#10003; Reproduced. The output follows from the recorded inputs.';
+    el.style.color = 'var(--green)';
+  } else {
+    el.innerHTML = '&#10007; Mismatch!';
+    el.style.color = 'var(--red)';
+  }
+}
+verifyHash.tooltip = '✓ This hash reproduces → the output follows from the recorded inputs. ℹ Verification does not confirm the inputs were accurate. It confirms that IF you accept these inputs, this output is correct.';
+
+function copyArtifact() {
+  if (!_lastArtifact) return;
+  navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(_lastArtifact, null, 2));
+}
+
+function downloadArtifact() {
+  if (!_lastArtifact) return;
+  var b = new Blob([JSON.stringify(_lastArtifact, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'art-211-event-market-pnl-' + (_lastArtifact.execution_hash || 'artifact').substring(0,8) + '.json';
+  a.click();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Derivatives Margin Health Calculator &middot; ART-212 &middot; Autonity Tool Suite &middot; AINumbers.co</title>
+<meta name="description" content="Compute unrealized PnL, margin balance, maintenance buffer, liquidation price, and leverage ratio for an isolated margin derivatives position. GREEN / AMBER / RED health status. OCG compute node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/autonity-at02-margin.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --teal-glow:rgba(20,184,166,.35);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.65rem;color:var(--white);margin-bottom:10px;font-weight:400;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:12px;font-size:.88rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-tool{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-mandate{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.badge-info{background:rgba(168,196,222,.06);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:14px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:16px 0}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.45rem;line-height:1.55}
+input[type=number],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input[type=number]:focus,select:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:4px;padding:.3rem .65rem;cursor:pointer;transition:all .15s}
+.preset-btn:hover{color:var(--teal-lt);border-color:var(--teal)}
+.preset-btn.active{background:var(--teal-dim);color:var(--teal-lt);border-color:var(--teal)}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+@media(max-width:600px){.input-grid{grid-template-columns:1fr}}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.75rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:18px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.health-bar{border-radius:var(--radius-lg);padding:20px 22px;margin:8px 0;display:flex;align-items:center;gap:18px}
+.health-green{background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.health-amber{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3)}
+.health-red{background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.health-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.health-dot-green{background:var(--green)}
+.health-dot-amber{background:var(--amber)}
+.health-dot-red{background:var(--red)}
+.health-label{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600}
+.health-green .health-label{color:var(--green)}
+.health-amber .health-label{color:var(--amber)}
+.health-red .health-label{color:var(--red)}
+.health-sub{font-size:.75rem;color:var(--body);margin-top:2px}
+.buffer-bar-wrap{margin:10px 0 6px}
+.buffer-bar-track{height:8px;background:var(--bg-4);border-radius:4px;overflow:hidden}
+.buffer-bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.buffer-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.stat-val.pos{color:var(--green)}.stat-val.neg{color:var(--red)}.stat-val.warn{color:var(--amber)}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.flag{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.flag-warn{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.flag-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.flag-info{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.artifact-toggle{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem .8rem;cursor:pointer;display:block;width:100%;text-align:left;text-transform:uppercase;letter-spacing:.08em;margin-top:14px}
+.artifact-toggle:hover{color:var(--text);border-color:var(--border-2)}
+.artifact-body{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);max-height:380px;white-space:pre-wrap;word-break:break-all}
+.exec-hash-box{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0;padding:8px 10px;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.12);border-radius:var(--radius)}
+.hash-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:2px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn-sm{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer}
+.btn-sm:hover{color:var(--teal-lt);border-color:var(--teal)}
+.anchor-cta{display:block;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:.45rem .9rem;text-align:center;margin-top:10px;background:var(--teal-dim)}
+.anchor-cta:hover{border-color:var(--teal);background:rgba(20,184,166,.15)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:6px}
+.ep-block{margin-top:32px;border-top:1px solid var(--border);padding-top:16px}
+.ep-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;font-size:.72rem}
+.ep-icon{font-family:'JetBrains Mono',monospace;font-size:.65rem;width:20px;flex-shrink:0;margin-top:1px;color:var(--green)}
+.ep-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text);white-space:nowrap;margin-right:6px;margin-top:1px}
+.ep-desc{color:var(--muted);font-size:.7rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>Derivatives Margin Health</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">Autonity Tool Suite &middot; AT-02 &middot; Derivatives &amp; Event Markets</div>
+  <h1>Derivatives Margin Health Calculator</h1>
+  <p class="sub">Compute unrealized PnL, margin balance, maintenance buffer, liquidation price, and leverage ratio for an isolated margin derivatives position. Returns GREEN, AMBER, or RED health classification. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-tool">AT-02</span>
+    <span class="badge badge-mandate">derivatives_margin_health</span>
+    <span class="badge badge-info">Isolated Margin</span>
+    <span class="badge badge-info">Zero PII</span>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Preset</div>
+    <div class="preset-bar">
+      <button class="preset-btn active" onclick="applyPreset('autonity',this)">Autonity</button>
+      <button class="preset-btn" onclick="applyPreset('hyperliquid',this)">Hyperliquid</button>
+      <button class="preset-btn" onclick="applyPreset('dydx_v4',this)">dYdX v4</button>
+      <button class="preset-btn" onclick="applyPreset('generic',this)">Generic</button>
+      <button class="preset-btn" onclick="applyPreset('custom',this)">Custom</button>
+    </div>
+
+    <div class="section-head">Position Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="side">Direction</label>
+        <select id="side">
+          <option value="LONG" selected>LONG</option>
+          <option value="SHORT">SHORT</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="notional">Notional Value</label>
+        <input type="number" id="notional" value="1000" step="any" min="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="entry_price">Entry Price</label>
+        <input type="number" id="entry_price" value="3.5" step="any" min="0.000001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="mark_price">Mark Price</label>
+        <input type="number" id="mark_price" value="4.1" step="any" min="0.000001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="margin_posted">Margin Posted</label>
+        <div class="q-help">Collateral deposited to hold this position</div>
+        <input type="number" id="margin_posted" value="100" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="mmr">Maintenance Margin Rate (MMR)</label>
+        <div class="q-help">e.g. 0.05 = 5%</div>
+        <input type="number" id="mmr" value="0.05" step="any" min="0.001" max="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="imr">Initial Margin Rate (IMR, optional)</label>
+        <div class="q-help">Used for MARGIN_BELOW_INITIAL flag; leave blank to skip</div>
+        <input type="number" id="imr" value="0.10" step="any" min="0" max="1">
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="runCompute()">[ COMPUTE &rarr; ]</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Margin Health</div>
+      <div id="healthBar" class="health-bar health-green">
+        <div id="healthDot" class="health-dot health-dot-green"></div>
+        <div>
+          <div id="healthLabel" class="health-label">GREEN</div>
+          <div id="healthSub" class="health-sub">Margin buffer &gt; 100% of maintenance</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">BUFFER PCT</div>
+          <div id="bufferPctVal" style="font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--bright)">-</div>
+        </div>
+      </div>
+
+      <div class="buffer-bar-wrap">
+        <div class="buffer-label">Buffer relative to maintenance threshold</div>
+        <div class="buffer-bar-track">
+          <div id="bufferBarFill" class="buffer-bar-fill" style="width:0%;background:var(--green)"></div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="section-head" style="margin-top:14px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <button class="artifact-toggle" onclick="toggleArtifact()">[ VIEW OCG ARTIFACT &darr; ]</button>
+      <div class="artifact-body" id="artifactBody">
+        <div class="section-head">Execution Hash (SHA-256 bare hex)</div>
+        <div class="exec-hash-box">
+          <span class="hash-label">execution_hash</span>
+          <span id="execHashEl"></span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" onclick="verifyHash()">&#10003; Verify Hash</button>
+          <button class="btn-sm" onclick="copyArtifact()">Copy JSON</button>
+          <button class="btn-sm" onclick="downloadArtifact()">Download</button>
+        </div>
+        <div class="verify-result" id="verifyResult"></div>
+        <div id="anchorRow"></div>
+        <pre id="artifactPre"></pre>
+      </div>
+    </div>
+
+    <div class="ep-block">
+      <div class="ep-row">
+        <span class="ep-icon">&#10003;</span>
+        <span class="ep-label">VERIFIED</span>
+        <span class="ep-desc">Computation reproduces. Paste the artifact into any browser.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--body)">&#9702;</span>
+        <span class="ep-label">DOCUMENTED</span>
+        <span class="ep-desc">Public source (GitHub, venue documentation). Cited inline.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--gold)">[TIM-SOURCED]</span>
+        <span class="ep-label" style="color:var(--gold)">TIM-SOURCED</span>
+        <span class="ep-desc">Operator account; not publicly verifiable. Labelled explicitly.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-212-derivatives-margin-health',
+  version: '1.0.0',
+  mcp_name: 'derivatives_margin_health',
+  title: 'Derivatives Margin Health Calculator',
+  description: 'Computes unrealized PnL, margin balance, maintenance buffer, liquidation price, and leverage ratio for an isolated margin derivatives position. Health: GREEN / AMBER / RED. Not financial advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Derivatives Margin / Isolated Margin Model',
+  page_url: '/chaingraph/autonity-at02-margin.html',
+  mandate_type: 'derivatives_margin_health'
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+
+var PRESETS = {
+  autonity:    { side:'LONG', entry_price:3.5, mark_price:4.1, notional:1000.0, margin_posted:100.0, mmr:0.05, imr:0.10 },
+  hyperliquid: { side:'LONG', entry_price:65000, mark_price:67000, notional:65000, margin_posted:3250, mmr:0.025, imr:0.05 },
+  dydx_v4:     { side:'LONG', entry_price:65000, mark_price:67000, notional:65000, margin_posted:3250, mmr:0.03, imr:0.05 },
+  generic:     { side:'LONG', entry_price:100, mark_price:105, notional:10000, margin_posted:1000, mmr:0.05, imr:0.10 },
+  custom:      null
+};
+
+function applyPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+  if (btn) btn.classList.add('active');
+  var p = PRESETS[name];
+  if (!p) return;
+  document.getElementById('side').value = p.side;
+  document.getElementById('entry_price').value = p.entry_price;
+  document.getElementById('mark_price').value = p.mark_price;
+  document.getElementById('notional').value = p.notional;
+  document.getElementById('margin_posted').value = p.margin_posted;
+  document.getElementById('mmr').value = p.mmr;
+  document.getElementById('imr').value = p.imr;
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object')
+      ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{})
+      : v;
+}
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!isFinite(v)) throw new Error('Non-finite: ' + v);
+  } else if (Array.isArray(v)) { v.forEach(assertIJson); }
+  else if (v && typeof v === 'object') { Object.keys(v).forEach(function(k){assertIJson(v[k]);}); }
+}
+async function executionHash(pp, output_payload) {
+  var obj = { policy_parameters: pp, output_payload: output_payload };
+  assertIJson(obj);
+  var canonical = JSON.stringify(cgCanon(obj));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function r6(v) {
+  if (!isFinite(v)) return 0;
+  return Math.round(v * 1e6) / 1e6;
+}
+
+var _lastPP = null, _lastOutput = null, _lastArtifact = null;
+
+async function runCompute() {
+  var side         = document.getElementById('side').value;
+  var entry_price  = parseFloat(document.getElementById('entry_price').value);
+  var mark_price   = parseFloat(document.getElementById('mark_price').value);
+  var notional     = parseFloat(document.getElementById('notional').value);
+  var margin_posted= parseFloat(document.getElementById('margin_posted').value);
+  var mmr          = parseFloat(document.getElementById('mmr').value);
+  var imr_raw      = parseFloat(document.getElementById('imr').value);
+
+  if (!isFinite(entry_price)  || entry_price <= 0)  entry_price  = 3.5;
+  if (!isFinite(mark_price)   || mark_price  <= 0)  mark_price   = 3.5;
+  if (!isFinite(notional)     || notional    <= 0)  notional     = 1000;
+  if (!isFinite(margin_posted))                      margin_posted= 0;
+  if (!isFinite(mmr)          || mmr <= 0)           mmr          = 0.05;
+  var imr = (isFinite(imr_raw) && imr_raw > 0) ? imr_raw : null;
+
+  var side_sign = side === 'LONG' ? 1 : -1;
+  var qty = entry_price > 0 ? notional / entry_price : 0;
+  var unrealized_pnl = side_sign * (mark_price - entry_price) * qty;
+  var margin_balance = margin_posted + unrealized_pnl;
+  var maintenance_threshold = notional * mmr;
+  var buffer = margin_balance - maintenance_threshold;
+  var buffer_pct = maintenance_threshold > 0 ? (buffer / maintenance_threshold) * 100 : 0;
+  var liquidation_price = qty > 0 ? entry_price - side_sign * (margin_posted - maintenance_threshold) / qty : 0;
+  var leverage_ratio = margin_balance > 0 ? Math.min(notional / margin_balance, 999) : 999;
+
+  var health = buffer_pct > 100 ? 'GREEN' : buffer_pct > 0 ? 'AMBER' : 'RED';
+
+  var output = {
+    unrealized_pnl: r6(unrealized_pnl),
+    margin_balance: r6(margin_balance),
+    maintenance_threshold: r6(maintenance_threshold),
+    buffer: r6(buffer),
+    buffer_pct: r6(buffer_pct),
+    liquidation_price: r6(liquidation_price),
+    leverage_ratio: r6(leverage_ratio),
+    health: health
+  };
+
+  var ip = { preset: 'custom', side: side, entry_price: entry_price, mark_price: mark_price,
+             notional: notional, margin_posted: margin_posted, mmr: mmr };
+  if (imr !== null) ip.imr = imr;
+  var pp = { execution_backend: 'js', input_parameters: ip };
+
+  var hashHex = await executionHash(pp, output);
+  _lastPP = pp; _lastOutput = output;
+
+  var compliance_flags = [];
+  if (buffer < 0) compliance_flags.push('MARGIN_BELOW_MAINTENANCE');
+  if (imr !== null && margin_posted < notional * imr) compliance_flags.push('MARGIN_BELOW_INITIAL');
+  if (leverage_ratio > 10) compliance_flags.push('HIGH_LEVERAGE');
+
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'derivatives_margin_health',
+    tool_id: 'art-212-derivatives-margin-health',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    buildType: 'https://ainumbers.co/chaingraph/standard/openchain-graph-spec#WebCryptoSHA256',
+    execution_hash: hashHex,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp,
+    output_payload: output,
+    compliance_flags: compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: {
+      payloadType: 'application/vnd.openchain.graph+json;version=0.2',
+      payload: '', signatures: [],
+      client_side_executed: true, zero_pii_verified: true, deterministic_run: true
+    }
+  };
+  _lastArtifact = artifact;
+
+  /* ---- Render health bar ---- */
+  var healthBar = document.getElementById('healthBar');
+  var healthDot = document.getElementById('healthDot');
+  var healthLabel = document.getElementById('healthLabel');
+  var healthSub = document.getElementById('healthSub');
+  healthBar.className = 'health-bar health-' + health.toLowerCase();
+  healthDot.className = 'health-dot health-dot-' + health.toLowerCase();
+  healthLabel.textContent = health;
+  var subMsg = health === 'GREEN' ? 'Margin buffer above 100% of maintenance threshold' :
+               health === 'AMBER' ? 'Margin buffer below 100% of maintenance threshold' :
+               'Margin balance below maintenance threshold - liquidation risk';
+  healthSub.textContent = subMsg;
+  document.getElementById('bufferPctVal').textContent = r6(buffer_pct).toFixed(2) + '%';
+
+  /* buffer bar fill */
+  var fillPct = Math.min(Math.max(buffer_pct, 0), 200) / 200 * 100;
+  var fillColor = health === 'GREEN' ? 'var(--green)' : health === 'AMBER' ? 'var(--amber)' : 'var(--red)';
+  var fill = document.getElementById('bufferBarFill');
+  fill.style.width = fillPct + '%';
+  fill.style.background = fillColor;
+
+  /* stats */
+  var upnlClass = unrealized_pnl > 0 ? 'pos' : unrealized_pnl < 0 ? 'neg' : '';
+  var levClass  = leverage_ratio > 20 ? 'neg' : leverage_ratio > 10 ? 'warn' : '';
+  var stats = [
+    {k:'Unrealized PnL',        v: (r6(unrealized_pnl)>=0?'+':'')+r6(unrealized_pnl), cls: upnlClass},
+    {k:'Margin Balance',        v: r6(margin_balance), cls: margin_balance < 0 ? 'neg' : ''},
+    {k:'Maintenance Threshold', v: r6(maintenance_threshold), cls: ''},
+    {k:'Buffer',                v: (r6(buffer)>=0?'+':'')+r6(buffer), cls: buffer < 0 ? 'neg' : 'pos'},
+    {k:'Liquidation Price',     v: r6(liquidation_price), cls: 'warn'},
+    {k:'Leverage Ratio',        v: r6(leverage_ratio).toFixed(2) + 'x', cls: levClass}
+  ];
+  document.getElementById('statsGrid').innerHTML = stats.map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val '+(s.cls||'')+'">'+s.v+'</div></div>';
+  }).join('');
+
+  var flagMap = { 'MARGIN_BELOW_MAINTENANCE': 'flag-err', 'MARGIN_BELOW_INITIAL': 'flag-warn', 'HIGH_LEVERAGE': 'flag-warn' };
+  document.getElementById('flagRow').innerHTML = compliance_flags.length
+    ? compliance_flags.map(function(f){ return '<span class="flag '+(flagMap[f]||'flag-info')+'">'+f+'</span>'; }).join('')
+    : '<span style="color:var(--muted);font-size:.7rem">No flags</span>';
+
+  document.getElementById('execHashEl').textContent = hashHex;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('anchorRow').innerHTML =
+    '<a class="anchor-cta" href="'+ANCHOR_BASE+'/anchor.html#eh='+hashHex+'" target="_blank" rel="noopener">[ &#9875; ANCHOR THIS ARTIFACT &rarr; ]</a>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function toggleArtifact() {
+  var b = document.getElementById('artifactBody');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+async function verifyHash() {
+  if (!_lastPP || !_lastOutput) { alert('Compute first.'); return; }
+  var recomputed = await executionHash(_lastPP, _lastOutput);
+  var stored = document.getElementById('execHashEl').textContent;
+  var el = document.getElementById('verifyResult');
+  if (recomputed === stored) {
+    el.innerHTML = '&#10003; Reproduced. The output follows from the recorded inputs.';
+    el.style.color = 'var(--green)';
+  } else {
+    el.innerHTML = '&#10007; Mismatch!';
+    el.style.color = 'var(--red)';
+  }
+}
+
+function copyArtifact() {
+  if (!_lastArtifact) return;
+  navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(_lastArtifact, null, 2));
+}
+
+function downloadArtifact() {
+  if (!_lastArtifact) return;
+  var b = new Blob([JSON.stringify(_lastArtifact, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'art-212-derivatives-margin-health-' + (_lastArtifact.execution_hash || 'artifact').substring(0,8) + '.json';
+  a.click();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AFP/DCC Position Open Simulator &middot; ART-213 &middot; Autonity Tool Suite &middot; AINumbers.co</title>
+<meta name="description" content="Simulate opening a derivatives position under the AFP and DCC model. Validates margin sufficiency, computes notional and required margin, generates a deterministic position identifier. Chains to AT-02 margin health output.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/autonity-at03-position-open.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;
+  --body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.10);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;
+  --red-dim:rgba(239,68,68,.10);--amber:#F59E0B;
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:920px;margin:0 auto;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{display:flex;align-items:center;gap:.5rem;font-size:.55rem;color:var(--muted)}
+.nav-sep{color:var(--border-2)}.nav-bc a{color:var(--body)}
+.nav-cta{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:#06121f;background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.65rem;color:var(--white);margin-bottom:10px;font-weight:400;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:12px;font-size:.88rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.badge-tool{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.badge-mandate{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.badge-chain{background:rgba(168,196,222,.06);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge-info{background:rgba(168,196,222,.06);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:14px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin:16px 0}
+.chain-card{background:var(--bg-2);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.chain-card-title{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.chain-status{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:6px 10px;border-radius:var(--radius);margin-top:8px}
+.chain-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.chain-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.chain-idle{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.section-head:first-child{margin-top:0}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.35rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.45rem;line-height:1.55}
+input[type=number],input[type=text],input[type=datetime-local],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+select{appearance:none;cursor:pointer}
+select option{background:var(--bg-3)}
+textarea{resize:vertical;min-height:90px;font-size:.68rem}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+@media(max-width:600px){.input-grid{grid-template-columns:1fr}}
+.compute-btn{width:100%;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.75rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:18px;transition:opacity .2s}
+.compute-btn:hover{opacity:.9}
+.load-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.07em;text-transform:uppercase;background:var(--bg-3);color:var(--gold);border:1px solid rgba(212,168,71,.3);border-radius:var(--radius);padding:.4rem .9rem;cursor:pointer;margin-top:8px}
+.load-btn:hover{background:var(--gold-dim)}
+.results-panel{display:none}.results-panel.show{display:block}
+.pos-id-box{background:var(--bg-3);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--teal-lt);margin:8px 0;letter-spacing:.05em}
+.pos-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:3px}
+.margin-accept{border-radius:var(--radius-lg);padding:14px 18px;margin:10px 0;display:flex;align-items:center;gap:12px}
+.margin-ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.25)}
+.margin-fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.25)}
+.margin-accept-icon{font-size:1.4rem}
+.margin-accept-label{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600}
+.margin-ok .margin-accept-label{color:var(--green)}
+.margin-fail .margin-accept-label{color:var(--red)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin:10px 0}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.stat-val.ok{color:var(--green)}.stat-val.fail{color:var(--red)}.stat-val.warn{color:var(--amber)}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.flag{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.18rem .5rem;border-radius:10px;display:inline-block;white-space:nowrap}
+.flag-warn{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.flag-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.flag-info{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.artifact-toggle{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem .8rem;cursor:pointer;display:block;width:100%;text-align:left;text-transform:uppercase;letter-spacing:.08em;margin-top:14px}
+.artifact-toggle:hover{color:var(--text);border-color:var(--border-2)}
+.artifact-body{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);max-height:380px;white-space:pre-wrap;word-break:break-all}
+.exec-hash-box{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0;padding:8px 10px;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.12);border-radius:var(--radius)}
+.hash-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:2px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn-sm{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;background:var(--bg-3);color:var(--body);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer}
+.btn-sm:hover{color:var(--teal-lt);border-color:var(--teal)}
+.anchor-cta{display:block;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:.45rem .9rem;text-align:center;margin-top:10px;background:var(--teal-dim)}
+.anchor-cta:hover{border-color:var(--teal);background:rgba(20,184,166,.15)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:6px}
+.ep-block{margin-top:32px;border-top:1px solid var(--border);padding-top:16px}
+.ep-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;font-size:.72rem}
+.ep-icon{font-family:'JetBrains Mono',monospace;font-size:.65rem;width:20px;flex-shrink:0;margin-top:1px;color:var(--green)}
+.ep-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text);white-space:nowrap;margin-right:6px;margin-top:1px}
+.ep-desc{color:var(--muted);font-size:.7rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 20px;margin-top:2rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);position:relative;z-index:1}
+.footer-inner{max-width:920px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;align-items:center}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <a href="chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
+    <span>AFP/DCC Position Open</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">Hub &rarr;</a>
+</div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">Autonity Tool Suite &middot; AT-03 &middot; Derivatives &amp; Event Markets</div>
+  <h1>AFP/DCC Position Open Simulator</h1>
+  <p class="sub">Simulate opening a derivatives position under the AFP and DCC model. Validates margin deposit against initial margin requirements, computes notional exposure, and generates a deterministic position identifier. Optionally chains from an AT-02 margin health artifact. Not financial advice.</p>
+  <div class="badge-row">
+    <span class="badge badge-tool">AT-03</span>
+    <span class="badge badge-mandate">afp_dcc_position_open</span>
+    <span class="badge badge-chain">chains from AT-02</span>
+    <span class="badge badge-info">Zero PII</span>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <!-- Chain input -->
+  <div class="chain-card">
+    <div class="chain-card-title">&#9654; Chain Input: Paste AT-02 Artifact (optional)</div>
+    <div class="q-help" style="margin-bottom:8px">Paste a margin health artifact from AT-02 to link the position opening to a verified margin check. The parent hash will be recorded in this artifact's chain.</div>
+    <textarea id="parentArtifactTA" placeholder='{ "mandate_type": "derivatives_margin_health", "execution_hash": "...", ... }'></textarea>
+    <button class="load-btn" onclick="loadParent()">Load Parent Artifact</button>
+    <div id="chainStatus" class="chain-status chain-idle">No parent artifact loaded (standalone mode)</div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Position Inputs</div>
+    <div class="input-grid">
+      <div class="q">
+        <label class="q-label" for="product_id">Product ID</label>
+        <input type="text" id="product_id" value="US_CPI_FUTURES_Q1_2026" placeholder="e.g. US_CPI_FUTURES_Q1_2026">
+      </div>
+      <div class="q">
+        <label class="q-label" for="account_id">Account ID</label>
+        <input type="text" id="account_id" value="0xA1B2C3D4" placeholder="e.g. 0xA1B2C3D4">
+      </div>
+      <div class="q">
+        <label class="q-label" for="side">Direction</label>
+        <select id="side">
+          <option value="LONG" selected>LONG</option>
+          <option value="SHORT">SHORT</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="venue_id">Venue ID</label>
+        <div class="q-help">Use "autex" for registered AFP venues</div>
+        <input type="text" id="venue_id" value="autex" placeholder="e.g. autex">
+      </div>
+      <div class="q">
+        <label class="q-label" for="size_contracts">Size (contracts)</label>
+        <input type="number" id="size_contracts" value="5" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="contract_size">Contract Size</label>
+        <div class="q-help">Notional per contract (e.g. &#36;200 for AFP CPI contracts)</div>
+        <input type="number" id="contract_size" value="200" step="any" min="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="margin_deposited">Margin Deposited</label>
+        <input type="number" id="margin_deposited" value="1000" step="any">
+      </div>
+      <div class="q">
+        <label class="q-label" for="initial_margin_ratio">Initial Margin Ratio (IMR)</label>
+        <div class="q-help">e.g. 0.10 = 10%</div>
+        <input type="number" id="initial_margin_ratio" value="0.10" step="any" min="0.001" max="1">
+      </div>
+      <div class="q" style="grid-column:1/-1">
+        <label class="q-label" for="intent_ts">Intent Timestamp</label>
+        <div class="q-help">ISO 8601 timestamp of the open intent (used in deterministic position_id)</div>
+        <input type="text" id="intent_ts" value="2026-01-20T10:30:00Z" placeholder="2026-01-20T10:30:00Z">
+      </div>
+    </div>
+
+    <button class="compute-btn" onclick="runCompute()">[ COMPUTE &rarr; ]</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Position ID</div>
+      <div class="pos-id-box">
+        <span class="pos-label">deterministic position identifier</span>
+        <span id="posIdOut">-</span>
+      </div>
+
+      <div id="marginAcceptBar" class="margin-accept margin-ok" style="margin-top:12px">
+        <div class="margin-accept-icon" id="marginIcon">&#10003;</div>
+        <div>
+          <div id="marginAcceptLabel" class="margin-accept-label">MARGIN ACCEPTED</div>
+          <div id="marginAcceptSub" style="font-size:.75rem;color:var(--body);margin-top:2px">Deposit meets initial margin requirement</div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid" style="margin-top:12px"></div>
+
+      <div class="section-head" style="margin-top:14px">Compliance Flags</div>
+      <div class="flag-row" id="flagRow"></div>
+
+      <button class="artifact-toggle" onclick="toggleArtifact()">[ VIEW OCG ARTIFACT &darr; ]</button>
+      <div class="artifact-body" id="artifactBody">
+        <div class="section-head">Execution Hash (SHA-256 bare hex)</div>
+        <div class="exec-hash-box">
+          <span class="hash-label">execution_hash</span>
+          <span id="execHashEl"></span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" onclick="verifyHash()">&#10003; Verify Hash</button>
+          <button class="btn-sm" onclick="copyArtifact()">Copy JSON</button>
+          <button class="btn-sm" onclick="downloadArtifact()">Download</button>
+        </div>
+        <div class="verify-result" id="verifyResult"></div>
+        <div id="anchorRow"></div>
+        <pre id="artifactPre"></pre>
+      </div>
+    </div>
+
+    <div class="ep-block">
+      <div class="ep-row">
+        <span class="ep-icon">&#10003;</span>
+        <span class="ep-label">VERIFIED</span>
+        <span class="ep-desc">Computation reproduces. Paste the artifact into any browser.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--body)">&#9702;</span>
+        <span class="ep-label">DOCUMENTED</span>
+        <span class="ep-desc">Public source (GitHub, AFP/DCC protocol documentation). Cited inline.</span>
+      </div>
+      <div class="ep-row">
+        <span class="ep-icon" style="color:var(--gold)">[TIM-SOURCED]</span>
+        <span class="ep-label" style="color:var(--gold)">TIM-SOURCED</span>
+        <span class="ep-desc">Operator account; not publicly verifiable. Labelled explicitly.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+      <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
+      <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.7.0</a>
+    </div>
+    <div>&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0 &middot; Zero PII &middot; Client-side only</div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-213-afp-dcc-position-open',
+  version: '1.0.0',
+  mcp_name: 'afp_dcc_position_open',
+  title: 'AFP/DCC Position Open Simulator',
+  description: 'Simulates opening a derivatives position under AFP/DCC. Computes notional, required margin, margin excess, and generates a deterministic position_id. Chains from AT-02 margin health. Not financial advice.',
+  spec_version: '0.7.0',
+  chaingraph_version: '0.4.0',
+  page_url: '/chaingraph/autonity-at03-position-open.html',
+  mandate_type: 'afp_dcc_position_open'
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+
+/* ---- chain state ---- */
+var _parentArtifact = null;
+var _parentHashes = [];
+var _parentToolIds = [];
+var _chainDepth = 0;
+
+function loadParent() {
+  var raw = document.getElementById('parentArtifactTA').value.trim();
+  var statusEl = document.getElementById('chainStatus');
+  if (!raw) {
+    _parentArtifact = null; _parentHashes = []; _parentToolIds = []; _chainDepth = 0;
+    statusEl.className = 'chain-status chain-idle';
+    statusEl.textContent = 'No parent artifact loaded (standalone mode)';
+    return;
+  }
+  var parsed;
+  try { parsed = JSON.parse(raw); } catch(e) {
+    statusEl.className = 'chain-status chain-err';
+    statusEl.textContent = 'Parse error: ' + e.message;
+    return;
+  }
+  if (parsed.mandate_type !== 'derivatives_margin_health') {
+    statusEl.className = 'chain-status chain-err';
+    statusEl.textContent = 'Invalid parent: mandate_type must be "derivatives_margin_health", got "' + parsed.mandate_type + '"';
+    return;
+  }
+  if (parsed.chaingraph_version !== '0.4.0') {
+    statusEl.className = 'chain-status chain-err';
+    statusEl.textContent = 'Invalid parent: chaingraph_version must be "0.4.0", got "' + parsed.chaingraph_version + '"';
+    return;
+  }
+  if (!parsed.execution_hash || typeof parsed.execution_hash !== 'string') {
+    statusEl.className = 'chain-status chain-err';
+    statusEl.textContent = 'Invalid parent: missing execution_hash';
+    return;
+  }
+  _parentArtifact = parsed;
+  _parentHashes = [parsed.execution_hash];
+  _parentToolIds = [parsed.tool_id || 'art-212-derivatives-margin-health'];
+  _chainDepth = ((parsed.chain && parsed.chain.chain_depth) || 0) + 1;
+  document.getElementById('parent_margin_health_hash_display') && (document.getElementById('parent_margin_health_hash_display').value = parsed.execution_hash);
+  statusEl.className = 'chain-status chain-ok';
+  statusEl.textContent = 'Parent loaded: ' + (parsed.tool_id || 'art-212') + ' | hash: ' + parsed.execution_hash.substring(0,12) + '... | health: ' + ((parsed.output_payload && parsed.output_payload.health) || 'n/a');
+}
+
+/* ---- DJB2-style position_id ---- */
+function derivePositionId(product_id, account_id, intent_ts) {
+  var s = (product_id || '') + '|' + (account_id || '') + '|' + (intent_ts || '');
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) h = (((h << 5) + h) ^ s.charCodeAt(i)) >>> 0;
+  return 'POS-' + h.toString(16).toUpperCase().padStart(8, '0');
+}
+
+function cgCanon(v) {
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object')
+      ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{})
+      : v;
+}
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!isFinite(v)) throw new Error('Non-finite: ' + v);
+  } else if (Array.isArray(v)) { v.forEach(assertIJson); }
+  else if (v && typeof v === 'object') { Object.keys(v).forEach(function(k){assertIJson(v[k]);}); }
+}
+async function executionHash(pp, output_payload) {
+  var obj = { policy_parameters: pp, output_payload: output_payload };
+  assertIJson(obj);
+  var canonical = JSON.stringify(cgCanon(obj));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function r6(v) {
+  if (!isFinite(v)) return 0;
+  return Math.round(v * 1e6) / 1e6;
+}
+
+var _lastPP = null, _lastOutput = null, _lastArtifact = null;
+
+async function runCompute() {
+  var product_id           = document.getElementById('product_id').value.trim() || 'CUSTOM';
+  var account_id           = document.getElementById('account_id').value.trim() || '0x00000000';
+  var side                 = document.getElementById('side').value;
+  var size_contracts       = Math.max(1, parseInt(document.getElementById('size_contracts').value) || 1);
+  var contract_size        = parseFloat(document.getElementById('contract_size').value);
+  var margin_deposited     = parseFloat(document.getElementById('margin_deposited').value);
+  var initial_margin_ratio = parseFloat(document.getElementById('initial_margin_ratio').value);
+  var venue_id             = document.getElementById('venue_id').value.trim() || '';
+  var intent_ts            = document.getElementById('intent_ts').value.trim() || '';
+  var parent_hash          = _parentArtifact ? _parentArtifact.execution_hash : '';
+
+  if (!isFinite(contract_size) || contract_size <= 0) contract_size = 200;
+  if (!isFinite(margin_deposited)) margin_deposited = 0;
+  if (!isFinite(initial_margin_ratio) || initial_margin_ratio <= 0) initial_margin_ratio = 0.10;
+
+  var notional = size_contracts * contract_size;
+  var margin_required = r6(notional * initial_margin_ratio);
+  var margin_excess = r6(margin_deposited - margin_required);
+  var margin_accepted = margin_deposited >= margin_required;
+  var position_id = derivePositionId(product_id, account_id, intent_ts);
+
+  var output = {
+    position_id: position_id,
+    margin_required: margin_required,
+    margin_excess: margin_excess,
+    open_interest_delta: size_contracts,
+    notional: r6(notional),
+    margin_accepted: margin_accepted,
+    position_status: 'OPEN'
+  };
+
+  var pp = {
+    execution_backend: 'js',
+    input_parameters: {
+      product_id: product_id,
+      account_id: account_id,
+      side: side,
+      size_contracts: size_contracts,
+      margin_deposited: margin_deposited,
+      venue_id: venue_id,
+      intent_ts: intent_ts,
+      initial_margin_ratio: initial_margin_ratio,
+      contract_size: contract_size,
+      parent_margin_health_hash: parent_hash
+    }
+  };
+
+  var hashHex = await executionHash(pp, output);
+  _lastPP = pp; _lastOutput = output;
+
+  var compliance_flags = [];
+  if (!margin_accepted) compliance_flags.push('INSUFFICIENT_MARGIN');
+  if (margin_accepted && margin_excess < 0.1 * margin_required) compliance_flags.push('MARGIN_TIGHT');
+  if (venue_id !== 'autex') compliance_flags.push('VENUE_NOT_REGISTERED');
+
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'afp_dcc_position_open',
+    tool_id: 'art-213-afp-dcc-position-open',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    buildType: 'https://ainumbers.co/chaingraph/standard/openchain-graph-spec#WebCryptoSHA256',
+    execution_hash: hashHex,
+    chain: { parent_hashes: _parentHashes, parent_tool_ids: _parentToolIds, chain_depth: _chainDepth },
+    policy_parameters: pp,
+    output_payload: output,
+    compliance_flags: compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: {
+      payloadType: 'application/vnd.openchain.graph+json;version=0.2',
+      payload: '', signatures: [],
+      client_side_executed: true, zero_pii_verified: true, deterministic_run: true
+    }
+  };
+  _lastArtifact = artifact;
+
+  /* ---- Render ---- */
+  document.getElementById('posIdOut').textContent = position_id;
+
+  var acceptBar = document.getElementById('marginAcceptBar');
+  acceptBar.className = 'margin-accept ' + (margin_accepted ? 'margin-ok' : 'margin-fail');
+  document.getElementById('marginIcon').textContent = margin_accepted ? '✓' : '✗';
+  document.getElementById('marginAcceptLabel').textContent = margin_accepted ? 'MARGIN ACCEPTED' : 'MARGIN REJECTED';
+  document.getElementById('marginAcceptSub').textContent = margin_accepted
+    ? 'Deposit meets initial margin requirement'
+    : 'Deposit is below required initial margin of ' + margin_required;
+
+  var stats = [
+    {k:'Notional',        v: r6(notional),       cls:''},
+    {k:'Margin Required', v: margin_required,     cls: margin_accepted ? '' : 'fail'},
+    {k:'Margin Excess',   v: (margin_excess>=0?'+':'')+margin_excess, cls: margin_excess >= 0 ? 'ok' : 'fail'},
+    {k:'Open Int Delta',  v: size_contracts,      cls:''},
+    {k:'Position Status', v: 'OPEN',              cls:'ok'},
+    {k:'Venue',           v: venue_id || '(none)',cls: venue_id === 'autex' ? 'ok' : 'warn'}
+  ];
+  document.getElementById('statsGrid').innerHTML = stats.map(function(s){
+    return '<div class="stat-cell"><div class="stat-key">'+s.k+'</div><div class="stat-val '+(s.cls||'')+'">'+s.v+'</div></div>';
+  }).join('');
+
+  var flagMap = { 'INSUFFICIENT_MARGIN': 'flag-err', 'MARGIN_TIGHT': 'flag-warn', 'VENUE_NOT_REGISTERED': 'flag-warn' };
+  document.getElementById('flagRow').innerHTML = compliance_flags.length
+    ? compliance_flags.map(function(f){ return '<span class="flag '+(flagMap[f]||'flag-info')+'">'+f+'</span>'; }).join('')
+    : '<span style="color:var(--muted);font-size:.7rem">No flags</span>';
+
+  document.getElementById('execHashEl').textContent = hashHex;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('anchorRow').innerHTML =
+    '<a class="anchor-cta" href="'+ANCHOR_BASE+'/anchor.html#eh='+hashHex+'" target="_blank" rel="noopener">[ &#9875; ANCHOR THIS ARTIFACT &rarr; ]</a>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function toggleArtifact() {
+  var b = document.getElementById('artifactBody');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+async function verifyHash() {
+  if (!_lastPP || !_lastOutput) { alert('Compute first.'); return; }
+  var recomputed = await executionHash(_lastPP, _lastOutput);
+  var stored = document.getElementById('execHashEl').textContent;
+  var el = document.getElementById('verifyResult');
+  if (recomputed === stored) {
+    el.innerHTML = '&#10003; Reproduced. The output follows from the recorded inputs.';
+    el.style.color = 'var(--green)';
+  } else {
+    el.innerHTML = '&#10007; Mismatch!';
+    el.style.color = 'var(--red)';
+  }
+}
+
+function copyArtifact() {
+  if (!_lastArtifact) return;
+  navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(_lastArtifact, null, 2));
+}
+
+function downloadArtifact() {
+  if (!_lastArtifact) return;
+  var b = new Blob([JSON.stringify(_lastArtifact, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'art-213-afp-dcc-position-open-' + (_lastArtifact.execution_hash || 'artifact').substring(0,8) + '.json';
+  a.click();
+}
+</script>
+</body>
+</html>

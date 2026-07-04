@@ -146,6 +146,10 @@ import * as art208 from './art-208-royalty-split-validator.kernel.mjs';
 import * as art209 from './art-209-nft-metadata-validator.kernel.mjs';
 import * as art21  from './art-21-agent-traffic-acceptance-policy-builder.kernel.mjs';
 import * as art210 from './art-210-ipfs-cid-computer.kernel.mjs';
+import * as art211 from './art-211-event-market-pnl.kernel.mjs';
+import * as art212 from './art-212-derivatives-margin-health.kernel.mjs';
+import * as art213 from './art-213-afp-dcc-position-open.kernel.mjs';
+import * as art214 from './art-214-afp-dcc-position-close.kernel.mjs';
 import * as art22  from './art-22-agentic-payments-protocol-comparator.kernel.mjs';
 import * as art23  from './art-23-visa-trusted-agent-protocol-inspector.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
@@ -386,6 +390,10 @@ export const KERNELS = {
   'art-209-nft-metadata-validator':                           art209,
   'art-21-agent-traffic-acceptance-policy-builder':           art21,
   'art-210-ipfs-cid-computer':                                art210,
+  'art-211-event-market-pnl':                                 art211,
+  'art-212-derivatives-margin-health':                        art212,
+  'art-213-afp-dcc-position-open':                            art213,
+  'art-214-afp-dcc-position-close':                           art214,
   'art-22-agentic-payments-protocol-comparator':              art22,
   'art-23-visa-trusted-agent-protocol-inspector':             art23,
   'art-24-mastercard-agentic-token-builder':                  art24,
