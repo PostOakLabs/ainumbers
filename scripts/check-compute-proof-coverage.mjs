@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+const FIXTURES_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'compute-proof-baseline.json');
 
 const SUMMARY = process.argv.includes('--summary');
@@ -78,6 +79,25 @@ const proven = results.filter((r) => r.state === 'proven');
 const deferred = results.filter((r) => r.state === 'deferred');
 const missing = results.filter((r) => r.state === 'missing');
 
+// ── conformance-fixture presence (§18.0 binding prerequisite) ───────────────────────────────────────
+// A §18 proof binds journal.output == the fixture vector's output_payload; a node that declares
+// conformance_fixtures:true but ships NO fixtures file (or an empty one) can never be legitimately proven
+// and silently escapes golden-parity / engine-parity / prove (all of which iterate over existing fixture
+// FILES and vacuously skip absent ones). W38 art-221..226 merged deferred with this exact gap. Every
+// gpu:false live node claiming conformance_fixtures:true MUST have <tool_id>.fixtures.json with >=1 vector.
+function fixtureGap(node) {
+  if (node.conformance_fixtures !== true) return null;
+  const name = node.mcp_name || node.tool_id || '(unnamed)';
+  const fpath = resolve(FIXTURES_DIR, `${node.tool_id}.fixtures.json`);
+  if (!existsSync(fpath)) return { name, reason: `declares conformance_fixtures:true but ${node.tool_id}.fixtures.json is MISSING` };
+  let fx;
+  try { fx = JSON.parse(readFileSync(fpath, 'utf8')); }
+  catch (e) { return { name, reason: `${node.tool_id}.fixtures.json is not valid JSON (${e.message})` }; }
+  if (!Array.isArray(fx.vectors) || fx.vectors.length === 0) return { name, reason: `${node.tool_id}.fixtures.json has zero vectors` };
+  return null;
+}
+const fixtureGaps = gpuFalse.map(fixtureGap).filter(Boolean);
+
 // ── --update-baseline ───────────────────────────────────────────────────────────────────────────
 if (UPDATE_BASELINE) {
   const baseline = {
@@ -95,6 +115,7 @@ if (SUMMARY || LIST_DEFERRED) {
   console.log(`§18 compute-proof coverage — gpu:false live: ${gpuFalse.length} | proven: ${proven.length} | deferred: ${deferred.length} | missing: ${missing.length}   (gpu:true out-of-scope: ${gpuTrue.length})`);
   if (LIST_DEFERRED) for (const r of deferred) console.log('  deferred: ' + r.name);
   if (missing.length) for (const r of missing) console.log('  MISSING:  ' + r.name + ' — ' + r.problems.join('; '));
+  if (fixtureGaps.length) for (const g of fixtureGaps) console.log('  NO-FIXTURE: ' + g.name + ' — ' + g.reason);
   process.exit(0);
 }
 
@@ -108,6 +129,16 @@ if (missing.length) {
   for (const r of missing) console.error(`  • ${r.name} — ${r.problems.join('; ')}`);
   console.error('\nFix each: attach a verified audit_signature.compute_proof (see WAVE-V0.6-SECTION18-MANDATE-BUILD-SPEC.md §2),');
   console.error('or park it with compute_proof_ready:"deferred" (+ a deferral_reason) if its in-guest proving cost is prohibitive (SPEC §18.2/§18.6).');
+}
+
+// (1b) conformance-fixture presence: a node claiming conformance_fixtures:true MUST ship a non-empty
+// fixtures file — otherwise it can never be legitimately proven and slips through every fixture-driven gate.
+if (fixtureGaps.length) {
+  failed = true;
+  console.error(`\n✗ §18 conformance-fixture coverage FAILED — ${fixtureGaps.length} gpu:false live node(s) declare conformance_fixtures:true but have no usable fixtures file:`);
+  for (const g of fixtureGaps) console.error(`  • ${g.name} — ${g.reason}`);
+  console.error('\nAuthor chaingraph/kernels/fixtures/<tool_id>.fixtures.json with >=1 vector (policy_parameters + output_payload from compute()),');
+  console.error('then run: node chaingraph/kernels/golden-parity.test.mjs --update. A deferred node still needs fixtures to be provable later.');
 }
 
 // (2) ratchet: deferred count must not exceed the pinned baseline.
