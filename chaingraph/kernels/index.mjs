@@ -173,7 +173,12 @@ import * as art232 from './art-232-compute-scra-rate-cap.kernel.mjs';
 import * as art233 from './art-233-check-card-act-ability-to-pay.kernel.mjs';
 import * as art234 from './art-234-test-hoepa-high-cost.kernel.mjs';
 import * as art235 from './art-235-test-hpml-escrow.kernel.mjs';
+import * as art236 from './art-236-build-ai-decision-log-record.kernel.mjs';
+import * as art237 from './art-237-validate-agent-audit-trail.kernel.mjs';
+import * as art238 from './art-238-classify-annex3-decisioning-obligations.kernel.mjs';
+import * as art239 from './art-239-test-bifsg-bias-thresholds.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
+import * as art240 from './art-240-assess-naic-ais-program-readiness.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
@@ -438,7 +443,12 @@ export const KERNELS = {
   'art-233-check-card-act-ability-to-pay':                    art233,
   'art-234-test-hoepa-high-cost':                             art234,
   'art-235-test-hpml-escrow':                                 art235,
+  'art-236-build-ai-decision-log-record':                     art236,
+  'art-237-validate-agent-audit-trail':                       art237,
+  'art-238-classify-annex3-decisioning-obligations':          art238,
+  'art-239-test-bifsg-bias-thresholds':                       art239,
   'art-24-mastercard-agentic-token-builder':                  art24,
+  'art-240-assess-naic-ais-program-readiness':                art240,
   'art-25-a2a-agent-card-validator':                          art25,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
   'art-27-agentic-readiness-diagnostic':                      art27,
