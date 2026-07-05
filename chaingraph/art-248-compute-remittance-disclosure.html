@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Remittance Disclosure Calculator (Reg E) &middot; ART-248 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes CFPB Reg E subpart B (12 CFR 1005.31/1005.32) remittance disclosure fields: transfer amount, exchange rate, amount received, fees, disclosure type (EXACT/ESTIMATED), and accounting identity check. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-248-compute-remittance-disclosure.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-248 · Remittance Disclosure Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-remittance-corridors.html" class="nav-pill">Remittance Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-248 &middot; Reg E Subpart B</div>
+  <h1>Remittance Disclosure Calculator (Reg E Subpart B)</h1>
+  <p class="sub">Computes the required CFPB Reg E subpart B (12 CFR 1005.31/1005.32) remittance disclosure fields for a single transfer: transfer amount, disclosed exchange rate, amount received in destination currency, fees breakdown, and disclosure type (EXACT or ESTIMATED). Chain gate node for <a href="chains/remittance-disclosure-and-corridor-cost.html">remittance-disclosure-and-corridor-cost</a>. Anchor the execution hash at <a href="https://anchor.ainumbers.co" target="_blank" rel="noopener">anchor.ainumbers.co</a> before transfer to create a tamper-evident CFPB receipt (12 CFR 1005.33).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Reg E Subpart B</span>
+    <span class="flag info">12 CFR 1005.31/1005.32</span>
+    <span class="flag">Accounting Identity Check</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. This tool accepts amounts, rates, and fees only &mdash; no sender, recipient, or account identifiers.</div>
+
+  <div class="card">
+    <div class="section-head">Transfer Parameters</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="sendAmount">Send Amount (USD)</label>
+        <div class="q-help">Amount the sender initiates. Fees are deducted to get transfer amount.</div>
+        <input type="number" id="sendAmount" value="1000" min="0" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="exchangeRate">Exchange Rate (dest/USD)</label>
+        <div class="q-help">Units of destination currency per 1 USD. E.g. 17.15 for MXN.</div>
+        <input type="number" id="exchangeRate" value="17.15" min="0" step="0.0001">
+      </div>
+    </div>
+    <div class="section-head">Fees</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="providerFee">Provider Fee (USD)</label>
+        <div class="q-help">Fee charged by the remittance provider.</div>
+        <input type="number" id="providerFee" value="2.99" min="0" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="thirdPartyFees">Third-Party Fees (USD)</label>
+        <div class="q-help">Fees charged by third parties (banks, agents). Often 0.</div>
+        <input type="number" id="thirdPartyFees" value="0" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="taxes">Taxes (USD)</label>
+        <div class="q-help">Taxes on the transfer, if applicable.</div>
+        <input type="number" id="taxes" value="0" min="0" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="destCurrency">Destination Currency</label>
+        <div class="q-help">ISO 4217 currency code.</div>
+        <input type="text" id="destCurrency" value="MXN" maxlength="3" placeholder="e.g. MXN" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="destCountry">Destination Country</label>
+        <div class="q-help">ISO 3166-1 alpha-2 country code.</div>
+        <input type="text" id="destCountry" value="MX" maxlength="2" placeholder="e.g. MX" style="text-transform:uppercase">
+      </div>
+      <div class="q">
+        <label class="q-label" for="estimatePermissible">Estimate Permissible (12 CFR 1005.32)?</label>
+        <div class="q-help">Select yes if the provider qualifies for the estimated disclosure exemption.</div>
+        <select id="estimatePermissible">
+          <option value="false" selected>No (exact disclosure required)</option>
+          <option value="true">Yes (12 CFR 1005.32 estimated disclosure)</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runDisclosure()">&#9654; Compute Disclosure</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Disclosure Fields (12 CFR 1005.31(b))</div>
+      <div id="disclosureDiv"></div>
+      <div class="section-head" style="margin-top:14px">Fees Breakdown</div>
+      <div id="feesDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Remittance</div>
+        <a href="guide-remittance-corridors.html">Remittance Guide</a>
+        <a href="art-249-compare-corridor-cost.html">Corridor Comparator</a>
+        <a href="art-250-model-stablecoin-corridor-economics.html">Stablecoin Economics</a>
+        <a href="chains/remittance-disclosure-and-corridor-cost.html">Disclosure + Cost Chain</a>
+        <a href="chains/stablecoin-remittance-corridor-economics.html">Stablecoin Chain</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-248-compute-remittance-disclosure',
+  version: '1.0.0',
+  mcp_name: 'compute_remittance_disclosure',
+  title: 'Remittance Disclosure Calculator (Reg E Subpart B)',
+  description: 'Computes CFPB Reg E subpart B (12 CFR 1005.31/1005.32) disclosure fields: transfer_amount_usd, exchange_rate_disclosed, amount_received_dest, fees, disclosure_type (EXACT/ESTIMATED), estimate_permissible, and accounting identity check. Gate node for remittance-disclosure-and-corridor-cost chain.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: '12 CFR 1005.31 (Reg E subpart B, required disclosure fields); 12 CFR 1005.32 (estimate permissibility conditions); 12 CFR 1005.33 (error resolution)',
+  mcp_tool_definition: {
+    name: 'compute_remittance_disclosure',
+    description: 'Compute CFPB Reg E subpart B (12 CFR 1005.31/1005.32) disclosure fields for a remittance transfer. Returns transfer_amount_usd, exchange_rate_disclosed, amount_received_dest, fees, disclosure_type (EXACT or ESTIMATED), and accounting_identity_ok.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        send_amount: { type: 'number', description: 'Total amount sent by sender in USD (before fees are deducted)' },
+        exchange_rate: { type: 'number', description: 'Exchange rate: units of destination currency per 1 USD' },
+        provider_fee: { type: 'number', description: 'Fee charged by the remittance provider in USD' },
+        third_party_fees: { type: 'number', description: 'Third-party fees in USD (banks, agents). Default 0.' },
+        taxes: { type: 'number', description: 'Taxes on the transfer in USD. Default 0.' },
+        destination_currency: { type: 'string', description: 'ISO 4217 destination currency code. Default MXN.' },
+        destination_country: { type: 'string', description: 'ISO 3166-1 alpha-2 destination country code. Default MX.' },
+        estimate_permissible: { type: 'boolean', description: 'True if provider qualifies for 12 CFR 1005.32 estimated disclosure exemption.' }
+      }
+    }
+  }
+};
+
+var _lastResult = null;
+
+function safeNum(id, def){var v=parseFloat(document.getElementById(id).value);return isFinite(v)?v:def;}
+function safeStr(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+
+function cgCanon(v){
+  return Array.isArray(v)?v.map(cgCanon):
+    (v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp,op){
+  var payload=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload));
+  var hex=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:'+hex;
+}
+
+function r2(v){return Math.round(v*100)/100;}
+function r6(v){return Math.round(v*1000000)/1000000;}
+
+function runDisclosure(){
+  var send_amount=safeNum('sendAmount',0);
+  var exchange_rate=safeNum('exchangeRate',1);
+  var provider_fee=safeNum('providerFee',0);
+  var third_party_fees=safeNum('thirdPartyFees',0);
+  var taxes=safeNum('taxes',0);
+  var destination_currency=(safeStr('destCurrency')||'MXN').toUpperCase();
+  var destination_country=(safeStr('destCountry')||'MX').toUpperCase();
+  var estimate_permissible=(document.getElementById('estimatePermissible').value==='true');
+
+  var pp={};
+  if(send_amount) pp.send_amount=send_amount;
+  if(exchange_rate!==1) pp.exchange_rate=exchange_rate;
+  if(provider_fee) pp.provider_fee=provider_fee;
+  if(third_party_fees) pp.third_party_fees=third_party_fees;
+  if(taxes) pp.taxes=taxes;
+  if(destination_currency!=='MXN') pp.destination_currency=destination_currency;
+  if(destination_country!=='MX') pp.destination_country=destination_country;
+  if(estimate_permissible) pp.estimate_permissible=estimate_permissible;
+
+  var required_fields_complete=send_amount>0 && exchange_rate>0;
+
+  var total_fees_usd=r2(provider_fee+third_party_fees+taxes);
+  var total_deductions_usd=total_fees_usd;
+  var transfer_amount_usd=r6(Math.max(0,send_amount-total_deductions_usd));
+  var exchange_rate_disclosed=exchange_rate>0?exchange_rate:1;
+  var amount_received_dest=r2(transfer_amount_usd*exchange_rate_disclosed);
+  var total_to_sender_usd=r2(transfer_amount_usd+total_fees_usd);
+  var accounting_identity_delta=r6(Math.abs(total_to_sender_usd-send_amount));
+  var accounting_identity_ok=accounting_identity_delta<0.01;
+  var disclosure_type=estimate_permissible?'ESTIMATED':'EXACT';
+
+  var op={
+    transfer_amount_usd:transfer_amount_usd,
+    exchange_rate_disclosed:exchange_rate_disclosed,
+    amount_received_dest:amount_received_dest,
+    destination_currency:destination_currency,
+    destination_country:destination_country,
+    fees:{
+      provider_fee:provider_fee,
+      third_party_fees:third_party_fees,
+      taxes:taxes,
+      total_fees_usd:total_fees_usd
+    },
+    total_to_sender_usd:total_to_sender_usd,
+    disclosure_type:disclosure_type,
+    estimate_permissible:estimate_permissible,
+    required_fields_complete:required_fields_complete,
+    accounting_identity_ok:accounting_identity_ok,
+    accounting_identity_delta:accounting_identity_delta,
+    table_version:'REG-E-SUBPART-B-12CFR1005.31-2024',
+    table_source:'12 CFR 1005.31 (CFPB, effective 2013, current 2024 ed.); 12 CFR 1005.32 estimate conditions',
+    regulatory_basis:'12 CFR 1005.31 (Reg E subpart B, CFPB) required disclosure field set; 12 CFR 1005.32 estimate permissibility conditions',
+    pii_note:'ZERO PII: amounts, rates, fees, taxes only. No sender, recipient, or account data enters this kernel.',
+    anchor_surface:'anchor.ainumbers.co/mcp -- anchor execution_hash pre-transfer to create a tamper-evident disclosure receipt for CFPB exam and error-resolution disputes (12 CFR 1005.33)'
+  };
+
+  _lastResult={pp:pp,output_payload:op};
+
+  var ok=required_fields_complete&&accounting_identity_ok;
+  var vColor=ok?(disclosure_type==='EXACT'?'var(--green)':'var(--warn)'):'var(--red)';
+  var vBg=ok?(disclosure_type==='EXACT'?'rgba(34,197,94,.08)':'rgba(245,158,11,.08)'):'rgba(239,68,68,.08)';
+  var vBox=document.getElementById('verdictBox');
+  vBox.style.color=vColor; vBox.style.background=vBg; vBox.style.border='1px solid '+vColor;
+  vBox.textContent=disclosure_type+' DISCLOSURE'+(accounting_identity_ok?' -- ACCOUNTING OK':'-- ACCOUNTING ERROR');
+
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat"><span class="stat-val">'+transfer_amount_usd.toFixed(2)+'</span><span class="stat-key">Transfer USD</span></div>'+
+    '<div class="stat"><span class="stat-val">'+amount_received_dest.toFixed(2)+'</span><span class="stat-key">Rcvd '+destination_currency+'</span></div>'+
+    '<div class="stat"><span class="stat-val">'+total_fees_usd.toFixed(2)+'</span><span class="stat-key">Total Fees</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+vColor+'">'+disclosure_type.charAt(0)+'</span><span class="stat-key">Disclosure</span></div>';
+
+  document.getElementById('flagRow').innerHTML=
+    (required_fields_complete?'<span class="badge ok">FIELDS COMPLETE</span>':'<span class="badge fail">MISSING FIELDS</span>')+
+    (accounting_identity_ok?'<span class="badge ok">ACCOUNTING OK</span>':'<span class="badge fail">ACCOUNTING ERROR</span>')+
+    (disclosure_type==='ESTIMATED'?'<span class="badge warn">1005.32 ESTIMATED</span>':'<span class="badge ok">EXACT</span>');
+
+  document.getElementById('disclosureDiv').innerHTML=[
+    {k:'transfer_amount_usd (12 CFR 1005.31(b)(1)(i))',v:'$'+transfer_amount_usd.toFixed(6)+' USD'},
+    {k:'exchange_rate_disclosed (12 CFR 1005.31(b)(1)(iv))',v:exchange_rate_disclosed+' '+destination_currency+'/USD'},
+    {k:'amount_received_dest (12 CFR 1005.31(b)(1)(ii))',v:amount_received_dest.toFixed(2)+' '+destination_currency},
+    {k:'destination_country',v:destination_country},
+    {k:'total_to_sender_usd (12 CFR 1005.31(b)(1)(iii))',v:'$'+total_to_sender_usd.toFixed(2)+' USD'},
+    {k:'disclosure_type',v:disclosure_type+(disclosure_type==='ESTIMATED'?' (12 CFR 1005.32 applies)':'')},
+    {k:'accounting_identity_ok',v:accounting_identity_ok.toString()+' (delta: '+accounting_identity_delta.toFixed(6)+')'},
+    {k:'required_fields_complete',v:required_fields_complete.toString()}
+  ].map(function(r){return '<div class="kv"><span class="kv-k">'+r.k+'</span><span class="kv-v">'+r.v+'</span></div>';}).join('');
+
+  document.getElementById('feesDiv').innerHTML=[
+    {k:'provider_fee',v:'$'+provider_fee.toFixed(2)},
+    {k:'third_party_fees',v:'$'+third_party_fees.toFixed(2)},
+    {k:'taxes',v:'$'+taxes.toFixed(2)},
+    {k:'total_fees_usd',v:'$'+total_fees_usd.toFixed(2)}
+  ].map(function(r){return '<div class="kv"><span class="kv-k">'+r.k+'</span><span class="kv-v">'+r.v+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent='computing...';
+  document.getElementById('verifyResult').textContent='';
+  computeExecHash(pp,op).then(function(h){document.getElementById('execHashBox').textContent=h;});
+}
+
+function verifyHash(){
+  if(!_lastResult) return;
+  computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){
+    var cur=document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if(!_lastResult) return;
+  var hash=document.getElementById('execHashBox').textContent||'pending';
+  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-248-compute-remittance-disclosure',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json=JSON.stringify(artifact,null,2);
+  document.getElementById('artifactPre').textContent=json;
+  document.getElementById('artifactPre').style.display='block';
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='art-248-compute-remittance-disclosure.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody');
+  if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+  else{b.style.display='none';}
+}
+</script>
+</body>
+</html>

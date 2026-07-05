@@ -186,7 +186,10 @@ import * as art244 from './art-244-gpi-tracker-lifecycle-simulator.kernel.mjs';
 import * as art245 from './art-245-mt-mx-translation-fidelity-scorer.kernel.mjs';
 import * as art246 from './art-246-lei-payment-binding-linter.kernel.mjs';
 import * as art247 from './art-247-prevalidation-readiness-scorer.kernel.mjs';
+import * as art248 from './art-248-compute-remittance-disclosure.kernel.mjs';
+import * as art249 from './art-249-compare-corridor-cost.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
+import * as art250 from './art-250-model-stablecoin-corridor-economics.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
@@ -463,7 +466,10 @@ export const KERNELS = {
   'art-245-mt-mx-translation-fidelity-scorer':                art245,
   'art-246-lei-payment-binding-linter':                       art246,
   'art-247-prevalidation-readiness-scorer':                   art247,
+  'art-248-compute-remittance-disclosure':                    art248,
+  'art-249-compare-corridor-cost':                            art249,
   'art-25-a2a-agent-card-validator':                          art25,
+  'art-250-model-stablecoin-corridor-economics':              art250,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
   'art-27-agentic-readiness-diagnostic':                      art27,
   'art-28-mcp-server-deployability-diagnostic':               art28,
