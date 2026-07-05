@@ -1,0 +1,166 @@
+{
+  "tool_id": "art-247-prevalidation-readiness-scorer",
+  "note": "CBPR+ aggregate pre-validation readiness scorer (chain gate node /ready). Vector 1: all checks pass -> ready=true. Vector 2: UETR invalid -> ready=false. Vector 3: empty-input finite -> ready=false.",
+  "vectors": [
+    {
+      "name": "fully_ready_payment",
+      "description": "Valid IBAN (DE89370400440532013000, mod-97=1), BIC, LEI format, UUIDv4 UETR, and fully-structured CBPR+ address. All 5 checks pass -> ready=true.",
+      "policy_parameters": {
+        "iban": "DE89370400440532013000",
+        "bic": "DEUTDEFFXXX",
+        "lei": "00000000000000000001",
+        "uetr": "550e8400-e29b-41d4-a716-446655440000",
+        "address_street_name": "Kaiserstrasse",
+        "address_building_number": "29",
+        "address_post_code": "60311",
+        "address_town_name": "Frankfurt",
+        "address_country": "DE"
+      },
+      "output_payload": {
+        "ready": true,
+        "checks_passed": 5,
+        "checks_total": 5,
+        "readiness_pct": 100,
+        "check_details": {
+          "iban": {
+            "provided": true,
+            "valid": true,
+            "error": null
+          },
+          "bic": {
+            "provided": true,
+            "valid": true,
+            "error": null
+          },
+          "lei": {
+            "provided": true,
+            "valid": true,
+            "error": null
+          },
+          "uetr": {
+            "provided": true,
+            "valid": true,
+            "error": null
+          },
+          "address": {
+            "type": "FULLY_STRUCTURED",
+            "valid": true,
+            "error": null
+          }
+        },
+        "remediation_actions": [],
+        "cbpr_plus_deadline": "2026-11-14",
+        "chain_gate_note": "ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.",
+        "pii_note": "IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.",
+        "table_version": "CBPR-PLUS-PREVALIDATION-COMPOSITE-V1",
+        "table_source": "SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration); BIS CPMI d218; ISO 13616:2020 IBAN; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 pacs.008.001.10 (iso20022.org)",
+        "regulatory_basis": "SWIFT CBPR+ Structured Address Migration Bulletin; BIS CPMI d218; ISO 13616 IBAN; ISO 9362 BIC; ISO 17442 LEI; ISO 20022 pacs.008.001.10"
+      },
+      "golden_hash": "47fdfcef31b5a7d28449e03669d07e363d7d419eb79470d35f12238a83da6070"
+    },
+    {
+      "name": "not_ready_uetr_invalid",
+      "description": "UETR present but not UUIDv4 -> required check fails -> ready=false. Address is hybrid-valid (no silent-fail). IBAN/BIC/LEI not provided (null pass).",
+      "policy_parameters": {
+        "uetr": "not-a-valid-uuid",
+        "address_town_name": "London",
+        "address_country": "GB",
+        "address_lines": [
+          "123 Baker Street"
+        ]
+      },
+      "output_payload": {
+        "ready": false,
+        "checks_passed": 4,
+        "checks_total": 5,
+        "readiness_pct": 80,
+        "check_details": {
+          "iban": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "bic": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "lei": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "uetr": {
+            "provided": true,
+            "valid": false,
+            "error": "UETR \"not-a-va...\" is not a valid UUIDv4 (8-4-4-4-12 hex, version nibble=4, variant nibble in {8,9,a,b})."
+          },
+          "address": {
+            "type": "HYBRID",
+            "valid": true,
+            "error": null
+          }
+        },
+        "remediation_actions": [
+          "Generate a new UUIDv4 UETR for this payment instruction (use RFC 4122 version 4 format)."
+        ],
+        "cbpr_plus_deadline": "2026-11-14",
+        "chain_gate_note": "ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.",
+        "pii_note": "IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.",
+        "table_version": "CBPR-PLUS-PREVALIDATION-COMPOSITE-V1",
+        "table_source": "SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration); BIS CPMI d218; ISO 13616:2020 IBAN; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 pacs.008.001.10 (iso20022.org)",
+        "regulatory_basis": "SWIFT CBPR+ Structured Address Migration Bulletin; BIS CPMI d218; ISO 13616 IBAN; ISO 9362 BIC; ISO 17442 LEI; ISO 20022 pacs.008.001.10"
+      },
+      "golden_hash": "9f2a15f258fbaff6bedb20fb035834b17e0b3dd2b51e77efa6f9c5eddcbdbd54"
+    },
+    {
+      "name": "empty_input_finite",
+      "description": "All inputs absent. Verifies finite output (no NaN/Infinity). UETR absent + address EMPTY -> both required checks fail -> ready=false, readiness_pct=60.",
+      "policy_parameters": {},
+      "output_payload": {
+        "ready": false,
+        "checks_passed": 3,
+        "checks_total": 5,
+        "readiness_pct": 60,
+        "check_details": {
+          "iban": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "bic": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "lei": {
+            "provided": false,
+            "valid": null,
+            "error": "Not provided"
+          },
+          "uetr": {
+            "provided": false,
+            "valid": false,
+            "error": "UETR absent -- required for SWIFT GPI."
+          },
+          "address": {
+            "type": "EMPTY",
+            "valid": false,
+            "error": "No address fields populated."
+          }
+        },
+        "remediation_actions": [
+          "Generate a new UUIDv4 UETR for this payment instruction (use RFC 4122 version 4 format).",
+          "Fix address structure: No address fields populated."
+        ],
+        "cbpr_plus_deadline": "2026-11-14",
+        "chain_gate_note": "ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.",
+        "pii_note": "IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.",
+        "table_version": "CBPR-PLUS-PREVALIDATION-COMPOSITE-V1",
+        "table_source": "SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration); BIS CPMI d218; ISO 13616:2020 IBAN; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 pacs.008.001.10 (iso20022.org)",
+        "regulatory_basis": "SWIFT CBPR+ Structured Address Migration Bulletin; BIS CPMI d218; ISO 13616 IBAN; ISO 9362 BIC; ISO 17442 LEI; ISO 20022 pacs.008.001.10"
+      },
+      "golden_hash": "29b51a20dbffc06ccd1365b2a0bacc326c7215d9dfbae9271ce0327e73c5d0fa"
+    }
+  ]
+}

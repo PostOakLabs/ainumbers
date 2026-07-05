@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>SWIFT GPI Tracker Lifecycle Simulator &middot; ART-244 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Validates SWIFT GPI pacs.002 payment status transitions (PDNG, ACSP, ACSP/ACWC, ACCC, RJCT) and checks the Universal Confirmation SLA (ACCC within 24h of ACSP). Detects invalid transitions and SLA breaches.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-244-gpi-tracker-lifecycle-simulator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.lifecycle-row{display:flex;gap:6px;align-items:center;margin:12px 0;flex-wrap:wrap}
+.lc-state{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.3rem .6rem;border-radius:var(--radius);border:1px solid var(--border)}
+.lc-state.active{border-color:var(--teal);color:var(--teal-lt);background:rgba(20,184,166,.08)}
+.lc-state.terminal{border-color:var(--gold);color:var(--gold);background:rgba(212,168,71,.06)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-244 · SWIFT GPI Tracker Lifecycle Simulator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-iso20022.html" class="nav-pill">ISO 20022 Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-244 &middot; ISO 20022</div>
+  <h1>SWIFT GPI Tracker Lifecycle Simulator</h1>
+  <p class="sub">Validates SWIFT GPI pacs.002 payment status code transitions against the GPI state machine and checks the Universal Confirmation SLA: ACCC (credit confirmed) must be sent within 24 hours of ACSP (acceptance). Detects invalid transitions, transitions from terminal states (ACCC, RJCT), and SLA breaches.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">SWIFT GPI</span>
+    <span class="flag info">Universal Confirmation SLA</span>
+    <span class="flag">pacs.002 Status Codes</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Payment amounts are used for context only. No party PII is processed. Use synthetic amounts and UETR values for testing.</div>
+
+  <div class="card">
+    <div class="section-head">GPI Status Transition</div>
+    <div class="lifecycle-row">
+      <span class="lc-state">PDNG</span>
+      <span style="color:var(--muted)">&#8594;</span>
+      <span class="lc-state active">ACSP</span>
+      <span style="color:var(--muted)">&#8594;</span>
+      <span class="lc-state">ACSP/ACWC</span>
+      <span style="color:var(--muted)">&#8594;</span>
+      <span class="lc-state terminal">ACCC</span>
+      <span style="color:var(--muted)">/</span>
+      <span class="lc-state terminal">RJCT</span>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="currentStatus">Current Status</label>
+        <div class="q-help">The current pacs.002 status code for this payment.</div>
+        <select id="currentStatus">
+          <option value="PDNG">PDNG -- Pending</option>
+          <option value="ACSP" selected>ACSP -- Accepted, Settlement in Process</option>
+          <option value="ACSP/ACWC">ACSP/ACWC -- Accepted with Change</option>
+          <option value="ACCC">ACCC -- Accepted Credit Completed (terminal)</option>
+          <option value="RJCT">RJCT -- Rejected (terminal)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="nextStatus">Next Status (proposed)</label>
+        <div class="q-help">The status you intend to transition to. Leave blank to only inspect current state.</div>
+        <select id="nextStatus">
+          <option value="">(none -- inspect current state only)</option>
+          <option value="PDNG">PDNG -- Pending</option>
+          <option value="ACSP">ACSP -- Accepted, Settlement in Process</option>
+          <option value="ACSP/ACWC">ACSP/ACWC -- Accepted with Change</option>
+          <option value="ACCC" selected>ACCC -- Accepted Credit Completed</option>
+          <option value="RJCT">RJCT -- Rejected</option>
+        </select>
+      </div>
+    </div>
+    <div class="section-head">SLA &amp; Amount</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="hoursElapsed">Hours Elapsed Since ACSP</label>
+        <div class="q-help">Hours since the ACSP status was sent. Universal Confirmation SLA: ACCC must be sent within 24h.</div>
+        <input type="number" id="hoursElapsed" value="12" min="0" step="0.5">
+      </div>
+      <div class="q">
+        <label class="q-label" for="amountUsd">Amount (USD, context only)</label>
+        <input type="number" id="amountUsd" value="50000" min="0" step="0.01">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runSimulate()">&#9654; Simulate Lifecycle</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Result Detail</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-iso20022.html">ISO 20022 &amp; CBPR+</a>
+        <a href="guide-fair-lending.html">Fair Lending</a>
+        <a href="guide-ai-governance.html">AI Governance</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-244-gpi-tracker-lifecycle-simulator',
+  version: '1.0.0',
+  mcp_name: 'simulate_gpi_tracker_lifecycle',
+  title: 'SWIFT GPI Tracker Lifecycle Simulator',
+  description: 'Validates SWIFT GPI pacs.002 status transitions and Universal Confirmation SLA (ACCC within 24h of ACSP).',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'SWIFT GPI Universal Confirmation rules; ISO 20022 pacs.002 ExternalPaymentTransactionStatus1Code',
+  mcp_tool_definition: {
+    name: 'simulate_gpi_tracker_lifecycle',
+    description: 'Validate GPI pacs.002 status transition and check Universal Confirmation SLA.',
+    inputSchema: {
+      type: 'object',
+      required: ['current_status'],
+      properties: {
+        current_status: { type: 'string', enum: ['PDNG','ACSP','ACSP/ACWC','ACCC','RJCT'] },
+        next_status: { type: 'string', enum: ['PDNG','ACSP','ACSP/ACWC','ACCC','RJCT'] },
+        hours_elapsed: { type: 'number', minimum: 0 },
+        amount_usd: { type: 'number', minimum: 0 }
+      }
+    }
+  }
+};
+
+var VALID_STATUSES = ['PDNG','ACSP','ACSP/ACWC','ACCC','RJCT'];
+var TERMINAL_STATUSES = ['ACCC','RJCT'];
+var STAGE_DESCRIPTIONS = {
+  'PDNG': 'Payment is pending -- instruction received, not yet acknowledged by correspondent.',
+  'ACSP': 'Accepted and in settlement process -- correspondent acknowledged the payment, settlement underway.',
+  'ACSP/ACWC': 'Accepted with change -- correspondent accepted but modified terms (e.g. charges, value date).',
+  'ACCC': 'Accepted and credit completed -- funds credited to beneficiary account. Terminal state.',
+  'RJCT': 'Rejected -- payment rejected by correspondent. Terminal state.'
+};
+var VALID_TRANSITIONS = {
+  'PDNG': ['ACSP','RJCT'],
+  'ACSP': ['ACSP','ACSP/ACWC','ACCC','RJCT'],
+  'ACSP/ACWC': ['ACSP','ACSP/ACWC','ACCC','RJCT'],
+  'ACCC': [],
+  'RJCT': []
+};
+var SLA_HOURS = 24;
+
+var _lastResult = null;
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function safeNum(v){ var n = Number(v); return Number.isFinite(n) ? n : 0; }
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op){
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function runSimulate(){
+  var currentStatus = safeStr(document.getElementById('currentStatus').value);
+  var nextStatusRaw = safeStr(document.getElementById('nextStatus').value);
+  var nextStatus = nextStatusRaw || null;
+  var hoursElapsed = safeNum(document.getElementById('hoursElapsed').value);
+  var amountUsd = safeNum(document.getElementById('amountUsd').value);
+
+  var pp = {current_status: currentStatus};
+  if(nextStatus) pp.next_status = nextStatus;
+  if(hoursElapsed > 0) pp.hours_elapsed = hoursElapsed;
+  if(amountUsd > 0) pp.amount_usd = amountUsd;
+
+  var issues = [];
+  var is_terminal = TERMINAL_STATUSES.indexOf(currentStatus) !== -1;
+  var is_settled = currentStatus === 'ACCC';
+  var is_rejected = currentStatus === 'RJCT';
+  var stage_description = STAGE_DESCRIPTIONS[currentStatus] || 'Unknown status.';
+  var allowed_next = is_terminal ? [] : (VALID_TRANSITIONS[currentStatus] || []);
+
+  var transition_valid = null;
+  var transition_reason = '';
+
+  if(!currentStatus){
+    issues.push({code:'CURRENT_STATUS_ABSENT',severity:'ERROR',field:'current_status',message:'current_status is required. Valid GPI status codes: '+VALID_STATUSES.join(', ')+'.'});
+  } else if(nextStatus){
+    if(is_terminal){
+      transition_valid = false;
+      transition_reason = currentStatus + ' is a terminal state. No further status transitions are allowed.';
+      issues.push({code:'INVALID_TRANSITION_FROM_TERMINAL',severity:'ERROR',field:'next_status',message:transition_reason});
+    } else if(allowed_next.indexOf(nextStatus) !== -1){
+      transition_valid = true;
+      transition_reason = currentStatus + ' -> ' + nextStatus + ' is a valid GPI lifecycle transition.';
+    } else {
+      transition_valid = false;
+      transition_reason = currentStatus + ' -> ' + nextStatus + ' is not a valid GPI transition. Allowed next: ' + allowed_next.join(', ') + '.';
+      issues.push({code:'INVALID_TRANSITION',severity:'ERROR',field:'next_status',message:transition_reason});
+    }
+  }
+
+  // SLA check: ACSP -> ACCC within 24h
+  var sla_breached = false;
+  var sla_note = '';
+  if(currentStatus === 'ACSP' && nextStatus === 'ACCC' && hoursElapsed > 0){
+    sla_breached = hoursElapsed > SLA_HOURS;
+    sla_note = 'Universal Confirmation SLA ' + (sla_breached ? 'BREACHED' : 'met') + ': ACCC sent ' + hoursElapsed.toFixed(1) + 'h after ACSP (limit ' + SLA_HOURS + 'h).';
+    if(sla_breached) issues.push({code:'SLA_BREACHED',severity:'ERROR',field:'hours_elapsed',message:sla_note});
+  } else if(currentStatus === 'ACSP' && hoursElapsed > 0 && hoursElapsed > SLA_HOURS && !nextStatus){
+    sla_note = 'SLA at risk: ' + hoursElapsed.toFixed(1) + 'h elapsed since ACSP without ACCC (limit ' + SLA_HOURS + 'h).';
+    issues.push({code:'SLA_AT_RISK',severity:'WARN',field:'hours_elapsed',message:sla_note});
+  }
+
+  var op = {
+    current_status: currentStatus || null,
+    next_status: nextStatus,
+    stage_description: stage_description,
+    is_terminal: is_terminal,
+    is_settled: is_settled,
+    is_rejected: is_rejected,
+    transition_valid: transition_valid,
+    transition_reason: transition_reason,
+    sla_breached: sla_breached,
+    sla_hours_limit: SLA_HOURS,
+    sla_note: sla_note,
+    allowed_next_statuses: allowed_next,
+    hours_elapsed: hoursElapsed > 0 ? hoursElapsed : null,
+    amount_usd: amountUsd > 0 ? amountUsd : null,
+    issues: issues,
+    lifecycle_states: VALID_STATUSES,
+    pii_note: 'Payment amount used only for context. No party PII processed. Use synthetic amounts and UETR values for testing.',
+    table_version: 'SWIFT-GPI-STATUS-LIFECYCLE-V1',
+    table_source: 'SWIFT GPI Tracker specification (swift.com/our-solutions/global-financial-messaging/swift-gpi); SWIFT GPI Universal Confirmation SLA rules; ISO 20022 pacs.002 ExternalPaymentTransactionStatus1Code',
+    regulatory_basis: 'SWIFT GPI Universal Confirmation rules; ISO 20022 pacs.002 ExternalPaymentTransactionStatus1Code; SWIFT GPI Tracker service description'
+  };
+
+  _lastResult = {pp: pp, output_payload: op};
+
+  var errors = issues.filter(function(i){return i.severity === 'ERROR';});
+  var ok = errors.length === 0 && transition_valid !== false;
+  var vColor = ok ? 'var(--green)' : 'var(--red)';
+  var vBg = ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = vColor; vBox.style.background = vBg; vBox.style.border = '1px solid ' + vColor;
+  var vText = currentStatus + (nextStatus ? ' → ' + nextStatus : '') + (transition_valid === true ? ' -- VALID' : transition_valid === false ? ' -- INVALID' : '') + (sla_breached ? ' -- SLA BREACHED' : '');
+  vBox.textContent = vText;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + currentStatus + '</span><span class="stat-key">Current</span></div>' +
+    (nextStatus ? '<div class="stat"><span class="stat-val">' + nextStatus + '</span><span class="stat-key">Proposed</span></div>' : '') +
+    '<div class="stat"><span class="stat-val" style="color:' + (transition_valid === true ? 'var(--green)' : transition_valid === false ? 'var(--red)' : 'var(--muted)') + '">' + (transition_valid === true ? 'VALID' : transition_valid === false ? 'INVALID' : 'N/A') + '</span><span class="stat-key">Transition</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + (sla_breached ? 'var(--red)' : 'var(--green)') + '">' + (sla_breached ? 'BREACHED' : 'OK') + '</span><span class="stat-key">SLA</span></div>';
+
+  document.getElementById('flagRow').innerHTML =
+    (is_terminal ? '<span class="badge warn">TERMINAL STATE</span>' : '') +
+    (transition_valid === true ? '<span class="badge ok">VALID TRANSITION</span>' : '') +
+    (transition_valid === false ? '<span class="badge fail">INVALID TRANSITION</span>' : '') +
+    (sla_breached ? '<span class="badge fail">SLA BREACHED</span>' : '') +
+    issues.filter(function(i){return i.code==='SLA_AT_RISK';}).map(function(){return '<span class="badge warn">SLA AT RISK</span>';}).join('');
+
+  document.getElementById('kvDiv').innerHTML = [
+    ['stage_description', stage_description],
+    ['is_terminal', String(is_terminal)],
+    ['transition_valid', transition_valid === null ? 'n/a (no next_status given)' : String(transition_valid)],
+    ['transition_reason', transition_reason || '(no transition requested)'],
+    ['sla_breached', String(sla_breached)],
+    ['sla_note', sla_note || '(SLA check not applicable for this transition)'],
+    ['allowed_next_statuses', allowed_next.length ? allowed_next.join(', ') : '(none -- terminal state)']
+  ].map(function(r){return '<div class="kv"><span class="kv-k">'+r[0]+'</span><span class="kv-v">'+r[1]+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if(!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if(!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-244-gpi-tracker-lifecycle-simulator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-244-gpi-tracker-lifecycle-simulator.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if(b.style.display === 'none' || !b.style.display){b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);}
+  else{b.style.display = 'none';}
+}
+</script>
+</body>
+</html>

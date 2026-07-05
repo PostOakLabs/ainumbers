@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Cross-Border Payment Prevalidation Readiness Scorer &middot; ART-247 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Validates a cross-border payment bundle (IBAN mod-97, BIC format, UETR UUIDv4, LEI format, PostalAddress24 structure, silent-fail duplication) and emits a ready boolean gate signal for the cross-border-payment-prevalidation chain.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-247-prevalidation-readiness-scorer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:70px}
+input:focus,textarea:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-247 · Cross-Border Payment Prevalidation Readiness Scorer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-iso20022.html" class="nav-pill">ISO 20022 Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-247 &middot; ISO 20022</div>
+  <h1>Cross-Border Payment Prevalidation Readiness Scorer</h1>
+  <p class="sub">Validates a cross-border payment bundle across five dimensions: IBAN mod-97 check digit, BIC format (ISO 9362), UETR UUIDv4 format, LEI 20-character format presence, and PostalAddress24 structure (including silent-fail AdrLine duplication detection). Emits a <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">ready</code> boolean for the gated prevalidation chain.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">CBPR+ Nov 2026</span>
+    <span class="flag info">ISO 13616 IBAN</span>
+    <span class="flag info">ISO 9362 BIC</span>
+    <span class="flag info">SWIFT UETR UUIDv4</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. IBANs and BICs are structural identifiers processed for format validation only, never as PII.</div>
+
+  <div class="card">
+    <div class="section-head">Payment Identifiers (Required)</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="iban">IBAN (Dbtr/Acct or Cdtr/Acct)</label>
+        <div class="q-help">ISO 13616. Spaces removed before validation. Mod-97 check digit verified.</div>
+        <input type="text" id="iban" value="GB29NWBK60161331926819" placeholder="e.g. GB29 NWBK 6016 1331 9268 19">
+      </div>
+      <div class="q">
+        <label class="q-label" for="bic">BIC (DbtrAgt or CdtrAgt / BICFI)</label>
+        <div class="q-help">ISO 9362: 4-char bank + 2-char country + 2-char location [+ 3-char branch].</div>
+        <input type="text" id="bic" value="NWBKGB2L" placeholder="e.g. NWBKGB2L or NWBKGB2LXXX" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="uetr">UETR (Grphdr/MsgId or pmt-level)</label>
+        <div class="q-help">SWIFT UUIDv4: 8-4-4-4-12 hex, version nibble = 4, variant nibble in {8,9,a,b}.</div>
+        <input type="text" id="uetr" value="97ed4827-7b6f-4491-a06f-b548d5a7512d" placeholder="e.g. 97ed4827-7b6f-4491-a06f-b548d5a7512d">
+      </div>
+      <div class="q">
+        <label class="q-label" for="lei">LEI (optional)</label>
+        <div class="q-help">20-char ISO 17442 (A-Z, 0-9). Format presence check only (not full mod-97).</div>
+        <input type="text" id="lei" value="" placeholder="e.g. 5493001KJTIIGC8Y1R12 (optional)" maxlength="20" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="section-head">PostalAddress24 (Beneficiary Address)</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="pStreet">Street Name (StrtNm)</label>
+        <div class="q-help">Structured street name. Used for silent-fail duplication detection against AdrLine.</div>
+        <input type="text" id="pStreet" value="Baker Street" placeholder="e.g. Baker Street">
+      </div>
+      <div class="q">
+        <label class="q-label" for="pCity">Town Name (TwnNm)</label>
+        <div class="q-help">Structured city. Duplication in AdrLine = silent STP rejection.</div>
+        <input type="text" id="pCity" value="London" placeholder="e.g. London">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="pCountry">Country (Ctry, ISO 3166-1 alpha-2)</label>
+        <div class="q-help">Exactly 2 uppercase letters.</div>
+        <input type="text" id="pCountry" value="GB" placeholder="e.g. GB" maxlength="2" style="text-transform:uppercase">
+      </div>
+      <div class="q">
+        <label class="q-label" for="pAdrLines">AdrLine (unstructured, one per line)</label>
+        <div class="q-help">Optional. CBPR+ Nov 2026: max 2 lines x 70 chars. Duplication of structured fields causes silent-fail.</div>
+        <textarea id="pAdrLines" placeholder="Leave blank for fully structured address"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runScore()">&#9654; Score Readiness</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Check Results</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-iso20022.html">ISO 20022 &amp; CBPR+</a>
+        <a href="guide-fair-lending.html">Fair Lending</a>
+        <a href="guide-ai-governance.html">AI Governance</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-247-prevalidation-readiness-scorer',
+  version: '1.0.0',
+  mcp_name: 'prevalidation_readiness_scorer',
+  title: 'Cross-Border Payment Prevalidation Readiness Scorer',
+  description: 'Validates IBAN mod-97, BIC format, UETR UUIDv4, LEI format presence, and PostalAddress24 structure (CBPR+ silent-fail duplication). Emits ready boolean for gated chain.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ISO 13616 IBAN; ISO 9362 BIC; SWIFT UETR UUIDv4; ISO 17442 LEI; CBPR+ Nov-2026 PostalAddress24 mandate',
+  mcp_tool_definition: {
+    name: 'prevalidation_readiness_scorer',
+    description: 'Validate IBAN, BIC, UETR, LEI, and PostalAddress24 for a cross-border payment. Returns ready=true only when all required checks pass.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        iban: { type: 'string', description: 'IBAN (ISO 13616) — spaces stripped before validation' },
+        bic: { type: 'string', description: 'BIC (ISO 9362) — 8 or 11 chars' },
+        uetr: { type: 'string', description: 'UETR in UUIDv4 format' },
+        lei: { type: 'string', description: 'LEI (ISO 17442, 20 chars A-Z0-9) — optional' },
+        postal_street: { type: 'string', description: 'PostalAddress24 StrtNm — optional' },
+        postal_city: { type: 'string', description: 'PostalAddress24 TwnNm — optional' },
+        postal_country: { type: 'string', description: 'PostalAddress24 Ctry (ISO 3166-1 alpha-2) — optional' },
+        postal_adr_lines: { type: 'array', items: {type:'string'}, description: 'AdrLine entries — optional; max 2 x 70 chars per CBPR+' }
+      },
+      required: ['iban', 'bic', 'uetr']
+    }
+  }
+};
+
+/* IBAN country lengths (ISO 13616, 78 countries) */
+var IBAN_LENGTHS = {
+  AL:28,AD:24,AT:20,AZ:28,BH:22,BE:16,BA:20,BR:29,BG:22,CR:22,HR:21,
+  CY:28,CZ:24,DK:18,DO:28,EE:20,EG:29,FI:18,FR:27,GE:22,DE:22,GI:23,
+  GR:27,GL:18,GT:28,HU:28,IS:26,IQ:23,IE:22,IL:23,IT:27,JO:30,KZ:20,
+  XK:20,KW:30,LV:21,LB:28,LI:21,LT:20,LU:20,MT:31,MR:27,MU:30,MD:24,
+  MC:27,ME:22,NL:18,MK:19,NO:15,PK:24,PS:29,PL:28,PT:25,QA:29,RO:24,
+  LC:32,SM:27,SA:24,RS:22,SC:31,SK:24,SI:19,ES:24,SD:18,SE:24,CH:21,
+  TL:23,TN:24,TR:26,UA:29,AE:23,GB:22,VA:22,VG:24,YE:30
+};
+
+var BIC_RE = /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+var UETR_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+var LEI_FORMAT_RE = /^[A-Z0-9]{20}$/;
+var CTRY_RE = /^[A-Z]{2}$/;
+
+/* IBAN mod-97 (iterative, no BigInt) */
+function ibanMod97Iterative(digits) {
+  var remainder = 0;
+  for (var i = 0; i < digits.length; i++) {
+    remainder = (remainder * 10 + parseInt(digits[i], 10)) % 97;
+  }
+  return remainder;
+}
+
+function ibanCharToDigits(c) {
+  var code = c.charCodeAt(0);
+  if (code >= 48 && code <= 57) return c;
+  if (code >= 65 && code <= 90) return String(code - 55);
+  return '';
+}
+
+function validateIban(raw) {
+  var iban = raw.replace(/\s/g, '').toUpperCase();
+  if (iban.length < 4) return {valid: false, error: 'IBAN too short'};
+  var ctry = iban.slice(0, 2);
+  var expectedLen = IBAN_LENGTHS[ctry];
+  if (!expectedLen) return {valid: false, error: 'Unknown IBAN country code: ' + ctry};
+  if (iban.length !== expectedLen) return {valid: false, error: 'IBAN length ' + iban.length + ' (expected ' + expectedLen + ' for ' + ctry + ')'};
+  /* Rearrange: move first 4 chars to end */
+  var rearranged = iban.slice(4) + iban.slice(0, 4);
+  var digits = '';
+  for (var i = 0; i < rearranged.length; i++) {
+    digits += ibanCharToDigits(rearranged[i]);
+  }
+  var rem = ibanMod97Iterative(digits);
+  if (rem !== 1) return {valid: false, error: 'IBAN check digit failed (mod-97 remainder ' + rem + ', expected 1)'};
+  return {valid: true, error: null};
+}
+
+function validateBic(raw) {
+  var bic = raw.replace(/\s/g, '').toUpperCase();
+  if (!BIC_RE.test(bic)) return {valid: false, error: 'BIC format invalid (expect 4-char bank + 2-char country + 2-char location [+ 3-char branch])'};
+  return {valid: true, error: null};
+}
+
+function validateUetr(raw) {
+  if (!raw || !raw.trim()) return {valid: false, error: 'UETR is required'};
+  if (!UETR_RE.test(raw.trim())) return {valid: false, error: 'UETR not a valid UUIDv4 (version nibble must be 4, variant nibble must be 8/9/a/b)'};
+  return {valid: true, error: null};
+}
+
+function validateLeiFormat(raw) {
+  if (!raw || !raw.trim()) return {valid: null, error: null}; /* optional, not provided = pass */
+  var lei = raw.replace(/\s/g, '').toUpperCase();
+  if (!LEI_FORMAT_RE.test(lei)) return {valid: false, error: 'LEI must be exactly 20 alphanumeric chars (A-Z, 0-9). Got: ' + lei.length + ' chars'};
+  return {valid: true, error: null};
+}
+
+function validateAddress(street, city, country, adrLines) {
+  var errors = [];
+  var warnings = [];
+  if (country && !CTRY_RE.test(country)) errors.push('Ctry must be ISO 3166-1 alpha-2 (two uppercase letters)');
+  /* AdrLine count/length check */
+  if (adrLines.length > 2) errors.push('CBPR+ Nov 2026 mandates at most 2 AdrLine entries; ' + adrLines.length + ' provided');
+  for (var i = 0; i < adrLines.length; i++) {
+    if (adrLines[i].length > 70) errors.push('AdrLine[' + i + '] exceeds 70 chars (' + adrLines[i].length + ')');
+  }
+  /* Silent-fail duplication: structured values >= 3 chars that appear in AdrLine */
+  var structuredVals = [street, city].filter(function(v){ return v && v.length >= 3; });
+  var silentFailHits = [];
+  for (var ai = 0; ai < adrLines.length; ai++) {
+    var line = adrLines[ai].toLowerCase();
+    for (var si = 0; si < structuredVals.length; si++) {
+      if (line.indexOf(structuredVals[si].toLowerCase()) !== -1) {
+        silentFailHits.push({line_index: ai, duplicated_value: structuredVals[si]});
+      }
+    }
+  }
+  if (silentFailHits.length > 0) {
+    for (var hi = 0; hi < silentFailHits.length; hi++) {
+      warnings.push('SILENT_FAIL: AdrLine[' + silentFailHits[hi].line_index + '] duplicates structured field "' + silentFailHits[hi].duplicated_value + '" -- causes STP rejection without visible error code');
+    }
+  }
+  /* Determine structure type */
+  var hasStructured = (street && street.length > 0) || (city && city.length > 0);
+  var hasAdrLine = adrLines.length > 0;
+  var structure_type = hasStructured && !hasAdrLine ? 'FULLY_STRUCTURED' :
+                       hasStructured && hasAdrLine ? 'HYBRID' :
+                       !hasStructured && hasAdrLine ? 'UNSTRUCTURED' : 'EMPTY';
+  if (structure_type === 'UNSTRUCTURED') warnings.push('UNSTRUCTURED address (AdrLine only, no StrtNm/TwnNm) will be banned by CBPR+ from 14 November 2026');
+  return {errors: errors, warnings: warnings, structure_type: structure_type, silent_fail_hits: silentFailHits};
+}
+
+var _lastResult = null;
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op){
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function runScore(){
+  var rawIban    = safeStr(document.getElementById('iban').value);
+  var rawBic     = safeStr(document.getElementById('bic').value).toUpperCase();
+  var rawUetr    = safeStr(document.getElementById('uetr').value);
+  var rawLei     = safeStr(document.getElementById('lei').value).toUpperCase();
+  var pStreet    = safeStr(document.getElementById('pStreet').value);
+  var pCity      = safeStr(document.getElementById('pCity').value);
+  var pCountry   = safeStr(document.getElementById('pCountry').value).toUpperCase();
+  var adrRaw     = document.getElementById('pAdrLines').value;
+  var adrLines   = adrRaw.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length > 0;});
+
+  var pp = {iban: rawIban, bic: rawBic, uetr: rawUetr};
+  if (rawLei) pp.lei = rawLei;
+  if (pStreet) pp.postal_street = pStreet;
+  if (pCity) pp.postal_city = pCity;
+  if (pCountry) pp.postal_country = pCountry;
+  if (adrLines.length) pp.postal_adr_lines = adrLines;
+
+  /* Run all checks */
+  var ibanResult  = validateIban(rawIban);
+  var bicResult   = validateBic(rawBic);
+  var uetrResult  = validateUetr(rawUetr);
+  var leiResult   = validateLeiFormat(rawLei);
+  var addrResult  = validateAddress(pStreet, pCity, pCountry, adrLines);
+
+  /* Classify: required = IBAN, BIC, UETR; optional = LEI, address */
+  /* optional pass rule: valid !== false (null = not provided = pass) */
+  var required_checks = [
+    {name: 'iban_mod97',  label: 'IBAN (ISO 13616 mod-97)',  valid: ibanResult.valid,  error: ibanResult.error},
+    {name: 'bic_format',  label: 'BIC (ISO 9362)',           valid: bicResult.valid,   error: bicResult.error},
+    {name: 'uetr_uuidv4', label: 'UETR (UUIDv4)',           valid: uetrResult.valid,  error: uetrResult.error}
+  ];
+  var optional_checks = [
+    {name: 'lei_format',  label: 'LEI format (ISO 17442)',   valid: leiResult.valid,   error: leiResult.error},
+    {name: 'address',     label: 'PostalAddress24 structure', valid: addrResult.errors.length === 0 ? true : false, error: addrResult.errors.join('; ') || null}
+  ];
+
+  var required_failed = required_checks.filter(function(c){ return !c.valid; });
+  var optional_failed = optional_checks.filter(function(c){ return c.valid === false; });
+  var ready = required_failed.length === 0 && optional_failed.length === 0;
+
+  var warnings = addrResult.warnings;
+
+  var op = {
+    ready: ready,
+    required_checks: required_checks,
+    optional_checks: optional_checks,
+    required_failed_count: required_failed.length,
+    optional_failed_count: optional_failed.length,
+    address_structure_type: addrResult.structure_type,
+    silent_fail_hits: addrResult.silent_fail_hits,
+    warnings: warnings
+  };
+
+  computeExecHash(pp, op).then(function(hash){
+    op.execution_hash = hash;
+    _lastResult = {policy_parameters: pp, output_payload: op};
+
+    var verdictEl = document.getElementById('verdictBox');
+    if (ready) {
+      verdictEl.textContent = 'READY — all checks passed. Gate signal: ready = true';
+      verdictEl.style.cssText = 'background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.3);font-family:\'JetBrains Mono\',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center';
+    } else {
+      verdictEl.textContent = 'NOT READY — ' + (required_failed.length + optional_failed.length) + ' check(s) failed. Gate signal: ready = false';
+      verdictEl.style.cssText = 'background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.3);font-family:\'JetBrains Mono\',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center';
+    }
+
+    var statRow = document.getElementById('statRow');
+    statRow.innerHTML =
+      '<div class="stat"><span class="stat-val">'+(ready?'YES':'NO')+'</span><span class="stat-key">Ready</span></div>'+
+      '<div class="stat"><span class="stat-val">'+required_failed.length+'</span><span class="stat-key">Req. Failed</span></div>'+
+      '<div class="stat"><span class="stat-val">'+optional_failed.length+'</span><span class="stat-key">Opt. Failed</span></div>'+
+      '<div class="stat"><span class="stat-val">'+warnings.length+'</span><span class="stat-key">Warnings</span></div>'+
+      '<div class="stat"><span class="stat-val">'+addrResult.structure_type.replace(/_/g,'‑')+'</span><span class="stat-key">Addr Type</span></div>';
+
+    var flagRow = document.getElementById('flagRow');
+    var flags = '';
+    if (ready) flags += '<span class="badge ok">ready = true</span>';
+    else flags += '<span class="badge fail">ready = false</span>';
+    if (addrResult.silent_fail_hits.length > 0) flags += '<span class="badge fail">SILENT_FAIL duplication</span>';
+    if (warnings.length > 0 && addrResult.silent_fail_hits.length === 0) flags += '<span class="badge warn">'+warnings.length+' warning(s)</span>';
+    flagRow.innerHTML = flags;
+
+    /* Check results table */
+    var kvHtml = '<div class="kv"><span class="kv-k" style="color:var(--bright);font-weight:600">Required</span><span class="kv-v"></span></div>';
+    for (var ri = 0; ri < required_checks.length; ri++) {
+      var c = required_checks[ri];
+      kvHtml += '<div class="kv"><span class="kv-k">'+c.label+'</span><span class="kv-v">'+
+        (c.valid ? '<span class="badge ok">PASS</span>' : '<span class="badge fail">FAIL — '+c.error+'</span>')+
+        '</span></div>';
+    }
+    kvHtml += '<div class="kv" style="margin-top:8px"><span class="kv-k" style="color:var(--bright);font-weight:600">Optional</span><span class="kv-v"></span></div>';
+    for (var oi = 0; oi < optional_checks.length; oi++) {
+      var oc = optional_checks[oi];
+      var badge = oc.valid === true ? '<span class="badge ok">PASS</span>' :
+                  oc.valid === false ? '<span class="badge fail">FAIL — '+oc.error+'</span>' :
+                  '<span class="badge info">NOT PROVIDED (pass)</span>';
+      kvHtml += '<div class="kv"><span class="kv-k">'+oc.label+'</span><span class="kv-v">'+badge+'</span></div>';
+    }
+    if (warnings.length > 0) {
+      kvHtml += '<div class="kv" style="margin-top:8px"><span class="kv-k" style="color:var(--warn);font-weight:600">Warnings</span><span class="kv-v"></span></div>';
+      for (var wi = 0; wi < warnings.length; wi++) {
+        kvHtml += '<div class="kv"><span class="kv-k" style="min-width:60px">W'+(wi+1)+'</span><span class="kv-v" style="color:var(--warn)">'+warnings[wi]+'</span></div>';
+      }
+    }
+    document.getElementById('kvDiv').innerHTML = kvHtml;
+
+    document.getElementById('execHashBox').textContent = hash;
+    document.getElementById('resultsPanel').classList.add('show');
+    document.getElementById('artifactPre').style.display = 'none';
+    document.getElementById('verifyResult').textContent = '';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var json = JSON.stringify(_lastResult, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var blob = new Blob([json], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'art-247-prevalidation-readiness-scorer-artifact.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+async function verifyHash(){
+  if (!_lastResult) return;
+  var op2 = Object.assign({}, _lastResult.output_payload);
+  var storedHash = op2.execution_hash;
+  delete op2.execution_hash;
+  var recomputed = await computeExecHash(_lastResult.policy_parameters, op2);
+  var el = document.getElementById('verifyResult');
+  if (recomputed === storedHash) {
+    el.textContent = '✔ Hash verified'; el.style.color = 'var(--green)';
+  } else {
+    el.textContent = '✘ Hash mismatch'; el.style.color = 'var(--red)';
+  }
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none') {
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+    b.style.display = 'block';
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

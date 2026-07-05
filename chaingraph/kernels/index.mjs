@@ -179,6 +179,13 @@ import * as art238 from './art-238-classify-annex3-decisioning-obligations.kerne
 import * as art239 from './art-239-test-bifsg-bias-thresholds.kernel.mjs';
 import * as art24  from './art-24-mastercard-agentic-token-builder.kernel.mjs';
 import * as art240 from './art-240-assess-naic-ais-program-readiness.kernel.mjs';
+import * as art241 from './art-241-cbpr-structured-address-linter.kernel.mjs';
+import * as art242 from './art-242-pacs008-party-completeness-validator.kernel.mjs';
+import * as art243 from './art-243-purpose-code-requirement-checker.kernel.mjs';
+import * as art244 from './art-244-gpi-tracker-lifecycle-simulator.kernel.mjs';
+import * as art245 from './art-245-mt-mx-translation-fidelity-scorer.kernel.mjs';
+import * as art246 from './art-246-lei-payment-binding-linter.kernel.mjs';
+import * as art247 from './art-247-prevalidation-readiness-scorer.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
@@ -449,6 +456,13 @@ export const KERNELS = {
   'art-239-test-bifsg-bias-thresholds':                       art239,
   'art-24-mastercard-agentic-token-builder':                  art24,
   'art-240-assess-naic-ais-program-readiness':                art240,
+  'art-241-cbpr-structured-address-linter':                   art241,
+  'art-242-pacs008-party-completeness-validator':             art242,
+  'art-243-purpose-code-requirement-checker':                 art243,
+  'art-244-gpi-tracker-lifecycle-simulator':                  art244,
+  'art-245-mt-mx-translation-fidelity-scorer':                art245,
+  'art-246-lei-payment-binding-linter':                       art246,
+  'art-247-prevalidation-readiness-scorer':                   art247,
   'art-25-a2a-agent-card-validator':                          art25,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
   'art-27-agentic-readiness-diagnostic':                      art27,
