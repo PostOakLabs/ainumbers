@@ -197,7 +197,13 @@ import * as art254 from './art-254-compute-rbc-action-level.kernel.mjs';
 import * as art255 from './art-255-compute-lcm-rate-derivation.kernel.mjs';
 import * as art256 from './art-256-validate-openids-homeowners-record.kernel.mjs';
 import * as art257 from './art-257-calculate-claims-stp-economics.kernel.mjs';
+import * as art258 from './art-258-parse-camt053-reconciliation.kernel.mjs';
+import * as art259 from './art-259-compute-multilateral-netting.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
+import * as art260 from './art-260-allocate-ihb-interest.kernel.mjs';
+import * as art261 from './art-261-test-hedge-effectiveness.kernel.mjs';
+import * as art262 from './art-262-validate-ebam-acmt-flow.kernel.mjs';
+import * as art263 from './art-263-score-cash-forecast-accuracy.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
@@ -484,7 +490,13 @@ export const KERNELS = {
   'art-255-compute-lcm-rate-derivation':                      art255,
   'art-256-validate-openids-homeowners-record':               art256,
   'art-257-calculate-claims-stp-economics':                   art257,
+  'art-258-parse-camt053-reconciliation':                     art258,
+  'art-259-compute-multilateral-netting':                     art259,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
+  'art-260-allocate-ihb-interest':                            art260,
+  'art-261-test-hedge-effectiveness':                         art261,
+  'art-262-validate-ebam-acmt-flow':                          art262,
+  'art-263-score-cash-forecast-accuracy':                     art263,
   'art-27-agentic-readiness-diagnostic':                      art27,
   'art-28-mcp-server-deployability-diagnostic':               art28,
   'art-29-dora-readiness-diagnostic':                         art29,

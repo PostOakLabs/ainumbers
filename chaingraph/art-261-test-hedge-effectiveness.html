@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Hedge Effectiveness Test &middot; ART-261 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="ASC 815 hedge effectiveness: dollar-offset 80-125% + OLS regression (beta≈-1, R²≥0.80). RFC 3161 anchor surface for anti-backdating. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-261-test-hedge-effectiveness.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.anchor-surface-box{background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:10px 14px;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gold);line-height:1.6}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:60px}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-261 · Hedge Effectiveness Test</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-corporate-treasury-stp.html" class="nav-pill">Corporate Treasury Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-261 &middot; Corporate Treasury STP</div>
+  <h1>Hedge Effectiveness Test</h1>
+  <p class="sub">Tests hedge effectiveness per ASC 815-20-35 (FASB ASU 2017-12) and IFRS 9 &sect;6.4.1. Applies dollar-offset (cumulative ratio in 80&ndash;125% band) and/or OLS regression (&beta;&approx;&minus;1, R&sup2;&ge;0.80). Pure arithmetic &mdash; no transcendental functions. Routes the <a href="chains/hedge-effectiveness-documentation.html">hedge-effectiveness-documentation</a> workflow on <code>/is_effective</code>.</p>
+  <div class="anchor-surface-box">&#9875; <strong>RFC 3161 Anchor Surface</strong> &mdash; Anchor the <code>execution_hash</code> at designation date via <a href="https://anchor.ainumbers.co" target="_blank">anchor.ainumbers.co</a> to create contemporaneous evidence that the effectiveness test ran at designation, not backfilled. Anti-backdating rationale: FASB ASC 815 requires formal designation before inception.</div>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Corporate Treasury</span>
+    <span class="flag info">ASC 815 / IFRS 9</span>
+    <span class="flag">Dollar-Offset 80-125%</span>
+    <span class="flag">OLS Regression</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. This tool accepts fair-value or cash-flow change arrays and aggregate statistics only &mdash; no counterparty, notional terms, or personal data.</div>
+
+  <div class="card">
+    <div class="section-head">Test Parameters</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="method">Method</label>
+        <select id="method">
+          <option value="both">Both (conservative: require both)</option>
+          <option value="dollar_offset">Dollar-Offset only</option>
+          <option value="regression">OLS Regression only</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="effectivenessStandard">Standard</label>
+        <select id="effectivenessStandard">
+          <option value="asc815">ASC 815 (FASB)</option>
+          <option value="ifrs9">IFRS 9 / IAS 39</option>
+        </select>
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="hedgeRatio">Hedge Ratio</label>
+      <div class="q-help">Notional hedge ratio (1.0 = full hedge, 0.8 = 80% hedge). IFRS 9 requires ratio between 0 and 1 exclusive for partial hedges; 1.0 for full.</div>
+      <input type="number" id="hedgeRatio" value="1" step="0.01" min="0.01" max="1" style="max-width:160px">
+    </div>
+    <div class="section-head">Hedged Item Changes (JSON Array)</div>
+    <div class="q">
+      <label class="q-label" for="hedgedItemChanges">Hedged Item Changes</label>
+      <div class="q-help">Array of periodic fair-value or cash-flow changes for the hedged item (e.g. [100, 150, -50]). Positive = gain.</div>
+      <textarea id="hedgedItemChanges" rows="2">[100, 150, 200, -50, -100]</textarea>
+    </div>
+    <div class="section-head">Hedging Instrument Changes (JSON Array)</div>
+    <div class="q">
+      <label class="q-label" for="hedgingInstrumentChanges">Hedging Instrument Changes</label>
+      <div class="q-help">Array of periodic fair-value or cash-flow changes for the hedging instrument. For effective hedge: opposite sign, similar magnitude.</div>
+      <textarea id="hedgingInstrumentChanges" rows="2">[-95, -145, -195, 48, 97]</textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Test Effectiveness</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Dollar-Offset Results</div>
+      <div id="dollarDiv"></div>
+      <div class="section-head" style="margin-top:14px">OLS Regression Results</div>
+      <div id="olsDiv"></div>
+      <div class="section-head" style="margin-top:14px">Designation Documentation</div>
+      <div id="docDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div><span style="color:var(--teal)">AI</span>Numbers<span>.co</span></div>
+      <div class="footer-cc">CC BY 4.0 &mdash; Post Oak Labs</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">OpenChainGraph Suite</div>
+        <a href="chaingraph-hub.html">Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Corporate Treasury STP</div>
+        <a href="guide-corporate-treasury-stp.html">Treasury STP Guide</a>
+        <a href="art-262-validate-ebam-acmt-flow.html">eBAM Flow Validation</a>
+        <a href="art-263-score-cash-forecast-accuracy.html">Cash Forecast Accuracy</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Workflows</div>
+        <a href="chains/hedge-effectiveness-documentation.html">Hedge Documentation</a>
+        <a href="chains/treasury-account-lifecycle-ebam.html">Account Lifecycle eBAM</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-261-test-hedge-effectiveness",
+  "tool_version": "1.0.0",
+  "mcp_name": "test_hedge_effectiveness",
+  "mandate_type": "compliance_mandate",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "method":                       {"type": "string",  "enum": ["both","dollar_offset","regression"], "default": "both"},
+      "effectiveness_standard":       {"type": "string",  "enum": ["asc815","ifrs9"], "default": "asc815"},
+      "hedge_ratio":                  {"type": "number",  "default": 1},
+      "hedged_item_changes":          {"type": "array",   "items": {"type": "number"}, "description": "Periodic fair-value / cash-flow changes for hedged item"},
+      "hedging_instrument_changes":   {"type": "array",   "items": {"type": "number"}, "description": "Periodic fair-value / cash-flow changes for hedging instrument"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-261-test-hedge-effectiveness';
+const TOOL_VERSION = '1.0.0';
+let _lastArtifact  = null;
+
+function _finite(v,def){const n=Number(v);return(isFinite(n)&&!isNaN(n))?n:def;}
+function _round4(v){return Math.round(v*10000)/10000;}
+function _round2(v){return Math.round(v*100)/100;}
+function _finiteOrNull(v){const n=Number(v);return(isFinite(n)&&!isNaN(n)&&v!==null&&v!==undefined)?n:null;}
+
+function compute(p) {
+  p=p||{};
+  const method=['both','dollar_offset','regression'].includes(p.method)?p.method:'both';
+  const effectiveness_standard=['asc815','ifrs9'].includes(p.effectiveness_standard)?p.effectiveness_standard:'asc815';
+  const hedge_ratio=_finite(p.hedge_ratio,1);
+  const hi_raw=Array.isArray(p.hedged_item_changes)?p.hedged_item_changes:[];
+  const hg_raw=Array.isArray(p.hedging_instrument_changes)?p.hedging_instrument_changes:[];
+  const n=Math.min(hi_raw.length,hg_raw.length);
+  const hedged_item_changes=[];
+  const hedging_instrument_changes=[];
+  for(let i=0;i<n;i++){
+    const hi=_finiteOrNull(hi_raw[i]);
+    const hg=_finiteOrNull(hg_raw[i]);
+    if(hi!==null&&hg!==null){hedged_item_changes.push(hi);hedging_instrument_changes.push(hg);}
+  }
+  const obs_count=hedged_item_changes.length;
+  let cumulative_hedged=0,cumulative_hedging=0;
+  for(let i=0;i<obs_count;i++){cumulative_hedged+=hedged_item_changes[i];cumulative_hedging+=hedging_instrument_changes[i];}
+  cumulative_hedged=_round4(cumulative_hedged);
+  cumulative_hedging=_round4(cumulative_hedging);
+  let dollar_offset_ratio=null,dollar_offset_effective=null;
+  if(cumulative_hedged!==0){
+    dollar_offset_ratio=_round4(cumulative_hedging/cumulative_hedged);
+    const abs_ratio=Math.abs(dollar_offset_ratio);
+    dollar_offset_effective=(abs_ratio>=0.80&&abs_ratio<=1.25);
+  }else{
+    dollar_offset_ratio=null;
+    dollar_offset_effective=false;
+  }
+  let ols_beta=null,ols_alpha=null,r_squared=null,regression_effective=null;
+  if(obs_count>=2){
+    let sx=0,sy=0,sxy=0,sxx=0,syy=0;
+    const nn=obs_count;
+    for(let i=0;i<nn;i++){sx+=hedged_item_changes[i];sy+=hedging_instrument_changes[i];sxy+=hedged_item_changes[i]*hedging_instrument_changes[i];sxx+=hedged_item_changes[i]*hedged_item_changes[i];syy+=hedging_instrument_changes[i]*hedging_instrument_changes[i];}
+    const denom=nn*sxx-sx*sx;
+    if(denom!==0){
+      const beta_raw=(nn*sxy-sx*sy)/denom;
+      const alpha_raw=(sy-beta_raw*sx)/nn;
+      let ss_res=0,ss_tot=0;
+      const y_mean=sy/nn;
+      for(let i=0;i<nn;i++){const y_pred=alpha_raw+beta_raw*hedged_item_changes[i];ss_res+=(hedging_instrument_changes[i]-y_pred)*(hedging_instrument_changes[i]-y_pred);ss_tot+=(hedging_instrument_changes[i]-y_mean)*(hedging_instrument_changes[i]-y_mean);}
+      ols_beta=_round4(beta_raw);
+      ols_alpha=_round4(alpha_raw);
+      r_squared=ss_tot>0?_round4(1-ss_res/ss_tot):1;
+      const abs_beta=Math.abs(ols_beta);
+      regression_effective=(abs_beta>=0.75&&abs_beta<=1.25&&ols_beta<0&&r_squared>=0.80);
+    }
+  }
+  const ifrs9_hedge_ratio_passes=(hedge_ratio>0&&hedge_ratio<=1);
+  let is_effective=false,effectiveness_reason='';
+  if(method==='dollar_offset'){
+    is_effective=dollar_offset_effective===true;
+    effectiveness_reason=is_effective?'Dollar-offset 80-125% passes.':'Dollar-offset ratio outside 80-125% range (ASC 815-20-35).';
+  }else if(method==='regression'){
+    is_effective=regression_effective===true;
+    effectiveness_reason=is_effective?'OLS regression (beta approx -1, R-squared >= 0.80) passes.':(obs_count<2?'Insufficient observations for regression (need >= 2).':'OLS regression fails (beta or R-squared outside thresholds).');
+  }else{
+    if(obs_count<2){is_effective=dollar_offset_effective===true;effectiveness_reason=is_effective?'Dollar-offset 80-125% passes (insufficient observations for regression).':'Dollar-offset ratio outside 80-125% range.';}
+    else{is_effective=(dollar_offset_effective===true&&regression_effective===true);if(is_effective)effectiveness_reason='Both dollar-offset (80-125%) and OLS regression (beta approx -1, R-squared >= 0.80) pass.';else if(!dollar_offset_effective)effectiveness_reason='Dollar-offset ratio outside 80-125% range (ASC 815-20-35).';else effectiveness_reason='OLS regression fails (beta or R-squared outside thresholds).';}}
+  return{is_effective:is_effective,effectiveness_standard:effectiveness_standard,method_applied:method,observation_count:obs_count,cumulative_hedged_change:cumulative_hedged,cumulative_hedging_change:cumulative_hedging,dollar_offset_ratio:dollar_offset_ratio,dollar_offset_effective:dollar_offset_effective,asc815_80_125_band:'80%-125% (ASC 815-20-35)',ols_beta:ols_beta,ols_alpha:ols_alpha,r_squared:r_squared,regression_effective:regression_effective,hedge_ratio:hedge_ratio,ifrs9_hedge_ratio_passes:ifrs9_hedge_ratio_passes,effectiveness_reason:effectiveness_reason,anchor_surface:'anchor.ainumbers.co/mcp -- anchor the execution_hash at designation date to create RFC 3161 contemporaneous evidence that the hedge effectiveness test ran at designation, not backfilled (FASB ASC 815 anti-backdating rationale).',table_version:'ASC815-HEDGE-EFFECTIVENESS-V2023',table_source:'ASC 815-20-35 (hedge accounting, dollar-offset + regression); FASB ASU 2017-12; IFRS 9.6.4.1 (effectiveness requirements); IAS 39 AG105-AG113',regulatory_basis:"ASC 815-20-35: dollar-offset 80-125% OR regression (beta approx -1, R-squared >= 0.80) for highly effective designation; FASB ASU 2017-12 simplification; IFRS 9.6.4.1: economic relationship + credit risk non-dominant + hedge ratio. ZERO PII: changes arrays and aggregate statistics only.",pii_note:'ZERO PII: fair-value or cash-flow changes, aggregate statistics only. No counterparty, notional terms, or personal data enters this kernel.',not_legal_advice:'Not accounting or legal advice. Hedge effectiveness assessments must be reviewed by qualified accounting professionals and auditors before use in hedge accounting documentation.'};
+}
+
+function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
+async function executionHash(pp,op){const canon=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canon));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+async function runCompute() {
+  let hiChanges=[],hgChanges=[];
+  try{hiChanges=JSON.parse(document.getElementById('hedgedItemChanges').value);}catch(e){alert('Invalid hedged item changes JSON');return;}
+  try{hgChanges=JSON.parse(document.getElementById('hedgingInstrumentChanges').value);}catch(e){alert('Invalid hedging instrument changes JSON');return;}
+  const pp={method:document.getElementById('method').value,effectiveness_standard:document.getElementById('effectivenessStandard').value,hedge_ratio:Number(document.getElementById('hedgeRatio').value),hedged_item_changes:hiChanges,hedging_instrument_changes:hgChanges};
+  const op=compute(pp);
+  const hash=await executionHash(pp,op);
+  const art={' @context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:null,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags:op.is_effective?['hedge_effective_asc815']:['hedge_ineffective_asc815'],compute_mode:'client',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=art;
+  const vb=document.getElementById('verdictBox');
+  vb.textContent=op.is_effective?'EFFECTIVE HEDGE':'INEFFECTIVE HEDGE';
+  vb.style.background=op.is_effective?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)';
+  vb.style.color=op.is_effective?'var(--green)':'var(--red)';
+  document.getElementById('statRow').innerHTML=[stat('Effective',op.is_effective?'YES':'NO'),stat('Observations',op.observation_count),stat('Dollar-Offset',op.dollar_offset_ratio!==null?op.dollar_offset_ratio:'N/A'),stat('OLS Beta',op.ols_beta!==null?op.ols_beta:'N/A'),stat('R²',op.r_squared!==null?op.r_squared:'N/A')].join('');
+  document.getElementById('dollarDiv').innerHTML=kv('Cumulative Hedged Change',op.cumulative_hedged_change)+kv('Cumulative Hedging Change',op.cumulative_hedging_change)+kv('Dollar-Offset Ratio',op.dollar_offset_ratio)+kv('80-125% Band Passes',op.dollar_offset_effective);
+  document.getElementById('olsDiv').innerHTML=kv('OLS Beta (β)',op.ols_beta)+kv('OLS Alpha (α)',op.ols_alpha)+kv('R-Squared (R²)',op.r_squared)+kv('Regression Effective',op.regression_effective);
+  document.getElementById('docDiv').innerHTML=kv('Effectiveness Reason',op.effectiveness_reason)+kv('IFRS 9 Hedge Ratio Passes',op.ifrs9_hedge_ratio_passes)+kv('Anchor Surface',op.anchor_surface);
+  document.getElementById('execHashBox').textContent=hash;
+  document.getElementById('resultsPanel').className='results-panel show';
+}
+
+function stat(k,v){return '<div class="stat"><span class="stat-val">'+v+'</span><span class="stat-key">'+k+'</span></div>';}
+function kv(k,v){return '<div class="kv"><span class="kv-k">'+k+'</span><span class="kv-v">'+String(v)+'</span></div>';}
+async function verifyHash(){if(!_lastArtifact)return;const h2=await executionHash(_lastArtifact.policy_parameters,_lastArtifact.output_payload);const el=document.getElementById('verifyResult');if(h2===_lastArtifact.execution_hash){el.textContent='&#10003; Hash verified';el.style.color='var(--green)';}else{el.textContent='&#10007; Mismatch';el.style.color='var(--red)';}}
+function exportArtifact(){if(!_lastArtifact)return;const blob=new Blob([JSON.stringify(_lastArtifact,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=TOOL_ID+'-artifact.json';a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody');b.style.display=b.style.display==='none'?'block':'none';if(b.style.display==='block'){const m=document.getElementById('manifest');document.getElementById('mfstPre').textContent=m?m.textContent:'{}';}}
+</script>
+</body>
+</html>
