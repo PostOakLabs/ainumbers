@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Claims STP Economics Calculator &middot; ART-257 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Models the ROI, NPV, and IRR of straight-through processing automation for insurance claims. Includes leakage impact analysis. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-257-calculate-claims-stp-economics.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.cashflow-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:10px}
+.cashflow-table th{color:var(--body);font-weight:400;text-align:left;padding:4px 10px;border-bottom:1px solid var(--border);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase}
+.cashflow-table td{padding:4px 10px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--bright)}
+.cashflow-table tr:last-child td{border-bottom:none}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-257 · Claims STP Economics</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-insurance-stp.html" class="nav-pill">Insurance STP Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-257 &middot; Insurance STP</div>
+  <h1>Claims STP Economics Calculator</h1>
+  <p class="sub">Models the ROI, NPV, and IRR of straight-through processing automation for insurance claims. Computes annual handling cost savings from STP rate improvement, optional leakage impact analysis, discounted cash flow projections, and payback period. All inputs are aggregate portfolio metrics &mdash; no policyholder or claim-level data.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Claims Automation</span>
+    <span class="flag info">NPV / IRR / Payback</span>
+    <span class="flag">McKinsey Benchmarks</span>
+    <span class="flag">Leakage Modeling</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. This tool accepts aggregate portfolio metrics and cost inputs only &mdash; no claimant, policyholder, or claim-event personal data.</div>
+
+  <div class="card">
+    <div class="section-head">Claims Volume &amp; STP Rates</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="annualClaimsVolume">Annual Claims Volume</label>
+        <div class="q-help">Total claims processed per year across all lines.</div>
+        <input type="number" id="annualClaimsVolume" value="100000" step="1000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="currentStpRatePct">Current STP Rate (%)</label>
+        <div class="q-help">Current percentage of claims processed without human touch.</div>
+        <input type="number" id="currentStpRatePct" value="40" step="1" min="0" max="100">
+      </div>
+      <div class="q">
+        <label class="q-label" for="targetStpRatePct">Target STP Rate (%)</label>
+        <div class="q-help">Projected STP rate after automation investment.</div>
+        <input type="number" id="targetStpRatePct" value="75" step="1" min="0" max="100">
+      </div>
+    </div>
+    <div class="section-head">Handling Costs</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="manualHandlingCost">Manual Handling Cost ($/claim)</label>
+        <div class="q-help">Fully loaded cost to handle one claim manually (staff, time, overhead).</div>
+        <input type="number" id="manualHandlingCost" value="180" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="automatedHandlingCost">Automated Handling Cost ($/claim)</label>
+        <div class="q-help">Cost to handle one STP claim (technology, review, maintenance).</div>
+        <input type="number" id="automatedHandlingCost" value="25" step="1">
+      </div>
+    </div>
+    <div class="section-head">Investment &amp; Projection</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="implementationCost">Implementation Cost ($)</label>
+        <div class="q-help">One-time upfront investment for STP automation platform.</div>
+        <input type="number" id="implementationCost" value="5000000" step="100000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="annualLicenseCost">Annual License Cost ($)</label>
+        <div class="q-help">Recurring annual software license or SaaS fees.</div>
+        <input type="number" id="annualLicenseCost" value="500000" step="50000">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="discountRatePct">Discount Rate (%)</label>
+        <div class="q-help">Hurdle rate / WACC for NPV calculation.</div>
+        <input type="number" id="discountRatePct" value="10" step="0.5">
+      </div>
+      <div class="q">
+        <label class="q-label" for="projectionYears">Projection Years</label>
+        <div class="q-help">Number of years for discounted cash flow projection (1-10).</div>
+        <input type="number" id="projectionYears" value="5" step="1" min="1" max="10">
+      </div>
+    </div>
+    <div class="section-head">Leakage Modeling (optional)</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="avgClaimPayment">Avg Claim Payment ($)</label>
+        <div class="q-help">Average claim payment amount. Required for leakage analysis.</div>
+        <input type="number" id="avgClaimPayment" value="" placeholder="Leave blank to skip leakage" step="10">
+      </div>
+      <div class="q">
+        <label class="q-label" for="leakageRateManualPct">Manual Leakage Rate (%)</label>
+        <div class="q-help">Overpayment / leakage rate for manually-handled claims.</div>
+        <input type="number" id="leakageRateManualPct" value="3" step="0.1" min="0">
+      </div>
+      <div class="q">
+        <label class="q-label" for="leakageRateStpPct">STP Leakage Rate (%)</label>
+        <div class="q-help">Overpayment / leakage rate for STP-handled claims.</div>
+        <input type="number" id="leakageRateStpPct" value="1.5" step="0.1" min="0">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Calculate STP Economics</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Economics Summary</div>
+      <div id="receiptDiv"></div>
+      <div class="section-head" style="margin-top:14px">Annual Cash Flows</div>
+      <div style="overflow-x:auto">
+        <table class="cashflow-table" id="cashflowTable">
+          <thead><tr><th>Year</th><th>Cash Flow ($)</th><th>Discounted ($)</th></tr></thead>
+          <tbody id="cashflowBody"></tbody>
+        </table>
+      </div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div><span style="color:var(--teal)">AI</span>Numbers<span>.co</span></div>
+      <div class="footer-cc">CC BY 4.0 &mdash; Post Oak Labs</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">OpenChainGraph Suite</div>
+        <a href="chaingraph-hub.html">Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Insurance STP</div>
+        <a href="guide-insurance-stp.html">Insurance STP Guide</a>
+        <a href="art-254-compute-rbc-action-level.html">RBC Action Level</a>
+        <a href="art-256-validate-openids-homeowners-record.html">openIDS Validation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Workflows</div>
+        <a href="chains/insurer-rbc-action-level.html">RBC Action Level Workflow</a>
+        <a href="chains/parametric-trigger-adjudication.html">Parametric Adjudication</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-257-calculate-claims-stp-economics",
+  "tool_version": "1.0.0",
+  "mcp_name": "calculate_claims_stp_economics",
+  "mandate_type": "analytics_mandate",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "annual_claims_volume":    {"type": "number"},
+      "current_stp_rate_pct":    {"type": "number"},
+      "target_stp_rate_pct":     {"type": "number"},
+      "manual_handling_cost":    {"type": "number"},
+      "automated_handling_cost": {"type": "number"},
+      "implementation_cost":     {"type": "number"},
+      "annual_license_cost":     {"type": "number"},
+      "discount_rate_pct":       {"type": "number"},
+      "projection_years":        {"type": "number"},
+      "average_claim_payment":   {"type": "number", "description": "Optional, for leakage analysis"},
+      "leakage_rate_manual_pct": {"type": "number"},
+      "leakage_rate_stp_pct":    {"type": "number"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-257-calculate-claims-stp-economics';
+const TOOL_VERSION = '1.0.0';
+let _lastArtifact  = null;
+
+function _finite(v, def) { const n = Number(v); return (isFinite(n) && !isNaN(n)) ? n : def; }
+function _round2(v) { return Math.round(v * 100) / 100; }
+function _round1(v) { return Math.round(v * 10)  / 10;  }
+
+function _solveIRR(cashflows, tol, maxIter) {
+  tol = tol || 1e-6; maxIter = maxIter || 1000;
+  let r = 0.1;
+  for (let i = 0; i < maxIter; i++) {
+    let f = 0, df = 0;
+    for (let t = 0; t < cashflows.length; t++) {
+      const disc = Math.pow(1 + r, t);
+      f  += cashflows[t] / disc;
+      df -= t * cashflows[t] / (disc * (1 + r));
+    }
+    if (Math.abs(df) < 1e-12) break;
+    const nr = r - f / df;
+    if (Math.abs(nr - r) < tol) return nr;
+    r = nr;
+    if (!isFinite(r)) return null;
+  }
+  return isFinite(r) ? r : null;
+}
+
+function compute(p) {
+  p = p || {};
+  const annual_claims          = _finite(p.annual_claims_volume, 0);
+  const current_stp_pct        = Math.max(0, Math.min(100, _finite(p.current_stp_rate_pct, 0)));
+  const target_stp_pct         = Math.max(0, Math.min(100, _finite(p.target_stp_rate_pct, 0)));
+  const manual_cost            = _finite(p.manual_handling_cost, 0);
+  const auto_cost              = _finite(p.automated_handling_cost, 0);
+  const impl_cost              = _finite(p.implementation_cost, 0);
+  const annual_license         = _finite(p.annual_license_cost, 0);
+  const discount_rate          = _finite(p.discount_rate_pct, 10) / 100;
+  const years                  = Math.max(1, Math.min(10, Math.round(_finite(p.projection_years, 5))));
+  const avg_claim_pmt          = p.average_claim_payment != null ? _finite(p.average_claim_payment, 0) : 0;
+  const leakage_manual_pct     = _finite(p.leakage_rate_manual_pct, 0) / 100;
+  const leakage_stp_pct        = _finite(p.leakage_rate_stp_pct, 0)    / 100;
+  const has_leakage            = avg_claim_pmt > 0;
+
+  const current_stp_claims   = _round2(annual_claims * current_stp_pct / 100);
+  const target_stp_claims    = _round2(annual_claims * target_stp_pct  / 100);
+  const current_manual_claims = _round2(annual_claims - current_stp_claims);
+  const target_manual_claims  = _round2(annual_claims - target_stp_claims);
+
+  const current_annual_cost  = _round2(current_stp_claims * auto_cost + current_manual_claims * manual_cost);
+  const target_annual_cost   = _round2(target_stp_claims  * auto_cost + target_manual_claims  * manual_cost + annual_license);
+  const annual_handling_savings = _round2(current_annual_cost - target_stp_claims * auto_cost - target_manual_claims * manual_cost);
+
+  let net_leakage_impact = 0, leakage_reduction = 0, leakage_increase = 0;
+  if (has_leakage) {
+    const incremental_stp = target_stp_claims - current_stp_claims;
+    leakage_reduction = _round2(incremental_stp * avg_claim_pmt * (leakage_manual_pct - leakage_stp_pct));
+    leakage_increase  = 0;
+    net_leakage_impact = leakage_reduction - leakage_increase;
+  }
+
+  const net_annual_benefit = _round2(annual_handling_savings + net_leakage_impact - annual_license);
+
+  const irr_cashflows = [-impl_cost];
+  for (let y = 0; y < years; y++) irr_cashflows.push(net_annual_benefit);
+  const irr_raw = _solveIRR(irr_cashflows);
+  const irr_pct = irr_raw !== null ? _round1(irr_raw * 100) : null;
+
+  let npv = -impl_cost;
+  const annual_cashflows = [];
+  for (let y = 1; y <= years; y++) {
+    const disc = _round2(net_annual_benefit / Math.pow(1 + discount_rate, y));
+    npv += disc;
+    annual_cashflows.push({ year: y, cashflow: net_annual_benefit, discounted_cashflow: disc });
+  }
+  npv = _round2(npv);
+
+  const payback_years = net_annual_benefit > 0 ? _round2(impl_cost / net_annual_benefit) : null;
+  const stp_improvement = _round2(target_stp_pct - current_stp_pct);
+  const current_avg_cost = annual_claims > 0 ? _round2(current_annual_cost / annual_claims) : 0;
+  const target_avg_cost  = annual_claims > 0 ? _round2(target_annual_cost  / annual_claims) : 0;
+  const cost_reduction   = _round2(current_avg_cost - target_avg_cost);
+  const cost_reduction_pct = current_avg_cost > 0 ? _round2((cost_reduction / current_avg_cost) * 100) : 0;
+
+  return {
+    npv, irr_pct, payback_years, net_annual_benefit,
+    annual_handling_savings, net_leakage_impact, leakage_increase, leakage_reduction,
+    current_annual_cost, target_annual_cost,
+    cost_reduction_per_claim: cost_reduction, cost_reduction_pct,
+    current_avg_cost_per_claim: current_avg_cost, target_avg_cost_per_claim: target_avg_cost,
+    stp_rate_improvement_ppt: stp_improvement,
+    current_stp_claims, target_stp_claims, current_manual_claims, target_manual_claims,
+    projection_years: years, discount_rate_pct: _finite(p.discount_rate_pct, 10),
+    annual_cashflows,
+    table_version:   'CLAIMS-STP-ECONOMICS-V1.0-2025',
+    table_source:    'McKinsey Insurance 2024 (claims automation ROI benchmarks); Accenture Claims Transformation 2025; Majesco Claims Technology Survey 2024; NAIC Claims Process Innovation Working Group 2023.',
+    regulatory_basis:'NAIC Claims Process Innovation Working Group (2023); IAIS ComFrame (proportionality in claims governance). STP automation economics benchmarks per McKinsey Insurance 2024 and Majesco Claims Technology Survey 2024.',
+    pii_note:        'ZERO PII: aggregate portfolio metrics and cost inputs only. No claimant, policyholder, or claim-event personal data enters this kernel.',
+    not_legal_advice:'Not legal, actuarial, or investment advice. STP investment decisions require enterprise business case review and actuarial sign-off on leakage assumptions.',
+  };
+}
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function executionHash(pp, op) {
+  const canon = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function runCompute() {
+  const avgRaw = document.getElementById('avgClaimPayment').value.trim();
+  const pp = {
+    annual_claims_volume:    Number(document.getElementById('annualClaimsVolume').value),
+    current_stp_rate_pct:    Number(document.getElementById('currentStpRatePct').value),
+    target_stp_rate_pct:     Number(document.getElementById('targetStpRatePct').value),
+    manual_handling_cost:    Number(document.getElementById('manualHandlingCost').value),
+    automated_handling_cost: Number(document.getElementById('automatedHandlingCost').value),
+    implementation_cost:     Number(document.getElementById('implementationCost').value),
+    annual_license_cost:     Number(document.getElementById('annualLicenseCost').value),
+    discount_rate_pct:       Number(document.getElementById('discountRatePct').value),
+    projection_years:        Number(document.getElementById('projectionYears').value),
+    average_claim_payment:   avgRaw !== '' ? Number(avgRaw) : null,
+    leakage_rate_manual_pct: Number(document.getElementById('leakageRateManualPct').value),
+    leakage_rate_stp_pct:    Number(document.getElementById('leakageRateStpPct').value),
+  };
+  const op   = compute(pp);
+  const hash = await executionHash(pp, op);
+  const art  = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'analytics_mandate',
+    tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+    generated_at: null, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: op,
+    compliance_flags: [], compute_mode: 'client',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = art;
+
+  const vb   = document.getElementById('verdictBox');
+  const pos  = op.npv >= 0;
+  vb.innerHTML = pos
+    ? '&#10003; POSITIVE NPV &mdash; $' + op.npv.toLocaleString() + ' over ' + op.projection_years + ' yr'
+    : '&#9888; NEGATIVE NPV &mdash; $' + op.npv.toLocaleString();
+  vb.style.background = pos ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)';
+  vb.style.color       = pos ? 'var(--green)'       : 'var(--red)';
+
+  document.getElementById('statRow').innerHTML = [
+    stat('NPV', '$' + (op.npv/1e6).toFixed(2) + 'M'),
+    stat('IRR', op.irr_pct !== null ? op.irr_pct + '%' : 'N/A'),
+    stat('Payback', op.payback_years !== null ? op.payback_years + ' yr' : 'N/A'),
+    stat('Ann. Benefit', '$' + (op.net_annual_benefit/1e3).toFixed(0) + 'K'),
+  ].join('');
+
+  const rd = document.getElementById('receiptDiv');
+  rd.innerHTML = kv('Net Present Value', '$' + op.npv.toLocaleString()) +
+    kv('IRR', op.irr_pct !== null ? op.irr_pct + '%' : 'N/A') +
+    kv('Payback Period', op.payback_years !== null ? op.payback_years + ' years' : 'N/A') +
+    kv('Net Annual Benefit', '$' + op.net_annual_benefit.toLocaleString()) +
+    kv('Annual Handling Savings', '$' + op.annual_handling_savings.toLocaleString()) +
+    kv('Net Leakage Impact', '$' + op.net_leakage_impact.toLocaleString()) +
+    kv('STP Rate Improvement', op.stp_rate_improvement_ppt + ' percentage points') +
+    kv('Current STP Claims', op.current_stp_claims.toLocaleString()) +
+    kv('Target STP Claims', op.target_stp_claims.toLocaleString()) +
+    kv('Current Manual Claims', op.current_manual_claims.toLocaleString()) +
+    kv('Target Manual Claims', op.target_manual_claims.toLocaleString()) +
+    kv('Current Annual Cost', '$' + op.current_annual_cost.toLocaleString()) +
+    kv('Target Annual Cost', '$' + op.target_annual_cost.toLocaleString()) +
+    kv('Avg Cost Reduction/Claim', '$' + op.cost_reduction_per_claim + ' (' + op.cost_reduction_pct + '%)') +
+    kv('Discount Rate', op.discount_rate_pct + '%') +
+    kv('Projection Years', op.projection_years);
+
+  const tbody = document.getElementById('cashflowBody');
+  tbody.innerHTML = op.annual_cashflows.map(cf =>
+    '<tr><td>' + cf.year + '</td><td>$' + cf.cashflow.toLocaleString() + '</td><td>$' + cf.discounted_cashflow.toLocaleString() + '</td></tr>'
+  ).join('');
+
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('resultsPanel').className = 'results-panel show';
+}
+
+function stat(k, v) { return '<div class="stat"><span class="stat-val">' + v + '</span><span class="stat-key">' + k + '</span></div>'; }
+function kv(k, v)   { return '<div class="kv"><span class="kv-k">' + k + '</span><span class="kv-v">' + v + '</span></div>'; }
+
+async function verifyHash() {
+  if (!_lastArtifact) return;
+  const h2 = await executionHash(_lastArtifact.policy_parameters, _lastArtifact.output_payload);
+  const el = document.getElementById('verifyResult');
+  if (h2 === _lastArtifact.execution_hash) { el.textContent = '&#10003; Hash verified'; el.style.color = 'var(--green)'; }
+  else { el.textContent = '&#10007; Mismatch'; el.style.color = 'var(--red)'; }
+}
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = TOOL_ID + '-artifact.json'; a.click();
+}
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  if (b.style.display === 'block') document.getElementById('mfstPre').textContent = document.getElementById('manifest').textContent;
+}
+</script>
+</body>
+</html>
