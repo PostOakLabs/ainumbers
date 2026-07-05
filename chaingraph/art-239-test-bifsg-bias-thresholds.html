@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CO SB 21-169 BIFSG Bias Threshold Tester &middot; ART-239 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Tests aggregate regression outputs against Colorado SB 21-169 / Reg. 10-1-1 BIFSG proxy bias detection thresholds. Statistical prong: p&lt;0.05 AND marginal effect &ge;5pp. Premium prong: predicted premium &ge;5% above group average. Zero PII — aggregate statistics only.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-239-test-bifsg-bias-thresholds.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.2)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="number"]:focus{border-color:var(--teal)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.prong-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin:6px 0}
+.prong-name{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em}
+.prong-result{font-size:.72rem;color:var(--text);line-height:1.5}
+.prong-status{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:6px;font-weight:600}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-239 · BIFSG Bias Threshold Tester</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-239 &middot; AI Governance / Fair Lending</div>
+  <h1>CO SB 21-169 BIFSG Bias Threshold Tester</h1>
+  <p class="sub">Tests aggregate regression outputs against Colorado SB 21-169 / Reg. 10-1-1 (effective Dec 1, 2023) BIFSG proxy bias detection thresholds. Statistical prong: p&lt;0.05 AND marginal effect &ge;5 percentage points. Premium prong: model-predicted premium &ge;5% above group average. Mandatory annual attestation due Dec 1 each year. ZERO PII &mdash; aggregate statistics only; never enter individual applicant data.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">CO SB 21-169 / Reg. 10-1-1</span>
+    <span class="flag info">BIFSG Proxy Method</span>
+    <span class="flag">Statistical + Premium Prongs</span>
+    <span class="flag">Aggregate Only</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; ZERO PII: All inputs are aggregate regression statistics only &mdash; no individual applicant records. Do not enter real personal data. All computation is local in your browser; no data is transmitted.</div>
+
+  <div class="card">
+    <div class="section-head">Model Context</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="modelPurpose">Model Purpose</label>
+        <select id="modelPurpose">
+          <option value="underwriting">Underwriting / approval decision</option>
+          <option value="pricing">Insurance premium pricing</option>
+          <option value="both" selected>Both underwriting and pricing</option>
+          <option value="claims">Claims scoring</option>
+          <option value="other">Other algorithmic decision</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="lineOfBusiness">Line of Business</label>
+        <select id="lineOfBusiness">
+          <option value="life_health" selected>Life / health insurance</option>
+          <option value="auto">Auto insurance</option>
+          <option value="home">Home / property insurance</option>
+          <option value="commercial">Commercial</option>
+        </select>
+      </div>
+    </div>
+    <div class="section-head">Statistical Prong (logistic / linear regression on BIFSG-proxied race/ethnicity)</div>
+    <div class="q-help" style="font-size:.72rem;color:var(--body);margin-bottom:12px">Source: CO Reg. 10-1-1 &sect;6(B)(1). Prong fires if BOTH p &lt; 0.05 AND |marginal effect| &ge; 5pp (percentage points).</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="pValue">p-value of BIFSG race/ethnicity variable</label>
+        <div class="q-help">Two-sided Wald test; enter as decimal (e.g., 0.03)</div>
+        <input type="number" id="pValue" value="0.03" min="0" max="1" step="0.001">
+      </div>
+      <div class="q">
+        <label class="q-label" for="marginalEffect">Marginal effect (percentage points)</label>
+        <div class="q-help">Absolute value. Approval rate or premium change attributed to protected class. Enter as pp (e.g., 7.2 for 7.2pp)</div>
+        <input type="number" id="marginalEffect" value="7.2" step="0.01">
+      </div>
+    </div>
+    <div class="section-head">Premium Prong (pricing models only)</div>
+    <div class="q-help" style="font-size:.72rem;color:var(--body);margin-bottom:12px">Source: CO Reg. 10-1-1 &sect;6(B)(2). Prong fires if model-predicted premium for a protected class segment &ge; 5% above the group-weighted average premium.</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="predictedPremium">Model-predicted premium ($)</label>
+        <div class="q-help">Mean predicted premium for the protected-class segment</div>
+        <input type="number" id="predictedPremium" value="1320" min="0" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="groupAvgPremium">Group-weighted average premium ($)</label>
+        <div class="q-help">Population-weighted average premium across all segments</div>
+        <input type="number" id="groupAvgPremium" value="1200" min="0.01" step="1">
+      </div>
+    </div>
+    <div class="section-head">Attestation Status</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="attestationYear">Attestation reporting year</label>
+        <input type="number" id="attestationYear" value="2025" min="2023" max="2099" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="n_obs">Observations (n) in regression sample</label>
+        <div class="q-help">Must be &ge; 30 to be statistically meaningful</div>
+        <input type="number" id="n_obs" value="5000" min="1" step="1">
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runTest()">&#9654; Test Bias Thresholds</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Prong Results</div>
+      <div id="prongDiv"></div>
+      <div id="actionDiv" style="margin-top:12px"></div>
+      <div class="section-head" style="margin-top:14px">Detail</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &sect;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Aggregate statistics only &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related</div>
+        <a href="guide-fair-lending.html">Fair Lending Guide</a>
+        <a href="guide-ai-governance.html">AI Governance Guide</a>
+        <a href="art-229-compute-disparity-metrics.html">art-229: Disparity Metrics</a>
+        <a href="art-240-assess-naic-ais-program-readiness.html">art-240: NAIC AIS</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-239-test-bifsg-bias-thresholds',
+  version: '1.0.0',
+  mcp_name: 'test_bifsg_bias_thresholds',
+  title: 'CO SB 21-169 BIFSG Bias Threshold Tester',
+  description: 'Tests aggregate regression outputs against CO SB 21-169 / Reg. 10-1-1 BIFSG bias detection thresholds. Statistical prong: p<0.05 AND marginal effect >=5pp. Premium prong: predicted premium >=5% above group average. ZERO PII.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Colorado SB 21-169; CO Reg. 10-1-1 §6(B)(1)(2); effective Dec 1 2023; annual attestation due Dec 1',
+  mcp_tool_definition: {
+    name: 'test_bifsg_bias_thresholds',
+    description: 'Test aggregate BIFSG regression outputs against CO SB 21-169 bias thresholds. Statistical prong: p<0.05 AND marginal_effect_pp>=5. Premium prong: predicted_premium >= 1.05 * group_avg_premium. Returns bias_detected flag and prong breakdown.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        model_purpose: { type: 'string', enum: ['underwriting','pricing','both','claims','other'] },
+        line_of_business: { type: 'string', enum: ['life_health','auto','home','commercial'] },
+        p_value: { type: 'number', minimum: 0, maximum: 1 },
+        marginal_effect_pp: { type: 'number' },
+        predicted_premium: { type: 'number', minimum: 0 },
+        group_avg_premium: { type: 'number', minimum: 0.01 },
+        attestation_year: { type: 'integer', minimum: 2023 },
+        n_observations: { type: 'integer', minimum: 1 }
+      },
+      required: ['p_value','marginal_effect_pp','predicted_premium','group_avg_premium','attestation_year']
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var P_THRESHOLD = 0.05;
+var EFFECT_THRESHOLD_PP = 5.0;
+var PREMIUM_THRESHOLD_PCT = 5.0;
+var MIN_N = 30;
+
+function safeNum(v, def){ var n=parseFloat(v); return isFinite(n)?n:def; }
+function cgCanon(v){ return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v; }
+async function computeExecHash(pp,op){
+  var payload=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload));
+  return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function runTest(){
+  var modelPurpose=document.getElementById('modelPurpose').value;
+  var lob=document.getElementById('lineOfBusiness').value;
+  var pValue=safeNum(document.getElementById('pValue').value, 1.0);
+  var marginalEffect=Math.abs(safeNum(document.getElementById('marginalEffect').value, 0));
+  var predictedPremium=safeNum(document.getElementById('predictedPremium').value, 0);
+  var groupAvgPremium=safeNum(document.getElementById('groupAvgPremium').value, 1);
+  var attestYear=safeNum(document.getElementById('attestationYear').value, 2025);
+  var nObs=safeNum(document.getElementById('n_obs').value, 0);
+
+  if(groupAvgPremium<=0) groupAvgPremium=1;
+
+  var isPricingModel=modelPurpose==='pricing'||modelPurpose==='both';
+  var nTooSmall=nObs<MIN_N;
+
+  var statProngFired=pValue<P_THRESHOLD && marginalEffect>=EFFECT_THRESHOLD_PP;
+  var premiumPct=((predictedPremium-groupAvgPremium)/groupAvgPremium)*100;
+  var premiumProngFired=isPricingModel && premiumPct>=PREMIUM_THRESHOLD_PCT;
+  var biasDetected=statProngFired||premiumProngFired;
+
+  var prungs=[
+    {
+      name:'Statistical Prong (Reg. 10-1-1 §6(B)(1))',
+      fired:statProngFired,
+      detail:'p='+pValue.toFixed(4)+' (threshold p<'+P_THRESHOLD+'); marginal effect='+marginalEffect.toFixed(2)+'pp (threshold ≥'+EFFECT_THRESHOLD_PP+'pp). BOTH conditions must be met.',
+      p_fired:pValue<P_THRESHOLD,
+      effect_fired:marginalEffect>=EFFECT_THRESHOLD_PP
+    },
+    {
+      name:'Premium Prong (Reg. 10-1-1 §6(B)(2))',
+      fired:premiumProngFired,
+      applicable:isPricingModel,
+      detail:isPricingModel?('Predicted premium $'+predictedPremium.toFixed(2)+' vs group avg $'+groupAvgPremium.toFixed(2)+' = '+premiumPct.toFixed(2)+'% above average (threshold ≥'+PREMIUM_THRESHOLD_PCT+'%).'):
+        'Not applicable — model purpose is '+modelPurpose+', not a pricing model.'
+    }
+  ];
+
+  var attestationDeadline=(attestYear+1)+'-12-01';
+  var doNow=[];
+  if(biasDetected){
+    doNow.push('Document BIFSG findings in annual attestation filing (due Dec 1, '+(attestYear+1)+').');
+    doNow.push('Prepare corrective action plan; review model features for prohibited proxy use.');
+    if(statProngFired) doNow.push('Statistical prong: investigate feature driving '+marginalEffect.toFixed(2)+'pp marginal effect.');
+    if(premiumProngFired) doNow.push('Premium prong: review pricing model for segments priced ≥5% above average.');
+  }
+  if(nTooSmall) doNow.push('WARNING: n='+nObs+' is below 30. Statistical results may be unreliable. Increase sample size.');
+
+  var op={
+    bias_detected:biasDetected,
+    statistical_prong_fired:statProngFired,
+    premium_prong_fired:premiumProngFired,
+    prongs:prungs,
+    p_value:pValue,
+    marginal_effect_pp:marginalEffect,
+    p_significant:pValue<P_THRESHOLD,
+    effect_significant:marginalEffect>=EFFECT_THRESHOLD_PP,
+    predicted_premium:predictedPremium,
+    group_avg_premium:groupAvgPremium,
+    premium_pct_above_avg:Math.round(premiumPct*10000)/10000,
+    premium_prong_applicable:isPricingModel,
+    n_observations:nObs,
+    n_sufficient:!nTooSmall,
+    attestation_year:attestYear,
+    next_attestation_deadline:attestationDeadline,
+    do_now:doNow,
+    regulatory_basis:'CO SB 21-169; CO Reg. 10-1-1 §6(B)(1)/(2); effective Dec 1 2023; annual attestation Dec 1 each year',
+    thresholds:{p_value:P_THRESHOLD,marginal_effect_pp:EFFECT_THRESHOLD_PP,premium_pct:PREMIUM_THRESHOLD_PCT,min_n:MIN_N},
+    table_version:'CO-SB21169-REG10-1-1-2023-R1'
+  };
+
+  var flags=[];
+  if(biasDetected) flags.push('BIAS_DETECTED');
+  else flags.push('PASS_ALL_THRESHOLDS');
+  if(statProngFired) flags.push('STATISTICAL_PRONG_FIRED');
+  if(premiumProngFired) flags.push('PREMIUM_PRONG_FIRED');
+  if(nTooSmall) flags.push('SAMPLE_TOO_SMALL');
+
+  var pp={model_purpose:modelPurpose,line_of_business:lob,p_value:pValue,marginal_effect_pp:marginalEffect,predicted_premium:predictedPremium,group_avg_premium:groupAvgPremium,attestation_year:attestYear,n_observations:nObs};
+  _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
+  renderResult(op,flags);
+}
+
+function renderResult(op,flags){
+  var bias=op.bias_detected;
+  var vColor=bias?'var(--red)':'var(--green)';
+  var vBg=bias?'rgba(239,68,68,.08)':'rgba(34,197,94,.08)';
+  var vBox=document.getElementById('verdictBox');
+  vBox.style.color=vColor;vBox.style.background=vBg;vBox.style.border='1px solid '+vColor;
+  vBox.textContent=bias?'BIAS DETECTED':'PASS — BELOW ALL THRESHOLDS';
+
+  var prongsActive=op.prongs.filter(function(p){return p.applicable!==false;});
+  var prongsFireCount=prongsActive.filter(function(p){return p.fired;}).length;
+
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat"><span class="stat-val" style="color:var(--teal-lt)">'+op.p_value.toFixed(4)+'</span><span class="stat-key">p-value</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.marginal_effect_pp.toFixed(2)+'pp</span><span class="stat-key">Marginal Effect</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.premium_pct_above_avg.toFixed(2)+'%</span><span class="stat-key">Premium Above Avg</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+(bias?'var(--red)':'var(--green)')+'">'+prongsFireCount+'/'+prongsActive.length+'</span><span class="stat-key">Prongs Fired</span></div>';
+
+  document.getElementById('flagRow').innerHTML=flags.map(function(f){
+    var cls=f==='PASS_ALL_THRESHOLDS'?'ok':(f==='BIAS_DETECTED'||f.indexOf('FIRED')>=0)?'fail':(f==='SAMPLE_TOO_SMALL'?'warn':'info');
+    return '<span class="badge '+cls+'">'+f+'</span>';
+  }).join('');
+
+  document.getElementById('prongDiv').innerHTML=op.prongs.map(function(p){
+    var applicable=p.applicable!==false;
+    var c=!applicable?'var(--muted)':p.fired?'var(--red)':'var(--green)';
+    var status=!applicable?'N/A':p.fired?'FIRED':'CLEAR';
+    return '<div class="prong-item"><div class="prong-name">'+p.name+'</div><div class="prong-result">'+p.detail+'</div><div class="prong-status" style="color:'+c+'">'+status+'</div></div>';
+  }).join('');
+
+  var actionHtml='';
+  if(op.do_now&&op.do_now.length){
+    actionHtml='<div class="section-head" style="color:var(--warn)">Required Actions</div>'+op.do_now.map(function(d){
+      var c=d.indexOf('WARNING')>=0?'var(--warn)':'var(--red)';
+      var bg=d.indexOf('WARNING')>=0?'rgba(245,158,11,.06)':'rgba(239,68,68,.06)';
+      var bc=d.indexOf('WARNING')>=0?'rgba(245,158,11,.2)':'rgba(239,68,68,.2)';
+      return '<div style="font-family:JetBrains Mono,monospace;font-size:.68rem;color:'+c+';margin:4px 0;padding:6px 10px;background:'+bg+';border:1px solid '+bc+';border-radius:4px">'+d+'</div>';
+    }).join('');
+  }
+  document.getElementById('actionDiv').innerHTML=actionHtml;
+
+  document.getElementById('kvDiv').innerHTML=[
+    ['bias_detected',op.bias_detected],
+    ['p_significant (p<0.05)',op.p_significant],
+    ['effect_significant (≥5pp)',op.effect_significant],
+    ['statistical_prong_fired',op.statistical_prong_fired],
+    ['premium_prong_fired',op.premium_prong_fired],
+    ['n_sufficient (≥30)',op.n_sufficient],
+    ['next_attestation_deadline',op.next_attestation_deadline],
+    ['table_version',op.table_version],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+String(x[1])+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent='computing...';
+  document.getElementById('verifyResult').textContent='';
+  document.getElementById('anchorBtn').style.display='none';
+  computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){
+    document.getElementById('execHashBox').textContent=h;
+    var aBtn=document.getElementById('anchorBtn');
+    aBtn.href=ANCHOR_BASE+'/?hash='+encodeURIComponent(h);
+    aBtn.style.display='inline-block';
+  });
+}
+
+function verifyHash(){
+  if(!_lastResult) return;
+  computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){
+    var cur=document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if(!_lastResult) return;
+  var hash=document.getElementById('execHashBox').textContent||'pending';
+  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-239-test-bifsg-bias-thresholds',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json=JSON.stringify(artifact,null,2);
+  document.getElementById('artifactPre').textContent=json;
+  document.getElementById('artifactPre').style.display='block';
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='art-239-test-bifsg-bias-thresholds.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody');
+  if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';}
+}
+</script>
+</body>
+</html>
