@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision-Receipt Crosswalk: OCG Artifact vs. Art 12 / Reg B / ASC 815 / AAT | AINumbers OpenChainGraph</title>
+<meta name="description" content="OpenChainGraph alignment profile: maps OCG artifact fields (execution_hash §4, policy_parameters §12, kernel identity §17, anchor_bindings §20, VC/SD-JWT exports §13) to EU AI Act Art 12(2) logging, ECOA Reg B §1002.12 retention, ASC 815 contemporaneous documentation, and IETF draft-sharif-agent-audit-trail.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/guide-decision-receipt-crosswalk.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Decision-Receipt Crosswalk: OCG Artifact vs. Art 12 / Reg B / ASC 815 / AAT | AINumbers OpenChainGraph">
+<meta property="og:description" content="Field-by-field alignment map: OpenChainGraph artifact sections (§4 hash, §12 inputs, §17 kernel identity, §20 RFC 3161 timestamp, §13.11/13.12 exports) vs. four decision-record regimes.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/guide-decision-receipt-crosswalk.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal-lt);background:var(--teal-dim);padding:.1em .35em;border-radius:3px}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:1000px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.hero{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px 26px;margin:18px 0}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+h1{font-size:1.7rem;color:var(--white);margin-bottom:10px;font-weight:600;font-family:'DM Serif Display',serif}
+.hero p{max-width:820px;color:var(--body)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.25rem .6rem;border-radius:20px;background:rgba(20,184,166,.1);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.tag.gold{background:rgba(212,168,71,.08);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.3)}
+.tag.green{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.3)}
+h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);margin:30px 0 6px;font-weight:400}
+.sub{color:var(--body);margin-bottom:14px;font-size:.86rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-top:2px solid rgba(20,184,166,.4);border-radius:var(--radius-lg);padding:14px 16px;transition:border-color .15s,transform .15s;display:block}
+.card:hover{border-top-color:var(--teal);transform:translateY(-2px)}
+.card .num{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .name{font-size:.92rem;color:var(--bright);font-weight:600;margin:4px 0 5px}
+.card .d{font-size:.76rem;color:var(--body);line-height:1.5}
+.card .mcp{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal-lt);background:var(--teal-dim);padding:.1rem .4rem;border-radius:3px;display:inline-block;margin-top:8px}
+.card .status{font-family:'JetBrains Mono',monospace;font-size:.54rem;padding:.12rem .45rem;border-radius:20px;display:inline-block;margin-top:8px}
+.status.inforce{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.status.prepare{background:rgba(212,168,71,.08);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.card.chain{border-top-color:rgba(212,168,71,.4)}
+.card.chain:hover{border-top-color:var(--gold)}
+.steps{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:8px;line-height:1.5}
+.inforce-box{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.06);color:var(--green);border:1px solid rgba(34,197,94,.2);padding:.5rem .75rem;border-radius:4px;margin-top:12px;line-height:1.6}
+.ahead-box{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(212,168,71,.06);color:var(--gold);border:1px solid rgba(212,168,71,.2);padding:.45rem .75rem;border-radius:4px;margin-top:8px;line-height:1.6}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25);padding:.4rem .75rem;border-radius:4px;margin-top:10px;display:inline-block}
+.distinct-box{background:rgba(20,184,166,.05);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;font-size:.78rem;color:var(--body);margin-top:12px}
+.distinct-box b{color:var(--teal-lt)}
+.topology{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);line-height:1.8;margin:14px 0}
+.topology .h{color:var(--teal-lt)}
+.foot{margin-top:36px;border-top:1px solid var(--border);padding-top:16px;font-size:.78rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.ref-row{margin-bottom:8px}
+.ref-row b{color:var(--bright)}
+/* Crosswalk table styles */
+.tbl-wrap{overflow-x:auto;margin:14px 0 24px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border2)}
+thead th{text-align:left;padding:9px 12px;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.05em;font-weight:500;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:rgba(20,184,166,.03)}
+td{padding:8px 12px;vertical-align:top;line-height:1.5}
+td:first-child{color:var(--bright);font-size:.78rem;white-space:nowrap}
+td:nth-child(2){color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+td:nth-child(3){color:var(--body);font-size:.75rem}
+td:nth-child(4){color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.65rem;white-space:nowrap}
+.td-note{color:var(--muted);font-size:.68rem;font-style:italic}
+.td-partial{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.regime-hdr{background:linear-gradient(90deg,rgba(20,184,166,.08),transparent);border-left:3px solid var(--teal);padding:10px 14px;margin:24px 0 10px;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt)}
+.regime-law{font-size:.72rem;color:var(--body);margin-top:3px;font-family:'Sora',sans-serif;font-style:normal;text-transform:none;letter-spacing:0}
+.caveat-box{background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:12px 16px;margin:20px 0;font-size:.78rem;color:var(--body)}
+.caveat-box b{color:var(--red)}
+.caveat-box h3{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.spec-ladder{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);line-height:2;margin:14px 0}
+.spec-ladder .h{color:var(--teal-lt)}
+.spec-ladder .g{color:var(--green)}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><b>AI</b>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Decision-Receipt Crosswalk · OpenChainGraph v0.4</div>
+    <h1>OCG Artifact as Decision Receipt: Alignment with Art 12, Reg B, ASC 815, and AAT</h1>
+    <p>For compliance officers, auditors, and engineers evaluating verifiable decision records. An OpenChainGraph artifact is a self-verifying decision receipt: its field set maps directly onto what four distinct decision-record regimes require. This page shows that alignment field by field, using the exact section names from the <a href="openchain-graph-spec.html">OCG specification</a>. No custom receipt format is needed; the shipped artifact is already the record.</p>
+    <div class="tags">
+      <span class="tag gold">EU AI Act Art 12(2) · Aug 2026 enforcement</span>
+      <span class="tag">ECOA Reg B §1002.12 · 25-month retention</span>
+      <span class="tag">ASC 815 · Hedge contemporaneous documentation</span>
+      <span class="tag">IETF draft-sharif AAT · alignment target</span>
+      <span class="tag green">Alignment map · not a conformance claim</span>
+    </div>
+    <div class="inforce-box">DEADLINE: EU AI Act Annex III 5(b) (creditworthiness) and 5(c) (life/health insurance pricing) are high-risk. Art 12 logging obligations enforce August 2026 (verify formal-adoption status of the Digital Omnibus, which defers some provisions to December 2027, but Art 12 logging is NOT deferred). Deployer Art 26 duties require maintaining these logs. Action is required now for systems in these categories.</div>
+    <div class="warn-box">ALIGNMENT, NOT CERTIFICATION: No harmonised Art 12 technical standard exists (ISO/IEC DIS 24970 is incomplete; JTC 21 work ongoing). IETF draft-sharif-agent-audit-trail-00 expires September 2026. This is an alignment map, not a conformance claim. OCG anchoring is above current market practice. NOT LEGAL ADVICE: citations are reference pointers; verify with qualified counsel before relying on them.</div>
+    <div class="distinct-box" style="margin-top:16px"><b>The thesis (from STP research §11):</b> OCG §12 <code>policy_parameters</code> + §17 <code>audit_signature.build_identity</code> + §4 <code>execution_hash</code> + §20 <code>anchor_bindings</code> + §13.11/§13.12 exports already equal the field sets of these four regimes 1:1. Where a gap exists, this page says so honestly rather than forcing a fit.</div>
+  </div>
+
+  <!-- OCG field inventory -->
+  <h2>The OCG artifact field inventory</h2>
+  <div class="sub">Every field referenced in the crosswalk tables below, with its SPEC.md section. These are the real field names from the specification, not paraphrases.</div>
+  <div class="spec-ladder">
+<span class="h">§1  Artifact envelope</span>         <span class="g">tool_id · mandate_type · policy_parameters · output_payload · execution_hash · parent_hashes · chain_depth</span>
+<span class="h">§4  Execution hash</span>              SHA-256 over RFC 8785/JCS-canonical {policy_parameters, output_payload} via kernels/_hash.mjs
+<span class="h">§5  mandate_type taxonomy</span>        agent_guardrail_mandate · compliance_mandate · model_governance · risk_assessment · …
+<span class="h">§9  Party identity (did:key)</span>     audit_signature.signatures[].keyid   (did:key · multicodec Ed25519 · z6Mk… form)
+<span class="h">§12 Compute Binding</span>             policy_parameters fold-in; kernel at kernels/&lt;tool_id&gt;.kernel.mjs
+<span class="h">§13.11 VC export</span>                chaingraph_export:vc · W3C VC 2.0 · ocg:hashAnchor re-states execution_hash
+<span class="h">§13.12 SD-JWT export</span>            selective-disclosure · execution_hash always-disclosed
+<span class="h">§16 Proof Binding</span>              audit_signature.proof · type:"DataIntegrityProof" · cryptosuite:"eddsa-jcs-2022"
+<span class="h">§17 Kernel Identity Binding</span>     audit_signature.build_identity.kernel_digest · .buildType · .source_ref
+<span class="h">§18 Compute-Integrity Proof</span>     audit_signature.compute_proof · type:"ZkVmReceipt" · imageId · journal · seal
+<span class="h">§20 Anchor Binding</span>             anchor_bindings[] · type:"rfc3161-tst" · anchored_hash · gen_time · proof (DER) · signer_cert_chain_b64
+  </div>
+
+  <!-- TABLE 1: EU AI Act Art 12(2) -->
+  <div class="regime-hdr">
+    Table 1: EU AI Act Art 12(2) high-risk AI logging
+    <div class="regime-law">Reg. 2024/1689 Art 12(1)-(2) · Annex III 5(b) creditworthiness, 5(c) life/health insurance pricing · Art 26 deployer duties · Enforcement: August 2026 (verify Digital Omnibus status for Annex III high-risk obligations)</div>
+  </div>
+  <div class="sub">Art 12(1) requires high-risk AI systems to automatically record events relevant to the system's purpose throughout its lifetime. Art 12(2) specifies at minimum: input data, output, period of use, model/version identity, reference context for verification, and identification relevant to the decision. Art 26 places retention duties on deployers.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Art 12 requirement</th>
+          <th>OCG artifact field</th>
+          <th>How the field satisfies the requirement</th>
+          <th>§Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Input data (inputs to each individual decision)</td>
+          <td>policy_parameters</td>
+          <td>Folded into the execution_hash preimage (RFC 8785/JCS canonical); any change to inputs produces a different hash, providing tamper-evident input logging.</td>
+          <td>§4, §12</td>
+        </tr>
+        <tr>
+          <td>Output / decision result</td>
+          <td>output_payload</td>
+          <td>The decision output (score, classification, recommendation) is recorded in the artifact envelope and co-hashed with policy_parameters into execution_hash.</td>
+          <td>§1, §4</td>
+        </tr>
+        <tr>
+          <td>Timestamp / period of use</td>
+          <td>anchor_bindings[].gen_time (rfc3161-tst)</td>
+          <td>RFC 3161 genTime from an independent TSA provides a tamper-evident, third-party-verified timestamp proving when the execution_hash existed. Verbatim DER storage means openssl ts -verify remains possible independently, decades later.</td>
+          <td>§20</td>
+        </tr>
+        <tr>
+          <td>Model / algorithm version (the exact logic that ran)</td>
+          <td>audit_signature.build_identity.kernel_digest &amp; .source_ref</td>
+          <td>kernel_digest is a sha256:-prefixed digest of the deployed kernel source bytes. source_ref is a dereferenceable commit URL. Together they pin the exact logic version to a published, verifiable source.</td>
+          <td>§17</td>
+        </tr>
+        <tr>
+          <td>Reference context / verification path</td>
+          <td>execution_hash + policy_parameters</td>
+          <td>§4 deterministic re-execution: a supervisor with the same inputs and the same kernel can recompute the identical execution_hash, providing a verification path without additional infrastructure.</td>
+          <td>§4</td>
+        </tr>
+        <tr>
+          <td>Lifetime retention (supervisor-verifiable records)</td>
+          <td>anchor_bindings[].proof (verbatim DER) + anchor_bindings[].signer_cert_chain_b64</td>
+          <td>The verbatim DER and signer certificate chain are stored in the artifact so offline verification remains possible after the TSA's own systems are decommissioned. Recommended multi-TSA redundancy (§20) strengthens retention.</td>
+          <td>§20</td>
+        </tr>
+        <tr>
+          <td>Compute-integrity proof (optional, exceeds Art 12)</td>
+          <td>audit_signature.compute_proof (ZkVmReceipt)</td>
+          <td>A zkVM receipt cryptographically proves the named kernel produced the recorded output from the recorded inputs, enabling verification without re-execution. Art 12 does not require this; it is above the bar.</td>
+          <td>§18</td>
+        </tr>
+        <tr>
+          <td>Annex IV technical documentation tie (provider duty)</td>
+          <td>audit_signature.build_identity.kernel_digest + .source_ref + §13.11 vc export</td>
+          <td>Annex IV requires providers to document the training/development methodology and the logic. The §17 binding ties each decision record back to a versioned source reference. The §13.11 VC export embeds execution_hash via ocg:hashAnchor, enabling a notified body to link a run log to an Annex IV documentation package.</td>
+          <td>§13.11, §17</td>
+        </tr>
+        <tr>
+          <td>Confidence / override flag</td>
+          <td class="td-partial">(output_payload, user-authored)</td>
+          <td class="td-note">Art 12 may require confidence scores and override flags. These are not OCG-native fields; they must be included as named keys inside output_payload by the implementing tool. OCG does not define their schema.</td>
+          <td>§1</td>
+        </tr>
+        <tr>
+          <td>Natural-person identification field (Annex III 1(a) biometric scope)</td>
+          <td class="td-partial">(policy_parameters, user-authored)</td>
+          <td class="td-note">For biometric-identification high-risk systems (Annex III 1(a)), Art 12(2) requires recording the identification of natural persons involved. OCG is zero-PII by design; this field would need to be a pseudonymised or hashed reference authored into policy_parameters by the deployer. Not an OCG-native field.</td>
+          <td>§12</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TABLE 2: ECOA Reg B -->
+  <div class="regime-hdr">
+    Table 2: ECOA Reg B §1002.12 record retention
+    <div class="regime-law">12 CFR §1002.12 · Equal Credit Opportunity Act · 25-month retention from adverse action / notification · §1002.12(b)(3) computerized/regenerable records accepted</div>
+  </div>
+  <div class="sub">Reg B §1002.12 requires creditors to retain credit applications, adverse action notices, and related material for 25 months (consumer credit). Section §1002.12(b)(3) explicitly blesses computerized records maintained in a format that can be regenerated in a readable form within a reasonable time. The OCG artifact is the regenerable computerized record; RFC 3161 anchoring exceeds the bar by adding independent third-party proof of when the record existed.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Reg B §1002.12 requirement</th>
+          <th>OCG artifact field</th>
+          <th>How the field satisfies the requirement</th>
+          <th>§Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>25-month retention of the credit decision record</td>
+          <td>anchor_bindings[].proof (verbatim DER) + signer_cert_chain_b64 + gen_time</td>
+          <td>The RFC 3161 TST embedded verbatim in the artifact is verifiable decades after the TSA issues it (verbatim DER, pinned signer chain). No external TSA infrastructure is required to verify retention; the DER and chain are self-contained in the artifact.</td>
+          <td>§20</td>
+        </tr>
+        <tr>
+          <td>Computerized / regenerable record (§1002.12(b)(3))</td>
+          <td>execution_hash + policy_parameters</td>
+          <td>§4 deterministic re-execution: the same inputs + the same pinned kernel yield the identical execution_hash. Any party with the artifact can regenerate the readable output, satisfying the regenerability standard explicitly endorsed by §1002.12(b)(3).</td>
+          <td>§4, §12</td>
+        </tr>
+        <tr>
+          <td>Application inputs (the credit application itself)</td>
+          <td>policy_parameters</td>
+          <td>Structural/synthetic credit inputs are folded into the execution_hash preimage. Any modification is detectable; the record of what was submitted is cryptographically bound to the decision output.</td>
+          <td>§12</td>
+        </tr>
+        <tr>
+          <td>Decision output (approval, denial, counterproposal)</td>
+          <td>output_payload</td>
+          <td>Recorded in the artifact envelope and co-hashed. The output is inseparable from the input record without invalidating the execution_hash.</td>
+          <td>§1, §4</td>
+        </tr>
+        <tr>
+          <td>Adverse action notice linkage (FCRA §615(a) cross-reference)</td>
+          <td>§13.11 vc export (ocg:hashAnchor) or §13.12 SD-JWT export (execution_hash always-disclosed)</td>
+          <td>An adverse action notice that references the execution_hash ties the notice to the retained record. The VC export's ocg:hashAnchor and the SD-JWT's always-disclosed execution_hash both provide a verifier-resolvable link back to the canonical artifact.</td>
+          <td>§13.11, §13.12</td>
+        </tr>
+        <tr>
+          <td>Record integrity / tamper-evidence</td>
+          <td>execution_hash</td>
+          <td>SHA-256 over RFC 8785/JCS-canonical inputs and output. Any field alteration, including whitespace changes, produces a different hash, detectable by any party who recomputes.</td>
+          <td>§4</td>
+        </tr>
+        <tr>
+          <td>Supervisor / examiner access path</td>
+          <td>execution_hash + anchor_bindings</td>
+          <td>A regulator with the artifact can recompute the execution_hash against policy_parameters and output_payload offline, then verify the RFC 3161 TST binding to confirm the record's existence at a point in time. No proprietary toolchain required.</td>
+          <td>§4, §20</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TABLE 3: ASC 815 -->
+  <div class="regime-hdr">
+    Table 3: ASC 815 hedge contemporaneous documentation
+    <div class="regime-law">FASB ASC 815-20-55 · Designation-date documentation requirement · Anti-backdating · Hedge effectiveness assessment method</div>
+  </div>
+  <div class="sub">ASC 815 requires formal documentation of a hedging relationship to exist at or before the date the entity first applies hedge accounting (at designation). This documentation must identify the hedging instrument, the hedged item, the nature of the risk being hedged, and how effectiveness will be assessed. The anti-backdating requirement is the critical control: the documentation must provably exist at designation. RFC 3161 anchoring is the strongest available fit: an independent TSA clock proving the artifact existed at a specific time is the precise answer to the anti-backdating requirement. This is noted in FASB's own rationale for the contemporaneous requirement.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ASC 815 requirement</th>
+          <th>OCG artifact field</th>
+          <th>How the field satisfies the requirement</th>
+          <th>§Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Designation-date documentation (must exist at inception; anti-backdating)</td>
+          <td>anchor_bindings[].gen_time + anchor_bindings[].proof (rfc3161-tst)</td>
+          <td>The RFC 3161 TST, issued by an independent TSA, proves the execution_hash existed no later than gen_time. This is the exact evidence pattern the anti-backdating requirement demands: a timestamp from a clock the documenting party does not control.</td>
+          <td>§20</td>
+        </tr>
+        <tr>
+          <td>Effectiveness assessment method (how effectiveness will be assessed)</td>
+          <td>audit_signature.build_identity.kernel_digest + .buildType + .source_ref</td>
+          <td>§17 identifies the exact kernel version used to compute effectiveness. The kernel_digest is a sha256:-prefixed digest of the source; source_ref is a dereferenceable commit pointer. Together they pin the methodology to a verifiable artifact, not a prose description.</td>
+          <td>§17</td>
+        </tr>
+        <tr>
+          <td>Hedging relationship description (hedged item, hedging instrument)</td>
+          <td>policy_parameters</td>
+          <td>Structural inputs describing the hedged item and instrument (notional, tenor, rate reference, etc.) are folded into the execution_hash preimage. They are co-hashed with the output and cannot be altered after anchoring without invalidating the TST binding.</td>
+          <td>§12</td>
+        </tr>
+        <tr>
+          <td>Effectiveness test outcome / result</td>
+          <td>output_payload</td>
+          <td>The result of the effectiveness assessment (e.g., dollar-offset ratio, regression result) is recorded in output_payload and co-hashed into execution_hash. The output cannot be separated from the methodology identity or the timestamp without breaking the chain.</td>
+          <td>§1, §4</td>
+        </tr>
+        <tr>
+          <td>Cryptographic proof that the documented method ran (optional, exceeds ASC 815)</td>
+          <td>audit_signature.compute_proof (ZkVmReceipt)</td>
+          <td>A §18 receipt proves the named kernel (identified in §17) actually produced the recorded output from the recorded inputs. ASC 815 does not require this; it is above the contemporaneous-documentation bar.</td>
+          <td>§18</td>
+        </tr>
+        <tr>
+          <td>Narrative description of risk management objective and strategy</td>
+          <td class="td-partial">(not an OCG field)</td>
+          <td class="td-note">ASC 815 requires a prose description of the entity's risk management objective and strategy. This is a free-text obligation; OCG does not define a narrative field. The artifact anchors WHEN the kernel-based effectiveness test was set up, but the strategy narrative remains a separate document. Implementations should reference the execution_hash from that document to tie them together.</td>
+          <td>&mdash;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TABLE 4: IETF AAT -->
+  <div class="regime-hdr">
+    Table 4: IETF draft-sharif-agent-audit-trail (AAT)
+    <div class="regime-law">draft-sharif-agent-audit-trail-00 · Expires September 2026 · SHA-256 chaining per RFC 8785 JCS · Agent identity · Action class · Outcome · Trust level · Optional ECDSA</div>
+  </div>
+  <div class="sub">The AAT draft defines a JSON record structure for agentic AI audit trails: agent identity, action class, outcome, trust level, SHA-256 chaining using RFC 8785 JCS canonicalization, and an optional ECDSA signature. OCG was independently designed around the same standards (RFC 8785/JCS, SHA-256, Ed25519) and its field set maps directly onto AAT's schema. Note: AAT specifies optional ECDSA; OCG §16 uses Ed25519 via eddsa-jcs-2022. Both are asymmetric signature schemes providing equivalent security properties; Ed25519 is the W3C Data Integrity recommended curve.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>AAT field</th>
+          <th>OCG artifact field</th>
+          <th>How the field satisfies the requirement</th>
+          <th>§Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Agent identity (agentId)</td>
+          <td>audit_signature.signatures[].keyid</td>
+          <td>A did:key identifier (multicodec Ed25519, z6Mk... form) published in the in-toto/DSSE signatures array. Self-describing and resolvable without a key registry per §9 party-identity spec.</td>
+          <td>§9</td>
+        </tr>
+        <tr>
+          <td>Action class / task type</td>
+          <td>mandate_type</td>
+          <td>The §5 mandate_type taxonomy (agent_guardrail_mandate, compliance_mandate, model_governance, risk_assessment, etc.) maps directly to AAT's action_class categorization of what the agent did.</td>
+          <td>§5</td>
+        </tr>
+        <tr>
+          <td>Outcome</td>
+          <td>output_payload</td>
+          <td>The decision output of the agent action, co-hashed with inputs in execution_hash. The outcome is immutable once anchored.</td>
+          <td>§1, §4</td>
+        </tr>
+        <tr>
+          <td>Trust level / assurance grade</td>
+          <td>audit_signature.proof (DataIntegrityProof) + audit_signature.compute_proof (ZkVmReceipt)</td>
+          <td>§16 DataIntegrityProof signals authenticated attestation (a named key vouches). §18 ZkVmReceipt signals compute-integrity (the exact kernel provably ran). Together they constitute a graded trust signal matching AAT's trust_level concept: L1 (hash only) &lt; L2 (signed) &lt; L3 (zkVM proved).</td>
+          <td>§16, §18</td>
+        </tr>
+        <tr>
+          <td>SHA-256 chaining per RFC 8785 JCS</td>
+          <td>execution_hash (via kernels/_hash.mjs)</td>
+          <td>OCG §4 specifies exactly this: WebCrypto SHA-256 over the RFC 8785/JCS-canonical JSON of {policy_parameters, output_payload}, computed by the shared kernels/_hash.mjs canonicalizer used identically in the browser tool, the MCP Worker, and CI. The chaining mechanism is byte-identical to AAT's requirement.</td>
+          <td>§4</td>
+        </tr>
+        <tr>
+          <td>Chain links (prior record reference)</td>
+          <td>parent_hashes[]</td>
+          <td>The §1 artifact envelope supports parent_hashes[] carrying execution_hashes of prior artifacts in the chain, and chain_depth tracking depth. This maps directly to AAT's record-chaining requirement.</td>
+          <td>§1</td>
+        </tr>
+        <tr>
+          <td>Optional signing (ECDSA)</td>
+          <td>audit_signature.proof (eddsa-jcs-2022)</td>
+          <td>§16 DataIntegrityProof uses Ed25519 via the W3C eddsa-jcs-2022 cryptosuite over the RFC 8785/JCS-canonical artifact. Ed25519 and ECDSA-P256 are equivalent security-level asymmetric signature schemes; AAT's requirement is "optional signing," which §16 satisfies.</td>
+          <td>§16</td>
+        </tr>
+        <tr>
+          <td>Record timestamp</td>
+          <td>anchor_bindings[].gen_time (rfc3161-tst)</td>
+          <td>Optional in AAT; the §20 RFC 3161 binding exceeds the AAT timestamp requirement by providing a third-party-independent timestamp rather than a local clock. This is ABOVE what AAT requires, not a gap.</td>
+          <td>§20</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Caveats (prominent) -->
+  <h2>Caveats and limitations</h2>
+  <div class="caveat-box">
+    <h3>Alignment, not certification</h3>
+    No harmonised technical standard exists for EU AI Act Art 12 logging at the time of this writing (ISO/IEC DIS 24970 is an incomplete draft; JTC 21 work is ongoing). IETF draft-sharif-agent-audit-trail-00 is an individual submission expiring September 2026. ECOA Reg B §1002.12 and ASC 815 each have their own interpretive history. This page is an alignment map, not a conformance certificate or legal opinion. Do not represent an OCG artifact as "certified," "compliant with," or "conformant with" any of these regimes based on this mapping alone. Regulatory and audit acceptance depends on the specific deployment, the jurisdiction, and the evolving interpretive guidance of each regime.
+    <br><br>
+    <b>OCG anchoring is above current market practice</b> for decision logging. The market has not yet converged on a standard for cryptographic decision-receipt formats in any of the four regimes above. This mapping shows that the OCG artifact field set satisfies the substantive requirements, not that any regulator has formally blessed the format.
+  </div>
+  <div class="caveat-box" style="margin-top:0">
+    <h3>Not legal advice</h3>
+    Regulatory citations on this page are reference pointers to the relevant legal instruments. They are not legal advice. Verify all Article, Section, and Annex references against the consolidated legal texts and current interpretive guidance before relying on them for compliance decisions. Engage qualified legal counsel for your specific situation.
+  </div>
+
+  <!-- Related tools and nodes -->
+  <h2>Related tools and MCP nodes</h2>
+  <div class="sub">These tools implement the decision-log and audit-trail constructs that produce OCG artifacts aligned with the crosswalk above. AI governance conformity chains are in the AI Governance hub.</div>
+  <div class="grid">
+    <div class="card" style="display:block;cursor:default">
+      <div class="num">AI Decision Logs &middot; forthcoming on main</div>
+      <div class="name">AI Decision Log Record Builder</div>
+      <div class="d">Art 12-aligned record builder: input digests, output, timestamp, model version, confidence, override flag, and retention metadata. Produces a hash-chained artifact with optional RFC 3161 anchor. Implements the Art 12(2) crosswalk (Table 1) end to end.</div>
+      <span class="mcp">build_ai_decision_log_record</span>
+    </div>
+    <div class="card" style="display:block;cursor:default">
+      <div class="num">AI Decision Logs &middot; forthcoming on main</div>
+      <div class="name">Agent Audit Trail Validator</div>
+      <div class="d">Conformance validator for IETF draft-sharif-agent-audit-trail: JSON records, agent identity, action class, outcome, trust level, RFC 8785 JCS SHA-256 chaining. Implements the AAT crosswalk (Table 4). Zero existing conformance tools in this space.</div>
+      <span class="mcp">validate_agent_audit_trail</span>
+    </div>
+    <div class="card" style="display:block;cursor:default">
+      <div class="num">AI Decision Logs &middot; forthcoming on main</div>
+      <div class="name">Annex III Decisioning Obligations Classifier</div>
+      <div class="d">Extends the AI Act high-risk fit tool with financial-services payload: Annex III 5(b)/(5(c) classification, Art 12 + Art 26 deployer duties, FRIA, EU database registration, and enforcement dates.</div>
+      <span class="mcp">classify_annex3_decisioning_obligations</span>
+    </div>
+    <div class="card" style="display:block;cursor:default">
+      <div class="num">AI Decision Logs &middot; forthcoming on main</div>
+      <div class="name">BIFSG Bias Threshold Tester</div>
+      <div class="d">Colorado Reg 10-1-1 / SB 21-169 quantitative test: p&lt;0.05 AND 5pp approval-rate marginal effect; premium/$1,000 face 5% above average. Inputs are aggregate regression outputs only; execution-hashed test run IS attestation evidence for Dec-1 annual attestation.</div>
+      <span class="mcp">test_bifsg_bias_thresholds</span>
+    </div>
+    <a class="card" href="guide-ai-governance.html">
+      <div class="num">AI Governance hub · cluster 13</div>
+      <div class="name">AI Governance &amp; Conformity Guide Hub</div>
+      <div class="d">Guide hub for AI governance: EU AI Act classification, FRIA, post-market monitoring, GPAI, agentic risk, fairness, and audit-pack chains. Entry point for the full AI governance conformity lifecycle.</div>
+      <span class="status inforce">Guide hub</span>
+    </a>
+    <div class="card" style="display:block;cursor:default">
+      <div class="num">Anchorproof · anchor.ainumbers.co/mcp</div>
+      <div class="name">Anchor Hash + Anchor Batch (live at anchor.ainumbers.co/mcp)</div>
+      <div class="d">anchor_hash: single execution_hash + RFC 3161 TST (Sigstore, DigiCert, Sectigo, FreeTSA). anchor_batch: N leaf hashes to RFC 6962 Merkle root, one TST, per-leaf inclusion proofs. These are the §20 anchor_bindings tools in production. For high-volume decision logging (Art 12, Reg B), anchor_batch is the only viable architecture at scale.</div>
+      <span class="mcp">anchor_hash · anchor_batch</span>
+    </div>
+  </div>
+
+  <!-- Strength of verifiable ladder -->
+  <h2>OCG verifiable-evidence ladder</h2>
+  <div class="sub">These four regimes require different evidence strengths. The OCG artifact supports a composable ladder; implement the level that matches your obligation.</div>
+  <div class="spec-ladder">
+<span class="h">L1 · §4 execution_hash</span>         Tamper-evidence. Any change to inputs or output is detectable. Sufficient for regenerable-record standards (Reg B §1002.12(b)(3)).
+<span class="h">L2 · §16 audit_signature.proof</span>    Authenticated attestation. A named key vouches for the artifact (eddsa-jcs-2022, Ed25519). Satisfies AAT optional-signing + IETF agent-identity fields.
+<span class="h">L3 · §20 anchor_bindings</span>          Third-party timestamp. Independent TSA proves existence by a point in time. Required for: ASC 815 anti-backdating, Reg B 25-month retention, Art 12 timestamp obligation.
+<span class="h">L4 · §18 compute_proof</span>            Compute-integrity proof. zkVM receipt proves the named kernel produced this output from these inputs. Above all four regimes; eliminates re-execution requirement for a verifier.
+  </div>
+
+  <div class="foot">
+    <div class="ref-row"><b>EU AI Act (Reg. 2024/1689):</b> <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj" target="_blank" rel="noopener">eur-lex.europa.eu/eli/reg/2024/1689/oj</a>. Arts 12(1)-(2), 26, Annex III 5(b)/(5(c), Annex IV. Verify against consolidated text and Digital Omnibus formal-adoption status before citing.</div>
+    <div class="ref-row"><b>ECOA Reg B:</b> 12 CFR Part 1002 (CFPB), §1002.12 record retention. <a href="https://www.ecfr.gov/current/title-12/part-1002" target="_blank" rel="noopener">ecfr.gov/current/title-12/part-1002</a>. Verify current text at eCFR.</div>
+    <div class="ref-row"><b>ASC 815:</b> FASB Accounting Standards Codification Topic 815, Derivatives and Hedging, Subtopic 815-20-55 (Implementation Guidance). Verify against current FASB ASC at asc.fasb.org.</div>
+    <div class="ref-row"><b>IETF draft-sharif-agent-audit-trail-00:</b> Individual submission, expires September 2026. Not an IETF standard; check the IETF datatracker for current status and any successor drafts before citing.</div>
+    <div class="ref-row"><b>RFC 3161:</b> <a href="https://www.rfc-editor.org/rfc/rfc3161" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc3161</a> · RFC 8785 (JCS): <a href="https://www.rfc-editor.org/rfc/rfc8785" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc8785</a> · OCG SPEC.md: <a href="openchain-graph-spec.html">openchain-graph-spec.html</a>.</div>
+    <div style="margin-top:14px;font-size:.7rem">OpenChainGraph v0.4 &middot; &copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="chaingraph-hub.html">Suite</a> &middot; <a href="guide-ai-governance.html">AI Governance hub</a> &middot; <a href="education-hub.html">Education hub</a> &middot; <a href="openchain-graph-spec.html">Spec v0.4</a> &middot; Zero PII &middot; CC BY 4.0</div>
+  </div>
+</div>
+</body></html>
