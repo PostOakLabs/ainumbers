@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +7,31 @@ const REPO = resolve(HERE, '..');
 
 const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
 const chains = cg.chains || [];
+
+// Resolve a chain's composer page to a hub-relative path (same derivation used for the
+// CHAIN_INDEX links below). The hub lives in chaingraph/, so resolve against that dir.
+function composerRel(c) {
+  let rel = (c.composer_url || '')
+    .replace('https://ainumbers.co/chaingraph/', '')
+    .replace('https://ainumbers.co/', '../');
+  if (!rel) rel = 'chains/' + c.name + '.html';
+  return rel;
+}
+
+// Composer-existence gate: every chain must have an on-disk composer page. The hub's chain
+// grid links via a JS array (CHAIN_INDEX) that the dead-link gate cannot see, so a chain added
+// to chaingraph.json without authoring its composer HTML ships a dangling hub card (this
+// silently happened for 3 W41 chains — a whole prove session had to investigate + author them).
+// gen-chain-index runs in preflight (--check) and on every regenerate, so assert it in both modes.
+const missingComposers = chains
+  .map((c) => ({ name: c.name, rel: composerRel(c) }))
+  .filter((x) => !existsSync(resolve(REPO, 'chaingraph', x.rel)));
+if (missingComposers.length) {
+  console.error(`gen-chain-index: ${missingComposers.length} chain(s) reference a composer page that does not exist on disk (would ship a dangling hub card):`);
+  missingComposers.forEach((x) => console.error(`  MISSING: ${x.name} -> ${x.rel}`));
+  console.error('Author the composer HTML page(s) before regenerating the hub.');
+  process.exit(1);
+}
 
 const entries = chains.map(c => {
   let domain = 'Other';
