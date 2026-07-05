@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FinCEN CDD 25% Beneficial Ownership Attribution &middot; ART-268 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes indirect beneficial ownership under FinCEN CDD Rule 31 CFR 1010.230 (bank KYB customer due diligence). 25% threshold. NOT CTA/BOI. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-268-compute-cdd-ownership-25pct.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.regime-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.6;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:90px}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:160px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.person-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px;margin:5px 0;font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.person-bo{border-left:3px solid var(--red)}.person-below{border-left:3px solid var(--green)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-268 · FinCEN CDD 25% Beneficial Ownership</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-sanctions-screening.html" class="nav-pill">Sanctions &amp; KYC Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-268 &middot; Sanctions &amp; KYC</div>
+  <h1>FinCEN CDD 25% Beneficial Ownership Attribution</h1>
+  <p class="sub">Computes indirect natural-person beneficial ownership via recursive ownership-tier multiplication under FinCEN CDD Rule 31 CFR 1010.230. Bank KYB customer due diligence: 25% legal-entity beneficial ownership threshold. ZERO PII: synthetic entity identifiers only. Never real SSN, TIN, or personal identifying data.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Sanctions &amp; KYC</span>
+    <span class="flag info">FinCEN CDD Rule</span>
+    <span class="flag">31 CFR 1010.230</span>
+    <span class="flag">Bank KYB</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="regime-note">&#9888; REGIME SCOPE: FinCEN CDD Rule 31 CFR 1010.230 &mdash; bank KYB customer due diligence beneficial-ownership certification. 25% threshold for legal-entity customers. This is NOT the Corporate Transparency Act (CTA) / Beneficial Ownership Information (BOI) reporting (31 USC 5336). Domestic CTA reporting was removed by FinCEN Interim Final Rule (IFR) effective 21 Mar 2025 for US companies. For OFAC 50% Rule (sanctions aggregation), see ART-91 aggregate_ownership_50pct.</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Use synthetic entity identifiers only. NEVER enter real SSN, TIN, EIN, personal names, or addresses. This tool accepts structural ownership percentages and synthetic IDs only.</div>
+
+  <div class="card">
+    <div class="section-head">Ownership Tiers (entity-to-entity)</div>
+    <div class="q">
+      <label class="q-label" for="ownershipTiers">Ownership Tiers JSON Array</label>
+      <div class="q-help">Each tier: <code>{"entity_id":"...","parent_id":"...","ownership_pct":N}</code>. Use synthetic IDs. parent_id null = root. ownership_pct = direct ownership % this entity holds in parent.</div>
+      <textarea id="ownershipTiers">[
+  {"entity_id":"HoldCo_A","parent_id":null,"ownership_pct":100},
+  {"entity_id":"EntityABC","parent_id":"HoldCo_A","ownership_pct":50},
+  {"entity_id":"NP_ALPHA","parent_id":"HoldCo_A","ownership_pct":25}
+]</textarea>
+    </div>
+    <div class="section-head">Natural Persons</div>
+    <div class="q">
+      <label class="q-label" for="naturalPersons">Natural Person IDs (JSON array of strings)</label>
+      <div class="q-help">Synthetic IDs only. These are flagged as natural persons for beneficial-owner determination.</div>
+      <textarea id="naturalPersons">["NP_ALPHA"]</textarea>
+    </div>
+    <div class="section-head">Target Entity</div>
+    <div class="q">
+      <label class="q-label" for="targetEntityId">Target Entity ID</label>
+      <div class="q-help">The legal-entity customer whose beneficial owners are being identified.</div>
+      <input type="text" id="targetEntityId" value="HoldCo_A">
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Compute Beneficial Ownership</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" style="font-size:1.1rem;font-family:'JetBrains Mono',monospace;padding:10px 0 6px;font-weight:600"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Natural Person Ownership Attribution</div>
+      <div id="personsDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div><span style="color:var(--teal)">AI</span>Numbers<span>.co</span></div>
+      <div class="footer-cc">CC BY 4.0 &mdash; Post Oak Labs</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">OpenChainGraph Suite</div>
+        <a href="chaingraph-hub.html">Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Sanctions &amp; KYC</div>
+        <a href="guide-sanctions-screening.html">Sanctions &amp; KYC Guide</a>
+        <a href="art-91-ownership-50pct-aggregator.html">OFAC 50% Rule (ART-91)</a>
+        <a href="art-269-validate-w8-series-structural.html">W-8 Series Validation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Workflows</div>
+        <a href="chains/kyb-beneficial-ownership-attribution.html">KYB Ownership Attribution</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-268-compute-cdd-ownership-25pct",
+  "tool_version": "1.0.0",
+  "mcp_name": "compute_cdd_ownership_25pct",
+  "mandate_type": "compliance_mandate",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "ownership_tiers": {"type": "array", "description": "Ownership tiers [{entity_id, parent_id, ownership_pct}]."},
+      "natural_persons": {"type": "array", "description": "List of natural-person entity IDs (synthetic only)."},
+      "target_entity_id": {"type": "string", "description": "Target legal-entity customer ID."}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-268-compute-cdd-ownership-25pct';
+const TOOL_VERSION = '1.0.0';
+const THRESHOLD    = 25;
+let _lastArtifact  = null;
+
+function compute(p) {
+  p = p || {};
+  const tiers = Array.isArray(p.ownership_tiers) ? p.ownership_tiers : [];
+  const natural_persons = Array.isArray(p.natural_persons) ? p.natural_persons : [];
+  const target_entity_id = p.target_entity_id || '';
+
+  // Build adjacency: children[parent_id] = [{entity_id, ownership_pct}]
+  var children = {};
+  for (var i = 0; i < tiers.length; i++) {
+    var t = tiers[i];
+    var pid = t.parent_id || '__ROOT__';
+    if (!children[pid]) children[pid] = [];
+    children[pid].push({entity_id: t.entity_id, ownership_pct: t.ownership_pct});
+  }
+
+  // Recursive function: compute indirect ownership of np through entity e
+  // at top level e = target_entity_id, accumulator = 100%
+  function indirectOwnership(np, entityId, accumulated) {
+    if (np === entityId) return accumulated;
+    var ch = children[entityId] || [];
+    var total = 0;
+    for (var j = 0; j < ch.length; j++) {
+      var child = ch[j];
+      var childShare = (child.ownership_pct / 100) * accumulated;
+      total += indirectOwnership(np, child.entity_id, childShare);
+    }
+    return total;
+  }
+
+  var naturalPersonAttributions = [];
+  var beneficial_owners = [];
+  var np_set = {};
+  for (var k = 0; k < natural_persons.length; k++) np_set[natural_persons[k]] = true;
+
+  // Find all entities that are natural persons and compute their indirect ownership
+  var allEntityIds = {};
+  for (var m = 0; m < tiers.length; m++) allEntityIds[tiers[m].entity_id] = true;
+
+  for (var npId in np_set) {
+    var pct = indirectOwnership(npId, target_entity_id, 100);
+    pct = Math.round(pct * 1e6) / 1e6;
+    var is_bo = pct >= THRESHOLD;
+    naturalPersonAttributions.push({natural_person_id: npId, indirect_ownership_pct: pct, is_beneficial_owner: is_bo, threshold_pct: THRESHOLD});
+    if (is_bo) beneficial_owners.push(npId);
+  }
+
+  var is_beneficial_owner = beneficial_owners.length > 0;
+
+  return {
+    target_entity_id: target_entity_id,
+    threshold_pct: THRESHOLD,
+    is_beneficial_owner: is_beneficial_owner,
+    beneficial_owner_count: beneficial_owners.length,
+    beneficial_owners: beneficial_owners,
+    natural_person_attributions: naturalPersonAttributions,
+    regime_note: 'FinCEN CDD Rule 31 CFR 1010.230: bank KYB customer due diligence. 25% threshold for legal-entity beneficial ownership certification. NOT the CTA/BOI (31 USC 5336) domestic reporting rule (removed by FinCEN IFR effective 2025-03-21 for US companies). For OFAC 50% Rule sanctions aggregation, see ART-91 aggregate_ownership_50pct.',
+    table_version: 'FINCEN-CDD-RULE-31CFR1010.230-2024',
+    table_source: 'FinCEN Customer Due Diligence (CDD) Rule, 31 CFR 1010.230, effective 2018-05-11; FinCEN FAQ on CDD Rule (2016); FinCEN IFR (Interim Final Rule) effective 2025-03-21 removing domestic CTA reporting requirement. Recursive indirect multiplication per FinCEN guidance on ownership attribution through tiered structures.',
+    regulatory_basis: 'FinCEN CDD Rule 31 CFR 1010.230(d): covered financial institutions must identify and verify each natural person who owns 25% or more of an equity interest in a legal entity customer. Indirect ownership = product of direct ownership percentages along each ownership path.',
+    pii_note: 'ZERO PII: synthetic entity IDs and ownership percentages only. No SSN, TIN, EIN, name, address, date of birth, or real beneficial-owner data enters this kernel. Production CDD programs require independent identity verification per 31 CFR 1010.230(b).',
+    not_legal_advice: 'Not legal advice. CDD beneficial-ownership determination requires review by qualified BSA/AML counsel. Coverage rules, thresholds, and entity-type exemptions change; verify with your compliance officer and current FinCEN guidance before any bank KYB filing.'
+  };
+}
+
+function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object'&&v!==null)?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
+async function executionHash(pp,op){var canon=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canon));return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+
+async function runCompute() {
+  var tiersRaw, npRaw;
+  try { tiersRaw = JSON.parse(document.getElementById('ownershipTiers').value); } catch(e){alert('Ownership Tiers JSON invalid: '+e.message);return;}
+  try { npRaw = JSON.parse(document.getElementById('naturalPersons').value); } catch(e){alert('Natural Persons JSON invalid: '+e.message);return;}
+  var pp = {ownership_tiers: tiersRaw, natural_persons: npRaw, target_entity_id: document.getElementById('targetEntityId').value.trim()};
+  var op = compute(pp);
+  var hash = await executionHash(pp, op);
+  var art = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:null,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags:[],compute_mode:'client',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact = art;
+  var vb = document.getElementById('verdictBox');
+  if (op.is_beneficial_owner) {
+    vb.textContent = 'BENEFICIAL OWNER(S) IDENTIFIED: '+op.beneficial_owner_count+' natural person(s) at or above '+THRESHOLD+'% threshold';
+    vb.style.color = 'var(--red)';
+  } else {
+    vb.textContent = 'NO BENEFICIAL OWNER at or above '+THRESHOLD+'% threshold';
+    vb.style.color = 'var(--green)';
+  }
+  document.getElementById('statRow').innerHTML = [stat('Is Beneficial Owner',op.is_beneficial_owner?'YES':'NO'),stat('BO Count',op.beneficial_owner_count),stat('Threshold',THRESHOLD+'%'),stat('NPs Analyzed',op.natural_person_attributions.length)].join('');
+  document.getElementById('personsDiv').innerHTML = op.natural_person_attributions.map(function(a){
+    var cls = a.is_beneficial_owner ? 'person-card person-bo' : 'person-card person-below';
+    return '<div class="'+cls+'"><strong style="color:var(--bright)">'+a.natural_person_id+'</strong> | Indirect: <strong>'+a.indirect_ownership_pct.toFixed(4)+'%</strong> | '+(a.is_beneficial_owner?'<span style="color:var(--red)">BENEFICIAL OWNER (&ge;25%)</span>':'<span style="color:var(--green)">Below threshold</span>')+'</div>';
+  }).join('');
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('resultsPanel').className = 'results-panel show';
+}
+
+function stat(k,v){return '<div class="stat"><span class="stat-val">'+v+'</span><span class="stat-key">'+k+'</span></div>';}
+async function verifyHash(){if(!_lastArtifact)return;var h2=await executionHash(_lastArtifact.policy_parameters,_lastArtifact.output_payload);var el=document.getElementById('verifyResult');if(h2===_lastArtifact.execution_hash){el.textContent='&#10003; Hash verified';el.style.color='var(--green)';}else{el.textContent='&#10007; Mismatch';el.style.color='var(--red)';}}
+function exportArtifact(){if(!_lastArtifact)return;var blob=new Blob([JSON.stringify(_lastArtifact,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=TOOL_ID+'-artifact.json';a.click();}
+function toggleMfst(){var b=document.getElementById('mfstBody');b.style.display=b.style.display==='none'?'block':'none';if(b.style.display==='block'){var m=document.getElementById('manifest');document.getElementById('mfstPre').textContent=m?m.textContent:'{}';}}
+</script>
+</body>
+</html>

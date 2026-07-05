@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Producer License Reciprocity Checker &middot; ART-267 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Checks NAIC producer license reciprocity for non-resident filing: identifies non-standard states requiring independent filing. LOA enum checks only. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-267-check-producer-license-reciprocity.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:160px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.state-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px;margin:5px 0;font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.state-ok{border-left:3px solid var(--green)}.state-warn{border-left:3px solid var(--warn)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-267 · Producer License Reciprocity</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-revenue-operations.html" class="nav-pill">Revenue Operations Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-267 &middot; Revenue Operations</div>
+  <h1>Producer License Reciprocity Checker</h1>
+  <p class="sub">Checks NAIC producer license reciprocity for non-resident filing across target states. Identifies non-standard states requiring independent filing or state exams: CA, FL, NJ, NY, HI, MN, WI. Per NAIC Producer Licensing Model Act (MDL-218) and NIPR Reciprocity Matrix 2024. Accepts state codes and standard NAIC LOA codes only. ZERO PII: never real NPN, SSN, or PDB data.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Revenue Operations</span>
+    <span class="flag info">NAIC MDL-218</span>
+    <span class="flag">Producer Licensing</span>
+    <span class="flag">Reciprocity</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. State codes and LOA enum codes only. Never real NPN, SSN, or PDB data.</div>
+
+  <div class="card">
+    <div class="section-head">Licensing Parameters</div>
+    <div class="q">
+      <label class="q-label" for="residentState">Resident State (2-letter code)</label>
+      <div class="q-help">Producer's home state of residence. E.g. OR, TX, WA.</div>
+      <input type="text" id="residentState" value="OR" maxlength="2" style="width:80px">
+    </div>
+    <div class="q">
+      <label class="q-label" for="loaCodes">LOA Codes (comma-separated)</label>
+      <div class="q-help">Standard NAIC Lines of Authority codes. E.g. L,H,A for Life, Health, Accident. Valid codes: L H A LTC VI CV P C HO CA LA MV WC SP PH FM OR SB MR PL LH PC VL.</div>
+      <input type="text" id="loaCodes" value="L,H,A">
+    </div>
+    <div class="q">
+      <label class="q-label" for="targetStates">Target States (comma-separated)</label>
+      <div class="q-help">States where non-resident license is sought. E.g. TX,IL,CO,NY.</div>
+      <input type="text" id="targetStates" value="TX,IL,CO,NY">
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Check Reciprocity</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" style="font-size:1.1rem;font-family:'JetBrains Mono',monospace;padding:10px 0 6px;font-weight:600"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Coverage by Target State</div>
+      <div id="statesDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div><span style="color:var(--teal)">AI</span>Numbers<span>.co</span></div>
+      <div class="footer-cc">CC BY 4.0 &mdash; Post Oak Labs</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">OpenChainGraph Suite</div>
+        <a href="chaingraph-hub.html">Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Revenue Operations</div>
+        <a href="guide-revenue-operations.html">Revenue Operations Guide</a>
+        <a href="art-264-validate-commission-hierarchy.html">Commission Hierarchy</a>
+        <a href="art-266-reconcile-commission-statement.html">Statement Reconciliation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Workflows</div>
+        <a href="chains/commission-integrity-and-amortization.html">Commission Integrity</a>
+        <a href="chains/producer-license-reciprocity.html">License Reciprocity</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-267-check-producer-license-reciprocity",
+  "tool_version": "1.0.0",
+  "mcp_name": "check_producer_license_reciprocity",
+  "mandate_type": "compliance_mandate",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "resident_state": {"type": "string", "description": "Producer's home state (2-letter code)."},
+      "loa_codes": {"type": "array", "description": "Standard NAIC LOA codes (e.g. L, H, A)."},
+      "target_states": {"type": "array", "description": "States where non-resident license is sought."}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-267-check-producer-license-reciprocity';
+const TOOL_VERSION = '1.0.0';
+let _lastArtifact  = null;
+
+const NON_STANDARD = {CA:1,FL:1,NJ:1,NY:1,HI:1,MN:1,WI:1};
+const VALID_LOA = {L:1,H:1,A:1,LTC:1,VI:1,CV:1,P:1,C:1,HO:1,CA:1,LA:1,MV:1,WC:1,SP:1,PH:1,FM:1,OR:1,SB:1,MR:1,PL:1,LH:1,PC:1,VL:1};
+
+function compute(p) {
+  p = p || {};
+  const resident_state = (p.resident_state || '').toUpperCase();
+  const loa_codes = Array.isArray(p.loa_codes) ? p.loa_codes : [];
+  const target_states = Array.isArray(p.target_states) ? p.target_states : [];
+
+  const resident_non_standard = !!NON_STANDARD[resident_state];
+  const invalid_loa_codes = loa_codes.filter(function(c){return !VALID_LOA[c.toUpperCase()];});
+  const coverage_by_target = [];
+  let all_reciprocal = true;
+
+  for (let i = 0; i < target_states.length; i++) {
+    const tsUpper = target_states[i].toUpperCase();
+    const is_non_standard = !!NON_STANDARD[tsUpper];
+    const reciprocal = !is_non_standard && !resident_non_standard;
+    const loa_gaps = is_non_standard ? loa_codes.map(function(c){return {loa:c, note:tsUpper+' requires independent filing or exam; verify with NIPR'};}) : [];
+    const flags = [];
+    if (is_non_standard) flags.push(tsUpper+'_NON_STANDARD_STATE');
+    if (resident_non_standard) flags.push('RESIDENT_'+resident_state+'_NON_STANDARD');
+    if (!reciprocal) all_reciprocal = false;
+    coverage_by_target.push({target_state:tsUpper, is_non_standard:is_non_standard, reciprocal:reciprocal, loa_gaps:loa_gaps, flags:flags, note:reciprocal?'Standard NAIC reciprocity applies; non-resident license available without exam':'Manual filing required; verify current NAIC reciprocity matrix with NIPR before filing'});
+  }
+
+  const non_standard_states = target_states.map(function(t){return t.toUpperCase();}).filter(function(t){return !!NON_STANDARD[t];});
+
+  return {
+    resident_state: resident_state, loa_codes: loa_codes, invalid_loa_codes: invalid_loa_codes,
+    target_state_count: target_states.length, non_standard_states: non_standard_states,
+    all_reciprocal: all_reciprocal, coverage_by_target: coverage_by_target,
+    table_version: 'NAIC-PRODUCER-RECIPROCITY-MATRIX-2024',
+    table_source: 'NAIC State-Based Systems Producer Licensing Reciprocity Matrix 2024; NIPR Reciprocity Data 2024. Non-standard states: CA (no non-resident reciprocity), FL (background check required), NJ (limited life LOA), NY (independent license required), HI (limited), MN (state exam required), WI (limited P&C). Verify current matrix with NIPR before any license filing.',
+    regulatory_basis: 'NAIC Producer Licensing Model Act (MDL-218): reciprocal licensing for non-resident producers if resident state has substantially similar licensing requirements. 50 USC producer licensing: state-specific. NIPR Gateway = authoritative current data. ZERO PII: state/LOA enum inputs only. Never real NPN, SSN, or PDB data.',
+    pii_note: 'ZERO PII: state codes and LOA enum codes only. No NPN, SSN, PDB, producer name, or personal data enters this kernel. Use NIPR for live NPN verification.',
+    not_legal_advice: 'Not legal advice. Producer licensing requirements change; verify all reciprocity determinations with NIPR and state insurance departments before submitting non-resident license applications.'
+  };
+}
+
+function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object'&&v!==null)?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
+async function executionHash(pp,op){const canon=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canon));return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+
+async function runCompute() {
+  const loaRaw = document.getElementById('loaCodes').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  const tsRaw = document.getElementById('targetStates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  const pp = {resident_state: document.getElementById('residentState').value.trim(), loa_codes: loaRaw, target_states: tsRaw};
+  const op = compute(pp);
+  const hash = await executionHash(pp, op);
+  const art = {' @context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:null,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags:[],compute_mode:'client',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact = art;
+  const vb = document.getElementById('verdictBox');
+  vb.textContent = op.all_reciprocal ? 'ALL RECIPROCAL: Standard NAIC reciprocity applies to all target states' : 'MANUAL FILING REQUIRED: '+op.non_standard_states.length+' non-standard state(s): '+op.non_standard_states.join(', ');
+  vb.style.color = op.all_reciprocal ? 'var(--green)' : 'var(--warn)';
+  document.getElementById('statRow').innerHTML = [stat('All Reciprocal',op.all_reciprocal?'YES':'NO'),stat('Target States',op.target_state_count),stat('Non-Standard',op.non_standard_states.length),stat('Invalid LOAs',op.invalid_loa_codes.length)].join('');
+  document.getElementById('statesDiv').innerHTML = op.coverage_by_target.map(function(s){
+    const cls = s.reciprocal ? 'state-card state-ok' : 'state-card state-warn';
+    return '<div class="'+cls+'"><strong style="color:var(--bright)">'+s.target_state+'</strong> | '+(s.reciprocal?'<span style="color:var(--green)">RECIPROCAL</span>':'<span style="color:var(--warn)">MANUAL FILING</span>')+' | '+s.note+(s.flags.length?' | Flags: '+s.flags.join(', '):'')+'</div>';
+  }).join('');
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('resultsPanel').className = 'results-panel show';
+}
+
+function stat(k,v){return '<div class="stat"><span class="stat-val">'+v+'</span><span class="stat-key">'+k+'</span></div>';}
+async function verifyHash(){if(!_lastArtifact)return;const h2=await executionHash(_lastArtifact.policy_parameters,_lastArtifact.output_payload);const el=document.getElementById('verifyResult');if(h2===_lastArtifact.execution_hash){el.textContent='&#10003; Hash verified';el.style.color='var(--green)';}else{el.textContent='&#10007; Mismatch';el.style.color='var(--red)';}}
+function exportArtifact(){if(!_lastArtifact)return;const blob=new Blob([JSON.stringify(_lastArtifact,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=TOOL_ID+'-artifact.json';a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody');b.style.display=b.style.display==='none'?'block':'none';if(b.style.display==='block'){const m=document.getElementById('manifest');document.getElementById('mfstPre').textContent=m?m.textContent:'{}';}}
+</script>
+</body>
+</html>
