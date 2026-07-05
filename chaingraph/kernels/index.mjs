@@ -190,6 +190,13 @@ import * as art248 from './art-248-compute-remittance-disclosure.kernel.mjs';
 import * as art249 from './art-249-compare-corridor-cost.kernel.mjs';
 import * as art25  from './art-25-a2a-agent-card-validator.kernel.mjs';
 import * as art250 from './art-250-model-stablecoin-corridor-economics.kernel.mjs';
+import * as art251 from './art-251-compute-parametric-trigger-payout.kernel.mjs';
+import * as art252 from './art-252-validate-cat-bond-trigger-terms.kernel.mjs';
+import * as art253 from './art-253-run-illustration-selfsupport-test.kernel.mjs';
+import * as art254 from './art-254-compute-rbc-action-level.kernel.mjs';
+import * as art255 from './art-255-compute-lcm-rate-derivation.kernel.mjs';
+import * as art256 from './art-256-validate-openids-homeowners-record.kernel.mjs';
+import * as art257 from './art-257-calculate-claims-stp-economics.kernel.mjs';
 import * as art26  from './art-26-x402-payload-decoder-flow-simulator.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
@@ -470,6 +477,13 @@ export const KERNELS = {
   'art-249-compare-corridor-cost':                            art249,
   'art-25-a2a-agent-card-validator':                          art25,
   'art-250-model-stablecoin-corridor-economics':              art250,
+  'art-251-compute-parametric-trigger-payout':                art251,
+  'art-252-validate-cat-bond-trigger-terms':                  art252,
+  'art-253-run-illustration-selfsupport-test':                art253,
+  'art-254-compute-rbc-action-level':                         art254,
+  'art-255-compute-lcm-rate-derivation':                      art255,
+  'art-256-validate-openids-homeowners-record':               art256,
+  'art-257-calculate-claims-stp-economics':                   art257,
   'art-26-x402-payload-decoder-flow-simulator':               art26,
   'art-27-agentic-readiness-diagnostic':                      art27,
   'art-28-mcp-server-deployability-diagnostic':               art28,

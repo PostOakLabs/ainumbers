@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Parametric Trigger Payout Calculator &middot; ART-251 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Evaluates parametric insurance triggers (threshold, tiered, linear index) and computes payout amounts with a tamper-evident trigger receipt for neutral adjudication. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-251-compute-parametric-trigger-payout.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-251 · Parametric Trigger Payout</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-insurance-stp.html" class="nav-pill">Insurance STP Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-251 &middot; Insurance STP</div>
+  <h1>Parametric Trigger Payout Calculator</h1>
+  <p class="sub">Evaluates parametric insurance triggers and computes payout amounts. Supports three trigger types: threshold (binary payout at a threshold index level), tiered (step-based tiers), and linear index (proportional payout between threshold and exhaustion). Produces a tamper-evident trigger receipt anchored at <a href="https://anchor.ainumbers.co" target="_blank">anchor.ainumbers.co</a> for neutral dispute adjudication (IAIS ICP 19). Use with <a href="art-252-validate-cat-bond-trigger-terms.html">cat bond trigger validation (art-252)</a>.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Parametric Insurance</span>
+    <span class="flag info">ISO 11116:2023</span>
+    <span class="flag">IAIS ICP 19</span>
+    <span class="flag">Trigger Receipt</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. This tool accepts index values, thresholds, and coverage amounts only &mdash; no policyholder or personal data.</div>
+
+  <div class="card">
+    <div class="section-head">Trigger Configuration</div>
+    <div class="q">
+      <label class="q-label" for="triggerType">Trigger Type</label>
+      <div class="q-help">threshold: full payout if index &ge; threshold. tiered: lookup table payout %. linear_index: proportional payout between threshold and exhaustion.</div>
+      <select id="triggerType" onchange="onTriggerTypeChange()">
+        <option value="threshold">Threshold (binary)</option>
+        <option value="tiered">Tiered (step table)</option>
+        <option value="linear_index">Linear Index (proportional)</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="indexValue">Observed Index Value</label>
+        <div class="q-help">Measured index value at trigger evaluation date (e.g. wind speed in knots, rainfall in mm, earthquake Mw).</div>
+        <input type="number" id="indexValue" value="120" step="0.1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="threshold">Trigger Threshold</label>
+        <div class="q-help">Index level at which coverage activates. For linear triggers: lower bound (payout starts here).</div>
+        <input type="number" id="threshold" value="100" step="0.1">
+      </div>
+    </div>
+    <div id="linearFields" class="row2" style="display:none">
+      <div class="q">
+        <label class="q-label" for="maxIndex">Maximum Index (Exhaustion)</label>
+        <div class="q-help">Index level at which full payout is reached. Only used for linear_index trigger type.</div>
+        <input type="number" id="maxIndex" value="200" step="0.1">
+      </div>
+    </div>
+    <div class="section-head">Coverage</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="coverageAmount">Coverage Amount ($)</label>
+        <div class="q-help">Maximum policy coverage amount in USD.</div>
+        <input type="number" id="coverageAmount" value="50000" step="0.01">
+      </div>
+      <div class="q">
+        <label class="q-label" for="parametricLimit">Parametric Limit ($)</label>
+        <div class="q-help">Maximum payout cap. Leave blank to use coverage amount.</div>
+        <input type="number" id="parametricLimit" value="50000" step="0.01">
+      </div>
+    </div>
+    <div id="tieredFields" style="display:none">
+      <div class="section-head">Tier Table (JSON)</div>
+      <div class="q">
+        <label class="q-label" for="tierTable">Tier Table (array of {lower_bound, upper_bound, payout_pct})</label>
+        <div class="q-help">JSON array. Each tier: lower_bound &le; index &lt; upper_bound triggers payout_pct% of coverage. Set upper_bound=0 for open-ended top tier.</div>
+        <input type="text" id="tierTable" value='[{"lower_bound":0,"upper_bound":50,"payout_pct":25},{"lower_bound":50,"upper_bound":100,"payout_pct":50},{"lower_bound":100,"upper_bound":0,"payout_pct":100}]'>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCompute()">&#9654; Evaluate Trigger</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Trigger Receipt</div>
+      <div id="receiptDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div><span style="color:var(--teal)">AI</span>Numbers<span>.co</span></div>
+      <div class="footer-cc">CC BY 4.0 &mdash; Post Oak Labs</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">OpenChainGraph Suite</div>
+        <a href="chaingraph-hub.html">Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Insurance STP</div>
+        <a href="guide-insurance-stp.html">Insurance STP Guide</a>
+        <a href="art-252-validate-cat-bond-trigger-terms.html">Cat Bond Validation</a>
+        <a href="art-254-compute-rbc-action-level.html">RBC Action Level</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Workflows</div>
+        <a href="chains/parametric-trigger-adjudication.html">Parametric Adjudication</a>
+        <a href="chains/cat-bond-trigger-validation.html">Cat Bond Validation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-251-compute-parametric-trigger-payout",
+  "tool_version": "1.0.0",
+  "mcp_name": "compute_parametric_trigger_payout",
+  "mandate_type": "compliance_mandate",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "trigger_type":     {"type": "string",  "enum": ["threshold","tiered","linear_index"], "default": "threshold"},
+      "index_value":      {"type": "number",  "description": "Observed index value at evaluation date"},
+      "threshold":        {"type": "number",  "description": "Index level at which coverage activates"},
+      "max_index":        {"type": "number",  "description": "Index level at full payout (linear_index only)"},
+      "coverage_amount":  {"type": "number",  "description": "Maximum coverage amount in USD"},
+      "parametric_limit": {"type": "number",  "description": "Payout cap (defaults to coverage_amount)"},
+      "tier_table":       {"type": "array",   "description": "Tiered payout table [{lower_bound, upper_bound, payout_pct}]"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-251-compute-parametric-trigger-payout';
+const TOOL_VERSION = '1.0.0';
+let _lastArtifact  = null;
+
+function onTriggerTypeChange() {
+  const t = document.getElementById('triggerType').value;
+  document.getElementById('linearFields').style.display  = t === 'linear_index' ? 'grid' : 'none';
+  document.getElementById('tieredFields').style.display  = t === 'tiered'       ? 'block' : 'none';
+}
+
+function _finite(v, def) { const n = Number(v); return (isFinite(n) && !isNaN(n)) ? n : def; }
+function _round4(v) { return Math.round(v * 10000) / 10000; }
+function _round2(v) { return Math.round(v * 100)   / 100;   }
+
+function compute(p) {
+  p = p || {};
+  const trigger_type     = ['threshold','tiered','linear_index'].includes(p.trigger_type) ? p.trigger_type : 'threshold';
+  const index_value      = _finite(p.index_value, 0);
+  const threshold        = _finite(p.threshold, 0);
+  const coverage_amount  = _finite(p.coverage_amount, 0);
+  const parametric_limit = _finite(p.parametric_limit, coverage_amount);
+  const max_index        = _finite(p.max_index, threshold > 0 ? threshold * 2 : 1);
+  const tier_table       = Array.isArray(p.tier_table) ? p.tier_table : [];
+
+  let payout_amount = 0, trigger_fraction = 0, trigger_hit = false, tier_matched = null;
+
+  if (trigger_type === 'threshold') {
+    trigger_hit      = index_value >= threshold;
+    trigger_fraction = trigger_hit ? 1 : 0;
+    payout_amount    = trigger_hit ? Math.min(coverage_amount, parametric_limit) : 0;
+  } else if (trigger_type === 'tiered') {
+    for (let i = 0; i < tier_table.length; i++) {
+      const t = tier_table[i];
+      const lo = _finite(t.lower_bound, 0), hi = _finite(t.upper_bound, 0), pct = _finite(t.payout_pct, 0);
+      if (index_value >= lo && (hi === 0 || index_value < hi)) {
+        trigger_fraction = _round4(Math.max(0, Math.min(1, pct / 100)));
+        payout_amount    = _round2(Math.min(coverage_amount * trigger_fraction, parametric_limit));
+        trigger_hit      = payout_amount > 0;
+        tier_matched     = i;
+        break;
+      }
+    }
+    if (tier_matched === null) {
+      trigger_fraction = 1;
+      payout_amount    = _round2(Math.min(coverage_amount, parametric_limit));
+      trigger_hit      = payout_amount > 0;
+    }
+  } else {
+    const span = max_index - threshold;
+    const linear_fraction = span <= 0 ? 0 : Math.max(0, Math.min(1, (index_value - threshold) / span));
+    trigger_fraction = _round4(linear_fraction);
+    payout_amount    = _round2(Math.min(coverage_amount * trigger_fraction, parametric_limit));
+    trigger_hit      = payout_amount > 0;
+  }
+  payout_amount = _round2(payout_amount);
+
+  return {
+    trigger_hit, payout_amount, trigger_fraction,
+    trigger_type_used: trigger_type, coverage_amount, parametric_limit,
+    index_value, threshold_used: threshold, tier_matched_index: tier_matched,
+    trigger_receipt: { trigger_type, index_value, threshold_used: threshold,
+      max_index_used: trigger_type === 'linear_index' ? max_index : null,
+      trigger_fraction, trigger_hit, payout_amount, coverage_amount, parametric_limit,
+      tier_matched_index: tier_matched },
+    table_version:   'PARAMETRIC-TRIGGER-MATH-V1.0-2025',
+    table_source:    'ISO 11116:2023 (parametric insurance); Swiss Re sigma 1/2024 (cat bond triggers); AIR Worldwide trigger methodology guide 2023',
+    regulatory_basis:'ISO 11116:2023 parametric insurance trigger methodology; Swiss Re sigma 1/2024 cat bond trigger types (indemnity / industry loss / parametric / modelled); trigger receipt = neutral dispute artifact per IAIS ICP 19 claims handling principle.',
+    pii_note:        'ZERO PII: index values, thresholds, and coverage amounts only. No policyholder, event-location, or personal data enters this kernel.',
+    anchor_surface:  'anchor.ainumbers.co/mcp -- anchor execution_hash immediately upon trigger event to create a tamper-evident dispute artifact that neither policyholder nor insurer controls (neutral adjudication record).',
+    not_legal_advice:'Not legal or actuarial advice. Trigger determinations require review by a licensed actuary and the controlling policy language.',
+  };
+}
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function executionHash(pp, op) {
+  const canon = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function runCompute() {
+  const tt = document.getElementById('triggerType').value;
+  let tierTable = [];
+  if (tt === 'tiered') {
+    try { tierTable = JSON.parse(document.getElementById('tierTable').value); } catch(e) { alert('Invalid tier table JSON'); return; }
+  }
+  const pp = {
+    trigger_type:     tt,
+    index_value:      Number(document.getElementById('indexValue').value),
+    threshold:        Number(document.getElementById('threshold').value),
+    coverage_amount:  Number(document.getElementById('coverageAmount').value),
+    parametric_limit: Number(document.getElementById('parametricLimit').value),
+    max_index:        Number(document.getElementById('maxIndex').value),
+    tier_table:       tierTable,
+  };
+  const op   = compute(pp);
+  const hash = await executionHash(pp, op);
+  const art  = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_mandate',
+    tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+    generated_at: null, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: op,
+    compliance_flags: [], compute_mode: 'client',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = art;
+
+  const vb   = document.getElementById('verdictBox');
+  const hit  = op.trigger_hit;
+  vb.textContent = hit ? '&#9889; TRIGGER FIRED' : 'NO TRIGGER';
+  vb.style.background = hit ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)';
+  vb.style.color       = hit ? 'var(--green)' : 'var(--red)';
+  vb.innerHTML = hit ? '&#9889; TRIGGER FIRED' : '&#10006; NO TRIGGER';
+
+  document.getElementById('statRow').innerHTML = [
+    stat('Payout', '$' + op.payout_amount.toLocaleString()),
+    stat('Fraction', (op.trigger_fraction * 100).toFixed(2) + '%'),
+    stat('Index', op.index_value),
+    stat('Threshold', op.threshold_used),
+  ].join('');
+
+  const rd = document.getElementById('receiptDiv');
+  rd.innerHTML = kv('Trigger Type', op.trigger_type_used) +
+    kv('Trigger Hit', op.trigger_hit ? 'YES' : 'NO') +
+    kv('Trigger Fraction', (op.trigger_fraction * 100).toFixed(4) + '%') +
+    kv('Payout Amount', '$' + op.payout_amount.toLocaleString()) +
+    kv('Coverage Amount', '$' + op.coverage_amount.toLocaleString()) +
+    kv('Parametric Limit', '$' + op.parametric_limit.toLocaleString()) +
+    kv('Index Value', op.index_value) +
+    kv('Threshold', op.threshold_used) +
+    (op.tier_matched_index !== null ? kv('Tier Matched', 'Tier ' + op.tier_matched_index) : '') +
+    kv('Anchor Surface', op.anchor_surface || '') +
+    kv('Regulatory Basis', op.regulatory_basis);
+
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('resultsPanel').className = 'results-panel show';
+}
+
+function stat(k, v) {
+  return '<div class="stat"><span class="stat-val">' + v + '</span><span class="stat-key">' + k + '</span></div>';
+}
+function kv(k, v) {
+  return '<div class="kv"><span class="kv-k">' + k + '</span><span class="kv-v">' + v + '</span></div>';
+}
+
+async function verifyHash() {
+  if (!_lastArtifact) return;
+  const h2 = await executionHash(_lastArtifact.policy_parameters, _lastArtifact.output_payload);
+  const el = document.getElementById('verifyResult');
+  if (h2 === _lastArtifact.execution_hash) {
+    el.textContent = '&#10003; Hash verified'; el.style.color = 'var(--green)';
+  } else {
+    el.textContent = '&#10007; Mismatch'; el.style.color = 'var(--red)';
+  }
+}
+
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = TOOL_ID + '-artifact.json'; a.click();
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  if (b.style.display === 'block') {
+    const m = document.getElementById('manifest');
+    document.getElementById('mfstPre').textContent = m ? m.textContent : '{}';
+  }
+}
+</script>
+</body>
+</html>
