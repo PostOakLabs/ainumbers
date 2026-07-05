@@ -1,6 +1,11 @@
 import { executionHash } from './_hash.mjs';
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+const TOOL_ID      = 'art-264-validate-commission-hierarchy';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
+export function compute(policy_parameters) {
   const {
     hierarchy = [],
     max_levels = 10,
@@ -101,7 +106,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
 
   const is_valid = violations.length === 0;
 
-  const output_payload = {
+  return {
     is_valid,
     total_levels,
     agent_count: hierarchy.length,
@@ -115,12 +120,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: synthetic agent identifiers and numeric split percentages only. No agent name, SSN, NPN, address, or personal data enters this kernel.',
     not_legal_advice: 'Not legal or accounting advice. Commission hierarchy validation is for structural compliance review only; consult your carrier agreements and accountants for binding interpretation.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-264-validate-commission-hierarchy',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,

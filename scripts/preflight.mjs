@@ -24,6 +24,7 @@ const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python ga
 const GATES = [
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
   ['Kernel JS syntax',             'node chaingraph/kernels/syntax-check.mjs'],
+  ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Kernel empty-input finite',    'node chaingraph/kernels/empty-input-finite.test.mjs'],

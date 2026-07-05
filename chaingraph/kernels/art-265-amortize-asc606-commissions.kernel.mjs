@@ -1,6 +1,11 @@
 import { executionHash } from './_hash.mjs';
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+const TOOL_ID      = 'art-265-amortize-asc606-commissions';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
+export function compute(policy_parameters) {
   const {
     incremental_cost = 0,
     contract_term_months = 12,
@@ -53,7 +58,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
 
   const asc340_40_compliant = incremental_cost_test_passed && !impairment_flag;
 
-  const output_payload = {
+  return {
     apply_expedient,
     amortization_period_months,
     monthly_amortization,
@@ -70,12 +75,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: numeric cost and term inputs only. No agent name, SSN, NPN, contract party, or personal data enters this kernel.',
     not_legal_advice: 'Not accounting or legal advice. ASC 340-40 amortization analysis must be reviewed by qualified CPAs and auditors. This output is for structural analysis only.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-265-amortize-asc606-commissions',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,

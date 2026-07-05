@@ -1,5 +1,10 @@
 import { executionHash } from './_hash.mjs';
 
+const TOOL_ID      = 'art-269-validate-w8-series-structural';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
 // W-8 series structural consistency kernel.
 // Chapter 3 (withholding) vs Chapter 4 (FATCA) consistency + treaty rate table + 3-year validity.
 // SYNTHETIC inputs only. NEVER real TINs, names, addresses, or personal data.
@@ -52,7 +57,7 @@ const TREATY_DIV_RATES = {
 // US statutory withholding rate (no treaty)
 const STATUTORY_RATE = 30;
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+export function compute(policy_parameters) {
   const {
     form_type = '',
     chapter3_status = '',
@@ -163,7 +168,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
 
   const is_structurally_valid = violations.length === 0;
 
-  const output_payload = {
+  return {
     is_structurally_valid,
     form_type,
     chapter3_status,
@@ -186,12 +191,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: structural form type, Ch.3/Ch.4 status codes, treaty country code, and dates only. No TIN, EIN, name, address, or real beneficial-owner data enters this kernel.',
     not_legal_advice: 'Not tax or legal advice. W-8 structural analysis requires review by qualified tax counsel; consult current IRS instructions and your withholding agent policies before certifying beneficial ownership.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-269-validate-w8-series-structural',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,

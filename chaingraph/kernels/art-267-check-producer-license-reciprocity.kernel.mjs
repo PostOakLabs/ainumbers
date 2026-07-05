@@ -1,5 +1,10 @@
 import { executionHash } from './_hash.mjs';
 
+const TOOL_ID      = 'art-267-check-producer-license-reciprocity';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
 // NAIC reciprocity: most states have full reciprocity for NAIC-standard LOAs.
 // Non-standard / limited-reciprocity states as of 2024 edition.
 // Source: NAIC State-Based Systems Producer Licensing Reciprocity Matrix 2024; NIPR reciprocity data.
@@ -20,7 +25,7 @@ const VALID_LOA_CODES = new Set([
   'SP', 'PH', 'FM', 'OR', 'SB', 'MR', 'PL', 'LH', 'PC', 'VL',
 ]);
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+export function compute(policy_parameters) {
   const {
     resident_state = '',
     loa_codes = [],
@@ -60,7 +65,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     });
   }
 
-  const output_payload = {
+  return {
     resident_state: resident_state.toUpperCase(),
     loa_codes,
     invalid_loa_codes,
@@ -74,12 +79,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: state codes and LOA enum codes only. No NPN, SSN, PDB, producer name, or personal data enters this kernel. Use NIPR for live NPN verification.',
     not_legal_advice: 'Not legal advice. Producer licensing requirements change; verify all reciprocity determinations with NIPR and state insurance departments before submitting non-resident license applications.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-267-check-producer-license-reciprocity',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,

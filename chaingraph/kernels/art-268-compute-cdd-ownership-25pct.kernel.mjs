@@ -1,5 +1,10 @@
 import { executionHash } from './_hash.mjs';
 
+const TOOL_ID      = 'art-268-compute-cdd-ownership-25pct';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
 // FinCEN CDD Rule 31 CFR 1010.230: 25% beneficial-ownership threshold for legal-entity customers.
 // This kernel performs indirect-ownership multiplication through ownership tiers.
 // FRAME: FinCEN CDD Rule (bank KYB customer due diligence), NOT CTA/BOI.
@@ -43,7 +48,7 @@ function computeIndirectOwnership(entityId, naturalPersons, ownershipMap, memo, 
   return result;
 }
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+export function compute(policy_parameters) {
   const {
     ownership_tiers = [],
     natural_persons = [],
@@ -93,7 +98,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
 
   const is_beneficial_owner = beneficial_owners.length > 0;
 
-  const output_payload = {
+  return {
     is_beneficial_owner,
     threshold_pct: THRESHOLD,
     beneficial_owner_count: beneficial_owners.length,
@@ -109,12 +114,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: synthetic entity identifiers and ownership percentages only. No actual beneficial-owner name, SSN, EIN, address, or personal data enters this kernel. Use FINCEN system or your KYB provider for live beneficial-owner verification.',
     not_legal_advice: 'Not legal or compliance advice. FinCEN CDD Rule determinations must be made by qualified BSA officers in conjunction with your institution\'s CDD program policies and procedures.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-268-compute-cdd-ownership-25pct',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,

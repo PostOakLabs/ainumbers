@@ -1,6 +1,11 @@
 import { executionHash } from './_hash.mjs';
 
-export async function buildArtifact(policy_parameters, opts = {}) {
+const TOOL_ID      = 'art-266-reconcile-commission-statement';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'compliance_mandate', gpu: false };
+
+export function compute(policy_parameters) {
   const {
     statement_lines = [],
     tolerance_pct = 1.0,
@@ -79,7 +84,7 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     else discrepancy_classification = 'MIXED';
   }
 
-  const output_payload = {
+  return {
     has_discrepancy,
     line_count: statement_lines.length,
     total_expected,
@@ -95,12 +100,15 @@ export async function buildArtifact(policy_parameters, opts = {}) {
     pii_note: 'ZERO PII: gross premium amounts, commission rates, and split percentages only. No agent name, SSN, NPN, policyholder, or personal data enters this kernel.',
     not_legal_advice: 'Not accounting or legal advice. Commission reconciliation results require review by qualified CPAs before financial statement adjustments.',
   };
+}
 
+export async function buildArtifact(policy_parameters, opts = {}) {
+  const output_payload = compute(policy_parameters);
   const execution_hash = await executionHash(policy_parameters, output_payload);
   return {
     chaingraph_version: '0.4.0',
-    tool_id: 'art-266-reconcile-commission-statement',
-    tool_version: '1.0.0',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
     policy_parameters,
     output_payload,
     execution_hash,
