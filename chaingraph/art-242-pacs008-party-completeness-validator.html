@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>pacs.008 Party Completeness Validator &middot; ART-242 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Validates BIS CPMI d218 harmonised data requirements for a pacs.008 payment instruction: UETR UUIDv4, party names, BIC, LEI format, and purpose code. Outputs a CPMI d218 completeness score. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-242-pacs008-party-completeness-validator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:200px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-242 · pacs.008 Party Completeness Validator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="guide-iso20022.html" class="nav-pill">ISO 20022 Guide &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-242 &middot; ISO 20022</div>
+  <h1>pacs.008 Party Completeness Validator</h1>
+  <p class="sub">Validates BIS CPMI d218 harmonised data requirements for a pacs.008 payment instruction: UETR UUIDv4 format, debtor and creditor names, BIC format (ISO 9362), LEI format (ISO 17442 presence and format -- full mod-97 check-digit validation is in <a href="art-246-lei-payment-binding-linter.html">art-246</a>), and purpose code format. Disambiguates from <a href="art-241-cbpr-structured-address-linter.html">art-241</a> (address structure) and <a href="art-87-iso20022-pqc-readiness-checker.html">art-87</a> (PQC crypto sizing).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">BIS CPMI d218</span>
+    <span class="flag info">UETR UUIDv4</span>
+    <span class="flag">BIC ISO 9362</span>
+    <span class="flag">LEI ISO 17442</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. Party names and account identifiers are processed structurally for presence and format only.</div>
+
+  <div class="card">
+    <div class="section-head">UETR (Unique End-to-End Transaction Reference)</div>
+    <div class="q">
+      <label class="q-label" for="uetr">UETR (UUIDv4 format)</label>
+      <div class="q-help">8-4-4-4-12 hex groups, version nibble=4, variant nibble in {8,9,a,b}. Required for GPI.</div>
+      <input type="text" id="uetr" value="550e8400-e29b-41d4-a716-446655440000" placeholder="xxxxxxxx-xxxx-4xxx-[89ab]xxx-xxxxxxxxxxxx">
+    </div>
+    <div class="section-head">Party Names</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="debtorName">Debtor Name (Dbtr/Nm)</label>
+        <div class="q-help">Originating party name. Use synthetic data only.</div>
+        <input type="text" id="debtorName" value="Synthetic Bank AG" placeholder="Use synthetic data only">
+      </div>
+      <div class="q">
+        <label class="q-label" for="creditorName">Creditor Name (Cdtr/Nm)</label>
+        <div class="q-help">Beneficiary party name. Use synthetic data only.</div>
+        <input type="text" id="creditorName" value="Test Recipient Corp" placeholder="Use synthetic data only">
+      </div>
+    </div>
+    <div class="section-head">Agent BICs (ISO 9362)</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="debtorAgentBic">Debtor Agent BIC (DbtrAgt/BICFI)</label>
+        <div class="q-help">4-letter institution + 2-letter country + 2-char location + optional 3-char branch.</div>
+        <input type="text" id="debtorAgentBic" value="DEUTDEFFXXX" placeholder="e.g. DEUTDEFFXXX">
+      </div>
+      <div class="q">
+        <label class="q-label" for="creditorAgentBic">Creditor Agent BIC (CdtrAgt/BICFI)</label>
+        <input type="text" id="creditorAgentBic" value="BARCGB22XXX" placeholder="e.g. BARCGB22XXX">
+      </div>
+    </div>
+    <div class="section-head">Optional Fields</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="debtorLei">Debtor LEI (Dbtr/Id/LEI) optional</label>
+        <div class="q-help">ISO 17442 format check only (20 alphanumeric chars). Full mod-97 in art-246.</div>
+        <input type="text" id="debtorLei" value="" placeholder="20 alphanumeric chars (optional)">
+      </div>
+      <div class="q">
+        <label class="q-label" for="creditorLei">Creditor LEI (Cdtr/Id/LEI) optional</label>
+        <input type="text" id="creditorLei" value="" placeholder="20 alphanumeric chars (optional)">
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="purposeCode">Purpose Code (Purp/Cd or CtgyPurp/Cd) optional</label>
+      <div class="q-help">ExternalPurpose1Code or ExternalCategoryPurpose1Code -- exactly 4 uppercase alphanumeric chars.</div>
+      <input type="text" id="purposeCode" value="" placeholder="e.g. SALA, TRAD (optional)" maxlength="4">
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runValidate()">&#9654; Validate Party Completeness</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Field Results</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-iso20022.html">ISO 20022 &amp; CBPR+</a>
+        <a href="guide-fair-lending.html">Fair Lending</a>
+        <a href="guide-ai-governance.html">AI Governance</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-242-pacs008-party-completeness-validator',
+  version: '1.0.0',
+  mcp_name: 'validate_pacs008_party_completeness',
+  title: 'pacs.008 Party Completeness Validator',
+  description: 'Validates BIS CPMI d218 harmonised data requirements for a pacs.008 payment instruction: UETR UUIDv4, party names, BIC, LEI format, purpose code format.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'BIS CPMI d218; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 ExternalPurpose1Code',
+  mcp_tool_definition: {
+    name: 'validate_pacs008_party_completeness',
+    description: 'Validate BIS CPMI d218 party completeness for a pacs.008 instruction. Returns completeness_score and field-level errors.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        uetr: { type: 'string' },
+        debtor_name: { type: 'string' },
+        creditor_name: { type: 'string' },
+        debtor_agent_bic: { type: 'string' },
+        creditor_agent_bic: { type: 'string' },
+        debtor_lei: { type: 'string' },
+        creditor_lei: { type: 'string' },
+        purpose_code: { type: 'string' }
+      }
+    }
+  }
+};
+
+var UETR_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+var BIC_RE = /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+var LEI_FORMAT_RE = /^[A-Z0-9]{20}$/;
+var PURPOSE_RE = /^[A-Z0-9]{4}$/;
+
+var _lastResult = null;
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function computeExecHash(pp, op){
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function runValidate(){
+  var uetr = safeStr(document.getElementById('uetr').value);
+  var debtorName = safeStr(document.getElementById('debtorName').value);
+  var creditorName = safeStr(document.getElementById('creditorName').value);
+  var debtorAgentBic = safeStr(document.getElementById('debtorAgentBic').value).toUpperCase();
+  var creditorAgentBic = safeStr(document.getElementById('creditorAgentBic').value).toUpperCase();
+  var debtorLei = safeStr(document.getElementById('debtorLei').value).toUpperCase();
+  var creditorLei = safeStr(document.getElementById('creditorLei').value).toUpperCase();
+  var purposeCode = safeStr(document.getElementById('purposeCode').value).toUpperCase();
+
+  var pp = {};
+  if(uetr) pp.uetr = uetr;
+  if(debtorName) pp.debtor_name = debtorName;
+  if(creditorName) pp.creditor_name = creditorName;
+  if(debtorAgentBic) pp.debtor_agent_bic = debtorAgentBic;
+  if(creditorAgentBic) pp.creditor_agent_bic = creditorAgentBic;
+  if(debtorLei) pp.debtor_lei = debtorLei;
+  if(creditorLei) pp.creditor_lei = creditorLei;
+  if(purposeCode) pp.purpose_code = purposeCode;
+
+  var errors = [];
+  var field_results = {};
+
+  // UETR
+  var uetrPresent = uetr.length > 0;
+  var uetrValid = uetrPresent ? UETR_RE.test(uetr) : null;
+  if(uetrPresent && !uetrValid) errors.push({code:'UETR_INVALID_FORMAT',severity:'ERROR',field:'UETR',message:'UETR "'+uetr.substring(0,22)+'..." is not a valid UUIDv4 (8-4-4-4-12 hex, version nibble=4, variant nibble in {8,9,a,b}).'});
+  field_results.uetr = {present: uetrPresent, valid: uetrValid, error: uetrPresent ? (uetrValid ? null : 'Not a valid UUIDv4') : 'Not provided'};
+
+  // Debtor name
+  var dbtrNmPresent = debtorName.length > 0;
+  field_results.debtor_name = {present: dbtrNmPresent, valid: dbtrNmPresent ? true : null, error: dbtrNmPresent ? null : 'Not provided'};
+
+  // Creditor name
+  var cdtrNmPresent = creditorName.length > 0;
+  field_results.creditor_name = {present: cdtrNmPresent, valid: cdtrNmPresent ? true : null, error: cdtrNmPresent ? null : 'Not provided'};
+
+  // Debtor agent BIC
+  var dbtrAgtPresent = debtorAgentBic.length > 0;
+  var dbtrAgtValid = dbtrAgtPresent ? BIC_RE.test(debtorAgentBic) : null;
+  if(dbtrAgtPresent && !dbtrAgtValid) errors.push({code:'DEBTOR_AGENT_BIC_INVALID',severity:'ERROR',field:'DbtrAgt/BICFI',message:'Debtor agent BIC "'+debtorAgentBic+'" is not a valid ISO 9362 BIC (4 alpha + 2 alpha country + 2 alphanumeric + optional 3 alphanumeric branch).'});
+  field_results.debtor_agent_bic = {present: dbtrAgtPresent, valid: dbtrAgtValid, error: dbtrAgtPresent ? (dbtrAgtValid ? null : 'Invalid BIC format') : 'Not provided'};
+
+  // Creditor agent BIC
+  var cdtrAgtPresent = creditorAgentBic.length > 0;
+  var cdtrAgtValid = cdtrAgtPresent ? BIC_RE.test(creditorAgentBic) : null;
+  if(cdtrAgtPresent && !cdtrAgtValid) errors.push({code:'CREDITOR_AGENT_BIC_INVALID',severity:'ERROR',field:'CdtrAgt/BICFI',message:'Creditor agent BIC "'+creditorAgentBic+'" is not a valid ISO 9362 BIC.'});
+  field_results.creditor_agent_bic = {present: cdtrAgtPresent, valid: cdtrAgtValid, error: cdtrAgtPresent ? (cdtrAgtValid ? null : 'Invalid BIC format') : 'Not provided'};
+
+  // LEI format checks
+  var dbtrLeiPresent = debtorLei.length > 0;
+  var dbtrLeiValid = dbtrLeiPresent ? LEI_FORMAT_RE.test(debtorLei) : null;
+  if(dbtrLeiPresent && !dbtrLeiValid) errors.push({code:'DEBTOR_LEI_FORMAT_INVALID',severity:'ERROR',field:'Dbtr/Id/LEI',message:'Debtor LEI "'+debtorLei+'" is not 20 uppercase alphanumeric characters (ISO 17442 format).'});
+  field_results.debtor_lei = {present: dbtrLeiPresent, valid: dbtrLeiValid, error: dbtrLeiPresent ? (dbtrLeiValid ? null : 'Not 20 alphanumeric chars') : 'Not provided'};
+
+  var cdtrLeiPresent = creditorLei.length > 0;
+  var cdtrLeiValid = cdtrLeiPresent ? LEI_FORMAT_RE.test(creditorLei) : null;
+  if(cdtrLeiPresent && !cdtrLeiValid) errors.push({code:'CREDITOR_LEI_FORMAT_INVALID',severity:'ERROR',field:'Cdtr/Id/LEI',message:'Creditor LEI "'+creditorLei+'" is not 20 uppercase alphanumeric characters (ISO 17442 format).'});
+  field_results.creditor_lei = {present: cdtrLeiPresent, valid: cdtrLeiValid, error: cdtrLeiPresent ? (cdtrLeiValid ? null : 'Not 20 alphanumeric chars') : 'Not provided'};
+
+  // Purpose code
+  var purpPresent = purposeCode.length > 0;
+  var purpValid = purpPresent ? PURPOSE_RE.test(purposeCode) : null;
+  if(purpPresent && !purpValid) errors.push({code:'PURPOSE_CODE_FORMAT_INVALID',severity:'ERROR',field:'Purp/Cd',message:'Purpose code "'+purposeCode+'" is not exactly 4 uppercase alphanumeric characters.'});
+  field_results.purpose_code = {present: purpPresent, valid: purpValid, error: purpPresent ? (purpValid ? null : 'Not 4 alphanumeric chars') : 'Not provided'};
+
+  // CPMI d218 score: 5 required fields presence only
+  var REQUIRED = ['uetr','debtor_name','creditor_name','debtor_agent_bic','creditor_agent_bic'];
+  var score = 0;
+  REQUIRED.forEach(function(k){ if(field_results[k] && field_results[k].present) score++; });
+  var completeness_score = score;
+  var completeness_pct = Math.round((score / REQUIRED.length) * 100);
+  var error_count = errors.length;
+  var cpmi_complete = score === REQUIRED.length && error_count === 0;
+
+  var op = {
+    cpmi_complete: cpmi_complete,
+    completeness_score: completeness_score,
+    completeness_pct: completeness_pct,
+    error_count: error_count,
+    field_results: field_results,
+    errors: errors,
+    cpmi_required_fields: REQUIRED,
+    disambiguation: 'art-242 validates party data completeness (BIS CPMI d218). For PostalAddress24 structure use art-241. For ISO 17442 mod-97 LEI check-digit validation use art-246. For PQC crypto readiness use art-87.',
+    pii_note: 'Party names and account identifiers processed structurally for presence and format only. No real PII processed. Use synthetic data for testing.',
+    table_version: 'BIS-CPMI-D218-PARTY-COMPLETENESS-V1',
+    table_source: 'BIS CPMI d218 Harmonised ISO 20022 data requirements for cross-border payments (bis.org/cpmi/publ/d218.htm); ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 ExternalPurpose1Code (iso20022.org)',
+    regulatory_basis: 'BIS CPMI d218 Harmonised ISO 20022 data requirements; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 ExternalPurpose1Code'
+  };
+
+  _lastResult = {pp: pp, output_payload: op};
+
+  var vColor = cpmi_complete ? 'var(--green)' : (error_count > 0 ? 'var(--red)' : 'var(--warn)');
+  var vBg = cpmi_complete ? 'rgba(34,197,94,.08)' : (error_count > 0 ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = vColor; vBox.style.background = vBg; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = 'CPMI d218 COMPLETENESS ' + completeness_score + '/' + REQUIRED.length + (error_count > 0 ? ' -- ' + error_count + ' FORMAT ERROR' + (error_count !== 1 ? 'S' : '') : '') + (cpmi_complete ? ' -- COMPLETE' : '');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val" style="color:' + (completeness_pct === 100 ? 'var(--green)' : 'var(--warn)') + '">' + completeness_score + '/5</span><span class="stat-key">CPMI Score</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + (error_count === 0 ? 'var(--green)' : 'var(--red)') + '">' + error_count + '</span><span class="stat-key">Format Errors</span></div>' +
+    '<div class="stat"><span class="stat-val">' + completeness_pct + '%</span><span class="stat-key">Complete</span></div>';
+
+  document.getElementById('flagRow').innerHTML = cpmi_complete ?
+    '<span class="badge ok">CPMI D218 COMPLETE</span>' :
+    errors.map(function(e){return '<span class="badge fail">'+e.code+'</span>';}).join('') +
+    (completeness_score < REQUIRED.length ? '<span class="badge warn">INCOMPLETE</span>' : '');
+
+  var rows = [
+    ['uetr', field_results.uetr],
+    ['debtor_name', field_results.debtor_name],
+    ['creditor_name', field_results.creditor_name],
+    ['debtor_agent_bic', field_results.debtor_agent_bic],
+    ['creditor_agent_bic', field_results.creditor_agent_bic],
+    ['debtor_lei', field_results.debtor_lei],
+    ['creditor_lei', field_results.creditor_lei],
+    ['purpose_code', field_results.purpose_code]
+  ];
+  document.getElementById('kvDiv').innerHTML = rows.map(function(r){
+    var fr = r[1];
+    var cls = fr.valid === true ? 'ok' : (fr.valid === false ? 'fail' : 'info');
+    var label = fr.valid === true ? '&#10003; OK' : (fr.valid === false ? '&#10007; ERROR' : 'not provided');
+    return '<div class="kv"><span class="kv-k">'+r[0]+'</span><span class="kv-v"><span class="badge '+cls+'">'+label+'</span> '+(fr.error||'')+'</span></div>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if(!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if(!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-242-pacs008-party-completeness-validator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-242-pacs008-party-completeness-validator.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if(b.style.display === 'none' || !b.style.display){b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);}
+  else{b.style.display = 'none';}
+}
+</script>
+</body>
+</html>

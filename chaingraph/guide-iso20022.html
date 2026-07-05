@@ -835,6 +835,68 @@ console.log(iso20022Tools.map(t => `${t.tool_id}: ${t.name}`));
   </div>
 </div>
 
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">§9</div>
+    <h2>CBPR+ Nov 2026 toolchain (ART-241..247)</h2>
+    <p>Seven dedicated OCG nodes cover the full CBPR+ November 2026 structured-address migration and cross-border payment validation pipeline. All seven are <code>gpu: false</code> with proofs deferred (Opus session fills them); all operate on structural or synthetic message fields and never on real party PII.</p>
+
+    <table>
+      <thead><tr><th>Node</th><th>MCP tool</th><th>Coverage</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><a href="art-241-cbpr-structured-address-linter.html">ART-241</a></td>
+          <td><code>lint_cbpr_structured_address</code></td>
+          <td>PostalAddress24 structure type (FULLY_STRUCTURED / HYBRID / UNSTRUCTURED), silent-fail AdrLine duplication detection, CBPR+ Nov 2026 ban check</td>
+        </tr>
+        <tr>
+          <td><a href="art-242-pacs008-party-completeness-validator.html">ART-242</a></td>
+          <td><code>validate_pacs008_party_completeness</code></td>
+          <td>BIS CPMI d218 field completeness: UETR (UUIDv4), debtor/creditor names, BIC (ISO 9362), LEI format (ISO 17442), purpose code format</td>
+        </tr>
+        <tr>
+          <td><a href="art-243-purpose-code-requirement-checker.html">ART-243</a></td>
+          <td><code>check_purpose_code_requirement</code></td>
+          <td>Jurisdiction-level purpose code mandate check: UAE/India/Bahrain/Jordan/China/Malaysia per BIS CPMI d218; SwiftGo eligibility (amount at most $12,500 + accepted category purpose codes)</td>
+        </tr>
+        <tr>
+          <td><a href="art-244-gpi-tracker-lifecycle-simulator.html">ART-244</a></td>
+          <td><code>simulate_gpi_tracker_lifecycle</code></td>
+          <td>SWIFT GPI state machine (PDNG/ACSP/ACWC/ACCC/RJCT), valid transition check, Universal Confirmation 24h SLA breach detection</td>
+        </tr>
+        <tr>
+          <td><a href="art-245-mt-mx-translation-fidelity-scorer.html">ART-245</a></td>
+          <td><code>score_mt_mx_translation_fidelity</code></td>
+          <td>MT103 to pacs.008 field mapping fidelity: 7-field coverage (50K/52A/57A/59/70/71A/UETR), charge bearer mapping (OUR/SHA/BEN to DEBT/SHAR/CRED), HIGH/MEDIUM/LOW tier</td>
+        </tr>
+        <tr>
+          <td><a href="art-246-lei-payment-binding-linter.html">ART-246</a></td>
+          <td><code>lint_lei_payment_binding</code></td>
+          <td>Wolfsberg Payment Transparency Standards (6 fields, 110-pt scale: HIGH 80+/MEDIUM 50+/LOW), ISO 17442 LEI mod-97 check-digit validation for originator and beneficiary</td>
+        </tr>
+        <tr>
+          <td><a href="art-247-prevalidation-readiness-scorer.html">ART-247</a></td>
+          <td><code>prevalidation_readiness_scorer</code></td>
+          <td>Full prevalidation bundle: IBAN mod-97 (78 countries), BIC format, UETR UUIDv4, LEI format presence, PostalAddress24 silent-fail duplication. Emits <code>ready</code> boolean gate signal.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-gold">
+      <div class="lab">Three OCG chains covering end-to-end CBPR+ validation</div>
+      <p><strong>cbpr-address-lint-chain</strong> (ART-241 &rarr; ART-242 &rarr; ART-246): address structure lint, party completeness validation, Wolfsberg transparency scoring in sequence.</p>
+      <p><strong>gpi-mt-to-mx-translation</strong> (ART-244 &rarr; ART-245): GPI lifecycle state check followed by MT103 to MX translation fidelity scoring.</p>
+      <p><strong>cross-border-payment-prevalidation</strong> (ART-243 &rarr; ART-247, gated): purpose code requirement check feeds into full prevalidation scorer; the <code>/ready</code> gate on ART-247 output controls chain continuation per OCG §21.4.</p>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="lab">Silent-fail disambiguation (RCA-03 vs ART-241)</div>
+      <p>RCA-03 (<code>verify_address_migration_batch</code>) validates batches of migrated pacs.008 address archives. ART-241 (<code>lint_cbpr_structured_address</code>) lints a single PostalAddress24 block per call and specifically detects the silent-fail duplication pattern (structured field values echoed into AdrLine entries) that causes STP rejection without a visible error code. Use ART-241 for per-message pre-submission lint and RCA-03 for bulk migration readiness assessment.</p>
+    </div>
+  </div>
+</div>
+
+
 <footer>
   <div class="wrap">
     <p class="foot">
