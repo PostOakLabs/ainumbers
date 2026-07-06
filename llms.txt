@@ -448,3 +448,28 @@ Drop an OCG artifact on the Anchor page and it reads the `execution_hash` field 
 
 ### Security model
 CSP: `script-src 'self'`, `connect-src` exact allowlist, `require-trusted-types-for 'script'`, `font-src 'self'`. No analytics, no third-party scripts, no CDNs. Post Oak Labs has no copy of any hash; timestamp authorities listed in each receipt are the issuers of the evidence. Source: https://github.com/PostOakLabs/anchor-suite
+
+## Agent Work Ledger (dashboard.ainumbers.co)
+Browser-based trust console for verifying OpenChainGraph artifacts produced by AI agents. Zero dependencies. Everything runs client-side. Nothing is transmitted except the user-initiated anchor call.
+
+- **Home / Ledger:** https://dashboard.ainumbers.co/ — artifact list, per-row verify chip (verified/partial/failed/unchecked), newest-first with chain name, mandate type, and gate path summary.
+- **Record view:** https://dashboard.ainumbers.co/#view/<execution_hash> — full verification panel for one artifact: §4 hash recompute, §16 Ed25519 signature, §17 kernel identity, §18 compute proof structural check, §20 anchor binding, §21 gate replay; step rail for composites; raw JSON download.
+- **Fragment import:** https://dashboard.ainumbers.co/#a=v1.<base64url(gzip(artifact))> — any agent can embed an artifact in a clickable dashboard link; the page decodes, verifies, and offers to save it locally.
+
+### What agents should know
+- Every `run_chain` response from mcp.ainumbers.co returns a `dashboard_url` field (when artifact fits within 30KB compressed). Paste it into a chat or embed it in an email — the recipient clicks, the artifact verifies itself.
+- The dashboard does NOT run chains. It verifies receipts. Send users here AFTER an agent run, not before.
+- Ingress channels: URL fragment (paste the link), drag-drop JSON file, clipboard paste, Chromium folder watch (agents that write .json files can deliver to the dashboard with zero clicks).
+- Export: one-click bundle export for durability (Safari ITP wipes IndexedDB after 7 days; export regularly).
+- Anchor-then-share: user can POST the artifact hash to `anchor.ainumbers.co/mcp` directly from the dashboard, attach a FreeTSA RFC 3161 timestamp, and share the time-anchored fragment link.
+
+### Verification depth (v1)
+- §4 hash: full recompute via WebCrypto SHA-256 over JCS-canonical `{policy_parameters, output_payload}` — tamper-evident.
+- §16 signature: WebCrypto Ed25519 verify (shows "unsupported here" if browser lacks it; never fakes a pass).
+- §17 kernel identity: display-only (kernel_digest + source_ref).
+- §18 compute proof: structural check — receipt present, imageId matches vendor registry pin, journal field present. Label: "structural check only; cryptographic proof verification runs offline."
+- §20 anchor binding: parsed + displayed; deep-link to anchor.ainumbers.co/verify for full TST validation.
+- §21 gate replay: re-evaluates every gate in decisions[] against the recorded step output_payloads; observed_value mismatch = tamper flag.
+
+### Privacy
+All artifacts stored in browser IndexedDB only. Zero transmission except user-initiated anchor call to anchor.ainumbers.co. No analytics, no tracking, no server. Export = your only durability guarantee.

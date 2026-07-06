@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.6
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.7
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — dashboard subdomain storage carve-out):** July 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -456,6 +456,18 @@ A normative MUST may not be added to SPEC.md without a referenced gate in the §
 
 ### A5.5 · This contract's scope
 CONTRACT.md now covers **AINumbers-specific build/deploy** rules only — file layout (§0–§1, §5), UI/PII (§1–§3), export tiers (§4), QA pipeline (§6), and deploy invariants (§A4). The **artifact envelope, execution_hash rule, mandate_type taxonomy, Compute Binding, and Export Profiles are normative in SPEC.md** (§A5.1), referenced here, not duplicated.
+
+---
+
+## Amendment A7 — Dashboard subdomain storage carve-out (July 2026)
+
+`dashboard.ainumbers.co` subdomain: IndexedDB/localStorage PERMITTED, local-only, zero transmission, export/import mandatory, local-only statement on every ingress surface. Main-site storage prohibition (§0 Immutable Hard Constraints) unchanged.
+
+### A7.1 · Scope
+The `dashboard/` directory in the site repo is the ONLY surface covered by this carve-out. All `tools/`, `guides/`, and root pages remain subject to the §0 storage prohibition.
+
+### A7.2 · Hermetic gate
+`scripts/check-dashboard-hermetic.mjs` enforces that `dashboard/index.html` makes NO network calls except `https://anchor.ainumbers.co` (the §6 user-initiated anchor-then-share call). This gate is wired into `scripts/preflight.mjs` and CI.
 
 ---
 
