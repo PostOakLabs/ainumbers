@@ -1564,8 +1564,7 @@ async function apVerifySig(){
 </body>
 </html>`;
 
-  const wfHtml = renderRail(wfSteps, 'run');
-  return html.replace(NODES_PH, () => NODES_JSON).replace(CHAINS_PH, () => CHAINS_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML).replace(WAYFINDER_PH, () => wfHtml);
+  return html.replace(NODES_PH, () => NODES_JSON).replace(CHAINS_PH, () => CHAINS_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML).replace(WAYFINDER_PH, () => '');
 }
 
 /* ── check or write ──────────────────────────────────────────────── */
