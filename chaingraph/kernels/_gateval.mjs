@@ -103,6 +103,26 @@ export function applyOp(op, found, observed, value) {
 
 export function isValidOp(op) { return OP_SET.has(op); }
 
+// Terminal routing targets (OCG §21.4 `"end"` + §22.8 `"escalate"`). A gate rule
+// (or `default`) whose `next` is a terminal target routes control OUT of the chain
+// rather than to a later step. `"end"` = normal automated completion; `"escalate"`
+// = the run leaves the automated path into the exception path (§22.8.1), FLAGGED as
+// escalation (not normal completion) but obeying every §21.4 invariant (graph-
+// agnostic, forward-only, acyclic, total). These classifiers are the SINGLE SOURCE
+// every executing surface (run_chain, embed runChain, the QuickJS guest, composer
+// pages) consults, so no surface hard-codes the literals and terminal/escalation
+// classification stays byte-parity across all of them.
+//
+// IMPORTANT (linear-hash-freeze, §22.8.1): `evaluateGate` returns the SAME decision
+// record for an escalate route as for any other — escalation is a property of the
+// decision's `next` value, NOT a new field. No escalation flag is written into the
+// hashed `composite_output.decisions[]`, so existing gate decisions and every
+// composite `execution_hash` are byte-identical to before this addition.
+export const ESCALATION_TARGET = 'escalate';
+export const TERMINAL_TARGETS = Object.freeze(['end', ESCALATION_TARGET]);
+export function isTerminalTarget(next) { return next === 'end' || next === ESCALATION_TARGET; }
+export function isEscalationTarget(next) { return next === ESCALATION_TARGET; }
+
 /**
  * Evaluate a gate against THIS step's output_payload.
  * @param {{input:string, rules:Array<{op:string,value?:any,next:string}>, default:string}} gate

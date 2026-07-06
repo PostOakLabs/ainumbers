@@ -3,6 +3,25 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.2 — Escalation records (§22.8)
+- **§22.8 Escalation records (new, normative).** Makes the `"escalate"` **evaluator semantics** normative:
+  `"escalate"` is a TERMINAL routing target beside `"end"` (§22.8.1), classified by the new single-source
+  `isTerminalTarget` / `isEscalationTarget` exports in `kernels/_gateval.mjs`. `evaluateGate` returns the
+  SAME decision record for an escalate route (NO escalation field is added), so every existing gate decision
+  and composite `execution_hash` is byte-identical (linear-hash-freeze holds). §22.8.2 pins the runtime halt
+  contract: on an escalate decision `run_chain` HALTS and marks remaining steps `skipped_by_escalation`
+  (distinct from `skipped_by_gate`), attaching an OPEN escalation record. §22.8.3 resolves the DETERMINISM
+  crux: the record is `{ mandate_hash?, decision, halted_steps, opened_at }`, but its **record hash** (via
+  `kernels/_hash.mjs`) covers ONLY the deterministic subset `{ mandate_hash?, decision, halted_steps }`;
+  `opened_at` (wall-clock) is hash-EXCLUDED, exactly like §20 anchor bindings, so the record hash is
+  reproducible. §22.8.4 pins closure: an open record CLOSES only via a countersigned closure
+  (`{ record_hash, decision, anchor, envelope }`) whose Anchorproof envelope signs the record hash;
+  verification = envelope valid AND recomputed record hash equals `record_hash` AND decision echo.
+  Transport-agnostic (§22.8.5, D3); AuthZEN / SCITT vocabulary alignment (§22.8.6). Additive: no
+  envelope/hash change, `chaingraph_version` stays `0.4.0`. FORTHCOMING: the `run_chain` emit/halt
+  implementation, the `verify_escalation_closure` utility, and the SEP-2322 transport binding. Gates:
+  `gate-parity.test.mjs`, `linear-hash-freeze.mjs` (§15).
+
 ## 0.7.0 — Anchor Binding (§20) + SD-JWT selective-disclosure export (§13.12)
 - **§20 Anchor Binding (new, normative, OPTIONAL).** An artifact MAY carry portable, offline-verifiable
   evidence that its `execution_hash` was included in a transparency log or timestamp service by a point in
