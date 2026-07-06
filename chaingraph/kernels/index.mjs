@@ -204,6 +204,12 @@ import * as art260 from './art-260-allocate-ihb-interest.kernel.mjs';
 import * as art261 from './art-261-test-hedge-effectiveness.kernel.mjs';
 import * as art262 from './art-262-validate-ebam-acmt-flow.kernel.mjs';
 import * as art263 from './art-263-score-cash-forecast-accuracy.kernel.mjs';
+import * as art264 from './art-264-validate-commission-hierarchy.kernel.mjs';
+import * as art265 from './art-265-amortize-asc606-commissions.kernel.mjs';
+import * as art266 from './art-266-reconcile-commission-statement.kernel.mjs';
+import * as art267 from './art-267-check-producer-license-reciprocity.kernel.mjs';
+import * as art268 from './art-268-compute-cdd-ownership-25pct.kernel.mjs';
+import * as art269 from './art-269-validate-w8-series-structural.kernel.mjs';
 import * as art27  from './art-27-agentic-readiness-diagnostic.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
@@ -497,6 +503,12 @@ export const KERNELS = {
   'art-261-test-hedge-effectiveness':                         art261,
   'art-262-validate-ebam-acmt-flow':                          art262,
   'art-263-score-cash-forecast-accuracy':                     art263,
+  'art-264-validate-commission-hierarchy':                    art264,
+  'art-265-amortize-asc606-commissions':                      art265,
+  'art-266-reconcile-commission-statement':                   art266,
+  'art-267-check-producer-license-reciprocity':               art267,
+  'art-268-compute-cdd-ownership-25pct':                      art268,
+  'art-269-validate-w8-series-structural':                    art269,
   'art-27-agentic-readiness-diagnostic':                      art27,
   'art-28-mcp-server-deployability-diagnostic':               art28,
   'art-29-dora-readiness-diagnostic':                         art29,
