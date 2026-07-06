@@ -40,7 +40,7 @@ function firstExisting(ps) { return ps.find((p) => existsSync(p)) || ps[0]; }
 // When this meta-gate runs in the SITE repo (worker not checked out), treat these as satisfied-by-name
 // — the rule still MUST name a gate; only the on-disk check is delegated to the worker CI.
 const EXTERNAL_GATES = new Set((process.env.GATE_EXTERNAL ||
-  'hash-sweep.mjs,verify-mcp-registered.mjs,smoke-mcp.mjs,smoke-compute.mjs,check-tool-names.mjs,kernel-coverage.mjs,validate-chains.mjs,linear-hash-freeze.mjs,gate-static.test.mjs,gate-semantics.test.mjs,gate-branch-coverage.test.mjs,gate-parity.test.mjs'
+  'hash-sweep.mjs,verify-mcp-registered.mjs,smoke-mcp.mjs,smoke-compute.mjs,check-tool-names.mjs,kernel-coverage.mjs,validate-chains.mjs,linear-hash-freeze.mjs,gate-static.test.mjs,gate-semantics.test.mjs,gate-branch-coverage.test.mjs,gate-parity.test.mjs,compile-mandate-determinism.test.mjs,mandate-binding.test.mjs'
 ).split(',').map((s) => s.trim()).filter(Boolean));
 
 if (!existsSync(SPEC)) { console.error(`SPEC.md not found at ${SPEC}`); process.exit(2); }
