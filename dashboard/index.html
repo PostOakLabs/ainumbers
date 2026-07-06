@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src https://anchor.ainumbers.co; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Agent Work Ledger &middot; dashboard.ainumbers.co</title>
+<meta name="description" content="Verify and audit agent-produced OpenChainGraph artifacts. Hash, signature, gate-path, and timestamp checks without trusting anyone.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://dashboard.ainumbers.co/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+--green:#22C55E;--green-dim:rgba(34,197,94,.12);
+--red:#EF4444;--red-dim:rgba(239,68,68,.12);
+--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+code,pre,.mono{font-family:'JetBrains Mono',monospace;font-size:13px}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;gap:1rem}
+.nav-logo{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);display:flex;align-items:center;gap:.5rem}
+.nav-logo span{color:var(--teal);font-family:'Sora',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.08em;border:1px solid var(--teal-dim);border-radius:4px;padding:1px 6px;background:var(--teal-dim)}
+.nav-spacer{flex:1}
+.nav-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.3rem .8rem;font-size:.8rem;transition:border-color .2s,color .2s}
+.nav-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.nav-btn-primary{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-lt)}
+.nav-btn-primary:hover{background:rgba(20,184,166,.2)}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .5rem;border-radius:4px;font-size:.72rem;font-weight:500;letter-spacing:.04em}
+.chip-verified{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.chip-partial{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.chip-failed{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.chip-unchecked{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.chip-info{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.3)}
+.chip-pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.chip-fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.chip-absent{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+.chip-warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+
+/* artifact card (ledger row) */
+.artifact-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.artifact-card:hover{border-color:var(--border-2);background:var(--bg-3)}
+.artifact-card .card-chip{flex-shrink:0}
+.artifact-card .card-body{flex:1;min-width:0}
+.artifact-card .card-title{font-size:.9rem;color:var(--bright);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artifact-card .card-meta{font-size:.75rem;color:var(--body);display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.15rem}
+.artifact-card .card-outcome{font-size:.75rem;color:var(--text);font-family:'JetBrains Mono',monospace}
+.artifact-card .card-actions{flex-shrink:0;display:flex;gap:.5rem}
+.card-del-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);padding:.2rem .5rem;font-size:.7rem}
+.card-del-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ledger header */
+.ledger-header{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.ledger-title{font-size:1.3rem;color:var(--bright)}
+.filter-bar{display:flex;gap:.5rem;flex-wrap:wrap;flex:1}
+.filter-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--body);border-radius:20px;padding:.2rem .7rem;font-size:.75rem;transition:all .2s}
+.filter-btn.active,.filter-btn:hover{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+.ledger-list{display:flex;flex-direction:column;gap:.6rem}
+
+/* ingress zone */
+.ingress-zone{background:var(--bg-2);border:2px dashed var(--border-2);border-radius:var(--radius-lg);padding:2.5rem;text-align:center;transition:border-color .2s,background .2s;position:relative}
+.ingress-zone.drag-over{border-color:var(--teal);background:var(--teal-dim)}
+.ingress-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--bright);margin-bottom:.5rem}
+.ingress-sub{color:var(--body);font-size:.875rem;margin-bottom:1.5rem}
+.ingress-actions{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.25rem}
+.ingress-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.5rem 1.1rem;font-size:.85rem;transition:all .2s}
+.ingress-btn:hover,.ingress-btn.primary{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+.ingress-channels{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.ingress-channels span{display:flex;align-items:center;gap:.3rem}
+.local-notice{margin-top:1.25rem;font-size:.75rem;color:var(--muted);border-top:1px solid var(--border);padding-top:.75rem}
+.ingress-file-input{display:none}
+.folder-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);font-size:.8rem;color:var(--body);margin-top:.75rem}
+.folder-row button{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.2rem .6rem;font-size:.75rem}
+.folder-row button:hover{border-color:var(--teal);color:var(--teal-lt)}
+
+/* record view */
+.record-header{margin-bottom:1.5rem}
+.breadcrumb{font-size:.8rem;color:var(--body);margin-bottom:.5rem}
+.breadcrumb a{color:var(--teal)}
+.record-title{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--bright)}
+.record-meta{display:flex;gap:1rem;flex-wrap:wrap;font-size:.8rem;color:var(--body);margin-top:.4rem;align-items:center}
+.record-meta .mono{color:var(--text)}
+.record-section{margin-bottom:2rem}
+.section-title{font-size:.7rem;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+
+/* verify card */
+.verify-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.verify-row{display:flex;align-items:center;gap:1rem;padding:.7rem 1.1rem;border-bottom:1px solid var(--border)}
+.verify-row:last-child{border-bottom:none}
+.verify-icon{font-size:1rem;width:1.5rem;text-align:center;flex-shrink:0}
+.verify-label{flex:1;font-size:.875rem;color:var(--text)}
+.verify-label small{display:block;font-size:.72rem;color:var(--body);margin-top:.1rem}
+.verify-chip{flex-shrink:0}
+.verify-note{font-size:.72rem;color:var(--body);margin-top:.1rem}
+.verify-link{color:var(--teal);font-size:.72rem;text-decoration:underline}
+.verify-link:hover{color:var(--teal-lt)}
+
+/* step rail */
+.step-rail-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;overflow-x:auto}
+.step-rail-svg-wrap{min-width:100%}
+.step-detail-panel{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-top:.75rem;font-size:.8rem}
+.step-detail-panel h4{color:var(--bright);margin-bottom:.5rem;font-size:.85rem}
+.step-detail-json{max-height:280px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);white-space:pre-wrap;word-break:break-all}
+
+/* event table (decisions) */
+.event-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.event-table th{text-align:left;padding:.5rem .75rem;color:var(--muted);font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:500}
+.event-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.event-table tr:last-child td{border-bottom:none}
+.event-table .mono{color:var(--bright);font-size:.72rem}
+.event-table .next-chip{display:inline-block;padding:.1rem .4rem;background:var(--teal-dim);color:var(--teal-lt);border-radius:3px;font-size:.7rem;font-family:'JetBrains Mono',monospace}
+.event-table .next-end{background:var(--gold-dim);color:var(--gold)}
+
+/* raw JSON block */
+.raw-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.raw-toolbar{display:flex;align-items:center;gap:.5rem;padding:.6rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.raw-toolbar span{font-size:.75rem;color:var(--body);flex:1}
+.raw-btn{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.25rem .6rem;font-size:.72rem;transition:all .2s}
+.raw-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.raw-json{padding:1rem;max-height:400px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);white-space:pre-wrap;word-break:break-all;line-height:1.5}
+
+/* share block */
+.share-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem}
+.share-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+.share-link-input{flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.4rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);min-width:0}
+.share-copy-btn,.share-anchor-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.4rem .8rem;font-size:.8rem;white-space:nowrap}
+.share-copy-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.share-anchor-btn{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+.share-anchor-btn:hover{background:rgba(20,184,166,.2)}
+.share-anchor-btn:disabled{opacity:.5;cursor:not-allowed}
+.share-note{font-size:.72rem;color:var(--muted)}
+
+/* toast */
+#toasts{position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.5rem;z-index:1000;pointer-events:none}
+.toast{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem 1rem;font-size:.8rem;color:var(--text);max-width:320px;pointer-events:all;animation:slideIn .2s ease;display:flex;align-items:center;gap:.5rem}
+.toast.success{border-color:var(--teal);color:var(--teal-lt)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast.warn{border-color:var(--gold);color:var(--gold)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+
+/* dialog */
+#dialog-overlay{position:fixed;inset:0;background:rgba(8,14,26,.8);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.dialog{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.5rem;max-width:480px;width:calc(100% - 3rem)}
+.dialog-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);margin-bottom:.75rem}
+.dialog-body{font-size:.875rem;color:var(--body);margin-bottom:1.25rem}
+.dialog-meta{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .8rem;font-size:.75rem;margin-bottom:1rem}
+.dialog-meta .mono{color:var(--teal-lt)}
+.dialog-actions{display:flex;gap:.75rem;justify-content:flex-end}
+.dialog-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.5rem 1rem;font-size:.85rem}
+.dialog-btn:hover{border-color:var(--border-2);color:var(--bright)}
+.dialog-btn.primary{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-lt)}
+.dialog-btn.primary:hover{background:rgba(20,184,166,.2)}
+
+/* empty states */
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--body)}
+.empty-state-icon{font-size:2.5rem;margin-bottom:.75rem}
+.empty-state h3{font-size:1.1rem;color:var(--text);margin-bottom:.4rem}
+
+/* footer */
+footer{border-top:1px solid var(--border);padding:1.25rem 1.5rem;margin-top:3rem}
+.footer-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;font-size:.75rem;color:var(--muted)}
+.footer-inner a{color:var(--body)}
+.footer-inner a:hover{color:var(--teal)}
+.footer-version{font-family:'JetBrains Mono',monospace;color:var(--body)}
+
+/* utility */
+.mt-1{margin-top:.5rem}.mt-2{margin-top:1rem}.mt-3{margin-top:1.5rem}
+.flex{display:flex}.gap-1{gap:.5rem}.gap-2{gap:1rem}.items-center{align-items:center}
+.text-muted{color:var(--body)}.text-bright{color:var(--bright)}.text-teal{color:var(--teal-lt)}
+.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-full{width:100%}
+section.main-section{padding:2rem 0}
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-inner">
+  <a class="nav-logo" href="https://ainumbers.co/">
+    AINumbers
+    <span>DASHBOARD</span>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-btn" id="nav-import-btn" title="Import artifact file or bundle">Import</button>
+  <button class="nav-btn" id="nav-export-btn" title="Export all artifacts as bundle">Export all</button>
+  <input type="file" id="nav-file-input" class="ingress-file-input" accept=".json" multiple>
+</div>
+</nav>
+
+<main id="main">
+  <!-- Content swapped by router -->
+</main>
+
+<footer>
+<div class="footer-inner">
+  <span>Stored locally. Nothing transmitted. Export regularly; your files are the record.</span>
+  <div class="flex gap-2 items-center">
+    <a href="https://ainumbers.co/chaingraph/chaingraph-hub.html" target="_blank" rel="noopener">OpenChainGraph Suite</a>
+    <a href="https://ainumbers.co/" target="_blank" rel="noopener">AINumbers.co</a>
+    <span class="footer-version" id="footer-version"></span>
+  </div>
+</div>
+</footer>
+
+<div id="toasts"></div>
+<div id="dialog-overlay" style="display:none">
+  <div class="dialog" id="dialog-box"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ── CONSTANTS ──────────────────────────────────────────────────── */
+const VERSION = '1.0.0';
+const DB_NAME = 'ocg-dashboard';
+const DB_VERSION = 1;
+const STORE_NAME = 'artifacts';
+const ANCHOR_ENDPOINT = 'https://anchor.ainumbers.co/mcp';
+const ANCHOR_COOLDOWN_MS = 15_000;
+const FRAGMENT_BUDGET_BYTES = 30_000;
+const LOCAL_NOTICE = 'Stored in your browser only. Nothing is transmitted. Export regularly; your files are the record.';
+
+/* ── VENDOR REGISTRY ────────────────────────────────────────────── */
+// Static constant. Update by editing + redeploy only. No runtime fetches.
+// Image IDs verified 2026-07-06 from live chaingraph.json endpoints.
+// ainumbers: sha256:a1a0bc89 confirmed from fixtures + chaingraph.json compute_images.
+// apexlogics: no risc0 entries in live chaingraph.json (v0.8 upgrade in progress).
+// omegacentauri: no compute_images in live chaingraph.json.
+const VENDOR_REGISTRY = [
+  {
+    namespace: 'ain',
+    name: 'AINumbers.co',
+    catalog_url: 'https://ainumbers.co/chaingraph/chaingraph-hub.html',
+    image_ids: ['sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6'],
+    tsa_note: 'FreeTSA / Sigstore'
+  },
+  {
+    namespace: 'org.apexlogics',
+    name: 'ApexLogics',
+    catalog_url: 'https://apexlogics.org/chaingraph/chaingraph-hub.html',
+    image_ids: [],
+    tsa_note: ''
+  },
+  {
+    namespace: 'me.omegacentauri',
+    name: 'OmegaCentauri',
+    catalog_url: 'https://omegacentauri.me/',
+    image_ids: [],
+    tsa_note: ''
+  }
+];
+
+// Required fields per frozen v0.4 artifact envelope
+const ARTIFACT_REQUIRED = ['@context','chaingraph_version','execution_hash','chain','policy_parameters','output_payload','audit_signature'];
+
+/* ── JCS CANONICALIZER (inlined from kernels/_hash.mjs) ─────────── */
+// OpenChainGraph shared canonicalizer + execution hash (OCG Standard §4).
+// Inline copy for browser-native verification; semantics byte-identical to the Worker.
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v !== null && typeof v === 'object')
+    return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  return v;
+}
+
+async function recomputeExecutionHash(artifact) {
+  const obj = { policy_parameters: artifact.policy_parameters, output_payload: artifact.output_payload };
+  const preimage = JSON.stringify(cgCanon(obj));
+  const bytes = new TextEncoder().encode(preimage);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ── GATE EVALUATOR (inlined from kernels/_gateval.mjs) ─────────── */
+// OpenChainGraph shared decision-gate evaluator (OCG Standard §21.4).
+// Inline copy for browser-native gate replay verification.
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object') return false;
+  const aArr = Array.isArray(a), bArr = Array.isArray(b);
+  if (aArr !== bArr) return false;
+  if (aArr) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!deepEqual(a[i], b[i])) return false;
+    return true;
+  }
+  const ak = Object.keys(a), bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (!deepEqual(a[k], b[k])) return false;
+  }
+  return true;
+}
+
+function rfc6901(doc, pointer) {
+  if (typeof pointer !== 'string') return { found: false, value: undefined };
+  if (pointer === '') return { found: true, value: doc };
+  if (pointer[0] !== '/') return { found: false, value: undefined };
+  if (/~(?![01])/.test(pointer)) return { found: false, value: undefined };
+  const tokens = pointer.slice(1).split('/').map(t => t.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur = doc;
+  for (const tok of tokens) {
+    if (cur === null || typeof cur !== 'object') return { found: false, value: undefined };
+    if (Array.isArray(cur)) {
+      if (!/^(0|[1-9][0-9]*)$/.test(tok)) return { found: false, value: undefined };
+      const idx = +tok;
+      if (idx >= cur.length) return { found: false, value: undefined };
+      cur = cur[idx];
+    } else {
+      if (!Object.prototype.hasOwnProperty.call(cur, tok)) return { found: false, value: undefined };
+      cur = cur[tok];
+    }
+  }
+  return { found: true, value: cur };
+}
+
+const isFiniteNum = x => typeof x === 'number' && Number.isFinite(x);
+const VALUE_OPS = new Set(['eq','neq','gt','gte','lt','lte','in']);
+
+function applyOp(op, found, observed, value) {
+  switch (op) {
+    case 'present': return found;
+    case 'absent': return !found;
+    case 'eq': return found && deepEqual(observed, value);
+    case 'neq': return found && !deepEqual(observed, value);
+    case 'gt': return found && isFiniteNum(observed) && isFiniteNum(value) && observed > value;
+    case 'gte': return found && isFiniteNum(observed) && isFiniteNum(value) && observed >= value;
+    case 'lt': return found && isFiniteNum(observed) && isFiniteNum(value) && observed < value;
+    case 'lte': return found && isFiniteNum(observed) && isFiniteNum(value) && observed <= value;
+    case 'in': return found && Array.isArray(value) && value.some(v => deepEqual(observed, v));
+    default: return false;
+  }
+}
+
+/* ── ARTIFACT UTILITIES ─────────────────────────────────────────── */
+function isArtifact(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  return ARTIFACT_REQUIRED.every(f => f in obj) && typeof obj.execution_hash === 'string';
+}
+
+function isComposite(artifact) {
+  const tid = artifact.tool_id || '';
+  return tid.startsWith('chaingraph/chains/') ||
+    (Array.isArray(artifact.output_payload?.steps) && artifact.output_payload.steps.length > 0);
+}
+
+function detectVendor(artifact) {
+  const ctx = (artifact['@context'] || '').toString();
+  const ib = (artifact.issued_by || '').toString();
+  const s = ctx + ' ' + ib;
+  if (s.includes('ainumbers.co')) return VENDOR_REGISTRY[0];
+  if (s.includes('apexlogics.org')) return VENDOR_REGISTRY[1];
+  if (s.includes('omegacentauri.me')) return VENDOR_REGISTRY[2];
+  return null;
+}
+
+function artifactChainName(artifact) {
+  const tid = artifact.tool_id || '';
+  if (tid.startsWith('chaingraph/chains/')) return tid.replace('chaingraph/chains/', '');
+  return tid;
+}
+
+function artifactTitle(artifact) {
+  const chain = artifactChainName(artifact);
+  if (!chain) return artifact.tool_id || 'Unknown artifact';
+  return chain.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function sourceLabel(src) {
+  const map = { link: 'via link', paste: 'pasted', file: 'from file', folder: 'from folder', import: 'imported', unknown: 'unknown' };
+  return map[src] || src;
+}
+
+// Extract artifact from various container formats
+function extractArtifact(parsed) {
+  if (!parsed) return null;
+  if (isArtifact(parsed)) return parsed;
+  // run_chain response wrapper
+  if (parsed.composite_artifact && isArtifact(parsed.composite_artifact)) return parsed.composite_artifact;
+  // Array: first valid artifact
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      const a = extractArtifact(item);
+      if (a) return a;
+    }
+  }
+  // Bundle format
+  if (parsed.format === 'ocg-dashboard-bundle/v1' && Array.isArray(parsed.artifacts)) {
+    for (const r of parsed.artifacts) {
+      if (r.artifact && isArtifact(r.artifact)) return r.artifact;
+    }
+  }
+  return null;
+}
+
+function extractAllArtifacts(parsed) {
+  if (!parsed) return [];
+  if (isArtifact(parsed)) return [parsed];
+  if (parsed.composite_artifact && isArtifact(parsed.composite_artifact)) return [parsed.composite_artifact];
+  if (parsed.format === 'ocg-dashboard-bundle/v1' && Array.isArray(parsed.artifacts)) {
+    return parsed.artifacts.map(r => r.artifact).filter(isArtifact);
+  }
+  if (Array.isArray(parsed)) {
+    return parsed.flatMap(item => extractAllArtifacts(item));
+  }
+  return [];
+}
+
+/* ── INDEXEDDB ──────────────────────────────────────────────────── */
+let _db = null;
+async function getDB() {
+  if (_db) return _db;
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const st = db.createObjectStore(STORE_NAME, { keyPath: 'execution_hash' });
+        st.createIndex('added_at', 'added_at', { unique: false });
+        st.createIndex('chain_name', 'chain_name', { unique: false });
+      }
+    };
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbPut(rec) {
+  const db = await getDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).put(rec);
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbGet(hash) {
+  const db = await getDB();
+  return new Promise((res, rej) => {
+    const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(hash);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await getDB();
+  return new Promise((res, rej) => {
+    const idx = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).index('added_at');
+    const req = idx.openCursor(null, 'prev');
+    const out = [];
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) {
+        if (typeof c.value.artifact === 'object' && c.value.artifact !== null) out.push(c.value);
+        c.continue();
+      } else res(out);
+    };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbDelete(hash) {
+  const db = await getDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(hash);
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e.target.error);
+  });
+}
+
+/* ── FRAGMENT CODEC ─────────────────────────────────────────────── */
+async function gzip(str) {
+  const bytes = new TextEncoder().encode(str);
+  const cs = new CompressionStream('gzip');
+  const w = cs.writable.getWriter();
+  w.write(bytes); w.close();
+  const chunks = [];
+  const reader = cs.readable.getReader();
+  while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const out = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out;
+}
+
+async function gunzip(bytes) {
+  const cs = new DecompressionStream('gzip');
+  const w = cs.writable.getWriter();
+  w.write(bytes); w.close();
+  const chunks = [];
+  const reader = cs.readable.getReader();
+  while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const out = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return new TextDecoder().decode(out);
+}
+
+function b64uEnc(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function b64uDec(s) {
+  const p = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - p.length % 4) % 4;
+  const b64 = p + '='.repeat(pad);
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function encodeArtifactFragment(artifact) {
+  try {
+    const json = JSON.stringify(artifact);
+    const compressed = await gzip(json);
+    if (compressed.length > FRAGMENT_BUDGET_BYTES) return null; // over budget
+    return '#a=v1.' + b64uEnc(compressed);
+  } catch { return null; }
+}
+
+async function decodeFragment(frag) {
+  if (!frag || !frag.startsWith('#a=')) return null;
+  const payload = frag.slice(3);
+  if (payload.startsWith('v1.')) {
+    try {
+      const compressed = b64uDec(payload.slice(3));
+      const json = await gunzip(compressed);
+      return JSON.parse(json);
+    } catch {}
+  }
+  // Fallback: plain base64url JSON
+  try {
+    const bytes = b64uDec(payload);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return null; }
+}
+
+/* ── BASE58 (for did:key decoding in §16 verification) ─────────── */
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const B58_MAP = Object.fromEntries([...B58_ALPHA].map((c, i) => [c, i]));
+function base58Decode(str) {
+  let buf = [0];
+  for (const c of str) {
+    if (!(c in B58_MAP)) throw new Error('Invalid base58 char: ' + c);
+    let carry = B58_MAP[c];
+    for (let j = 0; j < buf.length; j++) { carry += buf[j] * 58; buf[j] = carry & 0xff; carry >>= 8; }
+    while (carry > 0) { buf.push(carry & 0xff); carry >>= 8; }
+  }
+  let leading = 0;
+  for (const c of str) { if (c === '1') leading++; else break; }
+  return new Uint8Array([...new Array(leading).fill(0), ...buf.reverse()]);
+}
+
+/* ── VERIFY ENGINE ──────────────────────────────────────────────── */
+const _vcache = new Map();
+
+async function verifyArtifact(artifact) {
+  const h = artifact.execution_hash;
+  if (_vcache.has(h)) return _vcache.get(h);
+  const r = await _runVerify(artifact);
+  _vcache.set(h, r);
+  return r;
+}
+
+async function _runVerify(artifact) {
+  const out = {
+    hash: null, signature: 'absent', kernelIdentity: null,
+    computeProof: 'absent', anchorBinding: 'absent', gateReplay: 'absent',
+    details: {}
+  };
+
+  // §4 hash recompute
+  try {
+    const computed = await recomputeExecutionHash(artifact);
+    const recorded = artifact.execution_hash;
+    out.hash = computed === recorded ? 'pass' : 'fail';
+    out.details.hash = { computed, recorded, match: out.hash === 'pass' };
+  } catch (e) {
+    out.hash = 'fail';
+    out.details.hash = { error: e.message };
+  }
+
+  // §16 signature
+  const proof = artifact.audit_signature?.proof;
+  if (proof) {
+    out.signature = await _verifySignature(artifact, proof);
+    out.details.signature = out.signature;
+  }
+
+  // §17 kernel identity (display only — not recomputable client-side)
+  const bi = artifact.audit_signature?.build_identity;
+  if (bi) {
+    out.kernelIdentity = {
+      kernel_digest: bi.kernel_digest || null,
+      source_ref: bi.source_ref || null,
+      buildType: bi.buildType || null
+    };
+    out.details.kernelIdentity = out.kernelIdentity;
+  }
+
+  // §18 structural check
+  const cp = artifact.audit_signature?.compute_proof;
+  if (cp) {
+    const vendor = detectVendor(artifact);
+    out.computeProof = _checkComputeProof(cp, vendor);
+    out.details.computeProof = out.computeProof;
+  }
+
+  // §20 anchor binding parse + display
+  const anchors = artifact.anchor_bindings;
+  if (Array.isArray(anchors) && anchors.length > 0) {
+    out.anchorBinding = _parseAnchors(anchors, artifact.execution_hash);
+    out.details.anchorBinding = out.anchorBinding;
+  }
+
+  // §21 gate replay (composites only)
+  if (isComposite(artifact)) {
+    out.gateReplay = _replayGates(artifact);
+    out.details.gateReplay = out.gateReplay;
+  }
+
+  out.overall = _aggregate(out);
+  return out;
+}
+
+async function _verifySignature(artifact, proof) {
+  if (!crypto.subtle || typeof crypto.subtle.verify !== 'function')
+    return { status: 'unsupported', note: 'WebCrypto not available.' };
+  try {
+    // Feature-detect Ed25519 support
+    const testKey = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign']).catch(() => null);
+    if (!testKey) return { status: 'unsupported', note: 'Ed25519 not supported in this browser.' };
+
+    // §16.1: secured document = artifact with audit_signature.proof removed
+    const artCopy = JSON.parse(JSON.stringify(artifact));
+    delete artCopy.audit_signature.proof;
+    const proofOpts = Object.assign({}, proof);
+    delete proofOpts.proofValue;
+
+    const docDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(artCopy))));
+    const optDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(proofOpts))));
+
+    // Sign input: SHA-256(proofOptions) || SHA-256(document)
+    const sigInput = new Uint8Array(64);
+    sigInput.set(new Uint8Array(optDigest), 0);
+    sigInput.set(new Uint8Array(docDigest), 32);
+
+    const pv = proof.proofValue || '';
+    if (!pv.startsWith('z')) return { status: 'fail', note: 'proofValue not multibase-z base58btc.' };
+    const sigBytes = base58Decode(pv.slice(1));
+
+    const vm = proof.verificationMethod || '';
+    if (!vm.startsWith('did:key:')) return { status: 'fail', note: 'verificationMethod is not a did:key.' };
+    const keyPart = vm.replace(/^did:key:z?/, '');
+    const keyBytes = base58Decode(keyPart);
+    // Strip 2-byte multicodec prefix (0xed 0x01 for Ed25519)
+    const rawPub = keyBytes.length > 32 ? keyBytes.slice(keyBytes.length - 32) : keyBytes;
+
+    const cryptoKey = await crypto.subtle.importKey('raw', rawPub, { name: 'Ed25519' }, false, ['verify']);
+    const valid = await crypto.subtle.verify('Ed25519', cryptoKey, sigBytes, sigInput);
+    return { status: valid ? 'pass' : 'fail', verificationMethod: vm };
+  } catch (e) {
+    if (e.name === 'NotSupportedError' || (e.message||'').toLowerCase().includes('unsupported'))
+      return { status: 'unsupported', note: 'Ed25519 not supported here.' };
+    return { status: 'fail', note: e.message };
+  }
+}
+
+function _checkComputeProof(cp, vendor) {
+  const issues = [];
+  if (!cp.type || cp.type !== 'ZkVmReceipt') issues.push('type must be "ZkVmReceipt"');
+  if (!cp.imageId) issues.push('imageId absent');
+  if (!cp.journal) issues.push('journal absent');
+  if (!cp.seal) issues.push('seal absent');
+  if (issues.length) return { status: 'structural_fail', issues };
+
+  if (vendor && vendor.image_ids.length > 0 && !vendor.image_ids.includes(cp.imageId))
+    return { status: 'structural_fail', issues: [`imageId ${cp.imageId} not in ${vendor.name} registry`] };
+
+  return {
+    status: 'structural_pass',
+    imageId: cp.imageId,
+    system: cp.system || null,
+    receiptFormat: cp.receiptFormat || null,
+    vendorMatch: !vendor || vendor.image_ids.length === 0 || vendor.image_ids.includes(cp.imageId),
+    note: 'Structural check only. Cryptographic proof verification runs offline (Q4).'
+  };
+}
+
+function _parseAnchors(bindings, execHash) {
+  const parsed = bindings.map(b => ({
+    type: b.type,
+    authority: b.log_origin || b.type,
+    gen_time: b.gen_time || null,
+    anchored_hash: b.anchored_hash,
+    hash_match: b.anchored_hash === execHash || (b.merkle_inclusion?.leaf === execHash)
+  }));
+  return { status: 'present', count: parsed.length, bindings: parsed };
+}
+
+function _replayGates(artifact) {
+  const out = artifact.output_payload;
+  const decisions = out?.decisions;
+  const pathTaken = out?.path_taken || [];
+  if (!Array.isArray(decisions) || decisions.length === 0)
+    return { status: 'absent', note: 'No gate decisions recorded.' };
+
+  const steps = out.steps || [];
+  const stepMap = new Map(steps.map(s => [s.tool_id, s]));
+  const results = [];
+  for (const d of decisions) {
+    const step = stepMap.get(d.step_id);
+    if (!step) { results.push({ step_id: d.step_id, ok: false, reason: 'step not in composite output' }); continue; }
+    const { found, value: actual } = rfc6901(step.output_payload, d.input_pointer);
+    const expected = d.observed_value;
+    const observedMatch = found ? deepEqual(actual, expected) : (expected === null || expected === undefined);
+    results.push({
+      step_id: d.step_id,
+      ok: observedMatch,
+      pointer: d.input_pointer,
+      expected,
+      actual: found ? actual : undefined,
+      op: d.op,
+      value: d.value,
+      next: d.next
+    });
+  }
+  const allOk = results.every(r => r.ok);
+  return { status: allOk ? 'pass' : 'fail', results, count: results.length, path_taken: pathTaken, tamper: !allOk };
+}
+
+function _aggregate(checks) {
+  if (checks.hash === 'fail') return 'failed';
+  if (checks.signature?.status === 'fail') return 'failed';
+  if (checks.gateReplay?.status === 'fail') return 'failed';
+  if (checks.computeProof?.status === 'structural_fail') return 'failed';
+  if (checks.hash !== 'pass') return 'unchecked';
+  const hasUnsupported = checks.signature?.status === 'unsupported';
+  const hasStructural = checks.computeProof?.status === 'structural_pass';
+  const hasAnchor = checks.anchorBinding?.status === 'present';
+  if (hasUnsupported || hasStructural || hasAnchor) return 'partial';
+  return 'verified';
+}
+
+/* ── PERSIST / EXPORT / IMPORT ──────────────────────────────────── */
+async function persistArtifact(artifact, source) {
+  await dbPut({
+    execution_hash: artifact.execution_hash,
+    artifact,
+    added_at: Date.now(),
+    source: source || 'unknown',
+    chain_name: artifact.tool_id || ''
+  });
+}
+
+async function exportAll() {
+  const records = await dbGetAll();
+  if (records.length === 0) { showToast('No artifacts to export.', 'warn'); return; }
+  const bundle = { format: 'ocg-dashboard-bundle/v1', exported_at: new Date().toISOString(), artifacts: records };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ocg-dashboard-export-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importFromJSON(json, source) {
+  let parsed;
+  try { parsed = JSON.parse(json); } catch { return { imported: 0, errors: ['Invalid JSON'] }; }
+  const artifacts = extractAllArtifacts(parsed);
+  let imported = 0; const errors = [];
+  for (const a of artifacts) {
+    try { await persistArtifact(a, source || 'import'); imported++; } catch (e) { errors.push(e.message); }
+  }
+  return { imported, errors };
+}
+
+/* ── CHROMIUM FOLDER TIER ───────────────────────────────────────── */
+const FOLDER_KEY = '__folder_handle__';
+let _folderHandle = null;
+const _seenFolderFiles = new Set();
+const _folderSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+
+async function saveFolderHandle(handle) {
+  await dbPut({ execution_hash: FOLDER_KEY, handle, added_at: 0, source: 'system', chain_name: '' });
+  _folderHandle = handle;
+}
+
+async function loadFolderHandle() {
+  try {
+    const rec = await dbGet(FOLDER_KEY);
+    if (rec?.handle) { _folderHandle = rec.handle; return rec.handle; }
+  } catch {}
+  return null;
+}
+
+async function scanFolder(handle) {
+  if (!handle) return 0;
+  try {
+    let perm = await handle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'read' });
+    if (perm !== 'granted') return 0;
+    let imported = 0;
+    for await (const [name, entry] of handle) {
+      if (entry.kind !== 'file' || !name.endsWith('.json') || _seenFolderFiles.has(name)) continue;
+      try {
+        const text = await (await entry.getFile()).text();
+        const r = await importFromJSON(text, 'folder');
+        if (r.imported > 0) { imported += r.imported; _seenFolderFiles.add(name); }
+      } catch {}
+    }
+    return imported;
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('Folder scan:', e.message);
+    return 0;
+  }
+}
+
+/* ── ANCHOR-THEN-SHARE ──────────────────────────────────────────── */
+let _anchorCooldown = 0;
+
+async function doAnchorShare(artifact, btn, linkInput) {
+  const now = Date.now();
+  if (now < _anchorCooldown) {
+    showToast('Please wait ' + Math.ceil((_anchorCooldown - now) / 1000) + 's before anchoring again.', 'warn');
+    return;
+  }
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.textContent = 'Anchoring...';
+  try {
+    const resp = await fetch(ANCHOR_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'anchor_hash', arguments: { hash: artifact.execution_hash, authorities: ['freetsa'] } }, id: 1 })
+    });
+    if (!resp.ok) throw new Error('Anchor service returned ' + resp.status);
+    const text = await resp.text();
+    const dataLine = text.split('\n').find(l => l.startsWith('data:'));
+    if (!dataLine) throw new Error('No data line in response');
+    const rpcResp = JSON.parse(dataLine.replace(/^data:\s*/, ''));
+    const content = rpcResp?.result?.content?.[0]?.text;
+    if (!content) throw new Error('No content in response');
+    const anchorResult = JSON.parse(content);
+    const bindings = anchorResult.anchor_bindings || anchorResult.result?.anchor_bindings;
+    if (!Array.isArray(bindings) || !bindings.length) throw new Error('No anchor_bindings returned');
+
+    // Attach bindings outside the hash preimage (§20 discipline)
+    const updated = Object.assign({}, artifact, { anchor_bindings: bindings });
+    await persistArtifact(updated, 'link');
+
+    // Regenerate fragment link with anchored artifact
+    const frag = await encodeArtifactFragment(updated);
+    const shareUrl = frag ? 'https://dashboard.ainumbers.co/' + frag : null;
+    if (shareUrl) {
+      if (linkInput) linkInput.value = shareUrl;
+      await navigator.clipboard.writeText(shareUrl).catch(() => {});
+      showToast('Anchored. Link copied to clipboard.', 'success');
+    } else {
+      showToast('Anchored. Artifact too large for a link; use Export to share.', 'info');
+    }
+    // Re-render record section to show new bindings
+    _vcache.delete(artifact.execution_hash);
+    if (window._currentArtifactHash === artifact.execution_hash) await showRecord(updated);
+    _anchorCooldown = Date.now() + ANCHOR_COOLDOWN_MS;
+  } catch (e) {
+    showToast('Anchor failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+
+/* ── STEP RAIL SVG ──────────────────────────────────────────────── */
+function renderStepRailSVG(artifact) {
+  const op = artifact.output_payload;
+  if (!op || !Array.isArray(op.steps) || op.steps.length === 0) return null;
+
+  const steps = op.steps;
+  const pathTaken = new Set(op.path_taken || []);
+  const decisions = op.decisions || [];
+  const decisionMap = new Map(decisions.map(d => [d.step_id, d]));
+
+  const BOX_W = 140, BOX_H = 46, ARROW_W = 36, PAD = 16, BADGE_R = 8;
+  const totalW = steps.length * BOX_W + (steps.length - 1) * ARROW_W + 2 * PAD;
+  const H = BOX_H + 40 + 16;
+
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  let svg = `<svg viewBox="0 0 ${totalW} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:${totalW}px;font-family:'Sora',sans-serif">`;
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const sid = step.tool_id;
+    const ran = pathTaken.size === 0 || pathTaken.has(sid);
+    const dec = decisionMap.get(sid);
+    const x = PAD + i * (BOX_W + ARROW_W);
+    const y = 16;
+
+    // Color based on run status
+    const fill = ran ? 'rgba(20,184,166,.15)' : 'rgba(58,82,112,.12)';
+    const stroke = ran ? '#14B8A6' : '#3A5270';
+    const textColor = ran ? '#A8C4DE' : '#3A5270';
+
+    // Box
+    svg += `<rect x="${x}" y="${y}" width="${BOX_W}" height="${BOX_H}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="1.2" data-step="${esc(sid)}" style="cursor:pointer" onclick="showStepDetail('${esc(sid)}')"/>`;
+
+    // Step name (abbreviated)
+    const label = sid.replace(/^art-\d+-/, '').replace(/-/g,' ').slice(0, 20);
+    const lineY = y + BOX_H / 2 - 6;
+    svg += `<text x="${x + BOX_W/2}" y="${lineY + 8}" text-anchor="middle" font-size="10" fill="${textColor}" font-weight="500">${esc(label)}</text>`;
+
+    // Mandate type if present
+    const mt = (step.mandate_type || '').slice(0, 16);
+    if (mt) svg += `<text x="${x + BOX_W/2}" y="${lineY + 20}" text-anchor="middle" font-size="9" fill="#3A5270">${esc(mt)}</text>`;
+
+    // Gate badge
+    if (dec) {
+      const bx = x + BOX_W - BADGE_R - 4;
+      const by = y - BADGE_R / 2;
+      const gateFill = dec.next === 'end' ? 'rgba(212,168,71,.25)' : 'rgba(20,184,166,.25)';
+      const gateStroke = dec.next === 'end' ? '#D4A847' : '#14B8A6';
+      svg += `<circle cx="${bx}" cy="${by}" r="${BADGE_R}" fill="${gateFill}" stroke="${gateStroke}" stroke-width="1"/>`;
+      svg += `<text x="${bx}" y="${by + 4}" text-anchor="middle" font-size="8" fill="${gateStroke}" font-weight="600">G</text>`;
+      // Tooltip via title element
+      const tip = `Gate: ${dec.input_pointer} ${dec.op || 'default'} ${dec.value !== null && dec.value !== undefined ? JSON.stringify(dec.value) : ''} -> ${dec.next}`;
+      svg += `<title>${esc(tip)}</title>`;
+    }
+
+    // Arrow to next step
+    if (i < steps.length - 1) {
+      const ax = x + BOX_W;
+      const ay = y + BOX_H / 2;
+      const nextSid = steps[i + 1].tool_id;
+      const nextRan = pathTaken.size === 0 || pathTaken.has(nextSid);
+      const arrowColor = nextRan ? '#14B8A6' : '#3A5270';
+      svg += `<line x1="${ax}" y1="${ay}" x2="${ax + ARROW_W - 6}" y2="${ay}" stroke="${arrowColor}" stroke-width="1.5"/>`;
+      svg += `<polygon points="${ax + ARROW_W},${ay} ${ax + ARROW_W - 6},${ay - 4} ${ax + ARROW_W - 6},${ay + 4}" fill="${arrowColor}"/>`;
+    }
+
+    // Step index label below
+    svg += `<text x="${x + BOX_W/2}" y="${y + BOX_H + 14}" text-anchor="middle" font-size="9" fill="#3A5270">${i + 1}</text>`;
+  }
+
+  // Legend
+  const lx = totalW / 2;
+  const ly = H - 10;
+  svg += `<circle cx="${lx - 70}" cy="${ly}" r="4" fill="rgba(20,184,166,.3)" stroke="#14B8A6" stroke-width="1"/>`;
+  svg += `<text x="${lx - 62}" y="${ly + 4}" font-size="9" fill="#3A5270">ran</text>`;
+  svg += `<circle cx="${lx - 30}" cy="${ly}" r="4" fill="rgba(58,82,112,.15)" stroke="#3A5270" stroke-width="1"/>`;
+  svg += `<text x="${lx - 22}" y="${ly + 4}" font-size="9" fill="#3A5270">skipped</text>`;
+  svg += `<circle cx="${lx + 20}" cy="${ly}" r="4" fill="rgba(212,168,71,.25)" stroke="#D4A847" stroke-width="1"/>`;
+  svg += `<text x="${lx + 28}" y="${ly + 4}" font-size="9" fill="#3A5270">G = gate decision</text>`;
+
+  svg += '</svg>';
+  return svg;
+}
+
+/* ── UI UTILITIES ───────────────────────────────────────────────── */
+function chipHtml(state, label) {
+  const cls = { verified:'chip-verified', partial:'chip-partial', failed:'chip-failed', unchecked:'chip-unchecked',
+                 pass:'chip-pass', fail:'chip-fail', absent:'chip-absent', info:'chip-info', warn:'chip-warn' };
+  return `<span class="chip ${cls[state] || 'chip-absent'}">${label || state}</span>`;
+}
+
+function stateLabel(state) {
+  const m = { verified:'Verified', partial:'Partial', failed:'Failed', unchecked:'Unchecked' };
+  return m[state] || state;
+}
+
+function relTime(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+  if (d > 1) return d + 'd ago';
+  if (h > 1) return h + 'h ago';
+  if (m > 1) return m + 'm ago';
+  return 'just now';
+}
+
+function showToast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* ── DIALOGS ────────────────────────────────────────────────────── */
+function openDialog(html) {
+  const box = document.getElementById('dialog-box');
+  box.innerHTML = html;
+  document.getElementById('dialog-overlay').style.display = 'flex';
+}
+function closeDialog() {
+  document.getElementById('dialog-overlay').style.display = 'none';
+}
+
+async function confirmKeep(artifact) {
+  return new Promise(res => {
+    const chain = artifactChainName(artifact);
+    const hash = artifact.execution_hash.slice(0, 16) + '...';
+    openDialog(`
+      <div class="dialog-title">Save to Ledger?</div>
+      <div class="dialog-body">An artifact was found in the URL. Keep it in your local ledger?</div>
+      <div class="dialog-meta">
+        <div><strong class="mono">${chain}</strong></div>
+        <div class="mono" style="color:var(--muted);font-size:.7rem">${hash}</div>
+      </div>
+      <p style="font-size:.75rem;color:var(--muted)">${LOCAL_NOTICE}</p>
+      <div class="dialog-actions" style="margin-top:1rem">
+        <button class="dialog-btn" onclick="closeDialog();window._dlgRes(false)">Dismiss</button>
+        <button class="dialog-btn primary" onclick="closeDialog();window._dlgRes(true)">Save</button>
+      </div>
+    `);
+    window._dlgRes = res;
+  });
+}
+
+/* ── LEDGER VIEW ────────────────────────────────────────────────── */
+let _filter = localStorage.getItem('ocg_filter') || 'all';
+let _filterChain = '';
+
+async function renderLedger() {
+  const main = document.getElementById('main');
+  const records = await dbGetAll();
+
+  // Build chip counts
+  const verifyMap = new Map();
+  for (const r of records) {
+    const cached = _vcache.get(r.execution_hash);
+    verifyMap.set(r.execution_hash, cached?.overall || 'unchecked');
+  }
+
+  const chains = [...new Set(records.map(r => artifactChainName(r.artifact)).filter(Boolean))].slice(0,10);
+  const counts = { all: records.length, verified: 0, partial: 0, failed: 0, unchecked: 0 };
+  for (const [, state] of verifyMap) counts[state] = (counts[state] || 0) + 1;
+  if (!counts.unchecked) counts.unchecked = records.filter(r => !_vcache.has(r.execution_hash)).length;
+
+  let filtered = records;
+  if (_filter !== 'all') filtered = records.filter(r => (verifyMap.get(r.execution_hash) || 'unchecked') === _filter);
+  if (_filterChain) filtered = filtered.filter(r => artifactChainName(r.artifact) === _filterChain);
+
+  if (records.length === 0) {
+    main.innerHTML = `<section class="main-section"><div class="container">${renderIngress()}</div></section>`;
+    wireIngress();
+    return;
+  }
+
+  const filterBtns = ['all','verified','partial','failed','unchecked'].map(f =>
+    `<button class="filter-btn ${_filter===f?'active':''}" data-filter="${f}">${f === 'all' ? 'All' : stateLabel(f)} (${counts[f]||0})</button>`
+  ).join('');
+
+  const chainSelects = chains.length > 1 ? chains.map(c =>
+    `<button class="filter-btn ${_filterChain===c?'active':''}" data-chain="${c}">${c}</button>`
+  ).join('') : '';
+
+  const cards = filtered.length === 0
+    ? `<div class="empty-state"><p>No artifacts match this filter.</p></div>`
+    : filtered.map(r => {
+        const state = verifyMap.get(r.execution_hash) || 'unchecked';
+        const chain = artifactChainName(r.artifact);
+        const outcome = r.artifact.output_payload?.path_taken?.join(' > ') || r.artifact.mandate_type || '';
+        return `<div class="artifact-card" data-hash="${r.execution_hash}">
+          <div class="card-chip">${chipHtml(state, stateLabel(state))}</div>
+          <div class="card-body">
+            <div class="card-title">${chain || r.artifact.tool_id || 'Unknown'}</div>
+            <div class="card-meta">
+              <span>${relTime(r.added_at)}</span>
+              <span>${sourceLabel(r.source)}</span>
+              ${r.artifact.mandate_type ? `<span>${r.artifact.mandate_type}</span>` : ''}
+            </div>
+            ${outcome ? `<div class="card-outcome truncate">${outcome}</div>` : ''}
+          </div>
+          <div class="card-actions">
+            <button class="card-del-btn" data-del="${r.execution_hash}" title="Remove from ledger">Remove</button>
+          </div>
+        </div>`;
+      }).join('');
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="ledger-header">
+      <span class="ledger-title">Ledger</span>
+      <div class="filter-bar">${filterBtns}${chainSelects}</div>
+    </div>
+    <div id="add-ingress-row" style="margin-bottom:1rem">${renderIngressMini()}</div>
+    <div class="ledger-list">${cards}</div>
+  </div></section>`;
+
+  // Wire filter buttons
+  main.querySelectorAll('[data-filter]').forEach(btn =>
+    btn.addEventListener('click', () => { _filter = btn.dataset.filter; localStorage.setItem('ocg_filter', _filter); renderLedger(); }));
+  main.querySelectorAll('[data-chain]').forEach(btn =>
+    btn.addEventListener('click', () => { _filterChain = _filterChain === btn.dataset.chain ? '' : btn.dataset.chain; renderLedger(); }));
+
+  // Wire card clicks
+  main.querySelectorAll('.artifact-card').forEach(card =>
+    card.addEventListener('click', e => {
+      if (e.target.closest('.card-del-btn')) return;
+      navigate('#view/' + card.dataset.hash);
+    }));
+
+  // Wire delete
+  main.querySelectorAll('[data-del]').forEach(btn =>
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await dbDelete(btn.dataset.del);
+      _vcache.delete(btn.dataset.del);
+      await renderLedger();
+    }));
+
+  wireIngressMini();
+}
+
+/* ── INGRESS (full + mini) ──────────────────────────────────────── */
+function renderIngress() {
+  const folderSection = _folderSupported ? `
+    <div class="folder-row" id="folder-row">
+      <span id="folder-status">${_folderHandle ? 'Linked folder: ' + (_folderHandle.name || 'folder') : 'No folder linked'}</span>
+      <button id="folder-link-btn">${_folderHandle ? 'Change folder' : 'Link a folder'}</button>
+      ${_folderHandle ? '<button id="folder-unlink-btn">Unlink</button>' : ''}
+    </div>` : '';
+
+  return `<div class="ingress-zone" id="ingress-zone" tabindex="0">
+    <div class="ingress-title">Agent Work Ledger</div>
+    <div class="ingress-sub">Drop, paste, or pick an OpenChainGraph artifact to verify it here.</div>
+    <div class="ingress-actions">
+      <button class="ingress-btn primary" id="pick-file-btn">Pick file</button>
+      <button class="ingress-btn" id="paste-btn">Paste JSON</button>
+    </div>
+    <div class="ingress-channels">
+      <span>Drag-and-drop</span>
+      <span>Paste anywhere</span>
+      <span>URL fragment</span>
+      ${_folderSupported ? '<span>Folder watch</span>' : ''}
+    </div>
+    ${folderSection}
+    <div class="local-notice">${LOCAL_NOTICE}</div>
+    <input type="file" id="file-input" class="ingress-file-input" accept=".json" multiple>
+  </div>`;
+}
+
+function renderIngressMini() {
+  return `<div class="ingress-zone" id="ingress-zone" style="padding:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;text-align:left">
+    <span style="font-size:.85rem;color:var(--body);flex:1">Drop, paste, or pick an artifact to add it to the ledger.</span>
+    <button class="ingress-btn" id="pick-file-btn" style="margin:0">Pick file</button>
+    <input type="file" id="file-input" class="ingress-file-input" accept=".json" multiple>
+    <div style="font-size:.7rem;color:var(--muted);width:100%">${LOCAL_NOTICE}</div>
+  </div>`;
+}
+
+function wireIngress() {
+  const zone = document.getElementById('ingress-zone');
+  const fileInput = document.getElementById('file-input');
+  if (!zone || !fileInput) return;
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', async e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.json'));
+    let total = 0;
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
+    if (total > 0) { showToast(total + ' artifact' + (total > 1 ? 's' : '') + ' imported.', 'success'); await renderLedger(); }
+    else showToast('No valid artifacts found in dropped files.', 'warn');
+  });
+
+  document.getElementById('pick-file-btn')?.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    let total = 0;
+    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
+    if (total > 0) { showToast(total + ' artifact' + (total > 1 ? 's' : '') + ' imported.', 'success'); await renderLedger(); }
+    fileInput.value = '';
+  });
+
+  document.getElementById('paste-btn')?.addEventListener('click', async () => {
+    const text = await navigator.clipboard.readText().catch(() => null);
+    if (!text) { showToast('Could not read clipboard.', 'warn'); return; }
+    const r = await importFromJSON(text, 'paste');
+    if (r.imported > 0) { showToast(r.imported + ' artifact' + (r.imported > 1 ? 's' : '') + ' imported.', 'success'); await renderLedger(); }
+    else showToast('No valid artifacts found in clipboard text.', 'warn');
+  });
+
+  // Folder tier
+  document.getElementById('folder-link-btn')?.addEventListener('click', async () => {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      await saveFolderHandle(handle);
+      const count = await scanFolder(handle);
+      if (count > 0) { showToast(count + ' artifacts imported from folder.', 'success'); await renderLedger(); }
+      else { showToast('Folder linked. New .json files will be imported on focus.', 'info'); await renderLedger(); }
+    } catch (e) { if (e.name !== 'AbortError') showToast('Could not link folder: ' + e.message, 'error'); }
+  });
+  document.getElementById('folder-unlink-btn')?.addEventListener('click', async () => {
+    await dbDelete(FOLDER_KEY); _folderHandle = null;
+    showToast('Folder unlinked.', 'info'); await renderLedger();
+  });
+}
+
+function wireIngressMini() {
+  const zone = document.getElementById('ingress-zone');
+  const fileInput = document.getElementById('file-input');
+  if (!zone || !fileInput) return;
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', async e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.json'));
+    let total = 0;
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
+    if (total > 0) { showToast(total + ' artifact(s) imported.', 'success'); await renderLedger(); }
+    else showToast('No valid artifacts found.', 'warn');
+  });
+
+  document.getElementById('pick-file-btn')?.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    let total = 0;
+    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
+    if (total > 0) { showToast(total + ' artifact(s) imported.', 'success'); await renderLedger(); }
+    fileInput.value = '';
+  });
+}
+
+/* ── RECORD VIEW ────────────────────────────────────────────────── */
+window._currentArtifactHash = null;
+window._stepDetailTarget = null;
+
+async function showRecord(artifact) {
+  const hash = artifact.execution_hash;
+  window._currentArtifactHash = hash;
+  const main = document.getElementById('main');
+
+  // Show loading state
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="breadcrumb"><a href="#" onclick="navigate('');return false">Ledger</a> &rsaquo; Verifying...</div>
+    <div class="record-title">Verifying artifact...</div>
+  </div></section>`;
+
+  const vr = await verifyArtifact(artifact);
+  const vendor = detectVendor(artifact);
+  const isComp = isComposite(artifact);
+  const chain = artifactChainName(artifact);
+  const title = artifactTitle(artifact);
+
+  // Verify card rows
+  const hashRow = `<div class="verify-row">
+    <span class="verify-icon">${vr.hash === 'pass' ? '&#10003;' : '&#10007;'}</span>
+    <div class="verify-label">Hash integrity (§4)
+      <small class="mono">${vr.details.hash?.computed?.slice(0,20) || ''}...</small>
+    </div>
+    <div class="verify-chip">${chipHtml(vr.hash === 'pass' ? 'pass' : 'fail', vr.hash === 'pass' ? 'Pass' : 'Fail')}</div>
+  </div>`;
+
+  const sigState = typeof vr.signature === 'string' ? vr.signature : vr.signature?.status;
+  const sigNote = (vr.signature?.note) || (vr.signature?.verificationMethod ? 'key: ' + vr.signature.verificationMethod.slice(0,30) + '...' : '');
+  const sigRow = `<div class="verify-row">
+    <span class="verify-icon">${sigState === 'pass' ? '&#10003;' : sigState === 'fail' ? '&#10007;' : '&ndash;'}</span>
+    <div class="verify-label">Ed25519 signature (§16)
+      ${sigNote ? `<small>${sigNote}</small>` : ''}
+    </div>
+    <div class="verify-chip">${
+      sigState === 'pass' ? chipHtml('pass','Pass') :
+      sigState === 'fail' ? chipHtml('fail','Fail') :
+      sigState === 'unsupported' ? chipHtml('warn','Unsupported here') :
+      chipHtml('absent','Absent')
+    }</div>
+  </div>`;
+
+  const ki = vr.kernelIdentity;
+  const kiRow = `<div class="verify-row">
+    <span class="verify-icon">&ndash;</span>
+    <div class="verify-label">Kernel identity (§17)
+      ${ki ? `<small class="mono">${(ki.kernel_digest || 'no digest').slice(0,32)}${ki.source_ref ? ` &middot; <a class="verify-link" href="${ki.source_ref}" target="_blank" rel="noopener">source</a>` : ''}</small>` : '<small>Not recorded in this artifact</small>'}
+    </div>
+    <div class="verify-chip">${ki ? chipHtml('info','Display only') : chipHtml('absent','Absent')}</div>
+  </div>`;
+
+  const cpState = typeof vr.computeProof === 'string' ? vr.computeProof : vr.computeProof?.status;
+  const cpNote = vr.computeProof?.note || (vr.computeProof?.issues ? vr.computeProof.issues.join('; ') : '');
+  const cpRow = `<div class="verify-row">
+    <span class="verify-icon">${cpState === 'structural_pass' ? '&#10003;' : cpState === 'structural_fail' ? '&#10007;' : '&ndash;'}</span>
+    <div class="verify-label">Compute integrity (§18)
+      <small>${cpState === 'structural_pass' ? 'Structural check only; cryptographic proof verification runs offline.' : cpNote || 'No compute proof in this artifact.'}</small>
+    </div>
+    <div class="verify-chip">${
+      cpState === 'structural_pass' ? chipHtml('partial','Structural pass') :
+      cpState === 'structural_fail' ? chipHtml('fail','Structural fail') :
+      chipHtml('absent','Absent')
+    }</div>
+  </div>`;
+
+  const ancState = typeof vr.anchorBinding === 'string' ? vr.anchorBinding : vr.anchorBinding?.status;
+  const ancBindings = vr.anchorBinding?.bindings || [];
+  const ancRows = ancBindings.map(b =>
+    `<small>${b.authority}${b.gen_time ? ' &middot; ' + b.gen_time : ''} &middot; <a class="verify-link" href="https://anchor.ainumbers.co/verify" target="_blank" rel="noopener">Verify at anchor.ainumbers.co</a></small>`
+  ).join('');
+  const ancRow = `<div class="verify-row">
+    <span class="verify-icon">${ancState === 'present' ? '&#10003;' : '&ndash;'}</span>
+    <div class="verify-label">Timestamp anchor (§20)
+      ${ancRows}
+    </div>
+    <div class="verify-chip">${ancState === 'present' ? chipHtml('partial','Present &ndash; verify at anchor.ainumbers.co') : chipHtml('absent','Absent')}</div>
+  </div>`;
+
+  const grState = typeof vr.gateReplay === 'string' ? vr.gateReplay : vr.gateReplay?.status;
+  const grCount = vr.gateReplay?.count || 0;
+  const grRow = isComp ? `<div class="verify-row">
+    <span class="verify-icon">${grState === 'pass' ? '&#10003;' : grState === 'fail' ? '&#10007;' : '&ndash;'}</span>
+    <div class="verify-label">Gate replay (§21)
+      <small>${grCount} gate decision${grCount !== 1 ? 's' : ''} re-evaluated${grState === 'fail' ? ' &ndash; tamper detected' : ''}</small>
+    </div>
+    <div class="verify-chip">${
+      grState === 'pass' ? chipHtml('pass','Pass') :
+      grState === 'fail' ? chipHtml('fail','Tamper detected') :
+      chipHtml('absent','No gates')
+    }</div>
+  </div>` : '';
+
+  // Step rail (composites only)
+  let stepRailHtml = '';
+  if (isComp) {
+    const svgContent = renderStepRailSVG(artifact);
+    const pathTaken = artifact.output_payload?.path_taken || [];
+    stepRailHtml = `<div class="record-section">
+      <div class="section-title">Step Path</div>
+      <div class="step-rail-wrap">
+        <div class="step-rail-svg-wrap">${svgContent || '<p style="color:var(--muted)">No step data</p>'}</div>
+        <div id="step-detail" style="display:none"></div>
+      </div>
+      ${pathTaken.length ? `<div style="margin-top:.5rem;font-size:.75rem;color:var(--body)">Path taken: <span class="mono">${pathTaken.join(' &rsaquo; ')}</span></div>` : ''}
+    </div>`;
+  }
+
+  // Event table (decisions[])
+  let eventTableHtml = '';
+  const decisions = artifact.output_payload?.decisions || [];
+  if (decisions.length > 0) {
+    const rows = decisions.map(d => {
+      const observed = d.observed_value !== null && d.observed_value !== undefined ? JSON.stringify(d.observed_value) : 'null';
+      const value = d.value !== null && d.value !== undefined ? JSON.stringify(d.value) : '';
+      const op = d.op || 'default';
+      const nextCls = d.next === 'end' ? 'next-end' : '';
+      return `<tr>
+        <td class="mono">${d.step_id || ''}</td>
+        <td class="mono">${d.input_pointer || ''}</td>
+        <td class="mono">${observed}</td>
+        <td class="mono">${op}${value ? ' ' + value : ''}</td>
+        <td><span class="next-chip ${nextCls}">${d.next || ''}</span></td>
+      </tr>`;
+    }).join('');
+    eventTableHtml = `<div class="record-section">
+      <div class="section-title">Gate Decisions</div>
+      <div style="overflow-x:auto"><table class="event-table">
+        <thead><tr><th>Step</th><th>Pointer</th><th>Observed</th><th>Rule</th><th>Next</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // Fragment link for share block
+  const frag = await encodeArtifactFragment(artifact);
+  const shareUrl = frag ? 'https://dashboard.ainumbers.co/' + frag : null;
+  const overBudget = !frag ? '<span class="share-note">Artifact exceeds 30KB link budget. Download and share via Export.</span>' : '';
+
+  const shareBlock = `<div class="record-section">
+    <div class="section-title">Share</div>
+    <div class="share-block">
+      <div class="share-row">
+        <input class="share-link-input" id="share-link" type="text" readonly value="${shareUrl || '(too large for a link)'}" ${!shareUrl ? 'disabled' : ''}>
+        <button class="share-copy-btn" id="share-copy-btn" ${!shareUrl ? 'disabled' : ''}>Copy link</button>
+      </div>
+      ${overBudget}
+      <div class="share-row">
+        <button class="share-anchor-btn" id="share-anchor-btn">Anchor, then share</button>
+        <span class="share-note">Posts to anchor.ainumbers.co, attaches a RFC 3161 timestamp outside the hash preimage, then regenerates the link.</span>
+      </div>
+    </div>
+  </div>`;
+
+  // Raw JSON block
+  const rawJson = JSON.stringify(artifact, null, 2);
+  const rawBlock = `<div class="record-section">
+    <div class="section-title">Raw artifact</div>
+    <div class="raw-block">
+      <div class="raw-toolbar">
+        <span class="mono">${artifact.execution_hash.slice(0,20)}...</span>
+        <button class="raw-btn" id="raw-dl-btn">Download</button>
+        <button class="raw-btn" id="raw-copy-btn">Copy</button>
+      </div>
+      <pre class="raw-json" id="raw-json-pre">${rawJson.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+    </div>
+  </div>`;
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="record-header">
+      <div class="breadcrumb"><a href="#" onclick="navigate('');return false">Ledger</a> &rsaquo; ${chain}</div>
+      <div class="record-title">${title}</div>
+      <div class="record-meta">
+        ${chipHtml(vr.overall, stateLabel(vr.overall))}
+        <span class="mono" title="${artifact.execution_hash}">${artifact.execution_hash.slice(0,20)}...</span>
+        ${artifact.mandate_type ? `<span>${artifact.mandate_type}</span>` : ''}
+        ${artifact.generated_at ? `<span>${artifact.generated_at.slice(0,10)}</span>` : ''}
+        ${vendor ? `<span>${vendor.name}</span>` : '<span style="color:var(--warn)">Unknown vendor</span>'}
+      </div>
+    </div>
+
+    <div class="record-section">
+      <div class="section-title">Verification</div>
+      <div class="verify-card">
+        ${hashRow}${sigRow}${kiRow}${cpRow}${ancRow}${grRow}
+      </div>
+    </div>
+
+    ${stepRailHtml}
+    ${eventTableHtml}
+    ${shareBlock}
+    ${rawBlock}
+  </div></section>`;
+
+  // Wire share block
+  document.getElementById('share-copy-btn')?.addEventListener('click', () => {
+    const val = document.getElementById('share-link')?.value;
+    if (val && val !== '(too large for a link)') { navigator.clipboard.writeText(val).catch(() => {}); showToast('Link copied.', 'success'); }
+  });
+  document.getElementById('share-anchor-btn')?.addEventListener('click', () => {
+    doAnchorShare(artifact, document.getElementById('share-anchor-btn'), document.getElementById('share-link'));
+  });
+
+  // Wire raw block
+  document.getElementById('raw-dl-btn')?.addEventListener('click', () => {
+    const blob = new Blob([rawJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (chain || 'artifact') + '-' + artifact.execution_hash.slice(0,8) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('raw-copy-btn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(rawJson).catch(() => {});
+    showToast('Copied.', 'success');
+  });
+}
+
+// Called by SVG onclick — show step detail panel
+window.showStepDetail = function(stepId) {
+  const panel = document.getElementById('step-detail');
+  if (!panel) return;
+  const rec = dbGet(window._currentArtifactHash);
+  rec.then(r => {
+    if (!r) return;
+    const steps = r.artifact.output_payload?.steps || [];
+    const step = steps.find(s => s.tool_id === stepId);
+    if (!step) return;
+    const json = JSON.stringify(step, null, 2).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    panel.innerHTML = `<div class="step-detail-panel">
+      <h4>${stepId}</h4>
+      <pre class="step-detail-json">${json}</pre>
+    </div>`;
+    panel.style.display = 'block';
+  });
+};
+
+/* ── ROUTER ─────────────────────────────────────────────────────── */
+async function navigate(hash) {
+  window.history.pushState(null, '', location.pathname + (hash ? hash : ''));
+  await route();
+}
+
+async function route() {
+  const hash = location.hash;
+  if (hash.startsWith('#view/')) {
+    const execHash = hash.slice(6);
+    const rec = await dbGet(execHash);
+    if (rec?.artifact) { await showRecord(rec.artifact); }
+    else { showToast('Artifact not found in ledger.', 'warn'); await renderLedger(); }
+    return;
+  }
+  // Fragment import channel
+  if (hash.startsWith('#a=')) {
+    await handleFragmentImport();
+    return;
+  }
+  await renderLedger();
+}
+
+async function handleFragmentImport() {
+  const frag = location.hash;
+  const parsed = await decodeFragment(frag);
+  if (!parsed) { showToast('Could not decode fragment.', 'warn'); history.replaceState(null, '', location.pathname); await renderLedger(); return; }
+
+  const artifact = extractArtifact(parsed);
+  if (!artifact) { showToast('No valid artifact in fragment.', 'warn'); history.replaceState(null, '', location.pathname); await renderLedger(); return; }
+  if (!isArtifact(artifact)) { showToast('Artifact missing required fields.', 'warn'); history.replaceState(null, '', location.pathname); await renderLedger(); return; }
+
+  // Strip fragment from address bar
+  history.replaceState(null, '', location.pathname + '#view/' + artifact.execution_hash);
+
+  // Check if already in DB
+  const existing = await dbGet(artifact.execution_hash);
+  if (!existing) {
+    const keep = await confirmKeep(artifact);
+    if (keep) await persistArtifact(artifact, 'link');
+  }
+
+  await showRecord(artifact);
+}
+
+/* ── NAV WIRING ─────────────────────────────────────────────────── */
+function wireNav() {
+  document.getElementById('nav-export-btn')?.addEventListener('click', exportAll);
+  document.getElementById('nav-import-btn')?.addEventListener('click', () => {
+    document.getElementById('nav-file-input')?.click();
+  });
+  document.getElementById('nav-file-input')?.addEventListener('change', async e => {
+    const files = [...e.target.files];
+    let total = 0;
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'import'); total += r.imported; }
+    if (total > 0) { showToast(total + ' artifact(s) imported.', 'success'); await renderLedger(); }
+    else showToast('No valid artifacts found.', 'warn');
+    e.target.value = '';
+  });
+
+  // Global paste listener
+  document.addEventListener('paste', async e => {
+    const text = e.clipboardData?.getData('text/plain');
+    if (!text || !text.includes('execution_hash')) return;
+    const r = await importFromJSON(text, 'paste');
+    if (r.imported > 0) { showToast(r.imported + ' artifact(s) imported from paste.', 'success'); await renderLedger(); }
+  });
+
+  // Nav logo click
+  document.querySelector('.nav-logo')?.addEventListener('click', e => { e.preventDefault(); navigate(''); });
+
+  // Browser back/forward
+  window.addEventListener('popstate', route);
+}
+
+/* ── INIT ────────────────────────────────────────────────────────── */
+(async () => {
+  document.getElementById('footer-version').textContent = 'v' + VERSION;
+
+  wireNav();
+
+  // Load persisted folder handle
+  _folderHandle = await loadFolderHandle();
+
+  // Request storage persistence (best-effort, once)
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+
+  // Initial route
+  await route();
+
+  // Folder rescan on focus (no timers)
+  window.addEventListener('focus', async () => {
+    if (_folderHandle) {
+      const imported = await scanFolder(_folderHandle);
+      if (imported > 0) { showToast(imported + ' new artifact(s) from folder.', 'info'); await renderLedger(); }
+    }
+  });
+})();
+</script>
+</body>
+</html>
