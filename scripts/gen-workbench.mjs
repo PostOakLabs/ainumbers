@@ -29,7 +29,7 @@ const CHECK_MODE  = process.argv.includes('--check');
 const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
 
 /* ── wayfinder rail (step: Run) ──────────────────────────────────── */
-const { steps: wfSteps } = JSON.parse(readFileSync(resolve(REPO, 'data/suite-map.json'), 'utf8'));
+const { rail: wfSteps } = JSON.parse(readFileSync(resolve(REPO, 'data/suite-map.json'), 'utf8'));
 const WAYFINDER_PH = '/*__WAYFINDER__*/';
 const nodeMap = Object.fromEntries(cg.nodes.map(n => [n.tool_id, n]));
 
