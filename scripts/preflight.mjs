@@ -56,7 +56,11 @@ const GATES = [
   ['Chain runners up-to-date',    'node scripts/gen-chain-runners.mjs --check'],
   ['Workbench up-to-date',        'node scripts/gen-workbench.mjs --check'],
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
+  ['Wayfinder freshness',         'node scripts/gen-wayfinder.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
+  ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
+  ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
+  ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
 ];
 
 let failed = null;

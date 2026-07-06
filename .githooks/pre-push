@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-push shift-left gate. Runs the full preflight suite so a red tree never reaches CI
+# (green here == green in CI). Enabled per-clone via `core.hooksPath = .githooks`; run
+# `node scripts/setup-hooks.mjs` once after cloning (worktrees inherit it automatically).
+#
+# Emergency bypass (use sparingly, e.g. pushing a WIP branch you know is red): git push --no-verify
+#
+# CI remains the real backstop — this hook only enforces locally and can be bypassed.
+
+# Branches that predate preflight (or non-site checkouts) have nothing to gate.
+if [ ! -f scripts/preflight.mjs ]; then
+  exit 0
+fi
+
+echo "pre-push: running scripts/preflight.mjs (bypass with 'git push --no-verify') ..."
+node scripts/preflight.mjs
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: preflight FAILED — push blocked. Fix the gate above, or 'git push --no-verify' to override." 1>&2
+  exit 1
+fi
+exit 0

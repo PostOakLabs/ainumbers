@@ -31,6 +31,8 @@ ainumbers/
 - **Routing:** Tools in `tools/` must use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes for all internal links. Absolute URLs reserved strictly for `suite-registry.json` & external MCP endpoints.
 - **License:** CC BY 4.0. Code must be readable, commented, and attribution-ready.
 - **Reader-facing copy (CONTRACT §1.4):** Public HTML prose and `chaingraph.json` descriptions must pass the copy-hallmarks gate — no em-dashes (en-dash ranges fine; §1.3 banner exempt) and no build codes (`Wave N`, `W-A`…`W-G`, `D0`) in visible text. Gate: `node scripts/check-copy-hallmarks.mjs` (in preflight + CI); `scripts/copy-hallmarks-baseline.json` shields unswept legacy debt, counts only go down.
+- **Author every code/data file with the Write/Edit tools — NEVER a bash heredoc, `echo`, or `printf`.** Kernel/HTML/JSON content is full of `'`, backticks, and `$`; piping it through a shell produces unterminated-quote / `unexpected EOF` errors and silently-truncated files. The JS-syntax gate is the backstop, but write files directly and the failure never happens.
+- **`execution_hash` — call `executionHash(policy_parameters, output_payload)` from `chaingraph/kernels/_hash.mjs`. NEVER hand-build the `{policy_parameters, output_payload}` preimage or `JSON.stringify` it yourself.** There is exactly one correct canonicalization (RFC 8785 / JCS `cgCanon`) and it lives in `_hash.mjs`. Ad-hoc canonicalization trips `lint-forbidden-hash` ("Scheme E"); if it ever does, run `node chaingraph/kernels/fix-hash-scheme.mjs`. Copy the hash path from a proven kernel (e.g. `art-213`).
 
 ## 🤖 MCP / tool-registration invariants (CONTRACT §A4 — MUST)
 
@@ -61,6 +63,8 @@ Before adding or renaming any tool, ChainGraph node, chain, or kernel:
 ## ✅ Wave Completion Checklist
 
 **⚡ BEFORE EVERY PUSH: `node scripts/preflight.mjs`** — runs every hard CI gate locally, in CI order (JS syntax, hash gates, index-sync, dead-link, count-drift, **hub freshness**, SSOT conformance, verify_repo, mfstSec). **Green here ⇒ green in CI.** Never push on a red preflight — that's the push→CI-fail→fix→re-push churn this prevents. The numbered items below are the individual remediation steps when a gate fails.
+
+**Mechanical enforcement (shift-left):** a committed `pre-push` hook (`.githooks/pre-push`) runs `preflight.mjs` automatically on every push, so a red tree can't reach CI. Enable it once per clone with **`node scripts/setup-hooks.mjs`** (sets `core.hooksPath = .githooks`; worktrees inherit it, so once covers all of them). Emergency bypass: `git push --no-verify`. CI stays the real backstop — the hook only enforces locally.
 
 Run after every batch of new tools/chains, before committing:
 
