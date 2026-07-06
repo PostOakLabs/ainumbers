@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderRail } from './gen-wayfinder.mjs';
 
 const REPO      = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CG_PATH   = resolve(REPO, 'chaingraph/chaingraph.json');
@@ -29,6 +30,10 @@ const CHECK     = process.argv.includes('--check');
 
 /* ── load chaingraph.json ─────────────────────────────────────────── */
 const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
+
+/* ── wayfinder rail (step: Run) ──────────────────────────────────── */
+const { steps: wfSteps } = JSON.parse(readFileSync(resolve(REPO, 'data/suite-map.json'), 'utf8'));
+const WAYFINDER_PH = '/*__WAYFINDER__*/';
 
 /* ── AINBridge check (cached reads) ──────────────────────────────── */
 const bridgeCache = new Map();
@@ -282,6 +287,8 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
   <div class="nav-bc"><a href="../../index.html">All Tools</a> / <a href="../chaingraph-hub.html">OpenChainGraph Hub</a> / <a href="workbench.html">Workbench</a> / Canvas</div>
   <span class="nav-badge">Canvas</span>
 </div></nav>
+
+${WAYFINDER_PH}
 
 <div class="pii-bar">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
 
@@ -1557,7 +1564,8 @@ async function apVerifySig(){
 </body>
 </html>`;
 
-  return html.replace(NODES_PH, () => NODES_JSON).replace(CHAINS_PH, () => CHAINS_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML);
+  const wfHtml = renderRail(wfSteps, 'run');
+  return html.replace(NODES_PH, () => NODES_JSON).replace(CHAINS_PH, () => CHAINS_JSON).replace(TEMPLATES_PH, () => TEMPLATES_HTML).replace(WAYFINDER_PH, () => wfHtml);
 }
 
 /* ── check or write ──────────────────────────────────────────────── */
