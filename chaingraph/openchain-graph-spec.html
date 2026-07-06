@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="ocg-spec-version" content="0.8.0">
+<meta name="ocg-spec-version" content="0.8.1">
 <title>OpenChainGraph Standard v0.4: Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
       <a class="nav-link" href="openchain-graph-explainer.html">Explainer</a>
       <a class="nav-link" href="openchain-graph-paper.html">White Paper →</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.8.0</span>
+      <span class="nav-pill">v0.8.1</span>
     </div>
   </div>
 </nav>
@@ -129,7 +129,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.8.0</h1>
+    <h1>OpenChainGraph Standard v0.8.1</h1>
     <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive: all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved. <strong>v0.4</strong> adds <strong>Compute Binding</strong> (§12) (server-side kernels make every <code>gpu:false</code> node agent-native over MCP in a single round-trip) and <strong>Export Profiles</strong> (§13): the <code>chaingraph_export</code> umbrella (xlsx / pdf / csv / xbrl) renders a verified artifact for human, pipeline, and regulator consumption, generated downstream of and excluded from the hash preimage. <strong>v0.4.1</strong> adds the <strong>Verifiable Credentials profile</strong> (§13.11): <code>chaingraph_export:vc</code> renders any verified artifact as a <a href="https://www.w3.org/TR/vc-data-model-2.0/">W3C Verifiable Credentials 2.0</a> credential that re-states the canonical <code>execution_hash</code> via <code>ocg:hashAnchor</code>; it is a base profile (every node), mints no new hash or proof, and leaves the artifact envelope unchanged.</p>
   </div>
 </div>
@@ -161,6 +161,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s18"><span class="toc-sec">§18</span>Compute-Integrity Proof <span style="color:var(--green)">(new in v0.6)</span></a></li>
         <li><a href="#s20"><span class="toc-sec">§20</span>Anchor Binding <span style="color:var(--green)">(new in v0.7)</span></a></li>
         <li><a href="#s21"><span class="toc-sec">§21</span>Chain Execution <span style="color:var(--green)">(new in v0.8)</span></a></li>
+        <li><a href="#s22"><span class="toc-sec">§22</span>Work Mandates <span style="color:var(--green)">(new in v0.8.1)</span></a></li>
         <li><a href="#s15"><span class="toc-sec">§15</span>Conformance Gates</a></li>
         <li><a href="#s14"><span class="toc-sec">§14</span>Changelog</a></li>
       </ul>
@@ -1134,6 +1135,56 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   </div>
 </div>
 
+<!-- ═══ §22 Work Mandates ═══ -->
+<div class="section" id="s22">
+  <div class="wrap">
+    <div class="sec-num">§22 · Normative · New in v0.8.1</div>
+    <h2>Work Mandates <span style="font-size:.6em;font-weight:400;color:var(--green)">new in v0.8.1</span></h2>
+    <p>A <strong>Work Mandate</strong> is a signed OpenChainGraph artifact that delegates bounded authority: a principal authorizes an agent to run a defined set of nodes and chains, under stated conditions, within a validity window, with named escalation triggers. It is the "Authorize" step of the estate loop, authored once by a human and then enforced deterministically on every run. §22 makes the mandate <strong>format</strong> and the <code>compile_work_mandate</code> <strong>I/O contract</strong> normative (additive; <code>spec_version</code> 0.8.1). The escalation-record lifecycle and the <code>escalate</code> <strong>evaluator semantics</strong> are RESERVED here and specified in a forthcoming revision, so no reader mistakes escalation <em>execution</em> for shipping in this section.</p>
+    <p>This section changes NO frozen structure: <code>chaingraph_version</code> stays <code>0.4.0</code>, the §4 hash preimage is unchanged, the v0.4 artifact envelope is untouched. <code>mandate_type:"work_mandate"</code> is an accepted value of the EXISTING open <code>mandate_type</code> string (§5, not a hard enum), so there is no envelope edit. The mandate DOCUMENT is a separate schema <code>$def</code> (<code>workMandateDocument</code>), never the artifact envelope.</p>
+
+    <h3>§22.1: Mandate document</h3>
+    <p>A Work Mandate's authority lives in its <code>output_payload</code>: <code>mandate_type</code> (the literal <code>"work_mandate"</code>); <code>scope</code> <code>{ tool_ids, chains }</code> (REQUIRED, at least one array non-empty) naming the authorized nodes and chains; <code>conditions</code> (REQUIRED, MAY be empty), an array of <code>{ pointer, op, value }</code> threshold conditions where <code>pointer</code> is an RFC 6901 pointer into a step's <code>output_payload</code> and <code>op</code> is from the §21.4 closed op enum; <code>escalation_triggers</code> (REQUIRED, MAY be empty), the same shape, whose satisfaction routes to the reserved escalation target; <code>validity</code> <code>{ not_before, not_after }</code> (REQUIRED, ISO 8601); <code>principal</code> <code>{ id }</code> (REQUIRED), a <code>did:key</code> or LEI the §16 signature verifies against; and an OPTIONAL §20 <code>anchor</code> over the mandate hash.</p>
+
+    <h3>§22.2: Signature and mandate hash</h3>
+    <p>A Work Mandate MUST carry a §16 <code>eddsa-jcs-2022</code> Data Integrity proof at <code>audit_signature.proof</code> over the whole artifact. <strong>An unsigned mandate is a DRAFT and is not enforceable</strong>; the runtime (§22.5) MUST reject a mandate with no valid signature. The mandate's own §4 <code>execution_hash</code> IS its identifier, the <strong>mandate hash</strong>; a run that references "the mandate in force" references this hash, and folding it into the receipt (§22.5) proves which policy governed the run.</p>
+
+    <h3>§22.3: Reserved escalation routing target</h3>
+    <p>§22 RESERVES the literal string <code>"escalate"</code> as a decision-gate routing target, beside the existing §21.4 <code>"end"</code>. A compiled mandate's escalation triggers become gate rules whose <code>next</code> is <code>"escalate"</code>. This section reserves the NAME and its meaning ("route the run out of the automated path into the exception path") only. The <strong>evaluator semantics</strong> of <code>"escalate"</code>, that is halting remaining steps, the <code>skipped_by_escalation</code> status, and the OPEN escalation record, are NOT normative here; they are specified in a forthcoming revision and implemented in its <code>kernels/_gateval.mjs</code> update. Until then a compiler MAY emit <code>"escalate"</code> targets and a static validator MUST accept <code>"escalate"</code> as a reserved forward target (not an unresolved step id), but no shipped evaluator executes escalation halting. <code>"end"</code> remains the terminal target for the fully-automated path.</p>
+
+    <h3>§22.4: <code>compile_work_mandate</code> I/O contract</h3>
+    <p><code>compile_work_mandate</code> is a deterministic <code>gpu:false</code> node that turns a mandate document into a §21.4 gated-chain configuration, the write side of the loop. INPUT: the mandate document supplied as the node's <code>policy_parameters</code> (<code>input_parameters.mandate</code> = the mandate <code>output_payload</code>, plus a <code>mandate_hash</code> string); the compiler treats the mandate as data and does NOT verify the signature (that is the runtime's job). OUTPUT: <code>output_payload.chain_config</code>:</p>
+    <pre><span class="k">chain_config</span> = { steps: [ {
+    tool_id,                       // REQUIRED
+    id?,                           // OPTIONAL step id (defaults to tool_id; unique in a gated chain)
+    handoff?,
+    gate?: { input,                // present iff this step carries &ge;1 condition/trigger
+             rules: [ { op, value?, next } … ],
+             default }             // REQUIRED (total function, §21.4)
+} … ] }</pre>
+    <p>Compilation rules (v0.8.1): (1) <code>scope.chains[0]</code> supplies the ordered <code>steps[]</code> skeleton, else <code>scope.tool_ids</code> in array order, each becoming one step with <code>id</code> defaulting to <code>tool_id</code>. (2) One gate per checkpoint step, one <code>input</code> pointer per gate: since §21.4 allows one gate per step and one pointer per gate, all conditions and triggers on a step MUST share one pointer; a step with two different pointers is a multi-pointer policy that is rejected with <code>{ error: "multi_pointer_gate" }</code>, deferred to the forthcoming decision-table artifact (spec_version 0.9, reserved). (3) Rules in fixed order: the step's <code>escalation_triggers</code> first, each <code>{ op, value, next: "escalate" }</code>, then its <code>conditions</code>, each routing to the next scope step's id or <code>"end"</code>. (4) <code>default: "escalate"</code> (management-by-exception). (5) Determinism: same mandate gives a byte-identical <code>chain_config</code> and hash-stable <code>execution_hash</code>; the compiler reads only mandate fields (no clock, RNG, or environment) and hashes over <code>{ policy_parameters, output_payload }</code> via the ONE canonicalizer <code>kernels/_hash.mjs</code> (RFC 8785 / JCS).</p>
+    <p>Worked example (authoritative target for the compiler fixture). A mandate over chain <code>loan-preflight</code> (steps <code>[assess_loan, record_outcome]</code>, where <code>assess_loan</code> emits <code>decision.approved</code>) with condition <code>{ "/decision/approved", eq, true }</code> and trigger <code>{ "/decision/approved", eq, false }</code> compiles to:</p>
+    <pre>{ "steps": [
+    { "tool_id": "assess_loan", "id": "assess_loan",
+      "gate": { "input": "/decision/approved",
+                "rules": [ { "op": "eq", "value": false, "next": "escalate" },
+                           { "op": "eq", "value": true,  "next": "record_outcome" } ],
+                "default": "escalate" } },
+    { "tool_id": "record_outcome", "id": "record_outcome" }
+] }</pre>
+    <p>The trigger rule precedes the condition rule (first-match); the condition continues to <code>record_outcome</code>; the default escalates.</p>
+
+    <h3>§22.5: Runtime binding</h3>
+    <p><code>run_chain</code> MAY accept an OPTIONAL <code>mandate</code> argument. When absent, run_chain behavior and every composite and step <code>execution_hash</code> are BYTE-IDENTICAL to pre-mandate behavior (the linear-hash-freeze invariant; mandate keys are conditional-presence, exactly the §21.4 discipline). When present, the runtime MUST, before executing any step: verify the mandate's §16 signature against <code>principal.id</code> (missing or invalid gives <code>{ error: "mandate_unsigned" | "mandate_bad_signature" }</code>, no steps run); verify the execution instant is within <code>validity</code> (<code>mandate_not_yet_valid</code> / <code>mandate_expired</code>); and verify the run is within <code>scope</code> (<code>mandate_out_of_scope</code>). On acceptance it folds <code>mandate_hash</code> into EVERY step's <code>policy_parameters</code> and into <code>composite_policy</code> as a CONDITIONAL-PRESENCE key: absent for a no-mandate run (so that hash is unchanged from §21.2/§21.4), present for a governed run (so the receipt proves which policy was in force). This is enforced by the linear-hash-freeze gate plus the runtime mandate-binding gate (with and without a mandate give different composite hashes, each stable). §22.5 is the contract the runtime layer (forthcoming) MUST satisfy.</p>
+
+    <h3>§22.6: Vocabulary alignment</h3>
+    <p>Field names align with adjacent agent-authority vocabularies, aligned with but with no runtime dependency on any (Rider R2). <strong>Google AP2 mandates</strong> (donated to the FIDO Alliance): an AP2 Intent/Cart mandate is a bounded, signed grant of authority; <code>scope</code> + <code>conditions</code> + <code>principal</code> + signature play the same role for arbitrary compute rather than payment authority (<code>principal</code> maps to the AP2 issuer, the mandate hash to the AP2 mandate id). <strong>OpenID AuthZEN AARP</strong>: its subject / resource / action request maps to <code>principal</code> / <code>scope</code> / the authorized invocation, with <code>conditions</code> and <code>escalation_triggers</code> as the obligation layer AARP leaves to the policy decision point. <strong>SCITT / RFC 9942</strong>: a run's composite receipt (mandate hash folded in) is the transparency statement and a §20 anchor over it is the SCITT-style receipt, so a future registration is a re-labelling rather than a re-model.</p>
+
+    <h3>§22.7: Normative now vs forthcoming</h3>
+    <p>NORMATIVE in v0.8.1: the mandate document shape (§22.1), the signature requirement and mandate-hash identity (§22.2), the reservation of the <code>"escalate"</code> target name (§22.3), the <code>compile_work_mandate</code> I/O contract with its compilation rules, determinism, and worked example (§22.4), and the run_chain mandate-binding contract with its conditional-presence hash rule (§22.5). FORTHCOMING (reserved here, specified and implemented later): the <code>"escalate"</code> evaluator semantics (halting, <code>skipped_by_escalation</code>, the open escalation record) and the exception-queue surface (human review plus countersigned closure). No shipped evaluator executes escalation halting in v0.8.1.</p>
+  </div>
+</div>
+
 <!-- ═══ §15 Conformance Gates ═══ -->
 <div class="section" id="s15">
   <div class="wrap">
@@ -1151,6 +1202,22 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   <div class="wrap">
     <div class="sec-num">§14 · Changelog</div>
     <h2>Changelog</h2>
+
+    <h3 style="margin-top:.4rem">v0.8.0 → v0.8.1: 2026-07-06</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§22 (new)</span>
+        <span class="change-desc"><strong>Work Mandates.</strong> A signed OpenChainGraph artifact (<code>mandate_type:"work_mandate"</code>) that delegates bounded authority: <code>scope</code>, <code>conditions</code>, <code>escalation_triggers</code>, <code>validity</code>, and <code>principal</code> in its <code>output_payload</code>, with a REQUIRED §16 signature (an unsigned mandate is a non-enforceable draft) and the mandate <code>execution_hash</code> as its identifier. §22.4 pins the deterministic <code>compile_work_mandate</code> I/O contract (mandate to §21.4 gated-chain config, conditions to continue rules, triggers to <code>"escalate"</code> rules, mandatory <code>default</code>, byte-identical output per mandate). §22.5 pins the run_chain mandate binding: an OPTIONAL <code>mandate</code> whose <code>mandate_hash</code> folds into every step and the composite as a conditional-presence key, so a no-mandate run stays hash-identical to pre-mandate behavior. The <code>"escalate"</code> target name is reserved; its evaluator semantics (halting, the open escalation record) are forthcoming.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">schema</span>
+        <span class="change-desc">Added a separate <code>workMandateDocument</code> <code>$def</code> (plus <code>workMandateCondition</code>) for the mandate <code>output_payload</code>, not referenced by the top-level <code>oneOf</code>, so existing artifact and catalog validation is unchanged. <code>$defs/artifact</code> untouched; <code>chaingraph_version</code> stays <code>"0.4.0"</code>; only <code>spec_version</code> bumps to 0.8.1.</span>
+      </div>
+      <div class="change-row">
+        <span class="change-ref">gates</span>
+        <span class="change-desc">Four new §15 rows for §22: <code>schema-validate.mjs</code> (mandate <code>$def</code> present, envelope unchanged), <code>compile-mandate-determinism.test.mjs</code> (compiler byte-determinism), <code>validate-chains.mjs</code> (<code>"escalate"</code> accepted as a reserved forward target), and <code>mandate-binding.test.mjs</code> with <code>linear-hash-freeze.mjs</code> (runtime binding and no-mandate hash freeze). The two mandate-specific gates are verified in the worker CI.</span>
+      </div>
+    </div>
 
     <h3 style="margin-top:.4rem">v0.7.0 → v0.8.0: 2026-07-04</h3>
     <div style="margin-top:.6rem">
@@ -1365,7 +1432,7 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.8.0 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.8.1 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       Reference implementation: <a href="https://ainumbers.co">AINumbers.co</a>
       <span>·</span>

@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.0
+spec_version: 0.8.1
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -10,7 +10,7 @@ renders_to: openchain-graph-spec.html (hand-kept, guarded by spec-version-consis
 mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 ---
 
-# OpenChainGraph Standard — v0.8.0
+# OpenChainGraph Standard — v0.8.1
 
 > **This file is the normative source of truth.** `openchain-graph-spec.html` renders it for the
 > web; `CONTRACT.md` §A3 references it; `chaingraph.json` + kernels validate against
@@ -702,8 +702,198 @@ These keys are absent for linear chains, so no linear chain's composite hash mov
 pure ECMA-262 module (`kernels/_gateval.mjs`) — no expression language, no second canonicalizer — used
 byte-identically on every executing surface.
 
+## §22 Work Mandates (NORMATIVE — new in v0.8.1)
+A **Work Mandate** is a signed OpenChainGraph artifact that delegates bounded authority: a principal
+authorizes an agent to run a defined set of nodes/chains, under stated conditions, within a validity
+window, with named escalation triggers. It is the "Authorize" step of the estate loop — authored once by a
+human, then enforced deterministically on every run. §22 makes the mandate **format** and the
+`compile_work_mandate` **I/O contract** normative (additive; `spec_version` 0.8.1). The escalation-record
+lifecycle (open/close) and the `escalate` **evaluator semantics** are RESERVED here and specified in a
+forthcoming revision (the escalation-record layer); §22 names them so no reader mistakes escalation
+*execution* for shipping in this section.
+
+This section changes NO frozen structure: `chaingraph_version` stays `0.4.0`, the §4 hash preimage is
+unchanged, the v0.4 artifact envelope is untouched. `mandate_type: "work_mandate"` is an accepted value of
+the EXISTING open `mandate_type` string (§5 — not a hard enum) — no envelope edit. The mandate DOCUMENT is a
+separate schema `$def` (`workMandateDocument`), never the artifact envelope.
+
+### §22.1 Mandate document (NORMATIVE)
+A Work Mandate's authority lives in its `output_payload`, whose members are:
+- `mandate_type` (envelope, §5): the literal `"work_mandate"`.
+- `scope` (REQUIRED): `{ tool_ids: [string], chains: [string] }` — the nodes and chain names this mandate
+  authorizes. At least one of the two arrays MUST be non-empty. A run that invokes a node/chain outside
+  `scope` is unauthorized under this mandate.
+- `conditions` (REQUIRED, MAY be empty): an array of threshold conditions, each `{ pointer, op, value }`,
+  where `pointer` is an RFC 6901 JSON Pointer into a step's `output_payload`, `op` is drawn from the §21.4
+  closed gate-op enum `{ eq, neq, gt, gte, lt, lte, in, present, absent }`, and `value` is the operand
+  (absent for `present`/`absent`). A condition names the auto-approval envelope: the input, the test, the
+  bound.
+- `escalation_triggers` (REQUIRED, MAY be empty): an array of `{ pointer, op, value }` conditions in the
+  same shape whose satisfaction routes the run to the reserved escalation target (§22.3) instead of
+  continuing.
+- `validity` (REQUIRED): `{ not_before, not_after }`, ISO 8601 instants. A run whose execution instant is
+  outside `[not_before, not_after]` MUST be rejected (§22.5).
+- `principal` (REQUIRED): `{ id }` — the authorizing party, a `did:key` or LEI (§9). The mandate's §16
+  signature MUST be verifiable against this identity.
+- `anchor` (OPTIONAL): a §20 anchor binding over the mandate hash (§22.2), for independent proof of when
+  the mandate existed.
+
+### §22.2 Signature and mandate hash (NORMATIVE)
+A Work Mandate MUST carry a §16 `eddsa-jcs-2022` Data Integrity proof at `audit_signature.proof` over the
+whole artifact. **An unsigned mandate is a DRAFT and is NOT enforceable** — the runtime (§22.5) MUST reject
+a mandate with no valid signature. The mandate's own §4 `execution_hash` IS its identifier, the **mandate
+hash**; wherever a run references "the mandate in force" it references this hash. The mandate hash is what a
+receipt folds in (§22.5) so the receipt proves *which* policy governed the run.
+
+### §22.3 Reserved escalation routing target (NORMATIVE — name only; evaluator semantics forthcoming)
+§22 RESERVES the literal string `"escalate"` as a decision-gate routing target, beside the existing §21.4
+`"end"`. A compiled mandate's escalation triggers become gate rules whose `next` is `"escalate"`. This
+section reserves the NAME and its meaning ("route the run out of the automated path into the exception
+path") only. The **evaluator semantics of `"escalate"`** — halting remaining steps, the
+`skipped_by_escalation` status (distinct from `skipped_by_gate`), and the OPEN escalation record — are NOT
+normative in this section; they are specified in a forthcoming revision (the escalation-record layer) and
+implemented in its `kernels/_gateval.mjs` update. Until then a compiler MAY emit `"escalate"` targets and a
+static validator MUST accept `"escalate"` as a **reserved forward target** (not an unresolved step id), but
+no shipped evaluator executes escalation halting. `"end"` remains the terminal target for the
+fully-automated path.
+
+### §22.4 `compile_work_mandate` I/O contract (NORMATIVE)
+`compile_work_mandate` is a deterministic `gpu:false` node that turns a mandate document into a §21.4
+gated-chain configuration. It is the write side of the loop.
+
+**INPUT** — the mandate document (§22.1) supplied as the node's `policy_parameters`
+(`policy_parameters.input_parameters.mandate` = the mandate `output_payload`, plus the string
+`policy_parameters.input_parameters.mandate_hash`). The compiler treats the mandate as data; it does NOT
+verify the signature — that is the runtime's job (§22.5).
+
+**OUTPUT** — `output_payload.chain_config` of exactly this shape:
+```
+chain_config = {
+  steps: [ {
+    tool_id,                       // REQUIRED
+    id?,                           // OPTIONAL step id (defaults to tool_id; unique within the gated chain)
+    handoff?,                      // OPTIONAL
+    gate?: {                       // present iff this step carries >=1 condition/trigger
+      input,                       // RFC 6901 pointer (a condition/trigger pointer)
+      rules: [ { op, value?, next } … ],
+      default                      // REQUIRED (total function, §21.4)
+    }
+  } … ]
+}
+```
+Compilation rules (NORMATIVE, v0.8.1):
+1. **Steps.** `scope.chains[0]` (if present) supplies the ordered `steps[]` skeleton; otherwise
+   `scope.tool_ids` supplies steps in array order. Each `scope` step becomes one `chain_config` step, with
+   `id` defaulting to `tool_id`.
+2. **One gate per checkpoint step, one pointer per gate.** Every `conditions[]` / `escalation_triggers[]`
+   entry addresses (via its `pointer`) the output of exactly one `scope` step — its **checkpoint step**.
+   The compiler attaches a single gate to that step. §21.4 permits one gate per step and one `input`
+   pointer per gate, so **all conditions and triggers on a given step MUST share one `pointer`**; if two
+   entries on the same step name different pointers, that is a multi-pointer policy — NOT expressible as a
+   single §21.4 gate — and the compiler MUST reject the mandate with `{ error: "multi_pointer_gate" }`,
+   deferring to the forthcoming decision-table artifact (spec_version 0.9, reserved). This keeps the
+   v0.8.1 compiler total and deterministic.
+3. **Rules.** For a checkpoint step's gate, emit rules in this fixed order: first the step's
+   `escalation_triggers` in mandate-array order, each `{ op, value, next: "escalate" }`; then the step's
+   `conditions` in mandate-array order, each `{ op, value, next: <the next scope step's id, or "end" if
+   the checkpoint is the last step> }`. `value` is omitted for `present`/`absent`.
+4. **Default.** `default: "escalate"` — management-by-exception: a value matching no condition and no
+   trigger routes to the human. (Escalation execution is forthcoming, §22.3; the compiled `"escalate"`
+   target is nonetheless emitted and reserved-valid now.)
+5. **Determinism / canonicalization.** Same mandate document → **byte-identical** `chain_config`, hence a
+   hash-stable `execution_hash`. The compiler reads ONLY the mandate fields (no clock, no RNG, no
+   environment); step order follows `scope`; rule order follows rule 3; and `execution_hash` is computed
+   over `{ policy_parameters, output_payload }` via the ONE canonicalizer `kernels/_hash.mjs` (RFC 8785 /
+   JCS `cgCanon`) — never a hand-built preimage.
+
+**Worked example (authoritative target for the compiler fixture).** Mandate `output_payload`:
+```
+{
+  "mandate_type": "work_mandate",
+  "scope": { "tool_ids": [], "chains": ["loan-preflight"] },
+  "conditions":          [ { "pointer": "/decision/approved", "op": "eq", "value": true  } ],
+  "escalation_triggers": [ { "pointer": "/decision/approved", "op": "eq", "value": false } ],
+  "validity":  { "not_before": "2026-07-06T00:00:00Z", "not_after": "2027-07-06T00:00:00Z" },
+  "principal": { "id": "did:key:z6MkExampleAuthorizingPrincipalKey" }
+}
+```
+where chain `loan-preflight` has steps `[assess_loan, record_outcome]` and `assess_loan`'s `output_payload`
+carries `decision.approved`. The checkpoint step is `assess_loan` (it produces `/decision/approved`).
+Compiled `chain_config`:
+```
+{
+  "steps": [
+    {
+      "tool_id": "assess_loan",
+      "id": "assess_loan",
+      "gate": {
+        "input": "/decision/approved",
+        "rules": [
+          { "op": "eq", "value": false, "next": "escalate" },
+          { "op": "eq", "value": true,  "next": "record_outcome" }
+        ],
+        "default": "escalate"
+      }
+    },
+    { "tool_id": "record_outcome", "id": "record_outcome" }
+  ]
+}
+```
+The trigger rule precedes the condition rule (rule 3, first-match); the condition continues to the next
+scope step `record_outcome`; the default escalates.
+
+### §22.5 Runtime binding (NORMATIVE — the contract; implemented in the runtime layer, not this section)
+`run_chain` MAY accept an OPTIONAL `mandate` argument (the signed mandate artifact). When **absent**,
+run_chain behavior and every composite/step `execution_hash` are BYTE-IDENTICAL to pre-mandate behavior
+(the linear-hash-freeze invariant — mandate keys are conditional-presence, exactly the §21.4 discipline).
+When **present**, the runtime MUST, before executing any step:
+1. verify the mandate's §16 signature against `principal.id`; missing/invalid → structured rejection
+   `{ error: "mandate_unsigned" | "mandate_bad_signature" }`, no steps run;
+2. verify the execution instant is within `validity`; outside → `{ error: "mandate_not_yet_valid" |
+   "mandate_expired" }`, no steps run;
+3. verify the chain/nodes being run are within `scope`; outside → `{ error: "mandate_out_of_scope" }`.
+
+On acceptance the runtime folds `mandate_hash` into EVERY step's `policy_parameters` and into
+`composite_policy` as a CONDITIONAL-PRESENCE key `mandate_hash` (present iff a mandate governs the run). A
+run with no mandate MUST NOT carry the key, so its composite hash is unchanged from §21.2/§21.4. A run WITH
+a mandate carries `mandate_hash` in the preimage, so the receipt cryptographically proves which policy was
+in force. This mirrors the §21.4 gate-key discipline exactly and is enforced by the linear-hash-freeze gate
+(no-mandate hashes frozen) plus the runtime mandate-binding gate (with/without mandate → different composite
+hashes, each stable). The implementation lands in the runtime layer (forthcoming); §22.5 is the contract it
+MUST satisfy.
+
+### §22.6 Vocabulary alignment (informative — aligned with, no dependency on)
+Mandate field names align with adjacent agent-authority vocabularies so an implementer can map cleanly,
+WITHOUT any runtime dependency on them (Rider R2):
+- **Google AP2 mandates** (v0.2.0, donated to the FIDO Alliance): an AP2 Intent/Cart mandate is a bounded,
+  signed grant of authority; the Work Mandate `scope` + `conditions` + `principal` + signature play the
+  same role for arbitrary compute authority rather than payment authority. `principal` ≈ AP2 mandate
+  issuer; the mandate hash ≈ AP2 mandate id.
+- **OpenID AuthZEN AARP** (Agent Authorization draft): AARP's subject / resource / action request maps to
+  `principal` (subject), `scope` (resource), and the authorized node/chain invocation (action);
+  `conditions` / `escalation_triggers` express the obligation/advice layer AARP leaves to the policy
+  decision point.
+- **SCITT / RFC 9942 receipts**: a compiled-and-run mandate's composite receipt (mandate hash folded in) is
+  the transparency "statement"; a §20 anchor over it is the SCITT-style "receipt". Naming is chosen so a
+  future SCITT registration is a re-labelling, not a re-model.
+
+### §22.7 Normative now vs forthcoming
+- **NORMATIVE in v0.8.1 (this section):** the mandate document shape (§22.1); the signature requirement +
+  mandate-hash identity (§22.2); the reservation of the `"escalate"` target NAME (§22.3); the
+  `compile_work_mandate` I/O contract, compilation rules, determinism, and worked example (§22.4); the
+  run_chain mandate-binding contract and its conditional-presence hash rule (§22.5).
+- **FORTHCOMING (reserved here; specified + implemented in a later revision):** the `"escalate"` evaluator
+  semantics — halting, `skipped_by_escalation` status, and the OPEN escalation record (the escalation-record
+  layer); the exception-queue surface (human review + countersigned closure). No shipped evaluator executes
+  escalation halting in v0.8.1.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.0 = Chain Execution (§21: the shipped linear `run_chain` contract made
+See `standard/CHANGELOG.md`. v0.8.1 = Work Mandates (§22: the Work Mandate document format, the
+`compile_work_mandate` mandate→gated-chain I/O contract, the reserved `"escalate"` routing target name, and
+the run_chain mandate-binding contract) over v0.8.0 (additive; no envelope/hash change — `mandate_type:"work_mandate"`
+is an accepted value of the existing open `mandate_type` string, the mandate document is a separate
+`workMandateDocument` schema `$def`, `mandate_hash` is a conditional-presence runtime key, and
+`chaingraph_version` stays `0.4.0`; escalation *execution* is reserved, not shipped). v0.8.0 = Chain Execution (§21: the shipped linear `run_chain` contract made
 normative, plus forward-only decision gates with conditional-presence hash binding) + §20.1
 `merkle_inclusion` (batch anchoring: exec_hash-as-leaf, root-as-anchor) over v0.7.0 (additive; no
 envelope/hash change — every linear chain's `composite_execution_hash` is frozen, gate metadata is
@@ -753,6 +943,11 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §21.4 both-branch coverage: a gated chain's fixtures drive every branch (each rule + default) ≥1; a single-branch set is flagged | `gate-branch-coverage.test.mjs` | validate |
 | §21.4 evaluator byte-parity: Worker `run_chain` and embedded `runChain` yield identical route + decisions + `composite_execution_hash` for gated chains | `gate-parity.test.mjs` | validate |
 | §20.1 `merkle_inclusion`: reconstruct RFC 6962 root from leaf+path, root == `anchored_hash`, leaf == recomputed `execution_hash`, tampered path / wrong leaf / wrong root MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
+| §22 Work Mandate document: separate `workMandateDocument` `$def` present + well-formed; `mandate_type:"work_mandate"` accepted in the existing open envelope string; frozen `$defs/artifact` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` | validate |
+| §22.4 `compile_work_mandate` determinism: same mandate → byte-identical `chain_config` (hash-stable); conditions → continue rules, escalation_triggers → `"escalate"` rules, single pointer per gate, mandatory `default:"escalate"`; multi-pointer step rejected | `compile-mandate-determinism.test.mjs` | validate |
+| §22.3 `"escalate"` reserved target: static validation accepts `"escalate"` as a reserved forward target (not an unresolved step id); `"end"` still terminal | `validate-chains.mjs` | validate |
+| §22.2 mandate signature: `eddsa-jcs-2022` whole-artifact proof REQUIRED; an unsigned mandate is a draft and is runtime-rejected | `proof-binding.test.mjs`, `mandate-binding.test.mjs` | validate |
+| §22.5 run_chain mandate binding: no-mandate run hash-identical to pre-mandate (conditional-presence `mandate_hash`); with-mandate folds `mandate_hash` into every step `policy_parameters` + `composite_policy` (with/without → different, each stable); expired/unsigned/bad-signature/out-of-scope → structured rejection | `mandate-binding.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

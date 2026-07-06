@@ -3,7 +3,7 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.8.0",
+  "spec_version": "0.8.1",
   "$defs": {
     "anchorBinding": {
       "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
@@ -142,6 +142,54 @@
           }
         },
         "default": { "type": "string", "minLength": 1, "description": "Target step id or \"end\" when no rule matches. REQUIRED and forward-only." }
+      }
+    },
+    "workMandateCondition": {
+      "type": "object",
+      "description": "OCG Standard §22.1 (v0.8.1) — one threshold condition / escalation trigger inside a Work Mandate document. { pointer, op, value }: pointer is an RFC 6901 JSON Pointer into a step's output_payload; op is the §21.4 closed gate-op enum; value is the operand (omitted for present/absent).",
+      "additionalProperties": false,
+      "required": ["pointer", "op"],
+      "properties": {
+        "pointer": { "type": "string", "description": "RFC 6901 JSON Pointer into a step's output_payload." },
+        "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "present", "absent"] },
+        "value": { "description": "Comparison operand (required for value ops; absent for present/absent). For gt/gte/lt/lte a finite number; for in a literal array." }
+      }
+    },
+    "workMandateDocument": {
+      "type": "object",
+      "description": "OCG Standard §22 (v0.8.1) — the output_payload of a Work Mandate artifact (mandate_type:\"work_mandate\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant Work Mandate is an $defs/artifact whose mandate_type is \"work_mandate\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 proof (§22.2 — an unsigned mandate is a non-enforceable draft). scope authorizes nodes/chains; conditions name the auto-approval envelope; escalation_triggers route to the reserved \"escalate\" target (§22.3); validity bounds the window; principal is the signing authority.",
+      "additionalProperties": false,
+      "required": ["mandate_type", "scope", "conditions", "escalation_triggers", "validity", "principal"],
+      "properties": {
+        "mandate_type": { "const": "work_mandate" },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool_ids", "chains"],
+          "description": "Authorized nodes and chains. At least one array MUST be non-empty (§22.1).",
+          "properties": {
+            "tool_ids": { "type": "array", "items": { "type": "string" } },
+            "chains": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/workMandateCondition" }, "description": "Auto-approval threshold conditions (MAY be empty)." },
+        "escalation_triggers": { "type": "array", "items": { "$ref": "#/$defs/workMandateCondition" }, "description": "Conditions that route the run to the reserved \"escalate\" target (MAY be empty)." },
+        "validity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not_before", "not_after"],
+          "properties": {
+            "not_before": { "type": "string", "format": "date-time" },
+            "not_after": { "type": "string", "format": "date-time" }
+          }
+        },
+        "principal": {
+          "type": "object",
+          "required": ["id"],
+          "description": "The authorizing party. id is a did:key or LEI (§9); the §16 signature MUST verify against it.",
+          "properties": { "id": { "type": "string", "minLength": 1 } }
+        },
+        "anchor": { "$ref": "#/$defs/anchorBinding", "description": "OPTIONAL §20 anchor over the mandate hash (§22.2)." }
       }
     },
     "artifact": {
