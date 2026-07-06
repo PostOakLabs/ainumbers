@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.1
+spec_version: 0.8.2
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -751,11 +751,10 @@ receipt folds in (§22.5) so the receipt proves *which* policy governed the run.
 section reserves the NAME and its meaning ("route the run out of the automated path into the exception
 path") only. The **evaluator semantics of `"escalate"`** — halting remaining steps, the
 `skipped_by_escalation` status (distinct from `skipped_by_gate`), and the OPEN escalation record — are NOT
-normative in this section; they are specified in a forthcoming revision (the escalation-record layer) and
-implemented in its `kernels/_gateval.mjs` update. Until then a compiler MAY emit `"escalate"` targets and a
-static validator MUST accept `"escalate"` as a **reserved forward target** (not an unresolved step id), but
-no shipped evaluator executes escalation halting. `"end"` remains the terminal target for the
-fully-automated path.
+normative in this section; they are specified in **§22.8 (NORMATIVE, v0.8.2)** and implemented in its
+`kernels/_gateval.mjs` update (the evaluator recognizes `"escalate"` as a terminal target there). A compiler
+MAY emit `"escalate"` targets and a static validator MUST accept `"escalate"` as a **reserved forward
+target** (not an unresolved step id). `"end"` remains the terminal target for the fully-automated path.
 
 ### §22.4 `compile_work_mandate` I/O contract (NORMATIVE)
 `compile_work_mandate` is a deterministic `gpu:false` node that turns a mandate document into a §21.4
@@ -882,13 +881,112 @@ WITHOUT any runtime dependency on them (Rider R2):
   mandate-hash identity (§22.2); the reservation of the `"escalate"` target NAME (§22.3); the
   `compile_work_mandate` I/O contract, compilation rules, determinism, and worked example (§22.4); the
   run_chain mandate-binding contract and its conditional-presence hash rule (§22.5).
-- **FORTHCOMING (reserved here; specified + implemented in a later revision):** the `"escalate"` evaluator
-  semantics — halting, `skipped_by_escalation` status, and the OPEN escalation record (the escalation-record
-  layer); the exception-queue surface (human review + countersigned closure). No shipped evaluator executes
-  escalation halting in v0.8.1.
+- **NORMATIVE in v0.8.2 (§22.8):** the `"escalate"` evaluator semantics — `"escalate"` as a terminal target
+  classified by the single-source `isTerminalTarget`/`isEscalationTarget` exports (the decision record
+  UNCHANGED); the `skipped_by_escalation` runtime-halt contract; the OPEN escalation record with its
+  deterministic, wall-clock-excluded record hash; and the countersigned closure contract via Anchorproof.
+- **FORTHCOMING (reserved here; specified + implemented in a later revision):** the `run_chain` emit/halt
+  implementation and the `verify_escalation_closure` utility (the escalation-record runtime layer); the
+  exception-queue surface (human review); and the SEP-2322 / MCP-Tasks transport binding (§22.8.5).
+
+### §22.8 Escalation records (NORMATIVE — new in v0.8.2)
+This section makes normative the `"escalate"` **evaluator semantics**, the **open escalation record**, and
+its **countersigned closure** — the escalation-record layer RESERVED by §22.3/§22.7. It is additive and
+backward-compatible: it changes NO existing gate decision, NO frozen structure (`chaingraph_version` stays
+`0.4.0`, the §4 preimage and the v0.4 artifact envelope are untouched), and every existing composite/step
+`execution_hash` is byte-identical. It is TRANSPORT-AGNOSTIC (§22.8.5): escalation records and closures are
+pure artifacts; nothing here depends on any transport.
+
+**§22.8.1 Evaluator semantics of `"escalate"`.** `"escalate"` is a TERMINAL routing target beside `"end"`: a
+decision-gate rule (or the `default`) whose `next` is `"escalate"` routes control OUT of the chain, exactly
+like `"end"`, preserving every §21.4 invariant (graph-agnostic, forward-only, acyclic, total). It differs
+from `"end"` in MEANING only — `"end"` = normal automated completion; `"escalate"` = the run leaves the
+automated path into the exception path. The §21.4 evaluator (`kernels/_gateval.mjs`) returns the SAME
+decision record for an escalate route as for any other route: `{ step_id, input_pointer, observed_value,
+matched_rule_index, op, value, next }` with `next === "escalate"`. **No escalation field is added to the
+decision record**, so the hashed `composite_output.decisions[]` is byte-identical to a non-escalating gate
+and no composite hash moves. Escalation is a property of the decision's `next`, recovered by the
+single-source classifiers the evaluator exports — `isTerminalTarget(next)` (`next === "end" || next ===
+"escalate"`) and `isEscalationTarget(next)` (`next === "escalate"`). Every executing surface (run_chain, the
+embedded runChain, the QuickJS guest, the composer pages) consults the evaluator, so terminal/escalation
+classification is byte-parity across all four and no surface hard-codes the literal.
+
+**§22.8.2 Runtime semantics (NORMATIVE contract — implemented in the runtime layer, not this section).**
+When a gate decision routes to `"escalate"`, `run_chain` MUST: (a) record the triggering decision in
+`composite_output.decisions[]` and the escalating step in `path_taken[]` exactly as §21.4 requires; (b) HALT
+— run no further step; (c) give every not-yet-run step the status **`skipped_by_escalation`**, DISTINCT from
+`skipped_by_gate` (a step jumped over by a normal forward route); and (d) attach an OPEN escalation record
+(§22.8.3) to the composite. The composite `execution_hash` is still computed over RAN steps only (§21.2);
+`skipped_by_escalation` steps, like any skipped step, do not enter the preimage. The emit/halt
+implementation is the escalation-record runtime layer (forthcoming — the `run_chain` update), not this
+section.
+
+**§22.8.3 Open escalation record (NORMATIVE shape) + DETERMINISM.** An open escalation record has these
+members:
+```
+escalation_record = {
+  mandate_hash,   // present IFF the run was mandate-bound (§22.5); ABSENT otherwise
+  decision,       // the §21.4 decision object that routed to "escalate" (verbatim)
+  halted_steps,   // ordered array of the §21.4 step ids given skipped_by_escalation
+  opened_at       // ISO 8601 instant the record was opened — WALL-CLOCK, hash-EXCLUDED
+}
+```
+DETERMINISM (the load-bearing rule). `opened_at` is wall-clock and MUST NOT enter any hash preimage —
+neither the composite/step `execution_hash` (§21.2 RAN-steps-only already excludes it) NOR the
+escalation-record hash. The **escalation-record hash** is the §4 canonical hash (`kernels/_hash.mjs`, the ONE
+canonicalizer, RFC 8785 / JCS `cgCanon` — never a hand-built preimage) over exactly the DETERMINISTIC
+subset:
+```
+escalation_record_preimage = { mandate_hash?, decision, halted_steps }
+```
+`mandate_hash` is present iff the run was mandate-bound — the same conditional-presence discipline as §22.5,
+so an unbound escalation's preimage OMITS the key (its hash is unchanged by mandate machinery). `opened_at`
+and any other wall-clock or environment value are hash-EXCLUDED adjacent metadata, exactly as §20 anchor
+bindings and §17/§18 identity are hash-excluded. Therefore the escalation-record hash is REPRODUCIBLE from
+the recorded deterministic fields alone: a verifier recomputes it from `{ mandate_hash?, decision,
+halted_steps }`, and the closure (§22.8.4) binds THAT hash. Two runs that escalate on identical inputs
+produce the identical record hash regardless of when they ran.
+
+**§22.8.4 Closure contract (NORMATIVE).** An open record CLOSES only via a **countersigned closure
+artifact**: the escalation-record hash (§22.8.3) signed through Anchorproof `create_signature_envelope`
+(passkey / JAdES, live on `anchor.ainumbers.co`). The closure references:
+```
+closure = {
+  record_hash,   // the §22.8.3 escalation-record hash (bare-hex SHA-256) — the SIGNED value
+  decision,      // approver decision ∈ { "approve", "reject" }
+  anchor,        // §20 anchor binding produced by the envelope (timestamp / OTS / TSA)
+  envelope       // the Anchorproof signature envelope (JAdES) whose signed payload IS record_hash
+}
+```
+The envelope's signed payload IS `record_hash`; the binding between closure and record is that hash
+equality, nothing softer. Closure VERIFICATION (`verify_escalation_closure`, a forthcoming utility) passes
+IFF ALL hold: (1) Anchorproof `verify_signature_envelope` accepts `closure.envelope` (signature valid,
+LTV/anchor intact); (2) the record hash recomputed from the open record's deterministic subset (§22.8.3)
+EQUALS `closure.record_hash` (tamper-evident — mutate the decision, the halted steps, or the mandate binding
+and the recompute diverges); and (3) `closure.decision` echoes an approver decision in `{ approve, reject }`.
+Only a record whose recomputed hash matches a validly-countersigned closure is CLOSED; anything else stays
+OPEN.
+
+**§22.8.5 Transport-agnostic (NORMATIVE) — D3.** Escalation records and closures are ARTIFACTS with no
+transport dependency. Delivering an open record to a human queue and returning the closure envelope is out
+of band of this section. A binding to SEP-2322 / MCP-Tasks (asynchronous task transport) is a FORTHCOMING
+worker rider, cited here as future; nothing in §22.8 depends on it.
+
+**§22.8.6 Vocabulary alignment (informative — aligned with, no dependency).** The open-record ↔ closure pair
+aligns with adjacent authority/receipt vocabularies WITHOUT any runtime dependency (Rider R2): the closure's
+approver `decision` maps to an **OpenID AuthZEN AARP** access decision (permit/deny ≈ approve/reject) issued
+by the human policy decision point the gate deferred to; and a countersigned closure over a record hash is a
+**SCITT / RFC 9942** receipt-shaped statement (the record hash is the "statement", the Anchorproof envelope
+plus its §20 anchor the "receipt") — named so a future SCITT registration is a re-labelling, not a re-model.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.1 = Work Mandates (§22: the Work Mandate document format, the
+See `standard/CHANGELOG.md`. v0.8.2 = Escalation records (§22.8: the `"escalate"` evaluator semantics — a
+terminal routing target beside `"end"`, classified by the single-source `isTerminalTarget` /
+`isEscalationTarget` exports with the decision record UNCHANGED; the `skipped_by_escalation` runtime halt
+contract; the open escalation record with its deterministic, wall-clock-excluded record hash; and the
+countersigned closure contract via Anchorproof) over v0.8.1 (additive; no envelope/hash change — every
+existing gate decision and composite `execution_hash` is byte-identical, `chaingraph_version` stays `0.4.0`,
+the escalation record + closure are runtime artifacts, and `opened_at` is hash-excluded). v0.8.1 = Work Mandates (§22: the Work Mandate document format, the
 `compile_work_mandate` mandate→gated-chain I/O contract, the reserved `"escalate"` routing target name, and
 the run_chain mandate-binding contract) over v0.8.0 (additive; no envelope/hash change — `mandate_type:"work_mandate"`
 is an accepted value of the existing open `mandate_type` string, the mandate document is a separate
@@ -948,6 +1046,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §22.3 `"escalate"` reserved target: static validation accepts `"escalate"` as a reserved forward target (not an unresolved step id); `"end"` still terminal | `validate-chains.mjs` | validate |
 | §22.2 mandate signature: `eddsa-jcs-2022` whole-artifact proof REQUIRED; an unsigned mandate is a draft and is runtime-rejected | `proof-binding.test.mjs`, `mandate-binding.test.mjs` | validate |
 | §22.5 run_chain mandate binding: no-mandate run hash-identical to pre-mandate (conditional-presence `mandate_hash`); with-mandate folds `mandate_hash` into every step `policy_parameters` + `composite_policy` (with/without → different, each stable); expired/unsigned/bad-signature/out-of-scope → structured rejection | `mandate-binding.test.mjs`, `linear-hash-freeze.mjs` | validate |
+| §22.8 `"escalate"` evaluator: recognized as a terminal target (`isTerminalTarget`/`isEscalationTarget`); `evaluateGate` decision record for an escalate route is byte-identical to a non-escalating gate (NO escalation field), so existing gate decisions + composite hashes are unchanged; classifiers byte-parity across the 4 executing surfaces | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
