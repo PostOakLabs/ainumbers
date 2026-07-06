@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Perp Funding and Carry Calculator &middot; ART-270 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes perpetual futures funding rates, compound annual APR, cross-venue arb (Hyperliquid vs Binance), and delta-neutral carry. Covers basis analytics and Hyperliquid 4%/hr cap. Not financial advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-270-perp-funding-carry.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* OCG-CHROME-CSS:v1 */
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body)}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;padding:.35rem .85rem;display:inline-block}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;border:1px solid;display:inline-block;white-space:nowrap}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.2)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:none}
+.anchor-btn:hover{border-color:var(--gold)}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+#mfstBody{display:none;margin-top:10px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+.sub-section{margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-270 · Perp Funding and Carry Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; ART-270 &middot; Analytics</div>
+  <h1>Perp Funding and Carry Calculator</h1>
+  <p class="sub">Computes perpetual futures funding rates, compound annual APR, cross-venue funding arb (Hyperliquid vs Binance), and delta-neutral carry (Ethena sUSDe). Includes basis analytics.</p>
+  <span class="flag info">gpu:false</span>
+  <span class="flag info">analytics_mandate</span>
+  <span class="flag">groth16-deferred</span>
+
+  <div class="pii-notice">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer">Not financial or investment advice. Perpetual funding rates are volatile; liquidation risk, basis risk, and smart contract risk all apply. For informational purposes only. Verify all rates with venue APIs before trading.</div>
+
+  <div class="card">
+    <div class="section-head">Funding Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Venue</label>
+        <select id="venue">
+          <option value="hyperliquid">Hyperliquid</option>
+          <option value="binance">Binance</option>
+          <option value="bybit">Bybit</option>
+          <option value="dydx_v4">dYdX v4</option>
+          <option value="okx">OKX</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label">Asset</label>
+        <input type="text" id="asset" value="BTC" maxlength="12">
+      </div>
+      <div class="q">
+        <label class="q-label">Funding Rate (% per period)</label>
+        <div class="q-help">E.g. 0.01 = 0.01% per hour on HL; 0.03 = 0.03% per 8h on Binance</div>
+        <input type="number" id="fundingRate" value="0.01" step="0.001">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Cadence (hours)</label>
+        <div class="q-help">1 = hourly (HL), 8 = 8-hourly (Binance/Bybit)</div>
+        <input type="number" id="cadenceH" value="1" step="1" min="0.1">
+      </div>
+      <div class="q">
+        <label class="q-label">Basis: Spot Price ($)</label>
+        <input type="number" id="spotPrice" value="65000" step="100">
+      </div>
+      <div class="q">
+        <label class="q-label">Basis: Perp Price ($)</label>
+        <input type="number" id="perpPrice" value="65130" step="100">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Taker Fee (% of notional)</label>
+        <div class="q-help">HL default 0.035 (3.5 bps); Binance 0.05 (5 bps)</div>
+        <input type="number" id="takerFee" value="0.035" step="0.001">
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <div class="section-head">Cross-Venue Arb (optional)</div>
+      <div class="q-help">Long venue above / short second venue below for delta-neutral funding arb.</div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label">Second Venue (optional)</label>
+          <select id="venue2">
+            <option value="">-- None --</option>
+            <option value="binance">Binance</option>
+            <option value="hyperliquid">Hyperliquid</option>
+            <option value="bybit">Bybit</option>
+            <option value="dydx_v4">dYdX v4</option>
+            <option value="okx">OKX</option>
+          </select>
+        </div>
+        <div class="q">
+          <label class="q-label">Venue 2 Rate (% per period)</label>
+          <input type="number" id="v2Rate" value="0.03" step="0.001">
+        </div>
+        <div class="q">
+          <label class="q-label">Venue 2 Cadence (hours)</label>
+          <input type="number" id="v2Cadence" value="8" step="1" min="0.1">
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <div class="section-head">Delta-Neutral Carry (optional)</div>
+      <div class="q-help">Hold DeFi yield asset (e.g. sUSDe) + short perp to hedge price risk. Net APR = perp funding + collateral yield.</div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label">DeFi Collateral Yield (% annual)</label>
+          <div class="q-help">E.g. sUSDe ~13.5%, leave blank to skip.</div>
+          <input type="number" id="defiYield" value="" step="0.1" placeholder="e.g. 13.5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button onclick="runCompute()">Compute Funding Carry</button>
+
+  <div id="resultsPanel" class="results-panel card">
+    <div class="section-head">Funding Analytics</div>
+    <div id="statRow" class="stat-row"></div>
+    <div id="kvDiv" style="margin-top:10px"></div>
+
+    <div id="arbDiv" style="display:none;margin-top:14px">
+      <div class="section-head">Cross-Venue Arb</div>
+      <div id="arbStatRow" class="stat-row"></div>
+      <div id="arbKvDiv"></div>
+    </div>
+
+    <div id="carryDiv" style="display:none;margin-top:14px">
+      <div class="section-head">Delta-Neutral Carry</div>
+      <div id="carryStatRow" class="stat-row"></div>
+      <div id="carryKvDiv"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="section-head">Compliance Flags</div>
+      <div id="flagRow" class="flag-row"></div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="q-label">Execution Hash (browser)</div>
+      <div id="execHashBox" class="exec-hash">computing...</div>
+    </div>
+    <div class="results-export-row">
+      <button onclick="exportArtifact()" style="background:var(--bg-3);color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)">Export JSON</button>
+      <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+      <span id="verifyResult" class="verify-result"></span>
+      <a id="anchorBtn" class="anchor-btn" href="#" target="_blank" rel="noopener">Anchor to Timestamp &#8599;</a>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+
+  <div id="mfstSec">
+    <button class="mfst-btn" onclick="toggleMfst()">Show MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related</div>
+        <a href="art-213-perp-liquidation-calculator.html">Perp Margin (ART-213)</a>
+        <a href="art-214-perp-position-lifecycle.html">Perp Lifecycle (ART-214)</a>
+        <a href="art-271-defi-lending-health.html">DeFi Lending (ART-271)</a>
+        <a href="art-272-restaking-risk.html">Restaking Risk (ART-272)</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var MANIFEST = {
+  schema_version: '1.0',
+  tool_id: 'art-270-perp-funding-carry',
+  mcp_name: 'compute_perp_funding',
+  display_name: 'Perp Funding and Carry Calculator',
+  mandate_type: 'analytics_mandate',
+  description: 'Computes perpetual futures funding rates, compound annual APR, cross-venue arb (Hyperliquid vs Binance), and delta-neutral carry. Covers basis analytics and Hyperliquid cap.',
+  input_parameters: [
+    {name:'venue',type:'string',description:'Trading venue: hyperliquid | binance | bybit | dydx_v4 | okx',default:'hyperliquid'},
+    {name:'asset',type:'string',description:'Perpetual contract asset symbol (display only)',default:'BTC'},
+    {name:'funding_rate_pct_per_period',type:'number',description:'Funding rate as % of notional per cadence period. E.g. 0.01 = 0.01% per hour (HL typical).',default:0.01},
+    {name:'cadence_hours',type:'number',description:'Funding settlement cadence in hours. HL=1, Binance/Bybit=8.',default:1},
+    {name:'basis_spot_price',type:'number',description:'Spot price of the underlying (USD)',default:60000},
+    {name:'basis_perp_price',type:'number',description:'Perpetual mark/last price (USD)',default:60000},
+    {name:'taker_fee_pct',type:'number',description:'Taker fee as % of notional (e.g. 0.035 = 3.5 bps)',default:0.035},
+    {name:'venue2',type:'string',description:'Optional second venue for cross-venue arb (leave empty to skip)'},
+    {name:'venue2_funding_rate_pct_per_period',type:'number',description:'Venue 2 funding rate per its cadence period',default:0.03},
+    {name:'venue2_cadence_hours',type:'number',description:'Venue 2 cadence in hours',default:8},
+    {name:'venue2_taker_fee_pct',type:'number',description:'Venue 2 taker fee as % of notional',default:0.05},
+    {name:'defi_yield_pct_annual',type:'number',description:'Optional DeFi collateral annual yield % (e.g. sUSDe). Leave empty to skip delta-neutral carry.'},
+  ],
+  output_fields: ['venue','asset','hourly_rate_pct','simple_annualized_rate_pct','compound_annualized_rate_pct','basis_pct','annualized_basis_pct','cross_venue_arb','delta_neutral_carry'],
+  pii_constraints: 'ZERO PII: rate inputs and venue parameters only. No account, API key, wallet address, or personal data.',
+  not_financial_advice: true,
+  regulatory_basis: 'Perpetual futures funding is market-determined. Delta-neutral carry is unregulated in most jurisdictions. Verify all rates with venue APIs before trading.',
+};
+
+var HOURS_PER_YEAR = 8760;
+var VENUE_DEFAULTS = {
+  hyperliquid:{taker:0.035,cadence:1},
+  binance:{taker:0.05,cadence:8},
+  bybit:{taker:0.055,cadence:8},
+  dydx_v4:{taker:0.05,cadence:8},
+  okx:{taker:0.05,cadence:8},
+};
+
+function safeNum(v,d){var n=parseFloat(v);return isFinite(n)?n:d;}
+function r4(v){return isFinite(v)?Math.round(v*1e4)/1e4:0;}
+function r2(v){return isFinite(v)?Math.round(v*100)/100:0;}
+function r6(v){return isFinite(v)?Math.round(v*1e6)/1e6:0;}
+function pct(v){return r4(v)+'%';}
+function dollar(v){return '$'+r2(v).toLocaleString();}
+
+function compoundAnnual(hourlyRatePct){
+  var r=hourlyRatePct/100;
+  if(r<=-1)return -100;
+  var res=(Math.pow(1+r,HOURS_PER_YEAR)-1)*100;
+  return isFinite(res)?res:0;
+}
+
+function runCompute(){
+  var venue=(document.getElementById('venue').value||'hyperliquid').toLowerCase();
+  var def=VENUE_DEFAULTS[venue]||VENUE_DEFAULTS.hyperliquid;
+  var asset=document.getElementById('asset').value||'BTC';
+  var rate=safeNum(document.getElementById('fundingRate').value,0.01);
+  var cadH=Math.max(0.0001,safeNum(document.getElementById('cadenceH').value,def.cadence));
+  var taker=Math.max(0,safeNum(document.getElementById('takerFee').value,def.taker));
+  var spotP=Math.max(0.000001,safeNum(document.getElementById('spotPrice').value,60000));
+  var perpP=Math.max(0.000001,safeNum(document.getElementById('perpPrice').value,spotP));
+  var defiY=document.getElementById('defiYield').value.trim()===''?NaN:safeNum(document.getElementById('defiYield').value,NaN);
+  var v2=document.getElementById('venue2').value;
+  var v2Rate=safeNum(document.getElementById('v2Rate').value,0.03);
+  var v2Cad=Math.max(0.0001,safeNum(document.getElementById('v2Cadence').value,8));
+
+  var hourly=r6(rate/cadH);
+  var simAnn=r4(hourly*HOURS_PER_YEAR);
+  var cmpAnn=r4(compoundAnnual(hourly));
+  var basisUsd=r6(perpP-spotP);
+  var basisPct=r6(basisUsd/spotP*100);
+  var annBasis=r4(basisPct*(HOURS_PER_YEAR/cadH));
+
+  var flags=[];
+  if(Math.abs(rate)>4&&cadH<=1)flags.push('ABOVE_HL_FUNDING_CAP');
+  if(Math.abs(simAnn)>500)flags.push('EXTREME_ANNUALIZED_RATE');
+
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat"><span class="stat-val">'+pct(hourly)+'</span><span class="stat-key">Hourly Rate</span></div>'+
+    '<div class="stat"><span class="stat-val">'+pct(simAnn)+'</span><span class="stat-key">Simple Annual</span></div>'+
+    '<div class="stat"><span class="stat-val">'+pct(cmpAnn)+'</span><span class="stat-key">Compound Annual</span></div>'+
+    '<div class="stat"><span class="stat-val">'+pct(basisPct)+'</span><span class="stat-key">Basis</span></div>';
+
+  document.getElementById('kvDiv').innerHTML=[
+    ['Venue',venue],['Asset',asset],
+    ['Funding Rate',pct(rate)+' per '+r4(cadH)+'h period'],
+    ['Basis (perp - spot)','$'+r2(basisUsd)+' ('+pct(basisPct)+')'],
+    ['Annualized Basis',pct(annBasis)+' ('+HOURS_PER_YEAR+'/'+r4(cadH)+'h periods/yr)'],
+    ['HL typical note','0.01%/hr ~ 87.6% simple / ~140% compound annualized; cap 4%/hr'],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  // Cross-venue arb
+  var arb=null;
+  if(v2&&v2!==venue){
+    var v2Def=VENUE_DEFAULTS[v2]||VENUE_DEFAULTS.binance;
+    var v2H=r6(v2Rate/v2Cad);
+    var diffH=r6(hourly-v2H);
+    var grossSimple=r4(diffH*HOURS_PER_YEAR);
+    var roundTrip=r6(2*(taker+(safeNum(document.getElementById('v2Rate').value,v2Def.taker)||v2Def.taker)));
+    var dailyDiff=diffH*24;
+    var breakEven=dailyDiff>0?r2(roundTrip/(dailyDiff/100)):null;
+    var viable=diffH>0&&grossSimple>roundTrip;
+    if(!viable)flags.push('ARB_NOT_VIABLE_AFTER_FEES');
+    arb={v2:v2,v2H:v2H,diffH:diffH,grossSimple:grossSimple,roundTrip:roundTrip,breakEven:breakEven,viable:viable};
+  }
+
+  if(arb){
+    document.getElementById('arbDiv').style.display='block';
+    document.getElementById('arbStatRow').innerHTML=
+      '<div class="stat"><span class="stat-val '+(arb.viable?'':'')+'">'+pct(arb.diffH)+'</span><span class="stat-key">Hourly Diff</span></div>'+
+      '<div class="stat"><span class="stat-val">'+pct(arb.grossSimple)+'</span><span class="stat-key">Gross APR</span></div>'+
+      '<div class="stat"><span class="stat-val '+(arb.viable?'':'')+'">'+arb.viable+'</span><span class="stat-key">Viable</span></div>';
+    document.getElementById('arbKvDiv').innerHTML=[
+      ['Venue 1 hourly',pct(hourly)],
+      ['Venue 2 ('+arb.v2+') hourly',pct(arb.v2H)],
+      ['Round-trip fee',pct(arb.roundTrip)+' (4 trades)'],
+      ['Days to break even',arb.breakEven!==null?arb.breakEven+'d':'N/A (negative diff)'],
+    ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+  } else {
+    document.getElementById('arbDiv').style.display='none';
+  }
+
+  // Delta-neutral carry
+  if(isFinite(defiY)&&defiY>=0){
+    document.getElementById('carryDiv').style.display='block';
+    var totalSimple=r4(simAnn+defiY);
+    var totalCmp=r4(cmpAnn+defiY);
+    var hedgeFee=r6(2*taker);
+    document.getElementById('carryStatRow').innerHTML=
+      '<div class="stat"><span class="stat-val">'+pct(simAnn)+'</span><span class="stat-key">Funding APR</span></div>'+
+      '<div class="stat"><span class="stat-val">'+pct(defiY)+'</span><span class="stat-key">DeFi Yield</span></div>'+
+      '<div class="stat"><span class="stat-val">'+pct(totalSimple)+'</span><span class="stat-key">Total Carry</span></div>';
+    document.getElementById('carryKvDiv').innerHTML=[
+      ['Perp funding simple APR',pct(simAnn)],
+      ['Perp funding compound APR',pct(cmpAnn)],
+      ['DeFi collateral yield',pct(defiY)+'/yr'],
+      ['Total carry (compound)',pct(totalCmp)],
+      ['Hedge open+close fee',pct(hedgeFee)+' (2 trades)'],
+    ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+  } else {
+    document.getElementById('carryDiv').style.display='none';
+  }
+
+  document.getElementById('flagRow').innerHTML=flags.length
+    ?flags.map(function(f){return '<span class="badge warn">'+f+'</span>';}).join('')
+    :'<span class="badge ok">NO FLAGS</span>';
+
+  var op={
+    venue:venue,asset:asset,funding_rate_pct_per_period:r6(rate),cadence_hours:r6(cadH),
+    hourly_rate_pct:hourly,simple_annualized_rate_pct:simAnn,compound_annualized_rate_pct:cmpAnn,
+    basis_spot_price:r6(spotP),basis_perp_price:r6(perpP),basis_usd:basisUsd,basis_pct:basisPct,annualized_basis_pct:annBasis,
+    cross_venue_arb:arb?{venue1:venue,venue1_hourly_rate_pct:r6(hourly),venue2:arb.v2,venue2_hourly_rate_pct:r6(arb.v2H),differential_hourly_pct:arb.diffH,gross_simple_arb_apr_pct:arb.grossSimple,round_trip_fee_pct:arb.roundTrip,days_to_break_even:arb.breakEven,arb_viable:arb.viable}:null,
+    delta_neutral_carry:isFinite(defiY)&&defiY>=0?{perp_funding_simple_apr_pct:r4(simAnn),defi_yield_apy_pct:r4(defiY),total_carry_simple_pct:r4(simAnn+defiY),total_carry_compound_pct:r4(cmpAnn+defiY)}:null,
+  };
+  var pp={venue:venue,asset:asset,funding_rate_pct_per_period:rate,cadence_hours:cadH,basis_spot_price:spotP,basis_perp_price:perpP,taker_fee_pct:taker};
+  if(v2&&v2!==venue){pp.venue2=v2;pp.venue2_funding_rate_pct_per_period=v2Rate;pp.venue2_cadence_hours=v2Cad;}
+  if(isFinite(defiY)&&defiY>=0)pp.defi_yield_pct_annual=defiY;
+  _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent='computing...';
+  document.getElementById('verifyResult').textContent='';
+  document.getElementById('anchorBtn').style.display='none';
+  computeExecHash(pp,op).then(function(h){
+    document.getElementById('execHashBox').textContent=h;
+    var a=document.getElementById('anchorBtn');
+    a.href=ANCHOR_BASE+'/?hash='+encodeURIComponent(h);
+    a.style.display='inline-block';
+  });
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object'||Array.isArray(v))return v;var s=Object.keys(v).sort();var o={};s.forEach(function(k){o[k]=cgCanon(v[k]);});return o;}
+async function computeExecHash(pp,op){
+  var preimage={policy_parameters:pp,output_payload:op};
+  var canonical=JSON.stringify(cgCanon(preimage));
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical));
+  return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+function verifyHash(){
+  if(!_lastResult)return;
+  computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){
+    var cur=document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if(!_lastResult)return;
+  var hash=document.getElementById('execHashBox').textContent||'pending';
+  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-270-perp-funding-carry',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json=JSON.stringify(artifact,null,2);
+  document.getElementById('artifactPre').textContent=json;
+  document.getElementById('artifactPre').style.display='block';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='art-270-perp-funding-carry.json';a.click();URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody');
+  if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+  else{b.style.display='none';}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>DeFi Lending Health and Liquidation Monitor &middot; ART-271 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes DeFi lending health factor, liquidation price, and borrow capacity for Aave v3, Morpho Blue, Fluid, Sky (MakerDAO v2), and Liquity v2. Not financial advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-271-defi-lending-health.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* OCG-CHROME-CSS:v1 */
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body)}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;padding:.35rem .85rem;display:inline-block}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;border:1px solid;display:inline-block;white-space:nowrap}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.2)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:none}
+.anchor-btn:hover{border-color:var(--gold)}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+#mfstBody{display:none;margin-top:10px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+.hf-safe{color:var(--green);font-weight:600}
+.hf-watch{color:var(--teal-lt);font-weight:600}
+.hf-warn{color:var(--warn);font-weight:600}
+.hf-liq{color:var(--red);font-weight:600}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-271 · DeFi Lending Health and Liquidation Monitor</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; ART-271 &middot; Analytics</div>
+  <h1>DeFi Lending Health and Liquidation Monitor</h1>
+  <p class="sub">Computes health factor, liquidation price, borrow capacity, and distance to liquidation for Aave v3, Morpho Blue, Fluid, Sky (MakerDAO v2), and Liquity v2. Handles LTV and collateral-ratio modes.</p>
+  <span class="flag info">gpu:false</span>
+  <span class="flag info">analytics_mandate</span>
+  <span class="flag">groth16-deferred</span>
+
+  <div class="pii-notice">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer">Not financial or investment advice. DeFi lending carries smart contract risk, oracle manipulation risk, and liquidation risk. Protocol parameters change via governance. Verify with protocol risk dashboards before any position. For informational purposes only.</div>
+
+  <div class="card">
+    <div class="section-head">Position Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Protocol</label>
+        <select id="protocol" onchange="applyDefaults()">
+          <option value="aave">Aave v3</option>
+          <option value="morpho">Morpho Blue</option>
+          <option value="fluid">Fluid</option>
+          <option value="sky">Sky (MakerDAO v2)</option>
+          <option value="liquity_v2">Liquity v2</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label">Collateral Value ($)</label>
+        <input type="number" id="collateralUsd" value="15000" step="100">
+      </div>
+      <div class="q">
+        <label class="q-label">Debt Value ($)</label>
+        <input type="number" id="debtUsd" value="5000" step="100">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Collateral Price ($)</label>
+        <div class="q-help">Current price of the collateral asset</div>
+        <input type="number" id="collPrice" value="3000" step="10">
+      </div>
+      <div class="q">
+        <label class="q-label">Collateral Amount</label>
+        <div class="q-help">Units of collateral pledged (e.g. 5 ETH)</div>
+        <input type="number" id="collAmount" value="5" step="0.1">
+      </div>
+      <div class="q">
+        <label class="q-label">Liquidation Threshold (%)</label>
+        <div class="q-help">LTV mode: e.g. 83 for Aave. CR mode: e.g. 170 for Sky (170% min collateral ratio)</div>
+        <input type="number" id="liqThreshold" value="83" step="1">
+      </div>
+    </div>
+    <div id="protocolNote" class="q-help" style="margin-top:4px;font-size:.7rem;padding:6px 10px;background:var(--bg-3);border-radius:4px;border-left:2px solid var(--teal)"></div>
+  </div>
+
+  <button onclick="runCompute()">Compute Health Factor</button>
+
+  <div id="resultsPanel" class="results-panel card">
+    <div class="section-head">Health Factor</div>
+    <div id="statRow" class="stat-row"></div>
+    <div id="kvDiv" style="margin-top:10px"></div>
+    <div style="margin-top:14px">
+      <div class="section-head">Compliance Flags</div>
+      <div id="flagRow" class="flag-row"></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="q-label">Execution Hash (browser)</div>
+      <div id="execHashBox" class="exec-hash">computing...</div>
+    </div>
+    <div class="results-export-row">
+      <button onclick="exportArtifact()" style="background:var(--bg-3);color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)">Export JSON</button>
+      <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+      <span id="verifyResult" class="verify-result"></span>
+      <a id="anchorBtn" class="anchor-btn" href="#" target="_blank" rel="noopener">Anchor to Timestamp &#8599;</a>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+
+  <div id="mfstSec">
+    <button class="mfst-btn" onclick="toggleMfst()">Show MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related</div>
+        <a href="art-270-perp-funding-carry.html">Perp Funding (ART-270)</a>
+        <a href="art-272-restaking-risk.html">Restaking Risk (ART-272)</a>
+        <a href="art-273-pendle-yield.html">Pendle Yield (ART-273)</a>
+        <a href="art-213-perp-liquidation-calculator.html">Perp Margin (ART-213)</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var ANCHOR_BASE='https://anchor.ainumbers.co';
+var _lastResult=null;
+var MANIFEST={schema_version:'1.0',tool_id:'art-271-defi-lending-health',mcp_name:'assess_defi_lending',display_name:'DeFi Lending Health and Liquidation Monitor',mandate_type:'analytics_mandate',description:'Computes DeFi lending health factor, liquidation price, borrow capacity for Aave, Morpho, Fluid, Sky, Liquity.',input_parameters:[{name:'protocol',type:'string',default:'aave'},{name:'collateral_value_usd',type:'number',default:10000},{name:'debt_value_usd',type:'number',default:5000},{name:'collateral_price_usd',type:'number',default:2000},{name:'collateral_amount',type:'number'},{name:'liquidation_threshold_pct',type:'number'}],pii_constraints:'ZERO PII: position amounts and protocol parameters only.',not_financial_advice:true};
+
+var DEFS={
+  aave:{liq:83,bonus:5,cr:false,note:'Aave v3: fixed 5% liquidation bonus; close factor 50% (up to 100% when HF < 0.95). HF = collateral * liq_threshold / debt. LTV mode.'},
+  morpho:{liq:86,bonus:3.5,cr:false,note:'Morpho Blue: MEV-auction liquidation. Bonus market-determined (0-5%). Full position may be liquidated. LTV mode.'},
+  fluid:{liq:90,bonus:2,cr:false,note:'Fluid: continuous liquidation curve. Partial liquidation available as health drops. LTV mode.'},
+  sky:{liq:170,bonus:13,cr:true,note:'Sky (MakerDAO v2): Clipper Dutch-auction. Liquidation Ratio = min collateral ratio % (e.g. 170%). CR mode: HF = (collateral/debt) / (liq_ratio/100).'},
+  liquity_v2:{liq:110,bonus:10,cr:true,note:'Liquity v2: Dutch-auction; MCR 110%. Stability Pool absorbs BOLD at discount. CR mode.'},
+};
+
+function safeNum(v,d){var n=parseFloat(v);return isFinite(n)?n:d;}
+function r4(v){return isFinite(v)?Math.round(v*1e4)/1e4:0;}
+function r2(v){return isFinite(v)?Math.round(v*100)/100:0;}
+function r6(v){return isFinite(v)?Math.round(v*1e6)/1e6:0;}
+
+function applyDefaults(){
+  var p=document.getElementById('protocol').value;
+  var d=DEFS[p]||DEFS.aave;
+  document.getElementById('liqThreshold').value=d.liq;
+  document.getElementById('protocolNote').textContent=d.note;
+}
+window.onload=function(){applyDefaults();};
+
+function runCompute(){
+  var protocol=document.getElementById('protocol').value;
+  var def=DEFS[protocol]||DEFS.aave;
+  var isCR=def.cr;
+  var collUsd=Math.max(0,safeNum(document.getElementById('collateralUsd').value,10000));
+  var debtUsd=Math.max(0,safeNum(document.getElementById('debtUsd').value,5000));
+  var collPrice=Math.max(0.000001,safeNum(document.getElementById('collPrice').value,2000));
+  var collAmt=Math.max(0,safeNum(document.getElementById('collAmount').value,collUsd/collPrice));
+  var liqThr=Math.max(1,Math.min(500,safeNum(document.getElementById('liqThreshold').value,def.liq)));
+  var liqBonus=def.bonus;
+
+  var hf,currentLtv;
+  if(debtUsd<=0){hf=9999;currentLtv=0;}
+  else if(isCR){
+    var cr=collUsd/debtUsd*100;
+    hf=r6(cr/liqThr);
+    currentLtv=collUsd>0?r4(debtUsd/collUsd*100):0;
+  } else {
+    hf=r6(collUsd*(liqThr/100)/debtUsd);
+    currentLtv=collUsd>0?r4(debtUsd/collUsd*100):0;
+  }
+
+  var status,cls;
+  if(hf>=2.0){status='SAFE';cls='hf-safe';}
+  else if(hf>=1.25){status='WATCH';cls='hf-watch';}
+  else if(hf>=1.0){status='WARNING';cls='hf-warn';}
+  else{status='LIQUIDATABLE';cls='hf-liq';}
+
+  var liqPrice=null;
+  if(collAmt>0&&debtUsd>0){
+    liqPrice=isCR
+      ?r6(debtUsd*(liqThr/100)/collAmt)
+      :r6(debtUsd/(collAmt*liqThr/100));
+  }
+  var distLiq=liqPrice!==null&&collPrice>0?r4((collPrice-liqPrice)/collPrice*100):null;
+  var borrowCap=isCR
+    ?r2(Math.max(0,collUsd/(liqThr/100)-debtUsd))
+    :r2(Math.max(0,collUsd*(liqThr/100)-debtUsd));
+  var liqPenalty=r2(debtUsd*liqBonus/100);
+
+  var flags=[];
+  if(hf<1.0)flags.push('LIQUIDATABLE');
+  else if(hf<1.1)flags.push('CRITICAL_RISK');
+  else if(hf<1.25)flags.push('HIGH_LIQUIDATION_RISK');
+  else if(hf<1.5)flags.push('ELEVATED_RISK');
+  if(currentLtv>liqThr&&!isCR)flags.push('ABOVE_LIQ_THRESHOLD');
+
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat"><span class="stat-val"><span class="'+cls+'">'+status+'</span></span><span class="stat-key">Status</span></div>'+
+    '<div class="stat"><span class="stat-val '+cls+'">'+r4(hf)+'</span><span class="stat-key">Health Factor</span></div>'+
+    (liqPrice!==null?'<div class="stat"><span class="stat-val">$'+liqPrice.toLocaleString()+'</span><span class="stat-key">Liq Price</span></div>':'')+
+    (distLiq!==null?'<div class="stat"><span class="stat-val">'+distLiq+'%</span><span class="stat-key">Dist to Liq</span></div>':'');
+
+  document.getElementById('kvDiv').innerHTML=[
+    ['Protocol',protocol+(isCR?' (CR mode)':' (LTV mode)')],
+    ['Collateral value','$'+r2(collUsd).toLocaleString()],
+    ['Debt value','$'+r2(debtUsd).toLocaleString()],
+    ['Current LTV',r4(currentLtv)+'%'],
+    ['Liquidation threshold',liqThr+'%'+(isCR?' (min collateral ratio)':' (max LTV)')],
+    ['Liquidation bonus',liqBonus+'%'],
+    ['Borrow capacity remaining','$'+borrowCap.toLocaleString()],
+    ['Liquidation penalty (est.)','$'+liqPenalty.toLocaleString()],
+    ['Mechanism',def.note],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v" style="max-width:55%;text-align:right;word-break:break-word">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('flagRow').innerHTML=flags.length
+    ?flags.map(function(f){return '<span class="badge '+(f==='LIQUIDATABLE'?'fail':'warn')+'">'+f+'</span>';}).join('')
+    :'<span class="badge ok">SAFE</span>';
+
+  var op={protocol:protocol,health_factor:r6(hf),health_status:status,current_ltv_pct:currentLtv,liquidation_threshold_pct:r4(liqThr),liquidation_bonus_pct:r4(liqBonus),liquidation_price_usd:liqPrice,distance_to_liquidation_pct:distLiq,borrow_capacity_usd:borrowCap,collateral_value_usd:r2(collUsd),debt_value_usd:r2(debtUsd),liquidation_penalty_usd:liqPenalty};
+  var pp={protocol:protocol,collateral_value_usd:collUsd,debt_value_usd:debtUsd,collateral_price_usd:collPrice,collateral_amount:collAmt,liquidation_threshold_pct:liqThr};
+  _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent='computing...';
+  document.getElementById('verifyResult').textContent='';
+  document.getElementById('anchorBtn').style.display='none';
+  computeExecHash(pp,op).then(function(h){
+    document.getElementById('execHashBox').textContent=h;
+    var a=document.getElementById('anchorBtn');
+    a.href=ANCHOR_BASE+'/?hash='+encodeURIComponent(h);
+    a.style.display='inline-block';
+  });
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object'||Array.isArray(v))return v;var s=Object.keys(v).sort();var o={};s.forEach(function(k){o[k]=cgCanon(v[k]);});return o;}
+async function computeExecHash(pp,op){
+  var preimage={policy_parameters:pp,output_payload:op};
+  var canonical=JSON.stringify(cgCanon(preimage));
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical));
+  return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+function verifyHash(){if(!_lastResult)return;computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){var cur=document.getElementById('execHashBox').textContent;document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';});}
+function exportArtifact(){if(!_lastResult)return;var hash=document.getElementById('execHashBox').textContent||'pending';var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-271-defi-lending-health',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};var json=JSON.stringify(artifact,null,2);document.getElementById('artifactPre').textContent=json;document.getElementById('artifactPre').style.display='block';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='art-271-defi-lending-health.json';a.click();URL.revokeObjectURL(a.href);}
+function toggleMfst(){var b=document.getElementById('mfstBody');if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';}}
+</script>
+</body>
+</html>
