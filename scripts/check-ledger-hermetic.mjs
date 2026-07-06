@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * scripts/check-dashboard-hermetic.mjs
- * Gate: dashboard/index.html must make NO network calls except the §6 anchor endpoint.
+ * scripts/check-ledger-hermetic.mjs
+ * Gate: ledger/index.html must make NO network calls except the §6 anchor endpoint.
  * Grep for fetch(, XMLHttpRequest, new WebSocket, EventSource(
  * Allowlist: exactly https://anchor.ainumbers.co (the §6 anchor call).
  * Any other network call = exit 1.
@@ -11,14 +11,14 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const TARGET = resolve(REPO, 'dashboard', 'index.html');
+const TARGET = resolve(REPO, 'ledger', 'index.html');
 const ALLOWED_ENDPOINT = 'https://anchor.ainumbers.co';
 
 let html;
 try {
   html = readFileSync(TARGET, 'utf8');
 } catch (e) {
-  console.error('check-dashboard-hermetic: cannot read dashboard/index.html —', e.message);
+  console.error('check-ledger-hermetic: cannot read ledger/index.html —', e.message);
   process.exit(1);
 }
 
@@ -47,11 +47,11 @@ for (const { re, label } of PATTERNS) {
 }
 
 if (violations.length) {
-  console.error('check-dashboard-hermetic FAILED: non-allowlisted network call(s) found in dashboard/index.html:\n');
+  console.error('check-ledger-hermetic FAILED: non-allowlisted network call(s) found in ledger/index.html:\n');
   violations.forEach(v => console.error(v));
   console.error(`\nAllowlisted endpoint: ${ALLOWED_ENDPOINT}`);
   console.error('Remove or allowlist these calls before pushing.');
   process.exit(1);
 }
 
-console.log('check-dashboard-hermetic: OK — dashboard/index.html is hermetic (anchor endpoint only).');
+console.log('check-ledger-hermetic: OK — ledger/index.html is hermetic (anchor endpoint only).');

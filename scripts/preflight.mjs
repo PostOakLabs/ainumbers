@@ -57,9 +57,9 @@ const GATES = [
   ['Workbench up-to-date',        'node scripts/gen-workbench.mjs --check'],
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
-  ['Dashboard hermetic',           'node scripts/check-dashboard-hermetic.mjs'],
-  ['Dashboard codec round-trip',   'node scripts/codec-roundtrip.test.mjs'],
-  ['Dashboard gate-replay tamper', 'node scripts/gate-replay-tamper.test.mjs'],
+  ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
+  ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
+  ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
 ];
 
 let failed = null;

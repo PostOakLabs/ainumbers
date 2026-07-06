@@ -3,7 +3,7 @@
  * scripts/gate-replay-tamper.test.mjs
  * Gate: the §21 gate-replay engine must flag tampered decisions[].
  *
- * Inlines the same rfc6901 / applyOp / deepEqual logic from dashboard/index.html
+ * Inlines the same rfc6901 / applyOp / deepEqual logic from ledger/index.html
  * and the _gateval kernel (both sources are byte-equivalent — tested here).
  *
  * Tests:
@@ -13,7 +13,7 @@
  *   4. Pointer resolves correctly on step output_payload.
  */
 
-// ── Inlined gate evaluator (mirrors dashboard/index.html and kernels/_gateval.mjs) ──
+// ── Inlined gate evaluator (mirrors ledger/index.html and kernels/_gateval.mjs) ──
 function deepEqual(a, b) {
   if (a === b) return true;
   if (a === null || b === null) return false;
@@ -57,7 +57,7 @@ function rfc6901(doc, pointer) {
   return { found: true, value: cur };
 }
 
-// §21 gate replay engine (mirrors dashboard/index.html _replayGates)
+// §21 gate replay engine (mirrors ledger/index.html _replayGates)
 function replayGates(artifact) {
   const op = artifact.output_payload;
   const decisions = op?.decisions;
