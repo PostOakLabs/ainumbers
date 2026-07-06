@@ -855,8 +855,7 @@ async function apVerifySig(){
 </body>
 </html>`;
 
-  const wfHtml = renderRail(wfSteps, 'run');
-  return html.replace(CATALOG_PLACEHOLDER, () => catalogJson).replace(WAYFINDER_PH, () => wfHtml);
+  return html.replace(CATALOG_PLACEHOLDER, () => catalogJson).replace(WAYFINDER_PH, () => '');
 }
 
 /* ── check or write ──────────────────────────────────────────────── */
