@@ -1,0 +1,145 @@
+{
+  "tool_id": "art-274-compile-work-mandate",
+  "note": "Conformance vectors for compile_work_mandate (§22.4). Three scenarios: single condition threshold, threshold+escalation-trigger two-rule gate, empty/minimal mandate. golden_hash populated via golden-parity --update.",
+  "vectors": [
+    {
+      "name": "single_condition_threshold",
+      "description": "Mandate with one threshold condition produces a single-rule gate on the penultimate scope step, routing pass to the final step and defaulting to escalate.",
+      "policy_parameters": {
+        "mandate": {
+          "mandate_type": "work_mandate",
+          "scope": {
+            "tool_ids": [
+              "assess_loan",
+              "record_outcome"
+            ],
+            "chains": []
+          },
+          "conditions": [
+            {
+              "pointer": "/decision/approved",
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "escalation_triggers": []
+        }
+      },
+      "output_payload": {
+        "chain_config": {
+          "steps": [
+            {
+              "tool_id": "assess_loan",
+              "id": "assess_loan",
+              "gate": {
+                "input": "/decision/approved",
+                "rules": [
+                  {
+                    "op": "eq",
+                    "value": true,
+                    "next": "record_outcome"
+                  }
+                ],
+                "default": "escalate"
+              }
+            },
+            {
+              "tool_id": "record_outcome",
+              "id": "record_outcome"
+            }
+          ]
+        }
+      },
+      "golden_hash": "d1530dac91c4032091d3a1a7d9234ab4e0b4eb373957099b2209d74fc542d58f"
+    },
+    {
+      "name": "threshold_plus_escalation_trigger",
+      "description": "Mandate with one escalation trigger and one condition produces a two-rule gate (trigger first, then condition per §22.4 Rule 3): trigger routes to escalate, condition routes to next step.",
+      "policy_parameters": {
+        "mandate": {
+          "mandate_type": "work_mandate",
+          "scope": {
+            "tool_ids": [
+              "assess_loan",
+              "record_outcome"
+            ],
+            "chains": []
+          },
+          "conditions": [
+            {
+              "pointer": "/decision/approved",
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "escalation_triggers": [
+            {
+              "pointer": "/decision/approved",
+              "op": "eq",
+              "value": false
+            }
+          ]
+        }
+      },
+      "output_payload": {
+        "chain_config": {
+          "steps": [
+            {
+              "tool_id": "assess_loan",
+              "id": "assess_loan",
+              "gate": {
+                "input": "/decision/approved",
+                "rules": [
+                  {
+                    "op": "eq",
+                    "value": false,
+                    "next": "escalate"
+                  },
+                  {
+                    "op": "eq",
+                    "value": true,
+                    "next": "record_outcome"
+                  }
+                ],
+                "default": "escalate"
+              }
+            },
+            {
+              "tool_id": "record_outcome",
+              "id": "record_outcome"
+            }
+          ]
+        }
+      },
+      "golden_hash": "1cb64b22f325d7a0c3eaca4274eb190ccee7f980a4dd44f866a54b648aa9d779"
+    },
+    {
+      "name": "empty_minimal_mandate",
+      "description": "Mandate with no conditions or escalation triggers produces a steps-only config with no gate (minimal finite output; empty-input-finite gate passes).",
+      "policy_parameters": {
+        "mandate": {
+          "mandate_type": "work_mandate",
+          "scope": {
+            "tool_ids": [
+              "review_item"
+            ],
+            "chains": []
+          },
+          "conditions": [],
+          "escalation_triggers": []
+        }
+      },
+      "output_payload": {
+        "chain_config": {
+          "steps": [
+            {
+              "tool_id": "review_item",
+              "id": "review_item"
+            }
+          ]
+        }
+      },
+      "golden_hash": "f55c439ab26ad0e532e0c3f708ae039d05d682858f4893cb090765ac2af437a1"
+    }
+  ]
+}

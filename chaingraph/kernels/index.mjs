@@ -215,6 +215,7 @@ import * as art270 from './art-270-perp-funding-carry.kernel.mjs';
 import * as art271 from './art-271-defi-lending-health.kernel.mjs';
 import * as art272 from './art-272-restaking-risk.kernel.mjs';
 import * as art273 from './art-273-pendle-yield.kernel.mjs';
+import * as art274 from './art-274-compile-work-mandate.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
@@ -518,6 +519,7 @@ export const KERNELS = {
   'art-271-defi-lending-health':                              art271,
   'art-272-restaking-risk':                                   art272,
   'art-273-pendle-yield':                                     art273,
+  'art-274-compile-work-mandate':                             art274,
   'art-28-mcp-server-deployability-diagnostic':               art28,
   'art-29-dora-readiness-diagnostic':                         art29,
   'art-30-agent-commerce-conformance-validator':              art30,
