@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Restaking Delegation and Slashing Risk Analyzer &middot; ART-272 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Models restaking delegation rewards, operator fees, AVS yield, and slashing-waterfall risk for EigenLayer and Symbiotic. Includes slashing-insurance economics. Not financial advice.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-272-restaking-risk.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* OCG-CHROME-CSS:v1 */
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body)}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;padding:.35rem .85rem;display:inline-block}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none}
+input:focus,select:focus{border-color:var(--teal)}
+label.chk{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);cursor:pointer}
+input[type="checkbox"]{width:14px;height:14px;accent-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;border:1px solid;display:inline-block;white-space:nowrap}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.2)}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:none}
+.anchor-btn:hover{border-color:var(--gold)}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+#mfstBody{display:none;margin-top:10px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&#8250;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&#8250;</span>
+      <span style="color:var(--gold)">ART-272 · Restaking Delegation and Slashing Risk Analyzer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; ART-272 &middot; Analytics</div>
+  <h1>Restaking Delegation and Slashing Risk Analyzer</h1>
+  <p class="sub">Models restaking rewards, operator fees, AVS yield, and slashing-waterfall exposure for EigenLayer and Symbiotic. First-loss buffer-tranche model, probability-weighted expected slash, and insurance economics.</p>
+  <span class="flag info">gpu:false</span>
+  <span class="flag info">analytics_mandate</span>
+  <span class="flag">groth16-deferred</span>
+
+  <div class="pii-notice">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer">Not financial or investment advice. Restaking carries smart contract risk, operator risk, slashing risk, and liquidity risk. Verify current operator and AVS conditions before delegating. For informational purposes only.</div>
+
+  <div class="card">
+    <div class="section-head">Protocol and Stake Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Protocol</label>
+        <select id="protocol" onchange="applyDefaults()">
+          <option value="eigenlayer">EigenLayer</option>
+          <option value="symbiotic">Symbiotic</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label">Staked ETH</label>
+        <input type="number" id="stakedEth" value="32" step="1" min="0">
+      </div>
+      <div class="q">
+        <label class="q-label">ETH Price ($)</label>
+        <input type="number" id="ethPrice" value="3500" step="100" min="1">
+      </div>
+    </div>
+    <div class="section-head">Reward Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Base Staking APY (%)</label>
+        <div class="q-help">Underlying ETH staking yield (e.g. Lido stETH ~3.5%)</div>
+        <input type="number" id="baseApy" value="3.5" step="0.1" min="0">
+      </div>
+      <div class="q">
+        <label class="q-label">Operator Fee (%)</label>
+        <div class="q-help">% of gross rewards taken by the operator</div>
+        <input type="number" id="opFee" value="10" step="1" min="0" max="100">
+      </div>
+      <div class="q">
+        <label class="q-label">AVS Reward APY (%)</label>
+        <div class="q-help">Additional yield from actively validated services</div>
+        <input type="number" id="avsApy" value="2.5" step="0.1" min="0">
+      </div>
+    </div>
+    <div class="section-head">Slashing Parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label">Slashing Risk (% annual prob.)</label>
+        <div class="q-help">Annual probability of a slashing event occurring</div>
+        <input type="number" id="slashRisk" value="0.5" step="0.1" min="0" max="100">
+      </div>
+      <div class="q">
+        <label class="q-label">Slash Magnitude (% of stake)</label>
+        <div class="q-help">If slashed, what % of staked position is lost</div>
+        <input type="number" id="slashMag" value="1" step="0.1" min="0" max="100">
+      </div>
+      <div class="q">
+        <label class="q-label">First-Loss Buffer (%)</label>
+        <div class="q-help">% of the slash absorbed by protocol/vault buffer before delegator. EigenLayer ~0%; Symbiotic vault ~30%.</div>
+        <input type="number" id="firstLoss" value="0" step="5" min="0" max="100">
+      </div>
+    </div>
+    <div class="section-head">Insurance</div>
+    <div class="row2">
+      <div class="q">
+        <label class="chk"><input type="checkbox" id="insEnabled" checked> Enable Insurance</label>
+        <div class="q-help" style="margin-top:6px">Model slashing-insurance premium (% of net rewards/year)</div>
+        <input type="number" id="insPct" value="0.5" step="0.1" min="0" max="50" style="margin-top:6px">
+      </div>
+    </div>
+    <div id="protocolNote" class="q-help" style="margin-top:4px;font-size:.7rem;padding:6px 10px;background:var(--bg-3);border-radius:4px;border-left:2px solid var(--teal)"></div>
+  </div>
+
+  <button onclick="runCompute()">Compute Restaking Risk</button>
+
+  <div id="resultsPanel" class="results-panel card">
+    <div class="section-head">Rewards</div>
+    <div id="statRow" class="stat-row"></div>
+    <div id="kvDiv" style="margin-top:10px"></div>
+    <div id="slashDiv" style="margin-top:14px">
+      <div class="section-head">Slashing Waterfall</div>
+      <div id="slashKvDiv"></div>
+    </div>
+    <div id="insDiv" style="margin-top:14px">
+      <div class="section-head">Insurance Economics</div>
+      <div id="insKvDiv"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="section-head">Compliance Flags</div>
+      <div id="flagRow" class="flag-row"></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="q-label">Execution Hash (browser)</div>
+      <div id="execHashBox" class="exec-hash">computing...</div>
+    </div>
+    <div class="results-export-row">
+      <button onclick="exportArtifact()" style="background:var(--bg-3);color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)">Export JSON</button>
+      <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+      <span id="verifyResult" class="verify-result"></span>
+      <a id="anchorBtn" class="anchor-btn" href="#" target="_blank" rel="noopener">Anchor to Timestamp &#8599;</a>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+
+  <div id="mfstSec">
+    <button class="mfst-btn" onclick="toggleMfst()">Show MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related</div>
+        <a href="art-270-perp-funding-carry.html">Perp Funding (ART-270)</a>
+        <a href="art-271-defi-lending-health.html">DeFi Lending (ART-271)</a>
+        <a href="art-273-pendle-yield.html">Pendle Yield (ART-273)</a>
+        <a href="art-213-perp-liquidation-calculator.html">Perp Margin (ART-213)</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var ANCHOR_BASE='https://anchor.ainumbers.co';
+var _lastResult=null;
+var MANIFEST={schema_version:'1.0',tool_id:'art-272-restaking-risk',mcp_name:'assess_restaking_risk',display_name:'Restaking Delegation and Slashing Risk Analyzer',mandate_type:'analytics_mandate',description:'Models restaking rewards, slashing waterfall, and insurance for EigenLayer and Symbiotic.',input_parameters:[{name:'protocol',type:'string',default:'eigenlayer'},{name:'staked_eth',type:'number',default:32},{name:'eth_price_usd',type:'number',default:3500},{name:'base_staking_apy_pct',type:'number',default:3.5},{name:'operator_fee_pct',type:'number',default:10},{name:'avs_reward_apy_pct',type:'number',default:2.5},{name:'slashing_risk_pct',type:'number',default:0.5},{name:'slash_magnitude_pct',type:'number',default:1},{name:'first_loss_tranche_pct',type:'number',default:0},{name:'insurance_enabled',type:'boolean',default:true},{name:'insurance_premium_pct_of_rewards',type:'number',default:0.5}],pii_constraints:'ZERO PII: staking amounts and protocol parameters only.',not_financial_advice:true};
+
+var DEFS={
+  eigenlayer:{note:'EigenLayer: Ethereum restaking. ETH or LST delegated to operators who opt into AVS. Slashing conditions per-AVS; operator+delegator both exposed. No protocol first-loss buffer (operator stake absorbs first; delegators exposed immediately after).'},
+  symbiotic:{note:'Symbiotic: three-way opt-in restaking (network, vault, operator). Burner routers + resolver multisigs mediate slashing. Vaults hold a configurable first-loss buffer (e.g. 20-30% of slash).'},
+};
+
+function safeNum(v,d){var n=parseFloat(v);return isFinite(n)?n:d;}
+function r4(v){return isFinite(v)?Math.round(v*1e4)/1e4:0;}
+function r2(v){return isFinite(v)?Math.round(v*100)/100:0;}
+function r6(v){return isFinite(v)?Math.round(v*1e6)/1e6:0;}
+function dollar(v){return '$'+r2(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pct(v){return r4(v)+'%';}
+
+function applyDefaults(){
+  var p=document.getElementById('protocol').value;
+  document.getElementById('protocolNote').textContent=(DEFS[p]||DEFS.eigenlayer).note;
+  if(p==='symbiotic'){document.getElementById('firstLoss').value=30;document.getElementById('avsApy').value=3;}
+  else{document.getElementById('firstLoss').value=0;document.getElementById('avsApy').value=2.5;}
+}
+window.onload=function(){applyDefaults();};
+
+function runCompute(){
+  var protocol=document.getElementById('protocol').value;
+  var stakedEth=Math.max(0,safeNum(document.getElementById('stakedEth').value,32));
+  var ethPrice=Math.max(0.01,safeNum(document.getElementById('ethPrice').value,3500));
+  var baseApy=Math.max(0,safeNum(document.getElementById('baseApy').value,3.5));
+  var opFee=Math.max(0,Math.min(100,safeNum(document.getElementById('opFee').value,10)));
+  var avsApy=Math.max(0,safeNum(document.getElementById('avsApy').value,2.5));
+  var slashRisk=Math.max(0,Math.min(100,safeNum(document.getElementById('slashRisk').value,0.5)));
+  var slashMag=Math.max(0,Math.min(100,safeNum(document.getElementById('slashMag').value,1)));
+  var firstLoss=Math.max(0,Math.min(100,safeNum(document.getElementById('firstLoss').value,0)));
+  var insPct=Math.max(0,Math.min(50,safeNum(document.getElementById('insPct').value,0.5)));
+  var insEnabled=document.getElementById('insEnabled').checked;
+
+  var stakedUsd=r2(stakedEth*ethPrice);
+  var grossApy=r4(baseApy+avsApy);
+  var opCut=r4(grossApy*opFee/100);
+  var netApy=r4(grossApy-opCut);
+  var grossUsd=r2(stakedUsd*grossApy/100);
+  var opFeeUsd=r2(stakedUsd*opCut/100);
+  var netUsd=r2(stakedUsd*netApy/100);
+
+  // Slashing waterfall
+  var maxSlash=r2(stakedUsd*slashMag/100);
+  var bufferAbs=r2(maxSlash*firstLoss/100);
+  var delegNetSlash=r2(maxSlash-bufferAbs);
+  var delegNetEth=r6(delegNetSlash/Math.max(0.01,ethPrice));
+  var expectedSlash=r2(delegNetSlash*slashRisk/100);
+  var netRiskAdj=r2(netUsd-expectedSlash);
+  var netRiskAdjApy=r4(stakedUsd>0?netRiskAdj/stakedUsd*100:0);
+
+  // Insurance
+  var insPremUsd=r2(netUsd*insPct/100);
+  var rrRatio=insPremUsd>0?r4(expectedSlash/insPremUsd):null;
+  var insMakesSense=rrRatio!==null?rrRatio>1:null;
+  var netWithIns=insEnabled?r2(netRiskAdj-insPremUsd):null;
+  var netWithInsApy=insEnabled&&stakedUsd>0?r4(netWithIns/stakedUsd*100):null;
+
+  var flags=[];
+  if(slashRisk>2)flags.push('HIGH_SLASHING_RISK');
+  if(slashMag>10)flags.push('HIGH_SLASH_MAGNITUDE');
+  if(netRiskAdjApy<0)flags.push('NEGATIVE_RISK_ADJUSTED_YIELD');
+  if(firstLoss<10)flags.push('MINIMAL_FIRST_LOSS_BUFFER');
+  if(opFee>20)flags.push('HIGH_OPERATOR_FEE');
+
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat"><span class="stat-val">'+pct(grossApy)+'</span><span class="stat-key">Gross APY</span></div>'+
+    '<div class="stat"><span class="stat-val">'+pct(netApy)+'</span><span class="stat-key">Net APY</span></div>'+
+    '<div class="stat"><span class="stat-val">'+pct(netRiskAdjApy)+'</span><span class="stat-key">Risk-Adj APY</span></div>'+
+    (insEnabled?'<div class="stat"><span class="stat-val">'+pct(netWithInsApy)+'</span><span class="stat-key">+Insurance APY</span></div>':'');
+
+  document.getElementById('kvDiv').innerHTML=[
+    ['Protocol',protocol],
+    ['Staked',stakedEth+' ETH / '+dollar(stakedUsd)],
+    ['Gross rewards/yr',dollar(grossUsd)+' ('+pct(grossApy)+')'],
+    ['Operator fee',dollar(opFeeUsd)+' ('+pct(opCut)+' of gross)'],
+    ['Net rewards/yr',dollar(netUsd)+' ('+pct(netApy)+')'],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('slashKvDiv').innerHTML=[
+    ['Max slash (if event)',dollar(maxSlash)+' ('+pct(slashMag)+' of stake)'],
+    ['Buffer absorbs ('+pct(firstLoss)+' of slash)',dollar(bufferAbs)],
+    ['Delegator net slash',dollar(delegNetSlash)+' / '+r4(delegNetEth)+' ETH'],
+    ['Annual probability',pct(slashRisk)],
+    ['Expected annual slash cost',dollar(expectedSlash)],
+    ['Risk-adjusted net/yr',dollar(netRiskAdj)+' ('+pct(netRiskAdjApy)+' APY)'],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  var insRows=insEnabled?[
+    ['Insurance premium/yr',dollar(insPremUsd)+' ('+pct(insPct)+' of net)'],
+    ['Risk/reward ratio',rrRatio!==null?rrRatio+'x':'N/A'],
+    ['Insurance makes sense?',insMakesSense!==null?(insMakesSense?'Yes (expected slash > premium)':'No (premium > expected slash)'):'N/A'],
+    ['Net with insurance',dollar(netWithIns)+' ('+pct(netWithInsApy)+' APY)'],
+  ]:[[('Insurance disabled','--')]];
+  document.getElementById('insKvDiv').innerHTML=insRows.map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('flagRow').innerHTML=flags.length
+    ?flags.map(function(f){return '<span class="badge '+(f==='NEGATIVE_RISK_ADJUSTED_YIELD'?'fail':'warn')+'">'+f+'</span>';}).join('')
+    :'<span class="badge ok">NO FLAGS</span>';
+
+  var op={protocol:protocol,staked_eth:r6(stakedEth),staked_usd:stakedUsd,eth_price_usd:r2(ethPrice),gross_apy_pct:grossApy,operator_cut_pct:opCut,net_apy_pct:netApy,gross_usd_per_year:grossUsd,operator_fee_usd_per_year:opFeeUsd,net_usd_per_year:netUsd,slash_magnitude_pct:r4(slashMag),max_slash_usd:maxSlash,first_loss_tranche_pct:r4(firstLoss),buffer_absorbs_usd:bufferAbs,delegator_net_slash_usd:delegNetSlash,delegator_net_slash_eth:delegNetEth,slashing_risk_pct:r4(slashRisk),expected_annual_slash_usd:expectedSlash,net_usd_per_year_risk_adjusted:netRiskAdj,net_apy_risk_adjusted_pct:netRiskAdjApy,insurance_enabled:insEnabled,insurance_premium_pct_of_rewards:r4(insPct),insurance_premium_usd_per_year:insPremUsd,risk_reward_ratio:rrRatio,insurance_makes_sense:insMakesSense,net_with_insurance_usd_per_year:netWithIns,net_with_insurance_apy_pct:netWithInsApy};
+  var pp={protocol:protocol,staked_eth:stakedEth,eth_price_usd:ethPrice,base_staking_apy_pct:baseApy,operator_fee_pct:opFee,avs_reward_apy_pct:avsApy,slashing_risk_pct:slashRisk,slash_magnitude_pct:slashMag,first_loss_tranche_pct:firstLoss,insurance_enabled:insEnabled,insurance_premium_pct_of_rewards:insPct};
+  _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent='computing...';
+  document.getElementById('verifyResult').textContent='';
+  document.getElementById('anchorBtn').style.display='none';
+  computeExecHash(pp,op).then(function(h){document.getElementById('execHashBox').textContent=h;var a=document.getElementById('anchorBtn');a.href=ANCHOR_BASE+'/?hash='+encodeURIComponent(h);a.style.display='inline-block';});
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object'||Array.isArray(v))return v;var s=Object.keys(v).sort();var o={};s.forEach(function(k){o[k]=cgCanon(v[k]);});return o;}
+async function computeExecHash(pp,op){var preimage={policy_parameters:pp,output_payload:op};var canonical=JSON.stringify(cgCanon(preimage));var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical));return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+function verifyHash(){if(!_lastResult)return;computeExecHash(_lastResult.pp,_lastResult.output_payload).then(function(h){var cur=document.getElementById('execHashBox').textContent;document.getElementById('verifyResult').innerHTML=h===cur?'<span style="color:var(--green)">&#10003; Hash verified</span>':'<span style="color:var(--red)">&#10007; Mismatch</span>';});}
+function exportArtifact(){if(!_lastResult)return;var hash=document.getElementById('execHashBox').textContent||'pending';var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-272-restaking-risk',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};var json=JSON.stringify(artifact,null,2);document.getElementById('artifactPre').textContent=json;document.getElementById('artifactPre').style.display='block';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='art-272-restaking-risk.json';a.click();URL.revokeObjectURL(a.href);}
+function toggleMfst(){var b=document.getElementById('mfstBody');if(b.style.display==='none'||!b.style.display){b.style.display='block';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';}}
+</script>
+</body>
+</html>
