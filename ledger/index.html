@@ -874,6 +874,7 @@ async function _runVerify(artifact) {
   const out = {
     hash: null, signature: 'absent', kernelIdentity: null,
     computeProof: 'absent', anchorBinding: 'absent', gateReplay: 'absent',
+    inputAttestations: 'absent',
     details: {}
   };
 
@@ -927,25 +928,39 @@ async function _runVerify(artifact) {
     out.details.gateReplay = out.gateReplay;
   }
 
+  // §23 input attestations — reported alongside, never folded into the hash verdict
+  // (§23.2/§23.3): a failed or absent entry here never changes `out.hash` or `out.overall`.
+  out.inputAttestations = await _verifyInputAttestations(artifact);
+  out.details.inputAttestations = out.inputAttestations;
+
   out.overall = _aggregate(out);
   return out;
 }
 
 async function _verifySignature(artifact, proof) {
+  // §16.1: secured document = artifact with audit_signature.proof removed
+  const artCopy = JSON.parse(JSON.stringify(artifact));
+  delete artCopy.audit_signature.proof;
+  return _verifyDataIntegrityProof(artCopy, proof);
+}
+
+// eddsa-jcs-2022 Data Integrity proof verifier (OCG §16 / §13.11), generalized over any
+// canonical document + proof pair — reused for the artifact's own audit_signature.proof
+// (§16) and for a vc-2.0 §23 input attestation's embedded VC proof (same cryptosuite,
+// same vendored machinery, no second implementation).
+async function _verifyDataIntegrityProof(docWithoutProof, proof) {
   if (!crypto.subtle || typeof crypto.subtle.verify !== 'function')
     return { status: 'unsupported', note: 'WebCrypto not available.' };
+  if (!proof) return { status: 'fail', note: 'No proof object.' };
   try {
     // Feature-detect Ed25519 support
     const testKey = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign']).catch(() => null);
     if (!testKey) return { status: 'unsupported', note: 'Ed25519 not supported in this browser.' };
 
-    // §16.1: secured document = artifact with audit_signature.proof removed
-    const artCopy = JSON.parse(JSON.stringify(artifact));
-    delete artCopy.audit_signature.proof;
     const proofOpts = Object.assign({}, proof);
     delete proofOpts.proofValue;
 
-    const docDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(artCopy))));
+    const docDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(docWithoutProof))));
     const optDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(cgCanon(proofOpts))));
 
     // Sign input: SHA-256(proofOptions) || SHA-256(document)
@@ -1004,6 +1019,81 @@ function _parseAnchors(bindings, execHash) {
     hash_match: b.anchored_hash === execHash || (b.merkle_inclusion?.leaf === execHash)
   }));
   return { status: 'present', count: parsed.length, bindings: parsed };
+}
+
+/* ── INPUT ATTESTATIONS (OCG §23, v0.8.3) ────────────────────────
+ * §23.2 verifier report: per-entry { pointer, type, structural: pass|fail,
+ * verifiable: verified|failed|external|n/a }, reported ALONGSIDE the execution_hash
+ * result — never folded into it (§23.3 frozen-envelope invariance). Zero
+ * attestations stays fully conformant; the honest caveat (§23.2 last line) is
+ * surfaced by the caller regardless of this function's return. */
+async function sha256HexOfCanon(value) {
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(value)));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function _verifyInputAttestations(artifact) {
+  const list = artifact.input_attestations;
+  if (!Array.isArray(list) || list.length === 0) return { status: 'absent', entries: [] };
+
+  const pp = artifact.policy_parameters || {};
+  const entries = [];
+  for (const att of list) {
+    const entry = { pointer: att.pointer, type: att.type, structural: 'fail', verifiable: 'n/a', note: '' };
+    try {
+      const { found, value } = rfc6901(pp, att.pointer);
+      if (!found) { entry.note = 'Pointer does not resolve inside policy_parameters.'; entries.push(entry); continue; }
+      const valueDigest = await sha256HexOfCanon(value);
+
+      if (att.type === 'vc-2.0') {
+        const cred = att.proof;
+        if (!cred || typeof cred !== 'object' || !cred.proof) {
+          entry.note = 'Missing or malformed VC-2.0 credential/proof.'; entries.push(entry); continue;
+        }
+        const subj = cred.credentialSubject || {};
+        const subjDigest = subj.digestSHA256 || subj.digest || null;
+        const subjBound = subjDigest ? subjDigest === valueDigest
+          : JSON.stringify(cgCanon(subj.value !== undefined ? subj.value : subj)) === JSON.stringify(cgCanon(value));
+        if (!subjBound) { entry.note = 'credentialSubject does not bind the pointed-to input.'; entries.push(entry); continue; }
+        entry.structural = 'pass';
+        const credCopy = Object.assign({}, cred); delete credCopy.proof;
+        const sig = await _verifyDataIntegrityProof(credCopy, cred.proof);
+        entry.verifiable = sig.status === 'pass' ? 'verified' : sig.status === 'unsupported' ? 'external' : 'failed';
+        entry.note = sig.status === 'pass' ? 'eddsa-jcs-2022 proof verified.' : (sig.note || 'Data Integrity proof did not verify.');
+      } else if (att.type === 'rfc3161-snapshot') {
+        // Verifiable now per §23.1 (same rfc3161-tst machinery as §20), but that verifier
+        // lives at anchor.ainumbers.co — the Ledger stays hermetic (no fetch) and link-outs.
+        entry.structural = att.proof ? 'pass' : 'fail';
+        if (!att.proof) entry.note = 'No RFC 3161 TimeStampToken present.';
+        entry.verifiable = 'external';
+        entry.linkOut = 'https://anchor.ainumbers.co/verify';
+      } else if (att.type === 'c2pa-manifest') {
+        // §23.1 structural check: manifest parses, claim signature well-formed, hard-binding
+        // digest matches the resolved input. Full trust-chain evaluation is a link-out.
+        const manifest = att.proof;
+        const wellFormed = manifest && typeof manifest === 'object' && (manifest.claim_signature || manifest.signature);
+        const hbDigest = manifest?.digest || manifest?.hash || manifest?.hard_binding?.digest || null;
+        const digestOk = hbDigest ? hbDigest === valueDigest : false;
+        entry.structural = (wellFormed && digestOk) ? 'pass' : 'fail';
+        entry.note = !wellFormed ? 'Manifest missing a claim signature.' : !digestOk ? 'Hard-binding digest does not match the resolved input.' : 'Manifest parses; claim signature present; hard-binding digest matches.';
+        entry.verifiable = 'external';
+        entry.linkOut = 'https://verify.contentauthenticity.org/inspect';
+      } else if (att.type === 'zktls') {
+        // §23.1 D2: no vendored verifier ships — PRESENT + verifiable:"external" only,
+        // never presented as OCG-confirmed.
+        entry.structural = (att.proof && att.source_ref) ? 'pass' : 'fail';
+        entry.note = entry.structural === 'fail' ? 'Missing proof or source_ref.' : 'Structural fields present. Cryptographic claim neither confirmed nor refuted by OCG.';
+        entry.verifiable = 'external';
+      } else {
+        entry.note = 'Unknown attestation type — not in the §23.1 phased set.';
+      }
+    } catch (e) {
+      entry.note = e.message;
+    }
+    entries.push(entry);
+  }
+  return { status: 'present', entries, count: entries.length };
 }
 
 function _replayGates(artifact) {
@@ -1317,6 +1407,10 @@ function renderStepRailSVG(artifact) {
 }
 
 /* ── UI UTILITIES ───────────────────────────────────────────────── */
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function chipHtml(state, label) {
   const cls = { verified:'chip-verified', partial:'chip-partial', failed:'chip-failed', unchecked:'chip-unchecked',
                  pass:'chip-pass', fail:'chip-fail', absent:'chip-absent', info:'chip-info', warn:'chip-warn' };
@@ -2292,6 +2386,40 @@ async function showRecord(artifact) {
     }</div>
   </div>` : '';
 
+  // §23 input attestations — one row per input_attestations[] entry ({pointer, type,
+  // structural, verifiable}, per §23.2), plus an always-visible zero-attestation caveat
+  // row when the array is absent/empty (§23.2 last line: the honest caveat stays stated).
+  const iaResult = vr.inputAttestations;
+  const iaEntries = iaResult?.entries || [];
+  const attestCaveatRow = `<div class="verify-row">
+    <span class="verify-icon">&ndash;</span>
+    <div class="verify-label">Input attestations (§23)
+      <small>${iaEntries.length ? iaEntries.length + ' input' + (iaEntries.length !== 1 ? 's' : '') + ' carry portable evidence below.' : 'No inputs are independently vouched for. This does not affect the hash integrity check above &mdash; it only means input authenticity is un-attested.'}</small>
+    </div>
+    <div class="verify-chip">${iaEntries.length ? chipHtml('info', iaEntries.length + ' present') : chipHtml('absent','Absent')}</div>
+  </div>`;
+  const attestEntryRows = iaEntries.map(e => {
+    const structPass = e.structural === 'pass';
+    const verifiableLabel = { verified: 'Verified', failed: 'Failed', external: 'External', 'n/a': 'N/A' }[e.verifiable] || e.verifiable;
+    const verifiableChip =
+      e.verifiable === 'verified' ? chipHtml('pass', 'Verified') :
+      e.verifiable === 'failed' ? chipHtml('fail', 'Failed') :
+      e.verifiable === 'external' ? chipHtml('partial', 'External') :
+      chipHtml('absent', verifiableLabel);
+    return `<div class="verify-row">
+      <span class="verify-icon">${structPass ? '&#10003;' : '&#10007;'}</span>
+      <div class="verify-label">${escapeHtml(e.type)} <span class="mono" style="font-weight:400">${escapeHtml(e.pointer)}</span>
+        <small>${escapeHtml(e.note)}</small>
+        ${e.linkOut ? `<small><a class="verify-link" href="${e.linkOut}" target="_blank" rel="noopener">Verify externally &#8594;</a></small>` : ''}
+      </div>
+      <div class="verify-chip" style="display:flex;flex-direction:column;gap:.25rem;align-items:flex-end">
+        ${structPass ? chipHtml('pass','Structural pass') : chipHtml('fail','Structural fail')}
+        ${verifiableChip}
+      </div>
+    </div>`;
+  }).join('');
+  const attestRow = attestCaveatRow + attestEntryRows;
+
   // Exception section (§22.8): triggering decision, halted steps, and the
   // record → envelope → anchor closure chain once closed.
   let escSectionHtml = '';
@@ -2413,7 +2541,7 @@ async function showRecord(artifact) {
     <div class="record-section">
       <div class="section-title">Verification</div>
       <div class="verify-card">
-        ${hashRow}${sigRow}${kiRow}${cpRow}${ancRow}${grRow}${escRow}
+        ${hashRow}${sigRow}${kiRow}${cpRow}${ancRow}${grRow}${escRow}${attestRow}
       </div>
     </div>
 
