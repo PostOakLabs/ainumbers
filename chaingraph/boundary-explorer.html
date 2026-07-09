@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Decision Boundary Explorer &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Sweep a numeric input or two through a live compliance node or gated workflow and see exactly where the decision flips. Renders the outcome surface as an SVG chart and signs the calibration result with an ephemeral key.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/boundary-explorer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:12px 0}
+.cross-link a{color:var(--gold)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:700px){.row2,.row3{grid-template-columns:1fr}}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.7rem;color:var(--muted);margin-bottom:.4rem;line-height:1.5}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+label.chk{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);cursor:pointer}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+button.ghost:hover{border-color:var(--teal-lt);opacity:1}
+.dim-box{border:1px solid var(--border-2);border-radius:var(--radius);padding:.7rem .8rem;margin-bottom:.5rem;background:var(--bg-3)}
+.dim-box.active{border-color:var(--teal)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.flag-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+table.flip-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:8px}
+table.flip-table th,table.flip-table td{border-bottom:1px solid var(--border);padding:5px 8px;text-align:left}
+table.flip-table th{color:var(--muted);text-transform:uppercase;font-size:.58rem;letter-spacing:.06em}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.anchor-btn:hover{border-color:var(--gold)}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-btn:hover{border-color:var(--teal-lt)}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+svg.chart{width:100%;height:auto;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.axis-label{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--muted)}
+.sig-box{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--body);word-break:break-all;margin:4px 0}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">Decision Boundary Explorer</span>
+    </div>
+    <div class="nav-right">
+      <a href="workbench/canvas.html" class="nav-pill">Canvas &#8594;</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; Calibration</div>
+  <h1>Decision Boundary Explorer</h1>
+  <p class="sub">Pick a compliance node or a gated workflow already in the suite, sweep one or two of its numeric inputs across a range, and see exactly where the decision flips. This is calibration evidence: fair-lending threshold testing, pre-deployment testing, or just understanding how sensitive a policy is to its inputs, before an agent runs it for real.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag">Client-side sweep</span>
+    <span class="flag">Up to 10,000 evaluations</span>
+    <span class="flag">SVG outcome surface</span>
+    <span class="flag warn">Not legal advice</span>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="cross-link">
+    <strong>Fair-lending calibration example:</strong> the two nodes this page was built to cross-link are <a href="art-239-test-bifsg-bias-thresholds.html">test_bifsg_bias_thresholds</a> (Colorado SB 21-169 insurance-proxy bias test) and <a href="art-229-compute-disparity-metrics.html">compute_disparity_metrics</a> (ECOA / HMDA four-fifths adverse-impact test). Both are in the target list below &mdash; sweep either one to find the exact input value where a bias flag starts firing.
+  </div>
+
+  <div class="disclaimer">Read-only over existing kernels: this page re-runs the same deterministic compute() logic each node already ships, it does not change any node, add a kernel, or touch chaingraph.json. The target list below is a curated subset (numeric-threshold nodes and one gated workflow), not the full catalog.</div>
+
+  <div class="card">
+    <div class="section-head">1. Choose a target</div>
+    <div class="q">
+      <label class="q-label" for="targetSelect">Node or gated workflow</label>
+      <select id="targetSelect" onchange="onTargetChange()"></select>
+      <div class="q-help" id="targetDesc"></div>
+    </div>
+  </div>
+
+  <div class="card" id="paramsCard">
+    <div class="section-head">2. Set inputs and pick what to sweep</div>
+    <div id="fixedOptionsBox"></div>
+    <div id="dimsBox"></div>
+    <div class="row2" style="margin-top:10px">
+      <div class="q">
+        <label class="q-label" for="resSlider">Grid resolution (points per swept dimension)</label>
+        <input type="range" id="resSlider" min="5" max="2000" value="100" oninput="onResChange()">
+        <div class="q-help" id="resHelp"></div>
+      </div>
+      <div class="q">
+        <label class="q-label">Total evaluations</label>
+        <div class="stat" style="min-width:auto"><span class="stat-val" id="evalCount">0</span><span class="stat-key">&#8804; 10,000 cap</span></div>
+      </div>
+    </div>
+    <button onclick="runSweep()" id="runBtn">&#9654; Run sweep</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Outcome surface</div>
+      <div id="chartBox"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Flip points</div>
+      <div id="flipBox"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">3. Build and sign the calibration artifact</div>
+      <div class="row2">
+        <div class="q">
+          <label class="q-label" for="mandateHashInput">Policy / mandate hash (optional)</label>
+          <input type="text" id="mandateHashInput" placeholder="sha256:... or execution_hash of the mandate this calibrates">
+        </div>
+        <div class="q">
+          <label class="q-label" for="calDate">Date (ISO 8601, required to sign)</label>
+          <input type="text" id="calDate" placeholder="2026-07-09">
+        </div>
+      </div>
+      <button onclick="buildArtifact()">Build artifact</button>
+      <button class="ghost" onclick="signArtifactClick()" id="signBtn" disabled>&#128274; Sign (ephemeral key)</button>
+
+      <div class="section-head" style="margin-top:14px">Execution hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox">&mdash;</div>
+      <div class="section-head" style="margin-top:14px">Signature (§16 eddsa-jcs-2022, ephemeral did:key)</div>
+      <div class="sig-box" id="sigBox">Not signed yet. Signing generates a fresh Ed25519 keypair in this tab only &mdash; it is not persisted anywhere and proves "this browser produced this calibration," not a durable identity.</div>
+
+      <div class="results-export-row">
+        <button onclick="exportArtifact()" id="exportBtn" disabled>Export artifact JSON</button>
+        <button onclick="exportSvg()" id="exportSvgBtn" disabled class="ghost">Export SVG</button>
+        <button class="verify-btn" onclick="verifySignature()" id="verifyBtn" disabled>&#10003; Verify signature</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor this calibration &rarr;</a>
+      </div>
+      <div class="q-help">Anchoring links out to anchor.ainumbers.co (a separate site, opened by your click, not fetched by this page) to timestamp the execution hash. If a sweep found several flip points, export the artifact and paste its <code>flip_points</code> hashes into anchor.ainumbers.co's batch tool (<code>anchor_batch</code>) to anchor all of them in one Merkle-batched call.</div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="workbench/canvas.html">Canvas</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Cross-links</div>
+        <a href="art-239-test-bifsg-bias-thresholds.html">BIFSG Bias Test</a>
+        <a href="art-229-compute-disparity-metrics.html">Disparity Metrics</a>
+        <a href="chains/mortgage-compliance-preflight.html">Mortgage Preflight Chain</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-fair-lending.html">Fair Lending Guide</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+/* ============================================================================
+ * Kernel logic below is a verbatim, read-only copy of each node's shipped
+ * compute(pp) from repo/chaingraph/kernels/*.kernel.mjs (OCG Standard §4).
+ * This page does not modify any kernel; it re-runs the same deterministic
+ * function many times across a swept range. See CONTRACT.md §A4 / SPEC.md §5.
+ * ========================================================================= */
+
+// ---- art-239-test-bifsg-bias-thresholds (mcp_name: test_bifsg_bias_thresholds) ----
+function computeBifsg(pp) {
+  pp = pp || {};
+  function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : (def !== undefined ? def : 0); }
+  const P_VALUE_THRESHOLD = 0.05;
+  const MARGINAL_EFFECT_PP_THRESHOLD = 5.0;
+  const PREMIUM_ABOVE_AVG_THRESHOLD = 5.0;
+  const p_value = safeNum(pp.p_value, 1.0);
+  const marginal_effect_pct = safeNum(pp.marginal_effect_pct, 0);
+  const premium_per_1000_above_avg_pct = safeNum(pp.premium_per_1000_above_avg_pct, 0);
+  const p_bounded = Math.max(0, Math.min(1, p_value));
+  const p_value_significant = p_bounded < P_VALUE_THRESHOLD;
+  const abs_effect = marginal_effect_pct < 0 ? -marginal_effect_pct : marginal_effect_pct;
+  const marginal_effect_flag = abs_effect >= MARGINAL_EFFECT_PP_THRESHOLD;
+  const prem_above = premium_per_1000_above_avg_pct < 0 ? -premium_per_1000_above_avg_pct : premium_per_1000_above_avg_pct;
+  const premium_flag = prem_above >= PREMIUM_ABOVE_AVG_THRESHOLD;
+  const approval_bias = p_value_significant && marginal_effect_flag;
+  const bias_detected = approval_bias || premium_flag;
+  const output_payload = {
+    test_result: bias_detected ? 'BIAS_DETECTED_REMEDIATION_REQUIRED' : 'PASS',
+    bias_detected, p_value: Math.round(p_bounded * 1e6) / 1e6, p_value_significant,
+    marginal_effect_pct: Math.round(abs_effect * 100) / 100, marginal_effect_flag,
+    premium_per_1000_above_avg_pct: Math.round(prem_above * 100) / 100, premium_flag,
+  };
+  return { output_payload, compliance_flags: bias_detected ? ['COLORADO_BIAS_DETECTED'] : [] };
+}
+
+// ---- art-229-compute-disparity-metrics (mcp_name: compute_disparity_metrics) ----
+function computeDisparity(pp) {
+  pp = pp || {};
+  function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+  function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
+  function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+  function safeSqrt(v) { return v > 0 ? Math.sqrt(v) : 0; }
+  const a_approvals = Math.max(0, Math.round(safeNum(pp.group_a_approvals, 0)));
+  const a_total = Math.max(0, Math.round(safeNum(pp.group_a_total, 0)));
+  const b_approvals = Math.max(0, Math.round(safeNum(pp.group_b_approvals, 0)));
+  const b_total = Math.max(0, Math.round(safeNum(pp.group_b_total, 0)));
+  if (a_total === 0 && b_total === 0) {
+    return { output_payload: { adverse_impact_ratio: 0, four_fifths_flag: false, four_fifths_result: 'INSUFFICIENT_DATA' }, compliance_flags: ['INSUFFICIENT_DATA'] };
+  }
+  const a_app = Math.min(a_approvals, a_total);
+  const b_app = Math.min(b_approvals, b_total);
+  const rate_a = a_total > 0 ? a_app / a_total : 0;
+  const rate_b = b_total > 0 ? b_app / b_total : 0;
+  const FOUR_FIFTHS_THRESHOLD = 0.8;
+  let adverse_impact_ratio = 0;
+  let four_fifths_result = 'PASS';
+  if (rate_b > 0) {
+    adverse_impact_ratio = r6(rate_a / rate_b);
+    four_fifths_result = adverse_impact_ratio < FOUR_FIFTHS_THRESHOLD ? 'ADVERSE_IMPACT_FLAGGED' : 'PASS';
+  } else if (rate_a > 0) {
+    adverse_impact_ratio = 999;
+    four_fifths_result = 'PASS';
+  } else {
+    four_fifths_result = 'BOTH_RATES_ZERO';
+  }
+  const four_fifths_flag = four_fifths_result === 'ADVERSE_IMPACT_FLAGGED';
+  const n_total = a_total + b_total;
+  const pooled_p = n_total > 0 ? (a_app + b_app) / n_total : 0;
+  const pooled_q = 1 - pooled_p;
+  const se_pooled = a_total > 0 && b_total > 0 ? safeSqrt(pooled_p * pooled_q * (1 / a_total + 1 / b_total)) : 0;
+  const two_proportion_z = se_pooled > 0 ? r6((rate_a - rate_b) / se_pooled) : 0;
+  const output_payload = {
+    group_a: { approvals: a_app, total: a_total, approval_rate: r4(rate_a) },
+    group_b: { approvals: b_app, total: b_total, approval_rate: r4(rate_b) },
+    adverse_impact_ratio: Number.isFinite(adverse_impact_ratio) ? r4(adverse_impact_ratio) : null,
+    four_fifths_threshold: FOUR_FIFTHS_THRESHOLD, four_fifths_flag, four_fifths_result,
+    two_proportion_z: r4(two_proportion_z), n_total,
+  };
+  return { output_payload, compliance_flags: four_fifths_flag ? ['ADVERSE_IMPACT_RATIO_BELOW_4_5THS'] : [] };
+}
+
+// ---- art-218-qm-points-and-fees (mcp_name: check_qm_points_and_fees) ----
+const QM_TIERS_2026 = {
+  fr_citation: 'FR 2025-22773 (effective Jan 1, 2026)', effective: '2026-01-01',
+  tiers: [
+    { threshold_min: 137958, limit_type: 'pct', limit_pct: 3.0, label: '>= $137,958: 3%' },
+    { threshold_min: 82775, threshold_max: 137957.99, limit_type: 'fixed', limit_fixed: 4139, label: '$82,775 - $137,957.99: $4,139' },
+    { threshold_min: 27592, threshold_max: 82774.99, limit_type: 'pct', limit_pct: 5.0, label: '$27,592 - $82,774.99: 5%' },
+    { threshold_min: 17245, threshold_max: 27591.99, limit_type: 'fixed', limit_fixed: 1380, label: '$17,245 - $27,591.99: $1,380' },
+    { threshold_max: 17244.99, limit_type: 'pct', limit_pct: 8.0, label: '< $17,245: 8%' },
+  ],
+};
+function computeQm(pp) {
+  pp = pp || {};
+  function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+  function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+  const loan_amount = safeNum(pp.loan_amount, 0);
+  const points_and_fees = safeNum(pp.points_and_fees, 0);
+  let tier = null;
+  for (const t of QM_TIERS_2026.tiers) {
+    const min = typeof t.threshold_min === 'number' ? t.threshold_min : 0;
+    const max = typeof t.threshold_max === 'number' ? t.threshold_max : Infinity;
+    if (loan_amount >= min && loan_amount <= max) { tier = t; break; }
+  }
+  if (!tier) return { output_payload: { pass: false, error: 'no_tier_matched' }, compliance_flags: ['QM_TIER_LOOKUP_FAILED'] };
+  const limit = tier.limit_type === 'pct' ? r2(loan_amount * tier.limit_pct / 100) : tier.limit_fixed;
+  const pass = points_and_fees <= limit + 0.005;
+  const headroom = r2(limit - points_and_fees);
+  const output_payload = { pass, points_and_fees: r2(points_and_fees), loan_amount: r2(loan_amount), tier_label: tier.label, limit, headroom, fr_citation: QM_TIERS_2026.fr_citation };
+  return { output_payload, compliance_flags: pass ? [] : ['QM_POINTS_AND_FEES_EXCEEDED'] };
+}
+
+// ---- art-213-perp-liquidation-calculator (mcp_name: compute_perp_margin) ----
+function computePerp(pp) {
+  pp = pp || {};
+  function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+  function round6(v) { return isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
+  function round4(v) { return isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+  function venueMMR(venue, leverage) {
+    const lev = Math.max(1, leverage);
+    if (venue === 'hyperliquid') return 1 / (2 * Math.min(40, lev));
+    if (venue === 'dydx_v4') return 0.03;
+    if (venue === 'binance') return 0.005;
+    if (venue === 'gmx') return 0.01;
+    if (venue === 'aster') return 0.025;
+    return 0.025;
+  }
+  const venue = pp.venue || 'hyperliquid';
+  const side = pp.side === 'short' ? 'short' : 'long';
+  const leverage = Math.max(1, Math.min(500, safeNum(pp.leverage, 5)));
+  const entry_price = Math.max(0.01, safeNum(pp.entry_price, 50000));
+  const position_size = Math.max(0.000001, safeNum(pp.position_size, 1.0));
+  const mark_price = Math.max(0.01, safeNum(pp.mark_price, entry_price));
+  const mmr_override = Number.isFinite(Number(pp.mmr_pct)) ? Math.max(0.0001, Number(pp.mmr_pct) / 100) : null;
+  const mmr = mmr_override !== null ? mmr_override : venueMMR(venue, leverage);
+  const notional = round6(entry_price * position_size);
+  const initial_margin_placeholder = round6(notional * (1 / leverage));
+  const maintenance_threshold = round6(notional * mmr);
+  const side_sign = side === 'long' ? 1 : -1;
+  const unrealized_pnl = round6(side_sign * (mark_price - entry_price) * position_size);
+  const margin_balance = round6(initial_margin_placeholder + unrealized_pnl);
+  const liq_price = side === 'long' ? round6(entry_price * (1 - 1 / leverage + mmr)) : round6(entry_price * (1 + 1 / leverage - mmr));
+  const liq_diff = side === 'long' ? (mark_price - liq_price) / mark_price : (liq_price - mark_price) / mark_price;
+  const distance_to_liq_pct = round4(liq_diff * 100);
+  const buffer = round6(margin_balance - maintenance_threshold);
+  const buffer_pct = maintenance_threshold > 0 ? round4(buffer / maintenance_threshold * 100) : 0;
+  let health;
+  if (buffer_pct > 100) health = 'GREEN';
+  else if (buffer_pct > 0) health = 'AMBER';
+  else health = 'RED';
+  const output_payload = { venue, side, leverage: round4(leverage), entry_price: round6(entry_price), mark_price: round6(mark_price), liq_price, buffer_pct, distance_to_liq_pct, health };
+  return { output_payload, compliance_flags: health === 'RED' ? ['BELOW_MAINTENANCE'] : [] };
+}
+
+// ---- art-234-test-hoepa-high-cost (mcp_name: test_hoepa_high_cost) ----
+const HOEPA_APR = { first_lien_standard_pp: 6.5, subordinate_or_small_dwelling_pp: 8.5 };
+const HOEPA_PF_2026 = { fr_citation: 'FR 2025-22773, effective 2026-01-01', trigger_pct: 5, trigger_floor: 1380 };
+function computeHoepa(pp) {
+  pp = pp || {};
+  function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+  function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+  function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+  const apr_pct = safeNum(pp.apr_pct, 0);
+  const apor_pct = safeNum(pp.apor_pct, 0);
+  const lien_type = pp.lien_type === 'subordinate' ? 'subordinate' : 'first';
+  const is_small_dwelling = Boolean(pp.is_small_dwelling);
+  const loan_amount = safeNum(pp.loan_amount, 0);
+  const points_and_fees = safeNum(pp.points_and_fees, 0);
+  const has_prepayment_penalty = Boolean(pp.has_prepayment_penalty);
+  const pp_period_months = safeNum(pp.prepayment_penalty_period_months, 0);
+  const pp_pct = safeNum(pp.prepayment_penalty_pct, 0);
+  const apr_spread = r4(apr_pct - apor_pct);
+  const use_subordinate_threshold = (lien_type === 'subordinate') || is_small_dwelling;
+  const apr_threshold = use_subordinate_threshold ? HOEPA_APR.subordinate_or_small_dwelling_pp : HOEPA_APR.first_lien_standard_pp;
+  const apr_trigger_met = apr_spread > apr_threshold - 1e-5;
+  const pf_pct_limit = r2(loan_amount * HOEPA_PF_2026.trigger_pct / 100);
+  const pf_limit = pf_pct_limit < HOEPA_PF_2026.trigger_floor ? HOEPA_PF_2026.trigger_floor : pf_pct_limit;
+  const pf_trigger_met = points_and_fees > pf_limit + 0.005;
+  const pp_exceeds_period = has_prepayment_penalty && pp_period_months > 36;
+  const pp_exceeds_pct = has_prepayment_penalty && pp_pct > 2.0 - 1e-5;
+  const pp_trigger_met = pp_exceeds_period || pp_exceeds_pct;
+  const is_high_cost = apr_trigger_met || pf_trigger_met || pp_trigger_met;
+  const output_payload = { is_high_cost, apr_trigger_met, points_fees_trigger_met: pf_trigger_met, prepayment_penalty_trigger_met: pp_trigger_met, apr_spread_pct: apr_spread, apr_threshold_pct: apr_threshold, points_fees_limit: r2(pf_limit) };
+  return { output_payload, compliance_flags: is_high_cost ? ['HOEPA_HIGH_COST_MORTGAGE'] : [] };
+}
+
+/* ============================================================================
+ * Shared gate evaluator — minimal read-only port of
+ * repo/chaingraph/kernels/_gateval.mjs (OCG Standard §21.4). Used only for
+ * the "gated workflow" target below; not a new kernel.
+ * ========================================================================= */
+function rfc6901(doc, pointer) {
+  if (pointer === '') return { found: true, value: doc };
+  if (typeof pointer !== 'string' || pointer[0] !== '/') return { found: false, value: undefined };
+  const tokens = pointer.slice(1).split('/').map(t => t.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur = doc;
+  for (const tok of tokens) {
+    if (cur === null || typeof cur !== 'object') return { found: false, value: undefined };
+    if (!Object.prototype.hasOwnProperty.call(cur, tok)) return { found: false, value: undefined };
+    cur = cur[tok];
+  }
+  return { found: true, value: cur };
+}
+function applyOp(op, found, observed, value) {
+  if (op === 'eq') return found && observed === value;
+  if (op === 'neq') return found && observed !== value;
+  return false;
+}
+function evaluateGate(gate, outputPayload) {
+  const { found, value: observed } = rfc6901(outputPayload, gate.input);
+  const rules = gate.rules || [];
+  for (const r of rules) {
+    if (applyOp(r.op, found, observed, r.value)) return { next: r.next, matched: true };
+  }
+  return { next: gate.default, matched: false };
+}
+
+/* ============================================================================
+ * Target registry
+ * ========================================================================= */
+const TARGETS = [
+  {
+    id: 'bifsg', kind: 'node', tool_id: 'art-239-test-bifsg-bias-thresholds', mcp_name: 'test_bifsg_bias_thresholds',
+    label: 'Colorado BIFSG bias test (fair lending)', href: 'art-239-test-bifsg-bias-thresholds.html',
+    desc: 'Colorado SB 21-169 / Reg. 10-1-1 insurance-proxy bias test. Flags bias when p < 0.05 AND the marginal effect is >= 5pp.',
+    compute: computeBifsg,
+    fixed: {},
+    inputs: [
+      { key: 'p_value', label: 'p-value', min: 0, max: 0.2, def: 0.03, step: 0.001 },
+      { key: 'marginal_effect_pct', label: 'Marginal effect (pp)', min: 0, max: 15, def: 4, step: 0.1 },
+      { key: 'premium_per_1000_above_avg_pct', label: 'Premium above avg (%)', min: 0, max: 15, def: 0, step: 0.1 },
+    ],
+    outcome: op => ({ flag: !!op.bias_detected, label: op.test_result }),
+  },
+  {
+    id: 'disparity', kind: 'node', tool_id: 'art-229-compute-disparity-metrics', mcp_name: 'compute_disparity_metrics',
+    label: 'Fair-lending disparity metrics (ECOA / HMDA)', href: 'art-229-compute-disparity-metrics.html',
+    desc: 'EEOC four-fifths adverse-impact rule (29 CFR 1607.4(D)) over aggregate approval counts. Flags when the ratio falls below 0.80.',
+    compute: computeDisparity,
+    fixed: { group_a_total: 100, group_b_total: 100 },
+    inputs: [
+      { key: 'group_a_approvals', label: 'Group A approvals (of 100)', min: 0, max: 100, def: 65, step: 1 },
+      { key: 'group_b_approvals', label: 'Group B approvals (of 100)', min: 0, max: 100, def: 85, step: 1 },
+    ],
+    outcome: op => ({ flag: !!op.four_fifths_flag, label: op.four_fifths_result }),
+  },
+  {
+    id: 'qm', kind: 'node', tool_id: 'art-218-qm-points-and-fees', mcp_name: 'check_qm_points_and_fees',
+    label: 'QM points-and-fees test (Reg Z 1026.43(e)(3))', href: 'art-218-qm-points-and-fees.html',
+    desc: '2026 Qualified Mortgage points-and-fees test. Flags when total points and fees exceed the loan-size-tiered limit.',
+    compute: computeQm,
+    fixed: {},
+    inputs: [
+      { key: 'loan_amount', label: 'Loan amount ($)', min: 50000, max: 300000, def: 150000, step: 1000 },
+      { key: 'points_and_fees', label: 'Points and fees ($)', min: 0, max: 10000, def: 3000, step: 50 },
+    ],
+    outcome: op => ({ flag: op.pass === false, label: op.pass ? 'PASS' : 'FAIL' }),
+  },
+  {
+    id: 'qm-gate', kind: 'chain', chain_name: 'mortgage-compliance-preflight', tool_id: 'art-218-qm-points-and-fees',
+    label: 'Mortgage compliance preflight (gated workflow)', href: 'chains/mortgage-compliance-preflight.html',
+    desc: 'Stage 3 of the mortgage-compliance-preflight workflow. The gate reads /pass off this node: pass=false routes to "end" (chain halts); pass=true continues to art-219 (QM APR/APOR spread).',
+    compute: computeQm,
+    fixed: {},
+    inputs: [
+      { key: 'loan_amount', label: 'Loan amount ($)', min: 50000, max: 300000, def: 150000, step: 1000 },
+      { key: 'points_and_fees', label: 'Points and fees ($)', min: 0, max: 10000, def: 3000, step: 50 },
+    ],
+    gate: { input: '/pass', rules: [{ op: 'eq', value: false, next: 'end' }], default: 'art-219-qm-apr-apor-spread' },
+    outcome: (op, gateDecision) => ({ flag: gateDecision.next === 'end', label: gateDecision.next === 'end' ? 'CHAIN HALTS (end)' : 'continues → ' + gateDecision.next }),
+  },
+  {
+    id: 'perp', kind: 'node', tool_id: 'art-213-perp-liquidation-calculator', mcp_name: 'compute_perp_margin',
+    label: 'Perp margin health (liquidation boundary)', href: 'art-213-perp-liquidation-calculator.html',
+    desc: 'Isolated-margin perpetual futures liquidation. Flags RED health (at or past the maintenance threshold).',
+    compute: computePerp,
+    fixed: { venue: 'hyperliquid', side: 'long', entry_price: 50000, position_size: 1.0 },
+    inputs: [
+      { key: 'mark_price', label: 'Mark price ($)', min: 25000, max: 75000, def: 48000, step: 100 },
+      { key: 'leverage', label: 'Leverage (x)', min: 1, max: 50, def: 5, step: 1 },
+    ],
+    outcome: op => ({ flag: op.health === 'RED', label: op.health }),
+  },
+  {
+    id: 'hoepa', kind: 'node', tool_id: 'art-234-test-hoepa-high-cost', mcp_name: 'test_hoepa_high_cost',
+    label: 'HOEPA high-cost mortgage test', href: 'art-234-test-hoepa-high-cost.html',
+    desc: '12 CFR 1026.32(a)(1) HOEPA trigger test. Flags high-cost status when the APR or points-and-fees trigger fires.',
+    compute: computeHoepa,
+    fixed: { apor_pct: 6.5, lien_type: 'first', is_small_dwelling: false, has_prepayment_penalty: false, loan_amount: 200000 },
+    inputs: [
+      { key: 'apr_pct', label: 'APR (%)', min: 3, max: 20, def: 9, step: 0.1 },
+      { key: 'points_and_fees', label: 'Points and fees ($)', min: 0, max: 15000, def: 3000, step: 50 },
+    ],
+    outcome: op => ({ flag: !!op.is_high_cost, label: op.is_high_cost ? 'HIGH_COST' : 'PASS' }),
+  },
+];
+
+const MAX_EVALS = 10000;
+let currentTarget = null;
+let sweepDims = [];   // [{key,label,min,max,n}]  length 1 or 2
+let sweepResult = null; // {dims, points:[{x,(y),flag,label}], flips:[...]}
+let lastArtifact = null;
+let signingKeypair = null;
+
+function el(id) { return document.getElementById(id); }
+
+function populateTargetSelect() {
+  const sel = el('targetSelect');
+  TARGETS.forEach((t, i) => {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = (t.kind === 'chain' ? '[chain] ' : '[node] ') + t.label;
+    sel.appendChild(o);
+  });
+  sel.value = '0';
+  onTargetChange();
+}
+
+function onTargetChange() {
+  const t = TARGETS[Number(el('targetSelect').value)];
+  currentTarget = t;
+  el('targetDesc').innerHTML = t.desc + ' &mdash; <a href="' + t.href + '" target="_blank">open ' + (t.kind === 'chain' ? 'workflow' : 'node') + ' page &rarr;</a>';
+  renderParamsForm(t);
+  el('resultsPanel').classList.remove('show');
+  sweepResult = null;
+  lastArtifact = null;
+  el('exportBtn').disabled = true;
+  el('exportSvgBtn').disabled = true;
+  el('signBtn').disabled = true;
+  el('verifyBtn').disabled = true;
+}
+
+function renderParamsForm(t) {
+  const box = el('fixedOptionsBox');
+  box.innerHTML = '';
+  if (Object.keys(t.fixed).length) {
+    const head = document.createElement('div');
+    head.className = 'q-help';
+    head.textContent = 'Fixed context (not swept): ' + Object.keys(t.fixed).map(k => k + '=' + t.fixed[k]).join(', ');
+    box.appendChild(head);
+  }
+  const dbox = el('dimsBox');
+  dbox.innerHTML = '';
+  t.inputs.forEach((inp, idx) => {
+    const d = document.createElement('div');
+    d.className = 'dim-box';
+    d.id = 'dim-' + idx;
+    d.innerHTML =
+      '<label class="chk"><input type="checkbox" id="sweep-' + idx + '" onchange="onSweepToggle(' + idx + ')"> Sweep <strong style="color:var(--bright);margin-left:.3rem">' + inp.label + '</strong></label>' +
+      '<div class="row3" style="margin-top:.5rem">' +
+      '<div class="q"><label class="q-label">Fixed value</label><input type="number" id="fixed-' + idx + '" value="' + inp.def + '" step="' + inp.step + '"></div>' +
+      '<div class="q"><label class="q-label">Sweep min</label><input type="number" id="min-' + idx + '" value="' + inp.min + '" step="' + inp.step + '" disabled></div>' +
+      '<div class="q"><label class="q-label">Sweep max</label><input type="number" id="max-' + idx + '" value="' + inp.max + '" step="' + inp.step + '" disabled></div>' +
+      '</div>';
+    dbox.appendChild(d);
+  });
+  onResChange();
+}
+
+function onSweepToggle(idx) {
+  const checked = el('sweep-' + idx).checked;
+  const checkedCount = currentTarget.inputs.filter((_, i) => el('sweep-' + i).checked).length;
+  if (checked && checkedCount > 2) {
+    el('sweep-' + idx).checked = false;
+    alert('Pick at most two dimensions to sweep.');
+    return;
+  }
+  el('min-' + idx).disabled = !checked;
+  el('max-' + idx).disabled = !checked;
+  el('fixed-' + idx).disabled = checked;
+  el('dim-' + idx).classList.toggle('active', checked);
+  onResChange();
+}
+
+function activeDimIndices() {
+  return currentTarget.inputs.map((_, i) => i).filter(i => el('sweep-' + i) && el('sweep-' + i).checked);
+}
+
+function onResChange() {
+  const n = Number(el('resSlider').value);
+  const dims = activeDimIndices();
+  const cap2d = Math.floor(Math.sqrt(MAX_EVALS));
+  let total;
+  if (dims.length <= 1) { total = n; el('resSlider').max = String(MAX_EVALS); }
+  else { const clamped = Math.min(n, cap2d); total = clamped * clamped; el('resSlider').max = String(cap2d); }
+  el('evalCount').textContent = String(total);
+  el('evalCount').style.color = total > MAX_EVALS ? 'var(--red)' : 'var(--green)';
+  el('resHelp').textContent = dims.length === 2
+    ? ('2D sweep: resolution capped at ' + cap2d + ' per axis so the grid stays under the ' + MAX_EVALS + '-evaluation cap.')
+    : 'Points evaluated along the swept dimension.';
+}
+
+function buildBasePolicyParameters() {
+  return Object.assign({}, currentTarget.fixed, currentTarget.inputs.reduce((o, inp, i) => {
+    o[inp.key] = Number(el('fixed-' + i).value);
+    return o;
+  }, {}));
+}
+
+function runSweep() {
+  const t = currentTarget;
+  const dimIdx = activeDimIndices();
+  if (dimIdx.length === 0) { alert('Check the box next to at least one input to sweep it.'); return; }
+  const base = buildBasePolicyParameters();
+  const dims = dimIdx.map(i => {
+    const inp = t.inputs[i];
+    return {
+      key: inp.key, label: inp.label,
+      min: Number(el('min-' + i).value), max: Number(el('max-' + i).value),
+    };
+  });
+  const nRaw = Number(el('resSlider').value);
+  const cap2d = Math.floor(Math.sqrt(MAX_EVALS));
+  const n = dims.length === 2 ? Math.min(nRaw, cap2d) : Math.min(nRaw, MAX_EVALS);
+
+  const points = [];
+  if (dims.length === 1) {
+    const d = dims[0];
+    for (let i = 0; i < n; i++) {
+      const v = d.min + (d.max - d.min) * (n === 1 ? 0 : i / (n - 1));
+      const pp = Object.assign({}, base, {}); pp[d.key] = v;
+      const { output_payload } = t.compute(pp);
+      const oc = t.kind === 'chain' ? t.outcome(output_payload, evaluateGate(t.gate, output_payload)) : t.outcome(output_payload);
+      points.push({ x: v, flag: oc.flag, label: oc.label });
+    }
+  } else {
+    const dx = dims[0], dy = dims[1];
+    for (let j = 0; j < n; j++) {
+      const vy = dy.min + (dy.max - dy.min) * (n === 1 ? 0 : j / (n - 1));
+      for (let i = 0; i < n; i++) {
+        const vx = dx.min + (dx.max - dx.min) * (n === 1 ? 0 : i / (n - 1));
+        const pp = Object.assign({}, base, {}); pp[dx.key] = vx; pp[dy.key] = vy;
+        const { output_payload } = t.compute(pp);
+        const oc = t.kind === 'chain' ? t.outcome(output_payload, evaluateGate(t.gate, output_payload)) : t.outcome(output_payload);
+        points.push({ x: vx, y: vy, flag: oc.flag, label: oc.label });
+      }
+    }
+  }
+
+  const flips = detectFlips(dims, points, n);
+  sweepResult = { dims, points, n, flips, base };
+  renderResults();
+  el('resultsPanel').classList.add('show');
+  el('signBtn').disabled = true;
+  el('exportBtn').disabled = true;
+  el('exportSvgBtn').disabled = true;
+  el('verifyBtn').disabled = true;
+}
+
+function detectFlips(dims, points, n) {
+  const flips = [];
+  if (dims.length === 1) {
+    for (let i = 1; i < points.length; i++) {
+      if (points[i].flag !== points[i - 1].flag) {
+        flips.push({ between: [points[i - 1].x, points[i].x], from: points[i - 1].label, to: points[i].label });
+      }
+    }
+  } else {
+    // grid stored row-major: index = j*n + i (j = y row, i = x col)
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const idx = j * n + i;
+        const p = points[idx];
+        const right = i + 1 < n ? points[idx + 1] : null;
+        const up = j + 1 < n ? points[idx + n] : null;
+        if ((right && right.flag !== p.flag) || (up && up.flag !== p.flag)) {
+          flips.push({ x: p.x, y: p.y, label: p.label });
+        }
+      }
+    }
+  }
+  return flips;
+}
+
+function renderResults() {
+  const r = sweepResult;
+  el('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + r.points.length + '</span><span class="stat-key">evaluations</span></div>' +
+    '<div class="stat"><span class="stat-val">' + r.flips.length + '</span><span class="stat-key">flip points</span></div>' +
+    '<div class="stat"><span class="stat-val">' + r.dims.length + 'D</span><span class="stat-key">sweep</span></div>';
+
+  const svg = r.dims.length === 1 ? renderSvg1D(r) : renderSvg2D(r);
+  el('chartBox').innerHTML = svg;
+
+  const tbl = document.createElement('table');
+  tbl.className = 'flip-table';
+  if (r.dims.length === 1) {
+    tbl.innerHTML = '<tr><th>Between</th><th>From</th><th>To</th></tr>' +
+      r.flips.map(f => '<tr><td>' + fmt(f.between[0]) + ' &rarr; ' + fmt(f.between[1]) + '</td><td>' + esc(f.from) + '</td><td>' + esc(f.to) + '</td></tr>').join('');
+  } else {
+    tbl.innerHTML = '<tr><th>' + r.dims[0].label + '</th><th>' + r.dims[1].label + '</th><th>Outcome</th></tr>' +
+      r.flips.slice(0, 200).map(f => '<tr><td>' + fmt(f.x) + '</td><td>' + fmt(f.y) + '</td><td>' + esc(f.label) + '</td></tr>').join('');
+  }
+  const flipBox = el('flipBox');
+  flipBox.innerHTML = '';
+  if (r.flips.length === 0) {
+    flipBox.innerHTML = '<div class="q-help">No flip detected in this range &mdash; the outcome is constant across the swept grid. Widen the range.</div>';
+  } else {
+    flipBox.appendChild(tbl);
+    if (r.dims.length === 2 && r.flips.length > 200) {
+      const note = document.createElement('div');
+      note.className = 'q-help';
+      note.textContent = 'Showing first 200 of ' + r.flips.length + ' boundary cells (full list is in the exported artifact).';
+      flipBox.appendChild(note);
+    }
+  }
+}
+
+function fmt(v) { return Number.isFinite(v) ? (Math.round(v * 1000) / 1000).toString() : String(v); }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function renderSvg1D(r) {
+  const W = 900, H = 220, padL = 50, padR = 20, padT = 16, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const d = r.dims[0];
+  const xAt = v => padL + (d.max === d.min ? 0 : (v - d.min) / (d.max - d.min)) * plotW;
+  const yFlag = f => padT + (f ? 0 : plotH - 2);
+  let path = '';
+  r.points.forEach((p, i) => {
+    const x = xAt(p.x), y = yFlag(p.flag);
+    path += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    if (i < r.points.length - 1) {
+      const nx = xAt(r.points[i + 1].x);
+      path += 'L' + nx.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    }
+  });
+  let markers = '';
+  r.flips.forEach(f => {
+    const x = xAt((f.between[0] + f.between[1]) / 2);
+    markers += '<line x1="' + x.toFixed(1) + '" y1="' + padT + '" x2="' + x.toFixed(1) + '" y2="' + (padT + plotH) + '" stroke="var(--red)" stroke-dasharray="3,3" stroke-width="1"/>';
+    markers += '<circle cx="' + x.toFixed(1) + '" cy="' + (padT + plotH / 2) + '" r="3" fill="var(--red)"/>';
+  });
+  const svg =
+    '<svg class="chart" id="boundarySvg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '" fill="none" stroke="var(--border)"/>' +
+    '<text class="axis-label" x="' + padL + '" y="' + (padT - 4) + '">flagged</text>' +
+    '<text class="axis-label" x="' + padL + '" y="' + (padT + plotH + 4) + '">not flagged</text>' +
+    '<text class="axis-label" x="' + (padL + plotW / 2) + '" y="' + (H - 4) + '" text-anchor="middle">' + esc(d.label) + '</text>' +
+    '<text class="axis-label" x="' + padL + '" y="' + (H - 4) + '">' + fmt(d.min) + '</text>' +
+    '<text class="axis-label" x="' + (padL + plotW) + '" y="' + (H - 4) + '" text-anchor="end">' + fmt(d.max) + '</text>' +
+    markers +
+    '<path d="' + path.trim() + '" fill="none" stroke="var(--teal-lt)" stroke-width="2"/>' +
+    '</svg>';
+  return svg;
+}
+
+function renderSvg2D(r) {
+  const W = 640, H = 640, pad = 40;
+  const plot = W - pad * 2;
+  const n = r.n;
+  const cell = plot / n;
+  let rects = '';
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const p = r.points[j * n + i];
+      const isBoundary = r.flips.some(f => f.x === p.x && f.y === p.y);
+      const fill = p.flag ? 'rgba(239,68,68,.55)' : 'rgba(34,197,94,.4)';
+      const x = pad + i * cell, y = pad + (n - 1 - j) * cell;
+      rects += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (cell + 0.5).toFixed(1) + '" height="' + (cell + 0.5).toFixed(1) + '" fill="' + fill + '"' + (isBoundary ? ' stroke="var(--gold)" stroke-width="1.2"' : '') + '/>';
+    }
+  }
+  const dx = r.dims[0], dy = r.dims[1];
+  const svg =
+    '<svg class="chart" id="boundarySvg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+    rects +
+    '<rect x="' + pad + '" y="' + pad + '" width="' + plot + '" height="' + plot + '" fill="none" stroke="var(--border)"/>' +
+    '<text class="axis-label" x="' + (pad + plot / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(dx.label) + '</text>' +
+    '<text class="axis-label" x="' + pad + '" y="' + (H - 8) + '">' + fmt(dx.min) + '</text>' +
+    '<text class="axis-label" x="' + (pad + plot) + '" y="' + (H - 8) + '" text-anchor="end">' + fmt(dx.max) + '</text>' +
+    '<text class="axis-label" x="8" y="' + (pad + plot / 2) + '" transform="rotate(-90 8 ' + (pad + plot / 2) + ')" text-anchor="middle">' + esc(dy.label) + '</text>' +
+    '<text class="axis-label" x="4" y="' + (pad + plot + 4) + '">' + fmt(dy.min) + '</text>' +
+    '<text class="axis-label" x="4" y="' + (pad + 6) + '">' + fmt(dy.max) + '</text>' +
+    '</svg>';
+  return svg;
+}
+
+/* ============================================================================
+ * Hash + §16 signature (eddsa-jcs-2022, ephemeral did:key) — read-only port of
+ * repo/chaingraph/kernels/_hash.mjs + _proof.mjs. No import/export needed here
+ * since this page ships as a single inline <script>, not a module.
+ * ========================================================================= */
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') { const o = {}; Object.keys(v).sort().forEach(k => { o[k] = cgCanon(v[k]); }); return o; }
+  return v;
+}
+function jcsBytes(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = jcsBytes({ policy_parameters, output_payload });
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Bytes(bytes) { return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); }
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes) {
+  let zeros = 0; while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) { carry += digits[j] << 8; digits[j] = carry % 58; carry = (carry / 58) | 0; }
+    while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = ''; for (let k = 0; k < zeros; k++) out += '1';
+  for (let q = digits.length - 1; q >= 0; q--) out += B58[digits[q]];
+  return out;
+}
+
+async function rawPubkeyToDidKey(publicKey) {
+  const raw = new Uint8Array(await crypto.subtle.exportKey('raw', publicKey));
+  const prefixed = new Uint8Array(2 + raw.length);
+  prefixed[0] = 0xed; prefixed[1] = 0x01; prefixed.set(raw, 2);
+  return 'did:key:z' + b58encode(prefixed);
+}
+
+async function signArtifact(artifact, privateKey, verificationMethod, created) {
+  const opts = { type: 'DataIntegrityProof', cryptosuite: 'eddsa-jcs-2022', verificationMethod, proofPurpose: 'assertionMethod', created };
+  const doc = JSON.parse(JSON.stringify(artifact));
+  if (doc.audit_signature) delete doc.audit_signature.proof;
+  const optHash = await sha256Bytes(jcsBytes(opts));
+  const docHash = await sha256Bytes(jcsBytes(doc));
+  const cat = new Uint8Array(optHash.length + docHash.length); cat.set(optHash, 0); cat.set(docHash, optHash.length);
+  const sigBytes = new Uint8Array(await crypto.subtle.sign('Ed25519', privateKey, cat));
+  return Object.assign({}, opts, { proofValue: 'z' + b58encode(sigBytes) });
+}
+
+async function buildArtifact() {
+  if (!sweepResult) { alert('Run a sweep first.'); return; }
+  const t = currentTarget;
+  const date = el('calDate').value.trim();
+  const mandateHash = el('mandateHashInput').value.trim();
+  const r = sweepResult;
+
+  const policy_parameters = {
+    target: t.tool_id,
+    mcp_name: t.mcp_name,
+    kind: t.kind,
+    swept_dimensions: r.dims.map(d => ({ key: d.key, label: d.label, min: d.min, max: d.max })),
+    grid_resolution: r.dims.length === 2 ? [r.n, r.n] : r.n,
+    base_parameters: r.base,
+  };
+  if (mandateHash) policy_parameters.mandate_hash = mandateHash;
+
+  const output_payload = {
+    total_evaluations: r.points.length,
+    flip_point_count: r.flips.length,
+    flip_points: r.flips,
+    date: date || null,
+    summary: r.flips.length
+      ? ('Decision flips ' + r.flips.length + ' time(s) across the swept grid.')
+      : 'No flip detected in this range; the outcome is constant.',
+  };
+
+  const hash = await executionHash(policy_parameters, output_payload);
+
+  lastArtifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'calibration_evidence',
+    tool_id: 'chaingraph-boundary-explorer',
+    tool_version: '1.0.0',
+    generated_at: null,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [t.tool_id], chain_depth: 0 },
+    policy_parameters,
+    output_payload,
+    compliance_flags: r.flips.length ? ['DECISION_BOUNDARY_FOUND'] : [],
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '' },
+  };
+
+  el('execHashBox').textContent = hash;
+  el('signBtn').disabled = false;
+  el('exportBtn').disabled = false;
+  el('exportSvgBtn').disabled = false;
+  el('verifyBtn').disabled = true;
+  const ab = el('anchorBtn');
+  ab.style.display = 'inline-block';
+  ab.href = 'https://anchor.ainumbers.co/?hash=' + encodeURIComponent(hash);
+}
+
+async function signArtifactClick() {
+  if (!lastArtifact) return;
+  if (!el('calDate').value.trim()) { alert('Enter a date before signing (recorded in the calibration output).'); return; }
+  try {
+    signingKeypair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    const vm = await rawPubkeyToDidKey(signingKeypair.publicKey);
+    const created = new Date().toISOString();
+    const proof = await signArtifact(lastArtifact, signingKeypair.privateKey, vm, created);
+    lastArtifact.audit_signature.proof = proof;
+    el('sigBox').innerHTML =
+      '<div>verificationMethod: ' + esc(vm) + '</div>' +
+      '<div>created: ' + esc(created) + '</div>' +
+      '<div>proofValue: ' + esc(proof.proofValue.slice(0, 40)) + '&hellip;</div>' +
+      '<div class="q-help" style="margin-top:4px">Ephemeral key: generated in this tab for this artifact only, discarded on reload. Proves this browser produced this exact calibration at this exact hash, not a durable signer identity.</div>';
+    el('verifyBtn').disabled = false;
+  } catch (e) {
+    el('sigBox').textContent = 'Signing failed: ' + e.message + ' (Ed25519 via WebCrypto requires a recent Chromium or Firefox build).';
+  }
+}
+
+async function verifySignature() {
+  if (!lastArtifact || !lastArtifact.audit_signature.proof || !signingKeypair) return;
+  const el2 = el('verifyResult');
+  el2.textContent = 'Verifying…';
+  try {
+    const proof = lastArtifact.audit_signature.proof;
+    const opts = { type: proof.type, cryptosuite: proof.cryptosuite, verificationMethod: proof.verificationMethod, proofPurpose: proof.proofPurpose, created: proof.created };
+    const doc = JSON.parse(JSON.stringify(lastArtifact));
+    delete doc.audit_signature.proof;
+    const optHash = await sha256Bytes(jcsBytes(opts));
+    const docHash = await sha256Bytes(jcsBytes(doc));
+    const cat = new Uint8Array(optHash.length + docHash.length); cat.set(optHash, 0); cat.set(docHash, optHash.length);
+    const sig = b58decodeLocal(proof.proofValue.slice(1));
+    const ok = await crypto.subtle.verify('Ed25519', signingKeypair.publicKey, sig, cat);
+    el2.textContent = ok ? 'VALID' : 'INVALID';
+    el2.style.color = ok ? 'var(--green)' : 'var(--red)';
+  } catch (e) {
+    el2.textContent = 'ERROR: ' + e.message;
+    el2.style.color = 'var(--red)';
+  }
+}
+function b58decodeLocal(str) {
+  let zeros = 0; while (zeros < str.length && str[zeros] === '1') zeros++;
+  const bytes = [0];
+  for (let i = zeros; i < str.length; i++) {
+    let carry = B58.indexOf(str[i]); if (carry < 0) throw new Error('bad base58 char');
+    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 0xff; carry >>= 8; }
+    while (carry) { bytes.push(carry & 0xff); carry >>= 8; }
+  }
+  const out = new Uint8Array(zeros + bytes.length);
+  for (let k = 0; k < bytes.length; k++) out[zeros + bytes.length - 1 - k] = bytes[k];
+  return out;
+}
+function exportArtifact() {
+  if (!lastArtifact) return;
+  const blob = new Blob([JSON.stringify(lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'boundary-explorer-' + currentTarget.id + '-calibration.json';
+  a.click();
+}
+
+function exportSvg() {
+  const svgEl = document.getElementById('boundarySvg');
+  if (!svgEl) return;
+  const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'boundary-explorer-' + currentTarget.id + '-surface.svg';
+  a.click();
+}
+
+populateTargetSelect();
+</script>
+</body>
+</html>
