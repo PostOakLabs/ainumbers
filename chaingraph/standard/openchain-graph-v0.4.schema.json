@@ -3,8 +3,23 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.8.2",
+  "spec_version": "0.8.3",
   "$defs": {
+    "inputAttestation": {
+      "description": "OCG Standard §23 Input Attestation — portable per-input evidence that a named input value was vouched for by an external source. Optional; lives at the top-level input_attestations array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature and §20 anchor_bindings). pointer is an RFC 6901 JSON Pointer evaluated against policy_parameters (naming WHICH input). Types vc-2.0 / c2pa-manifest / rfc3161-snapshot verify with shipped §16/§13.11/§20 machinery; zktls is defined with EXTERNAL verification (no vendored verifier). This schema validates shape only; digest binding + cryptographic verification are enforced by validate-input-attestations.test.mjs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pointer", "proof", "source_ref"],
+      "properties": {
+        "type": { "type": "string", "enum": ["vc-2.0", "c2pa-manifest", "rfc3161-snapshot", "zktls"] },
+        "pointer": { "type": "string", "pattern": "^(/([^/~]|~[01])*)+$", "description": "RFC 6901 JSON Pointer into policy_parameters naming the attested input." },
+        "proof": {
+          "description": "The attestation payload. vc-2.0 = a W3C VC 2.0 credential object; rfc3161-snapshot = base64 verbatim RFC 3161 TST DER; c2pa-manifest = the C2PA manifest (object or base64); zktls = an opaque zkTLS proof string.",
+          "oneOf": [ { "type": "object" }, { "type": "string", "minLength": 1 } ]
+        },
+        "source_ref": { "type": "string", "minLength": 1, "description": "Issuer DID / URL / TLS origin string naming who vouches. Informative to the trust decision, never a substitute for verifying proof." }
+      }
+    },
     "anchorBinding": {
       "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
       "oneOf": [
@@ -270,6 +285,11 @@
           "type": "array",
           "description": "OCG Standard §20, new in v0.7 — OPTIONAL anchor-binding evidence entries. Attached after hashing; excluded from execution_hash scope.",
           "items": { "$ref": "#/$defs/anchorBinding" }
+        },
+        "input_attestations": {
+          "type": "array",
+          "description": "OCG Standard §23, new in v0.8.3 — OPTIONAL per-input attestation entries. Attached after hashing; excluded from execution_hash scope. Zero attestations is fully conformant.",
+          "items": { "$ref": "#/$defs/inputAttestation" }
         },
         "compliance_flags": { "type": "array", "items": { "type": "string" } },
         "audit_signature": {

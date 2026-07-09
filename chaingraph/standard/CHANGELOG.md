@@ -3,6 +3,26 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.3 — Input Attestations (§23)
+- **§23 Input Attestations (new, normative, OPTIONAL).** Adds the top-level `input_attestations[]` array —
+  per-input evidence that a NAMED input value was vouched for by an external source, WITHOUT changing what
+  `execution_hash` means. Like §16 `audit_signature` and §20 `anchor_bindings`, it is attached AFTER hashing
+  and EXCLUDED from the `execution_hash` preimage, so **an artifact with zero attestations stays fully
+  conformant** and adding/removing/re-ordering entries leaves every existing `execution_hash` byte-identical.
+  Each entry is `{ type, pointer, proof, source_ref }`: `pointer` is an RFC 6901 JSON Pointer into
+  `policy_parameters` naming WHICH input; a bound digest MUST equal the SHA-256 of the §4-canonical resolved
+  value. Type phasing (D2): `vc-2.0` (verified via shipped §16/§13.11 Data Integrity + subject-digest),
+  `rfc3161-snapshot` (verified via the SAME §20 `rfc3161-tst` verifier — no second RFC 3161 impl),
+  `c2pa-manifest` (structural + hard-binding digest match now, signer trust-chain a link-out) all verify NOW;
+  `zktls` is DEFINED with verification EXTERNAL (no vendored verifier — TLSNotary-class vendoring would break
+  the zero-dependency posture), reported as `verifiable:"external"`. §23.2 pins the per-input verifier report
+  computed INDEPENDENTLY of the hash verdict; §23.3 pins frozen-envelope invariance: `input_attestations` is a
+  new OPTIONAL top-level property (exactly like `anchor_bindings`), so `$defs/artifact.required`, the §4
+  preimage members, and `chaingraph_version` `0.4.0` are UNTOUCHED. Additive: no envelope/hash change; schema
+  adds `$defs/inputAttestation` + the optional `input_attestations` property; only `spec_version` bumps to
+  0.8.3. Verifiable-now types reuse §16/§13.11/§20 machinery; the `validate_input_attestations` worker utility
+  and Ledger verify-card rows are FORTHCOMING (worker CI enforces `validate-input-attestations.test.mjs`).
+
 ## 0.8.2 — Escalation records (§22.8)
 - **§22.8 Escalation records (new, normative).** Makes the `"escalate"` **evaluator semantics** normative:
   `"escalate"` is a TERMINAL routing target beside `"end"` (§22.8.1), classified by the new single-source
