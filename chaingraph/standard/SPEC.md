@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.3
+spec_version: 0.8.4
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -1052,8 +1052,83 @@ A verifier correct for v0.7/v0.8 computes an identical `execution_hash` for a v0
 `input_attestations` entirely. Any type whose binding would require folding attestation data INTO the preimage
 is out of profile — attestations are adjacent evidence, never inputs to the hash.
 
+## §24 Deterministic Compute Profile — `ocg-deterministic-compute` (NORMATIVE, profile-scoped — new in v0.8.4)
+OCG's integrity model already assumes a kernel is a **pure, deterministic function of its inputs**: §4 makes the
+output tamper-evident, §17 pins *which* kernel source ran, §18 proves *that* it ran, and §18.5 fixes the specific
+cross-engine hazards a real deployment hit. This section adds **no new machinery**. It **names** the determinism
+those layers already enforce as a single, citable profile — an implementation that already passes the §15 gate
+suite already conforms — modeled on the **W3C WebAssembly 3.0 Deterministic Profile** (W3C Candidate
+Recommendation, April 2026), which conforms an execution environment by *enumerating* every source of
+nondeterminism and *fixing or banning* each one. The profile's value is a name a verifier, an auditor, or a
+second implementer can point at: "OCG kernels run under a deterministic compute profile whose every escape hatch
+is closed by a named, executable gate."
+
+**§24.0 Scope.** The profile governs a kernel's `compute(policy_parameters) → output_payload` under §12: the
+function whose result feeds the §4 preimage. It applies to the class §18.6 already delimits — every `gpu:false`,
+`status:"live"` node (`gpu:true` nodes are out of scope for the same cost/parallelism reason as §18.6). It binds
+the compute surfaces to **byte-identical output** for identical input across the browser tool, the Cloudflare
+Worker (§12 server path), and the fixed zkVM guest (§18) — and, as VM-1 lands, the in-browser QuickJS VM that runs
+the *same C interpreter family* as the §18 guest, so its outputs diff-check against the Worker rather than
+introducing a fourth engine. Determinism here means **reproducible-bit**, not merely "same up to rounding":
+the whole point of §4 is that one differing bit is a different `execution_hash`.
+
+**§24.1 Enumerated nondeterminism sources (NORMATIVE — each fixed or banned).** A conforming kernel MUST NOT let
+any of the following affect `output_payload`. Each row states the rule and the **existing** §15 gate that already
+enforces it; the profile introduces no gate of its own.
+
+| # | Source | Rule under this profile | Enforcing mechanism / §15 gate |
+|---|---|---|---|
+| D1 | **Non-finite floats** (`NaN`, `±Infinity`) | An `output_payload` MUST canonicalize under RFC 8785 / I-JSON, which forbids non-finite numbers; a kernel MUST either return finite output or reject its input cleanly, never emit a silent `NaN`. | §4 canonicalization (`kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`) rejects non-finite numbers at hash time; the degenerate empty-input path is swept by `empty-input-finite.test.mjs`. |
+| D2 | **Object / key iteration order** | Serialization MUST NOT depend on property insertion or enumeration order; the preimage is built by the one canonical RFC 8785 (JCS) sorter in `_hash.mjs`, never by hand. | §4 canonical `execution_hash` (`kernel-hash-integrity.mjs`, `golden-parity.test.mjs`); ad-hoc canonicalization trips `lint-forbidden-hash.mjs` ("Scheme E"). Chain-level order fixed by `gate-parity.test.mjs`. |
+| D3 | **Transcendental math** (`Math.exp/log/log2/sin/cos/pow`) | Only `+ − × ÷ √` are IEEE-754 bit-portable; every transcendental MUST route through the shared pure-JS fdlibm port `kernels/_detmath.bundle.mjs` (inlined per kernel, never engine libm), so the value users see equals the value proven (§18.5(c)). | §4 cross-surface hash stability (`golden-parity.test.mjs`) + evaluator byte-parity (`gate-parity.test.mjs`); the re-baseline is frozen by the same golden fixtures. |
+| D4 | **Wall-clock time** (`Date.*`, timers) | No `Date`, timestamp, or timer reading may enter `output_payload` or the §4 preimage. Time-bearing evidence (anchor `genTime`, escalation `opened_at`) is defined hash-EXCLUDED (§20, §22.8). The §18 guest disables `Date` at the intrinsic level (§18.5); VM-1 disables it identically. | §4 reproducibility (`golden-parity.test.mjs`, live `hash-sweep.mjs`); wall-clock exclusion of escalation records enforced by `linear-hash-freeze.mjs` / `gate-parity.test.mjs`. |
+| D5 | **Randomness** (`Math.random`, CSPRNG) | No nondeterministic randomness may reach `output_payload`. `Math.random` is stubbed out of the §18 guest and the VM-1 prelude. The one CSPRNG in the standard (§13.12 SD-JWT salts) is confined to disclosure material that is EXCLUDED from the artifact hash. | §4 determinism (`golden-parity.test.mjs`); SD-JWT salt-as-sole-nondeterminism is pinned by `sd-export-roundtrip.test.mjs`. |
+| D6 | **Locale / `Intl`** | No locale-sensitive formatting may affect `output_payload`. Locale-dependent number formatting routes through a pinned `en-US` formatter verified value-for-value against V8 (§18.5(a)); the §18 guest and the QuickJS-ng VM ship **no `Intl`** at all (a determinism gift, not a gap). | §4 cross-surface parity (`golden-parity.test.mjs`); the pinned formatter's equivalence is covered by the same golden fixtures. |
+| D7 | **Environment / platform APIs** | Where a rule would otherwise depend on a V8 platform API whose result is environment-sensitive or infeasible to prove in-guest, the kernel MUST substitute a fully specified deterministic replacement used **identically on every surface**, with its out-of-scope aspects stated in source (§18.5). Network, filesystem, and ambient I/O are already forbidden by CONTRACT §0 (zero-fetch). | §18.5 replacements + §12 kernel-coverage (`kernel-coverage.mjs --strict`); cross-surface identity by `golden-parity.test.mjs` and, for gated chains, `gate-parity.test.mjs`. |
+
+Rows D1–D7 are exhaustive over the escape hatches the Wasm 3.0 Deterministic Profile enumerates for a
+JS/Wasm execution environment (float exceptions, memory/iteration nondeterminism, `NaN` bit-patterns, host calls,
+clocks, entropy, locale). Any *future* source of nondeterminism admitted into the kernel model is a normative
+change to this profile (see §24.2), not a silent addition.
+
+**§24.2 Freeze clause (NORMATIVE — kernel-semantics immutability).** Modeled on the RISC-V base-ISA freeze
+policy: **a ratified kernel-semantics version is never revised.** Once a profile version fixes the meaning of
+D1–D7, that meaning is immutable for that version — a change that could alter any conforming kernel's
+`output_payload` (for example, re-baselining `_detmath`, or admitting a new deterministic replacement that shifts
+a last bit) MUST ship as a **new profile version** (`ocg-deterministic-compute@<n>`), never as an in-place
+edit of an existing one. This is the discipline that lets `execution_hash` be a durable identifier: a receipt
+minted under `@1` verifies bit-for-bit forever, because `@1`'s semantics can never move under it. A profile
+version bump is additive (a new named profile alongside the old), exactly as §11 profiles compose; it never
+mutates the frozen v0.4 envelope and never bumps `chaingraph_version` (stays `"0.4.0"`).
+
+**§24.3 Conformance.** An implementation MAY declare conformance to `ocg-deterministic-compute@1` for its
+`gpu:false` live kernel set. The declaration asserts exactly that rows D1–D7 hold — which, because each binds to
+a gate already in §15, is **decided by the existing gate suite**: an implementation that is green on §4, §12,
+§18.5/§18.6, and §21.4 parity is conforming, and one that is not, is not. The profile therefore adds a **name and
+an enumeration**, not a new obligation; it deliberately introduces no §15 row of its own, riding the rows that
+already prove D1–D7 (the meta-rule in §15 is satisfied because every requirement above cites an existing wired
+gate). This mirrors §18.6, which layers a profile MUST over the class where it is achievable without adding
+machinery to the base standard. The AINumbers reference deployment conforms: its `gpu:false` live set is green on
+every cited gate.
+
+**§24.4 Prior art (INFORMATIVE).** The enumerate-and-close method is the **W3C WebAssembly 3.0 Deterministic
+Profile** (W3C CR, April 2026). The never-revise-a-ratified-version rule is the **RISC-V** frozen-base-ISA policy.
+The precedent for proving a *deterministic JS/Wasm-class guest* inside a zkVM is **Cartesi** (a RISC-V zkVM
+running a full deterministic guest); OCG differs by proving a single pinned kernel per receipt rather than a whole
+machine image, and by carrying the proof as an OPTIONAL §18 attachment rather than a consensus artifact. A deeper
+philosophical lineage — a frozen, total, deterministic instruction semantics as the foundation of a permanent
+computational record (Nock, and Kelvin versioning counting *down* to a frozen `0`) — is noted only as motivation;
+OCG cites the ratified engineering standards above as its normative models, not those systems.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.3 = Input Attestations (§23: the OPTIONAL hash-excluded top-level
+See `standard/CHANGELOG.md`. v0.8.4 = Deterministic Compute Profile (§24: the NORMATIVE, profile-scoped
+`ocg-deterministic-compute@1` — a NAMING of the determinism §4/§12/§17/§18.5/§18.6/§21.4 already enforce, modeled
+on the W3C WebAssembly 3.0 Deterministic Profile with a RISC-V-style freeze clause. It enumerates the seven kernel
+nondeterminism sources D1–D7 — non-finite floats, iteration order, transcendental math, wall-clock time,
+randomness, locale/`Intl`, environment/platform APIs — and binds each to the EXISTING §15 gate that already fixes
+or bans it. It adds NO new machinery, NO §15 row, and NO obligation beyond what a §15-green implementation already
+meets; it introduces no envelope or hash change, so `chaingraph_version` stays `0.4.0` and every existing
+`execution_hash` is byte-identical. Only `spec_version` bumps to 0.8.4). v0.8.3 = Input Attestations (§23: the OPTIONAL hash-excluded top-level
 `input_attestations[]` array — per-entry RFC 6901 pointer into `policy_parameters`, `vc-2.0` /
 `c2pa-manifest` / `rfc3161-snapshot` verifiable now via shipped §16/§13.11/§20 machinery, `zktls` defined
 with EXTERNAL verification per D2; zero attestations stays fully conformant; envelope + `chaingraph_version`
