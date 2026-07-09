@@ -61,6 +61,7 @@ const GATES = [
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
+  ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
 ];
 
 let failed = null;
