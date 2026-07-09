@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.4
+spec_version: 0.8.5
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -1120,8 +1120,172 @@ philosophical lineage — a frozen, total, deterministic instruction semantics a
 computational record (Nock, and Kelvin versioning counting *down* to a frozen `0`) — is noted only as motivation;
 OCG cites the ratified engineering standards above as its normative models, not those systems.
 
+## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
+§18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
+place of cleartext, §4 recompute becomes unavailable to third parties, and the receipt is the sole verification
+path. That paragraph states the *mode*; it does not pin the *declaration* (which input is private, under which
+commitment) or the *commitment construction* — leaving the mode "specified and not yet exercised by a production
+node" (white paper §6.4 + the "inputs in the clear at the base" caveat). §25 closes that gap: it names a
+profile, `ocg-private-input@1`, that makes input-hiding **machine-declared and machine-checkable** so the three
+flagship nodes (sanctions screen ⭐, RBC action-level, capital-ratio) can carry it as a first-class, gated claim.
+It adds **no new integrity machinery** — the commitment binds through the §4 preimage and the §18 journal that
+already exist. It adds a **declaration** (`private_inputs[]`), a **named hiding commitment scheme**
+(`sha256-salted@1`), and a **verifier contract** (`validate_private_inputs`).
+
+**§25.0 Declaration object (NORMATIVE).** An artifact MAY carry a top-level `private_inputs[]` array — a map
+telling a verifier which `policy_parameters` locations hold commitments rather than cleartext, and under which
+scheme. Like §16 `audit_signature`, §20 `anchor_bindings`, and §23 `input_attestations`, it is **attached and
+EXCLUDED from `execution_hash` scope**: adding, removing, or re-ordering it leaves every existing
+`execution_hash` byte-identical, and **an artifact with zero `private_inputs` entries is byte-identical to a
+plain v0.8.4 artifact and fully conformant.** The binding force does NOT come from this array — it comes from the
+commitment sitting inside `policy_parameters` (§25.2). The array is the machine-readable index that says "treat
+these pointers as commitments." Each entry:
+
+```json
+{
+  "pointer": "/input_parameters/<field>",
+  "commitment": "sha256:<64-hex>",
+  "commitment_scheme": "sha256-salted@1"
+}
+```
+
+- `pointer` — an [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901) JSON Pointer evaluated **against
+  `policy_parameters`** (NOT the whole artifact, exactly as §23), naming WHICH input is private. A verifier MUST
+  reject an entry whose `pointer` does not resolve to a value inside `policy_parameters`.
+- `commitment` — a `sha256:`-prefixed digest: the hiding commitment to the private value (§25.1).
+- `commitment_scheme` — the construction that produced `commitment`; `sha256-salted@1` is the sole scheme defined
+  in this profile version. A verifier MUST reject an unknown scheme rather than treat it as opaque.
+
+**§25.1 Commitment scheme `sha256-salted@1` (NORMATIVE — the crux).** A bare `SHA-256(cgCanon(input))` is
+**NOT** admissible: for low-entropy inputs — booleans, small integers, a country/list-membership flag, a modest
+enumerated set — an attacker precomputes the digest of every possible value and recovers the plaintext by table
+lookup, which defeats hiding entirely. The commitment MUST therefore be **salted with a high-entropy secret held
+by the prover**:
+
+> `commitment = "sha256:" + hex( SHA-256( salt ‖ cgCanon(input_value) ) )`
+
+where `salt` is a fresh **≥256-bit CSPRNG** value, `cgCanon` is the one canonicalizer of §4
+(`kernels/_hash.mjs`), and `‖` is byte concatenation (`salt` bytes, then the UTF-8 bytes of the canonical
+encoding of `input_value`). This construction is simultaneously:
+
+- **Hiding** — with a 256-bit secret salt, a dictionary/precomputation attack over even a two-element input space
+  is infeasible (the attacker would have to guess the salt; SHA-256 is a suitable commitment randomizer under the
+  random-oracle assumption). This is the standard hash-based commitment, not a bare digest.
+- **Deterministic given `(input, salt)`** — the same `(input_value, salt)` pair always yields the same
+  `commitment`, bit-for-bit, and it is reproducible across every §24 surface because SHA-256 and `cgCanon` are
+  already bit-portable there. Two verifiers holding the same `(input, salt)` recompute the same commitment.
+- **risc0-private-input-bindable** — the guest reads BOTH `salt` and `input_value` over the zkVM **private-input
+  channel** (not committed to the journal), recomputes `commitment` **inside the guest**, and commits the
+  `commitment` (never the salt, never the plaintext) to the journal alongside `output_payload` (§25.3). The
+  `imageId` therefore pins a program that provably tied *this commitment* to *this output*.
+
+**Salt handling (NORMATIVE).** The `salt`:
+1. MUST be freshly generated per `(artifact, private input)` and MUST NOT be reused — a reused salt over the same
+   input yields the same commitment, leaking input equality across artifacts.
+2. MUST NEVER appear in the artifact: not in `policy_parameters`, not in `output_payload`, not in the §4
+   preimage, not in `private_inputs[]`, and not in the §18 `journal`. It is **disclosure material**, held only in
+   the prover's private witness and, optionally, in an out-of-band disclosure package delivered to authorized
+   verifiers — exactly the treatment §13.12 SD-JWT salts and §24 D5 already give CSPRNG material that is excluded
+   from the hash. Because it never enters the artifact, salt exclusion is structural, not a rule a kernel must
+   remember to apply.
+3. lets an **authorized** verifier who holds `(salt, input_value)` recompute `SHA-256(salt ‖ cgCanon(input_value))`
+   and confirm it equals the declared `commitment` — a full re-derivation of the commitment from the plaintext.
+   A **public** verifier holds neither and relies solely on the proof (§25.4). Hiding is preserved against the
+   public verifier; binding is fully re-checkable by the authorized one.
+
+**§25.2 Plaintext-exclusion invariant (NORMATIVE — the profile's defining MUST).** For every `private_inputs[]`
+entry, the value that `pointer` resolves to inside `policy_parameters` **MUST BE the entry's `commitment` string
+itself** — the `sha256:`-prefixed digest — and **MUST NOT be the plaintext input value**. The plaintext NEVER
+appears anywhere in `policy_parameters` or in any §4 preimage. Consequences that fall out of this one rule:
+- the §4 `execution_hash` is computed over `{policy_parameters, output_payload}` in which the private slot holds
+  the commitment, so **the hash binds the commitment, not the value**;
+- the §18 groth16 `journal` commits that same commitment (§25.3), so **the proof binds the commitment, not the
+  value**;
+- there is no location, in-preimage or otherwise, from which a third party can recover the plaintext. A verifier
+  that finds a pointed value which is not the declared `commitment` MUST FAIL the artifact (either the declaration
+  is wrong or a plaintext has leaked into the preimage).
+
+**§25.3 Proving and journal binding (NORMATIVE).** A profile-conforming artifact MUST carry a §18
+`audit_signature.compute_proof` (`type:"ZkVmReceipt"`; `receiptFormat:"groth16-bn254"` RECOMMENDED). The guest
+program named by `imageId`:
+1. reads each private `input_value` and its `salt` over the zkVM private-input channel (never committed);
+2. recomputes each `commitment = SHA-256(salt ‖ cgCanon(input_value))` in-guest and **commits every declared
+   `commitment` to the journal**;
+3. computes `output_payload` from the private inputs (and any public inputs) and **commits `output_payload` to
+   the journal** (the existing §18.0 requirement that the journal's committed output equals `output_payload`).
+
+The journal thus exposes only `{ commitments…, output_payload }` — the public result and the public commitments,
+never the salt or the plaintext. Proving remains **off-band** (§18.2): the browser tool, the Worker, and CI only
+**verify**. This is the risc0 private-input pipeline C1 builds against — the guest reads private witnesses,
+emits the commitment, and never leaks it.
+
+**§25.4 Verification — `validate_private_inputs` (NORMATIVE).** A verifier checks, in order, **without ever
+seeing the plaintext**:
+1. **Structural** — `private_inputs[]` is well-formed; each `pointer` is valid RFC 6901 and resolves into
+   `policy_parameters`; each `commitment` matches `^sha256:[0-9a-f]{64}$`; each `commitment_scheme` is known
+   (`sha256-salted@1`).
+2. **Plaintext-exclusion (§25.2)** — the value at each `pointer` equals that entry's `commitment` string; any
+   other value FAILS.
+3. **Proof binds commitment** — a §18 `compute_proof` is present; its `journal` commits every declared
+   `commitment`; `seal` verifies against `imageId` via the §18.1 self-contained BN254 Groth16 reference verifier;
+   `imageId` is present in the node's Graph Index `compute_images`.
+4. **Output binding** — `journal`'s committed output equals `output_payload` (§18.0).
+5. A **public** verifier stops here: it has confirmed that *some* input, whose salted commitment is the declared
+   value, produced this output under the pinned program — hiding intact. An **authorized** verifier additionally
+   takes `(salt, input_value)` from the disclosure package, recomputes `SHA-256(salt ‖ cgCanon(input_value))`,
+   asserts it equals `commitment`, and MAY re-run the kernel on `input_value` to reproduce `output_payload` —
+   full re-verification against the plaintext.
+
+"Commitment well-formed" for a public verifier is exactly steps 1 + 2 + 3: syntactically a `sha256:` digest,
+seated in the preimage, and bound by a verifying proof. No step requires the plaintext.
+
+**§25.5 Composition with §23 Input Attestations (NORMATIVE-informative).** Hiding and attesting are **orthogonal
+and stack.** A §23 `input_attestation` MAY point at the same `policy_parameters` pointer as a `private_inputs[]`
+entry to vouch for the committed input. Because §23 evaluates its digest binding against the **resolved value at
+the pointer** — which, under §25.2, IS the commitment — the existing §23 rule already does the right thing
+unchanged: the attestation vouches for the commitment (e.g. a `vc-2.0` credential whose subject binds the
+`sha256:` commitment, or an `rfc3161-snapshot` whose `messageImprint` is the commitment), so a **public** verifier
+confirms "this committed input was vouched for by `<source>`" without seeing the plaintext, while an **authorized**
+verifier with the disclosure package re-derives the commitment from `(salt, plaintext)` and thereby ties the
+attestation to the cleartext value. §25 needs no change to §23, and §23 needs no change to admit a private input:
+one names WHICH input is private and proves the compute over its commitment; the other names WHO vouched for that
+same committed input. The claims are independent and composable, as §23.2 already states of the whole ladder.
+
+**§25.6 Frozen-envelope invariance (NORMATIVE).** `private_inputs` is declared as an OPTIONAL top-level artifact
+property (exactly as §20 `anchor_bindings` and §23 `input_attestations` were), so `$defs/artifact.required`, the
+§4 preimage members, and `chaingraph_version` `0.4.0` are UNTOUCHED. A verifier correct for v0.8.4 computes an
+identical `execution_hash` for a v0.8.5 artifact and MAY ignore `private_inputs` entirely. The commitment lives in
+`policy_parameters.input_parameters`, an already-open object, so seating a `sha256:` string where a plaintext
+would otherwise sit is not a schema or envelope change. Any construction that would require folding salt or
+plaintext INTO the preimage is out of profile — the salt is adjacent disclosure material, never an input to the
+hash.
+
+**§25.7 Conformance (profile-scoped).** An implementation MAY declare `ocg-private-input@1` for a node whose
+sensitive input is committed under this profile. The declaration asserts §25.0–§25.4 hold for that node's
+artifacts. Conformance is machine-checked by `validate-private-inputs.test.mjs` (§15): structural shape +
+plaintext-exclusion (the pointed value is the commitment, never cleartext) + commitment-scheme validity + the
+journal-commits-the-commitment binding, layered on the §18 pairing check that `compute-proof.test.mjs` already
+runs. The freeze discipline of §24.2 applies to the commitment construction: `sha256-salted@1`'s meaning is
+immutable; a different construction (a Pedersen/Merkle commitment, a different salt width, a different domain
+separator) ships as `ocg-private-input@<n>`, never an in-place edit, so a private-input artifact minted under
+`@1` re-verifies bit-for-bit forever. Like §18, the profile **defaults OFF**: a node MUST surface to consumers
+that it withholds an input (§18.3), and MUST NOT auto-apply commitment mode.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.4 = Deterministic Compute Profile (§24: the NORMATIVE, profile-scoped
+See `standard/CHANGELOG.md`. v0.8.5 = Private-Input Profile (§25: the NORMATIVE, profile-scoped
+`ocg-private-input@1` — the machine-declared, machine-checked form of the §18.3 input-hiding mode. Adds the
+OPTIONAL hash-excluded top-level `private_inputs[]` declaration (each entry = an RFC 6901 pointer into
+`policy_parameters` + a hiding `commitment` + `commitment_scheme`), the `sha256-salted@1` commitment
+`SHA-256(salt ‖ cgCanon(input))` with a ≥256-bit prover-held salt that is HIDING, DETERMINISTIC given
+`(input,salt)`, and risc0-private-input-bindable, the plaintext-exclusion invariant — the pointed
+`policy_parameters` value IS the commitment and the plaintext never enters any preimage, so the §4 `execution_hash`
+and the §18 groth16 journal bind the commitment not the value — and the `validate_private_inputs` verifier that
+checks {proof binds commitment} + {journal.output == output_payload} + {commitment well-formed} without the
+plaintext, with an authorized-verifier path that re-derives the commitment from `(salt, input)`. §23 composition is
+orthogonal (an attestation vouches for the committed input; hiding and attesting stack). Salt is disclosure
+material EXCLUDED from the hash, exactly as §13.12/§24 D5 CSPRNG salts. Additive and profile-scoped: no envelope or
+hash change — `$defs/artifact.required`, the §4 preimage, and `chaingraph_version` `0.4.0` are UNTOUCHED, a
+zero-private-input artifact is byte-identical and fully conformant, and only `spec_version` bumps to 0.8.5). v0.8.4 = Deterministic Compute Profile (§24: the NORMATIVE, profile-scoped
 `ocg-deterministic-compute@1` — a NAMING of the determinism §4/§12/§17/§18.5/§18.6/§21.4 already enforce, modeled
 on the W3C WebAssembly 3.0 Deterministic Profile with a RISC-V-style freeze clause. It enumerates the seven kernel
 nondeterminism sources D1–D7 — non-finite floats, iteration order, transcendental math, wall-clock time,
@@ -1201,6 +1365,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §22.5 run_chain mandate binding: no-mandate run hash-identical to pre-mandate (conditional-presence `mandate_hash`); with-mandate folds `mandate_hash` into every step `policy_parameters` + `composite_policy` (with/without → different, each stable); expired/unsigned/bad-signature/out-of-scope → structured rejection | `mandate-binding.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §22.8 `"escalate"` evaluator: recognized as a terminal target (`isTerminalTarget`/`isEscalationTarget`); `evaluateGate` decision record for an escalate route is byte-identical to a non-escalating gate (NO escalation field), so existing gate decisions + composite hashes are unchanged; classifiers byte-parity across the 4 executing surfaces | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §23 input attestations: hash-excluded top-level `input_attestations[]` (zero-attestation artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; `vc-2.0` verifies via §16/§13.11 Data Integrity + subject-digest == input digest, `rfc3161-snapshot` via the §20 `rfc3161-tst` verifier (messageImprint == input digest, no second RFC 3161 impl), `c2pa-manifest` structural + hard-binding digest match; `zktls` structural-only (`verifiable:"external"`, no vendored verifier); tampered proof / unresolved pointer / digest mismatch MUST fail; verdict reported per-input alongside `execution_hash`; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `validate-input-attestations.test.mjs`, `schema-validate.mjs` | validate |
+| §25 private-input profile: hash-excluded top-level `private_inputs[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; the pointed value IS the `sha256:` `commitment`, never plaintext (plaintext-exclusion §25.2); `commitment_scheme` ∈ {`sha256-salted@1`}; a §18 `compute_proof` is present and its `journal` commits every declared `commitment` AND `output_payload`; unknown scheme / unresolved pointer / plaintext-at-pointer / missing commitment-in-journal MUST fail; salt never appears in the artifact; verdict reported without the plaintext; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED (§18 pairing check stays with `compute-proof.test.mjs`) | `validate-private-inputs.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
