@@ -28,6 +28,8 @@ GUIDES = REPO / "guides"
 MANIFESTS = REPO / "manifests"
 SITEMAP = REPO / "sitemap.xml"
 KERNELS = REPO / "chaingraph" / "kernels"
+WORKBENCH = REPO / "chaingraph" / "workbench"
+CANVAS = REPO / "chaingraph" / "canvas"
 
 # Node-based gates (OpenChainGraph hash integrity + JS syntax). Each exits non-zero on failure.
 HASH_GATES = [
@@ -53,23 +55,34 @@ def fail(msg):
 
 
 # ── Check 1: PII text correctness ─────────────────────────────────────────────
+def _pii_scan_dirs():
+    dirs = [TOOLS]
+    if WORKBENCH.is_dir():
+        dirs.append(WORKBENCH)
+    if CANVAS.is_dir():
+        dirs.append(CANVAS)
+    return dirs
+
+
 def check_pii_text():
     bad = []
-    for path in sorted(TOOLS.glob("*.html")):
-        text = path.read_text(encoding="utf-8", errors="replace")
-        m = re.search(r'<div\s+class="pii-notice">(.*?)</div>', text, re.S)
-        if m and CANON_PII_PREFIX not in m.group(1):
-            bad.append(path.name)
+    scanned = 0
+    n = 0
+    for d in _pii_scan_dirs():
+        for path in sorted(d.glob("*.html")):
+            scanned += 1
+            text = path.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r'<div\s+class="pii-notice">(.*?)</div>', text, re.S)
+            if m:
+                n += 1
+                if CANON_PII_PREFIX not in m.group(1):
+                    bad.append(str(path.relative_to(REPO)))
     if bad:
-        fail(f"[PII] {len(bad)} tool(s) have wrong pii-notice text (CONTRACT §1.3):")
+        fail(f"[PII] {len(bad)} page(s) have wrong pii-notice text (CONTRACT §1.3):")
         for f in bad:
             fail(f"  {f}")
     else:
-        n = sum(
-            1 for p in TOOLS.glob("*.html")
-            if 'class="pii-notice"' in p.read_text(encoding="utf-8", errors="replace")
-        )
-        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text")
+        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/)")
 
 
 # ── Check 2: Manifest coverage ────────────────────────────────────────────────
