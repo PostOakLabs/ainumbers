@@ -3,6 +3,29 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.5 — Private-Input Profile (§25)
+- **§25 Private-Input Profile (new, normative, profile-scoped).** Adds `ocg-private-input@1`, the
+  machine-declared, machine-checked form of the §18.3 input-hiding mode — closing the white paper §6.4 caveat that
+  the mode was "specified and not yet exercised by a production node." Three additions, no new integrity
+  machinery: (1) the OPTIONAL hash-excluded top-level `private_inputs[]` declaration — each entry an RFC 6901
+  `pointer` into `policy_parameters` + a `commitment` + a `commitment_scheme`; (2) the commitment scheme
+  `sha256-salted@1`, `commitment = SHA-256(salt ‖ cgCanon(input))` with a fresh ≥256-bit prover-held `salt`,
+  which is simultaneously HIDING (a bare `SHA-256(input)` is dictionary-attackable for low-entropy inputs and is
+  rejected), DETERMINISTIC given `(input, salt)`, and risc0-private-input-bindable (the guest reads salt+input
+  over the private channel and commits the commitment, never the plaintext); (3) the plaintext-exclusion invariant
+  §25.2 — the value at each `pointer` IS the commitment, the plaintext never enters any §4 preimage, so the
+  `execution_hash` and the §18 groth16 journal bind the commitment not the value — and the `validate_private_inputs`
+  verifier that checks {proof binds commitment} + {journal.output == output_payload} + {commitment well-formed}
+  WITHOUT the plaintext, with an authorized-verifier path that re-derives the commitment from `(salt, input)`.
+  §23 composition is orthogonal (an attestation vouches for the committed input; hiding and attesting stack). The
+  salt is disclosure material EXCLUDED from the hash, exactly as §13.12 / §24 D5 CSPRNG salts. §15 wires
+  `validate-private-inputs.test.mjs` (shape + plaintext-exclusion + scheme + journal-commits-commitment binding)
+  atop the existing §18 `compute-proof.test.mjs` pairing check. **Additive and profile-scoped:** no envelope or
+  hash change — `$defs/artifact.required`, the §4 preimage, and `chaingraph_version` `0.4.0` are UNTOUCHED, a
+  zero-private-input artifact is byte-identical and fully conformant, and only `spec_version` bumps to 0.8.5. The
+  §24.2 freeze discipline governs the commitment construction: a different scheme ships as `ocg-private-input@<n>`,
+  never an in-place edit.
+
 ## 0.8.4 — Deterministic Compute Profile (§24)
 - **§24 Deterministic Compute Profile (new, normative, profile-scoped).** Adds `ocg-deterministic-compute@1`, a
   NAMING of the determinism the standard already enforces (§4 canonical hash, §12 kernel binding, §17 kernel

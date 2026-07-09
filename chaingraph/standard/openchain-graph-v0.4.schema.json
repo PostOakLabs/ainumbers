@@ -3,8 +3,19 @@
   "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
   "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
   "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
-  "spec_version": "0.8.4",
+  "spec_version": "0.8.5",
   "$defs": {
+    "privateInputDeclaration": {
+      "description": "OCG Standard §25 Private-Input declaration — names a policy_parameters location that holds a HIDING COMMITMENT instead of cleartext, under a named commitment scheme. Optional; lives at the top-level private_inputs array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §20 anchor_bindings and §23 input_attestations) — the array is a machine-readable index, not the binding: the binding is the commitment sitting inside policy_parameters (in the §4 preimage) plus the §18 journal. pointer is an RFC 6901 JSON Pointer into policy_parameters; the value it resolves to MUST BE the commitment string (never plaintext) — §25.2 plaintext-exclusion. commitment is a sha256:-prefixed hiding commitment = SHA-256(salt ‖ cgCanon(input)); the ≥256-bit salt is prover-held disclosure material and NEVER appears in the artifact. This schema validates shape only; plaintext-exclusion + scheme validity + the journal-commits-the-commitment binding are enforced by validate-private-inputs.test.mjs (with the §18 pairing check in compute-proof.test.mjs).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "commitment", "commitment_scheme"],
+      "properties": {
+        "pointer": { "type": "string", "pattern": "^(/([^/~]|~[01])*)+$", "description": "RFC 6901 JSON Pointer into policy_parameters naming the private input. The value it resolves to MUST be the commitment (§25.2)." },
+        "commitment": { "$ref": "#/$defs/sha256ref", "description": "The hiding commitment SHA-256(salt ‖ cgCanon(input)); sha256:-prefixed. This same string is what sits at pointer inside policy_parameters." },
+        "commitment_scheme": { "type": "string", "enum": ["sha256-salted@1"], "description": "The commitment construction. sha256-salted@1 is the sole scheme in this profile version; a new construction ships as ocg-private-input@<n>, never an in-place edit (§25.7)." }
+      }
+    },
     "inputAttestation": {
       "description": "OCG Standard §23 Input Attestation — portable per-input evidence that a named input value was vouched for by an external source. Optional; lives at the top-level input_attestations array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature and §20 anchor_bindings). pointer is an RFC 6901 JSON Pointer evaluated against policy_parameters (naming WHICH input). Types vc-2.0 / c2pa-manifest / rfc3161-snapshot verify with shipped §16/§13.11/§20 machinery; zktls is defined with EXTERNAL verification (no vendored verifier). This schema validates shape only; digest binding + cryptographic verification are enforced by validate-input-attestations.test.mjs.",
       "type": "object",
@@ -290,6 +301,11 @@
           "type": "array",
           "description": "OCG Standard §23, new in v0.8.3 — OPTIONAL per-input attestation entries. Attached after hashing; excluded from execution_hash scope. Zero attestations is fully conformant.",
           "items": { "$ref": "#/$defs/inputAttestation" }
+        },
+        "private_inputs": {
+          "type": "array",
+          "description": "OCG Standard §25, new in v0.8.5 — OPTIONAL private-input declarations. Attached after hashing; excluded from execution_hash scope. Each entry names a policy_parameters pointer whose value is a hiding commitment (never plaintext). Zero entries is byte-identical to a plain v0.8.4 artifact and fully conformant.",
+          "items": { "$ref": "#/$defs/privateInputDeclaration" }
         },
         "compliance_flags": { "type": "array", "items": { "type": "string" } },
         "audit_signature": {
