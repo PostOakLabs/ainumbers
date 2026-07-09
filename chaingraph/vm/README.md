@@ -79,13 +79,40 @@ placeholder for a real vendoring script; VM-1a vendored by hand from
    document context, which is proven to work (`chaingraph/kernel-vm.html` uses real files via
    `<script type="module">` imports and has never hit this).
 
+## Canonical entry: buildArtifact, not compute
+
+The parity gate runs `buildArtifact(policy_parameters)` in the VM — NOT `compute()`. `buildArtifact`
+is each kernel's own authoritative path: it is what the live Worker runs, what
+`kernel-contract.test.mjs` verifies as `hash_valid`, and its `execution_hash` IS the pinned
+`golden_hash`. `compute()` is not canonical — two return conventions exist across the corpus (a
+bare `output_payload` vs a `{ output_payload, compliance_flags }` envelope), so hashing `compute()`'s
+raw return is non-canonical for the envelope kernels, and some kernels (e.g. art-55) fold a host
+SHA-256 into `output_payload` only inside `buildArtifact`. Running `compute()` on both sides made
+those show as a FALSE "golden drift" (`worker_hash != golden`) even though `golden-parity` was
+green — golden-parity hashes the STORED fixture output and never calls the kernel, so it could not
+see it. Fixed in session-3 (2026-07-09): the gate runs `runKernelArtifactInVM`, the worker side
+reads `buildArtifact().execution_hash`, and the gate asserts `worker_hash == golden`, so a VM match
+proves VM == canonical worker byte-for-byte. The in-VM `executionHash` is a no-op sentinel stub (the
+real hash is host-side); if the sentinel survives into `output_payload` the harness throws (art-55).
+
 ## Known VM-1a limitations (carried to VM-1b)
 
-See `KNOWN_VM1A_LIMITATIONS` in `chaingraph/kernels/vm-parity-gate.mjs`. As of 2026-07-09: 3
-kernels call `globalThis.crypto.subtle` directly inside `compute()` (WebCrypto isn't bridged into
-the sandbox by design), and 1 kernel calls a `BigInt` prototype method this build doesn't expose.
-606/619 conformance vectors (302 kernels) run byte-identical to the worker; the remaining 13
-vectors are these documented, non-silent gaps.
+See `KNOWN_VM1A_LIMITATIONS` in `chaingraph/kernels/vm-parity-gate.mjs`. As of session-3
+(2026-07-09): **601/619 conformance vectors (302 kernels) run byte-identical to the canonical
+worker; 0 divergences.** The remaining 18 vectors are documented, non-silent host-API / prebuilt-
+intrinsic gaps that all THROW at the harness (never a silently degraded output):
+- **Host WebCrypto (D7)** — art-124, art-129, art-189, art-190 access `crypto.subtle`. The sandbox
+  installs a `crypto` guard that RECORDS the touch via a host callback (so it surfaces even when a
+  kernel swallows the throw in a try/catch — art-124/129 would otherwise degrade
+  `signature_cryptographically_valid` to a false verdict) and then throws.
+- **Host SHA-256 folded into output (D7)** — art-55's `buildArtifact` derives a `merkle_root` via
+  `executionHash` and writes it into `output_payload`; the in-VM hash stub can't reproduce it, so
+  the sentinel-detection throws.
+- **BigInt prototype method** — art-201 calls a `BigInt` value's `.toString()` (minhash bit-packing);
+  this prebuilt exposes BigInt literals/arithmetic but not primitive prototype methods, so it throws.
+
+The gate runs `--strict` in CI (`deploy-to-dreamhost.yml`) and `scripts/preflight.mjs`; the
+recorded-divergence set is empty, so strict passes.
 
 ## VM-1b (not this phase)
 

@@ -114,8 +114,10 @@ kernelVmSrc = kernelVmSrc
   .replace(/import\s*\{\s*newQuickJSWASMModuleFromVariant,\s*DefaultIntrinsics\s*\}\s*from\s*'\.\/core\/index\.mjs';/, 'const { newQuickJSWASMModuleFromVariant, DefaultIntrinsics } = NS_coreindex;')
   .replace(/import\s*\{\s*QUICKJS_NG_SINGLEFILE_VARIANT\s*\}\s*from\s*'\.\/variant\.mjs';/, 'const { QUICKJS_NG_SINGLEFILE_VARIANT } = NS_variant;')
   .replace(/^export const OCG_DETERMINISTIC_COMPUTE_PROFILE/m, 'const OCG_DETERMINISTIC_COMPUTE_PROFILE')
+  .replace(/^export const VM_STUB_HASH_SENTINEL/m, 'const VM_STUB_HASH_SENTINEL')
   .replace(/^export function stripEsmSyntaxForVm/m, 'function stripEsmSyntaxForVm')
-  .replace(/^export async function runKernelInVM/m, 'async function runKernelInVM');
+  .replace(/^export async function runKernelInVM/m, 'async function runKernelInVM')
+  .replace(/^export async function runKernelArtifactInVM/m, 'async function runKernelArtifactInVM');
 
 const MODULE_JS = `
 // ---- Single-file, single-scope inlining of chaingraph/vm/*.mjs for the MCP Apps PILOT widget

@@ -27,6 +27,7 @@ const GATES = [
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
+  ['VM↔worker parity (§24)',       'node chaingraph/kernels/vm-parity-gate.mjs --strict'],
   ['Kernel empty-input finite',    'node chaingraph/kernels/empty-input-finite.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
