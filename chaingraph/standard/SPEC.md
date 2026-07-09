@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.2
+spec_version: 0.8.3
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -979,8 +979,86 @@ by the human policy decision point the gate deferred to; and a countersigned clo
 **SCITT / RFC 9942** receipt-shaped statement (the record hash is the "statement", the Anchorproof envelope
 plus its §20 anchor the "receipt") — named so a future SCITT registration is a re-labelling, not a re-model.
 
+## §23 Input Attestations (NORMATIVE, OPTIONAL — new in v0.8.3)
+The §4 `execution_hash` proves the artifact's computation over the inputs it was GIVEN; it says nothing
+about whether those inputs were themselves authentic (the import-binding honesty caveat). §23 lets an
+artifact carry portable, per-input evidence that a NAMED input was vouched for by an external source —
+without changing what `execution_hash` means. Input evidence attaches at the OPTIONAL top-level array
+`input_attestations`, which — like §16 `audit_signature` and §20 `anchor_bindings` — is attached AFTER
+hashing and is EXCLUDED from `execution_hash` scope. **An artifact with zero attestations remains fully
+conformant** (the honest caveat simply stays stated); attestations NEVER enter the preimage, so adding,
+removing, or re-ordering them leaves every existing `execution_hash` byte-identical. Each entry:
+
+```json
+{
+  "type": "vc-2.0" | "c2pa-manifest" | "rfc3161-snapshot" | "zktls",
+  "pointer": "/input_parameters/<field>",
+  "proof": { } | "<base64 | opaque proof payload>",
+  "source_ref": "<issuer DID / URL / origin string naming who vouches>"
+}
+```
+
+`pointer` is an [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901) JSON Pointer evaluated **against
+`policy_parameters`** (NOT the whole artifact) — it names WHICH input this entry attests. A verifier MUST
+reject an entry whose `pointer` does not resolve to a value inside the artifact's `policy_parameters`. The
+attested value is the resolved node; where a type binds a digest, that digest MUST equal the SHA-256 of the
+canonical (§4 `cgCanon`) encoding of the resolved value. `source_ref` identifies the vouching source and is
+informative to the trust decision, never a substitute for verifying `proof`.
+
+### §23.1 Type phasing (NORMATIVE — D2)
+Three types are VERIFIABLE NOW with already-shipped machinery; `zktls` is DEFINED here in prose with its
+verification marked EXTERNAL (no vendored verifier ships — vendoring a TLSNotary-class verifier would break
+the zero-dependency posture; it is revisited when a small stable verifier exists).
+
+- **`vc-2.0` (verifiable now).** `proof` is a [W3C Verifiable Credentials 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
+  credential whose `credentialSubject` binds the pointed-to input (by value or by its SHA-256 digest).
+  Verification reuses the shipped §16 / §13.11 machinery: the credential's Data Integrity proof
+  (`eddsa-jcs-2022`) — or an enveloping JOSE/COSE proof — MUST verify, AND the subject digest MUST equal the
+  §4-canonical digest of the resolved input value. A `vc-2.0` entry that verifies is CONFIRMED.
+- **`rfc3161-snapshot` (verifiable now).** `proof` is an RFC 3161 TimeStampToken (stored VERBATIM, base64
+  DER) whose `messageImprint` is the SHA-256 of the pointed-to input value — a timestamped snapshot proving
+  the input existed, unchanged, by the token's `genTime`. Verification reuses the SAME §20 `rfc3161-tst`
+  verifier (messageImprint match, CMS signature, chain to a pinned TSA root, critical id-kp-timeStamping EKU,
+  sane genTime) — **no second RFC 3161 implementation**. `messageImprint` MUST equal the resolved input's
+  §4-canonical digest.
+- **`c2pa-manifest` (verifiable now — structural).** `proof` is a [C2PA](https://c2pa.org/) manifest
+  asserting provenance of the pointed-to input (typically a document or media input). Verification NOW is
+  STRUCTURAL: the manifest parses, its claim signature is well-formed, and its hard-binding assertion digest
+  MATCHES the resolved input's bytes/digest; full trust-chain evaluation of the signer is a link-out to a
+  C2PA validator (the artifact carries the manifest verbatim so that remains possible). A `c2pa-manifest`
+  entry passing structural checks is CONFIRMED-STRUCTURAL.
+- **`zktls` (defined; EXTERNAL verification).** `proof` is a zkTLS / TLSNotary-class proof that the
+  pointed-to input was served by the TLS origin named in `source_ref`. OCG ships NO verifier for it: a
+  verifier reports a `zktls` entry as PRESENT with `verifiable: "external"` — structural fields checked, the
+  cryptographic claim NEITHER confirmed nor refuted by OCG machinery — and MUST NOT present it as
+  OCG-confirmed. It is reserved so the profile is stable when a vendorable verifier lands.
+
+### §23.2 Verifier report (NORMATIVE)
+A verifier reports per-input attestation status ALONGSIDE (never folded into) the `execution_hash` result.
+For each `input_attestations` entry it emits `{ pointer, type, structural: "pass"|"fail",
+verifiable: "verified"|"failed"|"external"|"n/a" }`: `structural` covers pointer resolution + digest binding
++ payload well-formedness; `verifiable` is the cryptographic verdict (`external` for `zktls`; `n/a` only when
+a type carries no independent cryptographic check). The `execution_hash` verdict is COMPUTED INDEPENDENTLY of
+attestation status — a failed or absent attestation NEVER changes the hash verdict, and a passing attestation
+NEVER substitutes for it. NORMATIVE honesty: §23 attests INPUT provenance where sources support it; it does
+not make an un-attested input trusted, does not prove computational correctness (§18), authorship (§16),
+kernel identity (§17), or existence-in-time of the artifact (§20) — the claims are independent and
+composable. A UI presenting attestations MUST keep the zero-attestation caveat visible.
+
+### §23.3 Frozen-envelope invariance (NORMATIVE)
+`input_attestations` is declared as an OPTIONAL top-level artifact property (exactly as §20 `anchor_bindings`
+was), so `$defs/artifact.required`, the §4 preimage members, and `chaingraph_version` `0.4.0` are UNTOUCHED.
+A verifier correct for v0.7/v0.8 computes an identical `execution_hash` for a v0.8.3 artifact and MAY ignore
+`input_attestations` entirely. Any type whose binding would require folding attestation data INTO the preimage
+is out of profile — attestations are adjacent evidence, never inputs to the hash.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.2 = Escalation records (§22.8: the `"escalate"` evaluator semantics — a
+See `standard/CHANGELOG.md`. v0.8.3 = Input Attestations (§23: the OPTIONAL hash-excluded top-level
+`input_attestations[]` array — per-entry RFC 6901 pointer into `policy_parameters`, `vc-2.0` /
+`c2pa-manifest` / `rfc3161-snapshot` verifiable now via shipped §16/§13.11/§20 machinery, `zktls` defined
+with EXTERNAL verification per D2; zero attestations stays fully conformant; envelope + `chaingraph_version`
+0.4.0 UNTOUCHED) over v0.8.2 (additive; no envelope/hash change — every existing `execution_hash` is
+byte-identical, `input_attestations` is a new optional property alongside `anchor_bindings`). v0.8.2 = Escalation records (§22.8: the `"escalate"` evaluator semantics — a
 terminal routing target beside `"end"`, classified by the single-source `isTerminalTarget` /
 `isEscalationTarget` exports with the decision record UNCHANGED; the `skipped_by_escalation` runtime halt
 contract; the open escalation record with its deterministic, wall-clock-excluded record hash; and the
@@ -1047,6 +1125,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §22.2 mandate signature: `eddsa-jcs-2022` whole-artifact proof REQUIRED; an unsigned mandate is a draft and is runtime-rejected | `proof-binding.test.mjs`, `mandate-binding.test.mjs` | validate |
 | §22.5 run_chain mandate binding: no-mandate run hash-identical to pre-mandate (conditional-presence `mandate_hash`); with-mandate folds `mandate_hash` into every step `policy_parameters` + `composite_policy` (with/without → different, each stable); expired/unsigned/bad-signature/out-of-scope → structured rejection | `mandate-binding.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §22.8 `"escalate"` evaluator: recognized as a terminal target (`isTerminalTarget`/`isEscalationTarget`); `evaluateGate` decision record for an escalate route is byte-identical to a non-escalating gate (NO escalation field), so existing gate decisions + composite hashes are unchanged; classifiers byte-parity across the 4 executing surfaces | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
+| §23 input attestations: hash-excluded top-level `input_attestations[]` (zero-attestation artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; `vc-2.0` verifies via §16/§13.11 Data Integrity + subject-digest == input digest, `rfc3161-snapshot` via the §20 `rfc3161-tst` verifier (messageImprint == input digest, no second RFC 3161 impl), `c2pa-manifest` structural + hard-binding digest match; `zktls` structural-only (`verifiable:"external"`, no vendored verifier); tampered proof / unresolved pointer / digest mismatch MUST fail; verdict reported per-input alongside `execution_hash`; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `validate-input-attestations.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
