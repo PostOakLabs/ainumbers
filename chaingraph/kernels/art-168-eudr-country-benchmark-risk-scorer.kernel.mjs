@@ -57,10 +57,11 @@ export function compute(pp) {
   const inspection_rate_pct = Number.isFinite(INSPECTION_RATES[benchmark_risk]) ? INSPECTION_RATES[benchmark_risk] : 0;
   const due_diligence_level = DUE_DILIGENCE[benchmark_risk] ?? DUE_DILIGENCE.unknown;
 
-  const compliance_flags = { EUDR_COUNTRY_RISK_ASSESSED: true };
-  if (benchmark_risk === 'low') compliance_flags.EUDR_LOW_RISK_COUNTRY = true;
-  else if (benchmark_risk === 'high') compliance_flags.EUDR_HIGH_RISK_COUNTRY = true;
-  else compliance_flags.EUDR_STANDARD_RISK_COUNTRY = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_COUNTRY_RISK_ASSESSED');
+  if (benchmark_risk === 'low') compliance_flags.push('EUDR_LOW_RISK_COUNTRY');
+  else if (benchmark_risk === 'high') compliance_flags.push('EUDR_HIGH_RISK_COUNTRY');
+  else compliance_flags.push('EUDR_STANDARD_RISK_COUNTRY');
 
   return {
     output_payload: {

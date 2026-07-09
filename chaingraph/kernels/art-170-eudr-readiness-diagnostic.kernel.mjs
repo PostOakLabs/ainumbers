@@ -48,11 +48,12 @@ export function compute(pp) {
     { date: '2027-06-30', scope: 'Micro-enterprises and SMEs: mandatory EUDR compliance (EUDR Art. 38(3))' },
   ];
 
-  const compliance_flags = { EUDR_READINESS_ASSESSED: true };
-  if (dims_met === total_dims) compliance_flags.EUDR_FULLY_READY = true;
-  else if (readiness_score >= 67) compliance_flags.EUDR_SUBSTANTIALLY_READY = true;
-  else if (readiness_score >= 33) compliance_flags.EUDR_PARTIALLY_READY = true;
-  else compliance_flags.EUDR_NOT_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_READINESS_ASSESSED');
+  if (dims_met === total_dims) compliance_flags.push('EUDR_FULLY_READY');
+  else if (readiness_score >= 67) compliance_flags.push('EUDR_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 33) compliance_flags.push('EUDR_PARTIALLY_READY');
+  else compliance_flags.push('EUDR_NOT_READY');
 
   return {
     output_payload: {

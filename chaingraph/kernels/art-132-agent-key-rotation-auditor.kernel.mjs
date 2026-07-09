@@ -16,9 +16,10 @@ export async function compute(pp) {
   const alg_ok = algorithm === 'ed25519';
   const rotation_posture = (!rotation_due && alg_ok) ? 'HEALTHY'
     : (rotation_due && next_key_present === true) ? 'ROTATION_STAGED' : 'ACTION_REQUIRED';
-  const compliance_flags = { KEY_ROTATION_ASSESSED: true };
-  compliance_flags['KEY_ROTATION_' + rotation_posture] = true;
-  if (!alg_ok) compliance_flags.ALGORITHM_NOT_ED25519 = true;
+  const compliance_flags = [];
+  compliance_flags.push('KEY_ROTATION_ASSESSED');
+  compliance_flags.push('KEY_ROTATION_' + rotation_posture);
+  if (!alg_ok) compliance_flags.push('ALGORITHM_NOT_ED25519');
   return { output_payload: { key_age_s, rotation_due, next_key_present: next_key_present === true, alg_ok, rotation_posture }, compliance_flags };
 }
 

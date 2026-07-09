@@ -300,10 +300,11 @@ function compute(pp) {
   };
   const allowed = LEGAL[prior_state] || [];
   const action_legal = allowed.includes(action_type);
-  const compliance_flags = { EMIR_LIFECYCLE_ASSESSED: true };
-  compliance_flags[action_legal ? 'EMIR_LIFECYCLE_VALID' : 'EMIR_LIFECYCLE_INVALID'] = true;
-  if (!action_legal && action_type === 'New' && prior_state === 'open') compliance_flags.DUPLICATE_NEW_ON_OPEN_UTI = true;
-  if (!action_legal && (action_type === 'Modify' || action_type === 'Correct') && prior_state === 'none') compliance_flags.MODIFY_WITHOUT_PRIOR = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_LIFECYCLE_ASSESSED');
+  compliance_flags.push(action_legal ? 'EMIR_LIFECYCLE_VALID' : 'EMIR_LIFECYCLE_INVALID');
+  if (!action_legal && action_type === 'New' && prior_state === 'open') compliance_flags.push('DUPLICATE_NEW_ON_OPEN_UTI');
+  if (!action_legal && (action_type === 'Modify' || action_type === 'Correct') && prior_state === 'none') compliance_flags.push('MODIFY_WITHOUT_PRIOR');
   return { output_payload: { action_legal, action_type: action_type ?? null, prior_state: prior_state ?? null, allowed }, compliance_flags };
 }
 
@@ -351,7 +352,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:1.1rem;padding-top:6px">' + (legal ? 'LEGAL' : 'ILLEGAL') + '</div><div class="hero-lbl">Event Status</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt);font-size:.85rem;padding-top:10px">' + (op.action_type || 'N/A') + '</div><div class="hero-lbl">Action Type</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--body);font-size:.85rem;padding-top:10px">' + (op.prior_state || 'N/A') + '</div><div class="hero-lbl">Prior State</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const allowedBadges = op.allowed && op.allowed.length > 0
     ? '<div class="gap-list" style="margin-top:8px">' + op.allowed.map(a => '<span class="badge ok">' + a + '</span>').join('') + '</div>'
     : '<div class="gap-list" style="margin-top:8px"><span class="badge warn">NO LEGAL ACTIONS (unknown prior_state)</span></div>';

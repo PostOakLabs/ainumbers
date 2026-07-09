@@ -307,10 +307,10 @@ function compute(pp) {
   const threshold_set = threshold_pct > 0;
   const nii_outlier = threshold_set && delta_nii_pct_of_nii > threshold_pct;
 
-  const compliance_flags = { IRRBB_SOT_NII_EVALUATED: true };
-  if (!threshold_set) compliance_flags.IRRBB_SOT_NII_THRESHOLD_NOT_SET = true;
-  else if (nii_outlier) compliance_flags.IRRBB_SOT_NII_OUTLIER_BREACH = true;
-  else compliance_flags.IRRBB_SOT_NII_WITHIN_THRESHOLD = true;
+  const compliance_flags = ['IRRBB_SOT_NII_EVALUATED'];
+  if (!threshold_set) compliance_flags.push('IRRBB_SOT_NII_THRESHOLD_NOT_SET');
+  else if (nii_outlier) compliance_flags.push('IRRBB_SOT_NII_OUTLIER_BREACH');
+  else compliance_flags.push('IRRBB_SOT_NII_WITHIN_THRESHOLD');
 
   return { output_payload: { worst_delta_nii, projected_nii, delta_nii_pct_of_nii, sot_nii_threshold_pct: threshold_pct, threshold_set, nii_outlier }, compliance_flags };
 }
@@ -379,7 +379,7 @@ async function runCalculator() {
       ? `<div class="verdict fail">✗ SOT/NII outlier — Delta NII decline (${fmt(op.delta_nii_pct_of_nii)}%) exceeds the institution's threshold (${op.sot_nii_threshold_pct}%).</div>`
       : `<div class="verdict pass">✓ Within threshold — Delta NII decline (${fmt(op.delta_nii_pct_of_nii)}%) is below the institution's threshold (${op.sot_nii_threshold_pct}%).</div>`);
 
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map(k=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
   document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
   const pre = document.getElementById('artifactPre');

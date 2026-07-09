@@ -64,8 +64,9 @@ export function compute(pp) {
     if (shocks[s].delta_eve < worst_delta_eve) { worst_delta_eve = shocks[s].delta_eve; worst_scenario = s; }
   }
 
-  const compliance_flags = { IRRBB_EVE_SHOCKS_CALCULATED: true };
-  if (worst_delta_eve < 0) compliance_flags.IRRBB_WORST_SCENARIO_IS_DECLINE = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_EVE_SHOCKS_CALCULATED');
+  if (worst_delta_eve < 0) compliance_flags.push('IRRBB_WORST_SCENARIO_IS_DECLINE');
 
   return {
     output_payload: {

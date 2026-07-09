@@ -98,16 +98,14 @@ export function compute(pp) {
   else if (overall_maturity < 90) maturity_band = 'Managed';
   else maturity_band = 'Optimizing';
 
-  const compliance_flags = {
-    AIMS_ASSESSED: true,
-    AIMS_CLAUSE_COVERAGE_PCT: clause_score,
-    AIMS_CONTROL_COVERAGE_PCT: control_score,
-  };
+  // Note: clause_score/control_score are numeric (%) and already exposed via output_payload below;
+  // compliance_flags is schema-typed as string[], so only boolean conditions are represented here.
+  const compliance_flags = ['AIMS_ASSESSED'];
 
   if (overall_maturity >= 75) {
-    compliance_flags.AIMS_CONFORMANT = true;
+    compliance_flags.push('AIMS_CONFORMANT');
   } else {
-    compliance_flags.AIMS_GAP_IDENTIFIED = true;
+    compliance_flags.push('AIMS_GAP_IDENTIFIED');
   }
 
   const output_payload = {

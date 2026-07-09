@@ -58,16 +58,15 @@ export function compute(pp) {
     verdict = 'PASS';
   }
 
-  const compliance_flags = {
-    [finality_flag]: true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push(finality_flag);
 
-  if (genius_fail) compliance_flags.GENIUS_RESERVE_FAIL = true;
-  if (depeg_wide) compliance_flags.DEPEG_RISK_WIDE = true;
-  if (mica_gap) compliance_flags.MICA_REDEMPTION_LAG = true;
-  if (verdict === 'PASS') compliance_flags.CASH_LEG_PASS = true;
-  if (verdict === 'FAIL') compliance_flags.CASH_LEG_FAIL = true;
-  if (verdict === 'CONDITIONAL') compliance_flags.CASH_LEG_CONDITIONAL = true;
+  if (genius_fail) compliance_flags.push('GENIUS_RESERVE_FAIL');
+  if (depeg_wide) compliance_flags.push('DEPEG_RISK_WIDE');
+  if (mica_gap) compliance_flags.push('MICA_REDEMPTION_LAG');
+  if (verdict === 'PASS') compliance_flags.push('CASH_LEG_PASS');
+  if (verdict === 'FAIL') compliance_flags.push('CASH_LEG_FAIL');
+  if (verdict === 'CONDITIONAL') compliance_flags.push('CASH_LEG_CONDITIONAL');
 
   const output_payload = { verdict, finality_flag, finality_pass, has_critical, has_gaps, genius_sum: +genius_sum.toFixed(1), depeg_wide, mica_gap };
   return { output_payload, compliance_flags };

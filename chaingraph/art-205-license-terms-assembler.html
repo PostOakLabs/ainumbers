@@ -475,10 +475,10 @@ function _inlineMd(s) {
 
 function computeAssembler(pp) {
   var tid = (pp.template_id || '').trim();
-  if (!tid) return { output_payload: { template_id:null, template_name:null, template_version:null, license_family:null, template_source:null, rendered_text:'', rendered_html:'', fields_used:[], fields_missing:['template_id'], checks:[{check:'template_id_present',pass:false,detail:'template_id is required'}], available_templates:Object.keys(TEMPLATES), disclaimer:'Not legal advice. Fixed templates only. Consult a licensed attorney.' }, compliance_flags:{FIXED_TEMPLATE_ONLY:true} };
+  if (!tid) return { output_payload: { template_id:null, template_name:null, template_version:null, license_family:null, template_source:null, rendered_text:'', rendered_html:'', fields_used:[], fields_missing:['template_id'], checks:[{check:'template_id_present',pass:false,detail:'template_id is required'}], available_templates:Object.keys(TEMPLATES), disclaimer:'Not legal advice. Fixed templates only. Consult a licensed attorney.' }, compliance_flags:['LICENSE_TERMS_ASSEMBLED','INPUTS_MISSING'] };
 
   var tpl = TEMPLATES[tid];
-  if (!tpl) return { output_payload:{ template_id:tid, template_name:null, template_version:null, license_family:null, template_source:null, rendered_text:'', rendered_html:'', fields_used:[], fields_missing:[], checks:[{check:'template_known',pass:false,detail:'Unknown template_id: '+tid+'. Available: '+Object.keys(TEMPLATES).join(', ')}], available_templates:Object.keys(TEMPLATES), disclaimer:'Not legal advice. Fixed templates only. Consult a licensed attorney.' }, compliance_flags:{FIXED_TEMPLATE_ONLY:true} };
+  if (!tpl) return { output_payload:{ template_id:tid, template_name:null, template_version:null, license_family:null, template_source:null, rendered_text:'', rendered_html:'', fields_used:[], fields_missing:[], checks:[{check:'template_known',pass:false,detail:'Unknown template_id: '+tid+'. Available: '+Object.keys(TEMPLATES).join(', ')}], available_templates:Object.keys(TEMPLATES), disclaimer:'Not legal advice. Fixed templates only. Consult a licensed attorney.' }, compliance_flags:['LICENSE_TERMS_ASSEMBLED','TEMPLATE_UNKNOWN'] };
 
   var checks = [], fields_used = [], fields_missing = [];
   checks.push({check:'template_known', pass:true, detail:'template_id: '+tid+' ('+tpl.name+')'});
@@ -519,7 +519,7 @@ function computeAssembler(pp) {
       available_templates: Object.keys(TEMPLATES),
       disclaimer: 'Not legal advice. Selection only. Fixed templates only — no bespoke drafting. The published license terms govern all rights. Consult a licensed attorney for your jurisdiction.'
     },
-    compliance_flags: { LICENSE_TERMS_ASSEMBLED:true, FIXED_TEMPLATE_ONLY:true, UPL_NO_BESPOKE_DRAFTING:true }
+    compliance_flags: (function(){ var f=['LICENSE_TERMS_ASSEMBLED','FIXED_TEMPLATE_ONLY','UPL_NO_BESPOKE_DRAFTING']; if(fields_missing.length>0) f.push('FIELDS_INCOMPLETE'); return f; })()
   };
 }
 
@@ -554,8 +554,8 @@ async function runAssembler() {
   document.getElementById('hashBox').textContent = hash;
 
   var fr = document.getElementById('flagRow'); fr.innerHTML='';
-  for (var k in flags) {
-    if (flags[k]) { var b=document.createElement('span'); b.className='badge ok'; b.textContent=k; fr.appendChild(b); }
+  for (var fi = 0; fi < flags.length; fi++) {
+    var b=document.createElement('span'); b.className='badge ok'; b.textContent=flags[fi]; fr.appendChild(b);
   }
 
   document.getElementById('disclaimerBox').textContent = op.disclaimer;

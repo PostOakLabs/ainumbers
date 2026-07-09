@@ -302,9 +302,10 @@ function compute(pp) {
   const lvl = Number(claimed_build_level);
   const slsa_build_level = Number.isInteger(lvl)&&lvl>=0&&lvl<=3 ? lvl : 0;
   const provenance_valid = type_ok && pred_ok && subject_digest_match && builder_id_present;
-  const compliance_flags = {SLSA_PROVENANCE_ASSESSED:true};
-  compliance_flags[provenance_valid?'SLSA_PROVENANCE_VALID':'SLSA_PROVENANCE_INVALID'] = true;
-  if (!subject_digest_match && artifact_digest_sha256) compliance_flags.SUBJECT_DIGEST_MISMATCH = true;
+  const compliance_flags = [];
+  compliance_flags.push('SLSA_PROVENANCE_ASSESSED');
+  compliance_flags.push(provenance_valid?'SLSA_PROVENANCE_VALID':'SLSA_PROVENANCE_INVALID');
+  if (!subject_digest_match && artifact_digest_sha256) compliance_flags.push('SUBJECT_DIGEST_MISMATCH');
   return {output_payload:{provenance_valid,type_ok,pred_ok,subject_digest_match,builder_id_present,slsa_build_level},compliance_flags};
 }
 
@@ -341,7 +342,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+lvlColor+'">L'+op.slsa_build_level+'</div><div class="hero-lbl">Build Level</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.subject_digest_match?'var(--green)':'var(--red)')+'">'+( op.subject_digest_match?'✓':'✗')+'</div><div class="hero-lbl">Digest Match</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.builder_id_present?'var(--green)':'var(--red)')+'">'+( op.builder_id_present?'✓':'✗')+'</div><div class="hero-lbl">Builder ID</div></div>';
-  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
+  const flagKeys=flags;
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ SLSA_PROVENANCE_VALID — Statement is correctly typed, digest matches, builder.id present.':'✗ SLSA_PROVENANCE_INVALID — Validation failed. Check compliance flags.')+'</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('INVALID')||f.includes('MISMATCH')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';

@@ -19,9 +19,10 @@ export function compute(pp) {
   // eIDAS Art.41-aligned electronic timestamp, self-verifiable, no external TSA call.
   const timestamp_claim = { standard: 'eIDAS Art.41 / RFC 3161-aligned', timestamp: claimed_timestamp ?? null, algorithm: hash_algorithm };
   const anchored = hash_well_formed && ts_present;
-  const compliance_flags = { DOCUMENT_ANCHORED: anchored };
-  if (!hash_well_formed) compliance_flags.MALFORMED_DOCUMENT_HASH = true;
-  if (!ts_present) compliance_flags.MISSING_TIMESTAMP = true;
+  const compliance_flags = [];
+  if (anchored) compliance_flags.push('DOCUMENT_ANCHORED');
+  if (!hash_well_formed) compliance_flags.push('MALFORMED_DOCUMENT_HASH');
+  if (!ts_present) compliance_flags.push('MISSING_TIMESTAMP');
   return { output_payload: { anchored, document_hash: document_hash ?? null, document_type: document_type ?? null, timestamp_claim }, compliance_flags };
 }
 

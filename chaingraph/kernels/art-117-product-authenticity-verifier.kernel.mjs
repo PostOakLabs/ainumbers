@@ -21,9 +21,10 @@ export function compute(pp) {
     if (ownership_transfers[i].from !== ownership_transfers[i - 1].to) { ownership_continuous = false; break; }
   }
   const authentic = chains_to_root && ownership_continuous;
-  const compliance_flags = { AUTHENTICITY_ASSESSED: true };
-  compliance_flags[authentic ? 'PRODUCT_AUTHENTIC' : 'PRODUCT_AUTHENTICITY_FAILED'] = true;
-  if (!ownership_continuous) compliance_flags.OWNERSHIP_CHAIN_BROKEN = true;
+  const compliance_flags = [];
+  compliance_flags.push('AUTHENTICITY_ASSESSED');
+  compliance_flags.push(authentic ? 'PRODUCT_AUTHENTIC' : 'PRODUCT_AUTHENTICITY_FAILED');
+  if (!ownership_continuous) compliance_flags.push('OWNERSHIP_CHAIN_BROKEN');
   return { output_payload: { product_id: product_id ?? null, authentic, chains_to_root, ownership_continuous }, compliance_flags };
 }
 

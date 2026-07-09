@@ -25,8 +25,9 @@ export function compute(pp) {
     if (!allowed || !allowed.includes(t && t.to)) illegal.push({ index: i, from: t && t.from, to: t && t.to });
   });
   const lifecycle_valid = seq.length > 0 && illegal.length === 0;
-  const compliance_flags = { MCP_TASK_LIFECYCLE_ASSESSED: true };
-  compliance_flags[lifecycle_valid ? 'TASK_LIFECYCLE_VALID' : 'TASK_LIFECYCLE_INVALID'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_TASK_LIFECYCLE_ASSESSED');
+  compliance_flags.push(lifecycle_valid ? 'TASK_LIFECYCLE_VALID' : 'TASK_LIFECYCLE_INVALID');
   return { output_payload: { lifecycle_valid, transition_count: seq.length, illegal_transitions: illegal }, compliance_flags };
 }
 

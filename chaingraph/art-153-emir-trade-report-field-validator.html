@@ -360,9 +360,10 @@ function compute(pp) {
   };
   const missing_fields = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
   const report_valid = missing_fields.length === 0;
-  const compliance_flags = { EMIR_TRADE_REPORT_ASSESSED: true };
-  compliance_flags[report_valid ? 'EMIR_REPORT_VALID' : 'EMIR_REPORT_INVALID'] = true;
-  if (!notional_ok) compliance_flags.NOTIONAL_NON_FINITE_OR_MISSING = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_TRADE_REPORT_ASSESSED');
+  compliance_flags.push(report_valid ? 'EMIR_REPORT_VALID' : 'EMIR_REPORT_INVALID');
+  if (!notional_ok) compliance_flags.push('NOTIONAL_NON_FINITE_OR_MISSING');
   return { output_payload: { report_valid, field_count_checked: Object.keys(checks).length, missing_fields, action_type: report.action_type ?? null }, compliance_flags };
 }
 
@@ -419,7 +420,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:1.1rem;padding-top:6px">' + (valid ? 'VALID' : 'INVALID') + '</div><div class="hero-lbl">Report Status</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + op.field_count_checked + '</div><div class="hero-lbl">Fields Checked</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.missing_fields.length === 0 ? 'var(--green)' : 'var(--red)') + '">' + op.missing_fields.length + '</div><div class="hero-lbl">Missing Fields</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const missingBadges = op.missing_fields.length > 0 ? '<div class="gap-list">' + op.missing_fields.map(m => '<span class="badge err">MISSING: ' + m + '</span>').join('') + '</div>' : '<div class="gap-list"><span class="badge ok">ALL FIELDS PRESENT</span></div>';
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (valid ? 'pass' : 'fail') + '">' +

@@ -20,10 +20,11 @@ export function compute(pp) {
   const shared_on_time = lag_h === null ? null : (lag_h >= 0 && lag_h <= 34);
   const uti_complete = format_ok && generator_known && shared_on_time !== false;
 
-  const compliance_flags = { EMIR_UTI_ASSESSED: true };
-  compliance_flags[uti_complete ? 'EMIR_UTI_COMPLETE' : 'EMIR_UTI_INCOMPLETE'] = true;
-  if (shared_on_time === false) compliance_flags.UTI_SHARED_LATE = true;
-  if (!format_ok) compliance_flags.UTI_MALFORMED = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_UTI_ASSESSED');
+  compliance_flags.push(uti_complete ? 'EMIR_UTI_COMPLETE' : 'EMIR_UTI_INCOMPLETE');
+  if (shared_on_time === false) compliance_flags.push('UTI_SHARED_LATE');
+  if (!format_ok) compliance_flags.push('UTI_MALFORMED');
 
   return {
     output_payload: { uti_complete, format_ok, generator_known, lag_h, shared_on_time },

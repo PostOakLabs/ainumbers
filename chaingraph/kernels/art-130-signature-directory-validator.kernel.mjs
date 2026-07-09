@@ -17,10 +17,11 @@ export async function compute(pp) {
   const matched = keys.find(k => k && (k.kid === keyid));
   const key_found = !!matched;
   const directory_valid = path_ok && all_ed25519 && key_found;
-  const compliance_flags = { SIGNATURE_DIRECTORY_ASSESSED: true };
-  compliance_flags[directory_valid ? 'SIGNATURE_DIRECTORY_VALID' : 'SIGNATURE_DIRECTORY_INVALID'] = true;
-  if (!path_ok) compliance_flags.WELL_KNOWN_PATH_INCORRECT = true;
-  if (!key_found) compliance_flags.KEYID_NOT_IN_DIRECTORY = true;
+  const compliance_flags = [];
+  compliance_flags.push('SIGNATURE_DIRECTORY_ASSESSED');
+  compliance_flags.push(directory_valid ? 'SIGNATURE_DIRECTORY_VALID' : 'SIGNATURE_DIRECTORY_INVALID');
+  if (!path_ok) compliance_flags.push('WELL_KNOWN_PATH_INCORRECT');
+  if (!key_found) compliance_flags.push('KEYID_NOT_IN_DIRECTORY');
   return { output_payload: { directory_valid, key_found, key_count: keys.length, algorithm_ok: all_ed25519, path_ok }, compliance_flags };
 }
 

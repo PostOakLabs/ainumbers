@@ -46,9 +46,10 @@ export function compute(pp) {
     ? Math.round((max_penalty_eur / safe_turnover) * 10000) / 100
     : 0;
 
-  const compliance_flags = { NIS2_PENALTY_ASSESSED: true };
-  if (max_penalty_eur > 5_000_000) compliance_flags.NIS2_HIGH_PENALTY_EXPOSURE = true;
-  if (types.length === 0) compliance_flags.NIS2_NO_INFRINGEMENT_DECLARED = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_PENALTY_ASSESSED');
+  if (max_penalty_eur > 5_000_000) compliance_flags.push('NIS2_HIGH_PENALTY_EXPOSURE');
+  if (types.length === 0) compliance_flags.push('NIS2_NO_INFRINGEMENT_DECLARED');
 
   return {
     output_payload: {

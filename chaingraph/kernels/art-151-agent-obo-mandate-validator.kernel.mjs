@@ -25,8 +25,9 @@ export function compute(pp) {
   if (!has_intent) gaps.push('INTENT');
   if (!has_scope) gaps.push('SCOPE');
   if (!not_expired) gaps.push('EXPIRED_OR_NO_VALIDITY');
-  const compliance_flags = { AGENT_OBO_MANDATE_ASSESSED: true };
-  compliance_flags[verdict === 'ACCEPT' ? 'OBO_MANDATE_VALID' : 'OBO_MANDATE_REFUSED'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('AGENT_OBO_MANDATE_ASSESSED');
+  compliance_flags.push(verdict === 'ACCEPT' ? 'OBO_MANDATE_VALID' : 'OBO_MANDATE_REFUSED');
   return { output_payload: { verdict, has_subject, has_intent, has_scope, not_expired, gaps }, compliance_flags };
 }
 

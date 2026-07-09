@@ -27,8 +27,9 @@ export function compute(pp) {
   });
   const context_ok = typeof vex['@context'] === 'string' || Array.isArray(vex['@context']);
   const vex_valid = context_ok && statements.length > 0 && invalid_statements.length === 0;
-  const compliance_flags = { OPENVEX_ASSESSED: true };
-  compliance_flags[vex_valid ? 'OPENVEX_VALID' : 'OPENVEX_INVALID'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('OPENVEX_ASSESSED');
+  compliance_flags.push(vex_valid ? 'OPENVEX_VALID' : 'OPENVEX_INVALID');
   return { output_payload: { vex_valid, statement_count: statements.length, invalid_statements, context_ok }, compliance_flags };
 }
 

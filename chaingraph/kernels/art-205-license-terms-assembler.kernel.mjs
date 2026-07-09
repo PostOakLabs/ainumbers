@@ -201,7 +201,7 @@ export function compute(pp) {
         available_templates: Object.keys(TEMPLATES),
         disclaimer: 'Not legal advice. Fixed templates only. Consult a licensed attorney for your jurisdiction.',
       },
-      compliance_flags: { LICENSE_TERMS_ASSEMBLED: true, INPUTS_MISSING: true },
+      compliance_flags: ['LICENSE_TERMS_ASSEMBLED', 'INPUTS_MISSING'],
     };
   }
 
@@ -221,7 +221,7 @@ export function compute(pp) {
         available_templates: Object.keys(TEMPLATES),
         disclaimer: 'Not legal advice. Fixed templates only. Consult a licensed attorney for your jurisdiction.',
       },
-      compliance_flags: { LICENSE_TERMS_ASSEMBLED: true, TEMPLATE_UNKNOWN: true },
+      compliance_flags: ['LICENSE_TERMS_ASSEMBLED', 'TEMPLATE_UNKNOWN'],
     };
   }
 
@@ -267,12 +267,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. Substitution into pre-approved templates only. No novel legal drafting. The published license terms govern. Consult a licensed attorney for your jurisdiction.',
   };
 
-  const compliance_flags = {
-    LICENSE_TERMS_ASSEMBLED: true,
-    FIXED_TEMPLATE_ONLY: true,
-    UPL_NO_BESPOKE_DRAFTING: true,
-  };
-  if (!fieldsMet) compliance_flags.FIELDS_INCOMPLETE = true;
+  const compliance_flags = [];
+  compliance_flags.push('LICENSE_TERMS_ASSEMBLED');
+  compliance_flags.push('FIXED_TEMPLATE_ONLY');
+  compliance_flags.push('UPL_NO_BESPOKE_DRAFTING');
+  if (!fieldsMet) compliance_flags.push('FIELDS_INCOMPLETE');
 
   return { output_payload, compliance_flags };
 }

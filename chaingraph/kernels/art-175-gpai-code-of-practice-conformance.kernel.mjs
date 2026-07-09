@@ -26,10 +26,7 @@ export function compute(pp) {
         not_applicable: true,
         reason: 'not_a_gpai_provider',
       },
-      compliance_flags: {
-        GPAI_ASSESSED: true,
-        GPAI_NOT_APPLICABLE: true,
-      },
+      compliance_flags: ['GPAI_ASSESSED', 'GPAI_NOT_APPLICABLE'],
     };
   }
 
@@ -80,26 +77,25 @@ export function compute(pp) {
         : 0)
     : base_score;
 
-  const compliance_flags = {
-    GPAI_ASSESSED: true,
-    GPAI_BASE_SCORE: base_score,
-  };
+  // Note: base_score is numeric (%) and already exposed via output_payload below;
+  // compliance_flags is schema-typed as string[].
+  const compliance_flags = ['GPAI_ASSESSED'];
 
   if (base_conformant) {
-    compliance_flags.GPAI_BASE_OBLIGATIONS_MET = true;
+    compliance_flags.push('GPAI_BASE_OBLIGATIONS_MET');
   } else {
-    compliance_flags.GPAI_BASE_OBLIGATIONS_GAP = true;
+    compliance_flags.push('GPAI_BASE_OBLIGATIONS_GAP');
   }
 
   if (is_systemic_risk && systemic_risk_conformant) {
-    compliance_flags.GPAI_SYSTEMIC_RISK_OBLIGATIONS_MET = true;
+    compliance_flags.push('GPAI_SYSTEMIC_RISK_OBLIGATIONS_MET');
   }
   if (is_systemic_risk && !systemic_risk_conformant) {
-    compliance_flags.GPAI_SYSTEMIC_RISK_OBLIGATIONS_GAP = true;
+    compliance_flags.push('GPAI_SYSTEMIC_RISK_OBLIGATIONS_GAP');
   }
 
   if (code_of_practice_signed) {
-    compliance_flags.GPAI_CODE_SIGNED = true;
+    compliance_flags.push('GPAI_CODE_SIGNED');
   }
 
   return {

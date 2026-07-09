@@ -60,10 +60,11 @@ export function compute(pp) {
     hqlaImpact = 'NEUTRAL';
   }
 
-  // flags accumulator: { pass, err, warn }
-  const compliance_flags = {};
+  // flags accumulator: { pass, err, warn } — internal only, used to derive severity below.
+  // The schema-facing compliance_flags is the array of keys, built after severity is computed.
+  const flagState = {};
   const setFlag = (key, type) => {
-    compliance_flags[key] = { pass: type === 'pass', err: type === 'err', warn: type === 'warn' };
+    flagState[key] = { pass: type === 'pass', err: type === 'err', warn: type === 'warn' };
   };
 
   // Direction mismatch
@@ -98,8 +99,8 @@ export function compute(pp) {
 
   // Eligibility
   const sftrViolation = euCp && reuse_flag && (!sftr_consent || !provider_informed);
-  const hasHardFail = Object.values(compliance_flags).some(f => f.err === true);
-  const hasWarn     = Object.values(compliance_flags).some(f => f.warn === true);
+  const hasHardFail = Object.values(flagState).some(f => f.err === true);
+  const hasWarn     = Object.values(flagState).some(f => f.warn === true);
 
   let eligibility;
   if (sftrViolation || hasHardFail) {
@@ -113,6 +114,8 @@ export function compute(pp) {
     setFlag('SWAP_ELIGIBLE', 'pass');
     setFlag('COLLATERAL_SWAP_VALIDATED', 'pass');
   }
+
+  const compliance_flags = Object.keys(flagState);
 
   const pacs008 = {
     instructed_amount: Math.max(valueA, valueB).toFixed(2),

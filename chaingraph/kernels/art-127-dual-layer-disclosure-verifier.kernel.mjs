@@ -22,9 +22,10 @@ export async function compute(pp) {
   const dual_layer_ok = c2pa_metadata_present === true && watermark_present === true;
   const missing_layer = dual_layer_ok ? null
     : (c2pa_metadata_present !== true ? 'c2pa_signed_metadata' : 'imperceptible_watermark');
-  const compliance_flags = { DUAL_LAYER_DISCLOSURE_ASSESSED: true };
-  compliance_flags[dual_layer_ok ? 'DUAL_LAYER_PRESENT' : 'DUAL_LAYER_INCOMPLETE'] = true;
-  if (watermark_present === true && !method_recognized) compliance_flags.WATERMARK_METHOD_UNRECOGNIZED = true;
+  const compliance_flags = [];
+  compliance_flags.push('DUAL_LAYER_DISCLOSURE_ASSESSED');
+  compliance_flags.push(dual_layer_ok ? 'DUAL_LAYER_PRESENT' : 'DUAL_LAYER_INCOMPLETE');
+  if (watermark_present === true && !method_recognized) compliance_flags.push('WATERMARK_METHOD_UNRECOGNIZED');
   return {
     output_payload: {
       dual_layer_ok,

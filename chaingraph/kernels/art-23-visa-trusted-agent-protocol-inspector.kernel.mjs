@@ -122,16 +122,15 @@ export function compute(pp) {
 
   const verdict = score >= 85 ? 'TAP_READY' : score >= 60 ? 'PARTIAL' : 'NOT_READY';
 
-  const compliance_flags = {
-    TAP_SIGNATURE_INSPECTED: true,
-    TAP_SIGNATURE_VALID: errors === 0,
-    TAP_SIGNATURE_INVALID: errors > 0,
-    HAS_AGENT_TAG: !!(parsed_params?.tag && /trusted-agent|agent/i.test(parsed_params.tag)),
-    HAS_KEYID: !!(parsed_params?.keyid),
-    HAS_NONCE: !!(parsed_params?.nonce),
-    HAS_EXPIRES: !!(parsed_params?.expires),
-    ALG_ED25519: parsed_params?.alg?.toLowerCase() === 'ed25519',
-  };
+  const compliance_flags = [];
+  compliance_flags.push('TAP_SIGNATURE_INSPECTED');
+  if (errors === 0) compliance_flags.push('TAP_SIGNATURE_VALID');
+  if (errors > 0) compliance_flags.push('TAP_SIGNATURE_INVALID');
+  if (!!(parsed_params?.tag && /trusted-agent|agent/i.test(parsed_params.tag))) compliance_flags.push('HAS_AGENT_TAG');
+  if (!!(parsed_params?.keyid)) compliance_flags.push('HAS_KEYID');
+  if (!!(parsed_params?.nonce)) compliance_flags.push('HAS_NONCE');
+  if (!!(parsed_params?.expires)) compliance_flags.push('HAS_EXPIRES');
+  if (parsed_params?.alg?.toLowerCase() === 'ed25519') compliance_flags.push('ALG_ED25519');
 
   const output_payload = { verdict, score, errors, warnings, passes, parsed_label, parsed_params, findings: findings.map(f => ({ level: f.level, msg: f.msg })) };
   return { output_payload, compliance_flags };

@@ -32,20 +32,9 @@ export function compute(pp) {
     const final_haircut = haircut_adj;
     const adjusted_value = +(notionalNum * (1 - final_haircut / 100)).toFixed(2);
 
-    const compliance_flags = {
-      COLLATERAL_ELIGIBILITY_ASSESSED: true,
-      DTC_ELIGIBLE: false,
-      FED_ELIGIBLE_VERIFY: false,
-      NOT_ELIGIBLE: false,
-      HQLA_LEVEL_1: false,
-      HQLA_LEVEL_2A: false,
-      HQLA_LEVEL_2B: false,
-      NON_HQLA: true,
-      MMF_HQLA_EXCLUDED: true,
-      TRANSFER_RESTRICTION_PRESENT: hasRestrictions,
-      BCBS_SCO60_GROUP1A_NOTE: false,
-      CUSTODY_LINKAGE_VERIFIED: !!custody_linkage,
-    };
+    const compliance_flags = ['COLLATERAL_ELIGIBILITY_ASSESSED', 'NON_HQLA', 'MMF_HQLA_EXCLUDED'];
+    if (hasRestrictions) compliance_flags.push('TRANSFER_RESTRICTION_PRESENT');
+    if (custody_linkage) compliance_flags.push('CUSTODY_LINKAGE_VERIFIED');
 
     const output_payload = { dtc_status: 'INELIGIBLE_DTC', hqla_tier: 'NON_HQLA', base_haircut: null, haircut_adj, final_haircut, adjusted_value };
     return { output_payload, compliance_flags };
@@ -85,20 +74,18 @@ export function compute(pp) {
     : haircut_adj;
   const adjusted_value = +(notionalNum * (1 - final_haircut / 100)).toFixed(2);
 
-  const compliance_flags = {
-    COLLATERAL_ELIGIBILITY_ASSESSED: true,
-    DTC_ELIGIBLE: dtc_status === 'DTC_ELIGIBLE',
-    FED_ELIGIBLE_VERIFY: dtc_status === 'FED_ELIGIBLE_VERIFY',
-    NOT_ELIGIBLE: dtc_status === 'INELIGIBLE_DTC',
-    HQLA_LEVEL_1: hqla_tier === 'HQLA_LEVEL_1',
-    HQLA_LEVEL_2A: hqla_tier === 'HQLA_LEVEL_2A',
-    HQLA_LEVEL_2B: hqla_tier === 'HQLA_LEVEL_2B',
-    NON_HQLA: hqla_tier === 'NON_HQLA',
-    MMF_HQLA_EXCLUDED: asset_type === 'mmf_fund_share',
-    TRANSFER_RESTRICTION_PRESENT: hasRestrictions,
-    BCBS_SCO60_GROUP1A_NOTE: hqla_tier === 'HQLA_LEVEL_1',
-    CUSTODY_LINKAGE_VERIFIED: !!custody_linkage,
-  };
+  const compliance_flags = ['COLLATERAL_ELIGIBILITY_ASSESSED'];
+  if (dtc_status === 'DTC_ELIGIBLE') compliance_flags.push('DTC_ELIGIBLE');
+  if (dtc_status === 'FED_ELIGIBLE_VERIFY') compliance_flags.push('FED_ELIGIBLE_VERIFY');
+  if (dtc_status === 'INELIGIBLE_DTC') compliance_flags.push('NOT_ELIGIBLE');
+  if (hqla_tier === 'HQLA_LEVEL_1') compliance_flags.push('HQLA_LEVEL_1');
+  if (hqla_tier === 'HQLA_LEVEL_2A') compliance_flags.push('HQLA_LEVEL_2A');
+  if (hqla_tier === 'HQLA_LEVEL_2B') compliance_flags.push('HQLA_LEVEL_2B');
+  if (hqla_tier === 'NON_HQLA') compliance_flags.push('NON_HQLA');
+  if (asset_type === 'mmf_fund_share') compliance_flags.push('MMF_HQLA_EXCLUDED');
+  if (hasRestrictions) compliance_flags.push('TRANSFER_RESTRICTION_PRESENT');
+  if (hqla_tier === 'HQLA_LEVEL_1') compliance_flags.push('BCBS_SCO60_GROUP1A_NOTE');
+  if (custody_linkage) compliance_flags.push('CUSTODY_LINKAGE_VERIFIED');
 
   const output_payload = { dtc_status, hqla_tier, base_haircut, haircut_adj, final_haircut, adjusted_value };
   return { output_payload, compliance_flags };

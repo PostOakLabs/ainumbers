@@ -43,11 +43,12 @@ export function compute(pp) {
     measurement_model = 'GMM';
   }
 
-  const compliance_flags = { IFRS17_MEASUREMENT_MODEL_CLASSIFIED: true };
-  compliance_flags[`IFRS17_MODEL_${measurement_model}`] = true;
-  if (vfa_eligible) compliance_flags.IFRS17_VFA_ELIGIBLE = true;
-  if (paa_eligible) compliance_flags.IFRS17_PAA_ELIGIBLE = true;
-  if (is_reinsurance) compliance_flags.IFRS17_REINSURANCE_HELD = true;
+  const compliance_flags = [];
+  compliance_flags.push('IFRS17_MEASUREMENT_MODEL_CLASSIFIED');
+  compliance_flags.push(`IFRS17_MODEL_${measurement_model}`);
+  if (vfa_eligible) compliance_flags.push('IFRS17_VFA_ELIGIBLE');
+  if (paa_eligible) compliance_flags.push('IFRS17_PAA_ELIGIBLE');
+  if (is_reinsurance) compliance_flags.push('IFRS17_REINSURANCE_HELD');
 
   return {
     output_payload: {

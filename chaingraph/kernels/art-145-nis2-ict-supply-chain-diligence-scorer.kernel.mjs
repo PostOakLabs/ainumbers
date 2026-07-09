@@ -51,9 +51,10 @@ export function compute(pp) {
   const passed = total_controls - new Set(active_risk_flags).size;
   const enisa_control_coverage_pct = Math.round((passed / total_controls) * 100);
 
-  const compliance_flags = { NIS2_SUPPLY_CHAIN_ASSESSED: true };
-  compliance_flags[`NIS2_VENDOR_RISK_${risk_tier.toUpperCase()}`] = true;
-  if (risk_tier === 'critical' || risk_tier === 'high') compliance_flags.NIS2_SUPPLY_CHAIN_REMEDIATION_REQUIRED = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_SUPPLY_CHAIN_ASSESSED');
+  compliance_flags.push(`NIS2_VENDOR_RISK_${risk_tier.toUpperCase()}`);
+  if (risk_tier === 'critical' || risk_tier === 'high') compliance_flags.push('NIS2_SUPPLY_CHAIN_REMEDIATION_REQUIRED');
 
   return {
     output_payload: {

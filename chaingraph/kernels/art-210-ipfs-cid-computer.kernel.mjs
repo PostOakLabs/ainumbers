@@ -163,12 +163,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. CID is computed from your input text only. No pinning, no network. Verify against ipfs add --cid-version=1 for your codec before use.',
   };
 
-  const compliance_flags = {
-    IPFS_CID_COMPUTED: true,
-    CIDV1_FORMAT: true,
-    NO_NETWORK_CALL: true,
-    KNOWN_VECTOR_VERIFIED: true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('IPFS_CID_COMPUTED');
+  compliance_flags.push('CIDV1_FORMAT');
+  compliance_flags.push('NO_NETWORK_CALL');
+  compliance_flags.push('KNOWN_VECTOR_VERIFIED');
 
   return { output_payload, compliance_flags };
 }

@@ -306,11 +306,12 @@ function compute(pp) {
   const gap_count = drr_gap_fields.length;
   const migration_ready = gap_count === 0;
   const txn_val = Number.isFinite(Number(regime.transaction_value)) ? Number(regime.transaction_value) : 0;
-  const compliance_flags = { VIDA_MIGRATION_ASSESSED: true };
-  if (has_pre2024) compliance_flags.VIDA_LEGACY_REGIME_HARMONIZE_2035 = true;
-  else compliance_flags.VIDA_NEW_REGIME_HARMONIZE_2030 = true;
-  if (migration_ready) compliance_flags.VIDA_MIGRATION_READY = true;
-  else compliance_flags.VIDA_MIGRATION_GAP_IDENTIFIED = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_MIGRATION_ASSESSED');
+  if (has_pre2024) compliance_flags.push('VIDA_LEGACY_REGIME_HARMONIZE_2035');
+  else compliance_flags.push('VIDA_NEW_REGIME_HARMONIZE_2030');
+  if (migration_ready) compliance_flags.push('VIDA_MIGRATION_READY');
+  else compliance_flags.push('VIDA_MIGRATION_GAP_IDENTIFIED');
   return { output_payload: { harmonize_deadline, pre2024_domestic: has_pre2024, esl_fields_assessed: ESL_FIELDS.length, drr_gap_fields, gap_count, migration_ready, transaction_value: txn_val }, compliance_flags };
 }
 
@@ -340,7 +341,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.migration_ready ? 'var(--green)' : 'var(--gold)') + ';font-size:.85rem;padding-top:6px">' + (op.migration_ready ? 'READY' : 'GAP FOUND') + '</div><div class="hero-lbl">Migration Status</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--red)">' + op.gap_count + '</div><div class="hero-lbl">Field Gaps</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt);font-size:.9rem;padding-top:6px">' + op.harmonize_deadline + '</div><div class="hero-lbl">Harmonize By</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const gapBadges = op.drr_gap_fields.length > 0 ? op.drr_gap_fields.map(g => '<span class="badge err">GAP: ' + g + '</span>').join('') : '<span class="badge ok">ALL 4 ESL FIELDS MAPPED</span>';
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (op.migration_ready ? 'pass' : 'warn') + '">' + (op.migration_ready ? '✓ MIGRATION READY — All ESL fields map to DRR. Harmonize by ' + op.harmonize_deadline + '.' : '⚠ GAP IDENTIFIED — ' + op.gap_count + ' ESL field(s) missing. Harmonize by ' + op.harmonize_deadline + '.') + '</div>' +

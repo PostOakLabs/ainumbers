@@ -20,9 +20,10 @@ export function compute(pp) {
   const carrier_valid = VALID_CARRIERS.includes(data_carrier_type);
   const id_present = typeof product_id === 'string' && product_id.length > 0;
   const ontology_conformant = missing_elements.length === 0 && carrier_valid && id_present;
-  const compliance_flags = { DPP_CARRIER_ASSESSED: true };
-  compliance_flags[ontology_conformant ? 'DPP_CORE_ONTOLOGY_CONFORMANT' : 'DPP_NONCONFORMANT'] = true;
-  if (!carrier_valid) compliance_flags.DPP_CARRIER_INVALID = true;
+  const compliance_flags = [];
+  compliance_flags.push('DPP_CARRIER_ASSESSED');
+  compliance_flags.push(ontology_conformant ? 'DPP_CORE_ONTOLOGY_CONFORMANT' : 'DPP_NONCONFORMANT');
+  if (!carrier_valid) compliance_flags.push('DPP_CARRIER_INVALID');
   return { output_payload: { product_id: product_id ?? null, carrier_valid, missing_elements, ontology_conformant, ontology_version: ontology_version ?? null }, compliance_flags };
 }
 

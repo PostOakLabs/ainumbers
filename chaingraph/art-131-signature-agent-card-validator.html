@@ -239,10 +239,10 @@ function compute(pp){
   const dir_set=new Set(directory_keyids);
   const keys_in_directory=card_keys.length>0&&card_keys.every(k=>dir_set.has(k));
   const identity_trust_verdict=(fields_ok&&keys_in_directory)?'TRUSTED':'UNTRUSTED';
-  const flags={SIGNATURE_AGENT_CARD_ASSESSED:true};
-  flags[identity_trust_verdict==='TRUSTED'?'AGENT_IDENTITY_TRUSTED':'AGENT_IDENTITY_UNTRUSTED']=true;
-  if(!fields_ok)flags.REQUIRED_FIELDS_MISSING=true;
-  if(!keys_in_directory)flags.CARD_KEYS_NOT_IN_DIRECTORY=true;
+  const flags=['SIGNATURE_AGENT_CARD_ASSESSED'];
+  flags.push(identity_trust_verdict==='TRUSTED'?'AGENT_IDENTITY_TRUSTED':'AGENT_IDENTITY_UNTRUSTED');
+  if(!fields_ok)flags.push('REQUIRED_FIELDS_MISSING');
+  if(!keys_in_directory)flags.push('CARD_KEYS_NOT_IN_DIRECTORY');
   return{output_payload:{fields_ok,missing_fields,keys_in_directory,identity_trust_verdict},compliance_flags:flags};
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -267,7 +267,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(vok?'var(--green)':'var(--red)')+'">'+op.identity_trust_verdict+'</div><div class="hero-lbl">Identity Trust</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.fields_ok?'var(--green)':'var(--red)')+'">'+( op.fields_ok?'✓':'✗')+'</div><div class="hero-lbl">Fields OK</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.keys_in_directory?'var(--green)':'var(--red)')+'">'+( op.keys_in_directory?'✓':'✗')+'</div><div class="hero-lbl">Keys in Dir</div></div>';
-  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
+  const flagKeys=flags;
   document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ TRUSTED — Required fields present and card keys consistent with directory.':'✗ UNTRUSTED — Card validation failed. See compliance flags.')+'</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('UNTRUSTED')||f.includes('MISSING')||f.includes('NOT')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
   const mf=op.missing_fields&&op.missing_fields.length?op.missing_fields.join(', '):'none';
   document.getElementById('detailDiv').innerHTML='<table class="tbl" style="margin-top:12px"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>'+

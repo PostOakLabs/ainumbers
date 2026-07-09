@@ -21,8 +21,9 @@ export function compute(pp) {
       recipients.push({ tlc: e.to_tlc, gln: e.to_gln, date: e.date });
   });
   const traced = sources.length + recipients.length;
-  const compliance_flags = { RECALL_TRACE_RESOLVED: true };
-  if (traced === 0) compliance_flags.NO_LINKED_NODES_FOUND = true;
+  const compliance_flags = [];
+  compliance_flags.push('RECALL_TRACE_RESOLVED');
+  if (traced === 0) compliance_flags.push('NO_LINKED_NODES_FOUND');
   return { output_payload: { contaminated_tlc, sources, recipients, traced_count: traced }, compliance_flags };
 }
 

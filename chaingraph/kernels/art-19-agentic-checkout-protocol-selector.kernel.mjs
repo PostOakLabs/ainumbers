@@ -122,16 +122,16 @@ export function compute(pp) {
   const viable = sorted.filter(k => scores[k] >= 45);
   const recommended = sorted.filter(k => scores[k] >= 70);
 
-  const compliance_flags = {
-    PROTOCOL_SELECTION_COMPLETE: true,
-    PRIMARY_PROTOCOL: primary,
-    HAS_RECOMMENDED_PROTOCOL: recommended.length > 0,
-    UCP_VIABLE: scores.UCP >= 45,
-    ACP_VIABLE: scores.ACP >= 45,
-    X402_VIABLE: scores.x402 >= 45,
-    TAP_VIABLE: scores.TAP >= 45,
-    MULTI_PROTOCOL_RECOMMENDED: recommended.length > 1,
-  };
+  const compliance_flags = [
+    'PROTOCOL_SELECTION_COMPLETE',
+    `PRIMARY_PROTOCOL_${String(primary).toUpperCase()}`,
+  ];
+  if (recommended.length > 0) compliance_flags.push('HAS_RECOMMENDED_PROTOCOL');
+  if (scores.UCP >= 45) compliance_flags.push('UCP_VIABLE');
+  if (scores.ACP >= 45) compliance_flags.push('ACP_VIABLE');
+  if (scores.x402 >= 45) compliance_flags.push('X402_VIABLE');
+  if (scores.TAP >= 45) compliance_flags.push('TAP_VIABLE');
+  if (recommended.length > 1) compliance_flags.push('MULTI_PROTOCOL_RECOMMENDED');
 
   const output_payload = {
     primary_recommendation: primary,

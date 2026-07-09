@@ -422,10 +422,11 @@ async function compute(pp) {
   const record_sha256 = await sha256HexStr(JSON.stringify(cgCanon(recordCore)));
   const sanitization_record = { ...recordCore, record_sha256 };
 
-  const compliance_flags = { METADATA_SANITIZATION_ASSESSED: true };
-  compliance_flags['SANITIZATION_' + verdict.toUpperCase()] = true;
-  if (retained.length > 0) compliance_flags.RETAINED_METADATA_PRESENT = true;
-  if (!digestsValid) compliance_flags.DIGESTS_INCOMPLETE = true;
+  const compliance_flags = [];
+  compliance_flags.push('METADATA_SANITIZATION_ASSESSED');
+  compliance_flags.push('SANITIZATION_' + verdict.toUpperCase());
+  if (retained.length > 0) compliance_flags.push('RETAINED_METADATA_PRESENT');
+  if (!digestsValid) compliance_flags.push('DIGESTS_INCOMPLETE');
 
   return {
     output_payload: { sanitization_record, residual_risks, verdict },
@@ -848,7 +849,7 @@ async function renderResults(ctx) {
     ? `<div class="form-label" style="margin-top:10px;margin-bottom:4px;color:var(--warn)">Residual risks:</div><ul class="gap-list" style="color:var(--warn)">${op.residual_risks.map(r=>`<li>${escapeHtml(r)}</li>`).join('')}</ul>`
     : `<div class="check-line ok" style="margin-top:10px">✓ No residual risks flagged.</div>`;
 
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map(k=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
 
   document.getElementById('hashBox').innerHTML =

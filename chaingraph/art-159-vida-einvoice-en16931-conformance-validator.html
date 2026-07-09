@@ -352,10 +352,11 @@ function compute(pp) {
   const missing_fields = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
   const conformant = missing_fields.length === 0;
   const vida_ready = conformant && syntax_id_valid;
-  const compliance_flags = { VIDA_EINVOICE_ASSESSED: true };
-  if (vida_ready) compliance_flags.VIDA_EN16931_CONFORMANT = true;
-  else if (conformant) compliance_flags.EN16931_CONFORMANT_SYNTAX_ADVISORY = true;
-  else compliance_flags.EN16931_NON_CONFORMANT = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_EINVOICE_ASSESSED');
+  if (vida_ready) compliance_flags.push('VIDA_EN16931_CONFORMANT');
+  else if (conformant) compliance_flags.push('EN16931_CONFORMANT_SYNTAX_ADVISORY');
+  else compliance_flags.push('EN16931_NON_CONFORMANT');
   return { output_payload: { conformant, vida_ready, syntax_id_valid, mandatory_fields_checked: Object.keys(checks).length, missing_fields, currency_code: invoice.currency_code ?? null, total_with_vat: Number.isFinite(total_with_vat_raw) ? total_with_vat_raw : 0 }, compliance_flags };
 }
 
@@ -417,7 +418,7 @@ function renderResults(op, flags, execHash, artifact) {
     ? '<div class="gap-list">' + op.missing_fields.map(m => '<span class="badge err">MISSING: ' + m + '</span>').join('') + '</div>'
     : '<div class="gap-list"><span class="badge ok">ALL MANDATORY FIELDS PRESENT</span></div>';
   const syntaxBadge = op.syntax_id_valid ? '<span class="badge ok">SYNTAX ID VALID</span>' : '<span class="badge warn">SYNTAX ID ADVISORY</span>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (op.vida_ready ? 'pass' : op.conformant ? 'warn' : 'fail') + '">' +
     (op.vida_ready ? '✓ VIDA READY — EN 16931-1:2026 conformant with valid syntax identifier.'

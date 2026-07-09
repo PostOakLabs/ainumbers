@@ -290,10 +290,11 @@ function compute(pp) {
   const lag_h = (Number.isFinite(t) && Number.isFinite(s)) ? Math.round(((s - t) / 3600) * 100) / 100 : null;
   const shared_on_time = lag_h === null ? null : (lag_h >= 0 && lag_h <= 34);
   const uti_complete = format_ok && generator_known && shared_on_time !== false;
-  const compliance_flags = { EMIR_UTI_ASSESSED: true };
-  compliance_flags[uti_complete ? 'EMIR_UTI_COMPLETE' : 'EMIR_UTI_INCOMPLETE'] = true;
-  if (shared_on_time === false) compliance_flags.UTI_SHARED_LATE = true;
-  if (!format_ok) compliance_flags.UTI_MALFORMED = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_UTI_ASSESSED');
+  compliance_flags.push(uti_complete ? 'EMIR_UTI_COMPLETE' : 'EMIR_UTI_INCOMPLETE');
+  if (shared_on_time === false) compliance_flags.push('UTI_SHARED_LATE');
+  if (!format_ok) compliance_flags.push('UTI_MALFORMED');
   return { output_payload: { uti_complete, format_ok, generator_known, lag_h, shared_on_time }, compliance_flags };
 }
 
@@ -346,7 +347,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + lagColor + ';font-size:1.2rem;padding-top:6px">' + lagDisplay + '</div><div class="hero-lbl">Sharing Lag</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="font-size:1rem;color:' + (op.format_ok ? 'var(--green)' : 'var(--red)') + ';padding-top:6px">' + (op.format_ok ? '✓' : '✗') + '</div><div class="hero-lbl">Format OK</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="font-size:1rem;color:' + (op.generator_known ? 'var(--green)' : 'var(--red)') + ';padding-top:6px">' + (op.generator_known ? '✓' : '✗') + '</div><div class="hero-lbl">Generator Known</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const onTimeBadge = op.shared_on_time === true ? '<span class="badge ok">SHARED ON TIME (≤34h)</span>' : op.shared_on_time === false ? '<span class="badge err">SHARED LATE (&gt;34h)</span>' : '<span class="badge warn">TIMING UNKNOWN</span>';
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (complete ? 'pass' : 'fail') + '">' +

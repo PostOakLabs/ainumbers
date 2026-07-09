@@ -355,13 +355,12 @@ function compute(pp) {
 
   const ra_compliant = gaps.length === 0;
 
-  const compliance_flags = {
-    IFRS17_RA_COMPLIANT: ra_compliant,
-    IFRS17_RA_TECHNIQUE_VALID: technique_valid,
-    IFRS17_RA_DISCLOSED: disclosed,
-    IFRS17_RA_CONFIDENCE_DISCLOSED: confidence_disclosed,
-  };
-  if (onerous) compliance_flags.IFRS17_ONEROUS_LOSS_COMPONENT_REQUIRED = !loss_recog;
+  const compliance_flags = [];
+  compliance_flags.push('IFRS17_RISK_ADJUSTMENT_ASSESSED');
+  if (ra_compliant) compliance_flags.push('IFRS17_RISK_ADJUSTMENT_VALID');
+  if (onerous) compliance_flags.push('IFRS17_ONEROUS_CONTRACTS_IDENTIFIED');
+  if (loss_recog) compliance_flags.push('IFRS17_LOSS_COMPONENT_RECOGNIZED');
+  if (!ra_compliant) compliance_flags.push('IFRS17_RISK_ADJUSTMENT_GAPS');
 
   return {
     output_payload: {
@@ -446,7 +445,7 @@ async function runChecker() {
   }
   document.getElementById('verdictBox').innerHTML = vHtml;
   document.getElementById('gapsBox').innerHTML = '';
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map(k=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
   document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
   const pre = document.getElementById('artifactPre');

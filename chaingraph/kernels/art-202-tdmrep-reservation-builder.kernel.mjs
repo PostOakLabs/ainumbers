@@ -96,12 +96,11 @@ export function compute(pp) {
     all_checks_pass: all_checks_pass
   };
 
-  const compliance_flags = {
-    TDM_RESERVATION_SET: true,
-    TDMREP_SPEC_APPLIED: true,
-    AIPREF_SPEC_APPLIED: true,
-  };
-  if (!all_checks_pass) compliance_flags.TDMREP_SCHEMA_WARNINGS = true;
+  const compliance_flags = [];
+  compliance_flags.push('TDM_RESERVATION_SET');
+  compliance_flags.push('TDMREP_SPEC_APPLIED');
+  compliance_flags.push('AIPREF_SPEC_APPLIED');
+  if (!all_checks_pass) compliance_flags.push('TDMREP_SCHEMA_WARNINGS');
 
   return { output_payload, compliance_flags };
 }

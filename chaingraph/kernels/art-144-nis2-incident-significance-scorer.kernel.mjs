@@ -54,11 +54,12 @@ export function compute(pp) {
     if (entity_classification === 'essential') recipients.push('sector_regulator');
   }
 
-  const compliance_flags = { NIS2_INCIDENT_ASSESSED: true };
-  if (reporting_required) compliance_flags.NIS2_SIGNIFICANT_INCIDENT = true;
-  if (is_critical) compliance_flags.NIS2_CRITICAL_INCIDENT = true;
-  if (cross_border_impact) compliance_flags.NIS2_CROSS_BORDER_IMPACT = true;
-  if (!reporting_required) compliance_flags.NIS2_INCIDENT_BELOW_THRESHOLD = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_INCIDENT_ASSESSED');
+  if (reporting_required) compliance_flags.push('NIS2_SIGNIFICANT_INCIDENT');
+  if (is_critical) compliance_flags.push('NIS2_CRITICAL_INCIDENT');
+  if (cross_border_impact) compliance_flags.push('NIS2_CROSS_BORDER_IMPACT');
+  if (!reporting_required) compliance_flags.push('NIS2_INCIDENT_BELOW_THRESHOLD');
 
   return {
     output_payload: {

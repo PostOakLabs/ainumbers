@@ -23,9 +23,10 @@ export function compute(pp) {
   const lvl = Number(claimed_build_level);
   const slsa_build_level = (Number.isInteger(lvl) && lvl >= 0 && lvl <= 3) ? lvl : null;
   const provenance_valid = type_ok && pred_ok && subject_digest_match && builder_id_present;
-  const compliance_flags = { SLSA_PROVENANCE_ASSESSED: true };
-  compliance_flags[provenance_valid ? 'SLSA_PROVENANCE_VALID' : 'SLSA_PROVENANCE_INVALID'] = true;
-  if (!subject_digest_match) compliance_flags.SUBJECT_DIGEST_MISMATCH = true;
+  const compliance_flags = [];
+  compliance_flags.push('SLSA_PROVENANCE_ASSESSED');
+  compliance_flags.push(provenance_valid ? 'SLSA_PROVENANCE_VALID' : 'SLSA_PROVENANCE_INVALID');
+  if (!subject_digest_match) compliance_flags.push('SUBJECT_DIGEST_MISMATCH');
   return { output_payload: { provenance_valid, type_ok, pred_ok, subject_digest_match, builder_id_present, slsa_build_level }, compliance_flags };
 }
 

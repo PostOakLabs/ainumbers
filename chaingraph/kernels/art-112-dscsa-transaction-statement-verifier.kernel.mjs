@@ -42,13 +42,14 @@ export function compute(pp) {
 
   const t3_complete = ti_present === true && th_present === true && ts_present === true;
 
-  const compliance_flags = { DSCSA_T3_ASSESSED: true };
+  const compliance_flags = [];
+  compliance_flags.push('DSCSA_T3_ASSESSED');
   if (t3_complete && identifier_valid && missing_elements.length === 0) {
-    compliance_flags.DSCSA_T3_COMPLETE = true;
+    compliance_flags.push('DSCSA_T3_COMPLETE');
   } else {
-    compliance_flags.DSCSA_T3_INCOMPLETE = true;
+    compliance_flags.push('DSCSA_T3_INCOMPLETE');
   }
-  if (epcis_event === 'UNKNOWN') compliance_flags.EPCIS_EVENT_UNRECOGNIZED = true;
+  if (epcis_event === 'UNKNOWN') compliance_flags.push('EPCIS_EVENT_UNRECOGNIZED');
 
   const output_payload = {
     t3_complete,

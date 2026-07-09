@@ -40,11 +40,12 @@ export function compute(pp) {
   const GRADES = ['F', 'F', 'D', 'C', 'B', 'A'];
   const readiness_grade = GRADES[dims_met] ?? 'F';
 
-  const compliance_flags = { IRRBB_DISCLOSURE_READINESS_ASSESSED: true };
-  if (dims_met === 5)              compliance_flags.IRRBB_DISCLOSURE_FULLY_READY = true;
-  else if (readiness_score >= 60)  compliance_flags.IRRBB_DISCLOSURE_SUBSTANTIALLY_READY = true;
-  else if (readiness_score >= 40)  compliance_flags.IRRBB_DISCLOSURE_PARTIALLY_READY = true;
-  else                             compliance_flags.IRRBB_DISCLOSURE_NOT_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_DISCLOSURE_READINESS_ASSESSED');
+  if (dims_met === 5)              compliance_flags.push('IRRBB_DISCLOSURE_FULLY_READY');
+  else if (readiness_score >= 60)  compliance_flags.push('IRRBB_DISCLOSURE_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 40)  compliance_flags.push('IRRBB_DISCLOSURE_PARTIALLY_READY');
+  else                             compliance_flags.push('IRRBB_DISCLOSURE_NOT_READY');
 
   return {
     output_payload: {

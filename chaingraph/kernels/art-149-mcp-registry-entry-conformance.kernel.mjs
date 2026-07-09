@@ -25,8 +25,9 @@ export function compute(pp) {
   if (!name_ok) missing.push('NAME_REVERSE_DNS');
   if (!version_ok) missing.push('SEMVER_VERSION');
   if (!has_endpoint) missing.push('PACKAGES_OR_REMOTES');
-  const compliance_flags = { MCP_REGISTRY_ENTRY_ASSESSED: true };
-  compliance_flags[entry_valid ? 'MCP_REGISTRY_ENTRY_VALID' : 'MCP_REGISTRY_ENTRY_INVALID'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_REGISTRY_ENTRY_ASSESSED');
+  compliance_flags.push(entry_valid ? 'MCP_REGISTRY_ENTRY_VALID' : 'MCP_REGISTRY_ENTRY_INVALID');
   return { output_payload: { entry_valid, schema_ok, name_ok, version_ok, has_packages, has_remotes, missing }, compliance_flags };
 }
 

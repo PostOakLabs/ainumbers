@@ -30,9 +30,10 @@ export function compute(pp) {
 
   const eve_outlier = tier1_capital > 0 && delta_eve_pct_of_tier1 > SOT_EVE_THRESHOLD_PCT;
 
-  const compliance_flags = { IRRBB_SOT_EVE_EVALUATED: true };
-  if (eve_outlier) compliance_flags.IRRBB_SOT_EVE_OUTLIER_BREACH = true;
-  else if (tier1_capital > 0) compliance_flags.IRRBB_SOT_EVE_WITHIN_THRESHOLD = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_SOT_EVE_EVALUATED');
+  if (eve_outlier) compliance_flags.push('IRRBB_SOT_EVE_OUTLIER_BREACH');
+  else if (tier1_capital > 0) compliance_flags.push('IRRBB_SOT_EVE_WITHIN_THRESHOLD');
 
   return {
     output_payload: {

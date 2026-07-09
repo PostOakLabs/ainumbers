@@ -244,11 +244,11 @@ function compute(pp){
   const all_keys_ok=Array.isArray(keys)&&keys.length>0&&keys.every(k=>k.kty==='OKP'&&k.crv==='Ed25519');
   const keyid_resolved=Array.isArray(keys)&&keys.some(k=>k.kid===keyid);
   const valid=path_ok&&all_keys_ok&&keyid_resolved;
-  const flags={SIGNATURE_DIRECTORY_ASSESSED:true};
-  flags[valid?'SIGNATURE_DIRECTORY_VALID':'SIGNATURE_DIRECTORY_INVALID']=true;
-  if(!path_ok)flags.WELL_KNOWN_PATH_WRONG=true;
-  if(!all_keys_ok)flags.KEYS_NOT_ALL_OKP_ED25519=true;
-  if(!keyid_resolved)flags.KEYID_NOT_FOUND=true;
+  const flags=['SIGNATURE_DIRECTORY_ASSESSED'];
+  flags.push(valid?'SIGNATURE_DIRECTORY_VALID':'SIGNATURE_DIRECTORY_INVALID');
+  if(!path_ok)flags.push('WELL_KNOWN_PATH_WRONG');
+  if(!all_keys_ok)flags.push('KEYS_NOT_ALL_OKP_ED25519');
+  if(!keyid_resolved)flags.push('KEYID_NOT_FOUND');
   return{output_payload:{path_ok,all_keys_ok,keyid_resolved,key_count:keys.length,valid},compliance_flags:flags};
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -272,7 +272,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.path_ok?'var(--green)':'var(--red)')+'">'+( op.path_ok?'✓':'✗')+'</div><div class="hero-lbl">Path OK</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.keyid_resolved?'var(--green)':'var(--red)')+'">'+( op.keyid_resolved?'✓':'✗')+'</div><div class="hero-lbl">Keyid Found</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--text)">'+op.key_count+'</div><div class="hero-lbl">Keys</div></div>';
-  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
+  const flagKeys=flags;
   document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ VALID — Directory well-formed, all keys OKP/Ed25519, keyid resolves.':'✗ INVALID — One or more directory checks failed. See compliance flags.')+'</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('INVALID')||f.includes('WRONG')||f.includes('NOT')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
   document.getElementById('detailDiv').innerHTML='<table class="tbl" style="margin-top:12px"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>'+
     '<tr><td>path_ok</td><td><span class="badge '+(op.path_ok?'ok':'err')+'">'+op.path_ok+'</span></td></tr>'+

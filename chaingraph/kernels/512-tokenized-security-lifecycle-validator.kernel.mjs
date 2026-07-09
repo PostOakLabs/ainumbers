@@ -89,30 +89,29 @@ export function compute(pp) {
     }
   }
 
-  const compliance_flags = {
-    LIFECYCLE_COMPLIANT: badge === 'LIFECYCLE_COMPLIANT',
-    LIFECYCLE_GAPS_PRESENT: badge === 'LIFECYCLE_GAPS_PRESENT',
-    LIFECYCLE_CRITICAL_GAP: badge === 'LIFECYCLE_CRITICAL_GAP',
-  };
+  const compliance_flags = [];
+  if (badge === 'LIFECYCLE_COMPLIANT') compliance_flags.push('LIFECYCLE_COMPLIANT');
+  if (badge === 'LIFECYCLE_GAPS_PRESENT') compliance_flags.push('LIFECYCLE_GAPS_PRESENT');
+  if (badge === 'LIFECYCLE_CRITICAL_GAP') compliance_flags.push('LIFECYCLE_CRITICAL_GAP');
 
   // Gap flags
   for (const ev of allGaps) {
-    compliance_flags['DAML_LIFECYCLE_GAP_' + ev.toUpperCase()] = true;
+    compliance_flags.push('DAML_LIFECYCLE_GAP_' + ev.toUpperCase());
   }
 
   // EU prospectus check
   if ((jurisdiction === 'eu' || jurisdiction === 'uk') && issuance_amount > 8_000_000 && !prospectus_filed) {
-    compliance_flags.PROSPECTUS_REQUIRED_NOT_FILED = true;
+    compliance_flags.push('PROSPECTUS_REQUIRED_NOT_FILED');
   }
 
   // Custody
   if (custodian_type === 'self_custody') {
-    compliance_flags.SELF_CUSTODY_RISK = true;
+    compliance_flags.push('SELF_CUSTODY_RISK');
   }
 
   // DLT Pilot
   if (jurisdiction === 'eu' && isin_assigned) {
-    compliance_flags.DLT_PILOT_ISIN_NOTE = true;
+    compliance_flags.push('DLT_PILOT_ISIN_NOTE');
   }
 
   const output_payload = {

@@ -44,13 +44,14 @@ export function compute(pp) {
 
   const data_elements_ok = has_seller_vat && has_buyer_vat && txn_value >= 0;
 
-  const compliance_flags = { VIDA_DRR_ASSESSED: true };
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_DRR_ASSESSED');
   if (drr_in_scope) {
-    compliance_flags.VIDA_DRR_IN_SCOPE = true;
-    if (data_elements_ok) compliance_flags.VIDA_DRR_DATA_ELEMENTS_COMPLETE = true;
-    else compliance_flags.VIDA_DRR_DATA_ELEMENTS_INCOMPLETE = true;
+    compliance_flags.push('VIDA_DRR_IN_SCOPE');
+    if (data_elements_ok) compliance_flags.push('VIDA_DRR_DATA_ELEMENTS_COMPLETE');
+    else compliance_flags.push('VIDA_DRR_DATA_ELEMENTS_INCOMPLETE');
   } else {
-    compliance_flags.VIDA_DRR_OUT_OF_SCOPE = true;
+    compliance_flags.push('VIDA_DRR_OUT_OF_SCOPE');
   }
 
   return {

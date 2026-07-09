@@ -41,9 +41,10 @@ export function compute(pp) {
     .sort((a, b) => a.maturity - b.maturity)
     .map(m => m.measure_id);
 
-  const compliance_flags = { NIS2_ART21_ASSESSED: true };
-  compliance_flags[compliance_score >= 60 ? 'NIS2_ART21_PASSING' : 'NIS2_ART21_GAPS_IDENTIFIED'] = true;
-  if (critical_gaps.length > 0) compliance_flags.NIS2_ART21_CRITICAL_GAPS = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_ART21_ASSESSED');
+  compliance_flags.push(compliance_score >= 60 ? 'NIS2_ART21_PASSING' : 'NIS2_ART21_GAPS_IDENTIFIED');
+  if (critical_gaps.length > 0) compliance_flags.push('NIS2_ART21_CRITICAL_GAPS');
 
   return {
     output_payload: { compliance_score, overall_grade, measures_summary, critical_gaps, remediation_priority },

@@ -23,8 +23,9 @@ export function compute(pp) {
   const route_ok = ROUTES.includes(conformity_route);
   if (!route_ok) gaps.push('conformity_route');
   const annex1_complete = gaps.length === 0;
-  const compliance_flags = { CRA_ANNEX1_ASSESSED: true };
-  compliance_flags[annex1_complete ? 'CRA_ANNEX1_COMPLETE' : 'CRA_ANNEX1_INCOMPLETE'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('CRA_ANNEX1_ASSESSED');
+  compliance_flags.push(annex1_complete ? 'CRA_ANNEX1_COMPLETE' : 'CRA_ANNEX1_INCOMPLETE');
   return { output_payload: { annex1_complete, gaps, conformity_route: route_ok ? conformity_route : null }, compliance_flags };
 }
 

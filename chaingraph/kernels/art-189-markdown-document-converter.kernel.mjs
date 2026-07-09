@@ -247,10 +247,11 @@ export async function compute(pp) {
     sha256Hex(markdown), sha256Hex(html), sha256Hex(plain_text),
   ]);
 
-  const compliance_flags = { MARKDOWN_CONVERSION_PERFORMED: true };
-  if (stats.tables > 0) compliance_flags.GFM_TABLES_RENDERED = true;
-  if (stats.code_blocks > 0) compliance_flags.CODE_BLOCKS_PRESENT = true;
-  compliance_flags.OUTPUT_INJECTION_SAFE = true;
+  const compliance_flags = [];
+  compliance_flags.push('MARKDOWN_CONVERSION_PERFORMED');
+  if (stats.tables > 0) compliance_flags.push('GFM_TABLES_RENDERED');
+  if (stats.code_blocks > 0) compliance_flags.push('CODE_BLOCKS_PRESENT');
+  compliance_flags.push('OUTPUT_INJECTION_SAFE');
 
   return {
     output_payload: {

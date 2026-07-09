@@ -32,9 +32,10 @@ export function compute(pp) {
   });
 
   const reconciled = uti_paired && breaks.length === 0;
-  const compliance_flags = { EMIR_PAIRING_ASSESSED: true };
-  compliance_flags[reconciled ? 'EMIR_PAIR_RECONCILED' : 'EMIR_PAIR_BREAK'] = true;
-  if (!uti_paired) compliance_flags.UTI_PAIRING_FAILED = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_PAIRING_ASSESSED');
+  compliance_flags.push(reconciled ? 'EMIR_PAIR_RECONCILED' : 'EMIR_PAIR_BREAK');
+  if (!uti_paired) compliance_flags.push('UTI_PAIRING_FAILED');
 
   return {
     output_payload: {

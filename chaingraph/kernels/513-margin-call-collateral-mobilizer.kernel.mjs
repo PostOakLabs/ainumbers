@@ -87,16 +87,14 @@ export function compute(pp) {
   const imBelowThreshold = imCall <= 50_000_000;
   const mtaDeviation = mta !== 500_000;
 
-  const compliance_flags = {
-    DERIV_UMR_FRAMEWORK:        { active: isDeriv && !ccp_cleared },
-    SFT_GMRA_FRAMEWORK:         { active: isSft },
-    CCP_CLEARED_ZERO_MARGIN:    { active: ccp_cleared },
-    UMR_PHASE_INAPPLICABLE:     { active: umrPhaseInapplicable },
-    IM_BELOW_THRESHOLD_NOTE:    { active: imBelowThreshold },
-    MTA_DEVIATION_NOTE:         { active: mtaDeviation },
-    CANTON_ON_CHAIN_MOBILIZATION:{ active: !!on_chain },
-    MARGIN_MOBILIZATION_ASSESSED:{ active: true },
-  };
+  const compliance_flags = ['MARGIN_MOBILIZATION_ASSESSED'];
+  if (isDeriv && !ccp_cleared) compliance_flags.push('DERIV_UMR_FRAMEWORK');
+  if (isSft) compliance_flags.push('SFT_GMRA_FRAMEWORK');
+  if (ccp_cleared) compliance_flags.push('CCP_CLEARED_ZERO_MARGIN');
+  if (umrPhaseInapplicable) compliance_flags.push('UMR_PHASE_INAPPLICABLE');
+  if (imBelowThreshold) compliance_flags.push('IM_BELOW_THRESHOLD_NOTE');
+  if (mtaDeviation) compliance_flags.push('MTA_DEVIATION_NOTE');
+  if (on_chain) compliance_flags.push('CANTON_ON_CHAIN_MOBILIZATION');
 
   const output_payload = {
     im_call: +imCall.toFixed(2),

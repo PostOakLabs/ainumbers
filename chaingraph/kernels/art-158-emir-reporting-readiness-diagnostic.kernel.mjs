@@ -30,8 +30,9 @@ export function compute(pp) {
   const grade = ['F', 'E', 'D', 'C', 'B', 'A'][passed]; // 0..5 → F..A
   const ready = gaps.length === 0;
 
-  const compliance_flags = { EMIR_REPORTING_FIT_ASSESSED: true };
-  compliance_flags[ready ? 'EMIR_REPORTING_READY' : 'EMIR_REPORTING_GAPS'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_REPORTING_FIT_ASSESSED');
+  compliance_flags.push(ready ? 'EMIR_REPORTING_READY' : 'EMIR_REPORTING_GAPS');
 
   return {
     output_payload: { ready, grade, dimensions_passed: passed, gaps },

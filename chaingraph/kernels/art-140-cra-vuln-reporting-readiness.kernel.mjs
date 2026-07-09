@@ -20,8 +20,9 @@ export function compute(pp) {
   };
   const gaps = Object.entries(checks).filter(([, v]) => v !== true).map(([k]) => k);
   const vuln_reporting_ready = gaps.length === 0;
-  const compliance_flags = { CRA_ART14_READINESS_ASSESSED: true };
-  compliance_flags[vuln_reporting_ready ? 'CRA_VULN_REPORTING_READY' : 'CRA_VULN_REPORTING_NOT_READY'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('CRA_ART14_READINESS_ASSESSED');
+  compliance_flags.push(vuln_reporting_ready ? 'CRA_VULN_REPORTING_READY' : 'CRA_VULN_REPORTING_NOT_READY');
   return { output_payload: { vuln_reporting_ready, gaps }, compliance_flags };
 }
 

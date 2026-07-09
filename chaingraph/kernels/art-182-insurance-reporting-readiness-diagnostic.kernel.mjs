@@ -42,11 +42,12 @@ export function compute(pp) {
   const GRADES = ['F', 'F', 'E', 'D', 'C', 'B', 'A'];
   const readiness_grade = GRADES[dims_met] ?? 'F';
 
-  const compliance_flags = { INSURANCE_REPORTING_READINESS_ASSESSED: true };
-  if (dims_met === 6)              compliance_flags.INSURANCE_REPORTING_FULLY_READY = true;
-  else if (readiness_score >= 67)  compliance_flags.INSURANCE_REPORTING_SUBSTANTIALLY_READY = true;
-  else if (readiness_score >= 33)  compliance_flags.INSURANCE_REPORTING_PARTIALLY_READY = true;
-  else                             compliance_flags.INSURANCE_REPORTING_NOT_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('INSURANCE_REPORTING_READINESS_ASSESSED');
+  if (dims_met === 6)              compliance_flags.push('INSURANCE_REPORTING_FULLY_READY');
+  else if (readiness_score >= 67)  compliance_flags.push('INSURANCE_REPORTING_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 33)  compliance_flags.push('INSURANCE_REPORTING_PARTIALLY_READY');
+  else                             compliance_flags.push('INSURANCE_REPORTING_NOT_READY');
 
   return {
     output_payload: {

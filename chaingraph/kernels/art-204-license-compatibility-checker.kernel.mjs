@@ -96,7 +96,7 @@ export function compute(pp) {
         checks: [{ check: 'input_present', pass: false, detail: 'parent_license and child_license are required' }],
         disclaimer: 'Not legal advice. Selection only. The published license terms govern. Consult a licensed attorney for your jurisdiction.',
       },
-      compliance_flags: { LICENSE_COMPATIBILITY_CHECKED: true, INPUTS_MISSING: true },
+      compliance_flags: ['LICENSE_COMPATIBILITY_CHECKED', 'INPUTS_MISSING'],
     };
   }
 
@@ -190,10 +190,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. Selection only. The published license terms govern. Consult a licensed attorney for your jurisdiction.',
   };
 
-  const compliance_flags = { LICENSE_COMPATIBILITY_CHECKED: true };
-  if (compatible === true)  compliance_flags.COMPATIBLE = true;
-  if (compatible === false) compliance_flags.INCOMPATIBLE = true;
-  for (let i = 0; i < reason_codes.length; i++) compliance_flags[reason_codes[i]] = true;
+  const compliance_flags = [];
+  compliance_flags.push('LICENSE_COMPATIBILITY_CHECKED');
+  if (compatible === true)  compliance_flags.push('COMPATIBLE');
+  if (compatible === false) compliance_flags.push('INCOMPATIBLE');
+  for (let i = 0; i < reason_codes.length; i++) compliance_flags.push(reason_codes[i]);
 
   return { output_payload, compliance_flags };
 }

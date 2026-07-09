@@ -25,10 +25,11 @@ export async function compute(pp) {
   // Only a matching hard binding is tamper-evident; soft binding survives re-encode but is not tamper-evident.
   const tamper_evident = hard_binding_matches;
   const verdict = tamper_evident ? 'TAMPER_EVIDENT' : (soft_binding_present ? 'SOFT_BINDING_ONLY' : 'UNBOUND');
-  const compliance_flags = { CONTENT_BINDING_ASSESSED: true };
-  compliance_flags[tamper_evident ? 'HARD_BINDING_VERIFIED' : 'HARD_BINDING_UNVERIFIED'] = true;
-  if (!type_valid) compliance_flags.UNRECOGNIZED_BINDING_TYPE = true;
-  if (has_hard && hard_hashes_well_formed && !hard_binding_matches) compliance_flags.ASSET_HASH_MISMATCH = true;
+  const compliance_flags = [];
+  compliance_flags.push('CONTENT_BINDING_ASSESSED');
+  compliance_flags.push(tamper_evident ? 'HARD_BINDING_VERIFIED' : 'HARD_BINDING_UNVERIFIED');
+  if (!type_valid) compliance_flags.push('UNRECOGNIZED_BINDING_TYPE');
+  if (has_hard && hard_hashes_well_formed && !hard_binding_matches) compliance_flags.push('ASSET_HASH_MISMATCH');
   return {
     output_payload: {
       binding_type: binding_type ?? null,

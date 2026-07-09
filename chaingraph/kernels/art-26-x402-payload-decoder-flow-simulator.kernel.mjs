@@ -165,15 +165,13 @@ export function compute(pp) {
   if (score < 0) score = 0;
   if (score > 100) score = 100;
 
-  const compliance_flags = {
-    X402_PAYLOAD_PROCESSED: true,
-    X402_DECODE_OK: is_json,
-    X402_PAYLOAD_VALID: errors === 0 && is_json,
-    HAS_SCHEME: !!(obj?.scheme),
-    HAS_NETWORK: !!(obj?.network),
-    SCHEME_KNOWN: !!(obj?.scheme && KNOWN_SCHEMES.includes(obj.scheme)),
-    NETWORK_KNOWN: !!(obj?.network && KNOWN_NETWORKS.includes(obj.network)),
-  };
+  const compliance_flags = ['X402_PAYLOAD_PROCESSED'];
+  if (is_json) compliance_flags.push('X402_DECODE_OK');
+  if (errors === 0 && is_json) compliance_flags.push('X402_PAYLOAD_VALID');
+  if (obj?.scheme) compliance_flags.push('HAS_SCHEME');
+  if (obj?.network) compliance_flags.push('HAS_NETWORK');
+  if (obj?.scheme && KNOWN_SCHEMES.includes(obj.scheme)) compliance_flags.push('SCHEME_KNOWN');
+  if (obj?.network && KNOWN_NETWORKS.includes(obj.network)) compliance_flags.push('NETWORK_KNOWN');
 
   const output_payload = { decoded_type, mode, is_json, score, errors, warnings, passes, scheme: obj?.scheme ?? null, network: obj?.network ?? null, has_accepts: !!(obj && Array.isArray(obj.accepts)), findings: findings.map(f => ({ level: f.level, msg: f.msg })) };
   return { output_payload, compliance_flags };

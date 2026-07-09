@@ -51,15 +51,13 @@ export function compute(pp) {
   const g = grade(score_pct);
   const is_deployable = g === 'A' || g === 'B';
 
-  const compliance_flags = {
-    MCP_DEPLOYABILITY_SCORED: true,
-    MCP_SERVER_DEPLOYABLE: is_deployable,
-    MCP_SERVER_NOT_DEPLOYABLE: !is_deployable,
-    TOOL_DEFINITIONS_GAP: domain_scores.defs.pct < 70,
-    TRANSPORT_AUTH_GAP: domain_scores.transport.pct < 70,
-    SECURITY_HYGIENE_GAP: domain_scores.security.pct < 70,
-    OPERATIONS_GAP: domain_scores.ops.pct < 70,
-  };
+  const compliance_flags = ['MCP_DEPLOYABILITY_SCORED'];
+  if (is_deployable) compliance_flags.push('MCP_SERVER_DEPLOYABLE');
+  if (!is_deployable) compliance_flags.push('MCP_SERVER_NOT_DEPLOYABLE');
+  if (domain_scores.defs.pct < 70) compliance_flags.push('TOOL_DEFINITIONS_GAP');
+  if (domain_scores.transport.pct < 70) compliance_flags.push('TRANSPORT_AUTH_GAP');
+  if (domain_scores.security.pct < 70) compliance_flags.push('SECURITY_HYGIENE_GAP');
+  if (domain_scores.ops.pct < 70) compliance_flags.push('OPERATIONS_GAP');
 
   const output_payload = { verdict: g, score_pct, domain_scores, gaps, all_answered, is_deployable };
   return { output_payload, compliance_flags };

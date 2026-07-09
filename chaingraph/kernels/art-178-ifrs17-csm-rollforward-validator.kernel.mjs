@@ -35,10 +35,11 @@ export function compute(pp) {
 
   const csm_valid = !release_excess && !onerous;
 
-  const compliance_flags = { IFRS17_CSM_ROLLFORWARD_ASSESSED: true };
-  if (csm_valid) compliance_flags.IFRS17_CSM_VALID = true;
-  if (onerous)   compliance_flags.IFRS17_ONEROUS_CONTRACT_FLAG = true;
-  if (release_excess) compliance_flags.IFRS17_CSM_RELEASE_EXCESS = true;
+  const compliance_flags = [];
+  compliance_flags.push('IFRS17_CSM_ROLLFORWARD_ASSESSED');
+  if (csm_valid) compliance_flags.push('IFRS17_CSM_VALID');
+  if (onerous)   compliance_flags.push('IFRS17_ONEROUS_CONTRACT_FLAG');
+  if (release_excess) compliance_flags.push('IFRS17_CSM_RELEASE_EXCESS');
 
   return {
     output_payload: {

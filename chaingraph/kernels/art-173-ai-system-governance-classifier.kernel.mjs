@@ -71,12 +71,14 @@ export function compute(pp) {
     systemic_risk: is_gpai && has_systemic_risk,
   };
 
-  const compliance_flags = {
-    GOVERNANCE_CLASSIFIED: true,
-    EU_AI_ACT_TIER: eu_ai_act_tier,
-    NIST_PROFILE: nist_rmf_profile,
-    ISO42001_CONTROL_SET: iso42001_control_set,
-  };
+  // Categorical values (already exposed via output_payload below) are represented here as
+  // discrete string flags since compliance_flags is schema-typed as string[].
+  const compliance_flags = [
+    'GOVERNANCE_CLASSIFIED',
+    `EU_AI_ACT_TIER_${String(eu_ai_act_tier).toUpperCase()}`,
+    `NIST_PROFILE_${String(nist_rmf_profile).toUpperCase()}`,
+    `ISO42001_CONTROL_SET_${String(iso42001_control_set).toUpperCase()}`,
+  ];
 
   const output_payload = {
     eu_ai_act_tier,

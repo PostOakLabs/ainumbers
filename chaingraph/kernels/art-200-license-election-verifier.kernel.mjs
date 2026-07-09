@@ -108,7 +108,7 @@ export function compute(pp) {
   if (!structOk) {
     return {
       output_payload: { verdict: 'malformed', binding_ok: false, checks },
-      compliance_flags: { LICENSE_ELECTION_VERIFIED: true, CERT_MALFORMED: true },
+      compliance_flags: ['LICENSE_ELECTION_VERIFIED', 'CERT_MALFORMED'],
     };
   }
 
@@ -142,8 +142,9 @@ export function compute(pp) {
   else if (!assetOk || !didOk || !elecOk) verdict = 'incomplete_fields';
   else verdict = 'valid';
 
-  const compliance_flags = { LICENSE_ELECTION_VERIFIED: true };
-  compliance_flags['CERT_' + verdict.toUpperCase()] = true;
+  const compliance_flags = [];
+  compliance_flags.push('LICENSE_ELECTION_VERIFIED');
+  compliance_flags.push('CERT_' + verdict.toUpperCase());
 
   return {
     output_payload: { verdict, binding_ok, recomputed_terms_hash, checks },

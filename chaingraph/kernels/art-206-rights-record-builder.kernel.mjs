@@ -174,12 +174,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. This record documents the stated parameters only. No enforcement, no on-chain registration. Consult a licensed attorney for your jurisdiction.',
   };
 
-  const compliance_flags = {
-    RIGHTS_RECORD_BUILT: true,
-    RECORD_HASH_COMPUTED: true,
-    IP3_NORMALIZED: true,
-  };
-  if (!all_checks_pass) compliance_flags.RECORD_INCOMPLETE = true;
+  const compliance_flags = [];
+  compliance_flags.push('RIGHTS_RECORD_BUILT');
+  compliance_flags.push('RECORD_HASH_COMPUTED');
+  compliance_flags.push('IP3_NORMALIZED');
+  if (!all_checks_pass) compliance_flags.push('RECORD_INCOMPLETE');
 
   return { output_payload, compliance_flags };
 }

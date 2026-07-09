@@ -53,10 +53,11 @@ export async function compute(pp) {
     && revocation_status !== 'revoked';
   const verdict = (signature_cryptographically_valid && chain_trusted) ? 'ACCEPT' : 'REFUSE';
 
-  const compliance_flags = { CONTENT_CREDENTIAL_SIGNATURE_ASSESSED: true };
-  compliance_flags[verdict === 'ACCEPT' ? 'SIGNATURE_VERIFIED' : 'SIGNATURE_REFUSED'] = true;
-  if (!alg_allowed) compliance_flags.ALGORITHM_NOT_ALLOWED = true;
-  if (!chain_trusted) compliance_flags.CHAIN_NOT_TRUSTED = true;
+  const compliance_flags = [];
+  compliance_flags.push('CONTENT_CREDENTIAL_SIGNATURE_ASSESSED');
+  compliance_flags.push(verdict === 'ACCEPT' ? 'SIGNATURE_VERIFIED' : 'SIGNATURE_REFUSED');
+  if (!alg_allowed) compliance_flags.push('ALGORITHM_NOT_ALLOWED');
+  if (!chain_trusted) compliance_flags.push('CHAIN_NOT_TRUSTED');
 
   return {
     output_payload: {
