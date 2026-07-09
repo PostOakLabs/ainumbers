@@ -3,6 +3,23 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.4 — Deterministic Compute Profile (§24)
+- **§24 Deterministic Compute Profile (new, normative, profile-scoped).** Adds `ocg-deterministic-compute@1`, a
+  NAMING of the determinism the standard already enforces (§4 canonical hash, §12 kernel binding, §17 kernel
+  identity, §18.5 deterministic guest-equivalent kernels, §18.6 proof profile, §21.4 evaluator parity), modeled
+  on the **W3C WebAssembly 3.0 Deterministic Profile** (W3C CR, April 2026) with a **RISC-V-style freeze clause**:
+  a ratified kernel-semantics version is never revised; any change that could move a conforming kernel's
+  `output_payload` (for example re-baselining `_detmath`) ships as a NEW profile version, never an in-place edit.
+  §24.1 enumerates seven kernel nondeterminism sources — D1 non-finite floats, D2 iteration order, D3
+  transcendental math, D4 wall-clock time, D5 randomness, D6 locale/`Intl`, D7 environment/platform APIs — and
+  binds each to the EXISTING §15 gate that already fixes or bans it (`kernel-hash-integrity`, `lint-forbidden-hash`,
+  `golden-parity`, `empty-input-finite`, `gate-parity`, `sd-export-roundtrip`, `kernel-coverage`). Cartesi is cited
+  as the zkVM precedent; Nock/Kelvin as a philosophy footnote only. **Additive and NORMATIVE-by-naming:** no new
+  machinery, no §15 row (the meta-rule holds because every requirement cites an already-wired gate), no envelope or
+  hash change — `$defs/artifact`, the §4 preimage, and `chaingraph_version` `0.4.0` are UNTOUCHED, every existing
+  `execution_hash` is byte-identical, and only `spec_version` bumps to 0.8.4. The base standard is unchanged for
+  external implementers; an implementation green on the §15 suite already conforms.
+
 ## 0.8.3 — Input Attestations (§23)
 - **§23 Input Attestations (new, normative, OPTIONAL).** Adds the top-level `input_attestations[]` array —
   per-input evidence that a NAMED input value was vouched for by an external source, WITHOUT changing what

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="ocg-spec-version" content="0.8.3">
+<meta name="ocg-spec-version" content="0.8.4">
 <title>OpenChainGraph Standard v0.4: Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
       <a class="nav-link" href="openchain-graph-explainer.html">Explainer</a>
       <a class="nav-link" href="openchain-graph-paper.html">White Paper →</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.8.3</span>
+      <span class="nav-pill">v0.8.4</span>
     </div>
   </div>
 </nav>
@@ -129,7 +129,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">Post Oak Labs · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.8.3</h1>
+    <h1>OpenChainGraph Standard v0.8.4</h1>
     <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the <em>provenance envelope</em> with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the <em>financial payload</em> and the <em>knowledge layer</em>: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive: all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved. <strong>v0.4</strong> adds <strong>Compute Binding</strong> (§12) (server-side kernels make every <code>gpu:false</code> node agent-native over MCP in a single round-trip) and <strong>Export Profiles</strong> (§13): the <code>chaingraph_export</code> umbrella (xlsx / pdf / csv / xbrl) renders a verified artifact for human, pipeline, and regulator consumption, generated downstream of and excluded from the hash preimage. <strong>v0.4.1</strong> adds the <strong>Verifiable Credentials profile</strong> (§13.11): <code>chaingraph_export:vc</code> renders any verified artifact as a <a href="https://www.w3.org/TR/vc-data-model-2.0/">W3C Verifiable Credentials 2.0</a> credential that re-states the canonical <code>execution_hash</code> via <code>ocg:hashAnchor</code>; it is a base profile (every node), mints no new hash or proof, and leaves the artifact envelope unchanged.</p>
   </div>
 </div>
@@ -163,6 +163,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s21"><span class="toc-sec">§21</span>Chain Execution <span style="color:var(--green)">(new in v0.8)</span></a></li>
         <li><a href="#s22"><span class="toc-sec">§22</span>Work Mandates <span style="color:var(--green)">(new in v0.8.2)</span></a></li>
         <li><a href="#s23"><span class="toc-sec">§23</span>Input Attestations <span style="color:var(--green)">(new in v0.8.3)</span></a></li>
+        <li><a href="#s24"><span class="toc-sec">§24</span>Deterministic Compute Profile <span style="color:var(--green)">(new in v0.8.4)</span></a></li>
         <li><a href="#s15"><span class="toc-sec">§15</span>Conformance Gates</a></li>
         <li><a href="#s14"><span class="toc-sec">§14</span>Changelog</a></li>
       </ul>
@@ -1206,6 +1207,20 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   </div>
 </div>
 
+<!-- ═══ §24 Deterministic Compute Profile ═══ -->
+<div class="section" id="s24">
+  <div class="wrap">
+    <div class="sec-num">§24 · Normative · Profile-scoped · New in v0.8.4</div>
+    <h2>Deterministic Compute Profile <span style="font-size:.6em;font-weight:400;color:var(--green)">new in v0.8.4</span></h2>
+    <p>OCG's integrity model already assumes a kernel is a pure, deterministic function of its inputs: §4 makes the output tamper-evident, §17 pins <em>which</em> kernel source ran, §18 proves <em>that</em> it ran, and §18.5 fixes the specific cross-engine hazards a real deployment hit. This section adds <strong>no new machinery</strong>. It <strong>names</strong> the determinism those layers already enforce as one citable profile, <code>ocg-deterministic-compute</code>, modeled on the <a href="https://www.w3.org/TR/wasm-core-3/">W3C WebAssembly 3.0 Deterministic Profile</a> (W3C Candidate Recommendation, April 2026), which conforms an execution environment by enumerating every source of nondeterminism and fixing or banning each one. An implementation that already passes the §15 gate suite already conforms; the profile's value is a name a verifier or a second implementer can point at.</p>
+    <p><strong>§24.0 Scope.</strong> The profile governs a kernel's <code>compute(policy_parameters)</code> under §12, over the same class §18.6 delimits: every <code>gpu:false</code>, <code>status:"live"</code> node (<code>gpu:true</code> is out of scope for the same cost and parallelism reason as §18.6). It binds the compute surfaces to byte-identical output for identical input across the browser tool, the Cloudflare Worker (§12 server path), and the fixed zkVM guest (§18). As the in-browser QuickJS VM lands it runs the <em>same C interpreter family</em> as the §18 guest, so its output is diff-checked against the Worker rather than adding a fourth engine. Determinism here means reproducible-bit, not "same up to rounding": one differing bit is a different <code>execution_hash</code>.</p>
+    <p><strong>§24.1 Enumerated nondeterminism sources.</strong> A conforming kernel MUST NOT let any of the following affect <code>output_payload</code>. Each binds to an <em>existing</em> §15 gate; the profile introduces no gate of its own. <strong>D1 Non-finite floats</strong> (<code>NaN</code>, <code>±Infinity</code>): output MUST canonicalize under RFC 8785 / I-JSON, which forbids non-finite numbers, so a kernel returns finite output or rejects input cleanly, never a silent <code>NaN</code> (enforced at hash time by the §4 canonicalizer and the empty-input finite sweep). <strong>D2 Iteration order</strong>: serialization MUST NOT depend on property order; the preimage is built by the one canonical RFC 8785 (JCS) sorter, never by hand (§4 hash gates; ad-hoc canonicalization is linted out). <strong>D3 Transcendental math</strong>: only <code>+ − × ÷ √</code> are IEEE-754 bit-portable, so every transcendental routes through the shared pure-JS fdlibm port (§18.5c), never engine libm. <strong>D4 Wall-clock time</strong>: no clock or timer may enter the payload or preimage; time-bearing evidence (anchor <code>genTime</code>, escalation <code>opened_at</code>) is defined hash-excluded (§20, §22.8), and the guest disables <code>Date</code>. <strong>D5 Randomness</strong>: none may reach the payload; <code>Math.random</code> is stubbed, and the sole CSPRNG (§13.12 SD-JWT salts) is confined to hash-excluded disclosure material. <strong>D6 Locale / Intl</strong>: locale-sensitive formatting routes through a pinned <code>en-US</code> formatter verified value-for-value against V8 (§18.5a); the guest and the QuickJS VM ship no <code>Intl</code> at all. <strong>D7 Environment / platform APIs</strong>: where a rule would depend on an environment-sensitive V8 API, the kernel substitutes a fully specified deterministic replacement used identically on every surface (§18.5), and network, filesystem, and ambient I/O are already forbidden by the zero-fetch contract. Rows D1 through D7 are exhaustive over the escape hatches the Wasm 3.0 profile enumerates; any future source is a normative profile change (§24.2), not a silent addition.</p>
+    <p><strong>§24.2 Freeze clause.</strong> Modeled on the RISC-V base-ISA freeze policy: a ratified kernel-semantics version is never revised. Once a profile version fixes the meaning of D1 through D7 that meaning is immutable for that version; a change that could alter any conforming kernel's <code>output_payload</code> (for example re-baselining the shared libm) MUST ship as a new profile version <code>ocg-deterministic-compute@&lt;n&gt;</code>, never an in-place edit. This is what lets <code>execution_hash</code> be a durable identifier: a receipt minted under <code>@1</code> verifies bit-for-bit forever, because <code>@1</code>'s semantics can never move under it. A version bump is additive (a new named profile beside the old, as §11 profiles compose); it never mutates the frozen v0.4 envelope and never bumps <code>chaingraph_version</code> (stays <code>"0.4.0"</code>).</p>
+    <p><strong>§24.3 Conformance.</strong> An implementation MAY declare <code>ocg-deterministic-compute@1</code> for its <code>gpu:false</code> live kernel set. The declaration asserts exactly that D1 through D7 hold, which, because each binds to a gate already in §15, is decided by the existing gate suite: an implementation green on §4, §12, §18.5/§18.6, and §21.4 parity is conforming. The profile adds a name and an enumeration, not a new obligation, and deliberately introduces no §15 row of its own (the §15 meta-rule is satisfied because every requirement cites an existing wired gate). This mirrors §18.6. The AINumbers reference deployment conforms: its <code>gpu:false</code> live set is green on every cited gate.</p>
+    <p><strong>§24.4 Prior art (informative).</strong> The enumerate-and-close method is the W3C WebAssembly 3.0 Deterministic Profile. The never-revise-a-ratified-version rule is the RISC-V frozen-base-ISA policy. The precedent for proving a deterministic JS/Wasm-class guest inside a zkVM is <a href="https://cartesi.io/">Cartesi</a> (a RISC-V zkVM running a full deterministic guest); OCG differs by proving a single pinned kernel per receipt rather than a whole machine image, and by carrying the proof as an OPTIONAL §18 attachment rather than a consensus artifact. A deeper lineage of a frozen, total, deterministic instruction semantics as the base of a permanent record (Nock, and Kelvin versioning counting down to a frozen zero) is noted only as motivation; OCG cites the ratified engineering standards above as its normative models.</p>
+  </div>
+</div>
+
 <!-- ═══ §15 Conformance Gates ═══ -->
 <div class="section" id="s15">
   <div class="wrap">
@@ -1223,6 +1238,14 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   <div class="wrap">
     <div class="sec-num">§14 · Changelog</div>
     <h2>Changelog</h2>
+
+    <h3 style="margin-top:.4rem">v0.8.3 → v0.8.4: 2026-07-09</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§24 (new)</span>
+        <span class="change-desc"><strong>Deterministic Compute Profile.</strong> A NORMATIVE, profile-scoped <code>ocg-deterministic-compute@1</code> that NAMES the determinism §4, §12, §17, §18.5/§18.6, and §21.4 already enforce, modeled on the W3C WebAssembly 3.0 Deterministic Profile with a RISC-V-style freeze clause (a ratified kernel-semantics version is never revised; changes ship as a new profile version). It enumerates seven kernel nondeterminism sources (non-finite floats, iteration order, transcendental math, wall-clock time, randomness, locale/<code>Intl</code>, environment APIs) and binds each to the EXISTING §15 gate that fixes or bans it. Adds NO new machinery, NO §15 row, and NO obligation beyond a §15-green implementation. No envelope or hash change: <code>chaingraph_version</code> stays <code>"0.4.0"</code> and every existing <code>execution_hash</code> is byte-identical; only <code>spec_version</code> bumps to 0.8.4.</span>
+      </div>
+    </div>
 
     <h3 style="margin-top:.4rem">v0.8.2 → v0.8.3: 2026-07-09</h3>
     <div style="margin-top:.6rem">
@@ -1469,7 +1492,7 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.8.3 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.8.4 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       Reference implementation: <a href="https://ainumbers.co">AINumbers.co</a>
       <span>·</span>
