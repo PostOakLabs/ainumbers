@@ -5,6 +5,8 @@
 
 🔒 **Zero PII** · 📡 **Zero network calls in-tool** · 💻 **Client-Side Only** · 🤖 **MCP-Native (327 tools)** · ⛓️ **ChainGraph v0.4** · 📜 **CC BY 4.0**
 
+![Running a ChainGraph chain in the Workbench and verifying its execution_hash](docs/chaingraph-workbench-demo.gif)
+
 Counts below drift as tools ship — never trust a hardcoded number here or anywhere else in this repo.
 Live figures: `node scripts/counts.mjs` (site) and [`mcp-apps-poc/data/counts.json`](https://github.com/PostOakLabs/ainumbers-mcp-apps/blob/master/data/counts.json) (MCP server).
 
