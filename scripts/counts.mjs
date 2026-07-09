@@ -14,6 +14,7 @@
  *   workflows.recipes  workflow data rows in mcp.html
  *   mcp.live           chaingraph live nodes + pilot_widgets + utility_tools
  *                      (pilot + utility sourced from data/mcp-counts.json)
+ *   mcp.widgets        pilot_widgets alone (data/mcp-counts.json)
  *   openapi.ops        unique mcp_names from manifests + chaingraph nodes
  *                      (same derivation as gen-openapi.mjs — not read from generated file)
  *
@@ -64,6 +65,7 @@ export function deriveCounts() {
   )
   const liveNodes = (chaingraph.nodes ?? []).filter(n => n.status === 'live').length
   const mcpLive = liveNodes + mcpCountsData.pilot_widgets + mcpCountsData.utility_tools
+  const mcpWidgets = mcpCountsData.pilot_widgets
 
   // openapi.ops — unique mcp_names: all manifests + chaingraph nodes not already covered
   const byMcpName = new Set()
@@ -88,6 +90,7 @@ export function deriveCounts() {
     'chains':            chains,
     'workflows.recipes': workflowsRecipes,
     'mcp.live':          mcpLive,
+    'mcp.widgets':       mcpWidgets,
     'openapi.ops':       openapiOps,
   }
 }
