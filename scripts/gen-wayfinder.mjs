@@ -11,6 +11,12 @@
  * Valid sentinel ids: learn | run | ledger
  * (Old "verify" sentinel in ledger/index.html was updated to "ledger".)
  *
+ * STATUS (2026-07-06, PR #176): the visual rail was deliberately removed
+ * from every deployed page — zero sentinels is the current intended state,
+ * not staleness. --check passes clean when no sentinel files exist. If the
+ * rail is reintroduced, re-add sentinels and this script resumes enforcing
+ * freshness automatically.
+ *
  * Generated pages (canvas.html, workbench.html) are owned by their own
  * generators (gen-canvas.mjs, gen-workbench.mjs) which import renderRail
  * directly. This script skips those files.
@@ -146,8 +152,11 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.url.repl
   const sentinelFiles = findSentinelFiles(REPO);
 
   if (sentinelFiles.length === 0 && CHECK) {
-    console.error('gen-wayfinder: no sentinel files found (add <!--WAYFINDER:stopId--> sentinels).');
-    process.exit(1);
+    // PR #176 (2026-07-06) deliberately stripped the visual rail from all
+    // deployed pages. Zero sentinels is the intended steady state now, not
+    // a staleness bug — pass clean instead of hard-failing every push.
+    console.log('gen-wayfinder --check: OK (0 sentinel files — rail retired, see PR #176).');
+    process.exit(0);
   }
 
   let anyStale = false;
