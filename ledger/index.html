@@ -369,6 +369,7 @@ section.main-section{padding:2rem 0}
 <div class="tab-bar" id="tab-bar">
   <div class="tab-inner">
     <button class="tab-btn active" data-tab="ledger">Ledger</button>
+    <button class="tab-btn" data-tab="exceptions">Exceptions</button>
     <button class="tab-btn" data-tab="about">What is this?</button>
   </div>
 </div>
@@ -481,7 +482,17 @@ function cgCanon(v) {
 }
 
 async function recomputeExecutionHash(artifact) {
-  const obj = { policy_parameters: artifact.policy_parameters, output_payload: artifact.output_payload };
+  // §22.8.3: escalation_record / escalation_closure are hash-EXCLUDED adjacent metadata,
+  // attached to output_payload AFTER the execution_hash was computed (same discipline as
+  // §20 anchor_bindings) — strip them from the recompute or every escalated composite
+  // would falsely fail the §4 hash check.
+  let op = artifact.output_payload;
+  if (op && (op.escalation_record || op.escalation_closure)) {
+    op = Object.assign({}, op);
+    delete op.escalation_record;
+    delete op.escalation_closure;
+  }
+  const obj = { policy_parameters: artifact.policy_parameters, output_payload: op };
   const preimage = JSON.stringify(cgCanon(obj));
   const bytes = new TextEncoder().encode(preimage);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -550,6 +561,77 @@ function applyOp(op, found, observed, value) {
     case 'in': return found && Array.isArray(value) && value.some(v => deepEqual(observed, v));
     default: return false;
   }
+}
+
+/* ── ESCALATION RECORDS (OCG §22.8) ─────────────────────────────── */
+// Deterministic escalation-record hash: canonical SHA-256 over exactly
+// { mandate_hash?, decision, halted_steps } — opened_at is wall-clock and
+// hash-EXCLUDED (§22.8.3). Byte-mirrors the worker's cgSha256Hex(recordPreimage).
+async function computeEscalationRecordHash(record) {
+  const preimage = {};
+  if (record.mandate_hash) preimage.mandate_hash = record.mandate_hash;
+  preimage.decision = record.decision;
+  preimage.halted_steps = record.halted_steps;
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(preimage)));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hasEscalation(artifact) {
+  return !!artifact?.output_payload?.escalation_record;
+}
+
+function escalationRecordOf(artifact) {
+  return artifact?.output_payload?.escalation_record || null;
+}
+
+function escalationClosureOf(artifact) {
+  return artifact?.output_payload?.escalation_closure || null;
+}
+
+// §22.8.4 closure verification, vendored: (1) record-hash recompute equals
+// closure.record_hash (tamper-evident — mutate decision/halted_steps/mandate_hash and
+// the recompute diverges), (2) closure.decision echoes an approver decision. The
+// signature/anchor leg (Anchorproof verify_signature_envelope, WebAuthn assertion) is
+// NOT vendored here — the record view links out to the live anchor.ainumbers.co
+// verifier for that full passkey/JAdES check (§0 discipline: structure and hashes here,
+// cryptographic assertion verification at the source).
+async function verifyEscalationClosure(artifact) {
+  const record = escalationRecordOf(artifact);
+  if (!record) return { status: 'absent' };
+  const recomputed = await computeEscalationRecordHash(record);
+  const closure = escalationClosureOf(artifact);
+  if (!closure) return { status: 'open', recordHash: recomputed };
+  const decisionValid = closure.decision === 'approve' || closure.decision === 'reject';
+  const hashMatch = closure.record_hash === recomputed;
+  return {
+    status: hashMatch && decisionValid ? 'closed' : 'tamper',
+    recordHash: recomputed,
+    closureRecordHash: closure.record_hash,
+    hashMatch,
+    decision: closure.decision,
+    decisionValid,
+    anchor: closure.anchor || null,
+    envelope: closure.envelope || null
+  };
+}
+
+// A closure artifact (§22.8.4) is not an OCG artifact envelope — it is recognized by
+// its own shape so ingress can route it to the matching open record instead of
+// creating a new ledger row.
+function isEscalationClosure(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  return typeof obj.record_hash === 'string'
+    && (obj.decision === 'approve' || obj.decision === 'reject')
+    && !!obj.envelope;
+}
+
+function extractAllClosures(parsed) {
+  if (!parsed) return [];
+  if (isEscalationClosure(parsed)) return [parsed];
+  if (parsed.escalation_closure && isEscalationClosure(parsed.escalation_closure)) return [parsed.escalation_closure];
+  if (Array.isArray(parsed)) return parsed.flatMap(extractAllClosures);
+  return [];
 }
 
 /* ── ARTIFACT UTILITIES ─────────────────────────────────────────── */
@@ -979,6 +1061,31 @@ async function persistArtifact(artifact, source) {
   });
 }
 
+async function findArtifactByEscalationRecordHash(recordHash) {
+  const records = await dbGetAll();
+  for (const r of records) {
+    if (!hasEscalation(r.artifact)) continue;
+    const h = await computeEscalationRecordHash(escalationRecordOf(r.artifact));
+    if (h === recordHash) return r;
+  }
+  return null;
+}
+
+// §22.8.4 closure ingress: attaches the closure to the matching open record's
+// artifact (adjacent metadata, same discipline as anchor_bindings) rather than
+// creating a new ledger row for the closure object itself.
+async function attachEscalationClosure(closure) {
+  if (!isEscalationClosure(closure)) return { ok: false, error: 'Not a valid escalation closure object.' };
+  const rec = await findArtifactByEscalationRecordHash(closure.record_hash);
+  if (!rec) return { ok: false, error: 'No open escalation record in this ledger matches record_hash ' + closure.record_hash.slice(0, 16) + '...' };
+  const updated = JSON.parse(JSON.stringify(rec.artifact));
+  updated.output_payload.escalation_closure = closure;
+  await persistArtifact(updated, rec.source);
+  _vcache.delete(updated.execution_hash);
+  localStorage.removeItem('ocg_escalation_pending_' + closure.record_hash);
+  return { ok: true, hash: updated.execution_hash };
+}
+
 async function exportAll() {
   const records = await dbGetAll();
   if (records.length === 0) { showToast('No artifacts to export.', 'warn'); return; }
@@ -994,13 +1101,38 @@ async function exportAll() {
 
 async function importFromJSON(json, source) {
   let parsed;
-  try { parsed = JSON.parse(json); } catch { return { imported: 0, errors: ['Invalid JSON'] }; }
+  try { parsed = JSON.parse(json); } catch { return { imported: 0, errors: ['Invalid JSON'], closureHashes: [] }; }
   const artifacts = extractAllArtifacts(parsed);
-  let imported = 0; const errors = [];
+  let imported = 0; const errors = []; const closureHashes = [];
   for (const a of artifacts) {
     try { await persistArtifact(a, source || 'import'); imported++; } catch (e) { errors.push(e.message); }
   }
-  return { imported, errors };
+  // §22.8.4 escalation closure ingress — a closure is not itself an OCG artifact, so
+  // only look for one when nothing artifact-shaped was found in this payload.
+  if (imported === 0) {
+    for (const c of extractAllClosures(parsed)) {
+      const r = await attachEscalationClosure(c);
+      if (r.ok) closureHashes.push(r.hash); else errors.push(r.error);
+    }
+  }
+  return { imported, errors, closureHashes };
+}
+
+// Shared post-import UX: toast + navigate to the imported/closed record. Used by every
+// ingress channel (drop, file picker, paste, folder tier, nav import) so closure ingress
+// (§22.8.4) gets the same feedback as artifact ingress without duplicating this logic.
+async function handleImportResult(r) {
+  const total = (r.imported || 0) + (r.closureHashes?.length || 0);
+  if (total === 0) { showToast('No valid artifacts or closures found.', 'warn'); return; }
+  if (r.closureHashes?.length && !r.imported) {
+    showToast(r.closureHashes.length + ' escalation closure' + (r.closureHashes.length > 1 ? 's' : '') + ' recorded.', 'success');
+    navigate('#view/' + r.closureHashes[0]);
+    return;
+  }
+  showToast(total + ' artifact' + (total > 1 ? 's' : '') + ' imported.', 'success');
+  const records = await dbGetAll();
+  if (records.length > 0) navigate('#view/' + records[0].execution_hash);
+  else await renderLedger();
 }
 
 /* ── CHROMIUM FOLDER TIER ───────────────────────────────────────── */
@@ -1340,6 +1472,143 @@ async function renderLedger() {
 
   wireHeroStrip();
   wireIngressMini();
+}
+
+/* ── EXCEPTIONS VIEW (OCG §22.8) ─────────────────────────────────── */
+// §0 scope test: this view answers "what did my agent do" for the runs that did NOT
+// finish automatically — every open escalation record across the ledger, oldest first.
+async function renderExceptions() {
+  const main = document.getElementById('main');
+  const records = await dbGetAll();
+  const escalations = [];
+  for (const r of records) {
+    if (!hasEscalation(r.artifact)) continue;
+    const closureCheck = await verifyEscalationClosure(r.artifact);
+    escalations.push({ rec: r, record: escalationRecordOf(r.artifact), closureCheck });
+  }
+  escalations.sort((a, b) => {
+    const ta = Date.parse(a.record.opened_at || '') || a.rec.added_at;
+    const tb = Date.parse(b.record.opened_at || '') || b.rec.added_at;
+    return ta - tb; // oldest first
+  });
+
+  if (escalations.length === 0) {
+    main.innerHTML = `<section class="main-section"><div class="container">
+      <div class="ledger-header"><span class="ledger-title">Exceptions</span></div>
+      <div class="empty-state"><p>No escalation records in this ledger yet. When a gated workflow's decision gate routes to <span class="mono">escalate</span> (OCG §22.8) instead of finishing automatically, the open record shows up here for review.</p></div>
+    </div></section>`;
+    return;
+  }
+
+  const openCount = escalations.filter(e => e.closureCheck.status === 'open').length;
+
+  const rows = escalations.map(({ rec, record, closureCheck }) => {
+    const artifact = rec.artifact;
+    const chain = artifactChainName(artifact);
+    const dec = record.decision || {};
+    const statusChip = closureCheck.status === 'closed' ? chipHtml('pass', 'Closed')
+      : closureCheck.status === 'tamper' ? chipHtml('fail', 'Closure invalid')
+      : chipHtml('warn', 'Open');
+    const openedAt = record.opened_at ? new Date(record.opened_at).toISOString().slice(0, 16).replace('T', ' ') : 'unknown time';
+    const mandateLabel = record.mandate_hash ? `<span class="mono">mandate ${record.mandate_hash.slice(0, 12)}...</span>` : '<span>not mandate-bound</span>';
+    return `<div class="artifact-card" data-hash="${artifact.execution_hash}">
+      <div class="card-chip">${statusChip}</div>
+      <div class="card-body">
+        <div class="card-title">${chain || artifact.tool_id || 'Unknown'}</div>
+        <div class="card-meta">
+          <span>opened ${openedAt}</span>
+          ${mandateLabel}
+          <span class="mono">${dec.step_id || ''} &rarr; escalate</span>
+        </div>
+        <div class="card-outcome truncate">halted: ${(record.halted_steps || []).join(', ') || 'none'}</div>
+      </div>
+      <div class="card-actions">
+        ${closureCheck.status === 'open' ? `<button class="whatnext-btn" data-sign="${artifact.execution_hash}">Review and sign</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="ledger-header">
+      <span class="ledger-title">Exceptions</span>
+      <div class="filter-bar"><span class="filter-btn active">${openCount} open &middot; ${escalations.length} total</span></div>
+    </div>
+    <div class="ledger-list">${rows}</div>
+  </div></section>`;
+
+  main.querySelectorAll('.artifact-card').forEach(card =>
+    card.addEventListener('click', e => {
+      if (e.target.closest('[data-sign]')) return;
+      navigate('#view/' + card.dataset.hash);
+    }));
+
+  main.querySelectorAll('[data-sign]').forEach(btn =>
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const rec = await dbGet(btn.dataset.sign);
+      if (rec?.artifact) await doEscalationSign(rec.artifact, btn);
+    }));
+}
+
+/* ── ESCALATION REVIEW-AND-SIGN (§22.8.4) ───────────────────────── */
+// Deep-links to the live Anchorproof sign page (create_signature_envelope, allowlisted
+// §6 anchor endpoint) with the recomputed record hash as doc_digest. The pending request
+// is tracked in localStorage (UI state only, no server-side queue exists per §22.8.5
+// transport-agnostic discipline) so the accompanying toast can point back here.
+async function doEscalationSign(artifact, btn) {
+  const record = escalationRecordOf(artifact);
+  if (!record) return;
+  const now = Date.now();
+  if (now < _anchorCooldown) {
+    showToast('Please wait ' + Math.ceil((_anchorCooldown - now) / 1000) + 's before requesting again.', 'warn');
+    return;
+  }
+  const recordHash = await computeEscalationRecordHash(record);
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Requesting...';
+  try {
+    const resp = await fetch(ANCHOR_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', method: 'tools/call',
+        params: {
+          name: 'create_signature_envelope',
+          arguments: {
+            doc_digest: recordHash,
+            parties: [{ role: 'approver' }],
+            message: 'Escalation review: ' + (record.decision?.step_id || 'gate') + ' routed to escalate; halted steps: ' + (record.halted_steps || []).join(', ')
+          }
+        },
+        id: 1
+      })
+    });
+    if (!resp.ok) throw new Error('Anchorproof service returned ' + resp.status);
+    const text = await resp.text();
+    const dataLine = text.split('\n').find(l => l.startsWith('data:'));
+    if (!dataLine) throw new Error('No data line in response');
+    const rpcResp = JSON.parse(dataLine.replace(/^data:\s*/, ''));
+    const content = rpcResp?.result?.content?.[0]?.text;
+    if (!content) throw new Error('No content in response');
+    const envResult = JSON.parse(content);
+    const signUrl = envResult.sign_url || envResult.result?.sign_url;
+    const envelopeId = envResult.envelope_id || envResult.result?.envelope_id;
+    if (!signUrl) throw new Error('No sign_url returned');
+
+    localStorage.setItem('ocg_escalation_pending_' + recordHash, JSON.stringify({
+      envelope_id: envelopeId, sign_url: signUrl, artifact_hash: artifact.execution_hash, requested_at: Date.now()
+    }));
+
+    window.open(signUrl, '_blank', 'noopener');
+    showToast('Sign request opened at anchor.ainumbers.co. Once signed, paste, drop, or import the closure envelope here to close the record.', 'info');
+    _anchorCooldown = Date.now() + ANCHOR_COOLDOWN_MS;
+  } catch (e) {
+    showToast('Could not start review: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 }
 
 /* ── HERO STRIP ──────────────────────────────────────────────────── */
@@ -1808,6 +2077,38 @@ mcp-protocol-version: 2025-06-18
       </div>
     </div>
 
+    <div class="about-section" id="about-exceptions">
+      <h2 class="about-q">8. Management by exception</h2>
+      <div style="overflow-x:auto;margin:.6rem 0 .9rem">
+        <svg viewBox="0 0 460 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="max-width:480px;display:block">
+          <rect x="8" y="10" width="150" height="70" rx="5" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/>
+          <text x="83" y="30" text-anchor="middle" font-size="8.5" fill="var(--text)" font-family="Sora,sans-serif" font-weight="600">Inside the mandate</text>
+          <text x="83" y="46" text-anchor="middle" font-size="7.5" fill="var(--body)" font-family="Sora,sans-serif">machines decide</text>
+          <text x="83" y="58" text-anchor="middle" font-size="7.5" fill="var(--body)" font-family="Sora,sans-serif">automatically</text>
+          <text x="83" y="70" text-anchor="middle" font-size="7" fill="var(--muted)" font-family="Sora,sans-serif">every run still gets a receipt</text>
+          <line x1="162" y1="45" x2="196" y2="45" stroke="var(--warn)" stroke-width="1.3" stroke-dasharray="3,2"/>
+          <polygon points="196,42 202,45 196,48" fill="var(--warn)"/>
+          <text x="179" y="36" text-anchor="middle" font-size="7" fill="var(--warn)" font-family="Sora,sans-serif">escalate</text>
+          <rect x="204" y="10" width="150" height="70" rx="5" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/>
+          <text x="279" y="30" text-anchor="middle" font-size="8.5" fill="var(--teal-lt)" font-family="Sora,sans-serif" font-weight="600">This tab</text>
+          <text x="279" y="46" text-anchor="middle" font-size="7.5" fill="var(--body)" font-family="Sora,sans-serif">humans see only</text>
+          <text x="279" y="58" text-anchor="middle" font-size="7.5" fill="var(--body)" font-family="Sora,sans-serif">the exceptions</text>
+          <text x="279" y="70" text-anchor="middle" font-size="7" fill="var(--muted)" font-family="Sora,sans-serif">oldest open record first</text>
+          <line x1="358" y1="45" x2="392" y2="45" stroke="var(--teal)" stroke-width="1.3"/>
+          <polygon points="392,42 398,45 392,48" fill="var(--teal)"/>
+          <rect x="400" y="10" width="56" height="70" rx="5" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/>
+          <text x="428" y="34" text-anchor="middle" font-size="8" fill="var(--green)" font-family="Sora,sans-serif" font-weight="600">record</text>
+          <text x="428" y="47" text-anchor="middle" font-size="8" fill="var(--gold)" font-family="Sora,sans-serif">envelope</text>
+          <text x="428" y="60" text-anchor="middle" font-size="8" fill="var(--teal)" font-family="Sora,sans-serif">anchor</text>
+        </svg>
+      </div>
+      <div class="about-a">
+        <p>Straight-through processing does not mean no oversight; it means oversight moves to where it is needed. Inside a Work Mandate's boundaries, the run decides on its own and every path (automatic or escalated) still leaves a receipt. When a gate's decision routes to <code>escalate</code> instead of finishing the run, the mandate has told the agent this one needs a person, not a rule.</p>
+        <p>The <strong>Exceptions</strong> tab is that queue: open escalation records across the ledger, oldest first, with the triggering decision and the halted steps shown so a reviewer does not have to read the raw artifact to understand what stopped. <strong>Review and sign</strong> deep-links to the live Anchorproof sign page with the record hash prefilled; once the approver signs, pasting, dropping, or importing the closure envelope back here closes the record.</p>
+        <p>A closed record renders the full chain: the escalation record's hash, the countersigned envelope, and its anchor binding. This page recomputes the record hash and checks the closure's decision locally; the signature and timestamp themselves verify at anchor.ainumbers.co, so closing an exception proves itself the same way every other record here does.</p>
+      </div>
+    </div>
+
   </div></section>`;
 }
 
@@ -1821,14 +2122,9 @@ function wireIngress() {
   zone.addEventListener('drop', async e => {
     e.preventDefault(); zone.classList.remove('drag-over');
     const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.json'));
-    let total = 0;
-    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
-    if (total > 0) {
-      showToast(total + ' artifact' + (total > 1 ? 's' : '') + ' imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    } else showToast('No valid artifacts found in dropped files.', 'warn');
+    let imported = 0; const closureHashes = [];
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); imported += r.imported; closureHashes.push(...r.closureHashes); }
+    await handleImportResult({ imported, closureHashes });
   });
 
   // Demo button
@@ -1836,27 +2132,16 @@ function wireIngress() {
 
   document.getElementById('pick-file-btn')?.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
-    let total = 0;
-    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
-    if (total > 0) {
-      showToast(total + ' artifact' + (total > 1 ? 's' : '') + ' imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    }
+    let imported = 0; const closureHashes = [];
+    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); imported += r.imported; closureHashes.push(...r.closureHashes); }
+    await handleImportResult({ imported, closureHashes });
     fileInput.value = '';
   });
 
   document.getElementById('paste-btn')?.addEventListener('click', async () => {
     const text = await navigator.clipboard.readText().catch(() => null);
     if (!text) { showToast('Could not read clipboard.', 'warn'); return; }
-    const r = await importFromJSON(text, 'paste');
-    if (r.imported > 0) {
-      showToast(r.imported + ' artifact' + (r.imported > 1 ? 's' : '') + ' imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    } else showToast('No valid artifacts found in clipboard text.', 'warn');
+    await handleImportResult(await importFromJSON(text, 'paste'));
   });
 
   // Folder tier
@@ -1885,26 +2170,16 @@ function wireIngressMini() {
   zone.addEventListener('drop', async e => {
     e.preventDefault(); zone.classList.remove('drag-over');
     const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.json'));
-    let total = 0;
-    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
-    if (total > 0) {
-      showToast(total + ' artifact(s) imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    } else showToast('No valid artifacts found.', 'warn');
+    let imported = 0; const closureHashes = [];
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'file'); imported += r.imported; closureHashes.push(...r.closureHashes); }
+    await handleImportResult({ imported, closureHashes });
   });
 
   document.getElementById('pick-file-btn')?.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
-    let total = 0;
-    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); total += r.imported; }
-    if (total > 0) {
-      showToast(total + ' artifact(s) imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    }
+    let imported = 0; const closureHashes = [];
+    for (const f of fileInput.files) { const r = await importFromJSON(await f.text(), 'file'); imported += r.imported; closureHashes.push(...r.closureHashes); }
+    await handleImportResult({ imported, closureHashes });
     fileInput.value = '';
   });
 }
@@ -1929,6 +2204,7 @@ async function showRecord(artifact) {
   const isComp = isComposite(artifact);
   const chain = artifactChainName(artifact);
   const title = artifactTitle(artifact);
+  const escCheck = hasEscalation(artifact) ? await verifyEscalationClosure(artifact) : null;
 
   // Verify card rows
   const hashRow = `<div class="verify-row">
@@ -2003,6 +2279,48 @@ async function showRecord(artifact) {
       chipHtml('absent','No gates')
     }</div>
   </div>` : '';
+
+  const escRow = escCheck ? `<div class="verify-row">
+    <span class="verify-icon">${escCheck.status === 'closed' ? '&#10003;' : escCheck.status === 'tamper' ? '&#10007;' : '&ndash;'}</span>
+    <div class="verify-label">Escalation record (§22.8)
+      <small>record hash recomputed locally from the deterministic subset${escCheck.status !== 'open' ? (escCheck.hashMatch ? ' &middot; matches closure' : ' &middot; MISMATCH with closure') : ' &middot; awaiting review'}</small>
+    </div>
+    <div class="verify-chip">${
+      escCheck.status === 'closed' ? chipHtml('pass', 'Closed &ndash; verified') :
+      escCheck.status === 'tamper' ? chipHtml('fail', 'Closure invalid') :
+      chipHtml('warn', 'Open &ndash; needs review')
+    }</div>
+  </div>` : '';
+
+  // Exception section (§22.8): triggering decision, halted steps, and the
+  // record → envelope → anchor closure chain once closed.
+  let escSectionHtml = '';
+  if (escCheck) {
+    const record = escalationRecordOf(artifact);
+    const closure = escalationClosureOf(artifact);
+    const dec = record.decision || {};
+    const closureChainHtml = closure ? `
+      <div class="share-block" style="margin-top:.75rem">
+        <div class="share-row" style="flex-direction:column;align-items:flex-start;gap:.35rem">
+          <span>record <span class="mono">${escCheck.recordHash.slice(0, 20)}...</span> &rarr; envelope <span class="mono">${((closure.envelope?.envelope_id || closure.envelope?.id || 'signed') + '').slice(0, 20)}</span> &rarr; anchor ${closure.anchor ? (closure.anchor.log_origin || closure.anchor.type || 'present') : 'absent'}</span>
+          <span>closure decision: <strong>${closure.decision}</strong> &middot; hash match: ${escCheck.hashMatch ? 'yes' : 'no'}</span>
+        </div>
+        <div class="share-row">
+          <a class="share-anchor-btn" style="text-decoration:none;display:inline-block" href="https://anchor.ainumbers.co/verify" target="_blank" rel="noopener">Full passkey verification &#8594;</a>
+          <span class="share-note">Structural check only here (record-hash recompute + decision echo). The signature and timestamp leg (JAdES, WebAuthn assertion) verifies at the source.</span>
+        </div>
+      </div>` : `
+      <div class="whatnext-actions" style="margin-top:.75rem">
+        <button class="whatnext-btn" id="esc-sign-btn">Review and sign</button>
+      </div>`;
+    escSectionHtml = `<div class="record-section">
+      <div class="section-title">Exception (§22.8)</div>
+      <div class="verify-card" style="padding:1rem 1.25rem">
+        <p style="font-size:.85rem;color:var(--body);margin-bottom:.5rem">This run halted at <span class="mono">${dec.step_id || ''}</span> (${dec.op || 'default'}${dec.value !== undefined ? ' ' + JSON.stringify(dec.value) : ''}) and routed to <strong>escalate</strong>. Halted steps: <span class="mono">${(record.halted_steps || []).join(', ') || 'none'}</span>.${record.mandate_hash ? ` Mandate: <span class="mono">${record.mandate_hash.slice(0, 20)}...</span>` : ' Not mandate-bound.'}</p>
+        ${closureChainHtml}
+      </div>
+    </div>`;
+  }
 
   // Step rail (composites only)
   let stepRailHtml = '';
@@ -2095,9 +2413,11 @@ async function showRecord(artifact) {
     <div class="record-section">
       <div class="section-title">Verification</div>
       <div class="verify-card">
-        ${hashRow}${sigRow}${kiRow}${cpRow}${ancRow}${grRow}
+        ${hashRow}${sigRow}${kiRow}${cpRow}${ancRow}${grRow}${escRow}
       </div>
     </div>
+
+    ${escSectionHtml}
 
     <div class="record-section">
       <div class="section-title">What next?</div>
@@ -2147,6 +2467,9 @@ async function showRecord(artifact) {
   document.getElementById('wn-about-agents-btn')?.addEventListener('click', () => {
     navigate('#about');
     setTimeout(() => document.getElementById('about-for-agents')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  });
+  document.getElementById('esc-sign-btn')?.addEventListener('click', () => {
+    doEscalationSign(artifact, document.getElementById('esc-sign-btn'));
   });
 
   // Wire share block
@@ -2206,6 +2529,11 @@ async function route() {
     renderAbout();
     return;
   }
+  if (hash === '#exceptions') {
+    setActiveTab('exceptions');
+    await renderExceptions();
+    return;
+  }
   if (hash.startsWith('#view/')) {
     setActiveTab('ledger');
     const execHash = hash.slice(6);
@@ -2260,14 +2588,9 @@ function wireNav() {
   });
   document.getElementById('nav-file-input')?.addEventListener('change', async e => {
     const files = [...e.target.files];
-    let total = 0;
-    for (const f of files) { const r = await importFromJSON(await f.text(), 'import'); total += r.imported; }
-    if (total > 0) {
-      showToast(total + ' artifact(s) imported.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    } else showToast('No valid artifacts found.', 'warn');
+    let imported = 0; const closureHashes = [];
+    for (const f of files) { const r = await importFromJSON(await f.text(), 'import'); imported += r.imported; closureHashes.push(...r.closureHashes); }
+    await handleImportResult({ imported, closureHashes });
     e.target.value = '';
   });
 
@@ -2275,21 +2598,17 @@ function wireNav() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
-      navigate(tab === 'about' ? '#about' : '');
+      navigate(tab === 'about' ? '#about' : tab === 'exceptions' ? '#exceptions' : '');
     });
   });
 
-  // Global paste listener
+  // Global paste listener — also recognizes a closure object (§22.8.4, record_hash) so
+  // an escalation review can be closed by pasting the closure JSON anywhere on the page.
   document.addEventListener('paste', async e => {
     const text = e.clipboardData?.getData('text/plain');
-    if (!text || !text.includes('execution_hash')) return;
+    if (!text || !(text.includes('execution_hash') || text.includes('record_hash'))) return;
     const r = await importFromJSON(text, 'paste');
-    if (r.imported > 0) {
-      showToast(r.imported + ' artifact(s) imported from paste.', 'success');
-      const records = await dbGetAll();
-      if (records.length > 0) navigate('#view/' + records[0].execution_hash);
-      else await renderLedger();
-    }
+    if ((r.imported || 0) + (r.closureHashes?.length || 0) > 0) await handleImportResult(r);
   });
 
   // Browser back/forward
