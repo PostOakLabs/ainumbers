@@ -16,16 +16,19 @@
 //       execution_hash); plus §20 scope: anchor_bindings sit OUTSIDE the execution_hash preimage.
 // Node 18+ (node:crypto builtins only — zero npm deps).  Run:  node chaingraph/kernels/anchor-binding.test.mjs
 import { readFileSync } from 'node:fs';
-import { createHash, createPublicKey, verify as cryptoVerify, X509Certificate } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { executionHash } from './_hash.mjs';
 import {
-  sha256, derRead, derChildrenOf, derOidToString, derEnc,
+  sha256, derRead, derChildrenOf,
   cborDecode, CborTag, cborEncode, leafHash, nodeHash, mth, auditPath, rootFromInclusion,
   rawToPublicKey, ed25519Verify, parseNote, verifyNoteSig, verifyCosigV1,
   verifyMerkleInclusion,
 } from './_anchor-testutil.mjs';
+// §20/§23 SINGLE SOURCE OF TRUTH for rfc3161-tst verification — reused unchanged by
+// validate_input_attestations' rfc3161-snapshot type (SPEC.md §23.1: "no second RFC 3161 impl").
+import { verifyRfc3161 } from './_rfc3161.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIX = JSON.parse(readFileSync(join(HERE, 'fixtures', 'anchor-binding.fixture.json'), 'utf8'));
@@ -39,127 +42,6 @@ const bareHash = (h) => String(h).replace(/^sha256:/, '');
 async function bindingHashOk(binding, artifact) {
   const recomputed = await executionHash(artifact.policy_parameters, artifact.output_payload);
   return bareHash(binding.anchored_hash) === recomputed && recomputed === artifact.execution_hash;
-}
-
-// ── rfc3161-tst verifier (offline, zero-dep) ─────────────────────────────────────────────────────
-const OID = {
-  signedData: '1.2.840.113549.1.7.2',
-  tstInfo: '1.2.840.113549.1.9.16.1.4',
-  contentType: '1.2.840.113549.1.9.3',
-  messageDigest: '1.2.840.113549.1.9.4',
-  sha256: '2.16.840.1.101.3.4.2.1',
-  ekuExt: '2.5.29.37',
-  ekuTimestamping: '1.3.6.1.5.5.7.3.8',
-};
-const HASH_BY_OID = {
-  '1.3.14.3.2.26': 'sha1',
-  '2.16.840.1.101.3.4.2.1': 'sha256',
-  '2.16.840.1.101.3.4.2.2': 'sha384',
-  '2.16.840.1.101.3.4.2.3': 'sha512',
-  // signatureAlgorithm OIDs that imply their hash:
-  '1.2.840.113549.1.1.11': 'sha256', '1.2.840.113549.1.1.12': 'sha384', '1.2.840.113549.1.1.13': 'sha512',
-  '1.2.840.10045.4.3.2': 'sha256', '1.2.840.10045.4.3.3': 'sha384', '1.2.840.10045.4.3.4': 'sha512',
-};
-
-function verifyRfc3161(binding, { rootPem, expectHashHex }) {
-  const der = b64(binding.proof);
-  const ci = derRead(der, 0);
-  const [oidNode, explicit0] = derChildrenOf(der, ci);
-  if (derOidToString(oidNode.content) !== OID.signedData) throw new Error('not CMS SignedData');
-  const signedData = derChildrenOf(der, explicit0)[0];
-  const kids = derChildrenOf(der, signedData);
-  const encapKids = derChildrenOf(der, kids[2]);
-  if (derOidToString(encapKids[0].content) !== OID.tstInfo) throw new Error('eContentType != id-ct-TSTInfo');
-  const tstInfoDer = Buffer.from(derRead(der, encapKids[1].start).content); // OCTET STRING in [0]
-
-  // TSTInfo members
-  const t = derChildrenOf(tstInfoDer, derRead(tstInfoDer, 0));
-  const policyOid = derOidToString(t[1].content);
-  const imprintKids = derChildrenOf(tstInfoDer, t[2]);
-  const imprintAlg = derOidToString(derChildrenOf(tstInfoDer, imprintKids[0])[0].content);
-  const hashedMessage = Buffer.from(imprintKids[1].content);
-  const serial = BigInt('0x' + Buffer.from(t[3].content).toString('hex')).toString(10);
-  const genTime = t[4].content.toString('ascii');
-  if (imprintAlg !== OID.sha256) throw new Error('messageImprint alg is not SHA-256');
-  if (!hashedMessage.equals(Buffer.from(expectHashHex, 'hex'))) throw new Error('messageImprint != anchored_hash');
-  if (policyOid !== binding.policy_oid || serial !== binding.serial || genTime !== binding.gen_time) {
-    throw new Error('TSTInfo members disagree with the binding’s verbatim rfc3161 members');
-  }
-  // genTime sane: YYYYMMDDHHMMSSZ, within [2016-01-01, now + 1 day]
-  const gm = genTime.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.\d+)?Z$/);
-  if (!gm) throw new Error('genTime not GeneralizedTime Zulu');
-  const gt = Date.UTC(+gm[1], +gm[2] - 1, +gm[3], +gm[4], +gm[5], +gm[6]);
-  if (!(gt > Date.UTC(2016, 0, 1) && gt < Date.now() + 86_400_000)) throw new Error('genTime not sane');
-
-  // certificates ([0] IMPLICIT) + signerInfo
-  const certs = [];
-  for (const k of kids) if (k.tag === 0xa0) for (const c of derChildrenOf(der, k)) certs.push(new X509Certificate(Buffer.from(c.raw)));
-  if (!certs.length) throw new Error('no certificates in SignedData');
-  const signerInfo = derChildrenOf(der, kids[kids.length - 1])[0];
-  const si = derChildrenOf(der, signerInfo);
-  // version, sid, digestAlgorithm, [0] signedAttrs, signatureAlgorithm, signature
-  const digestAlg = HASH_BY_OID[derOidToString(derChildrenOf(der, si[2])[0].content)];
-  const signedAttrsNode = si[3];
-  if (signedAttrsNode.tag !== 0xa0) throw new Error('no signedAttrs');
-  const sigAlgOid = derOidToString(derChildrenOf(der, si[4])[0].content);
-  const sigHash = HASH_BY_OID[sigAlgOid] ?? digestAlg;
-  const signature = Buffer.from(si[5].content);
-
-  // signedAttrs: contentType == id-ct-TSTInfo, messageDigest == digestAlg(TSTInfo)
-  let ctOk = false, mdOk = false;
-  for (const attr of derChildrenOf(der, signedAttrsNode)) {
-    const [aOid, aSet] = derChildrenOf(der, attr);
-    const aVal = derChildrenOf(der, aSet)[0];
-    const which = derOidToString(aOid.content);
-    if (which === OID.contentType) ctOk = derOidToString(aVal.content) === OID.tstInfo;
-    if (which === OID.messageDigest) mdOk = Buffer.from(aVal.content).equals(createHash(digestAlg).update(tstInfoDer).digest());
-  }
-  if (!ctOk) throw new Error('signedAttrs contentType != id-ct-TSTInfo');
-  if (!mdOk) throw new Error('signedAttrs messageDigest != hash(TSTInfo) — token/content mismatch');
-
-  // CMS signature: over signedAttrs re-tagged as SET OF (0x31)
-  const tbs = derEnc(0x31, Buffer.from(der.subarray(signedAttrsNode.start, signedAttrsNode.end)));
-
-  // signer cert: must verify the signature AND carry critical EKU id-kp-timeStamping
-  const root = new X509Certificate(rootPem);
-  let signer = null;
-  for (const c of certs) {
-    try { if (cryptoVerify(sigHash, tbs, c.publicKey, signature)) { signer = c; break; } } catch { /* next */ }
-  }
-  if (!signer) throw new Error('no embedded certificate verifies the CMS signature');
-  const eku = ekuFromCert(signer);
-  if (!eku.present || !eku.oids.includes(OID.ekuTimestamping)) throw new Error('signer cert lacks EKU id-kp-timeStamping');
-  if (!eku.critical) throw new Error('signer EKU extension is not critical (RFC 3161 §2.3)');
-
-  // chain to the verifier-pinned root: signer -> (intermediates) -> pinned root
-  let cur = signer;
-  const pool = certs.filter((c) => c !== signer);
-  for (let hop = 0; hop < 4; hop++) {
-    if (cur.verify(root.publicKey)) { cur = root; break; }
-    const issuer = pool.find((c) => { try { return cur.verify(c.publicKey); } catch { return false; } });
-    if (!issuer) throw new Error('signer does not chain to the pinned TSA root');
-    cur = issuer;
-  }
-  if (cur !== root) throw new Error('chain did not terminate at the pinned TSA root');
-  return { policyOid, serial, genTime };
-}
-// EKU presence/criticality/oids straight from the cert DER (node exposes no criticality API).
-function ekuFromCert(x509) {
-  const der = x509.raw;
-  const tbs = derChildrenOf(der, derRead(der, 0))[0];
-  for (const el of derChildrenOf(der, tbs)) {
-    if (el.tag !== 0xa3) continue; // [3] extensions
-    for (const ext of derChildrenOf(der, derChildrenOf(der, el)[0])) {
-      const ek = derChildrenOf(der, ext);
-      if (derOidToString(ek[0].content) !== OID.ekuExt) continue;
-      const critical = ek[1].tag === 0x01 && ek[1].content[0] === 0xff;
-      const value = ek[ek.length - 1]; // OCTET STRING wrapping SEQUENCE OF OID
-      const inner = derRead(Buffer.from(value.content), 0);
-      const oids = derChildrenOf(Buffer.from(value.content), inner).map((o) => derOidToString(o.content));
-      return { present: true, critical, oids };
-    }
-  }
-  return { present: false, critical: false, oids: [] };
 }
 
 // ── opentimestamps verifier (offline: complete proofs vs pinned Bitcoin block header data) ───────
