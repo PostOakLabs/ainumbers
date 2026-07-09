@@ -1,69 +1,22 @@
 # AINumbers.co — Fintech Intelligence Suite
 
-> 400+ deterministic, browser-based tools for payments engineers, ops teams, treasury analysts, and compliance professionals.  
-> Built by [Post Oak Labs](https://postoaklabs.com) · [Live Suite](https://ainumbers.co)
+> Deterministic, browser-based fintech tools plus ChainGraph, a verifiable, hash-chained decision-artifact standard, for payments engineers, ops teams, treasury analysts, and compliance professionals.
+> Built by [Post Oak Labs](https://postoaklabs.com) · [Live Suite](https://ainumbers.co) · [MCP Server](https://ainumbers.co/mcp.html) · [ChainGraph Standard](https://ainumbers.co/chaingraph/openchain-graph-spec.html)
 
-🔒 **Zero PII** · 📡 **Zero APIs** · 💻 **Client-Side Only** · 🌍 **6-Language i18n** · 🤖 **MCP-Native** · 📜 **CC BY 4.0**
+🔒 **Zero PII** · 📡 **Zero network calls in-tool** · 💻 **Client-Side Only** · 🤖 **MCP-Native (327 tools)** · ⛓️ **ChainGraph v0.4** · 📜 **CC BY 4.0**
+
+Counts below drift as tools ship — never trust a hardcoded number here or anywhere else in this repo.
+Live figures: `node scripts/counts.mjs` (site) and [`mcp-apps-poc/data/counts.json`](https://github.com/PostOakLabs/ainumbers-mcp-apps/blob/master/data/counts.json) (MCP server).
 
 ---
 
 ## What This Is
 
-A privacy-first, deterministic intelligence suite spanning 30 fintech domains:
+A privacy-first, deterministic tool suite spanning 32 fintech categories — AML/KYC, cross-border payments, DLT/tokenization, treasury, embedded finance, e-invoicing, DORA/PSD3/MiCA compliance, and more — plus **ChainGraph**, an open standard for verifiable, hash-chained decision artifacts. Every ChainGraph node emits a reproducible `execution_hash`; chains cite the hashes of the nodes they consume, so any agent can independently re-verify a multi-step decision. See `chaingraph/standard/SPEC.md` for the normative spec.
 
-- A2A rail optimization, cost modeling & reconciliation
-- ISO 20022 message validation, migration & remittance
-- Open banking consent, SCA, FAPI & CFPB 1033 compliance
-- Fraud scoring, chargebacks, SAR/CTR & sanctions screening
-- AML/KYC, customer risk rating, typology detection & FATF readiness
-- DLT/tokenization, CBDC, stablecoin & VASP compliance
-- Treasury liquidity, FX hedging, float management & DSO optimization
-- Counterparty credit risk, CVA/DVA & settlement analytics
-- Embedded finance, BaaS, FBO structures & card programme economics
-- E-invoicing, Peppol, VAT, ViDA & cross-border tax
-- DORA, PSD3, MiCA, Solvency II & regulatory change management
-- TradeTech, trade finance & supply chain finance
-- WealthTech, LendTech, SME health & personal finance
-- Rule-based agent policy guardrails & AP2 mandate exports
-
----
-
-## Tool Categories
-
-| # | Category | Tools |
-|---|----------|-------|
-| Cat-1 | Core Infrastructure | 9 |
-| Cat-2 | Compliance & Consent | 15 |
-| Cat-3 | Fraud & Risk | 13 |
-| Cat-4 | Ops & Monitoring | 12 |
-| Cat-5 | Open Banking & APIs | 15 |
-| Cat-6 | Treasury & Revenue | 21 |
-| Cat-7 | ESG & Sustainable Finance | 9 |
-| Cat-8 | Reference & Decoder | 5 |
-| Cat-9 | Card Economics | 7 |
-| Cat-10 | Personal Finance & Wealth | 14 |
-| Cat-11 | DLT & Tokenization | 35 |
-| Cat-12 | AML/KYC & Financial Crime | 24 |
-| Cat-13 | B2B Payments & Ops | 17 |
-| Cat-14 | Embedded Finance & BaaS | 14 |
-| Cat-15 | E-Invoicing & VAT | 10 |
-| Cat-16 | Consumer Credit & BNPL | 9 |
-| Cat-17 | Counterparty Credit Risk | 9 |
-| Cat-18 | Cross-Border FX & Payments | 15 |
-| Cat-19 | Payment Scheme & Network | 9 |
-| Cat-20 | SME Financial Health | 10 |
-| Cat-21 | Real-Time Payments | 13 |
-| Cat-22 | DORA & Operational Resilience | 15 |
-| Cat-23 | Capital Markets Settlement | 8 |
-| Cat-24 | EU Sustainable Finance & ESG | 6 |
-| Cat-25 | PSP & Payment Compliance | 9 |
-| Cat-26 | TradeTech & Trade Finance | 8 |
-| Cat-27 | WealthTech | 9 |
-| Cat-28 | LendTech & Credit Operations | 7 |
-| Cat-29 | US Banking & Consumer Reg | 6 |
-| Cat-30 | Insurance & InsurTech | 2 |
-| RBE | Rule-Based Engine Suite | 13 |
-| MCP | MCP & Agentic Tools | 17 |
+Two consumption surfaces:
+- **Browser**, direct: every tool and ChainGraph node is a single self-contained `.html` page, zero network calls after load.
+- **Agent**, via MCP: the tool suite is also served to any MCP host (Claude, ChatGPT, Cursor, etc.) by a separate Cloudflare Workers server — see [Model Context Protocol server](#model-context-protocol-server) below.
 
 ---
 
@@ -71,122 +24,79 @@ A privacy-first, deterministic intelligence suite spanning 30 fintech domains:
 
 ```
 ainumbers/
-├── index.html              ← Homepage (400+ tool cards, MCP panel, demo hub)
-├── tools/                  ← 400+ self-contained tool pages
-├── guides/                 ← 43 topic hub pages & scenario composers
-├── mcp/                    ← MCP server (ainumbers-mcp-server.js) & registry
-├── .well-known/            ← MCP auto-discovery endpoint
-├── manifests/              ← Per-tool MCP manifests (one JSON per tool)
-├── .github/workflows/      ← Deploy pipeline (preflight → rsync → smoke test)
-└── CONTRACT.md             ← Build contract & SSOT for all contributors
+├── CONTRACT.md              ← Build contract — SSOT for all contributors, read before any build
+├── index.html                ← Homepage (tool grid, category filters, search)
+├── tools/                    ← Self-contained standalone tool pages (inline CSS/JS, no build step)
+├── guides/                   ← Category hub pages (*-hub.html)
+├── chaingraph/                ← ChainGraph: standard/ (SPEC.md, JSON schema), kernels/, node + chain pages
+├── ledger/                   ← Local-only receipt ledger (IndexedDB carve-out — CONTRACT §A7)
+├── manifests/                ← Per-tool MCP manifests (one JSON per tool)
+├── mcp/                      ← Data files consumed by the MCP server (catalog.json, server.json) — NOT the
+│                                 server itself; the live MCP server is a separate repo, see below
+├── scripts/                  ← Build/CI gates: preflight.mjs runs every hard gate locally before push
+├── .github/workflows/        ← Deploy pipeline (preflight-equivalent gates → rsync → smoke test)
+├── sitemap.xml / robots.txt / llms.txt
 ```
 
 ---
 
-## MCP Server
+## Model Context Protocol server
 
-Every tool ships with a `manifest.json` for auto-discovery. The `mcp/` directory contains a full MCP server that exposes all tools as callable functions to any MCP-compatible host (Claude Desktop, Cursor, Windsurf, etc.).
+The live MCP server (`https://mcp.ainumbers.co/mcp`, streamable HTTP, no auth) is **[PostOakLabs/ainumbers-mcp-apps](https://github.com/PostOakLabs/ainumbers-mcp-apps)**, a separate repo deployed to Cloudflare Workers — it is not code in this repo. That server vendors tool HTML, manifests, and ChainGraph kernels from this repo at build time (`generate.mjs`, run from the worker repo) and re-registers every time `chaingraph.json`/manifests change and get re-vendored.
 
-**Auto-discovery:** `https://ainumbers.co/.well-known/mcp` returns `suite-registry.json` — a machine-readable index of all tools with their schemas, categories, and AP2 export capabilities.
-
-The suite also includes 17 dedicated **MCP & Agentic tools** (filter: `MCP & Agentic`) for building, validating, and deploying MCP server configurations — including a `server.json` validator against the 2025-12-11 schema, skeleton generators for npm/PyPI/OCI/MCPB/remote targets, and an MCP Server Deployability Diagnostic.
+Every tool ships a `manifest.json` for MCP auto-discovery; `mcp/catalog.json` and `suite-registry.json` are the machine-readable bulk indices the worker repo's `generate.mjs` reads from.
 
 ---
 
 ## Architecture
 
-- **Single-file tools:** Each lives in `tools/` with fully inline CSS/JS. No build step, no dependencies.
-- **Deterministic execution:** Rule-based math, schema validation, static reference tables. Bit-for-bit reproducible outputs.
-- **MCP-native:** Every tool ships with `manifest.json` for agent auto-discovery. Suite registry at `mcp/` for bulk consumption.
-- **AP2-compliant exports:** Machine-readable policy mandates + Markdown audit trails, validated before download.
-- **Stage 2 i18n:** Full UI chrome translation across `EN · ES · FR · AR · PT · 中文` with RTL support for Arabic.
+- **Single-file tools & nodes:** each lives in `tools/` or `chaingraph/` with fully inline CSS/JS. No build step, no dependencies, no CDNs.
+- **Deterministic execution:** rule-based math, schema validation, static reference tables — bit-for-bit reproducible outputs across runs.
+- **ChainGraph as the sole orchestration surface:** multi-tool workflows are ChainGraph chains (`chaingraph/chains/`), not the deprecated Composer/Scenario Guide page types. See `chaingraph/standard/SPEC.md` §3 for the four conformance levels.
+- **AINumbers Policy Mandate export:** policy/rule/mandate/compliance tools export a structured Policy Mandate (JSON + Markdown), validated before download — this is AINumbers' own schema, not Google's AP2 payments protocol (CONTRACT §3.1).
+- **Ledger:** `ledger/` is the one carve-out from the site's zero-client-storage rule (CONTRACT §A7) — local-only IndexedDB receipt store, export/import, zero transmission except a user-initiated anchor call.
 
 ---
 
-## Scenario Guides & Demo Hubs
+## Deploy flow (CI-owned)
 
-Beyond individual tools, the `guides/` directory contains **43 hub pages** that chain tools into end-to-end workflows:
+Branch → PR → `node scripts/preflight.mjs` locally (every hard CI gate: JS syntax, hash integrity, SSOT conformance, count-drift, dead-link, copy-hallmarks, and more — green here means green in CI) → merge to `main` → GitHub Actions runs the same gates, then rsyncs to the DreamHost production host, then runs an HTTP smoke test against the live domain. No manual SFTP/rsync, ever.
 
-- **Topic hubs** — curated tool sets per domain (e.g. AML/KYC Hub, DLT & Tokenization Hub, DORA Hub)
-- **Scenario guides** — step-by-step walkthroughs for buyer archetypes (Agentic Rail, DORA Readiness, BaaS Programme, ISO 20022 Cutover)
-- **Orchestrated composers** — single-page chains that run a full workflow via the AIN Bridge and export a composite AP2 Policy Mandate
-- **Readiness diagnostics** — grade your agentic-payments or MCP deployability posture A–F
-
-Post Oak Labs also maintains **36 combined browser demos** at [postoaklabs.com/demos](https://postoaklabs.com/demos/) that chain tools across buyer-archetype scenarios (Agentic Runtime, RegTech, BaaS, Processors, Stablecoin Issuer, CBDC/DLT Studio, and more).
+A committed `pre-push` hook (`.githooks/pre-push`) runs `preflight.mjs` automatically; enable once per clone with `node scripts/setup-hooks.mjs`.
 
 ---
 
-## Rule-Based Engine (RBE) Suite
+## Adding a tool
 
-A dedicated deterministic suite of 13 tools for constructing, testing, and exporting rule-based policy engines:
+1. Create `tools/XX-{kebab-slug}.html` (single self-contained file per `CONTRACT.md`).
+2. Add `manifests/XX-{kebab-slug}.manifest.json` per `CONTRACT.md` §2.2.
+3. Add a card to `index.html` with the correct `data-cat` attribute and T-number.
+4. Run `node scripts/preflight.mjs` — fix anything red.
+5. Push — CI validates and deploys automatically.
 
-- Policy logic builders and threshold simulators
-- DORA incident classifiers
-- VAMP (Velocity, Amount, Merchant, Pattern) rule builders
-- Temporal stream generators
-- Interchange qualification & least-cost routing rule builders
-
-Accessible via the [RBE Deterministic Suite Hub](https://ainumbers.co/guides/rbe-deterministic-suite-hub.html).
-
----
-
-## Technical Specifications
-
-| Item | Detail |
-|------|--------|
-| Build contract | `CONTRACT.md` (SSOT — read before modifying or generating tools) |
-| Storage | `sessionStorage` for `ain_lang` UI preference only. No `localStorage`, cookies, or IndexedDB |
-| Network | Zero `fetch`, CDN, WebWorker, or external API calls after page load |
-| Export format | AP2 v1.0 (`ap2-mandate-v1.0`) — human + machine readable |
-| MCP protocol | Aligned with [Model Context Protocol v1+](https://modelcontextprotocol.io) |
-| MCP registry schema | 2025-12-11 schema (reverse-DNS namespace, `_meta` 4KB cap, `fileSha256`, allowlisted base URLs) |
-| i18n | EN · ES · FR · AR · PT · 中文 with RTL support |
-| License | CC BY 4.0 |
-
----
-
-## Deploy Pipeline
-
-Every push to `main` runs:
-
-1. **Pre-flight** — index sync check (every tool has a homepage card), CRLF guard
-2. **Deploy** — rsync to production host
-3. **Smoke test** — HTTP 200 check against live domain
-
----
-
-## Adding a Tool
-
-1. Create `tools/XX-{kebab-slug}.html` (single self-contained file per `CONTRACT.md`)
-2. Add `manifests/XX-{kebab-slug}.manifest.json` per `CONTRACT.md` §2.2
-3. Add a card to `index.html` with the correct `data-cat` attribute and T-number
-4. Push — CI validates and deploys automatically
+Full workflow: `CLAUDE.md` (this directory) → `CONTRACT.md` (full spec).
 
 ---
 
 ## Contributing
 
-- Open an issue or PR on GitHub
-- Follow deterministic, auditable logic standards per `CONTRACT.md`
-- Include citation footnotes for all regulatory and financial claims
-- Never introduce external dependencies, PII collection, or async API calls
-- Maintain Stage 2 i18n (6 languages + RTL) on all new tools
-- AP2 export is required on all new tools
+- Open an issue or PR on GitHub.
+- Follow deterministic, auditable logic standards per `CONTRACT.md`.
+- Include citation footnotes for all regulatory and financial claims.
+- Never introduce external dependencies, PII collection, or network calls after page load.
+- Policy Mandate export is required on all new policy/rule/mandate/compliance tools.
 
 ---
 
 ## Links
 
 - [Live Suite](https://ainumbers.co)
+- [MCP Server docs](https://ainumbers.co/mcp.html)
+- [ChainGraph standard](https://ainumbers.co/chaingraph/openchain-graph-spec.html)
+- [ChainGraph hub](https://ainumbers.co/chaingraph/chaingraph-hub.html)
+- [Ledger](https://ledger.ainumbers.co)
 - [Post Oak Labs](https://postoaklabs.com)
-- [36 Combined Demos](https://postoaklabs.com/demos/)
-- [RBE Deterministic Suite](https://ainumbers.co/guides/rbe-deterministic-suite-hub.html)
-- [Open Banking Hub](https://ainumbers.co/guides/open-banking-integration-hub.html)
-- [AML/KYC Compliance Hub](https://ainumbers.co/guides/aml-kyc-compliance-hub.html)
-- [DLT & Tokenization Hub](https://ainumbers.co/guides/dlt-tokenization-hub.html)
-- [DORA & Operational Resilience Hub](https://ainumbers.co/guides/dora-operational-resilience-hub.html)
-- [MCP Server Deployability Diagnostic](https://ainumbers.co/guides/mcp-server-deployability-diagnostic.html)
 
 ---
 
-© Post Oak Labs · CC BY 4.0 · June 2026
+© Post Oak Labs · CC BY 4.0
