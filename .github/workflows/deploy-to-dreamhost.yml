@@ -39,6 +39,7 @@ jobs:
           node chaingraph/kernels/syntax-check.mjs
           node chaingraph/kernels/lint-forbidden-hash.mjs
           node chaingraph/kernels/golden-parity.test.mjs
+          node chaingraph/kernels/determinism-replay.test.mjs
           node chaingraph/kernels/vm-parity-gate.mjs --strict
           node chaingraph/kernels/empty-input-finite.test.mjs
           node scripts/check-kernel-determinism.mjs
@@ -102,6 +103,16 @@ jobs:
           node chaingraph/standard/spec-gate-coverage.mjs
           node chaingraph/standard/spec-page-parity.mjs
           node chaingraph/standard/spec-page-subsection-parity.mjs
+
+      - name: 🧩 Catalog-parity gate (§15 — no orphan chain pages)
+        # catalog-parity.mjs (SPEC.md §15: "every node url page + chain page exists, no
+        # orphans") was a gate FILE on disk since Addendum A but was never invoked from CI
+        # or preflight — spec-gate-coverage.mjs only checks the file exists, not that it
+        # runs (audit finding 2026-07-09). This wrapper wires it in with a baseline shield
+        # (scripts/catalog-parity-baseline.json) for the 17 pre-existing orphan chain pages
+        # found on first real run, same pattern as check-copy-hallmarks.mjs: any NEW orphan
+        # fails immediately, legacy debt burns down via --update as pages are triaged.
+        run: node scripts/check-catalog-parity.mjs
 
       - name: 📋 Tool count summary
         run: |

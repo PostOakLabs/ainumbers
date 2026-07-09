@@ -1331,7 +1331,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 
 | Rule | Gate | When |
 |---|---|---|
-| §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs` | validate |
+| §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `determinism-replay.test.mjs` (N=3 idempotency + JCS key-order stability) | validate |
 | §12 every gpu:false node has a kernel (no silent skip) | `kernel-coverage.mjs --strict` | validate |
 | §4 buildArtifact reproduces hash offline | `kernel-contract.test.mjs` | validate |
 | §4 **live** re-verifiability of every deployed node | **`hash-sweep.mjs`** | post-deploy |
