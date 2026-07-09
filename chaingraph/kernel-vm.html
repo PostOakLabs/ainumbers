@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Kernel VM &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM under the ocg-deterministic-compute@1 profile, and compare its execution_hash against the worker.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/kernel-vm.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Kernel VM","description":"Run a ChainGraph decision kernel inside a sandboxed, deterministic, in-browser QuickJS-ng WebAssembly VM.","publisher":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:12px 0}
+.cross-link a{color:var(--gold)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.6rem .7rem;outline:none}
+select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:180px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:10px}
+button:hover{opacity:.9}
+button:disabled{opacity:.35;cursor:not-allowed}
+.results-panel{display:none;margin-top:16px}
+.results-panel.show{display:block}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1rem;color:var(--bright);font-weight:600;display:block;word-break:break-all}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.2rem .55rem;border-radius:10px;display:inline-block}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:420px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="eyebrow">OpenChainGraph &middot; VM-1a</div>
+<h1>Kernel VM</h1>
+<p class="sub">Runs a ChainGraph decision kernel's <code>compute(policy_parameters)</code> inside a sandboxed, hermetic, in-browser QuickJS-ng WebAssembly VM under the <code>ocg-deterministic-compute@1</code> profile (SPEC.md &sect;24). The VM is a fifth compute surface beside the worker, embed bundle, composer, and zkVM guest: this page runs the SAME kernel source twice, once in this VM and once natively in your browser's JavaScript engine, and shows whether the two <code>execution_hash</code> values agree.</p>
+<div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+<div class="cross-link">This page ships a small curated set of kernels for direct exploration. Every conformance-fixtured <code>gpu:false</code> kernel is checked automatically in CI by <code>chaingraph/kernels/vm-parity-gate.mjs</code>. See also the <a href="./boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs the same way the worker does.</p></div>
+
+<div class="card">
+<div class="section-head">1. Choose a kernel</div>
+<label class="q-label">Kernel</label>
+<select id="kernelSelect"></select>
+<label class="q-label" style="margin-top:14px">policy_parameters (JSON)</label>
+<textarea id="ppInput" spellcheck="false"></textarea>
+<button id="runBtn" type="button">Run in kernel VM</button>
+<span id="status" style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)"></span>
+</div>
+
+<div class="card results-panel" id="results">
+<div class="section-head">2. Result</div>
+<div class="stat-row">
+  <div class="stat"><span class="stat-val" id="parityBadge">-</span><span class="stat-key">VM &harr; browser-native parity</span></div>
+  <div class="stat"><span class="stat-val" id="elapsedMs">-</span><span class="stat-key">VM elapsed ms</span></div>
+</div>
+<div class="q-label" style="margin-top:10px">execution_hash &mdash; run in the VM</div>
+<div class="hash" id="vmHash">-</div>
+<div class="q-label">execution_hash &mdash; run natively in this browser tab (not the worker; see below)</div>
+<div class="hash" id="nativeHash">-</div>
+<div class="cross-link" style="margin-top:10px">"Browser-native" here means this same JavaScript engine (V8/SpiderMonkey/whatever renders this page), evaluated via a real ESM <code>import()</code> of the SAME kernel source with no sandbox. It is a same-tab parity check, not a live call to the Cloudflare Worker (this page makes zero network calls). The CI gate additionally diffs the VM against the worker's own kernel registry on every push.</div>
+<div class="q-label" style="margin-top:10px">output_payload</div>
+<pre id="outputPayload"></pre>
+</div>
+
+<footer>
+Vendors <a href="https://github.com/justjake/quickjs-emscripten" target="_blank" rel="noopener">quickjs-emscripten-core</a> +
+a base64-embedded <a href="https://github.com/quickjs-ng/quickjs" target="_blank" rel="noopener">QuickJS-ng</a> WebAssembly binary (MIT). Zero-fetch: the wasm ships inline in <code>chaingraph/vm/quickjs-ng-wasm.b64.mjs</code>, no CDN, no network call after page load. Phase VM-1a (prebuilt release-sync variant); VM-1b (custom guest-pinned build) closes the remaining browser&harr;zkVM-guest parity gap.
+</footer>
+</div>
+
+<script type="module">
+const DEMO_KERNELS = [
+  "503-canton-tokenization-readiness-diagnostic",
+  "508-repo-haircut-collateral-calculator",
+  "509-canton-party-allowlist-validator",
+  "507-canton-dvp-atomicity-validator"
+];
+const KERNEL_META = {
+  "503-canton-tokenization-readiness-diagnostic": {
+    "label": "Canton Tokenization Readiness Diagnostic",
+    "mcp_name": "diagnose_canton_readiness"
+  },
+  "508-repo-haircut-collateral-calculator": {
+    "label": "Repo Haircut Collateral Calculator",
+    "mcp_name": "calculate_repo_haircut"
+  },
+  "509-canton-party-allowlist-validator": {
+    "label": "Canton Party Allowlist Validator",
+    "mcp_name": "validate_canton_party_allowlist"
+  },
+  "507-canton-dvp-atomicity-validator": {
+    "label": "Canton DvP Atomicity Validator",
+    "mcp_name": "validate_canton_dvp_atomicity"
+  }
+};
+const KERNEL_SOURCES = {
+  "503-canton-tokenization-readiness-diagnostic": "import { executionHash } from './_hash.mjs';\n\nconst TOOL_ID = '503-canton-tokenization-readiness-diagnostic';\nconst TOOL_VERSION = '1.0.0';\n\nexport const meta = {\n  tool_id: TOOL_ID,\n  tool_version: TOOL_VERSION,\n  mcp_name: 'diagnose_canton_readiness',\n  mandate_type: 'readiness_diagnostic',\n  gpu: false,\n};\n\nconst DOMAINS = [\n  { key: 'settlement_ops',      weight: 20, qs: ['q1','q2'] },\n  { key: 'custody_eligibility', weight: 18, qs: ['q3','q4'] },\n  { key: 'cash_leg',            weight: 18, qs: ['q5','q6'] },\n  { key: 'privacy_disclosure',  weight: 14, qs: ['q7','q8'] },\n  { key: 'aml_kya',             weight: 15, qs: ['q9','q10'] },\n  { key: 'capital_governance',  weight: 15, qs: ['q11','q12'] },\n];\n\nconst GAP_THRESHOLDS = {\n  settlement_ops:      10,\n  custody_eligibility:  9,\n  cash_leg:             9,\n  privacy_disclosure:   7,\n  aml_kya:              7.5,\n  capital_governance:   7.5,\n};\n\nconst GAP_FLAG_KEYS = {\n  settlement_ops:      'SETTLEMENT_OPS_GAP',\n  custody_eligibility: 'CUSTODY_ELIGIBILITY_GAP',\n  cash_leg:            'CASH_LEG_GAP',\n  privacy_disclosure:  'PRIVACY_DISCLOSURE_GAP',\n  aml_kya:             'AML_KYA_GAP',\n  capital_governance:  'CAPITAL_GOVERNANCE_GAP',\n};\n\nfunction getGrade(score) {\n  if (score >= 85) return 'A';\n  if (score >= 70) return 'B';\n  if (score >= 55) return 'C';\n  if (score >= 40) return 'D';\n  if (score >= 25) return 'E';\n  return 'F';\n}\n\nexport function compute(pp) {\n  const domain_scores = {};\n  const gaps = [];\n\n  for (const d of DOMAINS) {\n    const yesCount = d.qs.filter(q => pp[q] === 'yes').length;\n    const dScore = (yesCount / 2) * d.weight;\n    domain_scores[d.key] = dScore;\n    if (dScore < GAP_THRESHOLDS[d.key]) {\n      gaps.push(d.key);\n    }\n  }\n\n  const total_score = +Object.values(domain_scores).reduce((a, b) => a + b, 0).toFixed(1);\n  const grade = getGrade(total_score);\n  const isReady = grade === 'A' || grade === 'B';\n\n  const compliance_flags = {\n    CANTON_READINESS_SCORED: true,\n    CANTON_READY: isReady,\n    NOT_CANTON_READY: !isReady,\n  };\n\n  for (const [key, flagKey] of Object.entries(GAP_FLAG_KEYS)) {\n    compliance_flags[flagKey] = gaps.includes(key);\n  }\n\n  const output_payload = { verdict: grade, total_score, domain_scores, gaps };\n  return { output_payload, compliance_flags };\n}\n\nexport async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {\n  const { output_payload, compliance_flags } = compute(pp);\n  const hash = await executionHash(pp, output_payload);\n  return {\n    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',\n    chaingraph_version: '0.4.0',\n    mandate_type: meta.mandate_type,\n    tool_id: TOOL_ID,\n    tool_version: TOOL_VERSION,\n    generated_at: now ?? null,\n    execution_hash: hash,\n    chain: { parent_hashes, parent_tool_ids, chain_depth },\n    policy_parameters: pp,\n    output_payload,\n    compliance_flags,\n    compute_mode: 'server',\n    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },\n  };\n}\n",
+  "508-repo-haircut-collateral-calculator": "/**\n * 508-repo-haircut-collateral-calculator.kernel.mjs\n * On-Chain Repo Haircut Calculator — Basel CRE22 haircuts, Canton vs legacy comparison.\n * Pure decision kernel — no DOM, no window, no Date.now().\n */\n\nimport { executionHash } from './_hash.mjs';\n\nconst TOOL_ID = '508-repo-haircut-collateral-calculator';\nconst TOOL_VERSION = '1.0.0';\n\nexport const meta = {\n  tool_id:      TOOL_ID,\n  tool_version: TOOL_VERSION,\n  mcp_name:     'calculate_repo_haircut',\n  mandate_type: 'collateral_mandate',\n  gpu: false,\n};\n\n// Base haircuts by collateral type (Basel CRE22) — percent\nconst BASE_HAIRCUTS = {\n  ust_10y:      4.0,\n  ust_30y:      8.0,\n  agency_mbs:   6.0,\n  ig_corp_bond: 4.0,\n  gilt_10y:     4.0,\n  eu_sovereign: 4.0,\n};\n\n// d349 SFT haircut floors — percent\nconst FLOOR_SOVEREIGN     = 0.5;\nconst FLOOR_NON_SOVEREIGN = 2.0;\n\nconst SOVEREIGN_TYPES = new Set(['ust_10y', 'ust_30y', 'gilt_10y', 'eu_sovereign']);\n\n// Adjustments (percentage points, additive)\nconst ADJ_ROLL_RISK       = 2.0;  // open_term or 6m tenor\nconst ADJ_CROSS_BORDER    = 1.0;\nconst ADJ_HEDGE_FUND_CP   = 1.0;\nconst ADJ_WEEKEND_GAP     = 1.5;  // legacy only (no Canton 24/7)\nconst ADJ_CONCENTRATION   = 2.0;  // concentration > 20%\n\n// VM threshold (GMRA bilateral standard)\nconst VM_THRESHOLD_PCT = 0.002;  // 0.2%\n\nexport function compute(pp) {\n  // pp: { collateral_type, notional_usd, tenor, cross_border, counterparty_type,\n  //       canton247, concentration_pct }\n  const collType    = (pp.collateral_type || 'ust_10y').toLowerCase();\n  const notional    = Number(pp.notional_usd) || 0;\n  const tenor       = (pp.tenor || 'overnight').toLowerCase();\n  const crossBorder = !!pp.cross_border;\n  const cpType      = (pp.counterparty_type || 'bank').toLowerCase();\n  const canton247   = !!pp.canton247;\n  const concPct     = Number(pp.concentration_pct) || 0;\n\n  const baseHaircut = BASE_HAIRCUTS[collType] ?? 4.0;\n  const isSovereign = SOVEREIGN_TYPES.has(collType);\n\n  // Floor\n  const floor = isSovereign ? FLOOR_SOVEREIGN : FLOOR_NON_SOVEREIGN;\n\n  // Build legacy adjustments\n  let legacyAdj = 0;\n  const adjDetail = [];\n  if (tenor === 'open_term' || tenor === '6m') {\n    legacyAdj += ADJ_ROLL_RISK;\n    adjDetail.push({ reason: 'roll_risk', delta: ADJ_ROLL_RISK });\n  }\n  if (crossBorder) {\n    legacyAdj += ADJ_CROSS_BORDER;\n    adjDetail.push({ reason: 'cross_border', delta: ADJ_CROSS_BORDER });\n  }\n  if (cpType === 'hedge_fund') {\n    legacyAdj += ADJ_HEDGE_FUND_CP;\n    adjDetail.push({ reason: 'hedge_fund_counterparty', delta: ADJ_HEDGE_FUND_CP });\n  }\n  // Weekend gap: always in legacy path\n  legacyAdj += ADJ_WEEKEND_GAP;\n  adjDetail.push({ reason: 'weekend_valuation_gap_legacy', delta: ADJ_WEEKEND_GAP });\n\n  if (concPct > 20) {\n    legacyAdj += ADJ_CONCENTRATION;\n    adjDetail.push({ reason: 'concentration_risk', delta: ADJ_CONCENTRATION });\n  }\n\n  // Canton haircut: excludes weekend gap adjustment\n  const cantonAdj = legacyAdj - ADJ_WEEKEND_GAP;\n\n  // Raw haircuts (before floor)\n  let legacyHaircutRaw = baseHaircut + legacyAdj;\n  let cantonHaircutRaw = baseHaircut + cantonAdj;\n\n  // Apply d349 floor\n  const legacyHaircut = Math.max(legacyHaircutRaw, floor);\n  const cantonHaircut = Math.max(cantonHaircutRaw, floor);\n\n  // Weekend saving (may be compressed at floor)\n  const weekendSaving = +(legacyHaircut - cantonHaircut).toFixed(2);\n\n  // Initial margin\n  const usedHaircut      = canton247 ? cantonHaircut : legacyHaircut;\n  const initialMargin    = +(notional * (usedHaircut / 100)).toFixed(2);\n  const vmThreshold      = +(notional * VM_THRESHOLD_PCT).toFixed(2);\n\n  // Haircut color tier for display guidance\n  function haircutTier(h) {\n    if (h <= 4) return 'teal';\n    if (h <= 6) return 'warn';\n    return 'red';\n  }\n\n  const compliance_flags = [];\n  if (weekendSaving > 0) compliance_flags.push('CANTON_HAIRCUT_SAVING_AVAILABLE');\n  if (concPct > 20)      compliance_flags.push('CONCENTRATION_RISK_FLAG');\n  if (cpType === 'hedge_fund') compliance_flags.push('HEDGE_FUND_COUNTERPARTY_SURCHARGE');\n  if (legacyHaircut !== legacyHaircutRaw || cantonHaircut !== cantonHaircutRaw) {\n    compliance_flags.push('D349_SFT_FLOOR_APPLIED');\n  }\n\n  const output_payload = {\n    collateral_type:    collType,\n    tenor,\n    notional_usd:       notional,\n    base_haircut_pct:   baseHaircut,\n    d349_floor_pct:     floor,\n    adjustments:        adjDetail,\n    legacy_haircut_pct: legacyHaircut,\n    canton_haircut_pct: cantonHaircut,\n    weekend_saving_pp:  weekendSaving,\n    active_haircut_pct: usedHaircut,\n    initial_margin_usd: initialMargin,\n    vm_threshold_usd:   vmThreshold,\n    haircut_tier:       haircutTier(usedHaircut),\n    canton247,\n  };\n  return { output_payload, compliance_flags };\n}\n\nexport async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {\n  const { output_payload, compliance_flags } = compute(pp);\n  const hash = await executionHash(pp, output_payload);\n  return {\n    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',\n    chaingraph_version: '0.4.0',\n    mandate_type: meta.mandate_type,\n    tool_id: TOOL_ID,\n    tool_version: TOOL_VERSION,\n    generated_at: now ?? null,\n    execution_hash: hash,\n    chain: { parent_hashes, parent_tool_ids, chain_depth },\n    policy_parameters: pp,\n    output_payload,\n    compliance_flags,\n    compute_mode: 'server',\n    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },\n  };\n}\n",
+  "509-canton-party-allowlist-validator": "import { executionHash } from './_hash.mjs';\n\nconst TOOL_ID = '509-canton-party-allowlist-validator';\nconst TOOL_VERSION = '1.0.0';\n\nexport const meta = {\n  tool_id: TOOL_ID,\n  tool_version: TOOL_VERSION,\n  mcp_name: 'validate_canton_party_allowlist',\n  mandate_type: 'compliance_mandate',\n  gpu: false,\n};\n\nfunction screenParty(party) {\n  const { party_name, lei, daml_party_id, daml_party_id_known, fatf_status, pep, adverse_media, canton_access } = party;\n\n  let decision = 'APPROVED';\n  const flags = [];\n\n  // Priority: FATF black list\n  if (fatf_status === 'black_list') {\n    decision = 'REJECTED';\n    flags.push('FATF_BLACK_LIST_MATCH');\n  } else if (fatf_status === 'grey_list') {\n    decision = 'APPROVED_WITH_CONDITIONS';\n    flags.push('FATF_GREY_LIST_MATCH', 'ENHANCED_DUE_DILIGENCE_REQUIRED');\n  }\n\n  // PEP — apply if not REJECTED\n  if (pep && decision !== 'REJECTED') {\n    decision = 'APPROVED_WITH_CONDITIONS';\n    if (!flags.includes('PEP_IDENTIFIED')) flags.push('PEP_IDENTIFIED');\n    if (!flags.includes('ENHANCED_DUE_DILIGENCE_REQUIRED')) flags.push('ENHANCED_DUE_DILIGENCE_REQUIRED');\n  }\n\n  // Adverse media — apply if not already worse\n  if (adverse_media && decision !== 'REJECTED') {\n    decision = 'APPROVED_WITH_CONDITIONS';\n    if (!flags.includes('ADVERSE_MEDIA_FLAG')) flags.push('ADVERSE_MEDIA_FLAG');\n  }\n\n  // Additional flags (do not change decision)\n  if (!lei) flags.push('TRAVEL_RULE_LEI_MISSING');\n  if (!daml_party_id_known) flags.push('CANTON_PARTY_ID_MISSING');\n  if (canton_access === 'unknown') flags.push('CANTON_ACCESS_UNVERIFIED');\n\n  return { party_name, decision, flags };\n}\n\nexport function compute(pp) {\n  const { parties = [] } = pp;\n\n  const partyResults = parties.map(screenParty);\n\n  const anyRejected = partyResults.some(p => p.decision === 'REJECTED');\n  const anyConditional = partyResults.some(p => p.decision === 'APPROVED_WITH_CONDITIONS');\n\n  let portfolio_verdict;\n  if (anyRejected) {\n    portfolio_verdict = 'ONE_OR_MORE_REJECTED';\n  } else if (!anyConditional) {\n    portfolio_verdict = 'ALL_APPROVED';\n  } else {\n    portfolio_verdict = 'CONDITIONAL';\n  }\n\n  // Union of per-party flags\n  const allFlags = new Set(partyResults.flatMap(p => p.flags));\n\n  const FLAG_KEYS = [\n    'FATF_BLACK_LIST_MATCH', 'FATF_GREY_LIST_MATCH', 'TRAVEL_RULE_LEI_MISSING',\n    'PEP_IDENTIFIED', 'ADVERSE_MEDIA_FLAG', 'ENHANCED_DUE_DILIGENCE_REQUIRED',\n    'CANTON_PARTY_ID_MISSING', 'CANTON_ACCESS_UNVERIFIED',\n  ];\n\n  const compliance_flags = {\n    PARTY_ALLOWLIST_VALIDATED: true,\n    ALL_PARTIES_APPROVED: portfolio_verdict === 'ALL_APPROVED',\n    CONDITIONAL_APPROVAL: portfolio_verdict === 'CONDITIONAL',\n    ONE_OR_MORE_REJECTED: portfolio_verdict === 'ONE_OR_MORE_REJECTED',\n  };\n\n  for (const k of FLAG_KEYS) {\n    compliance_flags[k] = allFlags.has(k);\n  }\n\n  const output_payload = { portfolio_verdict, party_count: parties.length, parties: partyResults };\n  return { output_payload, compliance_flags };\n}\n\nexport async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {\n  const { output_payload, compliance_flags } = compute(pp);\n  const hash = await executionHash(pp, output_payload);\n  return {\n    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',\n    chaingraph_version: '0.4.0',\n    mandate_type: meta.mandate_type,\n    tool_id: TOOL_ID,\n    tool_version: TOOL_VERSION,\n    generated_at: now ?? null,\n    execution_hash: hash,\n    chain: { parent_hashes, parent_tool_ids, chain_depth },\n    policy_parameters: pp,\n    output_payload,\n    compliance_flags,\n    compute_mode: 'server',\n    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },\n  };\n}\n",
+  "507-canton-dvp-atomicity-validator": "import { executionHash } from './_hash.mjs';\n\nconst TOOL_ID = '507-canton-dvp-atomicity-validator';\nconst TOOL_VERSION = '1.0.0';\n\nexport const meta = {\n  tool_id: TOOL_ID,\n  tool_version: TOOL_VERSION,\n  mcp_name: 'validate_canton_dvp_atomicity',\n  mandate_type: 'settlement_mandate',\n  gpu: false,\n};\n\nexport function compute(pp) {\n  const {\n    settlement_mechanism,\n    platform,\n    finality_type,\n    unwind_protection,\n    cash_type,\n    settlement_amount,\n    currency,\n  } = pp;\n\n  // Atomicity branch\n  let atomicityFlag, atomicity_status;\n\n  if (\n    settlement_mechanism === 'atomic_dvp' &&\n    (platform === 'canton_daml' || platform === 'canton_composerx')\n  ) {\n    atomicityFlag = 'ATOMICITY_PFMI_P12_COMPLIANT';\n    atomicity_status = 'COMPLIANT';\n  } else if (\n    settlement_mechanism === 'atomic_dvp' &&\n    platform === 'traditional_csd'\n  ) {\n    atomicityFlag = 'ATOMICITY_CONDITIONAL';\n    atomicity_status = 'CONDITIONAL';\n  } else if (settlement_mechanism === 'sequential_with_lock') {\n    atomicityFlag = 'ATOMICITY_CONDITIONAL';\n    atomicity_status = 'CONDITIONAL';\n  } else if (settlement_mechanism === 'free_delivery') {\n    atomicityFlag = 'ATOMICITY_FAILED';\n    atomicity_status = 'FAILED';\n  } else {\n    atomicityFlag = 'ATOMICITY_CONDITIONAL';\n    atomicity_status = 'CONDITIONAL';\n  }\n\n  // Finality\n  const FINALITY_FLAGS = {\n    irrevocable_realtime: 'FINALITY_IRREVOCABLE_REALTIME',\n    irrevocable_eod:      'FINALITY_IRREVOCABLE_EOD',\n    provisional:          'FINALITY_PROVISIONAL',\n  };\n  const finalityFlag = FINALITY_FLAGS[finality_type] ?? 'FINALITY_UNDEFINED';\n\n  // Herstatt\n  const herstatt_eliminated = atomicityFlag === 'ATOMICITY_PFMI_P12_COMPLIANT';\n\n  // Verdict\n  const isCompliantAtomicity = atomicityFlag === 'ATOMICITY_PFMI_P12_COMPLIANT';\n  const isGoodFinality = finality_type === 'irrevocable_realtime' || finality_type === 'irrevocable_eod';\n  const isBadFinality = finality_type === 'undefined';\n  const isProvisionalNoUnwind = finality_type === 'provisional' && !unwind_protection;\n\n  let verdict;\n  if (isCompliantAtomicity && isGoodFinality && unwind_protection === true) {\n    verdict = 'PASS';\n  } else if (\n    settlement_mechanism === 'free_delivery' ||\n    finality_type === 'undefined' ||\n    isProvisionalNoUnwind\n  ) {\n    verdict = 'FAIL';\n  } else {\n    verdict = 'CONDITIONAL';\n  }\n\n  const compliance_flags = {\n    DVP_ATOMICITY_VALIDATED: true,\n    [atomicityFlag]: true,\n    [finalityFlag]: true,\n    HERSTATT_RISK_ELIMINATED: herstatt_eliminated,\n    HERSTATT_RISK_PRESENT: !herstatt_eliminated,\n  };\n\n  if (cash_type === 'wire') {\n    compliance_flags.CASH_LEG_NOT_DIGITAL = true;\n  }\n\n  const output_payload = { verdict, atomicity_status, atomicity_flag: atomicityFlag, finality_flag: finalityFlag, herstatt_eliminated, settlement_amount, currency };\n  return { output_payload, compliance_flags };\n}\n\nexport async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {\n  const { output_payload, compliance_flags } = compute(pp);\n  const hash = await executionHash(pp, output_payload);\n  return {\n    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',\n    chaingraph_version: '0.4.0',\n    mandate_type: meta.mandate_type,\n    tool_id: TOOL_ID,\n    tool_version: TOOL_VERSION,\n    generated_at: now ?? null,\n    execution_hash: hash,\n    chain: { parent_hashes, parent_tool_ids, chain_depth },\n    policy_parameters: pp,\n    output_payload,\n    compliance_flags,\n    compute_mode: 'server',\n    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },\n  };\n}\n"
+};
+const KERNEL_FIXTURES = {
+  "503-canton-tokenization-readiness-diagnostic": {
+    "q1": "yes",
+    "q2": "yes",
+    "q3": "no",
+    "q4": "no",
+    "q5": "no",
+    "q6": "no",
+    "q7": "no",
+    "q8": "no",
+    "q9": "no",
+    "q10": "no",
+    "q11": "no",
+    "q12": "no"
+  },
+  "508-repo-haircut-collateral-calculator": {
+    "collateral_type": "ust_10y",
+    "notional_usd": 10000000,
+    "tenor": "overnight",
+    "cross_border": false,
+    "counterparty_type": "bank",
+    "canton247": true,
+    "concentration_pct": 10
+  },
+  "509-canton-party-allowlist-validator": {
+    "parties": [
+      {
+        "party_name": "Test Bank Ltd",
+        "lei": "TEST0000000000000001",
+        "daml_party_id": "TestBank::AAAA",
+        "daml_party_id_known": true,
+        "fatf_status": "clean",
+        "pep": false,
+        "adverse_media": false,
+        "canton_access": "granted"
+      }
+    ]
+  },
+  "507-canton-dvp-atomicity-validator": {
+    "settlement_mechanism": "atomic_dvp",
+    "platform": "canton_daml",
+    "finality_type": "irrevocable_realtime",
+    "unwind_protection": true,
+    "cash_type": "cbdc",
+    "settlement_amount": 1000000,
+    "currency": "USD"
+  }
+};
+
+import { runKernelInVM } from './vm/kernel-vm.mjs';
+
+const sel = document.getElementById('kernelSelect');
+const ppInput = document.getElementById('ppInput');
+const runBtn = document.getElementById('runBtn');
+const statusEl = document.getElementById('status');
+const results = document.getElementById('results');
+
+for (const id of DEMO_KERNELS) {
+  const opt = document.createElement('option');
+  opt.value = id;
+  opt.textContent = `${id} \u2014 ${KERNEL_META[id].label} (${KERNEL_META[id].mcp_name})`;
+  sel.appendChild(opt);
+}
+
+function loadDefaults() {
+  const id = sel.value;
+  ppInput.value = JSON.stringify(KERNEL_FIXTURES[id], null, 2);
+}
+sel.addEventListener('change', loadDefaults);
+loadDefaults();
+
+// Compute a browser-native execution_hash the same way _hash.mjs does (RFC 8785 / JCS
+// canonicalization over {policy_parameters, output_payload}), inlined here because this
+// page makes zero network/module-fetch calls to the kernels/ directory beyond vm/ itself.
+function cgCanon(value) {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new Error('non-finite number in payload');
+      return JSON.stringify(value);
+    }
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return '[' + value.map((v) => cgCanon(v === undefined ? null : v)).join(',') + ']';
+  const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + cgCanon(value[k])).join(',') + '}';
+}
+async function executionHashLocal(policy_parameters, output_payload) {
+  const preimage = cgCanon({ policy_parameters, output_payload });
+  const bytes = new TextEncoder().encode(preimage);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function runNative(id, pp) {
+  // A blob: URL has no meaningful relative base, so the kernel's own
+  // "import { executionHash } from './_hash.mjs'" can't resolve here; strip it,
+  // exactly as the VM harness does (compute() never calls executionHash itself).
+  const stripped = KERNEL_SOURCES[id].replace(/^import\s+.*$/gm, '');
+  const blob = new Blob([stripped], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const mod = await import(/* webpackIgnore: true */ url);
+    return mod.compute(pp);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+runBtn.addEventListener('click', async () => {
+  const id = sel.value;
+  let pp;
+  try { pp = JSON.parse(ppInput.value); }
+  catch (e) { statusEl.textContent = `invalid JSON: ${e.message}`; return; }
+
+  runBtn.disabled = true;
+  statusEl.textContent = 'running in VM...';
+  results.classList.remove('show');
+  try {
+    const vmResult = await runKernelInVM(KERNEL_SOURCES[id], pp);
+    statusEl.textContent = 'running natively for comparison...';
+    const nativeResult = await runNative(id, pp);
+
+    const vmHash = await executionHashLocal(pp, vmResult.output_payload);
+    // vmResult.output_payload is the FULL return of compute() (runKernelInVM wraps it in
+    // {output_payload, elapsed_ms}); nativeResult IS compute()'s return already -- both
+    // sides must hash the identical shape or this "parity" check is comparing apples to
+    // oranges, not the VM.
+    const nativeHash = await executionHashLocal(pp, nativeResult);
+
+    document.getElementById('vmHash').textContent = vmHash;
+    document.getElementById('nativeHash').textContent = nativeHash;
+    document.getElementById('elapsedMs').textContent = vmResult.elapsed_ms.toFixed(2);
+    document.getElementById('outputPayload').textContent = JSON.stringify(vmResult.output_payload, null, 2);
+
+    const badge = document.getElementById('parityBadge');
+    if (vmHash === nativeHash) { badge.textContent = 'MATCH'; badge.style.color = 'var(--green)'; }
+    else { badge.textContent = 'DIVERGENCE'; badge.style.color = 'var(--red)'; }
+
+    results.classList.add('show');
+    statusEl.textContent = '';
+  } catch (e) {
+    statusEl.textContent = `error: ${e.message}`;
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
