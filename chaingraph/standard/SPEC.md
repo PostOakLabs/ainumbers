@@ -1298,8 +1298,123 @@ separator) ships as `ocg-private-input@<n>`, never an in-place edit, so a privat
 `@1` re-verifies bit-for-bit forever. Like §18, the profile **defaults OFF**: a node MUST surface to consumers
 that it withholds an input (§18.3), and MUST NOT auto-apply commitment mode.
 
+## §HASHRES-1 Ledger hash-resolution contract (NORMATIVE, addressing-scoped — additive, lands as v0.8.7 at the coordinated record bump)
+Defines how a §4 `execution_hash` (and any §16/§18-secured artifact addressed by it) is **dereferenced** at
+`ledger.ainumbers.co/<execution_hash>`. This is an addressing contract over content the standard already
+mints; it introduces **no new schema, no envelope change, and no new `execution_hash`** — the address IS the
+existing hash.
+
+**§HASHRES-1.0 Intrinsic-identifier framing (NORMATIVE).** Following **RFC 6920** (Naming Things with
+Hashes), a dereference of `<execution_hash>` **MUST** return content whose recomputed §4 hash equals
+`<execution_hash>` exactly, or **MUST** return **404** — the address **MUST NOT** resolve to a different
+value than the one it names. The hash is a **location-independent intrinsic identifier** in the sense of
+**ISO/IEC 18670 (SWHID)**: the hash is the name, so any mirror serving matching content is an equally valid
+resolver and no resolver can substitute a different artifact under the same address without detection. This is
+the §4 re-verifiability property (recompute then match) lifted to an addressing surface; the same
+`kernels/_hash.mjs` `cgCanon` canonicalization applies, and the array-replacer forms FORBIDDEN by §4 stay
+forbidden here.
+
+**§HASHRES-1.1 Transparency-service alignment (informative).** OCG receipts map cleanly onto the **IETF SCITT**
+model: an OCG receipt is like a signed statement, the Ledger like a transparency service, a §16/§18 proof like
+the securing signature. When the SCITT receipt format (COSE) is finalized, the Ledger is positioned to emit
+SCITT/COSE transparency receipts alongside its native OCG artifacts; this is a **forward-looking alignment
+note, not an obligation to implement now**. (Design footnote, muse-not-citation: the hash-as-address,
+resolver-returns-matching-content-or-nothing shape mirrors Urbit's scry namespace read; OCG owes it nothing
+but the resemblance is noted.)
+
+**§HASHRES-1.2 Scope (NORMATIVE).** §HASHRES-1 is normative **for the addressing/resolution contract only**.
+It adds no field to any artifact, does not appear in the §4 preimage, and leaves `chaingraph_version` at
+`"0.4.0"`. A deployment that serves no Ledger is fully conformant; a deployment that does serve one at the
+`<hash>` address MUST honor the return-matching-content-or-404 rule above.
+
+## §PQC-1 Post-quantum hybrid proofs (NORMATIVE, OPTIONAL — extends §16; additive, lands as v0.8.7 at the coordinated record bump)
+Extends **§16 whole-artifact signing** to permit a **hybrid dual signature**: two W3C Data Integrity proofs
+over the **same RFC 8785 (JCS) secured-document bytes** — the existing `eddsa-jcs-2022` proof (classical) plus
+a **post-quantum ML-DSA** cryptosuite proof — so an artifact stays verifiable across the classical to PQ
+transition. This SUPERSEDES and retires the previously-parked PQC-COSE detour (a COSE-envelope second signing
+path): the second proof rides the **existing §16 Data Integrity pipeline and the §16.5 proof-array**, not a new
+envelope.
+
+**§PQC-1.0 Shape (NORMATIVE).** A hybrid signer uses the §16.5 **parallel proof set**: `audit_signature.proof`
+is an array carrying (a) the `eddsa-jcs-2022` proof and (b) an ML-DSA-cryptosuite proof, **both over the same
+§16.1 secured document** (the full artifact with `audit_signature.proof` removed, JCS-canonicalized by the
+same `_hash.mjs` `cgCanon`). This is a **near-zero schema change** — the proof array is already permitted by
+§16.5 — and **MUST NOT** mint a new `execution_hash` or move `chaingraph_version` (stays `"0.4.0"`).
+
+**§PQC-1.1 Cryptosuite identifier (NORMATIVE, deferred binding).** The concrete ML-DSA cryptosuite id is
+**TBD-on-registration**: an implementation **MUST** use the **W3C Data Integrity WG ML-DSA cryptosuite
+identifier once registered**, and **MUST NOT** hardcode a provisional string (in particular the placeholder
+`mldsa44-jcs-2026` is illustrative only and **MUST NOT** be emitted as if standardized). Until the WG id
+registers, PQC-1 is a **reserved extension point**: the classical `eddsa-jcs-2022` proof alone remains fully
+§16-conformant.
+
+**§PQC-1.2 Verifier policy modes (NORMATIVE).** A verifier declares one of three policies over a hybrid
+proof set: **`classical`** (require the `eddsa-jcs-2022` proof to verify), **`pq`** (require the ML-DSA proof
+to verify), or **`both`** (require both). Each proof is verified independently under §16.1/§16.5 dependency
+order; a policy is satisfied iff its required proof(s) verify. The §16.2 privacy caveat applies unchanged: a
+hybrid proof still de-anonymizes the signer and MUST default OFF.
+
+## §REVOKE-1 Receipt and key revocation (NORMATIVE, OPTIONAL — additive, lands as v0.8.7 at the coordinated record bump)
+Adds an OPTIONAL way for a receipt or a signing key to advertise **revocation status** via the **W3C
+BitstringStatusList** mechanism, so a verifier can learn that a previously-valid §16 key or a superseded
+receipt has been revoked without contacting the signer out-of-band.
+
+**§REVOKE-1.0 Home + reference (NORMATIVE).** A status reference lives under `audit_signature` (which tolerates
+added properties, keeping the frozen v0.4 root schema — a receipt without it is byte-identical and fully
+conformant) as a `credentialStatus`-shaped object per **W3C BitstringStatusList**: a `statusListCredential`
+URL, a `statusListIndex`, and `type:"BitstringStatusListEntry"`. It is **hash-excluded** — it does **not**
+enter the §4 preimage and does **not** move `chaingraph_version` (stays `"0.4.0"`). The published
+BitstringStatusList credential is itself a §16-securable artifact.
+
+**§REVOKE-1.1 Semantics (NORMATIVE).** To check revocation a verifier dereferences `statusListCredential`,
+expands the bitstring, and reads the bit at `statusListIndex`: set means **revoked**. A receipt referencing a
+revoked key or index MUST be treated as **unverified for the revoked purpose** even if its §16 signature is
+cryptographically valid — revocation overrides signature validity. The three published BitstringStatusList
+SDK test vectors are **reference only** (a verifier MUST NOT vendor them as a code path). Absence of a status
+reference means "no revocation signal published," not "known-good."
+
+## §SIDECAR Small conformance riders (informative + reserved invariants — additive, lands as v0.8.7 at the coordinated record bump)
+Four small riders that clarify existing machinery without adding a new machine-checked obligation.
+
+**§SIDECAR.0 Identity Sidecar pattern (informative).** In every OCG signing path the **LLM never touches the
+private key**: an agent decides what to sign, but a **deterministic gate** (`_proof.mjs` in the browser, the
+KMS/HSM-backed §12 compute path on the server) performs the actual signature. The key material and the signing
+act are isolated in a deterministic sidecar beside the non-deterministic reasoner — which is why a §16 proof
+attests the artifact, not the model run.
+
+**§SIDECAR.1 Tiered conformance labels (informative, atop §15).** Three human-readable capability labels group
+the §15 gates by what a verifier can do with an artifact, from weakest to strongest guarantee:
+**`OCG-Verify`** — the §1/§4 gates hold (envelope well-formed, `execution_hash` recomputes); **`OCG-Execute`** —
+additionally the §21 chain-execution + §22 mandate gates hold (a chain/mandate ran under its declared gates);
+**`OCG-Prove`** — additionally a §18 compute-integrity proof verifies (correct execution proven without
+re-execution). The labels are a naming atop the existing gate suite; they add **no new gate** and no normative
+MUST beyond the gates they group.
+
+**§SIDECAR.2 Resource-narrowing invariant (NORMATIVE, reserved for future multi-hop mandates).** When
+delegated / multi-hop mandates are introduced (not shipped in this pass), a delegated mandate **MUST only
+narrow, never broaden**, the resource scope it received: the child mandate's resource set MUST be a subset of
+the parent's. This is stated now as the binding design invariant for that future work; §22 single-hop mandates
+are unaffected.
+
+**§SIDECAR.3 Prior art & acknowledgements (informative).** The §HASHRES-1 / §PQC-1 / §REVOKE-1 designs draw on
+the **Vouch Protocol** (github.com/vouch-protocol/vouch, R. Gaddam; Apache-2.0) as design prior art,
+acknowledged for the hash-addressing, hybrid-signing, and revocation-status patterns. Vouch is a **design
+reference only, never a runtime dependency or vendored code path**. This joins the standard's existing citation
+set: the W3C WebAssembly 3.0 Deterministic Profile (§24), the RISC-V freeze discipline (§24.2), RFC 9162
+(Certificate Transparency), and KERI/vLEI (ISO 17442-3) where applicable.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.6 = Deterministic Compute Profile `@2` (§24.5: a new profile version
+See `standard/CHANGELOG.md`. **Unreleased (pending v0.8.7 — the record `spec_version` bump is deferred to a
+coordinated cross-surface landing step so it does not collide with an in-flight `chaingraph.json` single-writer
+build):** additive ML landing-pass riders — §HASHRES-1 (RFC 6920 / ISO 18670 SWHID Ledger hash-resolution
+addressing contract; informative SCITT alignment), §PQC-1 (hybrid dual §16 Data Integrity proof over the same
+JCS bytes = `eddsa-jcs-2022` + a TBD-on-registration ML-DSA cryptosuite, verifier policy modes classical/pq/both;
+retires the parked PQC-COSE detour), §REVOKE-1 (OPTIONAL W3C BitstringStatusList receipt/key revocation reference
+under `audit_signature`), and §SIDECAR small riders (Identity Sidecar pattern, tiered `OCG-Verify`/`OCG-Execute`/
+`OCG-Prove` labels atop §15, the reserved resource-narrowing invariant for future multi-hop mandates, and the
+Vouch Protocol prior-art acknowledgement). All additive: no envelope/hash/schema change, `chaingraph_version`
+stays `0.4.0`, every existing `execution_hash` is byte-identical, and each new normative MUST binds to an
+existing §15 gate. v0.8.6 = Deterministic Compute Profile `@2` (§24.5: a new profile version
 `ocg-deterministic-compute@2` — a new named profile ALONGSIDE `@1` per the §24.2 freeze clause, never an in-place
 edit — that keeps D1–D6 unchanged and ENUMERATES the WebCrypto split inside D7: ALLOWED as fully-specified
 deterministic replacements = `crypto.subtle.digest` (SHA-256/384), `importKey`, `verify`, which MUST be
@@ -1402,6 +1517,10 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §22.8 `"escalate"` evaluator: recognized as a terminal target (`isTerminalTarget`/`isEscalationTarget`); `evaluateGate` decision record for an escalate route is byte-identical to a non-escalating gate (NO escalation field), so existing gate decisions + composite hashes are unchanged; classifiers byte-parity across the 4 executing surfaces | `gate-parity.test.mjs`, `linear-hash-freeze.mjs` | validate |
 | §23 input attestations: hash-excluded top-level `input_attestations[]` (zero-attestation artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; `vc-2.0` verifies via §16/§13.11 Data Integrity + subject-digest == input digest, `rfc3161-snapshot` via the §20 `rfc3161-tst` verifier (messageImprint == input digest, no second RFC 3161 impl), `c2pa-manifest` structural + hard-binding digest match; `zktls` structural-only (`verifiable:"external"`, no vendored verifier); tampered proof / unresolved pointer / digest mismatch MUST fail; verdict reported per-input alongside `execution_hash`; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `validate-input-attestations.test.mjs`, `schema-validate.mjs` | validate |
 | §25 private-input profile: hash-excluded top-level `private_inputs[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; the pointed value IS the `sha256:` `commitment`, never plaintext (plaintext-exclusion §25.2); `commitment_scheme` ∈ {`sha256-salted@1`}; a §18 `compute_proof` is present and its `journal` commits every declared `commitment` AND `output_payload`; unknown scheme / unresolved pointer / plaintext-at-pointer / missing commitment-in-journal MUST fail; salt never appears in the artifact; verdict reported without the plaintext; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED (§18 pairing check stays with `compute-proof.test.mjs`) | `validate-private-inputs.test.mjs`, `schema-validate.mjs` | validate |
+| §HASHRES-1 Ledger addressing: the resolution address IS the §4 `execution_hash` (no new hash, no envelope change, `chaingraph_version` 0.4.0 UNCHANGED); a dereference returns content whose recomputed §4 hash equals the address or 404, never a different value — the same live re-verifiability the §4 sweep already asserts over deployed artifacts | `hash-sweep.mjs`, `kernel-hash-integrity.mjs` | post-deploy + validate |
+| §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
+| §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
+| §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
