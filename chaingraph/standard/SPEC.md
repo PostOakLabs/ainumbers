@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.6
+spec_version: 0.8.7
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -1404,9 +1404,9 @@ set: the W3C WebAssembly 3.0 Deterministic Profile (§24), the RISC-V freeze dis
 (Certificate Transparency), and KERI/vLEI (ISO 17442-3) where applicable.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **Unreleased (pending v0.8.7 — the record `spec_version` bump is deferred to a
-coordinated cross-surface landing step so it does not collide with an in-flight `chaingraph.json` single-writer
-build):** additive ML landing-pass riders — §HASHRES-1 (RFC 6920 / ISO 18670 SWHID Ledger hash-resolution
+See `standard/CHANGELOG.md`. **v0.8.7 (2026-07-10 — the record `spec_version` bump landed at a coordinated
+cross-surface step folded into the GD-1 reserve-disclosure-checker landing, so it did not collide with the
+in-flight `chaingraph.json` single-writer build):** additive ML landing-pass riders — §HASHRES-1 (RFC 6920 / ISO 18670 SWHID Ledger hash-resolution
 addressing contract; informative SCITT alignment), §PQC-1 (hybrid dual §16 Data Integrity proof over the same
 JCS bytes = `eddsa-jcs-2022` + a TBD-on-registration ML-DSA cryptosuite, verifier policy modes classical/pq/both;
 retires the parked PQC-COSE detour), §REVOKE-1 (OPTIONAL W3C BitstringStatusList receipt/key revocation reference
