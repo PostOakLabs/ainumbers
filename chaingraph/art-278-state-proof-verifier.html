@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>State-Proof Verifier · ART-278 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Verifies an EIP-1186 (eth_getProof) account and storage Merkle-Patricia-Trie proof against a supplied trusted state root. Pure-JS keccak-256, zero-egress, browser-local. No RPC, no consensus-proof claim.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-278-state-proof-verifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="State-Proof Verifier · ART-278 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Verifies an EIP-1186 account/storage Merkle-Patricia-Trie proof against a caller-supplied trusted state root. Pure-JS keccak-256 + RLP + MPT walk. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-278-state-proof-verifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.q .hint{display:block;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:4px;line-height:1.5}
+input[type=text],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.76rem}
+textarea{resize:vertical;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text);word-break:break-all}
+.section-table tr:last-child td{border-bottom:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-278 · State-Proof Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-278 · Verify-Rails · State-Proof Verifier</div>
+  <h1>State-Proof Verifier</h1>
+  <p class="sub">Verifies an <b>EIP-1186</b> (<code>eth_getProof</code>) account and storage Merkle-Patricia-Trie proof against a state root <b>you supply</b>. Walks the proof with a pure-JavaScript keccak-256 + RLP decoder, no RPC call, no network fetch, no consensus-proof (light-client header) claim: the state root is a caller-supplied trust anchor. Persona: fund administrator or auditor confirming tokenized-MMF/deposit-token holdings without trusting an RPC provider.</p>
+  <div>
+    <span class="flag">EIP-1186</span>
+    <span class="flag warn">Keccak-256 + RLP + MPT</span>
+    <span class="flag">Zero Egress</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">Not a consensus-proof verifier</div>
+    This tool checks that a supplied <code>eth_getProof</code> response is internally consistent with a supplied state root. It does <b>not</b> verify that the state root itself belongs to a real, canonical block; that requires a light client or beacon-chain header check, which is out of scope. Bounded inputs only: proof arrays are capped so keccak-256 runs over a small, finite, provable amount of data.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('single')">Load: single-leaf account (VERIFIED)</button>
+    <button class="preset-btn" onclick="loadPreset('storage')">Load: extension + leaf + storage slot (VERIFIED)</button>
+    <button class="preset-btn" onclick="loadPreset('tampered')">Load: tampered root (INVALID_PROOF)</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Trust Anchor</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Block State Root (hex)</label>
+        <input type="text" id="block_state_root" placeholder="0x… (32 bytes)"></div>
+      <div class="q"><label><span class="dim">Field</span>Address (hex)</label>
+        <input type="text" id="address" placeholder="0x… (20 bytes)"></div>
+    </div>
+
+    <div class="section-head">Account Proof</div>
+    <div class="q"><label><span class="dim">Field</span>account_proof (JSON array of RLP hex nodes, root→leaf order)</label>
+      <textarea id="account_proof" rows="4" placeholder='["0x...", "0x..."]'></textarea>
+      <span class="hint">Bounded: max 32 nodes, max 600 bytes each, matches the eth_getProof.accountProof field.</span>
+    </div>
+
+    <div class="section-head">Storage Slots (optional)</div>
+    <div class="q"><label><span class="dim">Field</span>storage_slots (JSON array)</label>
+      <textarea id="storage_slots" rows="4" placeholder='[{"slot":"0x...","expected_value":"0x...","proof":["0x..."]}]'></textarea>
+      <span class="hint">Bounded: max 8 slots, max 16 proof nodes each, matches eth_getProof.storageProof entries.</span>
+    </div>
+
+    <button class="run-btn" onclick="run()">Verify State Proof →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="verdictVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Verdict</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="nodesVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Proof Nodes Consumed</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="storageVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Storage Slots Checked</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div id="accountSect" style="display:none">
+      <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Account state (decoded from proof)</div>
+      <table class="section-table">
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody id="accountTableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="storageSect" style="display:none">
+      <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Storage slot results</div>
+      <table class="section-table">
+        <thead><tr><th>Slot</th><th>Exists</th><th>Value</th><th>Matches Expected</th></tr></thead>
+        <tbody id="storageTableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="diagnosticSect" style="display:none;margin:10px 0;font-size:.8rem;color:var(--body)"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="muted" style="margin-top:8px">⚠ The state root is a caller-supplied trust anchor. Independently confirm the root corresponds to the block you intend to trust (e.g. via a light client) before relying on this verdict.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+      <button id="jsonExportBtn" onclick="exportJSON()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ JSON receipt</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-278-state-proof-verifier",
+  tool_version: "1.0.0",
+  mcp_name: "verify_eth_state_proof",
+  mandate_type: "cryptographic_mandate",
+  wave: 49,
+  chaingraph_version: "0.4.0",
+  spec_version: "0.8.7",
+  compute_capability: "server",
+  export_capability: ["json"],
+  description: "Verifies an EIP-1186 account/storage Merkle-Patricia-Trie proof against a caller-supplied trusted state root using a pure-JS keccak-256 + RLP + MPT walk. Zero-egress; no consensus-proof (light-client header) claim.",
+  chain: "state-proof-verification",
+  url: "https://ainumbers.co/chaingraph/art-278-state-proof-verifier.html"
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// keccak-256 + RLP + MPT walk — faithful port of
+//   chaingraph/kernels/art-278-state-proof-verifier.kernel.mjs
+// Pure: no DOM writes inside compute(), no network. See the kernel file for
+// full commentary; this is a byte-identical copy of its compute logic.
+// ═══════════════════════════════════════════════════════════════════════════
+const MAX_PROOF_NODES = 32, MAX_NODE_HEX_LEN = 1200, MAX_STORAGE_SLOTS = 8, MAX_STORAGE_PROOF_NODES = 16;
+
+const RC = [
+  [0x00000001, 0x00000000], [0x00008082, 0x00000000], [0x0000808a, 0x80000000],
+  [0x80008000, 0x80000000], [0x0000808b, 0x00000000], [0x80000001, 0x00000000],
+  [0x80008081, 0x80000000], [0x00008009, 0x80000000], [0x0000008a, 0x00000000],
+  [0x00000088, 0x00000000], [0x80008009, 0x00000000], [0x8000000a, 0x00000000],
+  [0x8000808b, 0x00000000], [0x0000008b, 0x80000000], [0x00008089, 0x80000000],
+  [0x00008003, 0x80000000], [0x00008002, 0x80000000], [0x00000080, 0x80000000],
+  [0x0000800a, 0x00000000], [0x8000000a, 0x80000000], [0x80008081, 0x80000000],
+  [0x00008080, 0x80000000], [0x80000001, 0x00000000], [0x80008008, 0x80000000],
+];
+const ROT = [[0,36,3,41,18],[1,44,10,45,2],[62,6,43,15,61],[28,55,25,21,56],[27,20,39,8,14]];
+
+function rotl64(lo, hi, n) {
+  n = n % 64;
+  if (n === 0) return [lo >>> 0, hi >>> 0];
+  if (n < 32) return [((lo << n) | (hi >>> (32 - n))) >>> 0, ((hi << n) | (lo >>> (32 - n))) >>> 0];
+  if (n === 32) return [hi >>> 0, lo >>> 0];
+  const m = n - 32;
+  return [((hi << m) | (lo >>> (32 - m))) >>> 0, ((lo << m) | (hi >>> (32 - m))) >>> 0];
+}
+function keccakF1600(state) {
+  for (let round = 0; round < 24; round++) {
+    const C = new Array(5);
+    for (let x = 0; x < 5; x++) {
+      let lo = 0, hi = 0;
+      for (let y = 0; y < 5; y++) { lo ^= state[2 * (x + 5 * y)]; hi ^= state[2 * (x + 5 * y) + 1]; }
+      C[x] = [lo >>> 0, hi >>> 0];
+    }
+    const D = new Array(5);
+    for (let x = 0; x < 5; x++) {
+      const cxm1 = C[(x + 4) % 5], cxp1 = C[(x + 1) % 5];
+      const [rlo, rhi] = rotl64(cxp1[0], cxp1[1], 1);
+      D[x] = [(cxm1[0] ^ rlo) >>> 0, (cxm1[1] ^ rhi) >>> 0];
+    }
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) {
+      const idx = 2 * (x + 5 * y);
+      state[idx] = (state[idx] ^ D[x][0]) >>> 0; state[idx + 1] = (state[idx + 1] ^ D[x][1]) >>> 0;
+    }
+    const B = new Array(50);
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) {
+      const sx = (x + 3 * y) % 5, sy = x;
+      const idxSrc = 2 * (sx + 5 * sy);
+      const [rlo, rhi] = rotl64(state[idxSrc], state[idxSrc + 1], ROT[sx][sy]);
+      const idxNew = 2 * (x + 5 * y);
+      B[idxNew] = rlo; B[idxNew + 1] = rhi;
+    }
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) {
+      const idx = 2 * (x + 5 * y), idx1 = 2 * (((x + 1) % 5) + 5 * y), idx2 = 2 * (((x + 2) % 5) + 5 * y);
+      state[idx] = (B[idx] ^ ((~B[idx1]) & B[idx2])) >>> 0;
+      state[idx + 1] = (B[idx + 1] ^ ((~B[idx1 + 1]) & B[idx2 + 1])) >>> 0;
+    }
+    state[0] = (state[0] ^ RC[round][0]) >>> 0; state[1] = (state[1] ^ RC[round][1]) >>> 0;
+  }
+  return state;
+}
+const KECCAK_RATE_BYTES = 136;
+function keccak256(bytes) {
+  const state = new Array(50).fill(0);
+  const rate = KECCAK_RATE_BYTES;
+  let offset = 0;
+  while (bytes.length - offset >= rate) {
+    for (let i = 0; i < rate / 4; i++) {
+      const w = bytes[offset + 4*i] | (bytes[offset + 4*i+1] << 8) | (bytes[offset + 4*i+2] << 16) | (bytes[offset + 4*i+3] << 24);
+      state[i] = (state[i] ^ w) >>> 0;
+    }
+    keccakF1600(state); offset += rate;
+  }
+  const rem = bytes.length - offset;
+  const block = new Uint8Array(rate);
+  for (let i = 0; i < rem; i++) block[i] = bytes[offset + i];
+  block[rem] ^= 0x01; block[rate - 1] ^= 0x80;
+  for (let i = 0; i < rate / 4; i++) {
+    const w = block[4*i] | (block[4*i+1] << 8) | (block[4*i+2] << 16) | (block[4*i+3] << 24);
+    state[i] = (state[i] ^ w) >>> 0;
+  }
+  keccakF1600(state);
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 4; i++) {
+    const lo = state[2*i], hi = state[2*i+1], base = 8*i;
+    out[base]=lo&0xff; out[base+1]=(lo>>>8)&0xff; out[base+2]=(lo>>>16)&0xff; out[base+3]=(lo>>>24)&0xff;
+    out[base+4]=hi&0xff; out[base+5]=(hi>>>8)&0xff; out[base+6]=(hi>>>16)&0xff; out[base+7]=(hi>>>24)&0xff;
+  }
+  return out;
+}
+function hexToBytes(hex) {
+  let h = String(hex ?? '');
+  if (h.startsWith('0x') || h.startsWith('0X')) h = h.slice(2);
+  if (h.length % 2 === 1) h = '0' + h;
+  const out = new Uint8Array(h.length / 2);
+  for (let i = 0; i < out.length; i++) { const b = parseInt(h.substr(i*2,2),16); if (Number.isNaN(b)) return null; out[i] = b; }
+  return out;
+}
+function bytesToHex(bytes) { let s = '0x'; for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2,'0'); return s; }
+function bytesEqual(a,b) { if (!a||!b||a.length!==b.length) return false; for (let i=0;i<a.length;i++) if (a[i]!==b[i]) return false; return true; }
+function bytesToNibbles(bytes) { const out=new Array(bytes.length*2); for (let i=0;i<bytes.length;i++){out[2*i]=bytes[i]>>>4;out[2*i+1]=bytes[i]&0x0f;} return out; }
+
+function rlpDecodeItem(bytes, offset, maxItems) {
+  if (offset >= bytes.length) return null;
+  const b0 = bytes[offset];
+  if (b0 < 0x80) return { value: bytes.subarray(offset, offset+1), next: offset+1 };
+  if (b0 <= 0xb7) { const len=b0-0x80, start=offset+1; if (start+len>bytes.length) return null; return { value: bytes.subarray(start,start+len), next:start+len }; }
+  if (b0 <= 0xbf) {
+    const lenOfLen=b0-0xb7; if (lenOfLen>4) return null;
+    const lenBytes = bytes.subarray(offset+1, offset+1+lenOfLen); if (lenBytes.length<lenOfLen) return null;
+    let len=0; for (let i=0;i<lenBytes.length;i++) len=(len<<8)|lenBytes[i];
+    const start=offset+1+lenOfLen; if (start+len>bytes.length) return null;
+    return { value: bytes.subarray(start,start+len), next:start+len };
+  }
+  if (b0 <= 0xf7) { const len=b0-0xc0, start=offset+1, end=start+len; if (end>bytes.length) return null; return decodeList(bytes,start,end,maxItems); }
+  const lenOfLen=b0-0xf7; if (lenOfLen>4) return null;
+  const lenBytes = bytes.subarray(offset+1, offset+1+lenOfLen); if (lenBytes.length<lenOfLen) return null;
+  let len=0; for (let i=0;i<lenBytes.length;i++) len=(len<<8)|lenBytes[i];
+  const start=offset+1+lenOfLen, end=start+len; if (end>bytes.length) return null;
+  return decodeList(bytes,start,end,maxItems);
+}
+function decodeList(bytes, start, end, maxItems) {
+  const items = []; let pos = start;
+  while (pos < end) {
+    if (items.length >= maxItems) return null;
+    const dec = rlpDecodeItem(bytes, pos, maxItems); if (dec===null) return null;
+    items.push(dec.value); pos = dec.next;
+  }
+  if (pos !== end) return null;
+  return { value: items, next: end };
+}
+function decodeNode(raw) { const dec = rlpDecodeItem(raw,0,17); if (dec===null||dec.next!==raw.length||!Array.isArray(dec.value)) return null; return dec.value; }
+function hpDecode(pathBytes) {
+  if (pathBytes.length===0) return { nibbles: [], isLeaf: false };
+  const first = pathBytes[0]; const isLeaf=(first&0x20)!==0, isOdd=(first&0x10)!==0;
+  const nibbles = []; if (isOdd) nibbles.push(first&0x0f);
+  for (let i=1;i<pathBytes.length;i++){nibbles.push(pathBytes[i]>>>4);nibbles.push(pathBytes[i]&0x0f);}
+  return { nibbles, isLeaf };
+}
+function nibblesStartsWith(remaining, prefix) { if (prefix.length>remaining.length) return false; for (let i=0;i<prefix.length;i++) if (remaining[i]!==prefix[i]) return false; return true; }
+
+function walkTrie(root, path, proofNodes, maxNodes) {
+  if (proofNodes.length===0) return { exists:false, value:null, reason:'empty proof' };
+  if (proofNodes.length>maxNodes) return { exists:false, value:null, reason:'proof exceeds bounded node limit' };
+  let expectedHash = root, nibbleIdx = 0;
+  for (let i=0;i<proofNodes.length;i++) {
+    const raw = proofNodes[i];
+    const h = keccak256(raw);
+    if (!bytesEqual(h, expectedHash)) return { exists:false, value:null, reason:`node ${i} hash mismatch (broken proof chain)` };
+    const node = decodeNode(raw);
+    if (node===null) return { exists:false, value:null, reason:`node ${i} is not a valid RLP node` };
+    const remaining = path.slice(nibbleIdx);
+    if (node.length===17) {
+      if (remaining.length===0) {
+        const term = node[16];
+        return term && term.length>0 ? { exists:true, value:term, reason:null } : { exists:false, value:null, reason:'no value at branch terminator' };
+      }
+      const nib = remaining[0]; const child = node[nib];
+      if (!child || child.length===0) return { exists:false, value:null, reason:'branch child empty (non-inclusion)' };
+      nibbleIdx += 1;
+      if (i===proofNodes.length-1) return { exists:false, value:null, reason:'proof truncated after branch (missing child node)' };
+      if (child.length!==32) return { exists:false, value:null, reason:'branch child not hash-referenced (unsupported embedded node)' };
+      expectedHash = child; continue;
+    }
+    if (node.length===2) {
+      const { nibbles: hpNibbles, isLeaf } = hpDecode(node[0]);
+      if (!nibblesStartsWith(remaining, hpNibbles)) return { exists:false, value:null, reason:'leaf/extension path diverges (non-inclusion)' };
+      nibbleIdx += hpNibbles.length;
+      if (isLeaf) {
+        if (nibbleIdx !== path.length) return { exists:false, value:null, reason:'leaf reached before full key consumed' };
+        return { exists:true, value:node[1], reason:null };
+      }
+      if (i===proofNodes.length-1) return { exists:false, value:null, reason:'proof truncated after extension (missing child node)' };
+      const child = node[1];
+      if (!child || child.length!==32) return { exists:false, value:null, reason:'extension child not hash-referenced' };
+      expectedHash = child; continue;
+    }
+    return { exists:false, value:null, reason:`node ${i} has invalid arity (${node.length})` };
+  }
+  return { exists:false, value:null, reason:'proof consumed without reaching a terminal node' };
+}
+function decodeAccount(valueBytes) {
+  const dec = rlpDecodeItem(valueBytes,0,4);
+  if (dec===null||dec.next!==valueBytes.length||!Array.isArray(dec.value)||dec.value.length!==4) return null;
+  const [nonce,balance,storageRoot,codeHash] = dec.value;
+  if (storageRoot.length!==32||codeHash.length!==32) return null;
+  return { nonce, balance, storageRoot, codeHash };
+}
+function decodeStorageValue(valueBytes) {
+  const dec = rlpDecodeItem(valueBytes,0,1);
+  if (dec===null||dec.next!==valueBytes.length||Array.isArray(dec.value)) return null;
+  return dec.value;
+}
+
+function compute(pp) {
+  const limits = { max_account_proof_nodes: MAX_PROOF_NODES, max_node_hex_len: MAX_NODE_HEX_LEN, max_storage_slots: MAX_STORAGE_SLOTS, max_storage_proof_nodes: MAX_STORAGE_PROOF_NODES };
+  const rootHex = pp.block_state_root ?? '', addressHex = pp.address ?? '';
+  const accountProofHex = Array.isArray(pp.account_proof) ? pp.account_proof : [];
+  const storageSlotsIn = Array.isArray(pp.storage_slots) ? pp.storage_slots : [];
+
+  const errors = [];
+  const root = hexToBytes(rootHex); if (!root||root.length!==32) errors.push('block_state_root must be 32 bytes hex');
+  const address = hexToBytes(addressHex); if (!address||address.length!==20) errors.push('address must be 20 bytes hex');
+  if (accountProofHex.length===0) errors.push('account_proof must be non-empty');
+  if (accountProofHex.length>MAX_PROOF_NODES) errors.push(`account_proof exceeds bounded limit of ${MAX_PROOF_NODES} nodes`);
+  for (const h of accountProofHex) if (String(h ?? '').length > MAX_NODE_HEX_LEN) errors.push('an account_proof node exceeds bounded byte-length limit');
+  if (storageSlotsIn.length>MAX_STORAGE_SLOTS) errors.push(`storage_slots exceeds bounded limit of ${MAX_STORAGE_SLOTS} slots`);
+
+  if (errors.length>0) {
+    return { output_payload: { verdict:'INVALID_PROOF', address:addressHex, block_state_root:rootHex, account_exists:false, account:null, storage_results:[], proof_nodes_consumed:0, diagnostic:null, errors, bounded_limits:limits, receipt_statement:null, regulatory_note:'Consensus-proof (light-client header) verification is out of scope for this tool — the state root is a caller-supplied trust anchor, not independently verified against a beacon-chain header.' }, compliance_flags:['STATE_PROOF_INVALID_INPUT'] };
+  }
+  const accountProof = accountProofHex.map(hexToBytes);
+  if (accountProof.some(b=>b===null)) {
+    return { output_payload: { verdict:'INVALID_PROOF', address:addressHex, block_state_root:rootHex, account_exists:false, account:null, storage_results:[], proof_nodes_consumed:0, diagnostic:null, errors:['account_proof contains non-hex node'], bounded_limits:limits, receipt_statement:null, regulatory_note:'Consensus-proof (light-client header) verification is out of scope for this tool — the state root is a caller-supplied trust anchor, not independently verified against a beacon-chain header.' }, compliance_flags:['STATE_PROOF_INVALID_INPUT'] };
+  }
+
+  const accountKey = bytesToNibbles(keccak256(address));
+  const walk = walkTrie(root, accountKey, accountProof, MAX_PROOF_NODES);
+
+  let account=null, accountExists=false, verdict, receiptStatement=null, diagnostic=null;
+  const storageResults = []; const complianceFlags = [];
+
+  if (!walk.exists) {
+    verdict = walk.reason && walk.reason.includes('non-inclusion') ? 'NOT_FOUND' : 'INVALID_PROOF';
+    diagnostic = walk.reason;
+    complianceFlags.push(verdict==='NOT_FOUND' ? 'STATE_PROOF_ACCOUNT_NOT_FOUND' : 'STATE_PROOF_INVALID');
+  } else {
+    const decoded = decodeAccount(walk.value);
+    if (decoded===null) { verdict='INVALID_PROOF'; diagnostic='account leaf value is not a valid RLP [nonce,balance,storageRoot,codeHash] list'; complianceFlags.push('STATE_PROOF_INVALID'); }
+    else {
+      accountExists = true;
+      account = { nonce_hex: bytesToHex(decoded.nonce), balance_hex: bytesToHex(decoded.balance), storage_root_hex: bytesToHex(decoded.storageRoot), code_hash_hex: bytesToHex(decoded.codeHash) };
+      verdict = 'VERIFIED'; complianceFlags.push('STATE_PROOF_VERIFIED');
+      receiptStatement = `Address ${addressHex} verified under state root ${rootHex}: balance ${account.balance_hex}, nonce ${account.nonce_hex}.`;
+      for (const s of storageSlotsIn.slice(0, MAX_STORAGE_SLOTS)) {
+        const slotHex = s?.slot ?? ''; const proofHex = Array.isArray(s?.proof) ? s.proof.slice(0, MAX_STORAGE_PROOF_NODES) : [];
+        const slotBytes = hexToBytes(slotHex);
+        if (!slotBytes||slotBytes.length!==32||proofHex.length===0||proofHex.length>MAX_STORAGE_PROOF_NODES) { storageResults.push({ slot:slotHex, exists:false, value_hex:null, matches_expected:null, reason:'malformed storage slot input' }); continue; }
+        const proofBytes = proofHex.map(hexToBytes);
+        if (proofBytes.some(b=>b===null)) { storageResults.push({ slot:slotHex, exists:false, value_hex:null, matches_expected:null, reason:'non-hex storage proof node' }); continue; }
+        const storageKey = bytesToNibbles(keccak256(slotBytes));
+        const sWalk = walkTrie(decoded.storageRoot, storageKey, proofBytes, MAX_STORAGE_PROOF_NODES);
+        if (!sWalk.exists) { storageResults.push({ slot:slotHex, exists:false, value_hex:null, matches_expected: s?.expected_value==null ? null : false, reason:sWalk.reason }); continue; }
+        const val = decodeStorageValue(sWalk.value);
+        if (val===null) { storageResults.push({ slot:slotHex, exists:false, value_hex:null, matches_expected:null, reason:'malformed storage value RLP' }); continue; }
+        const valueHex = bytesToHex(val); const expected = s?.expected_value ?? null;
+        const matches = expected==null ? null : bytesEqual(hexToBytes(expected), val);
+        storageResults.push({ slot:slotHex, exists:true, value_hex:valueHex, matches_expected:matches, reason:null });
+      }
+      if (storageResults.some(r=>r.matches_expected===false)) complianceFlags.push('STATE_PROOF_STORAGE_MISMATCH');
+    }
+  }
+
+  const output_payload = { verdict, address:addressHex, block_state_root:rootHex, account_exists:accountExists, account, storage_results:storageResults, proof_nodes_consumed:accountProof.length, diagnostic, errors:[], bounded_limits:limits, receipt_statement:receiptStatement, regulatory_note:'Consensus-proof (light-client header) verification is out of scope for this tool — the state root is a caller-supplied trust anchor, not independently verified against a beacon-chain header. Persona: fund administrator or auditor confirming tokenized-MMF/deposit-token holdings without trusting an RPC provider.' };
+  return { output_payload, compliance_flags: complianceFlags };
+}
+
+// ─── UI ──────────────────────────────────────────────────────────────────────
+function getPP() {
+  let account_proof = [], storage_slots = [];
+  try { const t = document.getElementById('account_proof').value.trim(); account_proof = t ? JSON.parse(t) : []; } catch (e) { account_proof = []; }
+  try { const t = document.getElementById('storage_slots').value.trim(); storage_slots = t ? JSON.parse(t) : []; } catch (e) { storage_slots = []; }
+  return {
+    block_state_root: document.getElementById('block_state_root').value.trim(),
+    address: document.getElementById('address').value.trim(),
+    account_proof, storage_slots,
+  };
+}
+
+const PRESETS = {
+  single: {
+    block_state_root: "0xc050a4c52553f7be1a89089544146ce6540bf373e6b9839dcfa8aa4da2373bde",
+    address: "0x1111111111111111111111111111111111111111",
+    account_proof: ["0xf872a120e2c07404b8c1df4c46226425cac68c28d27a766bbddce62309f36724839b22c0b84ef84c03884563918244f40000a0db81b4d58595fbbbb592d3661a34cdca14d7ab379441400cbfa1b78bc447c365a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
+  },
+  storage: {
+    block_state_root: "0xe1097addc4d1fbf08d8e105b94318042f5c01654c58418c548c2d70c975781ed",
+    address: "0x2222222222222222222222222222222222222222",
+    account_proof: ["0xe785002ab0a444a0aca244f989e43f31cf751b68fa1a6bb7525643a5dca66372182fa17e63e0fc27","0xf86e9d203bbea3fbe4d0e1503d11ff1367842fb0c8b28a5c8550f27599a40751b84ef84c80880de0b6b3a7640000a0a72affd9ae0d6be6fe964dea4b9162de0b2216a45e005c99dade94632f714a57a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
+    storage_slots: [{ slot: "0x22ae6da6b482f9b1b19b0b897c3fd43884180a1c5ee361e1107a1bc635649dda", expected_value: "0x067932", proof: ["0xe7a120443ed13a79fee12095646ee4eb6b41ddadb4ce668caa55e5218bf9d49006afc18483067932"] }],
+  },
+  tampered: {
+    block_state_root: "0x897be06efbc95259a64d8c3a7a121feef34d087430baa458f7c9fbdf75e0e3da",
+    address: "0x1111111111111111111111111111111111111111",
+    account_proof: ["0xf872a120e2c07404b8c1df4c46226425cac68c28d27a766bbddce62309f36724839b22c0b84ef84c03884563918244f40000a0db81b4d58595fbbbb592d3661a34cdca14d7ab379441400cbfa1b78bc447c365a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
+  },
+};
+function loadPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('block_state_root').value = p.block_state_root;
+  document.getElementById('address').value = p.address;
+  document.getElementById('account_proof').value = JSON.stringify(p.account_proof, null, 2);
+  document.getElementById('storage_slots').value = p.storage_slots ? JSON.stringify(p.storage_slots, null, 2) : '';
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastPP = null, _lastOP = null;
+
+const VERDICT_COLOR = { VERIFIED:'var(--green)', NOT_FOUND:'var(--warn)', INVALID_PROOF:'var(--red)' };
+
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  const v = output_payload.verdict;
+  const vEl = document.getElementById('verdictVal');
+  vEl.textContent = v; vEl.style.color = VERDICT_COLOR[v] || 'var(--teal-lt)';
+  document.getElementById('nodesVal').textContent = output_payload.proof_nodes_consumed;
+  document.getElementById('storageVal').textContent = output_payload.storage_results.length;
+
+  const vClass = v === 'VERIFIED' ? 'pass' : v === 'NOT_FOUND' ? 'warn' : 'fail';
+  const vMsg = v === 'VERIFIED' ? output_payload.receipt_statement : (output_payload.diagnostic || (output_payload.errors || []).join('; ') || 'Proof did not verify.');
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + v + ': ' + vMsg + '</div>';
+
+  if (output_payload.account) {
+    document.getElementById('accountSect').style.display = 'block';
+    const a = output_payload.account;
+    document.getElementById('accountTableBody').innerHTML =
+      '<tr><td>Nonce</td><td>' + a.nonce_hex + '</td></tr>' +
+      '<tr><td>Balance</td><td>' + a.balance_hex + '</td></tr>' +
+      '<tr><td>Storage Root</td><td>' + a.storage_root_hex + '</td></tr>' +
+      '<tr><td>Code Hash</td><td>' + a.code_hash_hex + '</td></tr>';
+  } else {
+    document.getElementById('accountSect').style.display = 'none';
+  }
+
+  if (output_payload.storage_results.length > 0) {
+    document.getElementById('storageSect').style.display = 'block';
+    document.getElementById('storageTableBody').innerHTML = output_payload.storage_results.map(r => {
+      const m = r.matches_expected === null ? 'n/a' : (r.matches_expected ? '<span class="badge ok">match</span>' : '<span class="badge err">mismatch</span>');
+      return '<tr><td>' + r.slot + '</td><td>' + (r.exists ? '<span class="badge ok">yes</span>' : '<span class="badge err">no</span>') + '</td><td>' + (r.value_hex || (r.reason || '')) + '</td><td>' + m + '</td></tr>';
+    }).join('');
+  } else {
+    document.getElementById('storageSect').style.display = 'none';
+  }
+
+  if (output_payload.diagnostic) {
+    document.getElementById('diagnosticSect').style.display = 'block';
+    document.getElementById('diagnosticSect').textContent = 'Diagnostic: ' + output_payload.diagnostic;
+  } else {
+    document.getElementById('diagnosticSect').style.display = 'none';
+  }
+
+  document.getElementById('flagsRow').innerHTML = compliance_flags.map(f => '<span class="badge ' + (f.includes('VERIFIED') ? 'ok' : f.includes('NOT_FOUND') ? 'warn-b' : 'err') + '">' + f + '</span>').join('');
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false; ap2Btn.style.background = 'var(--teal)'; ap2Btn.style.color = '#06121f'; ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(), issued_at: new Date().toISOString(), issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportJSON() {
+  if (!_lastArtifact) return;
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.receipt.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+loadPreset('single');
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('ap2ExportBtn');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    var sab=document.getElementById('signArtifactBtn');
+    if(sab){sab.disabled=false;}
+    obs.disconnect();
+  });
+  obs.observe(el,{attributes:true,attributeFilter:['disabled']});
+})();
+</script>
+</body>
+</html>
