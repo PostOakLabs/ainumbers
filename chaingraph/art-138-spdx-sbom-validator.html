@@ -289,25 +289,14 @@ function compute(pp) {
   }).filter(i=>i!==null);
   const has_relationships = Array.isArray(sbom.relationships)&&sbom.relationships.length>0;
   const sbom_valid = version_ok&&doc_id_ok&&packages.length>0&&packages_missing_version.length===0&&has_relationships;
-  const compliance_flags=[];
-  compliance_flags.push('SPDX_SBOM_ASSESSED');
-  compliance_flags.push(sbom_valid?'SPDX_SBOM_VALID':'SPDX_SBOM_INVALID');
-  if(!has_relationships)compliance_flags.push('NO_RELATIONSHIPS');
+  const compliance_flags={SPDX_SBOM_ASSESSED:true};
+  compliance_flags[sbom_valid?'SPDX_SBOM_VALID':'SPDX_SBOM_INVALID']=true;
+  if(!has_relationships)compliance_flags.NO_RELATIONSHIPS=true;
   return{output_payload:{sbom_valid,format:'SPDX',spdx_version:sbom.spdxVersion??null,package_count:packages.length,packages_missing_version,has_relationships},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -338,7 +327,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.package_count+'</div><div class="hero-lbl">packages</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.has_relationships?'var(--green)':'var(--red)')+'">'+( op.has_relationships?'✓':'✗')+'</div><div class="hero-lbl">relationships</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.packages_missing_version.length===0?'var(--green)':'var(--red)')+'">'+op.packages_missing_version.length+'</div><div class="hero-lbl">incomplete pkgs</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   const pkgHtml=op.packages_missing_version.length?'<div style="margin-top:6px;font-size:.75rem;color:var(--warn)">Packages missing versionInfo/downloadLocation at indices: '+op.packages_missing_version.join(', ')+'</div>':'';
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ SPDX_SBOM_VALID — CRA Annex I machine-readable SBOM requirement met (SPDX format).':'✗ SPDX_SBOM_INVALID — Validation failed. Check compliance flags.')+'</div>'+

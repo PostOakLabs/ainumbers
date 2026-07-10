@@ -286,25 +286,14 @@ async function compute(pp){
   });
   const root_ok=typeof active_manifest_hash==='string'&&active_manifest_hash.startsWith('sha256:');
   const tree_intact=root_ok&&broken_edges.length===0;
-  const flags=[];
-  flags.push('PROVENANCE_TREE_ASSESSED');
-  flags.push(tree_intact?'PROVENANCE_TREE_INTACT':'PROVENANCE_TREE_BROKEN');
-  if(!root_ok)flags.push('MALFORMED_ACTIVE_MANIFEST_HASH');
+  const flags={PROVENANCE_TREE_ASSESSED:true};
+  flags[tree_intact?'PROVENANCE_TREE_INTACT':'PROVENANCE_TREE_BROKEN']=true;
+  if(!root_ok)flags.MALFORMED_ACTIVE_MANIFEST_HASH=true;
   return{output_payload:{tree_intact,depth:Array.isArray(ingredients)?ingredients.length:0,edges,broken_edges,root_ok},compliance_flags:flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -336,7 +325,7 @@ async function run(){
 }
 
 function renderResults(op,flags,execHash,artifact){
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('heroRow').innerHTML=
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.tree_intact?'var(--green)':'var(--red)')+';font-size:1rem;padding-top:6px">'+(op.tree_intact?'INTACT':'BROKEN')+'</div><div class="hero-lbl">Tree Intact</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.depth+'</div><div class="hero-lbl">Depth</div></div>'+

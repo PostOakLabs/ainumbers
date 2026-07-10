@@ -327,26 +327,16 @@ function compute(pp) {
   const significance_verdict=!reporting_required?'not_significant':is_critical?'critical':'significant';
   const recipients=[];
   if(reporting_required){recipients.push('national_csirt');recipients.push('supervisory_authority');if(entity_classification==='essential')recipients.push('sector_regulator');}
-  const compliance_flags=[];compliance_flags.push('NIS2_INCIDENT_ASSESSED');
-  if(reporting_required)compliance_flags.push('NIS2_SIGNIFICANT_INCIDENT');
-  if(is_critical)compliance_flags.push('NIS2_CRITICAL_INCIDENT');
-  if(cross_border_impact)compliance_flags.push('NIS2_CROSS_BORDER_IMPACT');
-  if(!reporting_required)compliance_flags.push('NIS2_INCIDENT_BELOW_THRESHOLD');
+  const compliance_flags={NIS2_INCIDENT_ASSESSED:true};
+  if(reporting_required)compliance_flags.NIS2_SIGNIFICANT_INCIDENT=true;
+  if(is_critical)compliance_flags.NIS2_CRITICAL_INCIDENT=true;
+  if(cross_border_impact)compliance_flags.NIS2_CROSS_BORDER_IMPACT=true;
+  if(!reporting_required)compliance_flags.NIS2_INCIDENT_BELOW_THRESHOLD=true;
   return{output_payload:{significance_verdict,triggering_factors,reporting_required,early_warning_deadline_hours:reporting_required?24:null,notification_deadline_hours:reporting_required?72:null,final_report_deadline_days:reporting_required?30:null,recipients,service_disruption_hours:safe_disruption,estimated_affected_users:safe_users,estimated_financial_loss_eur:safe_loss},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -398,7 +388,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.triggering_factors.length>0?'var(--red)':'var(--green)')+'">'+op.triggering_factors.length+'</div><div class="hero-lbl">Triggering Factors</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.reporting_required?'var(--warn)':'var(--green)')+';font-size:1rem;padding-top:6px">'+(op.reporting_required?'REQUIRED':'NOT REQ.')+'</div><div class="hero-lbl">Art.23 Reporting</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.recipients.length+'</div><div class="hero-lbl">Recipients</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   const verdictClass=v==='not_significant'?'pass':v==='critical'?'fail':'warn';
   let factorBadges='';
   if(op.triggering_factors.length>0){

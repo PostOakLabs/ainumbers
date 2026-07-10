@@ -328,27 +328,16 @@ async function compute(pp){
     }catch{signature_cryptographically_valid=false;}
   }
   const verdict=(signature_cryptographically_valid&&alg_ok&&tag_ok&&fresh!==false)?'ACCEPT':'REFUSE';
-  const flags=[];
-  flags.push('WEBBOTAUTH_SIGNATURE_ASSESSED');
-  flags.push(verdict==='ACCEPT'?'AGENT_SIGNATURE_VERIFIED':'AGENT_SIGNATURE_REFUSED');
-  if(!alg_ok)flags.push('ALGORITHM_NOT_ED25519');
-  if(!tag_ok)flags.push('TAG_MISMATCH');
-  if(fresh===false)flags.push('SIGNATURE_STALE');
+  const flags={WEBBOTAUTH_SIGNATURE_ASSESSED:true};
+  flags[verdict==='ACCEPT'?'AGENT_SIGNATURE_VERIFIED':'AGENT_SIGNATURE_REFUSED']=true;
+  if(!alg_ok)flags.ALGORITHM_NOT_ED25519=true;
+  if(!tag_ok)flags.TAG_MISMATCH=true;
+  if(fresh===false)flags.SIGNATURE_STALE=true;
   return{output_payload:{signature_cryptographically_valid,alg_ok,tag_ok,fresh,verdict},compliance_flags:flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -378,7 +367,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(vok?'var(--green)':'var(--red)')+'">'+op.verdict+'</div><div class="hero-lbl">Verdict</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.signature_cryptographically_valid?'var(--green)':'var(--red)')+'">'+( op.signature_cryptographically_valid?'✓':'✗')+'</div><div class="hero-lbl">Crypto Valid</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.tag_ok?'var(--green)':'var(--red)')+'">'+( op.tag_ok?'✓':'✗')+'</div><div class="hero-lbl">Tag OK</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ ACCEPT — Signature cryptographically valid. Algorithm, tag, and freshness all pass.':'✗ REFUSE — One or more checks failed. See compliance flags.')+'</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>{const ok=f==='WEBBOTAUTH_SIGNATURE_ASSESSED'||f==='AGENT_SIGNATURE_VERIFIED';return'<span class="badge '+(ok?'ok':'err')+'">'+f+'</span>'}).join('')+'</div>';

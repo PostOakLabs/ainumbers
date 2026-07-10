@@ -302,25 +302,14 @@ function compute(pp) {
   const lvl = Number(claimed_build_level);
   const slsa_build_level = Number.isInteger(lvl)&&lvl>=0&&lvl<=3 ? lvl : 0;
   const provenance_valid = type_ok && pred_ok && subject_digest_match && builder_id_present;
-  const compliance_flags = [];
-  compliance_flags.push('SLSA_PROVENANCE_ASSESSED');
-  compliance_flags.push(provenance_valid?'SLSA_PROVENANCE_VALID':'SLSA_PROVENANCE_INVALID');
-  if (!subject_digest_match && artifact_digest_sha256) compliance_flags.push('SUBJECT_DIGEST_MISMATCH');
+  const compliance_flags = {SLSA_PROVENANCE_ASSESSED:true};
+  compliance_flags[provenance_valid?'SLSA_PROVENANCE_VALID':'SLSA_PROVENANCE_INVALID'] = true;
+  if (!subject_digest_match && artifact_digest_sha256) compliance_flags.SUBJECT_DIGEST_MISMATCH = true;
   return {output_payload:{provenance_valid,type_ok,pred_ok,subject_digest_match,builder_id_present,slsa_build_level},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -352,7 +341,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+lvlColor+'">L'+op.slsa_build_level+'</div><div class="hero-lbl">Build Level</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.subject_digest_match?'var(--green)':'var(--red)')+'">'+( op.subject_digest_match?'✓':'✗')+'</div><div class="hero-lbl">Digest Match</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.builder_id_present?'var(--green)':'var(--red)')+'">'+( op.builder_id_present?'✓':'✗')+'</div><div class="hero-lbl">Builder ID</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ SLSA_PROVENANCE_VALID — Statement is correctly typed, digest matches, builder.id present.':'✗ SLSA_PROVENANCE_INVALID — Validation failed. Check compliance flags.')+'</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('INVALID')||f.includes('MISMATCH')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';

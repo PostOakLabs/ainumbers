@@ -265,24 +265,14 @@ function compute(pp) {
   const entry=grade_thresholds.find(([t])=>compliance_score>=t);
   const overall_grade=entry?entry[1]:'F';
   const remediation_priority=measures_summary.filter(m=>m.maturity<2).sort((a,b)=>a.maturity-b.maturity).map(m=>m.measure_id);
-  const compliance_flags=[];compliance_flags.push('NIS2_ART21_ASSESSED');
-  compliance_flags.push(compliance_score>=60?'NIS2_ART21_PASSING':'NIS2_ART21_GAPS_IDENTIFIED');
-  if(critical_gaps.length>0)compliance_flags.push('NIS2_ART21_CRITICAL_GAPS');
+  const compliance_flags={NIS2_ART21_ASSESSED:true};
+  compliance_flags[compliance_score>=60?'NIS2_ART21_PASSING':'NIS2_ART21_GAPS_IDENTIFIED']=true;
+  if(critical_gaps.length>0)compliance_flags.NIS2_ART21_CRITICAL_GAPS=true;
   return{output_payload:{compliance_score,overall_grade,measures_summary,critical_gaps,remediation_priority},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -340,7 +330,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+gradeColor(op.overall_grade)+'">'+op.overall_grade+'</div><div class="hero-lbl">Grade</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.critical_gaps.length===0?'var(--green)':'var(--red)')+'">'+op.critical_gaps.length+'</div><div class="hero-lbl">Critical Gaps</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--text)">'+op.remediation_priority.length+'</div><div class="hero-lbl">Needs Remediation</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   const verdictClass=op.compliance_score>=60?'pass':op.compliance_score>=40?'warn':'fail';
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+verdictClass+'">'+

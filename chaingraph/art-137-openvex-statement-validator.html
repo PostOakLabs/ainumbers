@@ -283,24 +283,13 @@ function compute(pp) {
     if(!has_vuln||!has_products||!status_ok||!just_ok) invalid_statements.push({index:i,has_vuln,has_products,status_ok,just_ok});
   });
   const vex_valid = context_ok && statements.length>0 && invalid_statements.length===0;
-  const compliance_flags = [];
-  compliance_flags.push('OPENVEX_ASSESSED');
-  compliance_flags.push(vex_valid?'OPENVEX_VALID':'OPENVEX_INVALID');
+  const compliance_flags = {OPENVEX_ASSESSED:true};
+  compliance_flags[vex_valid?'OPENVEX_VALID':'OPENVEX_INVALID'] = true;
   return {output_payload:{vex_valid,statement_count:statements.length,invalid_statements,context_ok},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -331,7 +320,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.statement_count+'</div><div class="hero-lbl">statements</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.invalid_statements.length===0?'var(--green)':'var(--red)')+'">'+op.invalid_statements.length+'</div><div class="hero-lbl">invalid stmts</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.context_ok?'var(--green)':'var(--red)')+'">'+( op.context_ok?'✓':'✗')+'</div><div class="hero-lbl">@context</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ OPENVEX_VALID — All statements pass VEX validation requirements.':'✗ OPENVEX_INVALID — Validation failed. Check invalid statements below.')+'</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('INVALID')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';

@@ -291,24 +291,14 @@ function compute(pp) {
   const reduction=Math.min(factor_count*MITIGATION_REDUCTION_PER_FACTOR,1-MITIGATION_FLOOR);
   const mitigated_estimate_eur=Math.round(max_penalty_eur*(1-reduction));
   const turnover_pct_exposure=(safe_turnover>0&&Number.isFinite(max_penalty_eur/safe_turnover))?Math.round((max_penalty_eur/safe_turnover)*10000)/100:0;
-  const compliance_flags=[];compliance_flags.push('NIS2_PENALTY_ASSESSED');
-  if(max_penalty_eur>5000000)compliance_flags.push('NIS2_HIGH_PENALTY_EXPOSURE');
-  if(types.length===0)compliance_flags.push('NIS2_NO_INFRINGEMENT_DECLARED');
+  const compliance_flags={NIS2_PENALTY_ASSESSED:true};
+  if(max_penalty_eur>5000000)compliance_flags.NIS2_HIGH_PENALTY_EXPOSURE=true;
+  if(types.length===0)compliance_flags.NIS2_NO_INFRINGEMENT_DECLARED=true;
   return{output_payload:{max_penalty_eur:Math.round(max_penalty_eur),mitigated_estimate_eur,turnover_pct_exposure,infringement_breakdown,entity_classification,mitigating_factors_applied:factor_count},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -358,12 +348,12 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:var(--warn);font-size:1.2rem;padding-top:4px">'+fmtEur(op.mitigated_estimate_eur)+'</div><div class="hero-lbl">Mitigated Estimate</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--text)">'+op.turnover_pct_exposure+'%</div><div class="hero-lbl">% Turnover Exposure</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.mitigating_factors_applied+'</div><div class="hero-lbl">Mitigating Factors</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   const verdictClass=!hasExposure?'pass':op.max_penalty_eur>5000000?'fail':'warn';
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+verdictClass+'">'+
     (!hasExposure?'✓ NIS2_NO_INFRINGEMENT_DECLARED — No infringement types selected. No penalty exposure modelled.':
-     op.compliance_flags&&op.compliance_flags.includes('NIS2_HIGH_PENALTY_EXPOSURE')?'⚠ NIS2_HIGH_PENALTY_EXPOSURE — Maximum exposure exceeds €5M. Board-level attention required.':
+     op.compliance_flags&&op.compliance_flags.NIS2_HIGH_PENALTY_EXPOSURE?'⚠ NIS2_HIGH_PENALTY_EXPOSURE — Maximum exposure exceeds €5M. Board-level attention required.':
      '⚠ Penalty exposure identified. Review infringement types and apply mitigating factors.')+
     '</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('HIGH')?'err':f.includes('NO_INF')?'ok':'info')+'">'+f+'</span>').join('')+'</div>';

@@ -298,25 +298,14 @@ async function compute(pp){
   const deepfake_disclosure_ok=is_deepfake===true?(deepfake_disclosure_present===true):true;
   if(is_deepfake===true&&deepfake_disclosure_present!==true)gaps.push('DEEPFAKE_DISCLOSURE_MISSING');
   const art50_conformant=ai_marking_present&&deepfake_disclosure_ok;
-  const flags=[];
-  flags.push('AI_ACT_ART50_ASSESSED');
-  flags.push(art50_conformant?'ART50_MARKING_CONFORMANT':'ART50_MARKING_NONCONFORMANT');
-  if(is_deepfake===true)flags.push('DEEPFAKE_SCOPE');
+  const flags={AI_ACT_ART50_ASSESSED:true};
+  flags[art50_conformant?'ART50_MARKING_CONFORMANT':'ART50_MARKING_NONCONFORMANT']=true;
+  if(is_deepfake===true)flags.DEEPFAKE_SCOPE=true;
   return{output_payload:{art50_conformant,ai_marking_present,source_type_recognized,deepfake_disclosure_ok,source_type:source_type??null,gaps},compliance_flags:flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -348,7 +337,7 @@ async function run(){
 }
 
 function renderResults(op,flags,execHash,artifact){
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('heroRow').innerHTML=
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.art50_conformant?'var(--green)':'var(--red)')+';font-size:.9rem;padding-top:8px">'+(op.art50_conformant?'CONFORMANT':'NON-CONFORMANT')+'</div><div class="hero-lbl">Art. 50</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.ai_marking_present?'var(--green)':'var(--red)')+'">'+( op.ai_marking_present?'✓':'✗')+'</div><div class="hero-lbl">AI Marking</div></div>'+
@@ -356,7 +345,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.gaps.length===0?'var(--green)':'var(--red)')+'">'+op.gaps.length+'</div><div class="hero-lbl">Gaps</div></div>';
   let verdictText='';
   if(op.art50_conformant){
-    verdictText='✓ ART50_MARKING_CONFORMANT — AI source type recognised, machine-readable marking present'+(op.source_type?(' ('+op.source_type+')'):'')+(flags.includes('DEEPFAKE_SCOPE')?', deepfake disclosure confirmed.':'.');
+    verdictText='✓ ART50_MARKING_CONFORMANT — AI source type recognised, machine-readable marking present'+(op.source_type?(' ('+op.source_type+')'):'')+(flags.DEEPFAKE_SCOPE?', deepfake disclosure confirmed.':'.');
   } else {
     verdictText='✗ ART50_MARKING_NONCONFORMANT — Gaps: '+op.gaps.join(', ')+'. Penalty: up to €15M or 3% of global turnover (Art. 50, applies 2 Aug 2026).';
   }

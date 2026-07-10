@@ -289,26 +289,15 @@ function compute(pp) {
   const components_missing_purl=components.map((c,i)=>((c&&c.name&&c.version&&c.purl)?null:i)).filter(i=>i!==null);
   const has_dependencies=Array.isArray(sbom.dependencies)&&sbom.dependencies.length>0;
   const sbom_valid=format_ok&&spec_ok&&components.length>0&&components_missing_purl.length===0&&has_dependencies;
-  const compliance_flags=[];
-  compliance_flags.push('CYCLONEDX_SBOM_ASSESSED');
-  compliance_flags.push(sbom_valid?'CYCLONEDX_SBOM_VALID':'CYCLONEDX_SBOM_INVALID');
-  if(!format_ok)compliance_flags.push('NOT_CYCLONEDX');
-  if(!has_dependencies)compliance_flags.push('NO_TOP_LEVEL_DEPENDENCIES');
+  const compliance_flags={CYCLONEDX_SBOM_ASSESSED:true};
+  compliance_flags[sbom_valid?'CYCLONEDX_SBOM_VALID':'CYCLONEDX_SBOM_INVALID']=true;
+  if(!format_ok)compliance_flags.NOT_CYCLONEDX=true;
+  if(!has_dependencies)compliance_flags.NO_TOP_LEVEL_DEPENDENCIES=true;
   return{output_payload:{sbom_valid,format:'CycloneDX',spec_version:sbom.specVersion??null,component_count:components.length,components_missing_purl,has_dependencies},compliance_flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -339,7 +328,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.component_count+'</div><div class="hero-lbl">components</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.has_dependencies?'var(--green)':'var(--red)')+'">'+( op.has_dependencies?'✓':'✗')+'</div><div class="hero-lbl">dependencies</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.components_missing_purl.length===0?'var(--green)':'var(--red)')+'">'+op.components_missing_purl.length+'</div><div class="hero-lbl">missing purl</div></div>';
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   const purlHtml=op.components_missing_purl.length?'<div style="margin-top:6px;font-size:.75rem;color:var(--warn)">Components missing purl at indices: '+op.components_missing_purl.join(', ')+'</div>':'';
   document.getElementById('verdictDiv').innerHTML=
     '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ CYCLONEDX_SBOM_VALID — CRA Annex I machine-readable SBOM requirement met.':'✗ CYCLONEDX_SBOM_INVALID — Validation failed. Check compliance flags.')+'</div>'+

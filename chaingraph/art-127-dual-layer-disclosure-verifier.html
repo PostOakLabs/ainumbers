@@ -307,25 +307,14 @@ async function compute(pp){
   const method_recognized=typeof watermark_method==='string'&&WMETHODS.includes(watermark_method);
   const dual_layer_ok=c2pa_metadata_present===true&&watermark_present===true;
   const missing_layer=dual_layer_ok?null:(c2pa_metadata_present!==true?'c2pa_signed_metadata':'imperceptible_watermark');
-  const flags=[];
-  flags.push('DUAL_LAYER_DISCLOSURE_ASSESSED');
-  flags.push(dual_layer_ok?'DUAL_LAYER_PRESENT':'DUAL_LAYER_INCOMPLETE');
-  if(watermark_present===true&&!method_recognized)flags.push('WATERMARK_METHOD_UNRECOGNIZED');
+  const flags={DUAL_LAYER_DISCLOSURE_ASSESSED:true};
+  flags[dual_layer_ok?'DUAL_LAYER_PRESENT':'DUAL_LAYER_INCOMPLETE']=true;
+  if(watermark_present===true&&!method_recognized)flags.WATERMARK_METHOD_UNRECOGNIZED=true;
   return{output_payload:{dual_layer_ok,layers_present,missing_layer,watermark_method:watermark_method??null,method_recognized},compliance_flags:flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
-function assertIJson(v) {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
-  } else if (Array.isArray(v)) {
-    v.forEach(assertIJson);
-  } else if (v && typeof v === 'object') {
-    for (const k of Object.keys(v)) assertIJson(v[k]);
-  }
-}
-async function executionHashLocal(pp,op){const __raw={policy_parameters:pp,output_payload:op};assertIJson(__raw);const obj=cgCanon(__raw);const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
 
@@ -357,7 +346,7 @@ async function run(){
 }
 
 function renderResults(op,flags,execHash,artifact){
-  const flagKeys=flags;
+  const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('heroRow').innerHTML=
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.dual_layer_ok?'var(--green)':'var(--red)')+';font-size:.9rem;padding-top:6px">'+(op.dual_layer_ok?'COMPLETE':'INCOMPLETE')+'</div><div class="hero-lbl">Dual Layer</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--bright)">'+op.layers_present.length+'</div><div class="hero-lbl">Layers Present</div></div>'+
