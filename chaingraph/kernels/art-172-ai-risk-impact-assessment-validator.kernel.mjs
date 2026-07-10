@@ -60,11 +60,12 @@ export function compute(pp) {
     .filter(([, pass]) => !pass)
     .map(([field]) => field);
 
-  const compliance_flags = { AI_IMPACT_ASSESSED: true };
+  const compliance_flags = [];
+  compliance_flags.push('AI_IMPACT_ASSESSED');
   if (complete) {
-    compliance_flags.AI_IMPACT_ASSESSMENT_COMPLETE = true;
+    compliance_flags.push('AI_IMPACT_ASSESSMENT_COMPLETE');
   } else {
-    compliance_flags.AI_IMPACT_ASSESSMENT_INCOMPLETE = true;
+    compliance_flags.push('AI_IMPACT_ASSESSMENT_INCOMPLETE');
   }
 
   return {

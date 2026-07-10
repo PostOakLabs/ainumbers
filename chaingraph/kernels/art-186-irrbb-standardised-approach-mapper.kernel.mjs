@@ -37,9 +37,10 @@ export function compute(pp) {
   const behavioural_mortgage_prepay_pct = g(positions.behavioural_mortgage_prepay_pct);
   const behavioural_option_addon_required = behavioural_mortgage_prepay_pct > 0;
 
-  const compliance_flags = { IRRBB_STANDARDISED_MAPPED: true };
-  if (core_capped) compliance_flags.IRRBB_NMD_CORE_CAPPED = true;
-  if (behavioural_option_addon_required) compliance_flags.IRRBB_BEHAVIOURAL_ADDON_REQUIRED = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_STANDARDISED_MAPPED');
+  if (core_capped) compliance_flags.push('IRRBB_NMD_CORE_CAPPED');
+  if (behavioural_option_addon_required) compliance_flags.push('IRRBB_BEHAVIOURAL_ADDON_REQUIRED');
 
   return {
     output_payload: {

@@ -345,9 +345,10 @@ function compute(pp) {
     if (!matched) breaks.push({ field: f, a: av ?? null, b: bv ?? null });
   });
   const reconciled = uti_paired && breaks.length === 0;
-  const compliance_flags = { EMIR_PAIRING_ASSESSED: true };
-  compliance_flags[reconciled ? 'EMIR_PAIR_RECONCILED' : 'EMIR_PAIR_BREAK'] = true;
-  if (!uti_paired) compliance_flags.UTI_PAIRING_FAILED = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_PAIRING_ASSESSED');
+  compliance_flags.push(reconciled ? 'EMIR_PAIR_RECONCILED' : 'EMIR_PAIR_BREAK');
+  if (!uti_paired) compliance_flags.push('UTI_PAIRING_FAILED');
   return { output_payload: { reconciled, uti_paired, fields_compared: fields.length, break_count: breaks.length, breaks }, compliance_flags };
 }
 
@@ -408,7 +409,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.uti_paired ? 'var(--green)' : 'var(--red)') + ';font-size:1rem;padding-top:6px">' + (op.uti_paired ? '✓' : '✗') + '</div><div class="hero-lbl">UTI Paired</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + op.fields_compared + '</div><div class="hero-lbl">Fields Compared</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.break_count === 0 ? 'var(--green)' : 'var(--red)') + '">' + op.break_count + '</div><div class="hero-lbl">Breaks</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (ok ? 'pass' : 'fail') + '">' +
     (ok ? '✓ RECONCILED — UTI paired and all compared fields match within tolerance.' : '✗ RECONCILIATION BREAK — UTI pairing failed or one or more field breaks detected.') +
@@ -443,7 +444,7 @@ function exportPDF() {
     'Break Count: ' + op.break_count,
     '',
     'Compliance Flags:',
-    ...Object.keys(flags).filter(k => flags[k]).map(f => '  ' + f),
+    ...flags.map(f => '  ' + f),
     '',
     'Breaks:',
     ...(op.breaks && op.breaks.length > 0 ? op.breaks.map(b => '  ' + b.field + ': A=' + b.a + ' B=' + b.b) : ['  (none)'])

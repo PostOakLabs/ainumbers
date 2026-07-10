@@ -3,6 +3,23 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.6 — Deterministic Compute Profile `@2`: WebCrypto subset split (§24.5)
+- **§24.5 `ocg-deterministic-compute@2` (new, normative, profile-scoped).** A new profile version — a new named
+  profile ALONGSIDE `@1` per the §24.2 freeze clause, never an in-place edit of `@1` — that keeps rows D1–D6
+  unchanged and ENUMERATES the WebCrypto split inside D7, resolving the over-reading that `@1`'s "platform APIs"
+  wording could ban all of WebCrypto. **ALLOWED** as fully-specified deterministic replacements under D7:
+  `crypto.subtle.digest` (SHA-256/384), `crypto.subtle.importKey`, `crypto.subtle.verify` — pure functions of
+  their inputs, no entropy, so they satisfy "used identically on every surface" and MUST be byte-identical across
+  the browser tool, the Cloudflare Worker, and the in-browser QuickJS VM. **BANNED** as D5 randomness:
+  `crypto.getRandomValues`, `crypto.subtle.generateKey`, `crypto.subtle.sign` (fresh-key signing draws entropy) —
+  MUST throw inside a conforming compute surface; a kernel reaching for them fails, never silently degrades an
+  `output_payload`. Additive and profile-scoped: moves NO `execution_hash` — the six previously-VM-unrunnable
+  kernels (art-55/124/129/189/190 crypto + art-201 BigInt) emit the SAME bytes the Worker already produces — the
+  frozen v0.4 envelope and §4 preimage are UNTOUCHED, `chaingraph_version` stays `0.4.0`, only `spec_version` bumps
+  to 0.8.6. The AINumbers reference deployment re-declares its `gpu:false` live set as `@2`-conforming; receipts
+  minted under `@1` verify under `@1` forever. Conformance stays decided by the existing §15 gate suite (§24.3);
+  `@2` adds the VM↔Worker byte-identity of the deterministic subset (`vm-parity-gate.mjs`), no new §15 row.
+
 ## 0.8.5 — Private-Input Profile (§25)
 - **§25 Private-Input Profile (new, normative, profile-scoped).** Adds `ocg-private-input@1`, the
   machine-declared, machine-checked form of the §18.3 input-hiding mode — closing the white paper §6.4 caveat that

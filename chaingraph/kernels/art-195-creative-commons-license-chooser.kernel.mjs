@@ -64,11 +64,8 @@ export async function compute(pp) {
     disclaimer:           'Selection only. Not legal advice. Verify against the canonical CC deeds before relying on any output for commercial or legal decisions.',
   };
 
-  const compliance_flags = {
-    CC_LICENSE_SELECTED:  true,
-    ATTRIBUTION_REQUIRED: L.attribution,
-    SELECTION_NOT_ADVICE: true,
-  };
+  const compliance_flags = ['CC_LICENSE_SELECTED', 'SELECTION_NOT_ADVICE'];
+  if (L.attribution) compliance_flags.push('ATTRIBUTION_REQUIRED');
 
   return { output_payload, compliance_flags };
 }

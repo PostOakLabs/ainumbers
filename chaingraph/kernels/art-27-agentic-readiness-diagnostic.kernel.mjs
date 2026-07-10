@@ -51,15 +51,13 @@ export function compute(pp) {
   const g = grade(score_pct);
   const is_ready = g === 'A' || g === 'B';
 
-  const compliance_flags = {
-    AGENTIC_READINESS_SCORED: true,
-    AGENT_PAYMENTS_READY: is_ready,
-    AGENT_PAYMENTS_NOT_READY: !is_ready,
-    POLICY_GAP: domain_scores.policy.pct < 70,
-    PROTOCOL_GAP: domain_scores.protocol.pct < 70,
-    CONTROLS_GAP: domain_scores.controls.pct < 70,
-    RUNTIME_GAP: domain_scores.runtime.pct < 70,
-  };
+  const compliance_flags = ['AGENTIC_READINESS_SCORED'];
+  if (is_ready) compliance_flags.push('AGENT_PAYMENTS_READY');
+  if (!is_ready) compliance_flags.push('AGENT_PAYMENTS_NOT_READY');
+  if (domain_scores.policy.pct < 70) compliance_flags.push('POLICY_GAP');
+  if (domain_scores.protocol.pct < 70) compliance_flags.push('PROTOCOL_GAP');
+  if (domain_scores.controls.pct < 70) compliance_flags.push('CONTROLS_GAP');
+  if (domain_scores.runtime.pct < 70) compliance_flags.push('RUNTIME_GAP');
 
   const output_payload = { verdict: g, score_pct, domain_scores, gaps, all_answered, is_ready };
   return { output_payload, compliance_flags };

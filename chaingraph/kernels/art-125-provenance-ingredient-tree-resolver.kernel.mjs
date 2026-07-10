@@ -33,9 +33,10 @@ export async function compute(pp) {
   });
   const root_ok = typeof active_manifest_hash === 'string' && active_manifest_hash.startsWith('sha256:');
   const tree_intact = root_ok && broken_edges.length === 0;
-  const compliance_flags = { PROVENANCE_TREE_ASSESSED: true };
-  compliance_flags[tree_intact ? 'PROVENANCE_TREE_INTACT' : 'PROVENANCE_TREE_BROKEN'] = true;
-  if (!root_ok) compliance_flags.MALFORMED_ACTIVE_MANIFEST_HASH = true;
+  const compliance_flags = [];
+  compliance_flags.push('PROVENANCE_TREE_ASSESSED');
+  compliance_flags.push(tree_intact ? 'PROVENANCE_TREE_INTACT' : 'PROVENANCE_TREE_BROKEN');
+  if (!root_ok) compliance_flags.push('MALFORMED_ACTIVE_MANIFEST_HASH');
   return {
     output_payload: {
       tree_intact,

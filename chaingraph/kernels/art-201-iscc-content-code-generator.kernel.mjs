@@ -605,13 +605,10 @@ export function compute(pp) {
   const sc = isccSelfCheck();
   output_payload.conformance_pass = sc.pass;
 
-  const compliance_flags = {
-    ISCC_INSTANCE_CODE_GENERATED: true,
-    ISCC_DATA_CODE_GENERATED: true,
-    ISCC_CONFORMANCE_PASS: sc.pass,
-  };
-  if (title) compliance_flags.ISCC_META_CODE_GENERATED = true;
-  if (output_payload.iscc_code) compliance_flags.ISCC_COMPOSITE_GENERATED = true;
+  const compliance_flags = ['ISCC_INSTANCE_CODE_GENERATED', 'ISCC_DATA_CODE_GENERATED'];
+  if (sc.pass) compliance_flags.push('ISCC_CONFORMANCE_PASS');
+  if (title) compliance_flags.push('ISCC_META_CODE_GENERATED');
+  if (output_payload.iscc_code) compliance_flags.push('ISCC_COMPOSITE_GENERATED');
 
   return { output_payload, compliance_flags };
 }

@@ -97,7 +97,7 @@ coreIndexSrc = coreIndexSrc
 coreIndexSrc = stripStarReexport(coreIndexSrc);
 coreIndexSrc = coreIndexSrc.replace(/export\s*\{[^}]*\}\s*;?\s*(\/\/[^\n]*)?\s*$/, '');
 coreIndexSrc = coreIndexSrc.replace('import("./module-ES6BEMUI.mjs")', 'Promise.resolve(NS_moduleES6)');
-coreIndexSrc = coreIndexSrc.replace('import("./module-asyncify-2EFITU5U.mjs")', 'Promise.reject(new Error("VM-1a: async QuickJS variant not vendored in this widget (sync path only)"))');
+coreIndexSrc = coreIndexSrc.replace('import("./module-asyncify-2EFITU5U.mjs")', 'Promise.reject(new Error("VM-1b: async QuickJS variant not vendored in this widget (sync path only)"))');
 
 // ---- variant.mjs (hand-written, non-minified)
 let variantSrc = read(`${VM}/variant.mjs`);
@@ -114,7 +114,6 @@ kernelVmSrc = kernelVmSrc
   .replace(/import\s*\{\s*newQuickJSWASMModuleFromVariant,\s*DefaultIntrinsics\s*\}\s*from\s*'\.\/core\/index\.mjs';/, 'const { newQuickJSWASMModuleFromVariant, DefaultIntrinsics } = NS_coreindex;')
   .replace(/import\s*\{\s*QUICKJS_NG_SINGLEFILE_VARIANT\s*\}\s*from\s*'\.\/variant\.mjs';/, 'const { QUICKJS_NG_SINGLEFILE_VARIANT } = NS_variant;')
   .replace(/^export const OCG_DETERMINISTIC_COMPUTE_PROFILE/m, 'const OCG_DETERMINISTIC_COMPUTE_PROFILE')
-  .replace(/^export const VM_STUB_HASH_SENTINEL/m, 'const VM_STUB_HASH_SENTINEL')
   .replace(/^export function stripEsmSyntaxForVm/m, 'function stripEsmSyntaxForVm')
   .replace(/^export async function runKernelInVM/m, 'async function runKernelInVM')
   .replace(/^export async function runKernelArtifactInVM/m, 'async function runKernelArtifactInVM');
@@ -217,7 +216,7 @@ const html = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Kernel VM Widget &middot; AINumbers.co</title>
-<meta name="description" content="MCP Apps widget: run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM (VM-1a, ocg-deterministic-compute@1) and compare its execution_hash against a native run in the same tab.">
+<meta name="description" content="MCP Apps widget: run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM (VM-1b, ocg-deterministic-compute@2) and compare its execution_hash against a native run in the same tab.">
 <link rel="canonical" href="https://ainumbers.co/tools/kernel-vm-widget.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -256,9 +255,9 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 </head>
 <body>
 <div class="wrap">
-<div class="eyebrow">OpenChainGraph &middot; VM-1a &middot; MCP Apps widget</div>
+<div class="eyebrow">OpenChainGraph &middot; VM-1b &middot; MCP Apps widget</div>
 <h1>Kernel VM</h1>
-<p class="sub">Runs a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, in-browser QuickJS-ng WebAssembly VM under the ocg-deterministic-compute@1 profile, then compares its execution_hash against a native run in the same tab.</p>
+<p class="sub">Runs a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, in-browser QuickJS-ng WebAssembly VM under the ocg-deterministic-compute@2 profile, then compares its execution_hash against a native run in the same tab.</p>
 <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
 <div class="card">
@@ -319,7 +318,18 @@ function cgCanon(value) {
   const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + cgCanon(value[k])).join(',') + '}';
 }
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number (' + v + ') is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer ' + v + ' exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).');
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
 async function executionHashLocal(policy_parameters, output_payload) {
+  assertIJson({ policy_parameters, output_payload });
   const bytes = new TextEncoder().encode(cgCanon({ policy_parameters, output_payload }));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');

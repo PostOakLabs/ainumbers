@@ -302,12 +302,12 @@ function compute(pp) {
   else if (is_b2c && seller_in_eu && seller_ms === dest_ms) { recommended_scheme = 'Domestic_VAT'; scheme_rationale = 'Same-MS supply: domestic VAT registration applies, not OSS'; }
   else if (is_b2c && !seller_in_eu && dest_in_eu) { if (supply_type === 'B2C_digital' || supply_type === 'deemed_supplier') { recommended_scheme = 'Non_Union_OSS'; scheme_rationale = 'Non-EU supplier: digital or platform-facilitated B2C services to EU consumers'; } else { recommended_scheme = 'IOSS'; scheme_rationale = 'Non-EU supplier importing goods (≤EUR 150) to EU B2C consumers via IOSS'; } }
   const eligible_for_oss = recommended_scheme !== null && recommended_scheme !== 'Domestic_VAT';
-  const compliance_flags = { VIDA_OSS_ASSESSED: true };
-  if (recommended_scheme === 'Union_OSS') compliance_flags.VIDA_OSS_UNION = true;
-  else if (recommended_scheme === 'Non_Union_OSS') compliance_flags.VIDA_OSS_NON_UNION = true;
-  else if (recommended_scheme === 'IOSS') compliance_flags.VIDA_OSS_IOSS = true;
-  else if (recommended_scheme === 'Domestic_VAT') compliance_flags.VIDA_OSS_DOMESTIC = true;
-  else compliance_flags.VIDA_OSS_UNDETERMINED = true;
+  const compliance_flags = []; compliance_flags.push('VIDA_OSS_ASSESSED');
+  if (recommended_scheme === 'Union_OSS') compliance_flags.push('VIDA_OSS_UNION');
+  else if (recommended_scheme === 'Non_Union_OSS') compliance_flags.push('VIDA_OSS_NON_UNION');
+  else if (recommended_scheme === 'IOSS') compliance_flags.push('VIDA_OSS_IOSS');
+  else if (recommended_scheme === 'Domestic_VAT') compliance_flags.push('VIDA_OSS_DOMESTIC');
+  else compliance_flags.push('VIDA_OSS_UNDETERMINED');
   return { output_payload: { recommended_scheme, scheme_rationale, eligible_for_oss, supply_type, seller_establishment: seller_ms || null, destination_member_state: dest_ms || null, seller_in_eu, dest_in_eu }, compliance_flags };
 }
 
@@ -339,7 +339,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:.85rem;padding-top:6px">' + scheme.replace('_', ' ') + '</div><div class="hero-lbl">Recommended Scheme</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.eligible_for_oss ? 'var(--green)' : 'var(--muted)') + ';font-size:.9rem;padding-top:6px">' + (op.eligible_for_oss ? 'YES' : 'NO') + '</div><div class="hero-lbl">OSS Eligible</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.seller_in_eu ? 'var(--teal-lt)' : 'var(--gold)') + ';font-size:.9rem;padding-top:6px">' + (op.seller_in_eu ? 'EU' : 'NON-EU') + '</div><div class="hero-lbl">Seller Establishment</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const vClass = op.eligible_for_oss ? 'pass' : (op.recommended_scheme === 'Domestic_VAT' ? 'info' : 'warn');
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + vClass + '">→ ' + scheme.replace(/_/g, ' ') + (op.scheme_rationale ? ' — ' + op.scheme_rationale + '.' : ' (no match found — verify inputs).') + '</div>' +

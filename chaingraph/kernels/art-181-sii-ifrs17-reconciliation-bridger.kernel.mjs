@@ -37,11 +37,12 @@ export function compute(pp) {
   const bel_fcf_delta = sii_bel - ifrs_fcf;
   const rm_ra_delta   = sii_rm - ifrs_ra;
 
-  const compliance_flags = { SII_IFRS17_RECONCILIATION_ASSESSED: true };
-  if (bridge_within_tolerance) compliance_flags.SII_IFRS17_BRIDGE_WITHIN_TOLERANCE = true;
-  else                         compliance_flags.SII_IFRS17_BRIDGE_OUTSIDE_TOLERANCE = true;
-  if (ifrs_csm > 0)            compliance_flags.SII_IFRS17_CSM_PRESENT = true;
-  if (sii_rm > 0 && ra_vs_rm_ratio < 57) compliance_flags.SII_RA_BELOW_EIOPA_BENCHMARK = true;
+  const compliance_flags = [];
+  compliance_flags.push('SII_IFRS17_RECONCILIATION_ASSESSED');
+  if (bridge_within_tolerance) compliance_flags.push('SII_IFRS17_BRIDGE_WITHIN_TOLERANCE');
+  else                         compliance_flags.push('SII_IFRS17_BRIDGE_OUTSIDE_TOLERANCE');
+  if (ifrs_csm > 0)            compliance_flags.push('SII_IFRS17_CSM_PRESENT');
+  if (sii_rm > 0 && ra_vs_rm_ratio < 57) compliance_flags.push('SII_RA_BELOW_EIOPA_BENCHMARK');
 
   return {
     output_payload: {

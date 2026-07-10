@@ -19,8 +19,9 @@ export async function compute(pp) {
     mastercard_agent_pay: rail({ signature_verified: sig, agent_card_present: card }),
   };
   const any_accepted = Object.values(rails).some(r => r.accepted);
-  const compliance_flags = { PAYMENT_RAIL_TRUST_ASSESSED: true };
-  compliance_flags[any_accepted ? 'AT_LEAST_ONE_RAIL_ACCEPTS' : 'NO_RAIL_ACCEPTS'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('PAYMENT_RAIL_TRUST_ASSESSED');
+  compliance_flags.push(any_accepted ? 'AT_LEAST_ONE_RAIL_ACCEPTS' : 'NO_RAIL_ACCEPTS');
   return { output_payload: { rails, any_accepted }, compliance_flags };
 }
 

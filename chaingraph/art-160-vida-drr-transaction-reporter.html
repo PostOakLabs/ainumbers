@@ -324,8 +324,9 @@ function compute(pp) {
     reporting_deadline = d.toISOString().slice(0, 10);
   }
   const data_elements_ok = has_seller_vat && has_buyer_vat && txn_value >= 0;
-  const compliance_flags = { VIDA_DRR_ASSESSED: true };
-  if (drr_in_scope) { compliance_flags.VIDA_DRR_IN_SCOPE = true; if (data_elements_ok) compliance_flags.VIDA_DRR_DATA_ELEMENTS_COMPLETE = true; else compliance_flags.VIDA_DRR_DATA_ELEMENTS_INCOMPLETE = true; } else { compliance_flags.VIDA_DRR_OUT_OF_SCOPE = true; }
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_DRR_ASSESSED');
+  if (drr_in_scope) { compliance_flags.push('VIDA_DRR_IN_SCOPE'); if (data_elements_ok) compliance_flags.push('VIDA_DRR_DATA_ELEMENTS_COMPLETE'); else compliance_flags.push('VIDA_DRR_DATA_ELEMENTS_INCOMPLETE'); } else { compliance_flags.push('VIDA_DRR_OUT_OF_SCOPE'); }
   return { output_payload: { drr_in_scope, intra_eu, is_b2b, seller_member_state: seller_ms || null, buyer_member_state: buyer_ms || null, reporting_deadline, mandatory_from: MANDATORY_DATE, transaction_value: txn_value, data_elements_ok }, compliance_flags };
 }
 
@@ -356,7 +357,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:.9rem;padding-top:6px">' + (op.drr_in_scope ? 'IN SCOPE' : 'OUT OF SCOPE') + '</div><div class="hero-lbl">DRR Scope</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt);font-size:.9rem;padding-top:6px">' + (op.reporting_deadline ?? 'N/A') + '</div><div class="hero-lbl">Reporting Deadline</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.data_elements_ok ? 'var(--green)' : 'var(--gold)') + ';font-size:.9rem;padding-top:6px">' + (op.data_elements_ok ? 'COMPLETE' : 'INCOMPLETE') + '</div><div class="hero-lbl">Data Elements</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (op.drr_in_scope && op.data_elements_ok ? 'pass' : op.drr_in_scope ? 'warn' : 'pass') + '">' +
     (op.drr_in_scope ? (op.data_elements_ok ? '✓ DRR IN SCOPE — Intra-EU B2B. Report due by ' + op.reporting_deadline + '. Data elements complete.' : '⚠ DRR IN SCOPE — Report due by ' + op.reporting_deadline + ' but data elements incomplete (seller or buyer VAT ID missing).') : '✓ DRR OUT OF SCOPE — Not an intra-EU cross-border B2B transaction.') +

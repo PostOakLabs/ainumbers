@@ -299,11 +299,11 @@ function compute(pp) {
   const deemed_supplier = sector_eligible && accom_duration_ok && !supplier_has_vat && intra_eu_supply;
   const MANDATORY_DATE = '2028-07-01';
   const MS_EXTENSION_DATE = '2030-01-01';
-  const compliance_flags = { VIDA_PLATFORM_ASSESSED: true };
-  if (deemed_supplier) { compliance_flags.VIDA_DEEMED_SUPPLIER_APPLIES = true; compliance_flags.VIDA_VAT_LIABILITY_TRANSFERRED = true; }
-  else if (sector_eligible && supplier_has_vat) { compliance_flags.VIDA_PLATFORM_FACILITATOR_ONLY = true; }
-  else if (!sector_eligible) { compliance_flags.VIDA_DEEMED_SUPPLIER_NOT_APPLICABLE = true; }
-  else { compliance_flags.VIDA_PLATFORM_NOT_IN_SCOPE = true; }
+  const compliance_flags = []; compliance_flags.push('VIDA_PLATFORM_ASSESSED');
+  if (deemed_supplier) { compliance_flags.push('VIDA_DEEMED_SUPPLIER_APPLIES'); compliance_flags.push('VIDA_VAT_LIABILITY_TRANSFERRED'); }
+  else if (sector_eligible && supplier_has_vat) { compliance_flags.push('VIDA_PLATFORM_FACILITATOR_ONLY'); }
+  else if (!sector_eligible) { compliance_flags.push('VIDA_DEEMED_SUPPLIER_NOT_APPLICABLE'); }
+  else { compliance_flags.push('VIDA_PLATFORM_NOT_IN_SCOPE'); }
   return { output_payload: { deemed_supplier, sector, sector_eligible, supplier_has_valid_vat_id: platform.supplier_has_valid_vat_id ?? null, intra_eu_supply, duration_nights: Number.isFinite(duration_nights) ? duration_nights : null, mandatory_from: MANDATORY_DATE, ms_extension_option: MS_EXTENSION_DATE }, compliance_flags };
 }
 
@@ -329,16 +329,16 @@ async function run() {
 }
 
 function renderResults(op, flags, execHash, artifact) {
-  const vClass = op.deemed_supplier ? 'fail' : (flags.VIDA_PLATFORM_FACILITATOR_ONLY ? 'warn' : 'pass');
-  const color = op.deemed_supplier ? 'var(--red)' : (flags.VIDA_PLATFORM_FACILITATOR_ONLY ? 'var(--gold)' : 'var(--teal-lt)');
-  const label = op.deemed_supplier ? 'DEEMED SUPPLIER' : (flags.VIDA_PLATFORM_FACILITATOR_ONLY ? 'FACILITATOR' : 'NOT IN SCOPE');
+  const vClass = op.deemed_supplier ? 'fail' : (flags.includes('VIDA_PLATFORM_FACILITATOR_ONLY') ? 'warn' : 'pass');
+  const color = op.deemed_supplier ? 'var(--red)' : (flags.includes('VIDA_PLATFORM_FACILITATOR_ONLY') ? 'var(--gold)' : 'var(--teal-lt)');
+  const label = op.deemed_supplier ? 'DEEMED SUPPLIER' : (flags.includes('VIDA_PLATFORM_FACILITATOR_ONLY') ? 'FACILITATOR' : 'NOT IN SCOPE');
   document.getElementById('heroRow').innerHTML =
     '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:.85rem;padding-top:6px">' + label + '</div><div class="hero-lbl">Platform Role</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:' + (op.sector_eligible ? 'var(--green)' : 'var(--muted)') + ';font-size:.9rem;padding-top:6px">' + (op.sector_eligible ? 'YES' : 'NO') + '</div><div class="hero-lbl">Eligible Sector</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt);font-size:.75rem;padding-top:10px">' + op.mandatory_from + '</div><div class="hero-lbl">Mandatory From</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   document.getElementById('verdictDiv').innerHTML =
-    '<div class="verdict ' + vClass + '">' + (op.deemed_supplier ? '⚠ DEEMED SUPPLIER — VAT liability transfers to the platform. Mandatory: ' + op.mandatory_from + '. MS may defer to ' + op.ms_extension_option + '.' : flags.VIDA_PLATFORM_FACILITATOR_ONLY ? '✓ FACILITATOR ONLY — Sector eligible but underlying supplier has valid VAT ID. Platform does not become deemed supplier.' : '✓ NOT APPLICABLE — Sector not in scope of ViDA Art. 46a deemed supplier rule.') + '</div>' +
+    '<div class="verdict ' + vClass + '">' + (op.deemed_supplier ? '⚠ DEEMED SUPPLIER — VAT liability transfers to the platform. Mandatory: ' + op.mandatory_from + '. MS may defer to ' + op.ms_extension_option + '.' : flags.includes('VIDA_PLATFORM_FACILITATOR_ONLY') ? '✓ FACILITATOR ONLY — Sector eligible but underlying supplier has valid VAT ID. Platform does not become deemed supplier.' : '✓ NOT APPLICABLE — Sector not in scope of ViDA Art. 46a deemed supplier rule.') + '</div>' +
     '<div class="gap-list">' + flagKeys.map(f => '<span class="badge ' + (f.includes('DEEMED_SUPPLIER_APPLIES') || f.includes('LIABILITY') ? 'err' : f.includes('FACILITATOR') ? 'warn' : 'ok') + '">' + f + '</span>').join('') + '</div>';
   document.getElementById('execHash').textContent = execHash;
   document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);

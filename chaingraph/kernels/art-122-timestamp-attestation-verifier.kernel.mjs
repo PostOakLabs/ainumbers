@@ -21,8 +21,9 @@ export function compute(pp) {
   const algo_match = presented_anchor && presented_anchor.timestamp_claim &&
                      presented_anchor.timestamp_claim.algorithm === expected_algorithm;
   const verified = !!(hash_match && ts_consistent && algo_match);
-  const compliance_flags = { TIMESTAMP_ATTESTATION_ASSESSED: true };
-  compliance_flags[verified ? 'TIMESTAMP_VERIFIED' : 'TIMESTAMP_VERIFICATION_FAILED'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('TIMESTAMP_ATTESTATION_ASSESSED');
+  compliance_flags.push(verified ? 'TIMESTAMP_VERIFIED' : 'TIMESTAMP_VERIFICATION_FAILED');
   return { output_payload: { verified, hash_match: !!hash_match, ts_consistent: !!ts_consistent, algo_match: !!algo_match }, compliance_flags };
 }
 

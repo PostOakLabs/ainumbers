@@ -141,18 +141,15 @@ export function compute(pp) {
     };
   }
 
-  const compliance_flags = {
-    PROTOCOL_COMPARISON_COMPLETE: true,
-    SCENARIO_APPLIED: !!recommendation,
-    ALL_PROTOCOLS_REQUESTED: valid_ids.length === PROTOCOLS.length,
-    AP2_INCLUDED: valid_ids.includes('ap2'),
-    ACP_INCLUDED: valid_ids.includes('acp'),
-    X402_INCLUDED: valid_ids.includes('x402'),
-    TAP_INCLUDED: valid_ids.includes('tap'),
-    MC_INCLUDED: valid_ids.includes('mc'),
-    MPP_INCLUDED: valid_ids.includes('mpp'),
-    SNAPSHOT_DATE: '2026-06',
-  };
+  const compliance_flags = ['PROTOCOL_COMPARISON_COMPLETE', 'SNAPSHOT_DATE_2026_06'];
+  if (recommendation) compliance_flags.push('SCENARIO_APPLIED');
+  if (valid_ids.length === PROTOCOLS.length) compliance_flags.push('ALL_PROTOCOLS_REQUESTED');
+  if (valid_ids.includes('ap2')) compliance_flags.push('AP2_INCLUDED');
+  if (valid_ids.includes('acp')) compliance_flags.push('ACP_INCLUDED');
+  if (valid_ids.includes('x402')) compliance_flags.push('X402_INCLUDED');
+  if (valid_ids.includes('tap')) compliance_flags.push('TAP_INCLUDED');
+  if (valid_ids.includes('mc')) compliance_flags.push('MC_INCLUDED');
+  if (valid_ids.includes('mpp')) compliance_flags.push('MPP_INCLUDED');
 
   const output_payload = {
     protocols_compared: valid_ids,

@@ -21,8 +21,9 @@ export function compute(pp) {
     if (!linked && !is_transformation) breaks.push({ index: i, tlc: e.tlc, expected_prev: events[i-1]?.tlc, got: e.prev_tlc });
     lineage.push({ step: i, cte: e.cte, tlc: e.tlc, linked, new_lot_minted: is_transformation });
   });
-  const compliance_flags = { TLC_LINEAGE_ASSESSED: true };
-  compliance_flags[breaks.length === 0 ? 'TLC_LINEAGE_INTACT' : 'TLC_LINEAGE_BROKEN'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('TLC_LINEAGE_ASSESSED');
+  compliance_flags.push(breaks.length === 0 ? 'TLC_LINEAGE_INTACT' : 'TLC_LINEAGE_BROKEN');
   return { output_payload: { lineage, breaks, depth: events.length }, compliance_flags };
 }
 

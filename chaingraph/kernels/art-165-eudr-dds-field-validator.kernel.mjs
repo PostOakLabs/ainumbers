@@ -39,9 +39,10 @@ export function compute(pp) {
   const missing_fields = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
   const conformant = missing_fields.length === 0;
 
-  const compliance_flags = { EUDR_DDS_ASSESSED: true };
-  if (conformant) compliance_flags.EUDR_DDS_CONFORMANT = true;
-  else compliance_flags.EUDR_DDS_INCOMPLETE = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_DDS_ASSESSED');
+  if (conformant) compliance_flags.push('EUDR_DDS_CONFORMANT');
+  else compliance_flags.push('EUDR_DDS_INCOMPLETE');
 
   return {
     output_payload: {

@@ -147,10 +147,11 @@ export function compute(pp) {
   const receipt = { ...receiptCore, binding_sha256 };
 
   const all_checks_pass = checks.every((c) => c.pass);
-  const compliance_flags = { CONVERSION_RECEIPT_BUILT: true };
-  compliance_flags[all_checks_pass ? 'RECEIPT_CHECKS_PASS' : 'RECEIPT_CHECKS_HAVE_WARNINGS'] = true;
-  if (selfConversion) compliance_flags.SELF_CONVERSION_FLAGGED = true;
-  if (piiHits.length) compliance_flags.PII_CARRIER_KEYS_FLAGGED = true;
+  const compliance_flags = [];
+  compliance_flags.push('CONVERSION_RECEIPT_BUILT');
+  compliance_flags.push(all_checks_pass ? 'RECEIPT_CHECKS_PASS' : 'RECEIPT_CHECKS_HAVE_WARNINGS');
+  if (selfConversion) compliance_flags.push('SELF_CONVERSION_FLAGGED');
+  if (piiHits.length) compliance_flags.push('PII_CARRIER_KEYS_FLAGGED');
 
   return {
     output_payload: { receipt, checks, all_checks_pass },

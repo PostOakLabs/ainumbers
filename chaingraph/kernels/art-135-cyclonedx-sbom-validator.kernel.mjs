@@ -23,10 +23,11 @@ export function compute(pp) {
   const has_dependencies = Array.isArray(sbom.dependencies) && sbom.dependencies.length > 0;
   const sbom_valid = format_ok && spec_ok && components.length > 0 && components_missing_purl.length === 0 && has_dependencies;
 
-  const compliance_flags = { CYCLONEDX_SBOM_ASSESSED: true };
-  compliance_flags[sbom_valid ? 'CYCLONEDX_SBOM_VALID' : 'CYCLONEDX_SBOM_INVALID'] = true;
-  if (!format_ok) compliance_flags.NOT_CYCLONEDX = true;
-  if (!has_dependencies) compliance_flags.NO_TOP_LEVEL_DEPENDENCIES = true;
+  const compliance_flags = [];
+  compliance_flags.push('CYCLONEDX_SBOM_ASSESSED');
+  compliance_flags.push(sbom_valid ? 'CYCLONEDX_SBOM_VALID' : 'CYCLONEDX_SBOM_INVALID');
+  if (!format_ok) compliance_flags.push('NOT_CYCLONEDX');
+  if (!has_dependencies) compliance_flags.push('NO_TOP_LEVEL_DEPENDENCIES');
 
   const output_payload = {
     sbom_valid, format: 'CycloneDX', spec_version: sbom.specVersion ?? null,

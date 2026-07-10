@@ -33,9 +33,10 @@ export async function compute(pp) {
 
   const manifest_valid = missing_elements.length === 0;
 
-  const compliance_flags = { C2PA_MANIFEST_ASSESSED: true };
-  compliance_flags[manifest_valid ? 'C2PA_MANIFEST_VALID' : 'C2PA_MANIFEST_INVALID'] = true;
-  if (!has_actions) compliance_flags.NO_ACTIONS_ASSERTION = true;
+  const compliance_flags = [];
+  compliance_flags.push('C2PA_MANIFEST_ASSESSED');
+  compliance_flags.push(manifest_valid ? 'C2PA_MANIFEST_VALID' : 'C2PA_MANIFEST_INVALID');
+  if (!has_actions) compliance_flags.push('NO_ACTIONS_ASSERTION');
 
   const output_payload = {
     manifest_valid,

@@ -43,11 +43,12 @@ export function compute(pp) {
 
   const ra_valid = gaps.length === 0;
 
-  const compliance_flags = { IFRS17_RISK_ADJUSTMENT_ASSESSED: true };
-  if (ra_valid)            compliance_flags.IFRS17_RISK_ADJUSTMENT_VALID = true;
-  if (onerous_identified)  compliance_flags.IFRS17_ONEROUS_CONTRACTS_IDENTIFIED = true;
-  if (loss_recognized)     compliance_flags.IFRS17_LOSS_COMPONENT_RECOGNIZED = true;
-  if (!ra_valid)           compliance_flags.IFRS17_RISK_ADJUSTMENT_GAPS = true;
+  const compliance_flags = [];
+  compliance_flags.push('IFRS17_RISK_ADJUSTMENT_ASSESSED');
+  if (ra_valid)            compliance_flags.push('IFRS17_RISK_ADJUSTMENT_VALID');
+  if (onerous_identified)  compliance_flags.push('IFRS17_ONEROUS_CONTRACTS_IDENTIFIED');
+  if (loss_recognized)     compliance_flags.push('IFRS17_LOSS_COMPONENT_RECOGNIZED');
+  if (!ra_valid)           compliance_flags.push('IFRS17_RISK_ADJUSTMENT_GAPS');
 
   return {
     output_payload: {

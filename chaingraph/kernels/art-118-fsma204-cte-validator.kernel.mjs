@@ -25,9 +25,10 @@ export function compute(pp) {
   const required = REQUIRED[cte_type] || [];
   const missing_kdes = required.filter(k => kdes[k] === undefined || kdes[k] === null || kdes[k] === '');
   const cte_valid = required.length > 0 && missing_kdes.length === 0;
-  const compliance_flags = { FSMA204_CTE_ASSESSED: true };
-  compliance_flags[cte_valid ? 'FSMA204_CTE_COMPLETE' : 'FSMA204_CTE_INCOMPLETE'] = true;
-  if (required.length === 0) compliance_flags.UNRECOGNIZED_CTE_TYPE = true;
+  const compliance_flags = [];
+  compliance_flags.push('FSMA204_CTE_ASSESSED');
+  compliance_flags.push(cte_valid ? 'FSMA204_CTE_COMPLETE' : 'FSMA204_CTE_INCOMPLETE');
+  if (required.length === 0) compliance_flags.push('UNRECOGNIZED_CTE_TYPE');
   return { output_payload: { cte_type, cte_valid, missing_kdes, ftl_food: ftl_food ?? null }, compliance_flags };
 }
 

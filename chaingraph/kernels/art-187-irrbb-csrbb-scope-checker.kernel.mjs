@@ -37,10 +37,11 @@ export function compute(pp) {
 
   const csrbb_conformant = in_scope ? gaps.length === 0 : true;
 
-  const compliance_flags = { IRRBB_CSRBB_SCOPE_CHECKED: true };
-  if (in_scope) compliance_flags.CSRBB_IN_SCOPE = true;
-  if (csrbb_conformant) compliance_flags.CSRBB_CONFORMANT = true;
-  else compliance_flags.CSRBB_GAP = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_CSRBB_SCOPE_CHECKED');
+  if (in_scope) compliance_flags.push('CSRBB_IN_SCOPE');
+  if (csrbb_conformant) compliance_flags.push('CSRBB_CONFORMANT');
+  else compliance_flags.push('CSRBB_GAP');
 
   return {
     output_payload: {

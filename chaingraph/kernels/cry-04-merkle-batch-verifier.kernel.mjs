@@ -97,14 +97,13 @@ export function compute(pp) {
   const passRate = entries.length > 0 ? verifiedCount / entries.length : 0;
   const batchIntegrity = passRate===1 ? 'VERIFIED' : passRate===0 ? 'COMPROMISED' : 'PARTIAL';
 
-  const compliance_flags = {
-    DORA_ART12_CRYPTOGRAPHIC_CONTROLS: true,
-    CPMI_PFMI_PRINCIPLE9_SETTLEMENT_INTEGRITY: true,
-    ISO20022_BATCH_INTEGRITY_ASSESSED: true,
-    MERKLE_BATCH_VERIFIED: batchIntegrity==='VERIFIED',
-    MERKLE_BATCH_PARTIAL_FAILURE: batchIntegrity==='PARTIAL',
-    MERKLE_BATCH_COMPROMISED: batchIntegrity==='COMPROMISED',
-  };
+  const compliance_flags = [];
+  compliance_flags.push('DORA_ART12_CRYPTOGRAPHIC_CONTROLS');
+  compliance_flags.push('CPMI_PFMI_PRINCIPLE9_SETTLEMENT_INTEGRITY');
+  compliance_flags.push('ISO20022_BATCH_INTEGRITY_ASSESSED');
+  if (batchIntegrity==='VERIFIED') compliance_flags.push('MERKLE_BATCH_VERIFIED');
+  if (batchIntegrity==='PARTIAL') compliance_flags.push('MERKLE_BATCH_PARTIAL_FAILURE');
+  if (batchIntegrity==='COMPROMISED') compliance_flags.push('MERKLE_BATCH_COMPROMISED');
 
   const output_payload = {
     batch_integrity: batchIntegrity,

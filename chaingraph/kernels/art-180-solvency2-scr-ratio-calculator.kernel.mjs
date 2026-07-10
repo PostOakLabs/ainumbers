@@ -39,13 +39,14 @@ export function compute(pp) {
   const mcr_breached = mcr > 0 && mcr_coverage_ratio < 100;
   const tiering_ok   = t1_unrestricted_limit_ok && t1_total_limit_ok && tier3_limit_ok;
 
-  const compliance_flags = { SII_SCR_RATIO_CALCULATED: true };
-  if (scr_breached)                         compliance_flags.SII_SCR_BREACH = true;
-  else if (scr > 0)                         compliance_flags.SII_SCR_COVERED = true;
-  if (mcr_breached)                         compliance_flags.SII_MCR_BREACH = true;
-  if (!t1_unrestricted_limit_ok && scr > 0) compliance_flags.SII_TIER1_UNRESTRICTED_LIMIT_BREACH = true;
-  if (!t1_total_limit_ok && scr > 0)        compliance_flags.SII_TIER1_TOTAL_LIMIT_BREACH = true;
-  if (!tier3_limit_ok)                      compliance_flags.SII_TIER3_LIMIT_BREACH = true;
+  const compliance_flags = [];
+  compliance_flags.push('SII_SCR_RATIO_CALCULATED');
+  if (scr_breached)                         compliance_flags.push('SII_SCR_BREACH');
+  else if (scr > 0)                         compliance_flags.push('SII_SCR_COVERED');
+  if (mcr_breached)                         compliance_flags.push('SII_MCR_BREACH');
+  if (!t1_unrestricted_limit_ok && scr > 0) compliance_flags.push('SII_TIER1_UNRESTRICTED_LIMIT_BREACH');
+  if (!t1_total_limit_ok && scr > 0)        compliance_flags.push('SII_TIER1_TOTAL_LIMIT_BREACH');
+  if (!tier3_limit_ok)                      compliance_flags.push('SII_TIER3_LIMIT_BREACH');
 
   return {
     output_payload: {

@@ -371,15 +371,12 @@ function compute(pp) {
   const readiness_grade = GRADES[dims_met];
   const fully_ready = dims_met === 6;
 
-  const compliance_flags = {
-    INSURANCE_REPORTING_READY: fully_ready,
-    IFRS17_MEASUREMENT_MODEL_ELECTED: ent.ifrs17_measurement_model_elected === true,
-    CSM_SYSTEM_IMPLEMENTED: ent.csm_system_implemented === true,
-    RA_DISCLOSED: ent.risk_adjustment_disclosed === true,
-    SII_QRT_COMPLETE: ent.sii_qrt_reporting_complete === true,
-    SII_IFRS17_RECONCILED: ent.sii_ifrs17_reconciliation_done === true,
-    ICS_ASSESSED: ent.ics_assessed === true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('INSURANCE_REPORTING_READINESS_ASSESSED');
+  if (dims_met === 6) compliance_flags.push('INSURANCE_REPORTING_FULLY_READY');
+  else if (readiness_score >= 67) compliance_flags.push('INSURANCE_REPORTING_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 33) compliance_flags.push('INSURANCE_REPORTING_PARTIALLY_READY');
+  else compliance_flags.push('INSURANCE_REPORTING_NOT_READY');
 
   return {
     output_payload: { readiness_grade, readiness_score, fully_ready, dimensions_met: dims_met, dimensions_total: 6, gaps },
@@ -474,7 +471,7 @@ async function runDiagnostic() {
     document.getElementById('gapBox').innerHTML = '';
   }
 
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map((k)=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
   document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
   const pre = document.getElementById('artifactPre');

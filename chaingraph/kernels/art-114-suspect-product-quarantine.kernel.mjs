@@ -20,11 +20,12 @@ export function compute(pp) {
   if (suspect) { required_actions.push('QUARANTINE', 'INVESTIGATE'); }
   if (illegitimate) { required_actions.push('FDA_FORM_3911_72H', 'NOTIFY_TRADING_PARTNERS'); }
   const status = illegitimate ? 'ILLEGITIMATE' : suspect ? 'SUSPECT' : 'CLEARED';
-  const compliance_flags = { SUSPECT_PRODUCT_ASSESSED: true };
-  if (suspect) compliance_flags.SUSPECT_PRODUCT = true;
-  if (illegitimate) compliance_flags.ILLEGITIMATE_PRODUCT = true;
-  if (suspect && quarantined !== true) compliance_flags.QUARANTINE_PENDING = true;
-  if (illegitimate && fda_notified !== true) compliance_flags.FDA_NOTIFICATION_PENDING = true;
+  const compliance_flags = [];
+  compliance_flags.push('SUSPECT_PRODUCT_ASSESSED');
+  if (suspect) compliance_flags.push('SUSPECT_PRODUCT');
+  if (illegitimate) compliance_flags.push('ILLEGITIMATE_PRODUCT');
+  if (suspect && quarantined !== true) compliance_flags.push('QUARANTINE_PENDING');
+  if (illegitimate && fda_notified !== true) compliance_flags.push('FDA_NOTIFICATION_PENDING');
   return { output_payload: { status, required_actions }, compliance_flags };
 }
 

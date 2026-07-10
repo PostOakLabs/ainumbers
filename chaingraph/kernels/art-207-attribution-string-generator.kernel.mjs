@@ -58,7 +58,7 @@ export function compute(pp) {
         errors: errors,
         disclaimer: 'Not legal advice. This output formats attribution metadata only. Consult a licensed attorney for your jurisdiction.',
       },
-      compliance_flags: { ATTRIBUTION_GENERATED: false, CCREL_VALID: false },
+      compliance_flags: [],
     };
   }
 
@@ -124,13 +124,12 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. This output formats attribution metadata only. Verify against the current CC ccREL specification before relying on it for commercial or legal purposes. Consult a licensed attorney for your jurisdiction.',
   };
 
-  const compliance_flags = {
-    ATTRIBUTION_GENERATED: true,
-    CCREL_VALID: true,
-    TASL_FORMATTED: true,
-    JSON_LD_EMITTED: true,
-    RDFA_EMITTED: true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('ATTRIBUTION_GENERATED');
+  compliance_flags.push('CCREL_VALID');
+  compliance_flags.push('TASL_FORMATTED');
+  compliance_flags.push('JSON_LD_EMITTED');
+  compliance_flags.push('RDFA_EMITTED');
 
   return { output_payload, compliance_flags };
 }

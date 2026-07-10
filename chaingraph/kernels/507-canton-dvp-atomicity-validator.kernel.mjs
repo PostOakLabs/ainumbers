@@ -78,16 +78,12 @@ export function compute(pp) {
     verdict = 'CONDITIONAL';
   }
 
-  const compliance_flags = {
-    DVP_ATOMICITY_VALIDATED: true,
-    [atomicityFlag]: true,
-    [finalityFlag]: true,
-    HERSTATT_RISK_ELIMINATED: herstatt_eliminated,
-    HERSTATT_RISK_PRESENT: !herstatt_eliminated,
-  };
+  const compliance_flags = ['DVP_ATOMICITY_VALIDATED', atomicityFlag, finalityFlag];
+  if (herstatt_eliminated) compliance_flags.push('HERSTATT_RISK_ELIMINATED');
+  if (!herstatt_eliminated) compliance_flags.push('HERSTATT_RISK_PRESENT');
 
   if (cash_type === 'wire') {
-    compliance_flags.CASH_LEG_NOT_DIGITAL = true;
+    compliance_flags.push('CASH_LEG_NOT_DIGITAL');
   }
 
   const output_payload = { verdict, atomicity_status, atomicity_flag: atomicityFlag, finality_flag: finalityFlag, herstatt_eliminated, settlement_amount, currency };

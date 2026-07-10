@@ -45,10 +45,11 @@ export function compute(pp) {
     },
   ];
 
-  const compliance_flags = { VIDA_READINESS_ASSESSED: true };
-  if (fully_ready) compliance_flags.VIDA_FULLY_READY = true;
-  else if (readiness_score >= 50) compliance_flags.VIDA_PARTIALLY_READY = true;
-  else compliance_flags.VIDA_NOT_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_READINESS_ASSESSED');
+  if (fully_ready) compliance_flags.push('VIDA_FULLY_READY');
+  else if (readiness_score >= 50) compliance_flags.push('VIDA_PARTIALLY_READY');
+  else compliance_flags.push('VIDA_NOT_READY');
 
   return {
     output_payload: {

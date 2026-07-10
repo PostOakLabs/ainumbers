@@ -52,11 +52,12 @@ export async function compute(pp) {
   }
 
   const verdict = (signature_cryptographically_valid && alg_ok && tag_ok && fresh !== false) ? 'ACCEPT' : 'REFUSE';
-  const compliance_flags = { WEBBOTAUTH_SIGNATURE_ASSESSED: true };
-  compliance_flags[verdict === 'ACCEPT' ? 'AGENT_SIGNATURE_VERIFIED' : 'AGENT_SIGNATURE_REFUSED'] = true;
-  if (!alg_ok) compliance_flags.ALGORITHM_NOT_ED25519 = true;
-  if (!tag_ok) compliance_flags.TAG_MISMATCH = true;
-  if (fresh === false) compliance_flags.SIGNATURE_STALE = true;
+  const compliance_flags = [];
+  compliance_flags.push('WEBBOTAUTH_SIGNATURE_ASSESSED');
+  compliance_flags.push(verdict === 'ACCEPT' ? 'AGENT_SIGNATURE_VERIFIED' : 'AGENT_SIGNATURE_REFUSED');
+  if (!alg_ok) compliance_flags.push('ALGORITHM_NOT_ED25519');
+  if (!tag_ok) compliance_flags.push('TAG_MISMATCH');
+  if (fresh === false) compliance_flags.push('SIGNATURE_STALE');
 
   return { output_payload: { signature_cryptographically_valid, alg_ok, tag_ok, fresh, verdict }, compliance_flags };
 }

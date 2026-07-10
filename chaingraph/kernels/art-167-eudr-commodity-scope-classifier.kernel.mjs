@@ -65,10 +65,11 @@ export function compute(pp) {
     OBLIGATIONS.push('Retain DDS records for 5 years');
   }
 
-  const compliance_flags = { EUDR_COMMODITY_ASSESSED: true };
-  if (!in_scope) compliance_flags.EUDR_OUT_OF_SCOPE = true;
-  else if (dds_filing_required) compliance_flags.EUDR_DDS_REQUIRED = true;
-  else compliance_flags.EUDR_REFERENCE_ONLY = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_COMMODITY_ASSESSED');
+  if (!in_scope) compliance_flags.push('EUDR_OUT_OF_SCOPE');
+  else if (dds_filing_required) compliance_flags.push('EUDR_DDS_REQUIRED');
+  else compliance_flags.push('EUDR_REFERENCE_ONLY');
 
   return {
     output_payload: {

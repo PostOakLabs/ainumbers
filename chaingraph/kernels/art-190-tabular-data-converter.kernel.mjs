@@ -211,9 +211,10 @@ export async function compute(pp) {
     sha256Hex(data), sha256Hex(converted),
   ]);
 
-  const compliance_flags = { TABULAR_CONVERSION_PERFORMED: !error };
-  if (error) compliance_flags.CONVERSION_ERROR = true;
-  if (warnings.length > 0) compliance_flags.WARNINGS_PRESENT = true;
+  const compliance_flags = [];
+  if (!error) compliance_flags.push('TABULAR_CONVERSION_PERFORMED');
+  if (error) compliance_flags.push('CONVERSION_ERROR');
+  if (warnings.length > 0) compliance_flags.push('WARNINGS_PRESENT');
 
   return {
     output_payload: {

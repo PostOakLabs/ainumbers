@@ -29,9 +29,10 @@ export function compute(pp) {
   if (!attested) missing.push('ATTESTATION');
   const identity_valid = missing.length === 0;
 
-  const compliance_flags = { MCP_SERVER_IDENTITY_ASSESSED: true };
-  compliance_flags[identity_valid ? 'MCP_SERVER_IDENTITY_VALID' : 'MCP_SERVER_IDENTITY_INVALID'] = true;
-  if (signature_valid === false) compliance_flags.IDENTITY_SIGNATURE_INVALID = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_SERVER_IDENTITY_ASSESSED');
+  compliance_flags.push(identity_valid ? 'MCP_SERVER_IDENTITY_VALID' : 'MCP_SERVER_IDENTITY_INVALID');
+  if (signature_valid === false) compliance_flags.push('IDENTITY_SIGNATURE_INVALID');
 
   return { output_payload: { identity_valid, has_subject, has_issuer, has_server_info, attested, missing }, compliance_flags };
 }

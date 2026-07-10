@@ -99,19 +99,18 @@ export function compute(pp) {
     : warn_count <= 1 ? 'moderate'
     : 'high';
 
-  const compliance_flags = {
-    AGENT_ACCEPTANCE_POLICY_BUILT: true,
-    POLICY_RISK_LOW: overall_risk === 'low',
-    POLICY_RISK_MODERATE: overall_risk === 'moderate',
-    POLICY_RISK_HIGH: overall_risk === 'high',
-    STRONG_IDENTITY_REQUIRED: ['ap2_vdc','tap_sig'].includes(verification_level),
-    BURST_PROTECTION_ACTIVE: block_rules.includes('block_burst'),
-    ANON_HIGH_VALUE_BLOCKED: block_rules.includes('block_anon_high'),
-    ACP_ENABLED: rails.includes('acp'),
-    UCP_ENABLED: rails.includes('ucp'),
-    X402_ENABLED: rails.includes('x402'),
-    TAP_ENABLED: rails.includes('tap'),
-  };
+  const compliance_flags = [];
+  compliance_flags.push('AGENT_ACCEPTANCE_POLICY_BUILT');
+  if (overall_risk === 'low') compliance_flags.push('POLICY_RISK_LOW');
+  if (overall_risk === 'moderate') compliance_flags.push('POLICY_RISK_MODERATE');
+  if (overall_risk === 'high') compliance_flags.push('POLICY_RISK_HIGH');
+  if (['ap2_vdc','tap_sig'].includes(verification_level)) compliance_flags.push('STRONG_IDENTITY_REQUIRED');
+  if (block_rules.includes('block_burst')) compliance_flags.push('BURST_PROTECTION_ACTIVE');
+  if (block_rules.includes('block_anon_high')) compliance_flags.push('ANON_HIGH_VALUE_BLOCKED');
+  if (rails.includes('acp')) compliance_flags.push('ACP_ENABLED');
+  if (rails.includes('ucp')) compliance_flags.push('UCP_ENABLED');
+  if (rails.includes('x402')) compliance_flags.push('X402_ENABLED');
+  if (rails.includes('tap')) compliance_flags.push('TAP_ENABLED');
 
   const output_payload = {
     verdict: overall_risk === 'low' ? 'POLICY_SOUND' : overall_risk === 'moderate' ? 'POLICY_ADVISORY' : 'POLICY_AT_RISK',

@@ -25,8 +25,9 @@ export function compute(pp) {
   if (auth_servers.length === 0) missing.push('AUTHORIZATION_SERVERS');
   if (scopes.length === 0) missing.push('SCOPES_SUPPORTED');
   if (!bearer_ok) missing.push('BEARER_METHODS_UNRECOGNIZED');
-  const compliance_flags = { MCP_AUTH_METADATA_ASSESSED: true };
-  compliance_flags[metadata_valid ? 'RFC9728_METADATA_VALID' : 'RFC9728_METADATA_INVALID'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_AUTH_METADATA_ASSESSED');
+  compliance_flags.push(metadata_valid ? 'RFC9728_METADATA_VALID' : 'RFC9728_METADATA_INVALID');
   return { output_payload: { metadata_valid, resource_ok, auth_server_count: auth_servers.length, scope_count: scopes.length, bearer_ok, missing }, compliance_flags };
 }
 

@@ -20,10 +20,11 @@ export function compute(pp) {
   const allowed = LEGAL[prior_state] || [];
   const action_legal = allowed.includes(action_type);
 
-  const compliance_flags = { EMIR_LIFECYCLE_ASSESSED: true };
-  compliance_flags[action_legal ? 'EMIR_LIFECYCLE_VALID' : 'EMIR_LIFECYCLE_INVALID'] = true;
-  if (!action_legal && action_type === 'New' && prior_state === 'open') compliance_flags.DUPLICATE_NEW_ON_OPEN_UTI = true;
-  if (!action_legal && (action_type === 'Modify' || action_type === 'Correct') && prior_state === 'none') compliance_flags.MODIFY_WITHOUT_PRIOR = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_LIFECYCLE_ASSESSED');
+  compliance_flags.push(action_legal ? 'EMIR_LIFECYCLE_VALID' : 'EMIR_LIFECYCLE_INVALID');
+  if (!action_legal && action_type === 'New' && prior_state === 'open') compliance_flags.push('DUPLICATE_NEW_ON_OPEN_UTI');
+  if (!action_legal && (action_type === 'Modify' || action_type === 'Correct') && prior_state === 'none') compliance_flags.push('MODIFY_WITHOUT_PRIOR');
 
   return {
     output_payload: {

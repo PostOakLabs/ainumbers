@@ -123,12 +123,11 @@ export function compute(pp) {
   const all_checks_pass = checks.every((c) => c.pass);
   const output_payload = { certificate, terms_hash, checks, all_checks_pass };
 
-  const compliance_flags = {
-    LICENSE_ELECTION_CERTIFIED: true,
-    ELECTION_HASH_BOUND:        true,
-    SELECTION_NOT_ADVICE:       true,
-  };
-  if (!all_checks_pass) compliance_flags.ELECTION_CHECKS_HAVE_WARNINGS = true;
+  const compliance_flags = [];
+  compliance_flags.push('LICENSE_ELECTION_CERTIFIED');
+  compliance_flags.push('ELECTION_HASH_BOUND');
+  compliance_flags.push('SELECTION_NOT_ADVICE');
+  if (!all_checks_pass) compliance_flags.push('ELECTION_CHECKS_HAVE_WARNINGS');
 
   return { output_payload, compliance_flags };
 }

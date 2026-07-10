@@ -16,9 +16,10 @@ export async function compute(pp) {
   const card_keyids = Array.isArray(card.keys) ? card.keys.map(k => k && k.kid).filter(Boolean) : [];
   const keys_consistent = card_keyids.length > 0 && card_keyids.every(kid => directory_keyids.includes(kid));
   const card_valid = missing_fields.length === 0 && keys_consistent;
-  const compliance_flags = { SIGNATURE_AGENT_CARD_ASSESSED: true };
-  compliance_flags[card_valid ? 'AGENT_CARD_VALID' : 'AGENT_CARD_INVALID'] = true;
-  if (!keys_consistent) compliance_flags.CARD_KEYS_NOT_IN_DIRECTORY = true;
+  const compliance_flags = [];
+  compliance_flags.push('SIGNATURE_AGENT_CARD_ASSESSED');
+  compliance_flags.push(card_valid ? 'AGENT_CARD_VALID' : 'AGENT_CARD_INVALID');
+  if (!keys_consistent) compliance_flags.push('CARD_KEYS_NOT_IN_DIRECTORY');
   return { output_payload: { card_valid, missing_fields, keys_consistent, card_key_count: card_keyids.length }, compliance_flags };
 }
 

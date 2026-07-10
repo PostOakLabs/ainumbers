@@ -104,12 +104,9 @@ export async function compute(pp) {
     disclaimer:       'Selection only. Not legal advice. Story PIL documentation and license text govern; consult a licensed attorney before relying on any output.',
   };
 
-  const compliance_flags = {
-    PIL_FLAVOR_SELECTED:    true,
-    COMMERCIAL_USE:         pilTerms.commercialUse,
-    DERIVATIVES_ALLOWED:    pilTerms.derivativesAllowed,
-    SELECTION_NOT_ADVICE:   true,
-  };
+  const compliance_flags = ['PIL_FLAVOR_SELECTED', 'SELECTION_NOT_ADVICE'];
+  if (pilTerms.commercialUse) compliance_flags.push('COMMERCIAL_USE');
+  if (pilTerms.derivativesAllowed) compliance_flags.push('DERIVATIVES_ALLOWED');
 
   return { output_payload, compliance_flags };
 }

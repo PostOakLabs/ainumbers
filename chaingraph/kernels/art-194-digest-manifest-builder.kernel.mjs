@@ -160,9 +160,10 @@ export function compute(pp) {
   };
 
   const all_checks_pass = checks.every((c) => c.pass);
-  const compliance_flags = { DIGEST_MANIFEST_BUILT: true };
-  compliance_flags[all_checks_pass ? 'MANIFEST_CHECKS_PASS' : 'MANIFEST_CHECKS_HAVE_WARNINGS'] = true;
-  if (dupDigests.length) compliance_flags.DUPLICATE_DIGESTS_FLAGGED = true;
+  const compliance_flags = [];
+  compliance_flags.push('DIGEST_MANIFEST_BUILT');
+  compliance_flags.push(all_checks_pass ? 'MANIFEST_CHECKS_PASS' : 'MANIFEST_CHECKS_HAVE_WARNINGS');
+  if (dupDigests.length) compliance_flags.push('DUPLICATE_DIGESTS_FLAGGED');
 
   return {
     output_payload: { manifest, checks, all_checks_pass },

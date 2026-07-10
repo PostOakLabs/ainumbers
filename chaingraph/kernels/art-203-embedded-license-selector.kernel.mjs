@@ -122,11 +122,10 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. Selection only. The published SolSea/ALL.ART license terms govern. Consult a licensed attorney for your jurisdiction.',
   };
 
-  const compliance_flags = {
-    EMBEDDED_LICENSE_SELECTED: true,
-    UPL_SELECTION_NOT_ADVICE: true,
-    ['TIER_' + tier_id]: true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('EMBEDDED_LICENSE_SELECTED');
+  compliance_flags.push('UPL_SELECTION_NOT_ADVICE');
+  compliance_flags.push('TIER_' + tier_id);
 
   return { output_payload, compliance_flags };
 }

@@ -35,10 +35,11 @@ export function compute(pp) {
   const threshold_set = threshold_pct > 0;
   const nii_outlier = threshold_set && delta_nii_pct_of_nii > threshold_pct;
 
-  const compliance_flags = { IRRBB_SOT_NII_EVALUATED: true };
-  if (!threshold_set) compliance_flags.IRRBB_SOT_NII_THRESHOLD_NOT_SET = true;
-  else if (nii_outlier) compliance_flags.IRRBB_SOT_NII_OUTLIER_BREACH = true;
-  else compliance_flags.IRRBB_SOT_NII_WITHIN_THRESHOLD = true;
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_SOT_NII_EVALUATED');
+  if (!threshold_set) compliance_flags.push('IRRBB_SOT_NII_THRESHOLD_NOT_SET');
+  else if (nii_outlier) compliance_flags.push('IRRBB_SOT_NII_OUTLIER_BREACH');
+  else compliance_flags.push('IRRBB_SOT_NII_WITHIN_THRESHOLD');
 
   return {
     output_payload: {

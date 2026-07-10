@@ -57,7 +57,7 @@ export function compute(pp) {
         checks: [],
         disclaimer: 'Not legal advice. Schema check only; no on-chain calls. Consult a licensed attorney for rights and license matters.',
       },
-      compliance_flags: { NFT_METADATA_VALIDATED: false, EMPTY_INPUT: true },
+      compliance_flags: ['EMPTY_INPUT'],
     };
   }
 
@@ -74,7 +74,7 @@ export function compute(pp) {
         checks: [{ group: 'required', field: 'parse', pass: false, warn: false, label: 'JSON parse', detail: errMsg }],
         disclaimer: 'Not legal advice. Schema check only; no on-chain calls. Consult a licensed attorney for rights and license matters.',
       },
-      compliance_flags: { NFT_METADATA_VALIDATED: false, PARSE_ERROR: true },
+      compliance_flags: ['PARSE_ERROR'],
     };
   }
 
@@ -180,12 +180,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. Schema check only; no on-chain calls. Marketplace acceptance may vary. Consult a licensed attorney for rights and license matters.',
   };
 
-  const compliance_flags = {
-    NFT_METADATA_VALIDATED: true,
-    SCHEMA_CHECK_ONLY: true,
-    NO_ON_CHAIN_ACTION: true,
-  };
-  if (!requiredPass) compliance_flags.REQUIRED_FIELDS_MISSING = true;
+  const compliance_flags = [];
+  compliance_flags.push('NFT_METADATA_VALIDATED');
+  compliance_flags.push('SCHEMA_CHECK_ONLY');
+  compliance_flags.push('NO_ON_CHAIN_ACTION');
+  if (!requiredPass) compliance_flags.push('REQUIRED_FIELDS_MISSING');
 
   return { output_payload, compliance_flags };
 }

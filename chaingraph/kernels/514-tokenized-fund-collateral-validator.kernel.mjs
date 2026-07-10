@@ -31,10 +31,11 @@ export function compute(pp) {
   const isSecRegime = SEC_TYPES.includes(fund_type);
   const isEuRegime  = EU_TYPES.includes(fund_type);
 
-  // flags accumulator: { pass, err, warn }
-  const compliance_flags = {};
+  // flags accumulator: { pass, err, warn } — internal only, used to derive severity below.
+  // The schema-facing compliance_flags is the array of keys, built after severity is computed.
+  const flagState = {};
   const setFlag = (key, type) => {
-    compliance_flags[key] = { pass: type === 'pass', err: type === 'err', warn: type === 'warn' };
+    flagState[key] = { pass: type === 'pass', err: type === 'err', warn: type === 'warn' };
   };
 
   // SEC Rule 2a-7 checks
@@ -70,12 +71,14 @@ export function compute(pp) {
 
   // Always set
   setFlag('FUND_HQLA_EXCLUDED', 'pass'); // pass:false per spec — but the structure requires a type
-  compliance_flags.FUND_HQLA_EXCLUDED = { pass: false, err: false, warn: false };
+  flagState.FUND_HQLA_EXCLUDED = { pass: false, err: false, warn: false };
   setFlag('FUND_COLLATERAL_VALIDATED', 'pass');
 
   // Eligibility
-  const hasHardFail = Object.values(compliance_flags).some(f => f.err === true);
-  const hasWarn     = Object.values(compliance_flags).some(f => f.warn === true);
+  const hasHardFail = Object.values(flagState).some(f => f.err === true);
+  const hasWarn     = Object.values(flagState).some(f => f.warn === true);
+
+  const compliance_flags = Object.keys(flagState);
 
   let eligibility;
   if (collateral_use === 'repo_collateral' || hasHardFail) {

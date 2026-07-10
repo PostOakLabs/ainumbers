@@ -37,16 +37,17 @@ export function compute(pp) {
   const MANDATORY_DATE = '2028-07-01';
   const MS_EXTENSION_DATE = '2030-01-01';
 
-  const compliance_flags = { VIDA_PLATFORM_ASSESSED: true };
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_PLATFORM_ASSESSED');
   if (deemed_supplier) {
-    compliance_flags.VIDA_DEEMED_SUPPLIER_APPLIES = true;
-    compliance_flags.VIDA_VAT_LIABILITY_TRANSFERRED = true;
+    compliance_flags.push('VIDA_DEEMED_SUPPLIER_APPLIES');
+    compliance_flags.push('VIDA_VAT_LIABILITY_TRANSFERRED');
   } else if (sector_eligible && supplier_has_vat) {
-    compliance_flags.VIDA_PLATFORM_FACILITATOR_ONLY = true;
+    compliance_flags.push('VIDA_PLATFORM_FACILITATOR_ONLY');
   } else if (!sector_eligible) {
-    compliance_flags.VIDA_DEEMED_SUPPLIER_NOT_APPLICABLE = true;
+    compliance_flags.push('VIDA_DEEMED_SUPPLIER_NOT_APPLICABLE');
   } else {
-    compliance_flags.VIDA_PLATFORM_NOT_IN_SCOPE = true;
+    compliance_flags.push('VIDA_PLATFORM_NOT_IN_SCOPE');
   }
 
   return {

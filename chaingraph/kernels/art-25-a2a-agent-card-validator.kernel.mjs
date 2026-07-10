@@ -131,15 +131,13 @@ export function compute(pp) {
     card.capabilities.extensions.some(e => e && /ap2|payments/i.test(e.uri ?? ''));
   const hasSigned = Array.isArray(card?.signatures) && card.signatures.length > 0;
 
-  const compliance_flags = {
-    A2A_AGENT_CARD_VALIDATED: true,
-    CARD_VALID: verdict === 'valid',
-    CARD_ADVISORY: verdict === 'advisory',
-    CARD_INVALID: verdict === 'invalid',
-    HAS_AP2_EXTENSION: hasAp2,
-    HAS_SIGNED_CARD: hasSigned,
-    HAS_SKILLS: Array.isArray(card?.skills) && card.skills.length > 0,
-  };
+  const compliance_flags = ['A2A_AGENT_CARD_VALIDATED'];
+  if (verdict === 'valid') compliance_flags.push('CARD_VALID');
+  if (verdict === 'advisory') compliance_flags.push('CARD_ADVISORY');
+  if (verdict === 'invalid') compliance_flags.push('CARD_INVALID');
+  if (hasAp2) compliance_flags.push('HAS_AP2_EXTENSION');
+  if (hasSigned) compliance_flags.push('HAS_SIGNED_CARD');
+  if (Array.isArray(card?.skills) && card.skills.length > 0) compliance_flags.push('HAS_SKILLS');
 
   const output_payload = { verdict, score, errors, warnings, passes, has_ap2_extension: hasAp2, has_signed_card: hasSigned, findings: findings.map(f => ({ level: f.level, msg: f.msg })) };
   return { output_payload, compliance_flags };

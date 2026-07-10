@@ -41,7 +41,7 @@ const html = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Kernel VM &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM under the ocg-deterministic-compute@1 profile, and compare its execution_hash against the worker.">
+<meta name="description" content="Run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM under the ocg-deterministic-compute@2 profile, and compare its execution_hash against the worker.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/kernel-vm.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -87,9 +87,9 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-
 </head>
 <body>
 <div class="wrap">
-<div class="eyebrow">OpenChainGraph &middot; VM-1a</div>
+<div class="eyebrow">OpenChainGraph &middot; VM-1b</div>
 <h1>Kernel VM</h1>
-<p class="sub">Runs a ChainGraph decision kernel's <code>compute(policy_parameters)</code> inside a sandboxed, hermetic, in-browser QuickJS-ng WebAssembly VM under the <code>ocg-deterministic-compute@1</code> profile (SPEC.md &sect;24). The VM is a fifth compute surface beside the worker, embed bundle, composer, and zkVM guest: this page runs the SAME kernel source twice, once in this VM and once natively in your browser's JavaScript engine, and shows whether the two <code>execution_hash</code> values agree.</p>
+<p class="sub">Runs a ChainGraph decision kernel's <code>compute(policy_parameters)</code> inside a sandboxed, hermetic, in-browser QuickJS-ng WebAssembly VM under the <code>ocg-deterministic-compute@2</code> profile (SPEC.md &sect;24). The VM is a fifth compute surface beside the worker, embed bundle, composer, and zkVM guest: this page runs the SAME kernel source twice, once in this VM and once natively in your browser's JavaScript engine, and shows whether the two <code>execution_hash</code> values agree.</p>
 <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 <div class="cross-link">This page ships a small curated set of kernels for direct exploration. Every conformance-fixtured <code>gpu:false</code> kernel is checked automatically in CI by <code>chaingraph/kernels/vm-parity-gate.mjs</code>. See also the <a href="./boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs the same way the worker does.</p></div>
 
@@ -120,7 +120,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-
 
 <footer>
 Vendors <a href="https://github.com/justjake/quickjs-emscripten" target="_blank" rel="noopener">quickjs-emscripten-core</a> +
-a base64-embedded <a href="https://github.com/quickjs-ng/quickjs" target="_blank" rel="noopener">QuickJS-ng</a> WebAssembly binary (MIT). Zero-fetch: the wasm ships inline in <code>chaingraph/vm/quickjs-ng-wasm.b64.mjs</code>, no CDN, no network call after page load. Phase VM-1a (prebuilt release-sync variant); VM-1b (custom guest-pinned build) closes the remaining browser&harr;zkVM-guest parity gap.
+a base64-embedded <a href="https://github.com/quickjs-ng/quickjs" target="_blank" rel="noopener">QuickJS-ng</a> WebAssembly binary (MIT). Zero-fetch: the wasm ships inline in <code>chaingraph/vm/quickjs-ng-wasm.b64.mjs</code>, no CDN, no network call after page load. Phase VM-1b: a custom guest-pinned build of quickjs-ng v0.15.1 (the exact revision in the SPEC.md &sect;18 zkVM guest), with the deterministic WebCrypto subset (&sect;24.5) and full native BigInt bridged in.
 </footer>
 </div>
 
@@ -163,7 +163,18 @@ function cgCanon(value) {
   const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + cgCanon(value[k])).join(',') + '}';
 }
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number (' + v + ') is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer ' + v + ' exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).');
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
 async function executionHashLocal(policy_parameters, output_payload) {
+  assertIJson({ policy_parameters, output_payload });
   const preimage = cgCanon({ policy_parameters, output_payload });
   const bytes = new TextEncoder().encode(preimage);
   const digest = await crypto.subtle.digest('SHA-256', bytes);

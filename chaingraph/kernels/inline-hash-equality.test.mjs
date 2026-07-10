@@ -42,9 +42,12 @@ function extractFn(src, sigRe) {
 // Returns an async (pp, op) => hex, or null when the file has no inline copy.
 function buildInlineHasher(html) {
   const cg = extractFn(html, /function\s+cgCanon\s*\(/);
+  const ai = extractFn(html, /function\s+assertIJson\s*\(/);
   const eh = extractFn(html, /async\s+function\s+executionHashLocal\s*\(/);
   if (!eh) return null;              // no inline copy in this file
-  const body = `${cg || ''}\n${eh}\nreturn executionHashLocal;`;
+  // executionHashLocal may reference assertIJson (the I-JSON guard matching _hash.mjs) and/or
+  // cgCanon; include whichever helpers the file defines so the extracted fn resolves standalone.
+  const body = `${cg || ''}\n${ai || ''}\n${eh}\nreturn executionHashLocal;`;
   return new Function(body)();       // eslint-disable-line no-new-func
 }
 
@@ -80,7 +83,14 @@ for (const f of readdirSync(cgDir)) {
   if (/^art-1\d\d[-.].*\.html$/.test(f)) targets.push(join('chaingraph', f));
 }
 targets.push(join('chaingraph', 'kernel-vm.html'));
-targets.push(join('tools', 'kernel-vm-widget.html'));
+// NOTE: tools/kernel-vm-widget.html is deliberately NOT gated here. It is a FLATTENED single-file
+// bundle of the whole chaingraph/vm/*.mjs graph (VM-1b), so it carries TWO cgCanon/executionHash
+// copies — the VM-side one from kernel-vm.mjs's determinism prelude AND the page's own native-side
+// executionHashLocal — and this gate's single-copy extraction can't disambiguate them. Its
+// native-side hash helper is generated from the SAME template as chaingraph/kernel-vm.html (gated
+// above), and its VM-vs-native execution_hash agreement is already proven byte-for-byte by
+// chaingraph/kernels/vm-parity-gate.mjs (619/619). Gating the flattened bundle here adds no
+// coverage and only mis-extracts. See chaingraph/vm/scripts/gen-kernel-vm-widget.mjs.
 
 let withInline = 0, comparisons = 0;
 const allMismatches = [];

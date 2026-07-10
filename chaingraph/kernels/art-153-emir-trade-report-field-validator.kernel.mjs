@@ -34,9 +34,10 @@ export function compute(pp) {
   const missing_fields = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
   const report_valid = missing_fields.length === 0;
 
-  const compliance_flags = { EMIR_TRADE_REPORT_ASSESSED: true };
-  compliance_flags[report_valid ? 'EMIR_REPORT_VALID' : 'EMIR_REPORT_INVALID'] = true;
-  if (!notional_ok) compliance_flags.NOTIONAL_NON_FINITE_OR_MISSING = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_TRADE_REPORT_ASSESSED');
+  compliance_flags.push(report_valid ? 'EMIR_REPORT_VALID' : 'EMIR_REPORT_INVALID');
+  if (!notional_ok) compliance_flags.push('NOTIONAL_NON_FINITE_OR_MISSING');
 
   return {
     output_payload: {

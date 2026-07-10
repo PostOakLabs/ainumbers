@@ -17,10 +17,11 @@ export function compute(pp) {
   const classification_consistent = asset_ok && typeof instrument_type === 'string' && instrument_type.length > 0;
   const upi_valid = format_ok && classification_consistent;
 
-  const compliance_flags = { EMIR_UPI_ASSESSED: true };
-  compliance_flags[upi_valid ? 'EMIR_UPI_VALID' : 'EMIR_UPI_INVALID'] = true;
-  if (!format_ok) compliance_flags.UPI_MALFORMED = true;
-  if (!classification_consistent) compliance_flags.UPI_CLASSIFICATION_MISMATCH = true;
+  const compliance_flags = [];
+  compliance_flags.push('EMIR_UPI_ASSESSED');
+  compliance_flags.push(upi_valid ? 'EMIR_UPI_VALID' : 'EMIR_UPI_INVALID');
+  if (!format_ok) compliance_flags.push('UPI_MALFORMED');
+  if (!classification_consistent) compliance_flags.push('UPI_CLASSIFICATION_MISMATCH');
 
   return {
     output_payload: {

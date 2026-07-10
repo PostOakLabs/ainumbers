@@ -35,9 +35,10 @@ export async function compute(pp) {
   if (is_deepfake === true && deepfake_disclosure_present !== true) gaps.push('DEEPFAKE_DISCLOSURE_MISSING');
 
   const art50_conformant = ai_marking_present && deepfake_disclosure_ok;
-  const compliance_flags = { AI_ACT_ART50_ASSESSED: true };
-  compliance_flags[art50_conformant ? 'ART50_MARKING_CONFORMANT' : 'ART50_MARKING_NONCONFORMANT'] = true;
-  if (is_deepfake === true) compliance_flags.DEEPFAKE_SCOPE = true;
+  const compliance_flags = [];
+  compliance_flags.push('AI_ACT_ART50_ASSESSED');
+  compliance_flags.push(art50_conformant ? 'ART50_MARKING_CONFORMANT' : 'ART50_MARKING_NONCONFORMANT');
+  if (is_deepfake === true) compliance_flags.push('DEEPFAKE_SCOPE');
   return {
     output_payload: {
       art50_conformant,

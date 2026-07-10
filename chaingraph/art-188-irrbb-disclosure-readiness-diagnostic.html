@@ -346,14 +346,12 @@ function compute(pp) {
   const readiness_grade = GRADES[dims_met];
   const fully_ready = dims_met === 5;
 
-  const compliance_flags = {
-    IRRBB_DISCLOSURE_READINESS_ASSESSED: true,
-    EVE_SHOCK_CALCULATED: ent.eve_shock_calculated === true,
-    SOT_EVE_NII_EVALUATED: ent.sot_eve_nii_evaluated === true,
-    STANDARDISED_APPROACH_MAPPED: ent.standardised_approach_mapped === true,
-    CSRBB_SCOPE_ASSESSED: ent.csrbb_scope_assessed === true,
-    PILLAR3_IRRBB1_READY: ent.pillar3_irrbb1_ready === true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('IRRBB_DISCLOSURE_READINESS_ASSESSED');
+  if (dims_met === 5) compliance_flags.push('IRRBB_DISCLOSURE_FULLY_READY');
+  else if (readiness_score >= 60) compliance_flags.push('IRRBB_DISCLOSURE_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 40) compliance_flags.push('IRRBB_DISCLOSURE_PARTIALLY_READY');
+  else compliance_flags.push('IRRBB_DISCLOSURE_NOT_READY');
 
   return { output_payload: { readiness_grade, readiness_score, fully_ready, dimensions_met: dims_met, dimensions_total: 5, gaps }, compliance_flags };
 }
@@ -441,7 +439,7 @@ async function runDiagnostic() {
     ? `<div class="form-label" style="margin-top:10px;margin-bottom:4px;color:var(--red)">Gaps requiring remediation:</div><ul class="gap-list">${op.gaps.map(g=>`<li>${g}</li>`).join('')}</ul>`
     : '';
 
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map(k=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
   document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
   const pre = document.getElementById('artifactPre');

@@ -56,14 +56,13 @@ export function compute(pp) {
   const all_gaps = Object.values(function_coverage).flatMap((fc) => fc.gaps);
 
   // --- Compliance flags ---
-  const compliance_flags = {
-    NIST_RMF_MAPPED: true,
-    NIST_OVERALL_COVERAGE_PCT: overall_coverage,
-  };
+  // Note: overall_coverage is numeric (%) and already exposed via output_payload below;
+  // compliance_flags is schema-typed as string[].
+  const compliance_flags = ['NIST_RMF_MAPPED'];
   if (overall_coverage >= 75) {
-    compliance_flags.NIST_RMF_SUBSTANTIAL = true;
+    compliance_flags.push('NIST_RMF_SUBSTANTIAL');
   } else {
-    compliance_flags.NIST_RMF_GAP_IDENTIFIED = true;
+    compliance_flags.push('NIST_RMF_GAP_IDENTIFIED');
   }
 
   const total_controls = 17;

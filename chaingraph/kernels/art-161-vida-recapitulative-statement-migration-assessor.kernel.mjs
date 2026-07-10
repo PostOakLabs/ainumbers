@@ -33,11 +33,12 @@ export function compute(pp) {
     ? Number(regime.transaction_value)
     : 0;
 
-  const compliance_flags = { VIDA_MIGRATION_ASSESSED: true };
-  if (has_pre2024) compliance_flags.VIDA_LEGACY_REGIME_HARMONIZE_2035 = true;
-  else compliance_flags.VIDA_NEW_REGIME_HARMONIZE_2030 = true;
-  if (migration_ready) compliance_flags.VIDA_MIGRATION_READY = true;
-  else compliance_flags.VIDA_MIGRATION_GAP_IDENTIFIED = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_MIGRATION_ASSESSED');
+  if (has_pre2024) compliance_flags.push('VIDA_LEGACY_REGIME_HARMONIZE_2035');
+  else compliance_flags.push('VIDA_NEW_REGIME_HARMONIZE_2030');
+  if (migration_ready) compliance_flags.push('VIDA_MIGRATION_READY');
+  else compliance_flags.push('VIDA_MIGRATION_GAP_IDENTIFIED');
 
   return {
     output_payload: {

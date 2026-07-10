@@ -50,10 +50,11 @@ export function compute(pp) {
   // Personal liability: board has not approved Art. 21 OR review is overdue
   const personal_liability_risk = pp.board_approved_art21_measures !== true || review_stale;
 
-  const compliance_flags = { NIS2_GOVERNANCE_ASSESSED: true };
-  compliance_flags[`NIS2_GOVERNANCE_GRADE_${grade}`] = true;
-  if (personal_liability_risk) compliance_flags.NIS2_PERSONAL_LIABILITY_RISK = true;
-  if (gaps.length === 0) compliance_flags.NIS2_GOVERNANCE_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_GOVERNANCE_ASSESSED');
+  compliance_flags.push(`NIS2_GOVERNANCE_GRADE_${grade}`);
+  if (personal_liability_risk) compliance_flags.push('NIS2_PERSONAL_LIABILITY_RISK');
+  if (gaps.length === 0) compliance_flags.push('NIS2_GOVERNANCE_READY');
 
   return {
     output_payload: {

@@ -111,7 +111,7 @@ export function compute(pp) {
   if (!structOk) {
     return {
       output_payload: { verdict: 'malformed', binding_ok: false, checks },
-      compliance_flags: { CONVERSION_RECEIPT_VERIFIED: true, RECEIPT_MALFORMED: true },
+      compliance_flags: ['CONVERSION_RECEIPT_VERIFIED', 'RECEIPT_MALFORMED'],
     };
   }
 
@@ -155,8 +155,9 @@ export function compute(pp) {
   else if (!digest_ok) verdict = 'digest_mismatch';
   else verdict = 'valid';
 
-  const compliance_flags = { CONVERSION_RECEIPT_VERIFIED: true };
-  compliance_flags['RECEIPT_' + verdict.toUpperCase()] = true;
+  const compliance_flags = [];
+  compliance_flags.push('CONVERSION_RECEIPT_VERIFIED');
+  compliance_flags.push('RECEIPT_' + verdict.toUpperCase());
 
   return {
     output_payload: { verdict, binding_ok, digest_ok, checks },

@@ -100,9 +100,10 @@ export function compute(pp) {
     triggeredFlags.add('REGULATORY_CLASSIFICATION_UNCLEAR');
   }
 
-  const compliance_flags = { REGULATORY_CLASSIFICATION_ASSESSED: true };
+  const compliance_flags = [];
+  compliance_flags.push('REGULATORY_CLASSIFICATION_ASSESSED');
   for (const flag of triggeredFlags) {
-    compliance_flags[flag] = true;
+    compliance_flags.push(flag);
   }
 
   const output_payload = { classification_results };

@@ -304,10 +304,11 @@ function compute(pp) {
   const rotation_ok = !rotation_due || next_token_present === true;
   const scopes_ok = grants.length > 0 && ungated.length === 0;
   const audit_pass = scopes_ok && revocable && rotation_ok;
-  const compliance_flags = { MCP_SCOPE_REVOCATION_ASSESSED: true };
-  compliance_flags[audit_pass ? 'SCOPE_REVOCATION_HEALTHY' : 'SCOPE_REVOCATION_GAPS'] = true;
-  if (!revocable) compliance_flags.NO_REVOCATION_ENDPOINT = true;
-  if (rotation_due && next_token_present !== true) compliance_flags.TOKEN_ROTATION_OVERDUE = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_SCOPE_REVOCATION_ASSESSED');
+  compliance_flags.push(audit_pass ? 'SCOPE_REVOCATION_HEALTHY' : 'SCOPE_REVOCATION_GAPS');
+  if (!revocable) compliance_flags.push('NO_REVOCATION_ENDPOINT');
+  if (rotation_due && next_token_present !== true) compliance_flags.push('TOKEN_ROTATION_OVERDUE');
   return { output_payload: { audit_pass, scopes_ok, revocable, rotation_ok, ungated_tools: ungated, token_age_s: age }, compliance_flags };
 }
 
@@ -364,7 +365,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="font-size:1rem;color:' + (op.scopes_ok ? 'var(--green)' : 'var(--red)') + ';padding-top:6px">' + (op.scopes_ok ? '✓' : '✗') + '</div><div class="hero-lbl">Scopes OK</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="font-size:1rem;color:' + (op.revocable ? 'var(--green)' : 'var(--red)') + ';padding-top:6px">' + (op.revocable ? '✓' : '✗') + '</div><div class="hero-lbl">Revocable</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="font-size:.85rem;color:var(--teal-lt);padding-top:8px">' + ageStr + '</div><div class="hero-lbl">Token Age</div></div>';
-  const flagKeys = Object.keys(flags).filter(k => flags[k]);
+  const flagKeys = flags;
   const ungatedBadges = op.ungated_tools.length > 0 ? '<div class="gap-list">' + op.ungated_tools.map(t => '<span class="badge err">UNGATED: ' + t + '</span>').join('') + '</div>' : '';
   document.getElementById('verdictDiv').innerHTML =
     '<div class="verdict ' + (pass ? 'pass' : 'fail') + '">' +

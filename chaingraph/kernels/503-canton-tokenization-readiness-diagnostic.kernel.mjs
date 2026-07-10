@@ -64,14 +64,12 @@ export function compute(pp) {
   const grade = getGrade(total_score);
   const isReady = grade === 'A' || grade === 'B';
 
-  const compliance_flags = {
-    CANTON_READINESS_SCORED: true,
-    CANTON_READY: isReady,
-    NOT_CANTON_READY: !isReady,
-  };
+  const compliance_flags = ['CANTON_READINESS_SCORED'];
+  if (isReady) compliance_flags.push('CANTON_READY');
+  if (!isReady) compliance_flags.push('NOT_CANTON_READY');
 
   for (const [key, flagKey] of Object.entries(GAP_FLAG_KEYS)) {
-    compliance_flags[flagKey] = gaps.includes(key);
+    if (gaps.includes(key)) compliance_flags.push(flagKey);
   }
 
   const output_payload = { verdict: grade, total_score, domain_scores, gaps };

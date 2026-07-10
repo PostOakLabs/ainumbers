@@ -24,8 +24,9 @@ export function compute(pp) {
   });
   // round deterministically to avoid float drift in the hash preimage
   total_carbon = Math.round(total_carbon * 1e6) / 1e6;
-  const compliance_flags = { PRODUCT_LINEAGE_BUILT: true };
-  compliance_flags[broken ? 'LINEAGE_UNANCHORED_STAGE' : 'LINEAGE_FULLY_ANCHORED'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('PRODUCT_LINEAGE_BUILT');
+  compliance_flags.push(broken ? 'LINEAGE_UNANCHORED_STAGE' : 'LINEAGE_FULLY_ANCHORED');
   return { output_payload: { product_id: product_id ?? null, lineage, total_carbon, depth: stages.length }, compliance_flags };
 }
 

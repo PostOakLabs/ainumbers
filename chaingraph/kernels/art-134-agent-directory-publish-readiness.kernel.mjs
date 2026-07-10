@@ -14,8 +14,9 @@ export async function compute(pp) {
   const checks = { well_known_path_ok, jwks_reachable, card_complete, rotation_posture_ok, alg_ed25519 };
   const gaps = Object.entries(checks).filter(([, v]) => v !== true).map(([k]) => k);
   const ready = gaps.length === 0;
-  const compliance_flags = { DIRECTORY_PUBLISH_READINESS_ASSESSED: true };
-  compliance_flags[ready ? 'DIRECTORY_PUBLISH_READY' : 'DIRECTORY_PUBLISH_NOT_READY'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('DIRECTORY_PUBLISH_READINESS_ASSESSED');
+  compliance_flags.push(ready ? 'DIRECTORY_PUBLISH_READY' : 'DIRECTORY_PUBLISH_NOT_READY');
   return { output_payload: { ready, gaps }, compliance_flags };
 }
 

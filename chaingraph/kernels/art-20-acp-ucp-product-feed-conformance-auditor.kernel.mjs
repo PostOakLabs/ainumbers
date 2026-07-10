@@ -145,13 +145,12 @@ export function compute(pp) {
 
   const verdict = critical_gaps > 0 ? 'non_conformant' : warnings_count > 0 ? 'conformant_with_warnings' : 'conformant';
 
-  const compliance_flags = {
-    ACP_UCP_AUDIT_COMPLETE: true,
-    PAYLOAD_CONFORMANT: verdict === 'conformant',
-    PAYLOAD_NON_CONFORMANT: verdict === 'non_conformant',
-    ACP_REQUIRED_SATISFIED: acpResults ? acpMissing.length === 0 : null,
-    UCP_REQUIRED_SATISFIED: ucpResults ? ucpMissing.length === 0 : null,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('ACP_UCP_AUDIT_COMPLETE');
+  if (verdict === 'conformant') compliance_flags.push('PAYLOAD_CONFORMANT');
+  if (verdict === 'non_conformant') compliance_flags.push('PAYLOAD_NON_CONFORMANT');
+  if (acpResults ? acpMissing.length === 0 : null) compliance_flags.push('ACP_REQUIRED_SATISFIED');
+  if (ucpResults ? ucpMissing.length === 0 : null) compliance_flags.push('UCP_REQUIRED_SATISFIED');
 
   const output_payload = {
     verdict,

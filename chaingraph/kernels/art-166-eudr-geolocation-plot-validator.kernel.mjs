@@ -35,7 +35,7 @@ export function compute(pp) {
         micro_operator_exemption: true,
         issues: [],
       },
-      compliance_flags: { EUDR_GEO_ASSESSED: true, EUDR_GEO_MICRO_EXEMPTION: true },
+      compliance_flags: ['EUDR_GEO_ASSESSED', 'EUDR_GEO_MICRO_EXEMPTION'],
     };
   }
 
@@ -89,9 +89,10 @@ export function compute(pp) {
 
   const valid = type_valid && size_rule_met && coordinates_valid && (polygon_closed !== false);
 
-  const compliance_flags = { EUDR_GEO_ASSESSED: true };
-  if (valid) compliance_flags.EUDR_GEO_VALID = true;
-  else compliance_flags.EUDR_GEO_INVALID = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_GEO_ASSESSED');
+  if (valid) compliance_flags.push('EUDR_GEO_VALID');
+  else compliance_flags.push('EUDR_GEO_INVALID');
 
   return {
     output_payload: { valid, geo_type: type, area_ha, size_rule_met, coordinates_valid, polygon_closed, micro_operator_exemption: false, issues },

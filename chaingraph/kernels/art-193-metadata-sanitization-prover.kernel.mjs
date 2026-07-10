@@ -152,10 +152,11 @@ export function compute(pp) {
   const record_sha256 = sha256Hex(JSON.stringify(_cgCanon(recordCore)));
   const sanitization_record = { ...recordCore, record_sha256 };
 
-  const compliance_flags = { METADATA_SANITIZATION_ASSESSED: true };
-  compliance_flags['SANITIZATION_' + verdict.toUpperCase()] = true;
-  if (retained.length > 0) compliance_flags.RETAINED_METADATA_PRESENT = true;
-  if (!digestsValid) compliance_flags.DIGESTS_INCOMPLETE = true;
+  const compliance_flags = [];
+  compliance_flags.push('METADATA_SANITIZATION_ASSESSED');
+  compliance_flags.push('SANITIZATION_' + verdict.toUpperCase());
+  if (retained.length > 0) compliance_flags.push('RETAINED_METADATA_PRESENT');
+  if (!digestsValid) compliance_flags.push('DIGESTS_INCOMPLETE');
 
   return {
     output_payload: { sanitization_record, residual_risks, verdict },

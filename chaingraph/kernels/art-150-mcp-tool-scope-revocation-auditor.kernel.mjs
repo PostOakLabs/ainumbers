@@ -22,10 +22,11 @@ export function compute(pp) {
   const rotation_ok = !rotation_due || next_token_present === true;
   const scopes_ok = grants.length > 0 && ungated.length === 0;
   const audit_pass = scopes_ok && revocable && rotation_ok;
-  const compliance_flags = { MCP_SCOPE_REVOCATION_ASSESSED: true };
-  compliance_flags[audit_pass ? 'SCOPE_REVOCATION_HEALTHY' : 'SCOPE_REVOCATION_GAPS'] = true;
-  if (!revocable) compliance_flags.NO_REVOCATION_ENDPOINT = true;
-  if (rotation_due && next_token_present !== true) compliance_flags.TOKEN_ROTATION_OVERDUE = true;
+  const compliance_flags = [];
+  compliance_flags.push('MCP_SCOPE_REVOCATION_ASSESSED');
+  compliance_flags.push(audit_pass ? 'SCOPE_REVOCATION_HEALTHY' : 'SCOPE_REVOCATION_GAPS');
+  if (!revocable) compliance_flags.push('NO_REVOCATION_ENDPOINT');
+  if (rotation_due && next_token_present !== true) compliance_flags.push('TOKEN_ROTATION_OVERDUE');
   return { output_payload: { audit_pass, scopes_ok, revocable, rotation_ok, ungated_tools: ungated, token_age_s: age }, compliance_flags };
 }
 

@@ -144,11 +144,10 @@ export function compute(pp) {
     checks,
   };
 
-  const compliance_flags = {
-    RIGHTS_MATRIX_COMPARED: true,
-    BOTH_REFS_RECOGNIZED:   !unknownA && !unknownB,
-    SELECTION_NOT_ADVICE:   true,
-  };
+  const compliance_flags = [];
+  compliance_flags.push('RIGHTS_MATRIX_COMPARED');
+  if (!unknownA && !unknownB) compliance_flags.push('BOTH_REFS_RECOGNIZED');
+  compliance_flags.push('SELECTION_NOT_ADVICE');
 
   return { output_payload, compliance_flags };
 }

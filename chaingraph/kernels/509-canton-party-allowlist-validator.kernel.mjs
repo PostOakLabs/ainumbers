@@ -73,15 +73,13 @@ export function compute(pp) {
     'CANTON_PARTY_ID_MISSING', 'CANTON_ACCESS_UNVERIFIED',
   ];
 
-  const compliance_flags = {
-    PARTY_ALLOWLIST_VALIDATED: true,
-    ALL_PARTIES_APPROVED: portfolio_verdict === 'ALL_APPROVED',
-    CONDITIONAL_APPROVAL: portfolio_verdict === 'CONDITIONAL',
-    ONE_OR_MORE_REJECTED: portfolio_verdict === 'ONE_OR_MORE_REJECTED',
-  };
+  const compliance_flags = ['PARTY_ALLOWLIST_VALIDATED'];
+  if (portfolio_verdict === 'ALL_APPROVED') compliance_flags.push('ALL_PARTIES_APPROVED');
+  if (portfolio_verdict === 'CONDITIONAL') compliance_flags.push('CONDITIONAL_APPROVAL');
+  if (portfolio_verdict === 'ONE_OR_MORE_REJECTED') compliance_flags.push('ONE_OR_MORE_REJECTED');
 
   for (const k of FLAG_KEYS) {
-    compliance_flags[k] = allFlags.has(k);
+    if (allFlags.has(k)) compliance_flags.push(k);
   }
 
   const output_payload = { portfolio_verdict, party_count: parties.length, parties: partyResults };

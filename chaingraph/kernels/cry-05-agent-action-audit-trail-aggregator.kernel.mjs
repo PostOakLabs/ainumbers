@@ -141,13 +141,9 @@ export function compute(pp) {
   const allProofsOk = receipts.length > 0 && receipts.every(r => r.proof_ok);
   const maxParentDepth = entries.reduce((m,e) => Math.max(m, e.chain_depth), 0);
 
-  const compliance_flags = {
-    EU_AI_ACT_ART12_RECORD_KEEPING: true,
-    DORA_OPERATIONAL_RESILIENCE_AUDIT_TRAIL: true,
-    SESSION_RECEIPT_ROOT_GENERATED: true,
-    ALL_INCLUSION_PROOFS_VERIFIED: allProofsOk,
-    INCLUSION_PROOF_RECOMPUTE_MISMATCH: !allProofsOk,
-  };
+  const compliance_flags = ['EU_AI_ACT_ART12_RECORD_KEEPING', 'DORA_OPERATIONAL_RESILIENCE_AUDIT_TRAIL', 'SESSION_RECEIPT_ROOT_GENERATED'];
+  if (allProofsOk) compliance_flags.push('ALL_INCLUSION_PROOFS_VERIFIED');
+  if (!allProofsOk) compliance_flags.push('INCLUSION_PROOF_RECOMPUTE_MISMATCH');
 
   const output_payload = {
     session_receipt_root: 'sha256:'+root,

@@ -52,12 +52,13 @@ export function compute(pp) {
 
   const eligible_for_oss = recommended_scheme !== null && recommended_scheme !== 'Domestic_VAT';
 
-  const compliance_flags = { VIDA_OSS_ASSESSED: true };
-  if (recommended_scheme === 'Union_OSS') compliance_flags.VIDA_OSS_UNION = true;
-  else if (recommended_scheme === 'Non_Union_OSS') compliance_flags.VIDA_OSS_NON_UNION = true;
-  else if (recommended_scheme === 'IOSS') compliance_flags.VIDA_OSS_IOSS = true;
-  else if (recommended_scheme === 'Domestic_VAT') compliance_flags.VIDA_OSS_DOMESTIC = true;
-  else compliance_flags.VIDA_OSS_UNDETERMINED = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_OSS_ASSESSED');
+  if (recommended_scheme === 'Union_OSS') compliance_flags.push('VIDA_OSS_UNION');
+  else if (recommended_scheme === 'Non_Union_OSS') compliance_flags.push('VIDA_OSS_NON_UNION');
+  else if (recommended_scheme === 'IOSS') compliance_flags.push('VIDA_OSS_IOSS');
+  else if (recommended_scheme === 'Domestic_VAT') compliance_flags.push('VIDA_OSS_DOMESTIC');
+  else compliance_flags.push('VIDA_OSS_UNDETERMINED');
 
   return {
     output_payload: {

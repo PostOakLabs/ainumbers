@@ -23,8 +23,9 @@ export function compute(pp) {
   else if (!match)        { verdict = 'REFUSE'; reason = 'NO_MATCH_TO_ORIGINAL_TRANSACTION'; }
   else if (within_resale_window === false) { verdict = 'REFUSE'; reason = 'OUTSIDE_RESALE_WINDOW'; }
   else { verdict = 'ACCEPT'; reason = 'VERIFIED'; }
-  const compliance_flags = { SALEABLE_RETURN_ASSESSED: true };
-  compliance_flags[verdict === 'ACCEPT' ? 'SALEABLE_RETURN_VERIFIED' : 'SALEABLE_RETURN_REFUSED'] = true;
+  const compliance_flags = [];
+  compliance_flags.push('SALEABLE_RETURN_ASSESSED');
+  compliance_flags.push(verdict === 'ACCEPT' ? 'SALEABLE_RETURN_VERIFIED' : 'SALEABLE_RETURN_REFUSED');
   return { output_payload: { match, verdict, reason, id_match, lot_match, txn_anchored }, compliance_flags };
 }
 

@@ -55,10 +55,11 @@ export function compute(pp) {
   const conformant = missing_fields.length === 0;
   const vida_ready = conformant && syntax_id_valid;
 
-  const compliance_flags = { VIDA_EINVOICE_ASSESSED: true };
-  if (vida_ready) compliance_flags.VIDA_EN16931_CONFORMANT = true;
-  else if (conformant) compliance_flags.EN16931_CONFORMANT_SYNTAX_ADVISORY = true;
-  else compliance_flags.EN16931_NON_CONFORMANT = true;
+  const compliance_flags = [];
+  compliance_flags.push('VIDA_EINVOICE_ASSESSED');
+  if (vida_ready) compliance_flags.push('VIDA_EN16931_CONFORMANT');
+  else if (conformant) compliance_flags.push('EN16931_CONFORMANT_SYNTAX_ADVISORY');
+  else compliance_flags.push('EN16931_NON_CONFORMANT');
 
   return {
     output_payload: {

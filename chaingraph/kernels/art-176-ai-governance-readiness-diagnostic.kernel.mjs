@@ -48,11 +48,12 @@ export function compute(pp) {
     eu_ai_act: dim.gpai_obligations_checked,
   };
 
-  const compliance_flags = { AI_GOVERNANCE_READINESS_ASSESSED: true };
-  if (dims_met === 6)          compliance_flags.AI_GOVERNANCE_FULLY_READY = true;
-  else if (readiness_score >= 67) compliance_flags.AI_GOVERNANCE_SUBSTANTIALLY_READY = true;
-  else if (readiness_score >= 33) compliance_flags.AI_GOVERNANCE_PARTIALLY_READY = true;
-  else                            compliance_flags.AI_GOVERNANCE_NOT_READY = true;
+  const compliance_flags = [];
+  compliance_flags.push('AI_GOVERNANCE_READINESS_ASSESSED');
+  if (dims_met === 6)          compliance_flags.push('AI_GOVERNANCE_FULLY_READY');
+  else if (readiness_score >= 67) compliance_flags.push('AI_GOVERNANCE_SUBSTANTIALLY_READY');
+  else if (readiness_score >= 33) compliance_flags.push('AI_GOVERNANCE_PARTIALLY_READY');
+  else                            compliance_flags.push('AI_GOVERNANCE_NOT_READY');
 
   return {
     output_payload: {

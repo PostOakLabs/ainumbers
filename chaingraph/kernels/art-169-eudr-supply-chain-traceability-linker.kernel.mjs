@@ -53,10 +53,11 @@ export function compute(pp) {
     (operator_is_first && linked_dds_count === 0) ||
     (!operator_is_first && linked_dds_count > 0 && refs_valid);
 
-  const compliance_flags = { EUDR_TRACEABILITY_ASSESSED: true };
-  if (chain_integrity) compliance_flags.EUDR_CHAIN_INTEGRITY_VERIFIED = true;
-  else compliance_flags.EUDR_TRACEABILITY_GAPS_FOUND = true;
-  if (!single_dds_rule_met) compliance_flags.EUDR_SINGLE_DDS_RULE_VIOLATION = true;
+  const compliance_flags = [];
+  compliance_flags.push('EUDR_TRACEABILITY_ASSESSED');
+  if (chain_integrity) compliance_flags.push('EUDR_CHAIN_INTEGRITY_VERIFIED');
+  else compliance_flags.push('EUDR_TRACEABILITY_GAPS_FOUND');
+  if (!single_dds_rule_met) compliance_flags.push('EUDR_SINGLE_DDS_RULE_VIOLATION');
 
   return {
     output_payload: {

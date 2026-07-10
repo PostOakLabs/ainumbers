@@ -26,9 +26,10 @@ export function compute(pp) {
     .filter(i => i !== null);
   const has_relationships = Array.isArray(sbom.relationships) && sbom.relationships.length > 0;
   const sbom_valid = version_ok && doc_id_ok && packages.length > 0 && packages_missing_version.length === 0 && has_relationships;
-  const compliance_flags = { SPDX_SBOM_ASSESSED: true };
-  compliance_flags[sbom_valid ? 'SPDX_SBOM_VALID' : 'SPDX_SBOM_INVALID'] = true;
-  if (!has_relationships) compliance_flags.NO_RELATIONSHIPS = true;
+  const compliance_flags = [];
+  compliance_flags.push('SPDX_SBOM_ASSESSED');
+  compliance_flags.push(sbom_valid ? 'SPDX_SBOM_VALID' : 'SPDX_SBOM_INVALID');
+  if (!has_relationships) compliance_flags.push('NO_RELATIONSHIPS');
   return { output_payload: { sbom_valid, format: 'SPDX', spdx_version: sbom.spdxVersion ?? null, package_count: packages.length, packages_missing_version, has_relationships }, compliance_flags };
 }
 

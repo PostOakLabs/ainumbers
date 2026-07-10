@@ -64,7 +64,7 @@ export function compute(pp) {
         config_hash: djb2Hash('[]'),
         disclaimer: 'Not legal advice. Validation only; no on-chain calls. Consult a licensed attorney and review ERC-2981 / 0xSplits documentation for your deployment.',
       },
-      compliance_flags: { ROYALTY_SPLIT_VALIDATED: false, EMPTY_INPUT: true },
+      compliance_flags: ['EMPTY_INPUT'],
     };
   }
 
@@ -207,12 +207,11 @@ export function compute(pp) {
     disclaimer: 'Not legal advice. Validation only; no on-chain calls, no royalty distribution. ERC-2981 is advisory. Consult a licensed attorney and review the 0xSplits documentation for your deployment.',
   };
 
-  const compliance_flags = {
-    ROYALTY_SPLIT_VALIDATED: true,
-    VALIDATE_ONLY: true,
-    NO_ON_CHAIN_ACTION: true,
-  };
-  if (!allPass) compliance_flags.VALIDATION_FAILED = true;
+  const compliance_flags = [];
+  compliance_flags.push('ROYALTY_SPLIT_VALIDATED');
+  compliance_flags.push('VALIDATE_ONLY');
+  compliance_flags.push('NO_ON_CHAIN_ACTION');
+  if (!allPass) compliance_flags.push('VALIDATION_FAILED');
 
   return { output_payload, compliance_flags };
 }

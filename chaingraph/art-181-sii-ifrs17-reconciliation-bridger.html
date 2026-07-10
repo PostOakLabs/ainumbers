@@ -332,13 +332,11 @@ function compute(pp) {
   const bel_fcf_delta = sii_bel - ifrs_fcf;
   const rm_ra_delta   = sii_rm - ifrs_ra;
 
-  const compliance_flags = {
-    SII_IFRS17_BRIDGE_COMPUTED: true,
-    SII_IFRS17_WITHIN_TOLERANCE: bridge_within_tolerance,
-  };
-  if (sii_rm > 0 && ra_vs_rm_ratio < 57) {
-    compliance_flags.SII_RA_BELOW_EIOPA_BENCHMARK = true;
-  }
+  const compliance_flags = [];
+  compliance_flags.push('SII_IFRS17_RECONCILIATION_ASSESSED');
+  if (bridge_within_tolerance) compliance_flags.push('SII_IFRS17_BRIDGE_WITHIN_TOLERANCE'); else compliance_flags.push('SII_IFRS17_BRIDGE_OUTSIDE_TOLERANCE');
+  if (ifrs_csm > 0) compliance_flags.push('SII_IFRS17_CSM_PRESENT');
+  if (sii_rm > 0 && ra_vs_rm_ratio < 57) compliance_flags.push('SII_RA_BELOW_EIOPA_BENCHMARK');
 
   return {
     output_payload: {
@@ -410,7 +408,7 @@ async function runBridger() {
   document.getElementById('heroRow').innerHTML = `
     <div class="hero-stat"><div class="hero-val" style="font-size:1.3rem;color:${tolColor}">${op.relative_bridge_delta_pct}%</div><div class="hero-lbl">Bridge Delta (rel.)</div></div>
     <div class="hero-stat"><div class="hero-val" style="color:${tolColor}">${op.bridge_within_tolerance?'OK':'WIDE'}</div><div class="hero-lbl">±10% Tolerance</div></div>
-    <div class="hero-stat"><div class="hero-val" style="font-size:1.2rem;color:${compliance_flags.SII_RA_BELOW_EIOPA_BENCHMARK?'var(--warn)':'var(--green)'}">${op.ra_vs_risk_margin_ratio_pct}%</div><div class="hero-lbl">RA/RM Ratio</div></div>
+    <div class="hero-stat"><div class="hero-val" style="font-size:1.2rem;color:${compliance_flags.includes('SII_RA_BELOW_EIOPA_BENCHMARK')?'var(--warn)':'var(--green)'}">${op.ra_vs_risk_margin_ratio_pct}%</div><div class="hero-lbl">RA/RM Ratio</div></div>
   `;
 
   let vHtml = '';
@@ -419,7 +417,7 @@ async function runBridger() {
   } else {
     vHtml = `<div class="verdict fail">✗ Bridge delta ${op.relative_bridge_delta_pct}% exceeds ±10% tolerance. Investigate BEL/FCF (Δ${fmt(op.bel_fcf_delta)}) and RM/RA (Δ${fmt(op.rm_ra_delta)}) drivers.</div>`;
   }
-  if (compliance_flags.SII_RA_BELOW_EIOPA_BENCHMARK) {
+  if (compliance_flags.includes('SII_RA_BELOW_EIOPA_BENCHMARK')) {
     vHtml += `<div class="verdict warn">⚠ RA/RM ratio ${op.ra_vs_risk_margin_ratio_pct}% is below EIOPA life benchmark (57%). Review risk adjustment calibration — life RA is typically 33–44% lower than SII risk margin (ratio 56–67%).</div>`;
   }
   document.getElementById('verdictBox').innerHTML = vHtml;
@@ -439,7 +437,7 @@ async function runBridger() {
       ].map(([l,v])=>`<div class="bridge-row"><span class="bridge-lbl">${l}</span><span class="bridge-val">${v}</span></div>`).join('')}
     </div>`;
 
-  const fHtml = Object.entries(compliance_flags).map(([k,v])=>`<span class="badge ${v?'ok':'err'}">${k}</span>`).join('');
+  const fHtml = compliance_flags.map((k)=>`<span class="badge ok">${k}</span>`).join('');
   document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
   document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
   const pre = document.getElementById('artifactPre');

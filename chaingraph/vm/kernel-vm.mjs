@@ -1,43 +1,56 @@
-// kernel-vm.mjs — VM-1a browser kernel VM execution harness.
+// kernel-vm.mjs — VM-1b browser kernel VM execution harness.
 //
 // Runs a ChainGraph kernel's `compute(policy_parameters) -> output_payload`
 // inside a sandboxed, hermetic QuickJS-ng WebAssembly VM under the
-// `ocg-deterministic-compute@1` profile (SPEC.md §24). This is Phase VM-1a:
-// a PREBUILT quickjs-ng release-sync variant, not the custom guest-pinned
-// build (VM-1b). See MANDATE-LOOP-PROGRAM-SPEC.md "VM-1".
+// `ocg-deterministic-compute@2` profile (SPEC.md §24, §24.5). This is Phase
+// VM-1b: a CUSTOM guest-pinned build of quickjs-ng v0.15.1 (the exact revision
+// compiled into the §18 zkVM guest, ImageID a1a0bc89), replacing the VM-1a
+// prebuilt release-sync variant. See MANDATE-LOOP-PROGRAM-SPEC.md "VM-1" and
+// VM-1B-KERNEL-VM-BUILD-SPEC.md.
 //
-// §24 rows enforced here (D1/D2 stay the caller's job at hash time via _hash.mjs;
-// this harness owns D3-D6 for the compute() call itself):
-//   D3 transcendental math — kernels already inline the pure-JS _detmath port; the VM
-//      changes nothing about that, it just runs the same source.
-//   D4 wall-clock time      — enforced at the JS layer, not the C intrinsic (see the
-//      "TWO VM-1a FINDINGS" comment below for why): Date.now(), new Date() with zero
-//      args, and Date() as a function all throw; new Date(...args) still parses.
-//   D5 randomness           — Math.random replaced with a throwing stub in the prelude.
-//   D6 locale / Intl        — quickjs-ng ships no Intl; the prelude also strips it
-//      defensively in case a future variant build adds it.
-//   D7 environment/platform — no globals are exposed into the sandbox beyond the
-//      QuickJS default intrinsics (no fetch, no DOM, no filesystem).
+// What VM-1b adds over VM-1a (closing all 6 VM-1a limitations → parity 619/619):
+//   - a DETERMINISTIC WebCrypto subset (§24.5 @2): crypto.subtle.digest /
+//     importKey / verify are bridged to the runtime's WebCrypto (Node/browser
+//     globalThis.crypto.subtle) and MUST be byte-identical to the worker. These
+//     are pure functions of their inputs (no entropy), so they are ALLOWED.
+//   - the real executionHash (via the digest bridge), so art-55's host-SHA-256
+//     merkle_root folds into output_payload faithfully.
+//   - full native BigInt (the guest-pinned build ships BigInt.prototype.*), so
+//     art-201's minhash bit-packing runs unmodified — no polyfill.
 //
-// The interrupt handler here is a BUDGET ENFORCER only (kills runaway loops); it is
-// NOT a determinism meter. The zkVM guest's cycle count (§18) stays the authoritative
-// compute-cost meter — see MANDATE-LOOP-PROGRAM-SPEC.md VM-1 research findings.
+// STILL BANNED (§24.5 @2 = §24 D5 randomness): crypto.getRandomValues,
+// crypto.subtle.generateKey, crypto.subtle.sign (fresh-key) THROW inside the VM.
+// A kernel that reaches for them fails, it never silently degrades an output.
+//
+// §24 rows enforced here (D1/D2 stay the caller's job at hash time via _hash.mjs):
+//   D3 transcendental math — kernels inline the pure-JS _detmath port; unchanged.
+//   D4 wall-clock time      — enforced at the JS layer (see the Date guard below):
+//      Date.now(), zero-arg new Date(), and Date() as a function all throw;
+//      new Date(...args) still parses a caller-supplied string deterministically.
+//   D5 randomness           — Math.random + the non-deterministic WebCrypto subset
+//      (getRandomValues/generateKey/sign) all throw.
+//   D6 locale / Intl        — quickjs-ng ships no Intl; the prelude strips it too.
+//   D7 environment/platform — no globals beyond QuickJS intrinsics + the bridged
+//      deterministic WebCrypto subset (§24.5). No fetch, DOM, or filesystem.
+//
+// The interrupt handler here is a BUDGET ENFORCER only (kills runaway loops); it
+// is NOT a determinism meter. The zkVM guest's cycle count (§18) stays the
+// authoritative compute-cost meter.
 
 import { newQuickJSWASMModuleFromVariant, DefaultIntrinsics } from './core/index.mjs';
 import { QUICKJS_NG_SINGLEFILE_VARIANT } from './variant.mjs';
 
-export const OCG_DETERMINISTIC_COMPUTE_PROFILE = 'ocg-deterministic-compute@1';
+export const OCG_DETERMINISTIC_COMPUTE_PROFILE = 'ocg-deterministic-compute@2';
 
-// Distinctive value returned by the in-VM executionHash STUB (see prelude). The real
-// execution_hash is computed HOST-SIDE by the caller in WebCrypto — a kernel's own
-// `await executionHash(pp, output_payload)` call inside buildArtifact is only there to fill
-// the FINAL envelope field, which callers discard and recompute. But a handful of kernels
-// (e.g. art-55) call executionHash MID-COMPUTE to fold a SHA-256 (a merkle_root) into a DATA
-// field of output_payload. That output cannot be faithfully reproduced without a host SHA-256,
-// so if this sentinel survives into the extracted output_payload the harness surfaces the
-// crypto dependency as a host-API limitation instead of shipping a stubbed output.
-export const VM_STUB_HASH_SENTINEL = '__ocg_vm_stub_hash_5f3a2b1c__';
-
+// The determinism prelude, injected before any kernel source. It (a) closes the
+// §24 D4/D5/D6 escape hatches at the JS layer, (b) installs the deterministic
+// WebCrypto subset bridge (§24.5) over the host functions registered by
+// runKernelInVM, and (c) defines the real executionHash (identical to
+// kernels/_hash.mjs, which the ESM strip removes) on top of that bridge.
+//
+// BigInt is NATIVE in this guest-pinned build (v0.15.1) — no polyfill. TextEncoder
+// is still absent from this JS-engine-only build (it was never ECMA-262), so a
+// pure, deterministic UTF-8 polyfill remains.
 const DETERMINISM_PRELUDE = `
 Object.defineProperty(Math, 'random', {
   value: function ocgDisabledRandom() {
@@ -64,54 +77,40 @@ if (typeof Intl !== 'undefined') { globalThis.Intl = undefined; }
   };
   globalThis.Date = GuardedDate;
 })();
-// executionHash stub (D7 host API): kernels \`import { executionHash } from './_hash.mjs'\`,
-// which the ESM strip removes. Real SHA-256 is host-side WebCrypto and is NOT bridged into
-// the sandbox. buildArtifact's final \`await executionHash(pp, output_payload)\` fills the
-// envelope execution_hash field, which the caller discards and recomputes host-side, so a
-// no-op stub returning a distinctive sentinel lets buildArtifact run to completion. If the
-// sentinel ends up inside output_payload (a kernel folding a hash into a DATA field) the host
-// harness detects it and surfaces the dependency (see VM_STUB_HASH_SENTINEL).
-globalThis.executionHash = function ocgStubExecutionHash() { return '${VM_STUB_HASH_SENTINEL}'; };
-// WebCrypto (crypto.subtle / getRandomValues) is a HOST API, not an ECMA-262 intrinsic, and is
-// intentionally absent from this sandbox. A kernel that reaches for it cannot be faithfully run
-// under ${OCG_DETERMINISTIC_COMPUTE_PROFILE}. Rather than let the access surface as a silent wrong
-// answer (several kernels wrap crypto.subtle in a try/catch that degrades to a false verdict), the
-// proxy RECORDS the touch via a host callback — so the harness throws even when the kernel swallows
-// the error — and then throws. Consistent with §24 "every escape hatch is closed or named".
-(function ocgGuardWebCrypto() {
-  function touch() {
-    if (typeof __ocgHostApiTouched === 'function') { __ocgHostApiTouched('crypto.subtle'); }
-    throw new Error('WebCrypto (crypto.subtle) is a host API, unavailable under ${OCG_DETERMINISTIC_COMPUTE_PROFILE} (SPEC.md \\u00a724 D7)');
-  }
-  var cryptoObj = { get subtle() { touch(); }, getRandomValues: function () { touch(); } };
-  Object.defineProperty(globalThis, 'crypto', { get: function () { return cryptoObj; }, configurable: false });
-})();
-if (typeof BigInt === 'undefined') {
-  // This prebuilt jitl release-sync binary parses BigInt LITERALS (e.g. 1n) fine --
-  // the primitive type is enabled via the BigInt intrinsic -- but does not expose the
-  // BigInt(value) global constructor function. Not a §24 determinism gap (BigInt
-  // arithmetic is exact by definition); a pure, deterministic polyfill closes it so
-  // kernels that call BigInt(someNumberOrString) still run unmodified.
-  globalThis.BigInt = function ocgBigInt(value) {
-    if (typeof value === 'bigint') return value;
-    var s;
-    if (typeof value === 'number') {
-      if (!Number.isInteger(value)) throw new RangeError('The number ' + value + ' cannot be converted to a BigInt because it is not an integer');
-      s = String(value);
-    } else if (typeof value === 'string') {
-      s = value.trim() || '0';
-    } else if (typeof value === 'boolean') {
-      s = value ? '1' : '0';
-    } else {
-      throw new TypeError('Cannot convert ' + (typeof value) + ' to a BigInt');
+if (typeof atob === 'undefined') {
+  // base64 decode/encode are WHATWG globals, absent from this JS-engine-only build. Several
+  // kernels (art-124/129) decode signatures/keys via globalThis.atob. Deterministic pure-JS
+  // polyfills (RFC 4648 std alphabet); atob returns a binary string, exactly like the browser.
+  var __ocgB64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  globalThis.atob = function ocgAtob(input) {
+    var str = String(input).replace(/[ \\t\\r\\n\\f]/g, '');
+    if (str.length % 4 === 1) throw new Error("Failed to execute 'atob': invalid base64 length");
+    str = str.replace(/=+$/, '');
+    var out = '', bits = 0, acc = 0;
+    for (var i = 0; i < str.length; i++) {
+      var idx = __ocgB64.indexOf(str.charAt(i));
+      if (idx === -1) throw new Error("Failed to execute 'atob': invalid character");
+      acc = (acc << 6) | idx; bits += 6;
+      if (bits >= 8) { bits -= 8; out += String.fromCharCode((acc >> bits) & 0xFF); }
     }
-    if (!/^-?\\d+$/.test(s)) throw new SyntaxError('Cannot convert ' + JSON.stringify(value) + ' to a BigInt');
-    return Function('return (' + s + 'n);')();
+    return out;
+  };
+  globalThis.btoa = function ocgBtoa(input) {
+    var str = String(input), out = '';
+    for (var i = 0; i < str.length; i += 3) {
+      var a = str.charCodeAt(i), b = str.charCodeAt(i + 1), c = str.charCodeAt(i + 2);
+      if (a > 0xFF || (i + 1 < str.length && b > 0xFF) || (i + 2 < str.length && c > 0xFF)) {
+        throw new Error("Failed to execute 'btoa': character out of range");
+      }
+      var e1 = a >> 2, e2 = ((a & 3) << 4) | (b >> 4), e3 = ((b & 15) << 2) | (c >> 6), e4 = c & 63;
+      if (isNaN(b)) { e3 = e4 = 64; } else if (isNaN(c)) { e4 = 64; }
+      out += __ocgB64.charAt(e1) + __ocgB64.charAt(e2) + (e3 === 64 ? '=' : __ocgB64.charAt(e3)) + (e4 === 64 ? '=' : __ocgB64.charAt(e4));
+    }
+    return out;
   };
 }
 if (typeof TextEncoder === 'undefined') {
-  // Same story: WHATWG Encoding globals are absent from this JS-engine-only build
-  // (they were never part of ECMA-262). Deterministic pure-JS UTF-8 polyfill.
+  // WHATWG Encoding globals are absent from this JS-engine-only build. Deterministic pure-JS UTF-8 polyfill.
   globalThis.TextEncoder = function ocgTextEncoder() {};
   globalThis.TextEncoder.prototype.encode = function ocgEncode(input) {
     var str = input == null ? '' : String(input);
@@ -127,15 +126,87 @@ if (typeof TextEncoder === 'undefined') {
     return Uint8Array.from(bytes);
   };
 }
+// ── Deterministic WebCrypto subset (§24.5 @2) ───────────────────────────────
+// ALLOWED (bridged to host WebCrypto, byte-identical to the worker):
+//   crypto.subtle.digest (SHA-256/384), importKey, verify.
+// BANNED (§24 D5 randomness — throw):
+//   crypto.getRandomValues, crypto.subtle.generateKey, crypto.subtle.sign.
+(function ocgInstallWebCrypto() {
+  function toArrayBuffer(d) {
+    if (d instanceof ArrayBuffer) return d;
+    // TypedArray / DataView view → the exact backing slice
+    return d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength);
+  }
+  function algoName(a) { return typeof a === 'string' ? a : (a && a.name) || String(a); }
+  function bannedRandom(which) {
+    return function ocgBannedRandomCrypto() {
+      throw new Error(which + ' is randomness, banned under ${OCG_DETERMINISTIC_COMPUTE_PROFILE} (SPEC.md \\u00a724.5 / D5) — unavailable inside the deterministic VM');
+    };
+  }
+  var subtle = {
+    // digest(algo, data) -> Promise<ArrayBuffer>. Host returns the ArrayBuffer directly;
+    // Promise.resolve wraps it so an in-kernel \`await\` resolves uniformly.
+    digest: function (algo, data) {
+      return Promise.resolve(__ocgDigest(algoName(algo), toArrayBuffer(data)));
+    },
+    // importKey stays in-VM: it returns an opaque key object carrying the material +
+    // import algorithm. No host round-trip and no host key state — verify re-marshals it.
+    importKey: function (fmt, keyData, algo, extractable, usages) {
+      return Promise.resolve({ __ocgKey: true, fmt: fmt, keyData: keyData, algo: algo });
+    },
+    // verify(verifyAlgo, key, signature, data) -> Promise<boolean>. The host performs
+    // importKey+verify against globalThis.crypto.subtle, byte-identical to the worker.
+    verify: function (verifyAlgo, key, signature, data) {
+      if (!key || !key.__ocgKey) {
+        throw new Error('crypto.subtle.verify requires a key from crypto.subtle.importKey under ${OCG_DETERMINISTIC_COMPUTE_PROFILE}');
+      }
+      return Promise.resolve(__ocgVerify(
+        JSON.stringify(key.algo), JSON.stringify(verifyAlgo), JSON.stringify(key.keyData),
+        toArrayBuffer(signature), toArrayBuffer(data)
+      ));
+    },
+    generateKey: bannedRandom('crypto.subtle.generateKey'),
+    sign: bannedRandom('crypto.subtle.sign'),
+  };
+  var cryptoObj = { subtle: subtle, getRandomValues: bannedRandom('crypto.getRandomValues') };
+  Object.defineProperty(globalThis, 'crypto', { get: function () { return cryptoObj; }, configurable: false });
+})();
+// ── Real executionHash (identical to kernels/_hash.mjs; the ESM strip removed the import) ──
+// Now that crypto.subtle.digest + TextEncoder work in-VM, this is the AUTHENTIC hash, not a
+// stub — so a kernel that folds a host SHA-256 into output_payload (art-55 merkle_root) is
+// reproduced byte-for-byte.
+(function ocgInstallExecutionHash() {
+  function assertIJson(v) {
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) throw new Error('Non-finite number (' + v + ') is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 \\u00a73.2.2.3).');
+      if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer ' + v + ' exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).');
+    } else if (Array.isArray(v)) {
+      v.forEach(assertIJson);
+    } else if (v && typeof v === 'object') {
+      for (var k in v) { if (Object.prototype.hasOwnProperty.call(v, k)) assertIJson(v[k]); }
+    }
+  }
+  function cgCanon(v) {
+    if (Array.isArray(v)) return v.map(cgCanon);
+    if (v && typeof v === 'object') {
+      return Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon(v[k]); return o; }, {});
+    }
+    return v;
+  }
+  globalThis.executionHash = async function ocgExecutionHash(policy_parameters, output_payload) {
+    var obj = { policy_parameters: policy_parameters, output_payload: output_payload };
+    assertIJson(obj);
+    var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+    var digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  };
+})();
 `.trim();
 
 /** Strips ESM import/export syntax a kernel.mjs file uses so it can run as a
  * plain QuickJS script. Kernels only ever import { executionHash } from
- * './_hash.mjs' (verified against the full chaingraph/kernels/*.kernel.mjs set,
- * 2026-07 — a real import target would fail loudly inside the VM, not silently
- * miscompute, because compute() never calls executionHash itself: the hash is
- * computed OUTSIDE the VM, in the host environment's real WebCrypto, exactly as
- * kernel-contract.test.mjs / golden-parity.test.mjs already do). */
+ * './_hash.mjs' (verified against the full chaingraph/kernels/*.kernel.mjs set) —
+ * the prelude re-defines executionHash as the real host-bridged implementation. */
 export function stripEsmSyntaxForVm(kernelSource) {
   return kernelSource
     .replace(/^import\s+.*$/gm, '')
@@ -180,59 +251,75 @@ export async function runKernelInVM(kernelSource, policyParameters, opts = {}) {
     return steps > interruptBudgetSteps; // budget ENFORCER only — see header note.
   });
 
-  // TWO VM-1a FINDINGS vs. the literal "disable Date + Eval via context
-  // intrinsics" instruction, both empirically confirmed 2026-07-09 and carried
-  // forward to VM-1b:
-  //
-  // 1. Eval: in this prebuilt jitl release-sync binary, intrinsics.Eval=false
-  //    disables the host QTS_Eval entry point that context.evalCode() itself
-  //    uses to run ANY code, not just the guest-callable eval() global
-  //    ("eval is not supported" TypeError from the wasm side). Eval stays
-  //    enabled; the residual risk is a kernel calling eval()/Function()
-  //    internally, a code-shape concern (no kernel in the fixture set does
-  //    this) rather than a determinism one -- eval'd code still runs inside
-  //    the same Date-guarded, Math.random-stubbed, Intl-less sandbox.
-  //
-  // 2. Date: intrinsics.Date=false removes the WHOLE Date object, but live
-  //    kernels (e.g. art-01-ap2-mandate-chain-validator) legitimately call
-  //    `new Date(pp.some_iso_timestamp)` to deterministically PARSE a
-  //    caller-supplied ISO 8601 string from policy_parameters -- that is pure
-  //    string computation, not a wall-clock read, and the intrinsics flag has
-  //    no granularity to keep parsing while banning `Date.now()`/no-arg
-  //    `new Date()`. So D4 is enforced at the JS layer instead: the
-  //    determinism prelude below keeps the Date intrinsic ON but replaces the
-  //    global with a guard that throws on `Date.now()`, throws on `new Date()`
-  //    with zero arguments, and throws on `Date()` called without `new`
-  //    (all wall-clock/ambient reads) while passing any Date(...args) call
-  //    through to the real constructor for deterministic parsing/arithmetic.
-  //    VM-1b can revisit both once the guest-pinned custom build gives more
-  //    control over which C intrinsics are compiled in at all.
+  // Date + Eval stay ENABLED as C intrinsics (VM-1a findings, carried forward):
+  //   Eval: context.evalCode() itself routes through QTS_Eval, so intrinsics.Eval=false
+  //     breaks the harness's own code entry; the residual "kernel calls eval()" risk is a
+  //     code-shape concern (no fixture does it), enforced at the JS layer instead.
+  //   Date: live kernels call new Date(pp.some_iso_timestamp) to PARSE a caller string
+  //     (pure computation); the intrinsic flag can't keep parsing while banning .now(), so
+  //     D4 is a JS-layer guard (see the prelude).
+  //   BigInt: NATIVE and full in this guest-pinned v0.15.1 build (prototype methods included),
+  //     IEEE-754-exact by definition — enabled with no §24 risk (art-201).
   const context = runtime.newContext({
-    // BigInt: several kernels (e.g. art-201 ISCC content-code generator) need it for
-    // exact 64-bit multihash arithmetic; it is IEEE-754-exact/deterministic by
-    // definition (arbitrary-precision integers), so enabling it adds no §24 risk.
     intrinsics: { ...DefaultIntrinsics, Date: true, Eval: true, BigInt: true },
   });
 
-  // Host-API touch recorder: the WebCrypto guard in the prelude calls this the instant a
-  // kernel accesses crypto.subtle, BEFORE it throws. That way a kernel that swallows the
-  // throw in a try/catch (degrading to a false verdict) is STILL surfaced — the harness
-  // checks this flag after the run and throws regardless of what the kernel returned.
-  let hostApiTouched = null;
-  const touchCb = context.newFunction('__ocgHostApiTouched', (apiHandle) => {
-    hostApiTouched = context.dump(apiHandle);
+  // Host WebCrypto bridge (§24.5 @2). These host functions return QuickJS promises resolved
+  // from the runtime's own WebCrypto (globalThis.crypto.subtle — present in Node 18+ and the
+  // browser), so the digest/verify a kernel awaits is byte-identical to the worker's. Every
+  // in-flight host promise is tracked in `pending` so the drive loop can await settlement
+  // between QuickJS job drains.
+  const pending = [];
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error('runtime has no globalThis.crypto.subtle — cannot bridge the §24.5 deterministic WebCrypto subset');
+
+  const readAB = (h) => {
+    const lt = context.getArrayBuffer(h);
+    const bytes = new Uint8Array(lt.value.slice()); // copy out before dispose
+    lt.dispose();
+    return bytes;
+  };
+  const settleFromHostPromise = (deferred, hostPromise, mapResolve) => {
+    hostPromise
+      .then((v) => { const h = mapResolve(v); deferred.resolve(h); if (h?.dispose && h !== context.true && h !== context.false && h !== context.undefined) h.dispose(); })
+      .catch((e) => { const s = context.newString(String(e && e.message ? e.message : e)); deferred.reject(s); s.dispose(); })
+      .finally(() => { try { runtime.executePendingJobs(); } catch { /* drained by the loop below */ } });
+    pending.push(deferred.settled);
+    return deferred.handle;
+  };
+
+  const digestFn = context.newFunction('__ocgDigest', (algoH, bufH) => {
+    const algo = context.getString(algoH);
+    const bytes = readAB(bufH);
+    const deferred = context.newPromise();
+    return settleFromHostPromise(deferred, subtle.digest(algo, bytes), (ab) => context.newArrayBuffer(new Uint8Array(ab)));
   });
-  context.setProp(context.global, '__ocgHostApiTouched', touchCb);
-  touchCb.dispose();
+  context.setProp(context.global, '__ocgDigest', digestFn);
+  digestFn.dispose();
+
+  const verifyFn = context.newFunction('__ocgVerify', (importAlgoH, verifyAlgoH, jwkH, sigH, dataH) => {
+    const importAlgo = JSON.parse(context.getString(importAlgoH));
+    const verifyAlgo = JSON.parse(context.getString(verifyAlgoH));
+    const keyData = JSON.parse(context.getString(jwkH));
+    const sig = readAB(sigH);
+    const data = readAB(dataH);
+    const deferred = context.newPromise();
+    const hostPromise = (async () => {
+      const key = await subtle.importKey('jwk', keyData, importAlgo, false, ['verify']);
+      return subtle.verify(verifyAlgo, key, sig, data);
+    })();
+    return settleFromHostPromise(deferred, hostPromise, (ok) => (ok ? context.true : context.false));
+  });
+  context.setProp(context.global, '__ocgVerify', verifyFn);
+  verifyFn.dispose();
 
   const t0 = performance.now();
   try {
     context.unwrapResult(context.evalCode(DETERMINISM_PRELUDE, 'ocg-vm-prelude.js')).dispose();
 
     const body = stripEsmSyntaxForVm(kernelSource);
-    // compute() may be sync or async (several kernels declare `export async function
-    // compute`, generally for a uniform call shape rather than any real await); always
-    // funnel through Promise.resolve() so the harness has one resolution path for both.
+    // compute()/buildArtifact() may be sync or async; funnel through Promise.resolve() so the
+    // harness has one resolution path for both.
     const wrapped = [
       '(function ocgKernelVmEntry() {',
       body,
@@ -245,33 +332,23 @@ export async function runKernelInVM(kernelSource, policyParameters, opts = {}) {
       '})();',
     ].join('\n');
 
-    // promiseHandle/resultHandle MUST be disposed on every path, including a thrown
-    // getPromiseState (rejected promise): an undisposed handle at runtime.dispose()
-    // time trips a hard C-level `Aborted(Assertion failed: list_empty(&rt->gc_obj_list))`
-    // -- not a catchable JS error, a genuine leak -- found empirically 2026-07-09 on
-    // kernels whose compute() rejects (e.g. via a thrown error inside an async function).
     let promiseHandle;
     let resultHandle;
     try {
       promiseHandle = context.unwrapResult(context.evalCode(wrapped, 'kernel.js'));
-      while (runtime.hasPendingJob()) {
-        context.unwrapResult(runtime.executePendingJobs());
+      // Drive loop: interleave QuickJS microtask draining with host-promise settlement. A kernel
+      // that awaits crypto.subtle.digest/verify suspends into a host promise; we drain jobs, then
+      // await any in-flight host promises, then drain again, until the top-level promise settles.
+      // The guard bounds a pathological loop (defence-in-depth beside the interrupt budget).
+      let guard = 0;
+      while (runtime.hasPendingJob() || pending.length) {
+        while (runtime.hasPendingJob()) context.unwrapResult(runtime.executePendingJobs());
+        if (pending.length) await Promise.all(pending.splice(0));
+        if (++guard > 1_000_000) throw new Error('VM drive loop exceeded its settlement budget (possible unresolved host promise)');
       }
       resultHandle = context.unwrapResult(context.getPromiseState(promiseHandle));
       const output_payload = context.dump(resultHandle);
-      // A recorded host-API touch wins over whatever the kernel returned/threw: surface it
-      // as a named limitation rather than trusting a degraded output.
-      if (hostApiTouched) {
-        throw new Error(`kernel depends on host API '${hostApiTouched}', unavailable under ${OCG_DETERMINISTIC_COMPUTE_PROFILE} — VM-1a cannot faithfully execute it (surfaced, not silently degraded).`);
-      }
       return { output_payload, elapsed_ms: performance.now() - t0 };
-    } catch (e) {
-      // If the kernel let the WebCrypto throw escape uncaught, the touch was still recorded —
-      // normalise the message so callers classify it uniformly as a host-API limitation.
-      if (hostApiTouched) {
-        throw new Error(`kernel depends on host API '${hostApiTouched}', unavailable under ${OCG_DETERMINISTIC_COMPUTE_PROFILE} — VM-1a cannot faithfully execute it (surfaced, not silently degraded).`);
-      }
-      throw e;
     } finally {
       resultHandle?.dispose();
       promiseHandle?.dispose();
@@ -291,10 +368,8 @@ export async function runKernelInVM(kernelSource, policyParameters, opts = {}) {
  * NON-canonical for the envelope kernels. buildArtifact is each kernel's own authoritative
  * extraction, so running it here yields the canonical payload uniformly.
  *
- * The in-VM executionHash is a no-op stub (see prelude); the caller computes the real
- * execution_hash host-side over the returned output_payload. If the stub sentinel survives
- * into output_payload (a kernel that folds a host SHA-256 into a data field, e.g. art-55's
- * merkle_root) this throws — the payload is not faithfully reproducible in the sandbox.
+ * Under VM-1b the in-VM executionHash is the REAL host-bridged hash (§24.5), so a kernel that
+ * folds a host SHA-256 into a data field (e.g. art-55's merkle_root) is reproduced byte-for-byte.
  *
  * @returns {Promise<{output_payload: any, elapsed_ms: number}>}
  */
@@ -302,8 +377,5 @@ export async function runKernelArtifactInVM(kernelSource, policyParameters, opts
   const res = await runKernelInVM(kernelSource, policyParameters, { ...opts, functionName: 'buildArtifact' });
   const artifact = res.output_payload;
   const output_payload = artifact?.output_payload;
-  if (JSON.stringify(output_payload ?? null).includes(VM_STUB_HASH_SENTINEL)) {
-    throw new Error(`kernel folds a host SHA-256 (executionHash) into output_payload, unavailable under ${OCG_DETERMINISTIC_COMPUTE_PROFILE} — VM-1a cannot faithfully reproduce it (surfaced, not silently degraded).`);
-  }
   return { output_payload, elapsed_ms: res.elapsed_ms };
 }

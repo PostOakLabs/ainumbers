@@ -77,11 +77,12 @@ export function compute(pp) {
     applicable_penalties.art21_pct_turnover = 0.014;
   }
 
-  const compliance_flags = { NIS2_SCOPE_ASSESSED: true };
-  if (entity_classification === 'essential') compliance_flags.NIS2_ESSENTIAL_ENTITY = true;
-  else if (entity_classification === 'important') compliance_flags.NIS2_IMPORTANT_ENTITY = true;
-  else compliance_flags.NIS2_OUT_OF_SCOPE = true;
-  if (automatic_essential) compliance_flags.NIS2_AUTOMATIC_ESSENTIAL = true;
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_SCOPE_ASSESSED');
+  if (entity_classification === 'essential') compliance_flags.push('NIS2_ESSENTIAL_ENTITY');
+  else if (entity_classification === 'important') compliance_flags.push('NIS2_IMPORTANT_ENTITY');
+  else compliance_flags.push('NIS2_OUT_OF_SCOPE');
+  if (automatic_essential) compliance_flags.push('NIS2_AUTOMATIC_ESSENTIAL');
 
   const output_payload = {
     entity_classification, classification_basis, annex,

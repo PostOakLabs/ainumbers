@@ -102,16 +102,15 @@ export function compute(pp) {
 
   const verdict = errors > 0 ? 'unsafe' : warnings > 0 ? 'advisory' : 'safe';
 
-  const compliance_flags = {
-    AGENTIC_TOKEN_SCOPE_LINTED: true,
-    TOKEN_SCOPE_SAFE: verdict === 'safe',
-    TOKEN_SCOPE_ADVISORY: verdict === 'advisory',
-    TOKEN_SCOPE_UNSAFE: verdict === 'unsafe',
-    HAS_AGENT_BINDING: findings.some(f => f.level === 'pass' && f.msg.startsWith('Agent-bound')),
-    HAS_MERCHANT_SCOPE: findings.some(f => f.level === 'pass' && f.msg.startsWith('Merchant-scoped')),
-    HAS_SPEND_LIMIT: findings.some(f => f.level === 'pass' && f.msg.includes('limit set')),
-    HAS_EXPIRY: findings.some(f => f.level === 'pass' && f.msg.startsWith('Expiry set')),
-  };
+  const compliance_flags = [];
+  compliance_flags.push('AGENTIC_TOKEN_SCOPE_LINTED');
+  if (verdict === 'safe') compliance_flags.push('TOKEN_SCOPE_SAFE');
+  if (verdict === 'advisory') compliance_flags.push('TOKEN_SCOPE_ADVISORY');
+  if (verdict === 'unsafe') compliance_flags.push('TOKEN_SCOPE_UNSAFE');
+  if (findings.some(f => f.level === 'pass' && f.msg.startsWith('Agent-bound'))) compliance_flags.push('HAS_AGENT_BINDING');
+  if (findings.some(f => f.level === 'pass' && f.msg.startsWith('Merchant-scoped'))) compliance_flags.push('HAS_MERCHANT_SCOPE');
+  if (findings.some(f => f.level === 'pass' && f.msg.includes('limit set'))) compliance_flags.push('HAS_SPEND_LIMIT');
+  if (findings.some(f => f.level === 'pass' && f.msg.startsWith('Expiry set'))) compliance_flags.push('HAS_EXPIRY');
 
   const output_payload = { verdict, score, errors, warnings, passes, findings: findings.map(f => ({ level: f.level, msg: f.msg })) };
   return { output_payload, compliance_flags };

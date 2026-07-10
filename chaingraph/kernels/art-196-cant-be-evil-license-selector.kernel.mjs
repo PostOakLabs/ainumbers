@@ -162,12 +162,9 @@ export async function compute(pp) {
     disclaimer:             'Selection only. Not legal advice. The canonical Arweave license texts govern; verify before relying on any output for commercial or legal decisions.',
   };
 
-  const compliance_flags = {
-    CBE_LICENSE_SELECTED:  true,
-    COMMERCIAL_GRANTED:    L.commercial,
-    OBJECTIONABLE_USE_RESTRICTION: L.objectionable_use_restriction,
-    SELECTION_NOT_ADVICE:  true,
-  };
+  const compliance_flags = ['CBE_LICENSE_SELECTED', 'SELECTION_NOT_ADVICE'];
+  if (L.commercial) compliance_flags.push('COMMERCIAL_GRANTED');
+  if (L.objectionable_use_restriction) compliance_flags.push('OBJECTIONABLE_USE_RESTRICTION');
 
   return { output_payload, compliance_flags };
 }
