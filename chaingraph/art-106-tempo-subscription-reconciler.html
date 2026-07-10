@@ -484,8 +484,21 @@ function cgCanon(v) {
   return out;
 }
 
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+
 async function executionHashLocal(pp, outputPayload) {
-  const obj = cgCanon({ policy_parameters: pp, output_payload: outputPayload });
+  const __raw = { policy_parameters: pp, output_payload: outputPayload };
+  assertIJson(__raw);
+  const obj = cgCanon(__raw);
   const s = JSON.stringify(obj);
   const buf = new TextEncoder().encode(s);
   const dig = await crypto.subtle.digest('SHA-256', buf);
