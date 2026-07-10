@@ -17,7 +17,10 @@ const BASELINE = process.env.DLC_BASELINE ? resolve(process.env.DLC_BASELINE)
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
 
 const CHECK_EXT = new Set(['.html','.htm','.css','.js','.mjs','.json','.png','.jpg','.jpeg','.gif','.svg','.webp','.ico','.pdf','.xml','.txt','.woff','.woff2']);
-const SKIP_DIRS = new Set(['.git','node_modules','.github']);
+// Sibling git worktrees are checked out as literal subdirs (repo/worktrees/*,
+// repo/.claude/worktrees/*) — their WIP HTML is a foreign checkout, not this
+// worktree's content, and must never fail this worktree's push.
+const SKIP_DIRS = new Set(['.git','node_modules','.github','worktrees']);
 
 function walk(dir, out=[]) {
   for (const e of readdirSync(dir, { withFileTypes:true })) {
