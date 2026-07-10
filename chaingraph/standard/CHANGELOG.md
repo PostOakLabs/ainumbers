@@ -3,6 +3,19 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.7 — ML landing-pass riders (§HASHRES-1, §PQC-1, §REVOKE-1, §SIDECAR)
+- **Record bump only — all four sections were already normative in `SPEC.md` since the additive landing pass.**
+  This entry moves the `spec_version` of record from 0.8.6 to 0.8.7 across every declared surface. Folded into the
+  GD-1 reserve-disclosure-checker landing so the `chaingraph.json` single-writer edit is touched once.
+- **§HASHRES-1** — Ledger hash-resolution addressing contract (RFC 6920 / ISO 18670 SWHID), informative SCITT alignment.
+- **§PQC-1** — hybrid dual §16 Data Integrity proof over the same JCS bytes (`eddsa-jcs-2022` + a TBD-on-registration
+  ML-DSA cryptosuite; verifier policy modes classical/pq/both); retires the parked PQC-COSE detour.
+- **§REVOKE-1** — OPTIONAL W3C BitstringStatusList receipt/key revocation reference under `audit_signature`.
+- **§SIDECAR** — small riders: Identity Sidecar pattern, tiered `OCG-Verify`/`OCG-Execute`/`OCG-Prove` labels atop §15,
+  reserved resource-narrowing invariant for future multi-hop mandates, Vouch Protocol prior-art acknowledgement.
+- Fully additive: no envelope/hash/schema change, `chaingraph_version` stays `0.4.0`, every existing `execution_hash`
+  is byte-identical, and each new normative MUST binds to an existing §15 gate.
+
 ## 0.8.6 — Deterministic Compute Profile `@2`: WebCrypto subset split (§24.5)
 - **§24.5 `ocg-deterministic-compute@2` (new, normative, profile-scoped).** A new profile version — a new named
   profile ALONGSIDE `@1` per the §24.2 freeze clause, never an in-place edit of `@1` — that keeps rows D1–D6
