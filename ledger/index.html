@@ -55,6 +55,8 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 .nav-cta:hover{opacity:.85}
 .nav-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.3rem .75rem;font-size:.75rem;cursor:pointer;font-family:inherit;transition:border-color .2s,color .2s}
 .nav-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.nav-resolve-input{background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:.3rem .6rem;font-size:.72rem;font-family:'JetBrains Mono',monospace;width:11rem}
+.nav-resolve-input:focus{outline:none;border-color:var(--teal)}
 
 /* tab bar */
 .tab-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 24px}
@@ -357,6 +359,8 @@ section.main-section{padding:2rem 0}
     <span style="color:var(--gold)">Agent Work Ledger</span>
   </div>
   <div class="nav-right">
+    <input type="text" id="nav-resolve-input" class="nav-resolve-input" placeholder="Resolve a hash&#8230;" spellcheck="false" title="Paste an execution_hash to resolve it against this Ledger (§HASHRES-1)">
+    <button class="nav-btn" id="nav-resolve-btn" title="Resolve hash: recompute-and-match or 404">Resolve</button>
     <button class="nav-btn" id="nav-import-btn" title="Import artifact file or bundle">Import</button>
     <button class="nav-btn" id="nav-export-btn" title="Export all artifacts as bundle">Export all</button>
     <input type="file" id="nav-file-input" class="ingress-file-input" accept=".json" multiple>
@@ -419,7 +423,7 @@ section.main-section{padding:2rem 0}
 'use strict';
 
 /* ── CONSTANTS ──────────────────────────────────────────────────── */
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const DB_NAME = 'ocg-ledger';
 const DB_VERSION = 1;
 const STORE_NAME = 'artifacts';
@@ -1473,6 +1477,23 @@ async function confirmKeep(artifact) {
 /* ── LEDGER VIEW ────────────────────────────────────────────────── */
 let _filter = localStorage.getItem('ocg_filter') || 'all';
 let _filterChain = '';
+
+// §HASHRES-1 (SPEC.md :1301) — a dereference is content whose recomputed §4 hash
+// equals the address, or it 404s. This Ledger's store is local/per-user, so "not found
+// here" is the 404 case: it never serves different content under a matching-looking address.
+function renderNotFound(execHash) {
+  const main = document.getElementById('main');
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="empty-state">
+      <h2>404 — not resolvable</h2>
+      <p>No artifact for <code>${escapeHtml(execHash)}</code> is stored in this Ledger.
+      Per §HASHRES-1, an address either resolves to content whose recomputed hash matches
+      it, or it 404s &mdash; never a different value under the same address. Import the
+      artifact (drag/drop or paste) to make this address resolvable here.</p>
+      <button class="nav-btn" onclick="navigate('')">Back to Ledger</button>
+    </div>
+  </div></section>`;
+}
 
 async function renderLedger() {
   const main = document.getElementById('main');
@@ -2667,7 +2688,7 @@ async function route() {
     const execHash = hash.slice(6);
     const rec = await dbGet(execHash);
     if (rec?.artifact) { await showRecord(rec.artifact); }
-    else { showToast('Artifact not found in ledger.', 'warn'); await renderLedger(); }
+    else { renderNotFound(execHash); }
     return;
   }
   // Fragment import channel
@@ -2710,6 +2731,17 @@ async function handleFragmentImport() {
 
 /* ── NAV WIRING ─────────────────────────────────────────────────── */
 function wireNav() {
+  // §HASHRES-1 resolve affordance: paste a hash, recompute-and-match against this
+  // Ledger's local store or land on the 404 state. Zero-egress — no network call.
+  const resolveHash = () => {
+    const input = document.getElementById('nav-resolve-input');
+    const val = (input?.value || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64,66}$/.test(val)) { showToast('Not a valid execution_hash (64-66 hex chars).', 'warn'); return; }
+    if (input) input.value = '';
+    navigate('#view/' + val);
+  };
+  document.getElementById('nav-resolve-btn')?.addEventListener('click', resolveHash);
+  document.getElementById('nav-resolve-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') resolveHash(); });
   document.getElementById('nav-export-btn')?.addEventListener('click', exportAll);
   document.getElementById('nav-import-btn')?.addEventListener('click', () => {
     document.getElementById('nav-file-input')?.click();
@@ -2754,6 +2786,13 @@ function wireNav() {
 
   // Request storage persistence (best-effort, once)
   if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+
+  // §HASHRES-1 addressing convention (SPEC.md :1301): a bare path segment shaped like
+  // an execution_hash (served here by the .htaccess rewrite) is equivalent to #view/<hash>.
+  const pathHash = location.pathname.replace(/^\/+|\/+$/g, '');
+  if (!location.hash && /^[0-9a-f]{64,66}$/i.test(pathHash)) {
+    history.replaceState(null, '', location.pathname + '#view/' + pathHash);
+  }
 
   // Initial route
   await route();
