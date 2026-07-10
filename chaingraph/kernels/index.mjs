@@ -221,6 +221,7 @@ import * as art276 from './art-276-mutual-nda-composer.kernel.mjs';
 import * as art277 from './art-277-agreement-acceptance-binder.kernel.mjs';
 import * as art278 from './art-278-reputation-score-aggregator.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
+import * as art280 from './art-280-reserve-proof-verifier.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
@@ -529,6 +530,7 @@ export const KERNELS = {
   'art-277-agreement-acceptance-binder':                      art277,
   'art-278-reputation-score-aggregator':                      art278,
   'art-28-mcp-server-deployability-diagnostic':               art28,
+  'art-280-reserve-proof-verifier':                           art280,
   'art-29-dora-readiness-diagnostic':                         art29,
   'art-30-agent-commerce-conformance-validator':              art30,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
