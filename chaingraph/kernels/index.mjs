@@ -228,6 +228,7 @@ import * as art282 from './art-282-social-security-claiming-optimizer.kernel.mjs
 import * as art283 from './art-283-pension-lump-sum-vs-annuity-decision-engine.kernel.mjs';
 import * as art284 from './art-284-did-webvh-log-verifier.kernel.mjs';
 import * as art285 from './art-285-acdc-delegation-chain-verifier.kernel.mjs';
+import * as art286 from './art-286-anchored-extract-verifier.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
@@ -543,6 +544,7 @@ export const KERNELS = {
   'art-283-pension-lump-sum-vs-annuity-decision-engine':      art283,
   'art-284-did-webvh-log-verifier':                           art284,
   'art-285-acdc-delegation-chain-verifier':                   art285,
+  'art-286-anchored-extract-verifier':                        art286,
   'art-29-dora-readiness-diagnostic':                         art29,
   'art-30-agent-commerce-conformance-validator':              art30,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
