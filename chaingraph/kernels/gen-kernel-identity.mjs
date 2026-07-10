@@ -29,7 +29,7 @@ import { sourceDigest } from './_buildid.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = HERE;
 const CGPATH = resolve(HERE, '..', 'chaingraph.json');
-const VALID_FROM = '2026-06-27';
+const VALID_FROM = '2026-07-10';
 
 const mode = process.argv.includes('--write') ? 'write'
   : process.argv.includes('--check') ? 'check' : null;
