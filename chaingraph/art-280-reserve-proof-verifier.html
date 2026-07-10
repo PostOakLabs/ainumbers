@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reserve Proof Verifier · ART-280 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Verifies a Merkle-sum Proof-of-Reserves customer-inclusion proof against a declared root (OKX/Binance/Gate/Kraken formats) and checks a Chainlink PoR / NAVLink aggregator round for staleness and deviation. Records what is NOT proven.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-280-reserve-proof-verifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Reserve Proof Verifier · ART-280 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Merkle-sum PoR inclusion verifier + Chainlink PoR/NAVLink round staleness/deviation checker. Records what is NOT proven (liabilities completeness, encumbrances, point-in-time only). OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-280-reserve-proof-verifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;min-height:160px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+.check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.check-row label{font-size:.82rem;color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-280 · Reserve Proof Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-280 · Verify-Rails · Reserve Verification Family</div>
+  <h1>Reserve Proof Verifier</h1>
+  <p class="sub">Verifies a <b>Merkle-sum Proof-of-Reserves</b> customer-inclusion proof (OKX / Binance / Gate / Kraken export formats, or a generic canonical shape) against a declared root, and checks a Chainlink PoR / NAVLink aggregator round for staleness and deviation. Part of the <a href="art-275-genius-reserve-disclosure-checker.html">Reserve Verification Family</a> alongside the GENIUS Act Monthly Reserve Disclosure Checker. <b>Clean-room implementation</b>: no code copied from any exchange's PoR verifier library.</p>
+  <div>
+    <span class="flag">Merkle-Sum PoR</span>
+    <span class="flag warn">Chainlink PoR / NAVLink</span>
+    <span class="flag red">Not a PCAOB Audit</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">What this does NOT prove</div>
+    A single-leaf inclusion proof verifies ONE customer's balance is included in the committed root and that the root's total sum matches a declared figure. It does <b>not</b> prove total-liabilities completeness (an issuer could omit accounts), does not see off-balance-sheet encumbrances or rehypothecation, and is <b>point-in-time only</b>. This is not a PCAOB audit and carries no audit opinion.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('pass')">PASS: verified single-leaf root, clean PoR round</button>
+    <button class="preset-btn" onclick="loadPreset('warn')">WARN: verified inclusion, stale + deviating PoR round</button>
+    <button class="preset-btn" onclick="loadPreset('fail')">FAIL: tampered root sum</button>
+    <button class="preset-btn" onclick="loadPreset('okx')">PASS: OKX-format proof</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Proof Source</div>
+    <div class="q"><label><span class="dim">Field</span>Exchange / Proof Format</label>
+      <select id="exchange">
+        <option value="generic">Generic (canonical shape)</option>
+        <option value="okx">OKX</option>
+        <option value="binance">Binance</option>
+        <option value="gate">Gate.io</option>
+        <option value="kraken">Kraken</option>
+      </select></div>
+    <div class="q"><label><span class="dim">Field</span>Merkle Proof JSON (exchange-shaped, pasted from the exported PoR proof file)</label>
+      <textarea id="merkle_proof" placeholder='{"leaf_user_id_hash":"...","leaf_balance":0,"path":[{"hash":"...","sum":0,"position":"left|right"}],"root":{"hash":"...","sum":0}}'></textarea></div>
+
+    <div class="section-head">Chainlink PoR / NAVLink Round (optional)</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Round ID</label>
+        <input type="text" id="round_id" placeholder="e.g. okx-por-2027-02"></div>
+      <div class="q"><label><span class="dim">Field</span>Updated At (unix seconds)</label>
+        <input type="number" id="updated_at_seconds" placeholder="leave blank to skip" step="1"></div>
+      <div class="q"><label><span class="dim">Field</span>Current Timestamp (unix seconds)</label>
+        <input type="number" id="current_timestamp_seconds" placeholder="leave blank to skip" step="1"></div>
+    </div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Max Staleness (seconds)</label>
+        <input type="number" id="max_staleness_seconds" value="86400" step="1"></div>
+      <div class="q"><label><span class="dim">Field</span>Reserves Reported (USD)</label>
+        <input type="number" id="reserves_reported_usd" placeholder="leave blank to skip" step="1"></div>
+      <div class="q"><label><span class="dim">Field</span>Deviation Bound (%)</label>
+        <input type="number" id="deviation_bound_pct" value="5" step="0.1"></div>
+    </div>
+
+    <div class="section-head">On-Chain Storage-Proof Composition (optional, soft dep on VR-1)</div>
+    <div class="check-row"><input type="checkbox" id="composition_verified"><label for="composition_verified">A verified on-chain storage-proof result is available (VR-1 State-Proof Verifier)</label></div>
+
+    <button class="run-btn" onclick="run()">Run Reserve Proof Verifier →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="detVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Determination</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="inclVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Inclusion</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="sumVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Sum Verified</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Merkle-sum inclusion</div>
+    <table class="section-table">
+      <tbody id="proofTableBody"></tbody>
+    </table>
+
+    <div id="porSect" style="display:none">
+      <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Chainlink PoR / NAVLink round</div>
+      <div id="porBody" style="font-size:.8rem;color:var(--body)"></div>
+    </div>
+
+    <div id="compSect" style="margin:10px 0;font-size:.8rem;color:var(--body)"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Provenance</div>
+      Clean-room Merkle-sum-tree implementation (Summa report structure, shape only). Chainlink PoR / NAVLink round-data pattern. No code copied from any exchange's published verifier.
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Not an audit and not a PCAOB opinion. This tool verifies a single-leaf inclusion proof only; see &quot;What was NOT proven&quot; above.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-280-reserve-proof-verifier",
+  tool_version: "1.0.0",
+  mcp_name: "verify_reserve_proof",
+  mandate_type: "compliance_mandate",
+  wave: 49,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.7',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Verifies a Merkle-sum Proof-of-Reserves customer-inclusion proof against a declared root (OKX/Binance/Gate/Kraken formats) and checks a Chainlink PoR/NAVLink aggregator round for staleness and deviation. Records what is NOT proven.",
+  chain: "reserve-proof-verification",
+  url: "https://ainumbers.co/chaingraph/art-280-reserve-proof-verifier.html"
+};
+
+// --- Inlined pure-JS SHA-256 (no crypto.subtle needed for the kernel logic itself;
+//     browser build also has crypto.subtle available and is used for the artifact
+//     execution_hash below, matching every other OCG node page's pattern). ---
+
+function _utf8Bytes(str) {
+  const s = String(str);
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c < 0x80) { out.push(c); }
+    else if (c < 0x800) { out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f)); }
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      const hi = c, lo = s.charCodeAt(++i);
+      const cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
+      out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    } else { out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f)); }
+  }
+  return new Uint8Array(out);
+}
+
+function _sha256(bytes) {
+  const K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+  ]);
+  const msgLen = bytes.length;
+  const paddedLen = Math.ceil((msgLen + 9) / 64) * 64;
+  const padded = new Uint8Array(paddedLen);
+  padded.set(bytes);
+  padded[msgLen] = 0x80;
+  const bitLen = msgLen * 8;
+  for (let i = 0; i < 8; i++) padded[paddedLen - 8 + i] = Number((BigInt(bitLen) >> BigInt(56 - i * 8)) & 0xffn);
+  let [h0,h1,h2,h3,h4,h5,h6,h7] = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let cs = 0; cs < paddedLen; cs += 64) {
+    const W = new Uint32Array(64);
+    for (let i = 0; i < 16; i++) { const j = cs + i * 4; W[i] = (padded[j] << 24) | (padded[j+1] << 16) | (padded[j+2] << 8) | padded[j+3]; }
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(W[i-15], 7) ^ rotr(W[i-15], 18) ^ (W[i-15] >>> 3);
+      const s1 = rotr(W[i-2], 17) ^ rotr(W[i-2], 19) ^ (W[i-2] >>> 10);
+      W[i] = (W[i-16] + s0 + W[i-7] + s1) >>> 0;
+    }
+    let [a,b,c,d,e,f,g,h] = [h0,h1,h2,h3,h4,h5,h6,h7];
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25), ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[i] + W[i]) >>> 0;
+      const S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22), maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+  }
+  const r = new Uint8Array(32);
+  [h0,h1,h2,h3,h4,h5,h6,h7].forEach(function(v, i) { const j = i * 4; r[j] = v >>> 24; r[j+1] = (v >>> 16) & 0xff; r[j+2] = (v >>> 8) & 0xff; r[j+3] = v & 0xff; });
+  return r;
+}
+function _sha256Hex(str) { return Array.from(_sha256(_utf8Bytes(str))).map(b => b.toString(16).padStart(2,'0')).join(''); }
+
+const MAX_PATH_DEPTH = 40;
+
+function leafNode(userIdHash, balance) {
+  const sum = Number(balance ?? 0);
+  return { hash: _sha256Hex((userIdHash ?? '') + '|' + sum), sum };
+}
+function combineNodes(left, right) {
+  return { hash: _sha256Hex(left.hash + '|' + left.sum + '|' + right.hash + '|' + right.sum), sum: left.sum + right.sum };
+}
+function walkMerkleSumPath(leaf, path) {
+  let current = leaf;
+  for (const step of path) {
+    const sibling = { hash: String(step.hash ?? ''), sum: Number(step.sum ?? 0) };
+    current = step.position === 'left' ? combineNodes(sibling, current) : combineNodes(current, sibling);
+  }
+  return current;
+}
+
+function normalizeProof(exchange, raw) {
+  raw = raw || {};
+  if (exchange === 'okx') {
+    const path = (raw.merklePath || []).map(p => ({ hash: p.siblingHash, sum: Number(p.siblingSum || 0), position: p.isLeft ? 'left' : 'right' }));
+    return { leaf: leafNode(raw.userId, raw.balance), path, root: { hash: String((raw.merkleRoot && raw.merkleRoot.hash) || ''), sum: Number((raw.merkleRoot && raw.merkleRoot.sum) || 0) } };
+  }
+  if (exchange === 'binance') {
+    const path = (raw.proofs || []).map(p => ({ hash: p.sibling, sum: Number(p.sum || 0), position: p.direction === 'left' ? 'left' : 'right' }));
+    return { leaf: leafNode(raw.uid, raw.amount), path, root: { hash: String((raw.root && raw.root.rootHash) || ''), sum: Number((raw.root && raw.root.rootSum) || 0) } };
+  }
+  if (exchange === 'gate') {
+    const path = (raw.path || []).map(p => ({ hash: p.hash, sum: Number(p.sum || 0), position: p.left ? 'left' : 'right' }));
+    return { leaf: leafNode(raw.user_id, raw.balance), path, root: { hash: String(raw.root_hash || ''), sum: Number(raw.root_sum || 0) } };
+  }
+  if (exchange === 'kraken') {
+    const path = (raw.merkle_branch || []).map(p => ({ hash: p.node_hash, sum: Number(p.node_sum || 0), position: p.side === 'left' ? 'left' : 'right' }));
+    return { leaf: leafNode(raw.account_hash, raw.verified_balance), path, root: { hash: String((raw.published_root && raw.published_root.hash) || ''), sum: Number((raw.published_root && raw.published_root.sum) || 0) } };
+  }
+  const path = (raw.path || []).map(p => ({ hash: p.hash, sum: Number(p.sum || 0), position: p.position === 'left' ? 'left' : 'right' }));
+  return { leaf: leafNode(raw.leaf_user_id_hash, raw.leaf_balance), path, root: { hash: String((raw.root && raw.root.hash) || ''), sum: Number((raw.root && raw.root.sum) || 0) } };
+}
+
+const NOT_PROVEN = [
+  { item: 'Total liabilities completeness', detail: 'Only the audited customer set is provable from a single-leaf inclusion proof. An issuer could omit accounts from the tree entirely and this proof cannot detect the omission.' },
+  { item: 'Off-balance-sheet encumbrances', detail: 'Pledges, rehypothecation, or liens against reserve assets are not visible in a Merkle-sum inclusion proof.' },
+  { item: 'Continuous solvency', detail: 'This is a point-in-time snapshot at attestation time, not a continuous or real-time solvency guarantee.' },
+  { item: 'PCAOB audit opinion', detail: 'This tool performs no audit and carries no PCAOB or other audit-firm opinion; it is a cryptographic inclusion check only.' },
+];
+
+function compute(pp) {
+  const exchange = pp.exchange || 'generic';
+  const rawProof = pp.merkle_proof || {};
+
+  let structuralError = null;
+  const proof = normalizeProof(exchange, rawProof);
+  if (proof.path.length > MAX_PATH_DEPTH) {
+    structuralError = 'Merkle path depth ' + proof.path.length + ' exceeds the ' + MAX_PATH_DEPTH + '-level bound.';
+  }
+
+  let computedRoot = null, rootHashMatch = false, sumVerified = false, inclusionVerified = false;
+  if (!structuralError) {
+    computedRoot = walkMerkleSumPath(proof.leaf, proof.path);
+    rootHashMatch = computedRoot.hash === proof.root.hash && proof.root.hash !== '';
+    sumVerified = computedRoot.sum === proof.root.sum;
+    inclusionVerified = rootHashMatch && sumVerified;
+  }
+
+  const round = pp.por_round || null;
+  let porRoundResult = null;
+  if (round) {
+    const updatedAt = Number(round.updated_at_seconds || 0);
+    const now = Number(round.current_timestamp_seconds || 0);
+    const maxStaleness = Number(round.max_staleness_seconds != null ? round.max_staleness_seconds : 86400);
+    const stalenessSeconds = Math.max(0, now - updatedAt);
+    const isStale = stalenessSeconds > maxStaleness;
+
+    let deviationPct = null, deviationBreach = false;
+    if (round.reserves_reported_usd != null && computedRoot) {
+      const reported = Number(round.reserves_reported_usd);
+      const bound = Number(round.deviation_bound_pct != null ? round.deviation_bound_pct : 5);
+      deviationPct = computedRoot.sum > 0 ? parseFloat((Math.abs(reported - computedRoot.sum) / computedRoot.sum * 100).toFixed(4)) : (reported === 0 ? 0 : null);
+      deviationBreach = deviationPct !== null && deviationPct > bound;
+    }
+    porRoundResult = { round_id: round.round_id || null, staleness_seconds: stalenessSeconds, max_staleness_seconds: maxStaleness, is_stale: isStale, deviation_pct: deviationPct, deviation_bound_pct: round.deviation_bound_pct != null ? round.deviation_bound_pct : null, deviation_breach: deviationBreach };
+  }
+
+  const compositionInput = pp.storage_proof_composition || null;
+  const composition = (compositionInput && compositionInput.verified === true)
+    ? { composed: true, source: compositionInput.source || 'vr-1', note: 'Composed with an on-chain storage-proof result (VR-1 State-Proof Verifier).' }
+    : { composed: false, source: null, note: 'Composition hook stubbed, no on-chain storage-proof result supplied (VR-1 composes here once available); the inclusion result above is self-contained and does not depend on this.' };
+
+  let determination;
+  if (structuralError) determination = 'STRUCTURAL_ERROR';
+  else if (!inclusionVerified) determination = 'FAIL';
+  else if (porRoundResult && (porRoundResult.is_stale || porRoundResult.deviation_breach)) determination = 'WARN';
+  else determination = 'PASS';
+
+  const compliance_flags = [];
+  if (structuralError) compliance_flags.push('RESERVE_PROOF_STRUCTURAL_ERROR');
+  if (!structuralError && inclusionVerified) compliance_flags.push('RESERVE_PROOF_INCLUSION_VERIFIED');
+  if (!structuralError && !inclusionVerified) compliance_flags.push('RESERVE_PROOF_INCLUSION_FAILED');
+  if (porRoundResult && porRoundResult.is_stale) compliance_flags.push('POR_ROUND_STALE');
+  if (porRoundResult && porRoundResult.deviation_breach) compliance_flags.push('POR_DEVIATION_BREACH');
+  if (!composition.composed) compliance_flags.push('STORAGE_PROOF_COMPOSITION_STUBBED');
+  if (compliance_flags.length === 1 && compliance_flags[0] === 'RESERVE_PROOF_INCLUSION_VERIFIED') compliance_flags.push('RESERVE_PROOF_CLEAN');
+
+  const output_payload = {
+    reserve_proof_determination: determination, exchange,
+    inclusion_verified: inclusionVerified, root_hash_match: rootHashMatch, sum_verified: sumVerified,
+    computed_leaf_hash: proof.leaf.hash, computed_root: computedRoot, declared_root: proof.root,
+    structural_error: structuralError, por_round: porRoundResult, storage_proof_composition: composition,
+    not_proven: NOT_PROVEN,
+    regulatory_framework: 'Voluntary Merkle-sum PoR attestation (Summa report structure) + Chainlink PoR/NAVLink round data; not a GENIUS Act §4 filing (see art-275) and not a PCAOB audit.',
+  };
+  return { output_payload, compliance_flags };
+}
+
+const PRESETS = {
+  pass: { exchange: 'generic', merkle_proof: { leaf_user_id_hash: 'cust-001-opaque-hash', leaf_balance: 1000000, path: [], root: { hash: '0766ac3c145b483ac69cf5aa0cfbc39dd4ea82aacf09ddb395db98c29c779dd6', sum: 1000000 } }, round_id: 'okx-por-2027-02', updated_at_seconds: 1800000000, current_timestamp_seconds: 1800003600, max_staleness_seconds: 86400, reserves_reported_usd: 1000000, deviation_bound_pct: 1 },
+  warn: { exchange: 'generic', merkle_proof: { leaf_user_id_hash: 'cust-777', leaf_balance: 400000, path: [{ hash: 'deadbeef00000000000000000000000000000000000000000000000000ffff', sum: 600000, position: 'right' }], root: { hash: 'ef85a563c4aaadf5dc91a96877daf50432321da5936a739a1759deae7a041a99', sum: 1000000 } }, round_id: 'chainlink-por-round-9981', updated_at_seconds: 1800000000, current_timestamp_seconds: 1800200000, max_staleness_seconds: 86400, reserves_reported_usd: 950000, deviation_bound_pct: 2 },
+  fail: { exchange: 'generic', merkle_proof: { leaf_user_id_hash: 'cust-777', leaf_balance: 400000, path: [{ hash: 'deadbeef00000000000000000000000000000000000000000000000000ffff', sum: 600000, position: 'right' }], root: { hash: 'ef85a563c4aaadf5dc91a96877daf50432321da5936a739a1759deae7a041a99', sum: 999999 } }, round_id: '', updated_at_seconds: '', current_timestamp_seconds: '', max_staleness_seconds: 86400, reserves_reported_usd: '', deviation_bound_pct: 5 },
+  okx: { exchange: 'okx', merkle_proof: { userId: 'okx-cust-42', balance: 2500000, merklePath: [], merkleRoot: { hash: '733e73821809ad93cc3eef34a92325fcdbab777160aaaf3cdf185a2e46de8637', sum: 2500000 } }, round_id: '', updated_at_seconds: '', current_timestamp_seconds: '', max_staleness_seconds: 86400, reserves_reported_usd: '', deviation_bound_pct: 5 },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('exchange', pr.exchange);
+  document.getElementById('merkle_proof').value = JSON.stringify(pr.merkle_proof, null, 2);
+  setVal('round_id', pr.round_id);
+  setVal('updated_at_seconds', pr.updated_at_seconds);
+  setVal('current_timestamp_seconds', pr.current_timestamp_seconds);
+  setVal('max_staleness_seconds', pr.max_staleness_seconds);
+  setVal('reserves_reported_usd', pr.reserves_reported_usd);
+  setVal('deviation_bound_pct', pr.deviation_bound_pct);
+  document.getElementById('composition_verified').checked = false;
+}
+
+function getPP() {
+  let merkle_proof = {};
+  const raw = document.getElementById('merkle_proof').value.trim();
+  if (raw) { try { merkle_proof = JSON.parse(raw); } catch (e) { merkle_proof = {}; } }
+
+  const pp = { exchange: document.getElementById('exchange').value, merkle_proof };
+
+  const roundIdEl = document.getElementById('round_id');
+  const updatedEl = document.getElementById('updated_at_seconds');
+  const nowEl = document.getElementById('current_timestamp_seconds');
+  if (roundIdEl.value || updatedEl.value !== '' || nowEl.value !== '') {
+    pp.por_round = {
+      round_id: roundIdEl.value || null,
+      updated_at_seconds: updatedEl.value !== '' ? Number(updatedEl.value) : 0,
+      current_timestamp_seconds: nowEl.value !== '' ? Number(nowEl.value) : 0,
+      max_staleness_seconds: Number(document.getElementById('max_staleness_seconds').value || 86400),
+      reserves_reported_usd: document.getElementById('reserves_reported_usd').value !== '' ? Number(document.getElementById('reserves_reported_usd').value) : null,
+      deviation_bound_pct: Number(document.getElementById('deviation_bound_pct').value || 5),
+    };
+  }
+
+  pp.storage_proof_composition = { verified: document.getElementById('composition_verified').checked, source: 'vr-1' };
+
+  return pp;
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+const DET_COLOR = { PASS:'var(--green)', WARN:'var(--warn)', FAIL:'var(--red)', STRUCTURAL_ERROR:'var(--red)' };
+
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  const det = output_payload.reserve_proof_determination;
+  const detEl = document.getElementById('detVal');
+  detEl.textContent = det;
+  detEl.style.color = DET_COLOR[det] || 'var(--teal-lt)';
+  document.getElementById('inclVal').textContent = output_payload.inclusion_verified ? 'YES' : 'NO';
+  document.getElementById('sumVal').textContent = output_payload.sum_verified ? 'YES' : 'NO';
+
+  const vClass = det === 'PASS' ? 'pass' : det === 'WARN' ? 'warn' : 'fail';
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + det + ': ' + output_payload.regulatory_framework + '</div>';
+
+  const cr = output_payload.computed_root, dr = output_payload.declared_root;
+  document.getElementById('proofTableBody').innerHTML =
+    '<tr><td>Exchange / format</td><td>' + output_payload.exchange + '</td></tr>' +
+    '<tr><td>Computed leaf hash</td><td>' + output_payload.computed_leaf_hash + '</td></tr>' +
+    '<tr><td>Computed root</td><td>' + (cr ? cr.hash + ' (sum ' + cr.sum.toLocaleString() + ')' : '–') + '</td></tr>' +
+    '<tr><td>Declared root</td><td>' + (dr ? dr.hash + ' (sum ' + dr.sum.toLocaleString() + ')' : '–') + '</td></tr>' +
+    '<tr><td>Root hash match</td><td><span class="badge ' + (output_payload.root_hash_match ? 'ok' : 'err') + '">' + (output_payload.root_hash_match ? 'match' : 'mismatch') + '</span></td></tr>' +
+    '<tr><td>Sum verified</td><td><span class="badge ' + (output_payload.sum_verified ? 'ok' : 'err') + '">' + (output_payload.sum_verified ? 'verified' : 'mismatch') + '</span></td></tr>' +
+    (output_payload.structural_error ? '<tr><td>Structural error</td><td><span class="badge err">' + output_payload.structural_error + '</span></td></tr>' : '');
+
+  const por = output_payload.por_round;
+  if (por) {
+    document.getElementById('porSect').style.display = 'block';
+    document.getElementById('porBody').innerHTML =
+      'Round ' + (por.round_id || 'n/a') + ': staleness ' + por.staleness_seconds + 's (bound ' + por.max_staleness_seconds + 's) ' + (por.is_stale ? '<span class="badge warn-b">STALE</span>' : '<span class="badge ok">fresh</span>') +
+      (por.deviation_pct !== null ? ' &nbsp; deviation ' + por.deviation_pct + '% (bound ' + por.deviation_bound_pct + '%) ' + (por.deviation_breach ? '<span class="badge warn-b">BREACH</span>' : '<span class="badge ok">within bound</span>') : '');
+  } else {
+    document.getElementById('porSect').style.display = 'none';
+  }
+
+  const comp = output_payload.storage_proof_composition;
+  document.getElementById('compSect').innerHTML = 'On-chain storage-proof composition: <span class="badge ' + (comp.composed ? 'ok' : 'info') + '">' + (comp.composed ? 'composed' : 'stubbed') + '</span> ' + comp.note;
+
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(n => '<li><b>' + n.item + '</b>: ' + n.detail + '</li>').join('');
+
+  const flagsHtml = compliance_flags.map(f => '<span class="badge ' + (f.endsWith('_CLEAN') || f.endsWith('_VERIFIED') ? 'ok' : (f.includes('STUBBED') ? 'info' : 'err')) + '">' + f + '</span>').join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-280 Reserve Proof Verifier: ' + o.reserve_proof_determination + '</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Reserve Proof Verifier, ART-280</h1>');
+  w.document.write('<p><b>Determination:</b> ' + o.reserve_proof_determination + ' | <b>Inclusion verified:</b> ' + o.inclusion_verified + ' | <b>Sum verified:</b> ' + o.sum_verified + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(n => w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'));
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT, not an audit or legal advice. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [
+    ['ART-280 Reserve Proof Verifier'],
+    ['Determination', o.reserve_proof_determination],
+    ['Exchange', o.exchange],
+    ['Inclusion Verified', o.inclusion_verified],
+    ['Sum Verified', o.sum_verified],
+    [],
+    ['Generated', new Date().toISOString()],
+    ['Reference', o.regulatory_framework],
+  ];
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+loadPreset('pass');
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+</body>
+</html>
