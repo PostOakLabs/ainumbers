@@ -1,6 +1,6 @@
 // sweep-chain-slug-refs.mjs — replace old slug refs with new slugs in all HTML/txt/xml files
 // Targets: mcp.html, llms.txt, sitemap.xml, index.html, sitemap.html,
-//          chaingraph/guide-*.html, guides/tool-chains.html, guides/*-hub.html,
+//          chaingraph/guide-*.html, guides/*-hub.html,
 //          scattered tools/*.html with chain links.
 //
 // Usage:
@@ -136,7 +136,7 @@ const targets = [
   join(REPO, 'sitemap.html'),
   // Guide hubs
   ...collectFiles(join(REPO, 'chaingraph'), [/^guide-.*\.html$/, /^chaingraph-hub\.html$/]),
-  ...collectFiles(join(REPO, 'guides'), [/.*-hub\.html$/, 'tool-chains.html']),
+  ...collectFiles(join(REPO, 'guides'), [/.*-hub\.html$/]),
   // art-* pages (chaingraph/)
   ...collectFiles(join(REPO, 'chaingraph'), [/^art-.*\.html$/]),
 ];

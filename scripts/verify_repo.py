@@ -145,8 +145,6 @@ def check_sitemap():
         if f"tools/{path.name}" not in sitemap_locs:
             missing.append(f"tools/{path.name}")
     for path in sorted(GUIDES.glob("*.html")):
-        if path.name == "tool-chains.html":
-            continue  # lives in core-pages block, not auto-generated section
         # Skip redirect stubs — noindex pages don't belong in sitemap
         content = path.read_text(encoding="utf-8", errors="replace")
         if "noindex" in content:
@@ -163,8 +161,7 @@ def check_sitemap():
     else:
         t = len(list(TOOLS.glob("*.html")))
         g = len([p for p in GUIDES.glob("*.html")
-                 if p.name != "tool-chains.html"
-                 and "noindex" not in p.read_text(encoding="utf-8", errors="replace")])
+                 if "noindex" not in p.read_text(encoding="utf-8", errors="replace")])
         print(f"  ✅ Sitemap: all {t} tools + {g} indexable guides present")
 
 
