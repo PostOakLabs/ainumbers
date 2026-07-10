@@ -9,7 +9,16 @@ const DEMO_KERNELS = [
   '508-repo-haircut-collateral-calculator',
   '509-canton-party-allowlist-validator',
   '507-canton-dvp-atomicity-validator',
+  'art-275-genius-reserve-disclosure-checker',
+  'art-278-reputation-score-aggregator',
+  'art-279-state-proof-verifier',
+  'art-123-c2pa-manifest-validator',
+  'art-141-nis2-entity-scope-classifier',
+  'art-180-solvency2-scr-ratio-calculator',
 ];
+// Total gpu:false kernels covered by CI (chaingraph/kernels/vm-parity-gate.mjs), kept in
+// sync manually here — regen this file after any kernel-count change (see CLAUDE.md §Counts).
+const TOTAL_GPU_FALSE_KERNELS = 298;
 
 const FIXTURES = Object.fromEntries(DEMO_KERNELS.map((id) => {
   const doc = JSON.parse(readFileSync(`${ROOT}/chaingraph/kernels/fixtures/${id}.fixtures.json`, 'utf8'));
@@ -26,6 +35,12 @@ const KERNEL_META = {
   '508-repo-haircut-collateral-calculator': { label: 'Repo Haircut Collateral Calculator', mcp_name: 'calculate_repo_haircut' },
   '509-canton-party-allowlist-validator': { label: 'Canton Party Allowlist Validator', mcp_name: 'validate_canton_party_allowlist' },
   '507-canton-dvp-atomicity-validator': { label: 'Canton DvP Atomicity Validator', mcp_name: 'validate_canton_dvp_atomicity' },
+  'art-275-genius-reserve-disclosure-checker': { label: 'GENIUS Act Monthly Reserve Disclosure Checker', mcp_name: 'check_genius_reserve_disclosure' },
+  'art-278-reputation-score-aggregator': { label: 'Provable Reputation Score Aggregator', mcp_name: 'aggregate_reputation_score' },
+  'art-279-state-proof-verifier': { label: 'State-Proof Verifier', mcp_name: 'verify_eth_state_proof' },
+  'art-123-c2pa-manifest-validator': { label: 'C2PA Content Credential Manifest Validator', mcp_name: 'validate_c2pa_manifest' },
+  'art-141-nis2-entity-scope-classifier': { label: 'NIS2 Entity Scope Classifier', mcp_name: 'classify_nis2_entity' },
+  'art-180-solvency2-scr-ratio-calculator': { label: 'Solvency II SCR Ratio Calculator', mcp_name: 'calculate_solvency2_scr_ratio' },
 };
 
 const DEMO_DATA_JS = `const DEMO_KERNELS = ${JSON.stringify(DEMO_KERNELS, null, 2)};
@@ -91,7 +106,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-
 <h1>Kernel VM</h1>
 <p class="sub">Runs a ChainGraph decision kernel's <code>compute(policy_parameters)</code> inside a sandboxed, hermetic, in-browser QuickJS-ng WebAssembly VM under the <code>ocg-deterministic-compute@2</code> profile (SPEC.md &sect;24). The VM is a fifth compute surface beside the worker, embed bundle, composer, and zkVM guest: this page runs the SAME kernel source twice, once in this VM and once natively in your browser's JavaScript engine, and shows whether the two <code>execution_hash</code> values agree.</p>
 <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
-<div class="cross-link">This page ships a small curated set of kernels for direct exploration. Every conformance-fixtured <code>gpu:false</code> kernel is checked automatically in CI by <code>chaingraph/kernels/vm-parity-gate.mjs</code>. See also the <a href="./boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs the same way the worker does.</p></div>
+<div class="cross-link">This page ships a curated demo subset of ${DEMO_KERNELS.length} kernels for direct exploration &mdash; all ${TOTAL_GPU_FALSE_KERNELS} <code>gpu:false</code> kernels in the catalog are verified byte-identical in this same VM by CI (<code>chaingraph/kernels/vm-parity-gate.mjs</code>) on every push. Browse the full set on the <a href="./chaingraph-hub.html">ChainGraph catalog</a> or over MCP at <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co</a>. See also the <a href="./boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs the same way the worker does.</div>
 
 <div class="card">
 <div class="section-head">1. Choose a kernel</div>
