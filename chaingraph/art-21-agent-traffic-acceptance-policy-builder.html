@@ -447,6 +447,7 @@ async function sha256(obj) {
 var _ap2Hash = null;
 var _policyParams = null;
 var _outputPayload = null;
+var _complianceFlags = null;
 
 function enableAP2Btn() {
   var btn = document.getElementById('ap2ExportBtn');
@@ -578,6 +579,20 @@ async function runPolicyBuilder() {
     guardrails.push({cls:'g-pass', icon:'✓', text:'Anonymous-agent high-value block active: identity required above $50 per transaction.'});
   }
 
+  var warnCount = guardrails.filter(function(g){return g.cls === 'g-warn';}).length;
+  var overallRisk = warnCount === 0 ? 'low' : warnCount <= 1 ? 'moderate' : 'high';
+  _complianceFlags = ['AGENT_ACCEPTANCE_POLICY_BUILT'];
+  if(overallRisk === 'low') _complianceFlags.push('POLICY_RISK_LOW');
+  if(overallRisk === 'moderate') _complianceFlags.push('POLICY_RISK_MODERATE');
+  if(overallRisk === 'high') _complianceFlags.push('POLICY_RISK_HIGH');
+  if(['ap2_vdc','tap_sig'].indexOf(verifLevel) > -1) _complianceFlags.push('STRONG_IDENTITY_REQUIRED');
+  if(blockRules.indexOf('block_burst') > -1) _complianceFlags.push('BURST_PROTECTION_ACTIVE');
+  if(blockRules.indexOf('block_anon_high') > -1) _complianceFlags.push('ANON_HIGH_VALUE_BLOCKED');
+  if(rails.indexOf('acp') > -1) _complianceFlags.push('ACP_ENABLED');
+  if(rails.indexOf('ucp') > -1) _complianceFlags.push('UCP_ENABLED');
+  if(rails.indexOf('x402') > -1) _complianceFlags.push('X402_ENABLED');
+  if(rails.indexOf('tap') > -1) _complianceFlags.push('TAP_ENABLED');
+
   document.getElementById('guardrailList').innerHTML = guardrails.map(function(g){
     return '<li class="guardrail-item ' + g.cls + '"><span class="guardrail-icon">' + g.icon + '</span><span>' + g.text + '</span></li>';
   }).join('');
@@ -661,6 +676,7 @@ function buildMandate() {
     regulatory_frameworks: ['ACP / Agent Commerce Protocol v0.2 (FIDO Alliance, 2026-04-28)','UCP Universal Checkout Protocol (2026-01-11)','Visa Trusted Agent Protocol (RFC 9421 HTTP signatures)','EU AI Act Art. 13/14 — transparency + human oversight for high-risk AI systems (where applicable)'],
     policy_parameters: _policyParams,
     output_payload: _outputPayload,
+    compliance_flags: _complianceFlags,
     execution_hash: _ap2Hash,
     chain: {
       parent_hashes: [],

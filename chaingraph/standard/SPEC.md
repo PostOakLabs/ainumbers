@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.5
+spec_version: 0.8.6
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -1120,6 +1120,33 @@ philosophical lineage — a frozen, total, deterministic instruction semantics a
 computational record (Nock, and Kelvin versioning counting *down* to a frozen `0`) — is noted only as motivation;
 OCG cites the ratified engineering standards above as its normative models, not those systems.
 
+**§24.5 Profile version `ocg-deterministic-compute@2` — WebCrypto subset split (NORMATIVE — new in v0.8.6).** `@1`
+left D7 stated at the granularity "environment/platform APIs … substitute a deterministic replacement," which a
+literal reader can over-read as banning **all** of WebCrypto — conflating two subsets that D5 and D7 already treat
+differently. `@2` is a new profile version (per the §24.2 freeze clause — a new named profile **alongside** `@1`,
+**never** an in-place edit of it) that keeps rows D1–D6 unchanged and **enumerates** the WebCrypto split inside D7:
+
+- **ALLOWED — the deterministic subset, classed as fully-specified deterministic replacements under D7:**
+  `crypto.subtle.digest` (SHA-256 / SHA-384), `crypto.subtle.importKey`, and `crypto.subtle.verify`. These are
+  pure functions of their inputs — a fixed input yields a fixed output on any conformant implementation — so they
+  satisfy D7's "used identically on every surface" requirement and MUST be **byte-identical across the browser
+  tool, the Cloudflare Worker, and the in-browser QuickJS VM**. They carry no entropy and are not D5 randomness.
+  An implementation MAY expose them to `compute`; where a surface cannot (the §18 zkVM guest ships no WebCrypto),
+  that surface simply does not host the crypto-using kernels — it does not make the subset nondeterministic.
+- **BANNED — the nondeterministic subset, D5 randomness:** `crypto.getRandomValues`, `crypto.subtle.generateKey`,
+  and `crypto.subtle.sign` (fresh-key signing draws entropy). Under `@2` these MUST throw inside a conforming
+  compute surface; a kernel that reaches for them MUST fail, never silently degrade an `output_payload` (the
+  fail-don't-degrade doctrine). This is the same D5 randomness ban already stated for `Math.random`.
+
+`@2` is additive and profile-scoped: it **moves no `execution_hash`** — every kernel's `output_payload` is
+byte-identical to its `@1` value (the six previously VM-unrunnable kernels, art-55/124/129/189/190 crypto +
+art-201 BigInt, produce the same bytes the Worker already produces), the frozen v0.4 envelope and the §4 preimage
+are **UNTOUCHED**, and `chaingraph_version` stays `"0.4.0"`. Only `spec_version` bumps (→ 0.8.6). The AINumbers
+reference deployment **re-declares its `gpu:false` live set as `ocg-deterministic-compute@2`-conforming**; receipts
+minted under `@1` **verify under `@1` forever** (the freeze clause guarantees `@1`'s semantics never move under
+them). Conformance is still decided by the existing §15 gate suite (§24.3) — `@2` adds the VM↔Worker byte-identity
+of the deterministic WebCrypto subset to what those gates already check (`vm-parity-gate.mjs`), and no new §15 row.
+
 ## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
 §18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
 place of cleartext, §4 recompute becomes unavailable to third parties, and the receipt is the sole verification
@@ -1272,7 +1299,16 @@ separator) ships as `ocg-private-input@<n>`, never an in-place edit, so a privat
 that it withholds an input (§18.3), and MUST NOT auto-apply commitment mode.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. v0.8.5 = Private-Input Profile (§25: the NORMATIVE, profile-scoped
+See `standard/CHANGELOG.md`. v0.8.6 = Deterministic Compute Profile `@2` (§24.5: a new profile version
+`ocg-deterministic-compute@2` — a new named profile ALONGSIDE `@1` per the §24.2 freeze clause, never an in-place
+edit — that keeps D1–D6 unchanged and ENUMERATES the WebCrypto split inside D7: ALLOWED as fully-specified
+deterministic replacements = `crypto.subtle.digest` (SHA-256/384), `importKey`, `verify`, which MUST be
+byte-identical across browser / Worker / QuickJS VM; BANNED as D5 randomness = `crypto.getRandomValues`,
+`generateKey`, `sign` (fresh key), which MUST throw. Additive and profile-scoped: moves NO `execution_hash` — all
+six previously-VM-unrunnable kernels (art-55/124/129/189/190 crypto + art-201 BigInt) emit the SAME bytes the
+Worker already produces — the frozen v0.4 envelope and §4 preimage are UNTOUCHED, `chaingraph_version` stays
+`0.4.0`, only `spec_version` bumps to 0.8.6. The reference deployment re-declares its `gpu:false` live set as
+`@2`-conforming; `@1` receipts verify under `@1` forever). v0.8.5 = Private-Input Profile (§25: the NORMATIVE, profile-scoped
 `ocg-private-input@1` — the machine-declared, machine-checked form of the §18.3 input-hiding mode. Adds the
 OPTIONAL hash-excluded top-level `private_inputs[]` declaration (each entry = an RFC 6901 pointer into
 `policy_parameters` + a hiding `commitment` + `commitment_scheme`), the `sha256-salted@1` commitment

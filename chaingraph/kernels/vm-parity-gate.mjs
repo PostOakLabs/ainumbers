@@ -48,25 +48,16 @@ const STRICT = process.argv.includes('--strict');
 // the §24 "every escape hatch is closed or named" guarantee: the limitation is surfaced, not
 // silently degraded. They still print and count, they just don't fail CI as a REGRESSION the
 // way a newly-broken pure kernel would.
-const KNOWN_VM1A_LIMITATIONS = new Map([
-  ['art-189-markdown-document-converter', 'compute() calls crypto.subtle.digest() directly; the sandbox WebCrypto guard records the touch and throws (host API, unavailable under ocg-deterministic-compute@1 D7).'],
-  ['art-190-tabular-data-converter', 'compute() calls crypto.subtle.digest() directly; the sandbox WebCrypto guard records the touch and throws (host API, unavailable under ocg-deterministic-compute@1 D7).'],
-  ['art-201-iscc-content-code-generator', "compute() calls BigInt value .toString() (minhash bit-packing); this prebuilt's BigInt intrinsic supports literals/arithmetic but not primitive prototype methods — throws inside the VM."],
-  // art-124/129 wrap crypto.subtle.importKey/verify in a try/catch that would otherwise set
-  // signature_cryptographically_valid=false on failure — a SILENT wrong answer. The sandbox
-  // WebCrypto guard records the touch via a host callback BEFORE the kernel can swallow the
-  // throw, so the harness re-raises it as a host-API limitation instead of comparing a
-  // degraded output. Found via vm-parity-gate.mjs itself (2026-07-09), then made to throw
-  // (session-3, 2026-07-09) rather than allowlist a divergence.
-  ['art-124-content-credential-signature-verifier', 'compute() calls crypto.subtle.importKey/verify inside a try/catch; the sandbox records the WebCrypto touch and throws BEFORE the catch can degrade signature_cryptographically_valid to a false verdict.'],
-  ['art-129-webbotauth-signature-verifier', 'compute() calls crypto.subtle.importKey/verify inside a try/catch; the sandbox records the WebCrypto touch and throws BEFORE the catch can degrade signature_cryptographically_valid to a false verdict.'],
-  // art-55's buildArtifact folds a SHA-256 merkle_root into output_payload (via executionHash,
-  // AFTER compute() leaves it null). The in-VM executionHash is a no-op stub, so that data field
-  // cannot be faithfully reproduced without host SHA-256; the harness detects the stub sentinel
-  // surviving into output_payload and throws. Surfaced by this gate's own switch to the canonical
-  // buildArtifact entry (session-3, 2026-07-09) — previously hidden as false "golden drift".
-  ['art-55-trade-document-provenance-verifier', 'buildArtifact folds a host SHA-256 (merkle_root, via executionHash) into output_payload; the in-VM hash stub cannot reproduce it, so the harness detects the sentinel and throws (host API, unavailable under ocg-deterministic-compute@1 D7).'],
-]);
+// VM-1b (ocg-deterministic-compute@2) closes ALL six VM-1a limitations:
+//   - art-189/190 (crypto.subtle.digest), art-124/129 (crypto.subtle.importKey/verify), and
+//     art-55 (host SHA-256 merkle_root via executionHash) now run against the bridged
+//     deterministic WebCrypto subset (§24.5), byte-identical to the worker.
+//   - art-201 (BigInt.prototype.toString minhash bit-packing) runs on the guest-pinned
+//     v0.15.1 build's native full BigInt.
+// The map is intentionally EMPTY: no kernel is allowlisted to throw. A vector that throws is a
+// hard error (CI-blocking). If a future limitation is genuinely unclosable it is documented
+// here with its reason, never silently re-allowlisted (keep the gate honest — see README.md).
+const KNOWN_VM1A_LIMITATIONS = new Map([]);
 const reportIdx = process.argv.indexOf('--report');
 const reportPath = reportIdx !== -1 ? process.argv[reportIdx + 1] : null;
 
