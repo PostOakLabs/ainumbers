@@ -34,6 +34,7 @@ const GATES = [
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
+  ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
