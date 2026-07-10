@@ -37,12 +37,6 @@ CORE_PAGES = """\
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://ainumbers.co/guides/tool-chains.html</loc>
-    <lastmod>2026-05-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://ainumbers.co/sitemap.html</loc>
     <lastmod>2026-05-21</lastmod>
     <changefreq>monthly</changefreq>
@@ -125,9 +119,9 @@ def main():
         key=tool_sort_key,
     )
 
-    # Collect guides — exclude tool-chains.html (it's in core pages)
+    # Collect guides
     guide_files = sorted(
-        [f for f in os.listdir(guides_dir) if f.endswith(".html") and f != "tool-chains.html"]
+        [f for f in os.listdir(guides_dir) if f.endswith(".html")]
     )
 
     # Collect live ChainGraph pages (node pages + chains/, minus exporters/ helpers).
