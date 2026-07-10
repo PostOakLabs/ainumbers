@@ -217,6 +217,8 @@ import * as art272 from './art-272-restaking-risk.kernel.mjs';
 import * as art273 from './art-273-pendle-yield.kernel.mjs';
 import * as art274 from './art-274-compile-work-mandate.kernel.mjs';
 import * as art275 from './art-275-genius-reserve-disclosure-checker.kernel.mjs';
+import * as art276 from './art-276-mutual-nda-composer.kernel.mjs';
+import * as art277 from './art-277-agreement-acceptance-binder.kernel.mjs';
 import * as art28  from './art-28-mcp-server-deployability-diagnostic.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
@@ -522,6 +524,8 @@ export const KERNELS = {
   'art-273-pendle-yield':                                     art273,
   'art-274-compile-work-mandate':                             art274,
   'art-275-genius-reserve-disclosure-checker':                art275,
+  'art-276-mutual-nda-composer':                              art276,
+  'art-277-agreement-acceptance-binder':                      art277,
   'art-28-mcp-server-deployability-diagnostic':               art28,
   'art-29-dora-readiness-diagnostic':                         art29,
   'art-30-agent-commerce-conformance-validator':              art30,
