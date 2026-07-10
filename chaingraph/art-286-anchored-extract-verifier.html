@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Anchored Extract Verifier · ART-286 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Verifies an extract's Merkle inclusion against a root only when that root is externally anchored (RFC 3161, OpenTimestamps, Sigstore, or on-chain via VR-1) or is a recognized OCG artifact envelope. Refuses self-produced, unanchored roots.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-286-anchored-extract-verifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Anchored Extract Verifier · ART-286 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Verifies Merkle inclusion against externally-anchored roots only (RFC3161/OTS/Sigstore/VR-1) or a recognized OCG artifact envelope; explicitly refuses self-produced roots. The universal chain explorer stays dead.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-286-anchored-extract-verifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;min-height:120px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-286 · Anchored Extract Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-286 · Verify-Rails · VR-3 wave 1</div>
+  <h1>Anchored Extract Verifier</h1>
+  <p class="sub">Verifies an extract's <b>Merkle inclusion</b> against a root <b>only</b> when that root is anchored by a recognized source: a recognized OCG artifact/chain envelope (dogfood, our own receipt format), or an external anchor (RFC 3161 timestamp, OpenTimestamps, Sigstore transparency log, or an on-chain commitment composed via VR-1). A self-produced root with no recognized anchor is explicitly <b>refused</b>, not silently passed. The universal self-produced hash-chain explorer stays dead, and this refusal is why.</p>
+  <div>
+    <span class="flag">RFC 6962 Merkle Pattern</span>
+    <span class="flag warn">RFC3161 / OTS / Sigstore / VR-1</span>
+    <span class="flag red">Refuses Unanchored Roots</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">What this does NOT prove</div>
+    Inclusion of one leaf under an anchored root does not validate the extract's contents beyond that leaf hash, does not prove the committed set is complete, and does not extend freshness beyond the anchor's own time semantics. An unanchored, self-produced root is refused outright: it is never treated as verified evidence. Driven by amended AS 1105 (FY2026) and the AICPA practice aid on not relying on unanchored chain explorers.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('ocg')">VERIFIED: OCG artifact envelope</button>
+    <button class="preset-btn" onclick="loadPreset('ots')">VERIFIED: OpenTimestamps-anchored</button>
+    <button class="preset-btn" onclick="loadPreset('refuse')">REFUSED: no anchor supplied</button>
+    <button class="preset-btn" onclick="loadPreset('mismatch')">MISMATCH: tampered root</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Extract</div>
+    <div class="q"><label><span class="dim">Field</span>Leaf Content Hash (the extract's own content hash)</label>
+      <input type="text" id="leaf_content_hash" placeholder="sha256:..."></div>
+    <div class="q"><label><span class="dim">Field</span>Merkle Path JSON (siblings from leaf to root)</label>
+      <textarea id="merkle_path" placeholder='[{"hash":"...","position":"left|right"}]'></textarea></div>
+    <div class="q"><label><span class="dim">Field</span>Claimed Root</label>
+      <input type="text" id="claimed_root" placeholder="root hash asserted by the extract's source"></div>
+
+    <div class="section-head">Anchor Source</div>
+    <div class="q"><label><span class="dim">Field</span>Source Class</label>
+      <select id="source_class">
+        <option value="">None (unanchored, will be refused)</option>
+        <option value="ocg_artifact">OCG Artifact / Chain Envelope</option>
+        <option value="rfc3161">RFC 3161 Timestamp</option>
+        <option value="ots">OpenTimestamps (OTS)</option>
+        <option value="sigstore">Sigstore Rekor Log</option>
+        <option value="vr1_onchain">On-Chain (compose VR-1)</option>
+      </select></div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">RFC3161</span>TSA Message Imprint</label>
+        <input type="text" id="rfc3161_imprint"></div>
+      <div class="q"><label><span class="dim">RFC3161</span>TSA Time</label>
+        <input type="text" id="rfc3161_time" placeholder="ISO 8601"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">OTS</span>Attestation</label>
+        <select id="ots_attestation"><option value="">–</option><option value="pending">pending</option><option value="bitcoin_confirmed">bitcoin_confirmed</option></select></div>
+      <div class="q"><label><span class="dim">OTS</span>Bitcoin Block Height</label>
+        <input type="number" id="ots_block" step="1"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Sigstore</span>Rekor Log Index</label>
+        <input type="number" id="rekor_index" step="1"></div>
+      <div class="q"><label><span class="dim">Sigstore</span>Rekor UUID</label>
+        <input type="text" id="rekor_uuid"></div>
+    </div>
+    <div class="q"><label><span class="dim">VR-1</span>On-chain storage proof already verified?</label>
+      <select id="vr1_verified"><option value="">–</option><option value="true">yes</option><option value="false">no</option></select></div>
+
+    <button class="run-btn" onclick="run()">Run Anchored Extract Verifier →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="detVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Determination</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="anchVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Anchored</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="matchVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Root Match</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Anchored inclusion check</div>
+    <table class="section-table">
+      <tbody id="proofTableBody"></tbody>
+    </table>
+
+    <div id="escSect" style="display:none;margin:10px 0;font-size:.8rem;color:var(--red)"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Provenance</div>
+      Clean-room RFC 6962 (Certificate Transparency) domain-separated Merkle-tree pattern: an independent implementation, no code copied from any CT-log or Merkle library. On-chain anchoring composes with VR-1 (verify_eth_state_proof, art-279); this kernel never re-verifies an EIP-1186 state proof itself.
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Not an audit and not a PCAOB opinion. This tool verifies inclusion under an anchored root only; see &quot;What was NOT proven&quot; above.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-286-anchored-extract-verifier",
+  tool_version: "1.0.0",
+  mcp_name: "verify_anchored_extract",
+  mandate_type: "compliance_mandate",
+  wave: 51,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.7',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Verifies an extract's Merkle inclusion against a root only when that root is anchored by a recognized source (OCG artifact envelope, RFC3161, OTS, Sigstore, or on-chain via VR-1); refuses self-produced, unanchored roots.",
+  chain: "anchored-extract-verification",
+  url: "https://ainumbers.co/chaingraph/art-286-anchored-extract-verifier.html"
+};
+
+// --- Inlined pure-JS SHA-256 (browser build also uses crypto.subtle for the
+//     artifact execution_hash below, matching every other OCG node page). ---
+
+function _utf8Bytes(str) {
+  const s = String(str);
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c < 0x80) { out.push(c); }
+    else if (c < 0x800) { out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f)); }
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      const hi = c, lo = s.charCodeAt(++i);
+      const cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
+      out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    } else { out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f)); }
+  }
+  return new Uint8Array(out);
+}
+
+function _sha256(bytes) {
+  const K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+  ]);
+  const msgLen = bytes.length;
+  const paddedLen = Math.ceil((msgLen + 9) / 64) * 64;
+  const padded = new Uint8Array(paddedLen);
+  padded.set(bytes);
+  padded[msgLen] = 0x80;
+  const bitLen = msgLen * 8;
+  for (let i = 0; i < 8; i++) padded[paddedLen - 8 + i] = Number((BigInt(bitLen) >> BigInt(56 - i * 8)) & 0xffn);
+  let [h0,h1,h2,h3,h4,h5,h6,h7] = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let cs = 0; cs < paddedLen; cs += 64) {
+    const W = new Uint32Array(64);
+    for (let i = 0; i < 16; i++) { const j = cs + i * 4; W[i] = (padded[j] << 24) | (padded[j+1] << 16) | (padded[j+2] << 8) | padded[j+3]; }
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(W[i-15], 7) ^ rotr(W[i-15], 18) ^ (W[i-15] >>> 3);
+      const s1 = rotr(W[i-2], 17) ^ rotr(W[i-2], 19) ^ (W[i-2] >>> 10);
+      W[i] = (W[i-16] + s0 + W[i-7] + s1) >>> 0;
+    }
+    let [a,b,c,d,e,f,g,h] = [h0,h1,h2,h3,h4,h5,h6,h7];
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25), ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[i] + W[i]) >>> 0;
+      const S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22), maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+  }
+  const r = new Uint8Array(32);
+  [h0,h1,h2,h3,h4,h5,h6,h7].forEach(function(v, i) { const j = i * 4; r[j] = v >>> 24; r[j+1] = (v >>> 16) & 0xff; r[j+2] = (v >>> 8) & 0xff; r[j+3] = v & 0xff; });
+  return r;
+}
+function _sha256Hex(str) { return Array.from(_sha256(_utf8Bytes(str))).map(b => b.toString(16).padStart(2,'0')).join(''); }
+
+const MAX_PATH_DEPTH = 40;
+
+function leafHash(contentHash) { return _sha256Hex('leaf:' + (contentHash || '')); }
+function combineNodes(left, right) { return _sha256Hex('node:' + left + ':' + right); }
+function walkMerklePath(leaf, path) {
+  let current = leaf;
+  for (const step of path) {
+    const sibling = String(step.hash || '');
+    current = step.position === 'left' ? combineNodes(sibling, current) : combineNodes(current, sibling);
+  }
+  return current;
+}
+
+const NOT_PROVEN = [
+  { item: 'Extract contents beyond the leaf', detail: 'This kernel verifies inclusion of a leaf hash under a root; it does not inspect or validate the extract\'s underlying content beyond that hash.' },
+  { item: 'Completeness of the committed set', detail: 'Inclusion of one leaf does not prove the root commits to a complete or unaltered set of records; items could be omitted from what the root represents.' },
+  { item: "Freshness beyond the anchor's own time semantics", detail: 'An RFC 3161/OTS/Sigstore/on-chain anchor proves the root existed no later than the anchor\'s own timestamp; it does not prove the extract is currently accurate or unchanged since.' },
+  { item: 'Universal chain-explorer equivalence', detail: 'A self-produced hash chain with no external anchor is explicitly refused by this kernel (anchored:false): it is not treated as verified evidence.' },
+];
+
+function compute(pp) {
+  const extract = pp.extract || {};
+  const claimedRoot = String(pp.claimed_root || '');
+  const sourceClass = pp.source_class || null;
+  const evidence = pp.anchor_evidence || {};
+  const path = Array.isArray(extract.merkle_path) ? extract.merkle_path : [];
+
+  let structuralError = null;
+  if (path.length > MAX_PATH_DEPTH) structuralError = 'Merkle path depth ' + path.length + ' exceeds the ' + MAX_PATH_DEPTH + '-level bound.';
+
+  let computedRoot = null;
+  if (!structuralError) {
+    const leaf = leafHash(extract.leaf_content_hash);
+    computedRoot = walkMerklePath(leaf, path);
+  }
+
+  let anchored = false;
+  let anchorNote = 'No external anchor of a recognized class was supplied; a self-produced root is not verifiable by this kernel.';
+  const flagsExtra = [];
+
+  if (sourceClass === 'ocg_artifact') {
+    anchored = true;
+    anchorNote = 'Recognized as an OCG artifact/chain envelope (dogfood: our own receipt format), not an ad-hoc self-produced claim.';
+  } else if (sourceClass === 'rfc3161') {
+    const rfc = evidence.rfc3161 || null;
+    anchored = !!(rfc && rfc.tsa_message_imprint);
+    anchorNote = anchored ? ('RFC 3161 timestamp token present (TSA time: ' + (rfc.tsa_time || 'unspecified') + ').') : 'source_class declared rfc3161 but no rfc3161 anchor_evidence (tsa_message_imprint) was supplied.';
+  } else if (sourceClass === 'ots') {
+    const ots = evidence.ots || null;
+    anchored = !!(ots && (ots.attestation === 'pending' || ots.attestation === 'bitcoin_confirmed'));
+    anchorNote = anchored ? ('OpenTimestamps proof present (attestation: ' + ots.attestation + ').') : 'source_class declared ots but no valid ots anchor_evidence (attestation) was supplied.';
+    if (anchored && ots.attestation === 'pending') flagsExtra.push('OTS_ATTESTATION_PENDING');
+  } else if (sourceClass === 'sigstore') {
+    const sig = evidence.sigstore || null;
+    anchored = !!(sig && sig.rekor_uuid != null && sig.rekor_log_index != null);
+    anchorNote = anchored ? ('Sigstore Rekor transparency-log entry present (log index: ' + sig.rekor_log_index + ').') : 'source_class declared sigstore but no valid sigstore anchor_evidence (rekor_uuid/rekor_log_index) was supplied.';
+  } else if (sourceClass === 'vr1_onchain') {
+    const vr1 = evidence.vr1_onchain || null;
+    anchored = !!(vr1 && vr1.verified === true);
+    anchorNote = anchored ? ('Composed with an on-chain storage-proof result (VR-1 State-Proof Verifier, source: ' + (vr1.source || 'vr-1') + ').') : 'source_class declared vr1_onchain but no verified on-chain storage-proof result was supplied (compose with VR-1 / verify_eth_state_proof to establish this anchor).';
+  } else {
+    anchored = false;
+  }
+
+  const rootMatch = anchored && !structuralError && computedRoot !== null && claimedRoot !== '' && computedRoot === claimedRoot;
+  const verified = anchored && !structuralError && rootMatch;
+
+  let determination;
+  if (structuralError) determination = 'STRUCTURAL_ERROR';
+  else if (!anchored) determination = 'REFUSED_UNANCHORED';
+  else if (!rootMatch) determination = 'MISMATCH';
+  else determination = 'VERIFIED';
+
+  const escalation = determination === 'MISMATCH'
+    ? { raised: true, reason: 'Computed root does not match the claimed root for an otherwise-recognized anchor class.', severity: 'high' }
+    : null;
+
+  const compliance_flags = [];
+  if (structuralError) compliance_flags.push('ANCHORED_EXTRACT_STRUCTURAL_ERROR');
+  else if (!anchored) compliance_flags.push('ANCHORED_EXTRACT_REFUSED_UNANCHORED');
+  else if (!rootMatch) compliance_flags.push('ANCHORED_EXTRACT_MISMATCH', 'ESCALATION_RAISED');
+  else compliance_flags.push('ANCHORED_EXTRACT_VERIFIED');
+  compliance_flags.push.apply(compliance_flags, flagsExtra);
+
+  const output_payload = {
+    anchored_extract_determination: determination, anchored, root_match: rootMatch, source_class: sourceClass,
+    computed_root: computedRoot, claimed_root: claimedRoot || null, structural_error: structuralError,
+    anchor_note: anchorNote, escalation, not_proven: NOT_PROVEN,
+    regulatory_framework: 'Voluntary anchored-extract verification aligned with amended AS 1105 (FY2026) and the AICPA practice aid on not relying on unanchored chain explorers; not a PCAOB audit.',
+  };
+  return { output_payload, compliance_flags };
+}
+
+const PRESETS = {
+  ocg: { leaf_content_hash: 'sha256:receiptA-content-hash', merkle_path: [], claimed_root: 'a495e1c83ab24f0317b9466462dec37e0d34c5c28fed33cec240e20cff5ab236', source_class: 'ocg_artifact' },
+  ots: { leaf_content_hash: 'sha256:extract-ots-001', merkle_path: [{ hash: 'deadbeef00000000000000000000000000000000000000000000000000ffff', position: 'right' }], claimed_root: '72b0405679106b978ab927c9ecb7edbef2c8e23ae4f84173b4d487a90d798cd9', source_class: 'ots', ots_attestation: 'bitcoin_confirmed', ots_block: 921000 },
+  refuse: { leaf_content_hash: 'sha256:extract-noanchor-001', merkle_path: [], claimed_root: 'anything-caller-claims', source_class: '' },
+  mismatch: { leaf_content_hash: 'sha256:extract-sigstore-001', merkle_path: [], claimed_root: 'deliberately-wrong-root-0000', source_class: 'sigstore', rekor_index: 123456, rekor_uuid: 'uuid-abc-123' },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val == null ? '' : val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('leaf_content_hash', pr.leaf_content_hash);
+  document.getElementById('merkle_path').value = JSON.stringify(pr.merkle_path, null, 2);
+  setVal('claimed_root', pr.claimed_root);
+  setVal('source_class', pr.source_class);
+  setVal('rfc3161_imprint', pr.rfc3161_imprint);
+  setVal('rfc3161_time', pr.rfc3161_time);
+  setVal('ots_attestation', pr.ots_attestation);
+  setVal('ots_block', pr.ots_block);
+  setVal('rekor_index', pr.rekor_index);
+  setVal('rekor_uuid', pr.rekor_uuid);
+  setVal('vr1_verified', pr.vr1_verified);
+}
+
+function getPP() {
+  let merkle_path = [];
+  const raw = document.getElementById('merkle_path').value.trim();
+  if (raw) { try { merkle_path = JSON.parse(raw); } catch (e) { merkle_path = []; } }
+
+  const sourceClass = document.getElementById('source_class').value || null;
+  const anchor_evidence = {};
+  if (sourceClass === 'rfc3161') anchor_evidence.rfc3161 = { tsa_message_imprint: document.getElementById('rfc3161_imprint').value || null, tsa_time: document.getElementById('rfc3161_time').value || null };
+  if (sourceClass === 'ots') anchor_evidence.ots = { attestation: document.getElementById('ots_attestation').value || null, bitcoin_block_height: document.getElementById('ots_block').value !== '' ? Number(document.getElementById('ots_block').value) : null };
+  if (sourceClass === 'sigstore') anchor_evidence.sigstore = { rekor_log_index: document.getElementById('rekor_index').value !== '' ? Number(document.getElementById('rekor_index').value) : null, rekor_uuid: document.getElementById('rekor_uuid').value || null };
+  if (sourceClass === 'vr1_onchain') anchor_evidence.vr1_onchain = { verified: document.getElementById('vr1_verified').value === 'true', source: 'vr-1' };
+
+  return {
+    extract: { leaf_content_hash: document.getElementById('leaf_content_hash').value, merkle_path },
+    claimed_root: document.getElementById('claimed_root').value,
+    source_class: sourceClass,
+    anchor_evidence,
+  };
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+const DET_COLOR = { VERIFIED:'var(--green)', MISMATCH:'var(--red)', REFUSED_UNANCHORED:'var(--warn)', STRUCTURAL_ERROR:'var(--red)' };
+
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  const det = output_payload.anchored_extract_determination;
+  const detEl = document.getElementById('detVal');
+  detEl.textContent = det;
+  detEl.style.color = DET_COLOR[det] || 'var(--teal-lt)';
+  document.getElementById('anchVal').textContent = output_payload.anchored ? 'YES' : 'NO';
+  document.getElementById('matchVal').textContent = output_payload.root_match ? 'YES' : 'NO';
+
+  const vClass = det === 'VERIFIED' ? 'pass' : det === 'REFUSED_UNANCHORED' ? 'warn' : 'fail';
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + det + ': ' + output_payload.anchor_note + '</div>';
+
+  document.getElementById('proofTableBody').innerHTML =
+    '<tr><td>Source class</td><td>' + (output_payload.source_class || 'none') + '</td></tr>' +
+    '<tr><td>Computed root</td><td>' + (output_payload.computed_root || '–') + '</td></tr>' +
+    '<tr><td>Claimed root</td><td>' + (output_payload.claimed_root || '–') + '</td></tr>' +
+    '<tr><td>Anchored</td><td><span class="badge ' + (output_payload.anchored ? 'ok' : 'err') + '">' + (output_payload.anchored ? 'yes' : 'no') + '</span></td></tr>' +
+    '<tr><td>Root match</td><td><span class="badge ' + (output_payload.root_match ? 'ok' : 'err') + '">' + (output_payload.root_match ? 'match' : 'no match') + '</span></td></tr>' +
+    (output_payload.structural_error ? '<tr><td>Structural error</td><td><span class="badge err">' + output_payload.structural_error + '</span></td></tr>' : '');
+
+  const escEl = document.getElementById('escSect');
+  if (output_payload.escalation) {
+    escEl.style.display = 'block';
+    escEl.innerHTML = '<span class="badge err">ESCALATION</span> ' + output_payload.escalation.reason;
+  } else {
+    escEl.style.display = 'none';
+  }
+
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(n => '<li><b>' + n.item + '</b>: ' + n.detail + '</li>').join('');
+
+  const flagsHtml = compliance_flags.map(f => '<span class="badge ' + (f.endsWith('_VERIFIED') ? 'ok' : (f.includes('REFUSED') || f.includes('PENDING') ? 'warn-b' : 'err')) + '">' + f + '</span>').join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-286 Anchored Extract Verifier: ' + o.anchored_extract_determination + '</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Anchored Extract Verifier, ART-286</h1>');
+  w.document.write('<p><b>Determination:</b> ' + o.anchored_extract_determination + ' | <b>Anchored:</b> ' + o.anchored + ' | <b>Root match:</b> ' + o.root_match + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(n => w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'));
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT, not an audit or legal advice. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [
+    ['ART-286 Anchored Extract Verifier'],
+    ['Determination', o.anchored_extract_determination],
+    ['Source class', o.source_class],
+    ['Anchored', o.anchored],
+    ['Root match', o.root_match],
+    [],
+    ['Generated', new Date().toISOString()],
+    ['Reference', o.regulatory_framework],
+  ];
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+loadPreset('ocg');
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+</body>
+</html>
