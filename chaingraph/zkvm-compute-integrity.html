@@ -318,7 +318,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     </div>
 
     <h3 id="full-coverage">Reaching full coverage: the deferred set, and how each class fell</h3>
-    <p>Coverage started partial and honest. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up. Reaching zero meant working through five distinct failure classes. The current state: <strong>207 of 207</strong> <code>gpu:false</code> nodes carry a real groth16-bn254 proof; deferred count is <strong>0</strong>; the 15 <code>gpu:true</code> nodes are out of scope by design.</p>
+    <p>Coverage started partial and honest. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up. Getting there meant working through five distinct failure classes. The current state: every deterministic <code>gpu:false</code> node carries a real groth16-bn254 proof except one, a content-identification kernel whose in-guest hashing interprets to over a billion cycles and is deferred for proving cost rather than for any doubt about its correctness. That single deferral is recorded openly with its reason, and the ratchet gate lets the deferred count only fall. The <code>gpu:true</code> nodes are out of scope by design.</p>
 
     <div class="lesson">
       <h3>The mass rollout: one guest, a hybrid pipeline</h3>
@@ -356,17 +356,22 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
 
     <div class="lesson">
       <h3>The last four: async crypto rewritten to synchronous pure-JS SHA-256</h3>
-      <p>Four crypto kernels computed hashes using <code>async crypto.subtle</code> with <code>TextEncoder</code>, neither of which is available in the QuickJS guest. Each was rewritten to use a synchronous pure-JavaScript SHA-256 already used and proven elsewhere in the suite. Output-preserving; fixture hashes were unchanged on both V8 and the guest. These four were the final nodes to receive a real proof, closing the deferred set at zero.</p>
+      <p>Four crypto kernels computed hashes using <code>async crypto.subtle</code> with <code>TextEncoder</code>, neither of which is available in the QuickJS guest. Each was rewritten to use a synchronous pure-JavaScript SHA-256 already used and proven elsewhere in the suite. Output-preserving; fixture hashes were unchanged on both V8 and the guest. These four were the final nodes in that push to receive a real proof, taking the deferred set down to the single high-cost content-identification kernel noted above.</p>
     </div>
 
     <div class="lesson">
       <h3>Making it a rule (§18.6)</h3>
-      <p>An optional proof that an agent cannot assume is present is worthless as a credential. The deterministic-node proof profile (<code>ocg-p18-deterministic</code>, v0.6.1) makes it a MUST: every live <code>gpu:false</code> node carries a verifying proof or an explicit deferral. With deferred at zero, the baseline is zero; no new deterministic node ships without a real proof. The downward-only ratchet gate enforces this on every subsequent push.</p>
+      <p>An optional proof that an agent cannot assume is present is worthless as a credential. The deterministic-node proof profile (<code>ocg-p18-deterministic</code>, v0.6.1) makes it a MUST: every live <code>gpu:false</code> node carries a verifying proof or an explicit deferral. With the deferred set down to the one documented content-identification node, the baseline tracks it exactly; no new deterministic node ships without a real proof. The downward-only ratchet gate enforces this on every subsequent push, so the recorded deferral count can only fall.</p>
     </div>
 
     <div class="lesson">
       <h3>Proving determinism holds, every push</h3>
       <p>A proof says "this exact program ran on these inputs and produced this output." That claim is only meaningful if the program gives the same output regardless of which JavaScript engine evaluates it. A cross-engine gate runs each kernel's fixture inputs through three engines: V8 (Node), JavaScriptCore (Bun), and the guest's QuickJS-ng; then fails if their canonical outputs differ by a single byte. It already caught a kernel that stored data with raw NUL sentinels, which V8 and QuickJS parse one way and JavaScriptCore another. The proof attests to execution; this gate attests that execution is the same everywhere, the property a decade-old proof depends on.</p>
+    </div>
+
+    <div class="lesson">
+      <h3>The receipt is a replay you do not have to run</h3>
+      <p>Step back from the mechanics and the whole construction has one shape, the OpenChainGraph receipt. A kernel runs once inside the universal guest (ImageID <code>a1a0bc89</code>), the guest commits the kernel digest and the output to its journal, and the proof binds that journal to that exact program. A reader who holds the receipt re-runs nothing: checking the seal is a replay the prover already performed, compressed to about 200 bytes and confirmed with one pairing test. The base execution hash offers the same guarantee the slow way, by actual re-execution, and the cross-engine gate above is what lets the two agree bit for bit, so a receipt and a hand recompute of the same artifact always land on the same output. Recompute-to-verify and prove-to-verify are two readings of one receipt, not two systems.</p>
     </div>
   </div>
 </section>
