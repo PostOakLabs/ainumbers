@@ -334,6 +334,9 @@ Generated, non-canonical renderings of an already-verified artifact, produced **
 - XBRL: taxonomy-per-regime; EBA COREP own-funds + LCR/NSFR pilots; `ocg-ext:*` where no regulator
   taxonomy exists. **No fabricated taxonomy concepts** — each maps to a published element or an explicit
   `ocg-ext` element.
+- **DSSE v1.0 PAE** (Pre-Authentication Encoding) is named normatively as the envelope framing for in-toto /
+  VSA exports (the OCG-VSA export target). Advisory naming only; the existing §13 export round-trip gate
+  (`exporters/export.test.mjs`) covers it, and no new gate is added.
 
 ### §13.11 Verifiable Credentials profile (`vc`) — NORMATIVE, new in v0.4.1
 `chaingraph_export:vc` renders a verified artifact as a [W3C Verifiable Credentials 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
@@ -372,6 +375,10 @@ proof** ([Data Integrity EdDSA Cryptosuites v1.0](https://www.w3.org/TR/vc-di-ed
 `audit_signature.proof` is fully v0.5-conformant. It turns the §4 hash from *tamper-evidence* (recompute →
 matches inputs) into *authenticated attestation* (a named key vouches for the artifact), filling the
 §13.11 gap (the `vc` view mints no securing proof).
+
+**Key transparency (advisory SHOULD — new in v0.8.8).** Long-lived signer keys SHOULD be transparency-logged;
+**KEYTRANS** or **Sigsum** are acceptable mechanisms. This is an advisory sentence only — it builds nothing and
+adds no gate row.
 
 **§16.0 Home (NORMATIVE).** The proof lives at `audit_signature.proof` — NOT at artifact root and NOT
 inside the DSSE-style `audit_signature.signatures[]` array. The artifact root is `additionalProperties:false`
@@ -620,6 +627,30 @@ kernel identity (§17); the four are independent, composable claims. Because inc
 SHA-256 Merkle data, anchor bindings retain their timestamp value even against a future signature
 break (informative).
 
+### §20.2 Witness cosignatures on batch anchors (NORMATIVE, OPTIONAL — new in v0.8.8)
+A §20 anchor binding that carries a §20.1 `merkle_inclusion` root (or a `c2sp-tlog-proof-v1` anchor) MAY
+carry an OPTIONAL `witness_cosignatures[]` array: independent **k-of-n** cosignatures over the anchored
+Merkle root, expressed in the **C2SP tlog-checkpoint + witness-cosignature note** format (a signed note —
+origin line, tree size, root — followed by one `— <keyname> <base64 sig>` cosignature line per witness).
+Signature suites follow the §PQC-1 reserved-extension discipline: Ed25519 now, an ML-DSA entry RESERVED for
+a future revision, with no hardcoded suite id baked into the envelope. Purpose: a batch anchor proves a
+root existed at a time (§20.1); cosignatures close **anchor equivocation** — one root shown to verifier A
+and a different root shown to verifier B — WITHOUT the reference deployment operating a log, because the
+cosigners are independent third parties (existing verifiers such as sigsum-verify and Armored Witness).
+Verification is offline: a verifier confirms the note's origin/root match the binding's `anchored_hash` and
+that ≥ k valid cosignatures over that note verify against its pinned witness key set; fewer than k valid
+cosignatures, or a cosignature over a different root, FAILS the binding. `witness_cosignatures` rides
+OUTSIDE the `execution_hash` preimage exactly like the rest of `anchor_bindings` — a batch anchor with no
+cosignatures is byte-identical and fully conformant.
+
+Gate (EXISTING, extended — no new gate script): `anchor-binding.test.mjs` (the §20/§20.1 row) gains
+fixtures — a valid k-of-n cosigned checkpoint verifies against pinned witness keys; a wrong or
+below-threshold cosignature MUST fail; the anchor is hash-identical with and without the cosignatures.
+
+Attribution: **C2SP** (`https://github.com/C2SP/C2SP`) — tlog-checkpoint + signed-note / witness
+cosignature format (pin the cosignature note format version). Sigsum and Armored Witness are cited as
+conformant independent-witness mechanisms (named, not depended on).
+
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
 makes the **existing linear contract** normative (§21.1–§21.3, descriptive of shipped behavior) and adds
@@ -701,6 +732,22 @@ ONLY then, three members enter the composite preimage:
 These keys are absent for linear chains, so no linear chain's composite hash moves. The evaluator is ONE
 pure ECMA-262 module (`kernels/_gateval.mjs`) — no expression language, no second canonicalizer — used
 byte-identically on every executing surface.
+
+### §21.5 Composite claim strength (NORMATIVE, OPTIONAL — new in v0.8.8)
+A §21 chain receipt MAY carry a hash-excluded `claim_strength` field equal to the **`min`** of its per-step
+claim strengths, where each step's strength reflects its evidence class — a zk-proven step (§18) `>` a
+hash-replayable step (§4) `>` an asserted step. A chain that mixes a §18 zk-proven step with a
+hash-replayable step therefore reports the WEAKER composite honestly: the chain cannot claim to be stronger
+than its weakest link. `claim_strength` is DERIVED (a pure function of the RAN steps' evidence classes) and
+hash-excluded, so it moves no `composite_execution_hash` — a receipt with and without it is byte-identical.
+It pairs naturally with §24.6 per-kernel determinism classes as the per-step strength inputs.
+
+Gate (EXISTING, extended — no new gate script): `linear-hash-freeze.mjs` (§21.1–§21.3) proves the field is
+hash-excluded (the composite hash is unchanged with and without it); `gate-parity.test.mjs` proves the
+Worker `run_chain` and the embedded `runChain` derive the SAME `min` composite.
+
+Attribution: **FrankenSim** (J. Emanuel) — the evidence-color / weakest-link design, IDEAS ONLY. Its license
+carries an unvetted "AI rider"; no text or code is copied. Cited as convergent prior art.
 
 ## §22 Work Mandates (NORMATIVE — new in v0.8.1)
 A **Work Mandate** is a signed OpenChainGraph artifact that delegates bounded authority: a principal
@@ -979,6 +1026,40 @@ by the human policy decision point the gate deferred to; and a countersigned clo
 **SCITT / RFC 9942** receipt-shaped statement (the record hash is the "statement", the Anchorproof envelope
 plus its §20 anchor the "receipt") — named so a future SCITT registration is a re-labelling, not a re-model.
 
+### §22.9 Signed failure receipts (NORMATIVE, OPTIONAL — new in v0.8.8)
+A failed verify — a §16/§18/§20/§21.4 gate failure, or a §22 mandate rejection — MAY be emitted as a signed
+**FAILURE receipt** whose body carries an **AR4SI trustworthiness-vector** tier (`affirming` / `warning` /
+`contraindicated`, with the numeric AR4SI code points), shaped per **IETF RATS EAR** (EAT Attestation
+Result). The receipt is signed with the same §16 `eddsa-jcs-2022` whole-artifact proof — making the failure
+portable and tamper-evident — references the subject `execution_hash` (or mandate hash), and names the
+failing rule id. This is the **failure side**, complementing (never duplicating) the queued OCG-VSA success
+side. §22 gates and ML-2 escalations MAY consume a §22.9 receipt as an input evidence artifact.
+
+Gate (EXISTING, extended — no new gate script): `proof-binding.test.mjs` (§16) covers the signed round-trip
+and tamper-detection over the failure receipt; the §21.4 `gate-semantics.test.mjs` tier mapping is reused
+where a gate failure is the source.
+
+Attribution: **IETF RATS EAR / AR4SI** (`draft-ietf-rats-ar4si`) — PIN draft -10; later revisions are not
+tracked. RFC 9457 problem-details is REJECTED (an unsigned HTTP-error shape at the wrong layer).
+
+### §22.10 Offline mandate attenuation (NORMATIVE, OPTIONAL — new in v0.8.8)
+A multi-hop work mandate MAY be delegated by **Biscuit-style offline attenuation-block chaining**: each
+delegation hop is a signed block bound to the previous block by a **single-use keypair**; a holder narrows
+scope OFFLINE by appending a caveat block, never widening it; a verifier checks the whole block chain under
+ONE root public key. Widening re-delegation is therefore **structurally impossible** — a hop can only add
+restrictions — which makes the §SIDECAR.2 resource-narrowing invariant concrete for multi-hop mandates.
+This is a CONSTRUCTION/FORMAT only: OCG defines the block-chaining and single-use-key binding and NEVER the
+Biscuit Datalog authorization runtime, which stays external and out of scope.
+
+Gate (EXISTING, extended — no new gate script): `mandate-binding.test.mjs` (§22.5) gains an
+attenuation-chain fixture — a valid narrowing chain verifies under one root key; a block that WIDENS scope
+MUST fail; a broken block link MUST fail.
+
+Attribution: **Eclipse Biscuit** (Apache-2.0) — the block/attenuation construction ONLY (pin the Biscuit
+spec version), never the Datalog runtime. UCAN is REJECTED (DID baggage + quadratic nested-JWT bloat);
+draft-prakash-aip-00 is REJECTED as a dependency (unvetted -00 — the construction is taken from Biscuit
+directly).
+
 ## §23 Input Attestations (NORMATIVE, OPTIONAL — new in v0.8.3)
 The §4 `execution_hash` proves the artifact's computation over the inputs it was GIVEN; it says nothing
 about whether those inputs were themselves authentic (the import-binding honesty caveat). §23 lets an
@@ -1146,6 +1227,25 @@ reference deployment **re-declares its `gpu:false` live set as `ocg-deterministi
 minted under `@1` **verify under `@1` forever** (the freeze clause guarantees `@1`'s semantics never move under
 them). Conformance is still decided by the existing §15 gate suite (§24.3) — `@2` adds the VM↔Worker byte-identity
 of the deterministic WebCrypto subset to what those gates already check (`vm-parity-gate.mjs`), and no new §15 row.
+
+**§24.6 Per-kernel determinism-class declaration (NORMATIVE, OPTIONAL — new in v0.8.8).** A kernel entry in
+`chaingraph.json` metadata MAY declare a **determinism class**: `bit-exact` (byte-identical across the browser
+tool, the Cloudflare Worker, and the QuickJS VM — the §24 default for `gpu:false` live kernels), `replayable`
+(same output for the same inputs but not cross-surface byte-identical), or `estimated` (stochastic / model-output
+whose replay bounds are not bit-exact). The declaration is **TESTED, not merely asserted**: the existing §4
+parity and finite gates are RE-BOUND per class — a `bit-exact` kernel MUST pass the cross-surface byte-identity
+check; an `estimated` kernel is exempt from byte-identity but MUST still pass finite-output and
+idempotency-within-tolerance. A kernel whose declared class does NOT match its measured behavior MUST fail. This
+refines §24's global profile to per-kernel granularity; it complements, and does not replace, the global profile.
+The declared class is hash-excluded metadata and moves no `execution_hash`.
+
+Gate (EXISTING, extended — no new gate script): `determinism-replay.test.mjs` (§4, N=3 idempotency + JCS
+key-order) and `kernel-contract.test.mjs` (§4 offline reproduce) read the declared class and assert the
+class-appropriate property (byte-exact for `bit-exact`, finite + idempotent for `estimated`);
+`golden-parity.test.mjs` enforces cross-surface identity for `bit-exact`. No new §15 row.
+
+Attribution: **FrankenSim** determinism-class idea — IDEAS ONLY, same license caveat as §21.5. Modeled alongside
+the W3C WebAssembly Deterministic Profile framing already cited in §24.
 
 ## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
 §18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
@@ -1403,8 +1503,30 @@ reference only, never a runtime dependency or vendored code path**. This joins t
 set: the W3C WebAssembly 3.0 Deterministic Profile (§24), the RISC-V freeze discipline (§24.2), RFC 9162
 (Certificate Transparency), and KERI/vLEI (ISO 17442-3) where applicable.
 
+**§SIDECAR.4 Verified-streaming sidecars — GATED, not adopted (informative — new in v0.8.8).** Verified-streaming
+sidecars (Bao / BLAKE3) are **measured-first**: adopt ONLY if real sidecar sizes justify it (**median ≥ 1 MB**).
+A `< 1 MB` median means do NOT adopt — a second hash surface fights the one-canonical-hash doctrine. No spec
+commitment and no gate; this is a measurement note only.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.7 (2026-07-10 — the record `spec_version` bump landed at a coordinated
+See `standard/CHANGELOG.md`. **Unreleased (pending v0.8.8 — SPEC-text additive pass landed; the record
+`spec_version` bump 0.8.7 → 0.8.8 is DEFERRED to a coordinated K landing to avoid a `chaingraph.json`
+single-writer collision, exactly as v0.8.7 folded into the GD-1 landing):** Vouch-hunt #3 additive §s —
+§20.2 (§WITNESS-1: OPTIONAL k-of-n C2SP witness cosignatures on §20/§20.1 batch anchors, closes
+anchor-equivocation without operating a log, verify-only, offline-verifiable), §21.5 (§CLAIMSTR-1:
+hash-excluded `claim_strength = min(step strengths)` weakest-link composite on §21 receipts), §22.9
+(§VERDICT-1: signed AR4SI / RATS-EAR failure receipts, the failure side complementing the queued OCG-VSA
+success side, PIN AR4SI -10), §22.10 (§ATTEN-1: Biscuit offline attenuation-block chaining for multi-hop
+mandates, construction-only and never the Datalog runtime, widening structurally impossible), §24.6
+(§DETCLASS-1: per-kernel `bit-exact`/`replayable`/`estimated` declaration TESTED by the re-bound §4
+parity/finite gates). Riders: DSSE v1.0 PAE named for in-toto / VSA exports (§13), an advisory §16 SHOULD to
+transparency-log long-lived signer keys (KEYTRANS / Sigsum), and the Bao / BLAKE3 §SIDECAR.4 verified-streaming
+note GATED pending a ≥ 1 MB median measurement. All additive: no envelope/hash/schema change,
+`chaingraph_version` stays `0.4.0`, every existing `execution_hash` is byte-identical, and every new normative
+MUST binds to an EXISTING §15 gate (no new gate script, no new §15 row). Attribution: C2SP cosignature v1, IETF
+RATS AR4SI (-10), Eclipse Biscuit spec (construction only), FrankenSim (§21.5 / §24.6 — IDEAS ONLY, unvetted
+"AI rider" license, never text or code). UCAN, RFC 9457 problem-details, and AIP -00 rejected (see
+DECISION-LEDGER-DISCARDED). **v0.8.7 (2026-07-10 — the record `spec_version` bump landed at a coordinated
 cross-surface step folded into the GD-1 reserve-disclosure-checker landing, so it did not collide with the
 in-flight `chaingraph.json` single-writer build):** additive ML landing-pass riders — §HASHRES-1 (RFC 6920 / ISO 18670 SWHID Ledger hash-resolution
 addressing contract; informative SCITT alignment), §PQC-1 (hybrid dual §16 Data Integrity proof over the same
