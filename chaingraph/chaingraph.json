@@ -26322,6 +26322,85 @@
           "handoff": "annuityPV, breakEvenRate, and recommendation form the paired decumulation decision record; terminal stage"
         }
       ]
+    },
+    {
+      "name": "bond-mandate-receipt",
+      "title": "Agentic Bond-Trading Mandate Receipt",
+      "description": "Compiles size, spread, and issuer limits into a work mandate, simulates the spend policy against it, then runs the mandate through the agentic mandate sandbox against synthetic bond-trade transactions. GATE: any breach halts the run and opens an escalation record (OCG §22.8) referencing the verify_escalation_closure tail on the anchor worker; a clean run emits the per-session bond-trading mandate receipt.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/bond-mandate-receipt-composer.html",
+      "steps": [
+        {
+          "tool_id": "art-274-compile-work-mandate",
+          "handoff": "mandate bounds (size/spread/issuer limits) feed Stage 2 spend-policy simulation"
+        },
+        {
+          "tool_id": "art-02-agent-spend-policy-simulator",
+          "handoff": "spend_policy_verdict and synthetic-transaction results feed Stage 3 sandbox run"
+        },
+        {
+          "tool_id": "rbe-06-agentic-mandate-sandbox",
+          "handoff": "sandbox verdict → GATE: any breach escalates (HALT, open escalation record, closed via verify_escalation_closure on the anchor worker); clean run emits the per-session bond-trading mandate receipt. Terminal stage.",
+          "gate": {
+            "input": "/breach",
+            "rules": [
+              {
+                "op": "eq",
+                "value": true,
+                "next": "escalate"
+              }
+            ],
+            "default": "receipt"
+          }
+        }
+      ]
+    },
+    {
+      "name": "intl-wire-iso-preflight",
+      "title": "International Wires ISO Migration Preflight",
+      "description": "Per-template preflight for the Nov 16 2026 ISO 20022 structured-address harmonization deadline: CBPR+ structured-address lint, purpose-code requirement check, LEI payment-binding lint, and MT-MX translation fidelity score. PASS only when all four checks pass; FAIL surfaces the failing check(s). Each receipt records which template/version was checked so re-runs show drift toward compliance across receipts.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/intl-wire-iso-preflight-composer.html",
+      "steps": [
+        {
+          "tool_id": "art-241-cbpr-structured-address-linter",
+          "handoff": "structured-address lint result feeds Stage 2 purpose-code check"
+        },
+        {
+          "tool_id": "art-243-purpose-code-requirement-checker",
+          "handoff": "purpose-code check result feeds Stage 3 LEI payment-binding lint"
+        },
+        {
+          "tool_id": "art-246-lei-payment-binding-linter",
+          "handoff": "LEI payment-binding lint result feeds Stage 4 translation-fidelity scoring"
+        },
+        {
+          "tool_id": "art-245-mt-mx-translation-fidelity-scorer",
+          "handoff": "translation-fidelity score composes with the prior three checks into the per-template PASS/FAIL ISO-migration preflight receipt. Terminal stage."
+        }
+      ]
+    },
+    {
+      "name": "fiusd-reserve-attestation",
+      "title": "FIUSD Reserve Attestation Receipt",
+      "description": "VERIFY-SIDE ONLY: reserve-attestation precheck, stablecoin reserve stress simulation, partner-jurisdiction routing, and partner-stablecoin readiness score compose into a daily reserve-precheck receipt a regulator or auditor of a community bank can independently replay. Optionally anchors the receipt digest. Asserts only that these inputs replay to this readiness verdict, never that the underlying reserves are attested or cryptographically proven; no claim of verifying an issuer's reserve PDF.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/fiusd-reserve-attestation-composer.html",
+      "steps": [
+        {
+          "tool_id": "art-06-genius-act-reserve-attestation",
+          "handoff": "reserve-attestation precheck result feeds Stage 2 reserve stress simulation"
+        },
+        {
+          "tool_id": "rca-02-mica-reserve-stress",
+          "handoff": "reserve stress simulation result feeds Stage 3 jurisdiction routing"
+        },
+        {
+          "tool_id": "art-111-arc-corridor-jurisdiction-router",
+          "handoff": "jurisdiction routing result feeds Stage 4 partner readiness scoring"
+        },
+        {
+          "tool_id": "art-110-arc-partner-stablecoin-onboarding",
+          "handoff": "readiness score composes into the readiness verdict (ready/gaps). Terminal stage; optional anchor_document_integrity (art-121) tail anchors the receipt digest."
+        }
+      ]
     }
   ],
   "chains_schema": "https://ainumbers.co/schema/chaingraph-chains-v1.0.json",
