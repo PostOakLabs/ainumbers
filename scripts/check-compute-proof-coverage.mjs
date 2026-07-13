@@ -42,10 +42,12 @@ const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 
 const VALID_RECEIPT_FORMATS = new Set(['groth16-bn254', 'stark']);
 
-// ── classify one gpu:false live node ──────────────────────────────────────────────────────────────
+// ── classifyNode ──────────────────────────────────────────────────────────────────────────────────
 // Returns { state: 'proven' | 'deferred' | 'missing', problems: string[] } where a 'proven' node with a
-// malformed proof is downgraded to 'missing' with the specific defects listed.
-function classify(node) {
+// malformed proof is downgraded to 'missing' with the specific defects listed. Works for any live node
+// (gpu:false or gpu:true) — exported so scripts/counts.mjs can derive the ZK100 figure from the same
+// classifier this gate uses, per ZK100-MESSAGING-SPEC.md §1.2 ("one classifier, two callers").
+export function classifyNode(node) {
   const name = node.mcp_name || node.tool_id || '(unnamed)';
   const cp = node.audit_signature?.compute_proof ?? node.compute_proof; // canonical home is audit_signature (§18.0)
   if (cp) {
@@ -68,13 +70,31 @@ function classify(node) {
   return { name, state: 'missing', problems: ['no compute_proof and no compute_proof_ready:"deferred"'] };
 }
 
+// ── zkCoverage ────────────────────────────────────────────────────────────────────────────────────
+// Pure function over an already-loaded chaingraph object — the ZK100 figure (ZK100-MESSAGING-SPEC.md §1.1):
+// count of ALL live nodes (gpu:false or gpu:true) carrying a valid compute_proof, out of all live nodes in
+// scope. Unlike the §18 gate below (which only enforces gpu:false), this counts any live node's proof state —
+// the gpu flag is irrelevant to whether a node HAS a real receipt, only to whether the gate mandates one.
+export function zkCoverage(chaingraph) {
+  const liveNodes = (chaingraph.nodes ?? []).filter((n) => n.status === 'live');
+  const states = liveNodes.map(classifyNode);
+  const provenNodes = states.filter((r) => r.state === 'proven').length;
+  const provenTotal = liveNodes.length;
+  const provenPct = provenTotal ? Math.round((100 * provenNodes) / provenTotal) : 0;
+  return { provenNodes, provenTotal, provenPct };
+}
+
+// ── CLI entry point (only runs when this file is executed directly, not when imported) ─────────────
+const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (IS_MAIN) {
+
 // ── load ──────────────────────────────────────────────────────────────────────────────────────────
 const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
 const live = (cg.nodes ?? []).filter((n) => n.status === 'live');
 const gpuFalse = live.filter((n) => n.gpu === false);
 const gpuTrue = live.filter((n) => n.gpu === true);
 
-const results = gpuFalse.map(classify);
+const results = gpuFalse.map(classifyNode);
 const proven = results.filter((r) => r.state === 'proven');
 const deferred = results.filter((r) => r.state === 'deferred');
 const missing = results.filter((r) => r.state === 'missing');
@@ -159,3 +179,5 @@ if (existsSync(BASELINE_PATH)) {
 
 if (failed) process.exit(1);
 console.log(`✓ §18 coverage clean — ${proven.length}/${gpuFalse.length} gpu:false live nodes proven, ${deferred.length} deferred (≤ baseline), ${gpuTrue.length} gpu:true out-of-scope.`);
+
+} // IS_MAIN
