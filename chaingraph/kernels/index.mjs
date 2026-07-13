@@ -230,7 +230,12 @@ import * as art284 from './art-284-did-webvh-log-verifier.kernel.mjs';
 import * as art285 from './art-285-acdc-delegation-chain-verifier.kernel.mjs';
 import * as art286 from './art-286-anchored-extract-verifier.kernel.mjs';
 import * as art287 from './art-287-revocation-status-verifier.kernel.mjs';
+import * as art288 from './art-288-map-iso20022-to-evm-calldata.kernel.mjs';
+import * as art289 from './art-289-lint-besu-settlement-contract.kernel.mjs';
 import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
+import * as art290 from './art-290-check-linea-l2-finality-window.kernel.mjs';
+import * as art291 from './art-291-screen-onledger-transfer-batch.kernel.mjs';
+import * as art292 from './art-292-attest-settlement-orchestrator.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
 import * as art32  from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
@@ -547,7 +552,12 @@ export const KERNELS = {
   'art-285-acdc-delegation-chain-verifier':                   art285,
   'art-286-anchored-extract-verifier':                        art286,
   'art-287-revocation-status-verifier':                       art287,
+  'art-288-map-iso20022-to-evm-calldata':                     art288,
+  'art-289-lint-besu-settlement-contract':                    art289,
   'art-29-dora-readiness-diagnostic':                         art29,
+  'art-290-check-linea-l2-finality-window':                   art290,
+  'art-291-screen-onledger-transfer-batch':                   art291,
+  'art-292-attest-settlement-orchestrator':                   art292,
   'art-30-agent-commerce-conformance-validator':              art30,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
