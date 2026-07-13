@@ -236,6 +236,10 @@ import * as art29  from './art-29-dora-readiness-diagnostic.kernel.mjs';
 import * as art290 from './art-290-check-linea-l2-finality-window.kernel.mjs';
 import * as art291 from './art-291-screen-onledger-transfer-batch.kernel.mjs';
 import * as art292 from './art-292-attest-settlement-orchestrator.kernel.mjs';
+import * as art293 from './art-293-einvoice-format-validator.kernel.mjs';
+import * as art294 from './art-294-einvoice-vat-calc-verifier.kernel.mjs';
+import * as art295 from './art-295-einvoice-jurisdiction-mandate-router.kernel.mjs';
+import * as art296 from './art-296-einvoice-transmission-receipt-builder.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
 import * as art32  from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
@@ -558,6 +562,10 @@ export const KERNELS = {
   'art-290-check-linea-l2-finality-window':                   art290,
   'art-291-screen-onledger-transfer-batch':                   art291,
   'art-292-attest-settlement-orchestrator':                   art292,
+  'art-293-einvoice-format-validator':                        art293,
+  'art-294-einvoice-vat-calc-verifier':                       art294,
+  'art-295-einvoice-jurisdiction-mandate-router':             art295,
+  'art-296-einvoice-transmission-receipt-builder':            art296,
   'art-30-agent-commerce-conformance-validator':              art30,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
