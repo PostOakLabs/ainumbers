@@ -17,6 +17,11 @@
  *   mcp.widgets        pilot_widgets alone (data/mcp-counts.json)
  *   openapi.ops        unique mcp_names from manifests + chaingraph nodes
  *                      (same derivation as gen-openapi.mjs — not read from generated file)
+ *   zk.provenNodes     live nodes carrying a valid ZK compute_proof (any gpu flag)
+ *   zk.provenTotal     live nodes in scope for ZK proof (today == all live nodes)
+ *   zk.provenPct       round(100 * zk.provenNodes / zk.provenTotal)
+ *                      (derived via check-compute-proof-coverage.mjs's classifyNode/zkCoverage —
+ *                      one classifier, two callers; see ZK100-MESSAGING-SPEC.md §1)
  *
  * mcp.live != openapi.ops by design:
  *   mcp.live   = callable tools registered on the live /mcp endpoint
@@ -26,6 +31,7 @@
 import { readFileSync, readdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { zkCoverage } from './check-compute-proof-coverage.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -82,6 +88,9 @@ export function deriveCounts() {
   }
   const openapiOps = byMcpName.size
 
+  // zk.* — ZK100-MESSAGING-SPEC.md §1: reuses the §18 gate's classifier (one classifier, two callers)
+  const { provenNodes, provenTotal, provenPct } = zkCoverage(chaingraph)
+
   return {
     'tools.browser':     toolsBrowser,
     'manifests':         manifests,
@@ -92,6 +101,9 @@ export function deriveCounts() {
     'mcp.live':          mcpLive,
     'mcp.widgets':       mcpWidgets,
     'openapi.ops':       openapiOps,
+    'zk.provenNodes':    provenNodes,
+    'zk.provenTotal':    provenTotal,
+    'zk.provenPct':      provenPct,
   }
 }
 
