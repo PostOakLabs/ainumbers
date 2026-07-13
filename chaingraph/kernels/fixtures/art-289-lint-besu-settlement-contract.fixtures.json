@@ -1,0 +1,130 @@
+{
+  "tool_id": "art-289-lint-besu-settlement-contract",
+  "note": "golden_hash is empty until first `node golden-parity.test.mjs --update`.",
+  "vectors": [
+    {
+      "name": "solidity_clean",
+      "policy_parameters": {
+        "artifact_kind": "solidity",
+        "source": "contract Settlement {\n  event Settled(bytes32 indexed id);\n  function transferPair(address a, address b) external onlyCompliant {\n    require(safeTransfer(a, 1), \"fail\");\n    require(transferFrom(b, address(this), 1), \"fail\");\n    emit Settled(bytes32(0));\n  }\n}",
+        "ruleset_profile": "sli-besu-settlement-v1"
+      },
+      "output_payload": {
+        "artifact_kind": "solidity",
+        "ruleset_profile": "sli-besu-settlement-v1",
+        "findings": [
+          {
+            "rule_id": "R1",
+            "severity": "pass",
+            "locus": "contract body",
+            "rationale": "Two or more paired transfer calls guarded by require(...) found (atomic PvP/DvP heuristic)."
+          },
+          {
+            "rule_id": "R2",
+            "severity": "pass",
+            "locus": "function modifiers/body",
+            "rationale": "No payable functions or msg.value reads; settlement does not depend on the native token."
+          },
+          {
+            "rule_id": "R3",
+            "severity": "pass",
+            "locus": "event declarations",
+            "rationale": "A Settled/Finalized/Settlement-named event declaration is present."
+          },
+          {
+            "rule_id": "R4",
+            "severity": "pass",
+            "locus": "transfer function signatures",
+            "rationale": "Every transfer-named function carries a compliance-gate modifier (onlyCompliant/whenNotPaused/complianceGate)."
+          },
+          {
+            "rule_id": "R5",
+            "severity": "pass",
+            "locus": "loop bounds",
+            "rationale": "No unbounded participant-set loop pattern detected."
+          },
+          {
+            "rule_id": "R6",
+            "severity": "pass",
+            "locus": "upgradeability pattern",
+            "rationale": "No upgradeable-proxy pattern (delegatecall/UUPS/TransparentUpgradeableProxy) detected."
+          }
+        ],
+        "invariants_pass": {
+          "R1": true,
+          "R2": true,
+          "R3": true,
+          "R4": true,
+          "R5": true,
+          "R6": true
+        },
+        "overall": "pass",
+        "fail_count": 0,
+        "warn_count": 0
+      },
+      "golden_hash": "dbea5c34f67a9bda6d819ed27b3381327512e389b9ca8c699b2530fb51131d29"
+    },
+    {
+      "name": "solidity_native_token_and_no_event",
+      "policy_parameters": {
+        "artifact_kind": "solidity",
+        "source": "contract Bad {\n  function pay() external payable {\n    msg.value;\n  }\n}",
+        "ruleset_profile": "sli-besu-settlement-v1"
+      },
+      "output_payload": {
+        "artifact_kind": "solidity",
+        "ruleset_profile": "sli-besu-settlement-v1",
+        "findings": [
+          {
+            "rule_id": "R1",
+            "severity": "fail",
+            "locus": "contract body",
+            "rationale": "Could not find two paired transfer calls guarded by a require(...) revert; atomic paired-or-revert settlement not evidenced."
+          },
+          {
+            "rule_id": "R2",
+            "severity": "fail",
+            "locus": "function modifiers/body",
+            "rationale": "Contract declares payable functions or reads msg.value; native-token settlement dependence found."
+          },
+          {
+            "rule_id": "R3",
+            "severity": "fail",
+            "locus": "event declarations",
+            "rationale": "No event whose name matches Settled/Finalized/Settlement was found."
+          },
+          {
+            "rule_id": "R4",
+            "severity": "warn",
+            "locus": "transfer function signatures",
+            "rationale": "No transfer-named function found to check for a compliance-gate modifier."
+          },
+          {
+            "rule_id": "R5",
+            "severity": "pass",
+            "locus": "loop bounds",
+            "rationale": "No unbounded participant-set loop pattern detected."
+          },
+          {
+            "rule_id": "R6",
+            "severity": "pass",
+            "locus": "upgradeability pattern",
+            "rationale": "No upgradeable-proxy pattern (delegatecall/UUPS/TransparentUpgradeableProxy) detected."
+          }
+        ],
+        "invariants_pass": {
+          "R1": false,
+          "R2": false,
+          "R3": false,
+          "R4": false,
+          "R5": true,
+          "R6": true
+        },
+        "overall": "fail",
+        "fail_count": 3,
+        "warn_count": 1
+      },
+      "golden_hash": "f0fa94edbd2ca5243fa3265467eff7618967b6d4738208d2374f197db58d4c97"
+    }
+  ]
+}
