@@ -1,0 +1,59 @@
+name: HTML Verify
+
+# Gate-coverage fix for HTMLCI-1 (2026-07-14): bulk HTML-only PRs (tool/guide/
+# chaingraph page edits, CSP rollout batches, footer/chrome sweeps) touch no
+# kernel or chaingraph.json path, so cross-engine-parity.yml and
+# land-verify.yml's path filters never fire for them. CSP-ROLLOUT batch A
+# merged 48 files including index.html with ZERO CI checks (admin-merge,
+# preflight-green-only). This workflow closes that gap the same way
+# land-verify.yml closed it for `.land` PRs.
+#
+# Cheap, HTML-relevant, already-green gates only. Node-only, no QuickJS/Bun/
+# kernel setup. Additive only: does not replace or weaken any existing gate.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tools/**.html'
+      - 'guides/**.html'
+      - 'chaingraph/**.html'
+      - '*.html'
+      - '.github/workflows/html-verify.yml'
+  pull_request:
+    paths:
+      - 'tools/**.html'
+      - 'guides/**.html'
+      - 'chaingraph/**.html'
+      - '*.html'
+      - '.github/workflows/html-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  html-verify:
+    name: CSP + copy-hallmarks + dead-link + chrome gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: CSP consistency (FOOTER-1/CSP-CONTRACT-1)
+        run: node scripts/check-csp-consistency.mjs
+
+      - name: Copy hallmarks (§1.4)
+        run: node scripts/check-copy-hallmarks.mjs
+
+      - name: Dead-link gate
+        run: node scripts/dead-link-check.mjs
+
+      - name: Node-page chrome (nav/footer)
+        run: node scripts/check-node-page-chrome.mjs
