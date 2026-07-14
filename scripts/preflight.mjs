@@ -41,6 +41,7 @@ const GATES = [
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
+  ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
