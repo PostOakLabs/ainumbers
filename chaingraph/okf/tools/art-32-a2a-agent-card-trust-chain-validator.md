@@ -4,14 +4,14 @@ title: "A2A Agent-Card Trust-Chain Validator"
 description: "The horizontal agent-to-agent trust complement. Validates an A2A v1.0 agent card (schema, signature, extension URIs) then assesses the delegated-authority trust chain into KYA-OS attestation + spend policy: chain depth <= 4, no scope escalation, validity windows <= 90 days. Trust PASS/WARN/FAIL determination + execution_hash."
 resource: https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html
 tags: ["compliance_mandate", "wave-6", "mcp:validate_a2a_trust_chain"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # A2A Agent-Card Trust-Chain Validator
 
 > Exports a decision via MCP `validate_a2a_trust_chain` — mandate type `compliance_mandate`.
 
-**Deadline:** 2026-08 — Wave 6 — A2A at Linux Foundation (150+ orgs); EU AI Act Aug 2026 pushes agent KYA toward requirement.
+**Deadline:** 2026-08 — A2A at Linux Foundation (150+ orgs); EU AI Act Aug 2026 pushes agent KYA toward requirement.
 
 ## Inputs
 

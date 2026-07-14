@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "Merkle Batch Verifier"
-description: ""
+description: "Batch-verifies Merkle inclusion proofs using SHA-256 over payment batches, settlement message sets, and ISO 20022 sets. Zero-egress, browser-local. DORA Art. 12 audit-trail integrity."
 resource: https://ainumbers.co/chaingraph/cry-04-merkle-batch-verifier.html
 tags: ["cryptographic_mandate", "wave-3", "mcp:verify_merkle_batch"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Merkle Batch Verifier

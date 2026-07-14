@@ -1,17 +1,17 @@
 ---
 type: DecisionTool
 title: "Agent Commerce Cross-Protocol Conformance Validator"
-description: "The synergy flagship of Wave 6. Validates a single agent purchase end-to-end across four protocols: AP2 v0.2 mandate chain (Intent → Cart → Payment), ACP checkout conformance (OpenAI/Stripe), Visa TAP RFC 9421 HTTP Message Signature inspection, and x402 settlement leg. Issues one unified PASS/WARN/FAIL verdict and a single execution_hash receipt (ChainGraph Standard v0.1 §4, chain_depth: 1). Consumes ART-01, ART-12, ART-03. Feeds CRY-05, PTG-01."
+description: "The synergy flagship. Validates a single agent purchase end-to-end across up to five protocols: AP2 v0.2 mandate chain (Intent → Cart → Payment), ACP checkout conformance (OpenAI/Stripe), Visa TAP RFC 9421 HTTP Message Signature inspection, x402 settlement leg, and Tempo MPP session/subscription pre-authorization (additive, validated when an mpp_session is supplied). Issues one unified PASS/WARN/FAIL verdict and a single execution_hash receipt (ChainGraph Standard v0.1 §4, chain_depth: 1). Consumes ART-01, ART-12, ART-03. Feeds CRY-05, PTG-01."
 resource: https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html
 tags: ["payment_mandate", "wave-6", "mcp:validate_agent_commerce_conformance"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Agent Commerce Cross-Protocol Conformance Validator
 
 > Exports a decision via MCP `validate_agent_commerce_conformance` — mandate type `payment_mandate`.
 
-**Context:** Wave 6 — agent-commerce synergy flagship. Anchors cross-protocol compliance for AP2 + ACP + TAP + x402.
+**Context:** agent-commerce synergy flagship. Anchors cross-protocol compliance for AP2 + ACP + TAP + x402.
 
 ## Inputs
 

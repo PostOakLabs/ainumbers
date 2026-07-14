@@ -226,6 +226,10 @@ jobs:
             ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }} "echo '✅ SSH connection confirmed'"
 
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
+        # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/
+        # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,
+        # and chaingraph/standard/SPEC.md is the publicly-linked SSOT doc — both are
+        # meant to be live, unlike CONTRACT.md/CLAUDE.md/other internal build docs.
         run: |
           rsync -avz --delete --dry-run --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
@@ -233,6 +237,8 @@ jobs:
             --exclude='.github/' \
             --exclude='.gitattributes' \
             --exclude='scripts/' \
+            --include='chaingraph/okf/**' \
+            --include='chaingraph/standard/SPEC.md' \
             --exclude='*.md' \
             --exclude='specs/' \
             --exclude='CONTRACT.md' \
@@ -248,6 +254,7 @@ jobs:
             ./ ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }}:${{ secrets.DH_WEB_ROOT }}/
 
       - name: 🚀 Sync to DreamHost via rsync
+        # Keep these --include/--exclude flags identical to the dry-run rsync above.
         run: |
           rsync -avz --delete --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
@@ -255,6 +262,8 @@ jobs:
             --exclude='.github/' \
             --exclude='.gitattributes' \
             --exclude='scripts/' \
+            --include='chaingraph/okf/**' \
+            --include='chaingraph/standard/SPEC.md' \
             --exclude='*.md' \
             --exclude='specs/' \
             --exclude='CONTRACT.md' \

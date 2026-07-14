@@ -4,7 +4,7 @@ title: "Liquidity Stress Test Simulator (LCR/NSFR)"
 description: "Monte Carlo simulation of LCR and NSFR under Basel III stress (CRR Art. 412/428, EBA GL/2017/01). 1,000 paths × 250 time steps. P5–P95 percentile distribution, breach probability, time-to-breach, sensitivity tornado."
 resource: https://ainumbers.co/chaingraph/sim-01-lcr-nsfr-liquidity-stress-test.html
 tags: ["liquidity_mandate", "wave-1", "mcp:run_liquidity_stress_test"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Liquidity Stress Test Simulator (LCR/NSFR)

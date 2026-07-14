@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "APP Fraud Graph Simulator"
-description: ""
+description: "Monte Carlo BFS simulation of Authorised Push Payment (APP) fraud propagation across a payment-account graph. UK PSR reimbursement framing. Zero-egress."
 resource: https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html
 tags: ["aml_rule", "wave-3", "mcp:simulate_app_fraud_graph"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # APP Fraud Graph Simulator

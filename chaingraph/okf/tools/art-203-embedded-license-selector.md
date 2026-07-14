@@ -1,0 +1,26 @@
+---
+type: DecisionTool
+title: "Embedded License Selector"
+description: "Maps creator answers to the SolSea and ALL.ART 4-tier embedded-license menu: Private/No Commercial, Personal/Public Display/No Commercial, Public Display/No Commercial, or Reproduction/Commercial. Outputs the elected tier id, label, rights vector, decision path, and source citation. Not legal advice. Selection only."
+resource: https://ainumbers.co/chaingraph/art-203-embedded-license-selector.html
+tags: ["compliance_mandate", "wave-35", "mcp:select_embedded_license"]
+timestamp: 2026-07-14
+---
+
+# Embedded License Selector
+
+> Exports a decision via MCP `select_embedded_license` — mandate type `compliance_mandate`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/art-203-embedded-license-selector.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** `art-198-rights-matrix-comparator` _(not live)_
+
+**Feeds:** [License Compatibility Checker](./art-204-license-compatibility-checker.md)

@@ -1,11 +1,24 @@
 ---
 type: Index
 title: "Tools"
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Tools
 
+- [Canton Tokenization Readiness Diagnostic](./503-canton-tokenization-readiness-diagnostic.md) — `diagnose_canton_readiness`
+- [Settlement-Risk Capital Efficiency Optimizer](./504-settlement-risk-capital-optimizer.md) — `optimize_settlement_capital`
+- [Tokenized Collateral Eligibility Checker](./505-tokenized-collateral-eligibility-checker.md) — `check_tokenized_collateral_eligibility`
+- [On-Chain Cash-Leg Finality Checker](./506-onchain-cash-leg-finality-checker.md) — `check_cash_leg_finality`
+- [Canton DvP Atomicity Validator](./507-canton-dvp-atomicity-validator.md) — `validate_canton_dvp_atomicity`
+- [On-Chain Repo Haircut Calculator](./508-repo-haircut-collateral-calculator.md) — `calculate_repo_haircut`
+- [Canton Party Allowlist Validator](./509-canton-party-allowlist-validator.md) — `validate_canton_party_allowlist`
+- [Digital Asset Regulatory Classifier](./510-digital-asset-regulatory-classifier.md) — `classify_digital_asset_regulatory`
+- [Multi-Currency PvP Validator](./511-multi-currency-pvp-validator.md) — `validate_pvp_settlement`
+- [Tokenized Security Lifecycle Validator](./512-tokenized-security-lifecycle-validator.md) — `validate_tokenized_security_lifecycle`
+- [Margin Call Collateral Mobilizer](./513-margin-call-collateral-mobilizer.md) — `mobilize_margin_collateral`
+- [Tokenized Fund Collateral Validator](./514-tokenized-fund-collateral-validator.md) — `validate_fund_collateral`
+- [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -16,25 +29,301 @@ timestamp: 2026-06-18T15:18:23.408Z
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](./art-08-en16931-einvoice-batch-validator.md) — `validate_einvoice_batch`
 - [DORA Major-Incident Reporting Threshold Classifier](./art-09-dora-incident-classifier.md) — `classify_dora_incident`
 - [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md) — `score_aml_typologies`
+- [CASP Authorization-Readiness Assessor](./art-100-mica-casp-authorization-readiness.md) — `assess_mica_casp_readiness`
+- [Art 67 Own-Funds Calculator](./art-101-mica-art67-own-funds-calculator.md) — `calculate_mica_own_funds`
+- [Crypto-Asset Whitepaper Linter (iXBRL)](./art-102-crypto-asset-whitepaper-linter.md) — `lint_crypto_asset_whitepaper`
+- [MAR-Crypto Surveillance-Readiness Assessor](./art-103-mar-crypto-surveillance-readiness.md) — `assess_mar_crypto_surveillance`
+- [TFR Travel-Rule Batch Validator](./art-104-tfr-travel-rule-batch-validator.md) — `validate_tfr_travel_rule_batch`
+- [MiCA Token & Service Scoper](./art-105-mica-token-service-scoper.md) — `scope_mica_token_and_service`
+- [Tempo Subscription & Streaming Settlement Reconciler](./art-106-tempo-subscription-reconciler.md) — `reconcile_mpp_subscription`
+- [Tempo Fee-Sponsorship & Gas-AMM Economics](./art-107-tempo-gas-economics.md) — `model_tempo_gas_economics`
+- [Canton Selective-Disclosure DvP Reconciliation Attestation](./art-108-canton-selective-disclosure.md) — `validate_canton_selective_disclosure`
+- [DTC-Custodied Tokenized U.S. Treasury Issuance & DvP](./art-109-dtc-tokenized-treasury.md) — `validate_dtc_tokenized_treasury`
 - [VoP Batch Match-Rate Analyser](./art-11-vop-batch-match-rate-analyser.md) — `simulate_vop_matching`
+- [Arc Partner Stablecoin Onboarding Conformance](./art-110-arc-partner-stablecoin-onboarding.md) — `score_partner_stablecoin_readiness`
+- [Arc Multi-Currency Corridor Jurisdiction Router](./art-111-arc-corridor-jurisdiction-router.md) — `route_partner_stablecoin_jurisdiction`
+- [DSCSA Transaction Statement (T3) Verifier](./art-112-dscsa-transaction-statement-verifier.md) — `verify_dscsa_transaction_statement`
+- [DSCSA Saleable Returns Verifier](./art-113-saleable-returns-verifier.md) — `verify_saleable_return`
+- [DSCSA Suspect/Illegitimate Product Quarantine Assessor](./art-114-suspect-product-quarantine.md) — `assess_suspect_product_status`
+- [EU ESPR Digital Product Passport Data Carrier Validator](./art-115-dpp-data-carrier-validator.md) — `validate_dpp_data_carrier`
+- [Digital Product Passport Cradle-to-Gate Lineage Builder](./art-116-product-lineage-builder.md) — `build_product_lineage`
+- [Luxury Goods Product Authenticity Verifier](./art-117-product-authenticity-verifier.md) — `verify_product_authenticity`
+- [FSMA 204 Critical Tracking Event (CTE) Validator](./art-118-fsma204-cte-validator.md) — `validate_fsma204_cte`
+- [FSMA 204 Traceability Lot Code Chain Linker](./art-119-traceability-lot-code-linker.md) — `link_traceability_lot_code`
 - [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md) — `validate_acp_checkout`
+- [FSMA 204 Recall Trace Resolver (24-Hour FDA List)](./art-120-recall-trace-resolver.md) — `resolve_recall_trace`
+- [Document Integrity & eIDAS Electronic Timestamp Anchor](./art-121-document-integrity-anchor.md) — `anchor_document_integrity`
+- [Timestamp Attestation Verifier](./art-122-timestamp-attestation-verifier.md) — `verify_timestamp_attestation`
+- [C2PA Content Credential Manifest Validator](./art-123-c2pa-manifest-validator.md) — `validate_c2pa_manifest`
+- [Content Credential Signature Verifier](./art-124-content-credential-signature-verifier.md) — `verify_content_credential_signature`
+- [Provenance Ingredient Tree Resolver](./art-125-provenance-ingredient-tree-resolver.md) — `resolve_provenance_ingredient_tree`
+- [EU AI Act Art. 50 Marking Checker](./art-126-ai-act-art50-marking-checker.md) — `check_ai_act_art50_marking`
+- [Dual-Layer Disclosure Verifier](./art-127-dual-layer-disclosure-verifier.md) — `verify_dual_layer_disclosure`
+- [Content Binding Assertion Validator](./art-128-content-binding-assertion-validator.md) — `validate_content_binding_assertion`
+- [Web Bot Auth Signature Verifier (RFC 9421)](./art-129-webbotauth-signature-verifier.md) — `verify_webbotauth_signature`
 - [EUDI Wallet Credential-Acceptance Readiness Checker](./art-13-eudi-wallet-credential-readiness-checker.md) — `check_eudi_readiness`
+- [HTTP Signatures Directory Validator](./art-130-signature-directory-validator.md) — `validate_signature_directory`
+- [Signature Agent Card Validator](./art-131-signature-agent-card-validator.md) — `validate_signature_agent_card`
+- [Agent Key Rotation Auditor](./art-132-agent-key-rotation-auditor.md) — `audit_agent_key_rotation`
+- [Agent Payment Rail Trust Crosswalk](./art-133-agent-payment-rail-trust-crosswalk.md) — `crosswalk_agent_payment_rail_trust`
+- [Agent Directory Publish Readiness Diagnostic](./art-134-agent-directory-publish-readiness.md) — `assess_agent_directory_publish_readiness`
+- [CycloneDX SBOM Validator (EU CRA Annex I)](./art-135-cyclonedx-sbom-validator.md) — `validate_cyclonedx_sbom`
+- [SLSA Provenance Verifier](./art-136-slsa-provenance-verifier.md) — `verify_slsa_provenance`
+- [OpenVEX Statement Validator](./art-137-openvex-statement-validator.md) — `validate_openvex_statement`
+- [SPDX SBOM Validator (EU CRA Annex I)](./art-138-spdx-sbom-validator.md) — `validate_spdx_sbom`
+- [CRA Annex I Completeness Checker](./art-139-cra-annex1-completeness-checker.md) — `check_cra_annex1_completeness`
 - [PSD3 / PSR Readiness Checker](./art-14-psd3-psr-readiness-checker.md) — `assess_psd3_readiness`
-- [Agentic Checkout Protocol Selector](./art-19-agentic-checkout-protocol-selector.md) — `compare_agentic_payment_protocols`
-- [ACP/UCP Product-Feed Conformance Auditor](./art-20-acp-ucp-product-feed-conformance-auditor.md) — `validate_acp_checkout`
-- [Agent-Traffic Acceptance Policy Builder](./art-21-agent-traffic-acceptance-policy-builder.md) — `build_google_ap2_mandate`
-- [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md) — `compare_agentic_payment_protocols`
-- [Visa Trusted Agent Protocol (TAP) Signature Inspector](./art-23-visa-trusted-agent-protocol-inspector.md) — `inspect_visa_tap_signature`
+- [CRA Vulnerability Reporting Readiness (Art. 14)](./art-140-cra-vuln-reporting-readiness.md) — `assess_cra_vuln_reporting_readiness`
+- [NIS2 Entity Scope Classifier (Essential / Important / Out-of-Scope)](./art-141-nis2-entity-scope-classifier.md) — `classify_nis2_entity`
+- [NIS2 Article 21 Gap Checker (Ten Cybersecurity Risk-Management Measures)](./art-142-nis2-art21-gap-checker.md) — `check_nis2_art21_measures`
+- [NIS2 Penalty Exposure Calculator (Art. 34)](./art-143-nis2-penalty-exposure-calculator.md) — `calculate_nis2_penalty_exposure`
+- [NIS2 Incident Significance Scorer (Art. 23 Reporting Threshold)](./art-144-nis2-incident-significance-scorer.md) — `score_nis2_incident_significance`
+- [NIS2 ICT Supply-Chain Diligence Scorer (Art. 21(2)(d) / ENISA)](./art-145-nis2-ict-supply-chain-diligence-scorer.md) — `score_nis2_supply_chain_diligence`
+- [NIS2 Governance Readiness Checker (Art. 20 — Management Body Accountability)](./art-146-nis2-governance-readiness-checker.md) — `check_nis2_governance_readiness`
+- [MCP Server Identity Attestation Validator](./art-147-mcp-server-identity-attestation-validator.md) — `validate_mcp_server_identity`
+- [MCP Authorization Metadata Validator (RFC 9728)](./art-148-mcp-authorization-metadata-validator.md) — `validate_mcp_authorization_metadata`
+- [MCP Registry Entry Conformance Checker](./art-149-mcp-registry-entry-conformance.md) — `check_mcp_registry_entry`
+- [MCP Tool Scope & Revocation Auditor](./art-150-mcp-tool-scope-revocation-auditor.md) — `audit_mcp_tool_scope_revocation`
+- [Agent On-Behalf-Of (OBO) Mandate Validator](./art-151-agent-obo-mandate-validator.md) — `validate_agent_obo_mandate`
+- [MCP Task Lifecycle State Machine Validator](./art-152-mcp-task-lifecycle-validator.md) — `validate_mcp_task_lifecycle`
+- [EMIR Trade Report Field Validator](./art-153-emir-trade-report-field-validator.md) — `validate_emir_trade_report`
+- [EMIR UTI Completeness Checker](./art-154-emir-uti-completeness-checker.md) — `check_emir_uti_completeness`
+- [EMIR UPI Validator](./art-155-emir-upi-validator.md) — `validate_emir_upi`
+- [EMIR Counterparty Pairing Reconciler](./art-156-emir-counterparty-pairing-reconciler.md) — `reconcile_emir_pairing`
+- [EMIR Lifecycle Event Validator](./art-157-emir-lifecycle-event-validator.md) — `validate_emir_lifecycle_event`
+- [EMIR Reporting Readiness Diagnostic](./art-158-emir-reporting-readiness-diagnostic.md) — `run_emir_reporting_fit`
+- [ViDA EN 16931 E-Invoice Conformance Validator](./art-159-vida-einvoice-en16931-conformance-validator.md) — `validate_vida_einvoice_conformance`
+- [ViDA DRR Transaction Reporter](./art-160-vida-drr-transaction-reporter.md) — `assess_vida_drr_reporting_obligation`
+- [ViDA Recapitulative Statement Migration Assessor](./art-161-vida-recapitulative-statement-migration-assessor.md) — `assess_vida_recapitulative_migration`
+- [ViDA Platform Deemed Supplier Classifier](./art-162-vida-platform-deemed-supplier-classifier.md) — `classify_vida_platform_deemed_supplier`
+- [ViDA OSS Registration Router](./art-163-vida-oss-registration-router.md) — `route_vida_oss_registration`
+- [ViDA Compliance Readiness Diagnostic](./art-164-vida-compliance-readiness-diagnostic.md) — `run_vida_readiness_diagnostic`
+- [EUDR DDS Field Validator](./art-165-eudr-dds-field-validator.md) — `validate_eudr_due_diligence_statement`
+- [EUDR Geolocation Plot Validator](./art-166-eudr-geolocation-plot-validator.md) — `validate_eudr_geolocation`
+- [EUDR Commodity Scope Classifier](./art-167-eudr-commodity-scope-classifier.md) — `classify_eudr_commodity_scope`
+- [EUDR Country Benchmark Risk Scorer](./art-168-eudr-country-benchmark-risk-scorer.md) — `score_eudr_country_risk`
+- [EUDR Supply-Chain Traceability Linker](./art-169-eudr-supply-chain-traceability-linker.md) — `link_eudr_supply_chain_traceability`
+- [EUDR Readiness Diagnostic](./art-170-eudr-readiness-diagnostic.md) — `run_eudr_readiness_fit`
+- [ISO 42001 AIMS Clause Conformance](./art-171-iso42001-aims-clause-conformance.md) — `assess_iso42001_aims_conformance`
+- [AI Risk Impact Assessment Validator](./art-172-ai-risk-impact-assessment-validator.md) — `validate_ai_impact_assessment`
+- [AI System Governance Classifier](./art-173-ai-system-governance-classifier.md) — `classify_ai_system_governance`
+- [NIST AI RMF Function Mapper](./art-174-nist-ai-rmf-function-mapper.md) — `map_nist_ai_rmf_functions`
+- [GPAI Code of Practice Conformance](./art-175-gpai-code-of-practice-conformance.md) — `check_gpai_code_conformance`
+- [AI Governance Readiness Diagnostic](./art-176-ai-governance-readiness-diagnostic.md) — `run_ai_governance_fit`
+- [IFRS 17 Measurement Model Classifier](./art-177-ifrs17-measurement-model-classifier.md) — `classify_ifrs17_measurement_model`
+- [IFRS 17 CSM Roll-Forward Validator](./art-178-ifrs17-csm-rollforward-validator.md) — `validate_ifrs17_csm_rollforward`
+- [IFRS 17 Risk Adjustment Checker](./art-179-ifrs17-risk-adjustment-checker.md) — `check_ifrs17_risk_adjustment`
+- [Solvency II SCR Ratio Calculator](./art-180-solvency2-scr-ratio-calculator.md) — `calculate_solvency2_scr_ratio`
+- [SII-IFRS 17 Reconciliation Bridger](./art-181-sii-ifrs17-reconciliation-bridger.md) — `reconcile_sii_ifrs17`
+- [Insurance Reporting Readiness Diagnostic](./art-182-insurance-reporting-readiness-diagnostic.md) — `run_insurance_reporting_fit`
+- [IRRBB EVE Shock Calculator](./art-183-irrbb-eve-shock-calculator.md) — `calculate_irrbb_eve_shocks`
+- [IRRBB SOT EVE Evaluator](./art-184-irrbb-sot-eve-evaluator.md) — `evaluate_irrbb_sot_eve`
+- [IRRBB SOT NII Evaluator](./art-185-irrbb-sot-nii-evaluator.md) — `evaluate_irrbb_sot_nii`
+- [IRRBB Standardised Approach Mapper](./art-186-irrbb-standardised-approach-mapper.md) — `map_irrbb_standardised_approach`
+- [IRRBB CSRBB Scope Checker](./art-187-irrbb-csrbb-scope-checker.md) — `check_irrbb_csrbb_scope`
+- [IRRBB Disclosure Readiness Diagnostic](./art-188-irrbb-disclosure-readiness-diagnostic.md) — `run_irrbb_disclosure_fit`
+- [Markdown Document Converter](./art-189-markdown-document-converter.md) — `convert_markdown_document`
+- [Agentic Checkout Protocol Selector](./art-19-agentic-checkout-protocol-selector.md) — `select_agentic_checkout_protocol`
+- [Tabular Data Converter](./art-190-tabular-data-converter.md) — `convert_tabular_data`
+- [Conversion Receipt Builder](./art-191-conversion-receipt-builder.md) — `build_conversion_receipt`
+- [Conversion Receipt Verifier](./art-192-conversion-receipt-verifier.md) — `verify_conversion_receipt`
+- [Metadata Sanitization Prover](./art-193-metadata-sanitization-prover.md) — `prove_metadata_sanitization`
+- [Digest Manifest Builder](./art-194-digest-manifest-builder.md) — `build_digest_manifest`
+- [Creative Commons License Chooser](./art-195-creative-commons-license-chooser.md) — `choose_cc_license`
+- [Can't Be Evil License Selector](./art-196-cant-be-evil-license-selector.md) — `select_cbe_license`
+- [Story PIL Flavor Mapper](./art-197-pil-flavor-mapper.md) — `map_pil_flavor`
+- [Cross-License Rights Comparator](./art-198-cross-license-rights-comparator.md) — `compare_rights_matrix`
+- [License Election Certifier](./art-199-license-election-certifier.md) — `certify_license_election`
+- [ACP/UCP Product-Feed Conformance Auditor](./art-20-acp-ucp-product-feed-conformance-auditor.md) — `audit_acp_ucp_product_feed`
+- [License Election Verifier](./art-200-license-election-verifier.md) — `verify_license_election`
+- [ISCC Content Code Generator](./art-201-iscc-content-code-generator.md) — `generate_iscc_code`
+- [TDMRep AI Training Reservation Builder](./art-202-tdmrep-reservation-builder.md) — `build_tdm_reservation`
+- [Embedded License Selector](./art-203-embedded-license-selector.md) — `select_embedded_license`
+- [License Compatibility Checker](./art-204-license-compatibility-checker.md) — `check_license_compatibility`
+- [License Terms Assembler](./art-205-license-terms-assembler.md) — `assemble_license_terms`
+- [Rights Record Builder](./art-206-rights-record-builder.md) — `build_rights_record`
+- [Attribution String Generator](./art-207-attribution-string-generator.md) — `generate_attribution_string`
+- [Royalty Split Validator](./art-208-royalty-split-validator.md) — `validate_royalty_split`
+- [NFT Metadata Validator](./art-209-nft-metadata-validator.md) — `validate_nft_metadata`
+- [Agent-Traffic Acceptance Policy Builder](./art-21-agent-traffic-acceptance-policy-builder.md) — `build_agent_traffic_policy`
+- [IPFS CID Computer](./art-210-ipfs-cid-computer.md) — `compute_ipfs_cid`
+- [Prediction Market Analyzer](./art-211-prediction-market-analyzer.md) — `analyze_prediction_market`
+- [Prediction Market Arbitrage](./art-212-prediction-market-arbitrage.md) — `find_prediction_arbitrage`
+- [Perp Margin and Liquidation Calculator](./art-213-perp-liquidation-calculator.md) — `compute_perp_margin`
+- [Perp Position Lifecycle](./art-214-perp-position-lifecycle.md) — `model_perp_position`
+- [Reg Z Appendix J APR Solver](./art-215-reg-z-appendix-j-apr.md) — `compute_reg_z_appendix_j_apr`
+- [TRID Fee Tolerance and Cure](./art-216-trid-tolerance-cure.md) — `compute_trid_tolerance_cure`
+- [TRID APR Accuracy Verifier](./art-217-trid-apr-accuracy.md) — `verify_trid_apr_accuracy`
+- [QM Points and Fees Test](./art-218-qm-points-and-fees.md) — `check_qm_points_and_fees`
+- [QM APR-APOR Spread Classifier](./art-219-qm-apr-apor-spread.md) — `classify_qm_apr_apor_spread`
+- [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md) — `compare_agentic_rail_protocols`
+- [Reg Z Threshold Lookup](./art-220-reg-z-threshold-lookup.md) — `lookup_reg_z_thresholds`
+- [LLPA Stack Calculator](./art-221-llpa-stack.md) — `compute_llpa_stack`
+- [Agency Eligibility Matrix](./art-222-agency-eligibility-matrix.md) — `check_agency_eligibility_matrix`
+- [Conforming Loan Limit Check](./art-223-conforming-loan-limit.md) — `check_conforming_loan_limit`
+- [FHA MIP Eligibility Calculator](./art-224-fha-mip-eligibility.md) — `compute_fha_mip_eligibility`
+- [VA Funding Fee and Residual Income](./art-225-va-funding-fee-residual.md) — `compute_va_funding_fee_residual`
+- [ULDD/ULAD Structural Linter](./art-226-mismo-uldd-ulad.md) — `lint_mismo_uldd_ulad`
+- [Validate Adverse Action Notice](./art-227-validate-adverse-action-notice.md) — `validate_adverse_action_notice`
+- [Build Adverse Action Notice](./art-228-build-adverse-action-notice.md) — `build_adverse_action_notice`
+- [Compute Disparate Impact Metrics](./art-229-compute-disparity-metrics.md) — `compute_disparity_metrics`
+- [Visa Trusted Agent Protocol (TAP) Signature Inspector](./art-23-visa-trusted-agent-protocol-inspector.md) — `inspect_visa_trusted_agent_protocol`
+- [Compute HMDA Rate Spread](./art-230-compute-hmda-rate-spread.md) — `compute_hmda_rate_spread`
+- [Compute MLA MAPR](./art-231-compute-mla-mapr.md) — `compute_mla_mapr`
+- [Compute SCRA Rate Cap](./art-232-compute-scra-rate-cap.md) — `compute_scra_rate_cap`
+- [Check CARD Act Ability to Pay](./art-233-check-card-act-ability-to-pay.md) — `check_card_act_ability_to_pay`
+- [HOEPA High-Cost Mortgage Trigger Test](./art-234-test-hoepa-high-cost.md) — `test_hoepa_high_cost`
+- [HPML Definition and Escrow Requirement Test](./art-235-test-hpml-escrow.md) — `test_hpml_escrow`
+- [AI Decision Log Record Builder (EU AI Act Art 12)](./art-236-build-ai-decision-log-record.md) — `build_ai_decision_log_record`
+- [Agent Audit Trail Conformance Validator (IETF AAT)](./art-237-validate-agent-audit-trail.md) — `validate_agent_audit_trail`
+- [EU AI Act Annex III FS Decisioning Obligations Classifier](./art-238-classify-annex3-decisioning-obligations.md) — `classify_annex3_decisioning_obligations`
+- [BIFSG Insurance Proxy Bias Threshold Test (Colorado SB 21-169)](./art-239-test-bifsg-bias-thresholds.md) — `test_bifsg_bias_thresholds`
 - [Mastercard Agentic Token Scope Builder](./art-24-mastercard-agentic-token-builder.md) — `build_mastercard_agentic_token`
-- [A2A Agent Card Validator & Extension Checker](./art-25-a2a-agent-card-validator.md) — `validate_a2a_agent_card`
-- [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md) — `decode_x402_payment`
+- [NAIC AI Systems Program Readiness Assessment](./art-240-assess-naic-ais-program-readiness.md) — `assess_naic_ais_program_readiness`
+- [CBPR+ Structured Address Linter](./art-241-cbpr-structured-address-linter.md) — `lint_cbpr_structured_address`
+- [pacs.008 Party Completeness Validator](./art-242-pacs008-party-completeness-validator.md) — `validate_pacs008_party_completeness`
+- [ISO 20022 Purpose Code Requirement Checker](./art-243-purpose-code-requirement-checker.md) — `check_purpose_code_requirement`
+- [SWIFT GPI Tracker Lifecycle Simulator](./art-244-gpi-tracker-lifecycle-simulator.md) — `simulate_gpi_tracker_lifecycle`
+- [MT103 to MX Translation Fidelity Scorer](./art-245-mt-mx-translation-fidelity-scorer.md) — `score_mt_mx_translation_fidelity`
+- [Wolfsberg Payment Transparency & LEI Binding Linter](./art-246-lei-payment-binding-linter.md) — `lint_lei_payment_binding`
+- [Cross-Border Payment Prevalidation Readiness Scorer](./art-247-prevalidation-readiness-scorer.md) — `prevalidation_readiness_scorer`
+- [Remittance Disclosure Calculator (Reg E Subpart B)](./art-248-compute-remittance-disclosure.md) — `compute_remittance_disclosure`
+- [Corridor Cost Comparator (World Bank RPW)](./art-249-compare-corridor-cost.md) — `compare_corridor_cost`
+- [A2A Agent Card Validator & Extension Checker](./art-25-a2a-agent-card-validator.md) — `verify_a2a_agent_card`
+- [Stablecoin Corridor Economics Model](./art-250-model-stablecoin-corridor-economics.md) — `model_stablecoin_corridor_economics`
+- [Parametric Trigger Payout Calculator](./art-251-compute-parametric-trigger-payout.md) — `compute_parametric_trigger_payout`
+- [Cat Bond Trigger Terms Validator](./art-252-validate-cat-bond-trigger-terms.md) — `validate_cat_bond_trigger_terms`
+- [Life Illustration Self-Support Test (NAIC Model 582)](./art-253-run-illustration-selfsupport-test.md) — `run_illustration_selfsupport_test`
+- [NAIC RBC Action Level Calculator](./art-254-compute-rbc-action-level.md) — `compute_rbc_action_level`
+- [LCM Rate Derivation Calculator](./art-255-compute-lcm-rate-derivation.md) — `compute_lcm_rate_derivation`
+- [openIDS Homeowners Record Validator](./art-256-validate-openids-homeowners-record.md) — `validate_openids_homeowners_record`
+- [Claims STP Economics Calculator](./art-257-calculate-claims-stp-economics.md) — `calculate_claims_stp_economics`
+- [ISO 20022 camt.053 Statement Reconciliation](./art-258-parse-camt053-reconciliation.md) — `parse_camt053_reconciliation`
+- [Multilateral Cash Netting](./art-259-compute-multilateral-netting.md) — `compute_multilateral_netting`
+- [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md) — `simulate_x402_flow`
+- [IHB Interest Allocation](./art-260-allocate-ihb-interest.md) — `allocate_ihb_interest`
+- [Hedge Effectiveness Test](./art-261-test-hedge-effectiveness.md) — `test_hedge_effectiveness`
+- [eBAM Account Message Flow Validation](./art-262-validate-ebam-acmt-flow.md) — `validate_ebam_acmt_flow`
+- [Cash Forecast Accuracy Scoring](./art-263-score-cash-forecast-accuracy.md) — `score_cash_forecast_accuracy`
+- [Commission Hierarchy Validator](./art-264-validate-commission-hierarchy.md) — `validate_commission_hierarchy`
+- [ASC 340-40 Commission Amortization](./art-265-amortize-asc606-commissions.md) — `amortize_asc606_commissions`
+- [Commission Statement Reconciler](./art-266-reconcile-commission-statement.md) — `reconcile_commission_statement`
+- [NAIC Producer License Reciprocity Check](./art-267-check-producer-license-reciprocity.md) — `check_producer_license_reciprocity`
+- [FinCEN CDD 25% Beneficial Ownership Attribution](./art-268-compute-cdd-ownership-25pct.md) — `compute_cdd_ownership_25pct`
+- [W-8 Series Structural Validator](./art-269-validate-w8-series-structural.md) — `validate_w8_series_structural`
 - [Agentic Payments Readiness Diagnostic](./art-27-agentic-readiness-diagnostic.md) — `run_agentic_readiness_diagnostic`
+- [Perp Funding and Carry Calculator](./art-270-perp-funding-carry.md) — `compute_perp_funding`
+- [DeFi Lending Health and Liquidation Monitor](./art-271-defi-lending-health.md) — `assess_defi_lending`
+- [Restaking Delegation and Slashing Risk Analyzer](./art-272-restaking-risk.md) — `assess_restaking_risk`
+- [Pendle Yield Tokenization Analyzer (PT/YT)](./art-273-pendle-yield.md) — `compute_pt_yt_yield`
+- [Work Mandate Compiler](./art-274-compile-work-mandate.md) — `compile_work_mandate`
+- [GENIUS Act Monthly Reserve Disclosure Checker](./art-275-genius-reserve-disclosure-checker.md) — `check_genius_reserve_disclosure`
+- [Mutual NDA Composer](./art-276-mutual-nda-composer.md) — `assemble_mutual_nda`
+- [Agreement Acceptance Binder](./art-277-agreement-acceptance-binder.md) — `bind_agreement_acceptance`
+- [Provable Reputation Score Aggregator](./art-278-reputation-score-aggregator.md) — `aggregate_reputation_score`
+- [State-Proof Verifier](./art-279-state-proof-verifier.md) — `verify_eth_state_proof`
 - [MCP Server Deployability Diagnostic](./art-28-mcp-server-deployability-diagnostic.md) — `run_mcp_deployability_diagnostic`
+- [Reserve Proof Verifier](./art-280-reserve-proof-verifier.md) — `verify_reserve_proof`
+- [SCO60 Crypto-Asset Exposure Classifier](./art-281-sco60-crypto-asset-exposure-classifier.md) — `classify_sco60_exposure`
+- [Social Security Claiming-Age Optimizer](./art-282-social-security-claiming-optimizer.md) — `optimize_social_security_claim_age`
+- [Pension Lump-Sum vs. Annuity Decision Engine](./art-283-pension-lump-sum-vs-annuity-decision-engine.md) — `compare_pension_lump_sum_annuity`
+- [did:webvh DID Log Verifier](./art-284-did-webvh-log-verifier.md) — `verify_did_webvh_log`
+- [ACDC Delegation Chain Verifier](./art-285-acdc-delegation-chain-verifier.md) — `verify_acdc_delegation_chain`
+- [Anchored Extract Verifier](./art-286-anchored-extract-verifier.md) — `verify_anchored_extract`
+- [Revocation-Status Verifier](./art-287-revocation-status-verifier.md) — `verify_revocation_status`
+- [ISO 20022-to-EVM Calldata Mapper](./art-288-map-iso20022-to-evm-calldata.md) — `map_iso20022_to_evm_calldata`
+- [Besu Settlement Contract Linter](./art-289-lint-besu-settlement-contract.md) — `lint_besu_settlement_contract`
 - [DORA Readiness Diagnostic](./art-29-dora-readiness-diagnostic.md) — `run_dora_readiness_diagnostic`
+- [Linea L2 Finality Window Classifier](./art-290-check-linea-l2-finality-window.md) — `check_linea_l2_finality_window`
+- [On-Ledger Transfer Batch Screen](./art-291-screen-onledger-transfer-batch.md) — `screen_onledger_transfer_batch`
+- [Settlement Orchestrator Attestation](./art-292-attest-settlement-orchestrator.md) — `attest_settlement_orchestrator`
+- [E-Invoice Format Validator](./art-293-einvoice-format-validator.md) — `validate_einvoice_format`
+- [E-Invoice VAT Calculation Verifier](./art-294-einvoice-vat-calc-verifier.md) — `verify_einvoice_vat_calc`
+- [E-Invoice Jurisdiction Mandate Router](./art-295-einvoice-jurisdiction-mandate-router.md) — `route_einvoice_jurisdiction_mandate`
+- [E-Invoice Transmission Receipt Builder](./art-296-einvoice-transmission-receipt-builder.md) — `build_einvoice_transmission_receipt`
+- [Agentic Dispute CE3.0 Evidence Linter](./art-297-agentic-dispute-ce30-linter.md) — `lint_compelling_evidence_ce30_agentic`
+- [ACA Affordability Safe-Harbor Calculator](./art-298-aca-affordability-safe-harbor.md) — `compute_aca_affordability_safe_harbor`
+- [ACA Employer Shared Responsibility Payment Exposure Calculator](./art-299-aca-esrp-exposure.md) — `compute_esrp_exposure`
 - [Agent Commerce Cross-Protocol Conformance Validator](./art-30-agent-commerce-conformance-validator.md) — `validate_agent_commerce_conformance`
+- [226J Response Evidence Pack Builder](./art-300-aca-226j-response-evidence-pack.md) — `build_226j_response_evidence_pack`
+- [§125 Cafeteria Plan Nondiscrimination Tester](./art-301-section125-ndt.md) — `run_section125_ndt`
+- [401(k) ADP/ACP Nondiscrimination Tester](./art-302-401k-adp-acp-test.md) — `run_401k_adp_acp_test`
+- [AIUC-1 Control Evidence Linter](./art-303-aiuc1-control-evidence-linter.md) — `lint_aiuc1_control_evidence`
+- [AIUC-1 Evidence Pack Assembler](./art-304-aiuc1-evidence-pack-assembler.md) — `assemble_aiuc1_evidence_pack`
+- [AIUC-1 Evidence Freshness Lint](./art-305-aiuc1-evidence-freshness-lint.md) — `lint_insurance_evidence_freshness`
+- [Agent Insurability Evidence Scorer](./art-306-agent-insurability-evidence-scorer.md) — `score_agent_insurability_evidence`
+- [Claim Dispute Bundle Builder](./art-307-claim-dispute-bundle-builder.md) — `build_claim_dispute_bundle`
+- [PLD Disclosure Pack Builder](./art-308-pld-disclosure-pack-builder.md) — `build_pld_disclosure_pack`
+- [Parametric Index Deriver](./art-309-parametric-index-deriver.md) — `derive_parametric_index_from_receipts`
 - [A2A x402-Extension Mandate Validator](./art-31-a2a-x402-extension-mandate-validator.md) — `validate_a2a_x402_mandate`
 - [A2A Agent-Card Trust-Chain Validator](./art-32-a2a-agent-card-trust-chain-validator.md) — `validate_a2a_trust_chain`
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
+- [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
+- [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
+- [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
+- [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
+- [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
+- [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md) — `validate_tempo_zone_disclosure`
+- [Tempo Agentic Checkout Settlement Mapper](./art-40-tempo-agentic-checkout.md) — `map_tempo_settlement`
+- [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
+- [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
+- [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
+- [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
+- [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
+- [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
+- [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`
+- [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
+- [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
+- [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`
+- [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
+- [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`
+- [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
+- [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
+- [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
+- [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
+- [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
+- [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
+- [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
+- [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
+- [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
+- [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
+- [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
+- [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`
+- [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
+- [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
+- [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
+- [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
+- [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
+- [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
+- [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
+- [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md) — `aggregate_cbam_precursor_emissions`
+- [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md) — `score_taxonomy_alignment`
+- [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
+- [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
+- [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
+- [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
+- [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
+- [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
+- [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
+- [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
+- [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
+- [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
+- [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
+- [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
+- [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`
+- [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md) — `check_fido_pqc_conformance`
+- [Blockchain / Stablecoin Quantum-Risk Classifier](./art-89-blockchain-quantum-risk-classifier.md) — `classify_blockchain_quantum_risk`
+- [Sanctions & Export-Control Screening Fit Diagnostic](./art-90-sanctions-screening-fit-diagnostic.md) — `run_sanctions_screening_fit`
+- [Ownership 50%-Rule Aggregator](./art-91-ownership-50pct-aggregator.md) — `aggregate_ownership_50pct`
+- [Screening List-Coverage Checker](./art-92-screening-list-coverage-checker.md) — `check_screening_list_coverage`
+- [Fuzzy-Match Calibration Scorer](./art-93-fuzzy-match-calibration-scorer.md) — `score_fuzzy_match_calibration`
+- [ECCN / Dual-Use Classifier](./art-94-eccn-dual-use-classifier.md) — `classify_eccn_dual_use`
+- [Circumvention Diligence Assessor](./art-95-circumvention-diligence-assessor.md) — `assess_circumvention_diligence`
+- [No-Russia-Clause Pack Builder](./art-96-no-russia-clause-pack-builder.md) — `build_no_russia_clause_pack`
+- [Sanctions Screening-Program Quality Scorer](./art-97-sanctions-screening-quality-scorer.md) — `score_sanctions_screening_quality`
+- [MiCA CASP Fit Diagnostic](./art-98-mica-casp-fit-diagnostic.md) — `run_mica_casp_fit`
+- [MiCA Transitional-Deadline Router](./art-99-mica-transitional-deadline-router.md) — `route_mica_transitional_deadline`
 - [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md) — `generate_zk_compliance_proof`
 - [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md) — `verify_merkle_batch`
 - [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md) — `aggregate_execution_receipts`

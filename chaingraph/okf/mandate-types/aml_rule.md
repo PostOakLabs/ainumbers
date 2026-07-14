@@ -2,12 +2,13 @@
 type: MandateTypeGroup
 title: "aml_rule"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"aml_rule\"."
-tags: ["aml_rule", "count-1"]
-timestamp: 2026-06-18T15:18:23.408Z
+tags: ["aml_rule", "count-2"]
+timestamp: 2026-07-14
 ---
 
 # aml_rule
 
-1 tool(s) in this mandate-type group:
+2 tool(s) in this mandate-type group:
 
 - [APP Fraud Graph Simulator](../tools/mms-03-app-fraud-graph.md)
+- [Tempo On-Chain AML & Travel Rule Screener](../tools/art-38-tempo-onchain-aml.md)

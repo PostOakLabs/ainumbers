@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "XVA / CVA Calculator"
-description: ""
+description: "Monte Carlo XVA/CVA calculator. Simulates expected-exposure profiles for IRS, FX forwards, and CDS; computes CVA, DVA, FVA via discounted expected positive/negative exposure. Zero-egress."
 resource: https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html
 tags: ["risk_parameter", "wave-3", "mcp:calculate_xva"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # XVA / CVA Calculator

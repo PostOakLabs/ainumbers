@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "DORA ICT Cascade Simulator"
-description: ""
+description: "Monte Carlo cascade simulation of ICT incident propagation across a financial-institution dependency graph under DORA (EU) 2022/2554. 500 stochastic BFS paths; models failure propagation, recovery, and concentration risk."
 resource: https://ainumbers.co/chaingraph/pnr-01-dora-ict-cascade-simulator.html
 tags: ["infrastructure_mandate", "wave-3", "mcp:simulate_ict_cascade"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # DORA ICT Cascade Simulator

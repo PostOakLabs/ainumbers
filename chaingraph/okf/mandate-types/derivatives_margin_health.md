@@ -1,0 +1,14 @@
+---
+type: MandateTypeGroup
+title: "derivatives_margin_health"
+description: "OpenChainGraph tools whose decisions carry mandate_type \"derivatives_margin_health\"."
+tags: ["derivatives_margin_health", "count-2"]
+timestamp: 2026-07-14
+---
+
+# derivatives_margin_health
+
+2 tool(s) in this mandate-type group:
+
+- [Perp Margin and Liquidation Calculator](../tools/art-213-perp-liquidation-calculator.md)
+- [Perp Position Lifecycle](../tools/art-214-perp-position-lifecycle.md)

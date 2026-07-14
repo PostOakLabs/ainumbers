@@ -4,14 +4,14 @@ title: "ACP Checkout Conformance Validator"
 description: "OpenAI/Stripe Agentic Commerce Protocol (ACP): CheckoutRequest/Response field conformance (10 required fields each), Shared Payment Token structure, ISO 4217 currency, TTL, signature prefix validation. Suite now covers both AP2 (Google) and ACP (OpenAI/Stripe)."
 resource: https://ainumbers.co/chaingraph/art-12-acp-checkout-conformance-validator.html
 tags: ["payment_mandate", "wave-2", "mcp:validate_acp_checkout"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # ACP Checkout Conformance Validator
 
 > Exports a decision via MCP `validate_acp_checkout` — mandate type `payment_mandate`.
 
-**Context:** ACP live — Etsy, Shopify (~1M merchants), Walmart (2026)
+**Context:** ACP live — Etsy, Shopify (~1M Shopify-network merchants) (2026)
 
 ## Inputs
 

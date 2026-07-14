@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "Mastercard Agentic Token Scope Builder"
-description: "Builds or lints a Mastercard Agent Pay Agentic Token scope — agent binding, merchant scope, consent policy (limits, expiry, velocity, MCC). The agent never receives the raw PAN (MDES tokenised). Branch A, node 3 of the Agentic Rail Chain. Promoted from T287."
+description: "Builds or lints a Mastercard Agent Pay Agentic Token scope: agent binding, merchant scope, consent policy (limits, expiry, velocity, MCC). The agent never receives the raw PAN (MDES tokenised). Branch A, node 3 of the Agentic Rail Chain. Promoted from T287."
 resource: https://ainumbers.co/chaingraph/art-24-mastercard-agentic-token-builder.html
 tags: ["compliance_control", "wave-A", "mcp:build_mastercard_agentic_token"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Mastercard Agentic Token Scope Builder

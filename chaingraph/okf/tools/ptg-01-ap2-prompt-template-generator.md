@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "AP2 Prompt Template Generator"
-description: "Transforms any ChainGraph artifact JSON into a structured, regulator-framed prompt for any external LLM. Template registry v1.0.0 — one entry per mandate_type with regulatory citations, audience framing, stochastic-output conventions, escalation conditions."
+description: "Transforms any ChainGraph artifact JSON into a structured, regulator-framed prompt for any external LLM. Template registry v1.0.0: one entry per mandate_type with regulatory citations, audience framing, stochastic-output conventions, escalation conditions."
 resource: https://ainumbers.co/chaingraph/ptg-01-ap2-prompt-template-generator.html
 tags: ["prompt_template", "wave-1", "mcp:compose_ap2_prompt"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # AP2 Prompt Template Generator
