@@ -241,7 +241,10 @@ import * as art294 from './art-294-einvoice-vat-calc-verifier.kernel.mjs';
 import * as art295 from './art-295-einvoice-jurisdiction-mandate-router.kernel.mjs';
 import * as art296 from './art-296-einvoice-transmission-receipt-builder.kernel.mjs';
 import * as art297 from './art-297-agentic-dispute-ce30-linter.kernel.mjs';
+import * as art298 from './art-298-aca-affordability-safe-harbor.kernel.mjs';
+import * as art299 from './art-299-aca-esrp-exposure.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
+import * as art300 from './art-300-aca-226j-response-evidence-pack.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
 import * as art32  from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
 import * as art33  from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
@@ -568,7 +571,10 @@ export const KERNELS = {
   'art-295-einvoice-jurisdiction-mandate-router':             art295,
   'art-296-einvoice-transmission-receipt-builder':            art296,
   'art-297-agentic-dispute-ce30-linter':                      art297,
+  'art-298-aca-affordability-safe-harbor':                    art298,
+  'art-299-aca-esrp-exposure':                                art299,
   'art-30-agent-commerce-conformance-validator':              art30,
+  'art-300-aca-226j-response-evidence-pack':                  art300,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
   'art-33-mcp-server-self-attestation-pack':                  art33,
