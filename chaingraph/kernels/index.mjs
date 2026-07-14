@@ -255,6 +255,10 @@ import * as art307    from './art-307-claim-dispute-bundle-builder.kernel.mjs';
 import * as art308    from './art-308-pld-disclosure-pack-builder.kernel.mjs';
 import * as art309    from './art-309-parametric-index-deriver.kernel.mjs';
 import * as art31     from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
+import * as art313    from './art-313-traiga-exposure-assessor.kernel.mjs';
+import * as art314    from './art-314-traiga-safe-harbor-pack-builder.kernel.mjs';
+import * as art315    from './art-315-ab2013-training-data-disclosure-linter.kernel.mjs';
+import * as art316    from './art-316-sb53-frontier-scope-checker.kernel.mjs';
 import * as art32     from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
 import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
@@ -594,6 +598,10 @@ export const KERNELS = {
   'art-308-pld-disclosure-pack-builder':                      art308,
   'art-309-parametric-index-deriver':                         art309,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
+  'art-313-traiga-exposure-assessor':                         art313,
+  'art-314-traiga-safe-harbor-pack-builder':                  art314,
+  'art-315-ab2013-training-data-disclosure-linter':           art315,
+  'art-316-sb53-frontier-scope-checker':                      art316,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
   'art-33-mcp-server-self-attestation-pack':                  art33,
   'art-34-tempo-fit-diagnostic':                              art34,
