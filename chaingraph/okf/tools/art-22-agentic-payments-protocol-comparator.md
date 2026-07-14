@@ -1,15 +1,15 @@
 ---
 type: DecisionTool
 title: "Agentic Payments Protocol Comparator"
-description: "Compares AP2, ACP, x402, Visa TAP, and Mastercard Agentic Token across 8 dimensions (backer, artifact, signing, scope, rail, identity, audit, status) and 5 agentic scenarios. Root node of the Agentic Rail Chain — routing_policy output determines Branch A (AP2/card) or Branch B (A2A/x402). Promoted from T276."
+description: "Compares AP2, ACP, x402, Visa TAP, Mastercard Agentic Token, and Tempo MPP (Machine Payments Protocol) across 8 dimensions (backer, artifact, signing, scope, rail, identity, audit, status) and 6 agentic scenarios. Root node of the Agentic Rail Chain: routing_policy output determines Branch A (AP2/card) or Branch B (A2A/x402). Promoted from T276."
 resource: https://ainumbers.co/chaingraph/art-22-agentic-payments-protocol-comparator.html
-tags: ["routing_policy", "wave-A", "mcp:compare_agentic_payment_protocols"]
-timestamp: 2026-06-18T15:18:23.408Z
+tags: ["routing_policy", "wave-A", "mcp:compare_agentic_rail_protocols"]
+timestamp: 2026-07-14
 ---
 
 # Agentic Payments Protocol Comparator
 
-> Exports a decision via MCP `compare_agentic_payment_protocols` — mandate type `routing_policy`.
+> Exports a decision via MCP `compare_agentic_rail_protocols` — mandate type `routing_policy`.
 
 **Context:** AP2 v0.2 live (FIDO Alliance, April 2026); Visa TAP launched; Mastercard Agent Pay announced Apr 2025
 

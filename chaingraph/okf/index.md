@@ -3,8 +3,8 @@ type: Index
 title: "AINumbers OpenChainGraph Suite"
 description: "Client-side, zero-egress, Policy-Mandate-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack."
 resource: https://ainumbers.co/chaingraph/chaingraph-hub.html
-tags: ["openchaingraph", "okf", "spec-0.3.1"]
-timestamp: 2026-06-18T15:18:23.408Z
+tags: ["openchaingraph", "okf", "spec-0.8.7"]
+timestamp: 2026-07-14
 ---
 
 # AINumbers OpenChainGraph Suite
@@ -18,8 +18,8 @@ never decision artifacts — they carry no `execution_hash`.
 
 ## Browse
 
-- [All tools](tools/index.md) (48)
-- [By mandate type](mandate-types/index.md) (19)
+- [All tools](tools/index.md) (337)
+- [By mandate type](mandate-types/index.md) (27)
 
 ## Call
 

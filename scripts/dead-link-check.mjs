@@ -16,7 +16,7 @@ const BASELINE = process.env.DLC_BASELINE ? resolve(process.env.DLC_BASELINE)
   : join(ROOT, 'scripts', 'dead-link-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
 
-const CHECK_EXT = new Set(['.html','.htm','.css','.js','.mjs','.json','.png','.jpg','.jpeg','.gif','.svg','.webp','.ico','.pdf','.xml','.txt','.woff','.woff2']);
+const CHECK_EXT = new Set(['.html','.htm','.css','.js','.mjs','.json','.png','.jpg','.jpeg','.gif','.svg','.webp','.ico','.pdf','.xml','.txt','.woff','.woff2','.md']);
 // Sibling git worktrees are checked out as literal subdirs (repo/worktrees/*,
 // repo/.claude/worktrees/*) — their WIP HTML is a foreign checkout, not this
 // worktree's content, and must never fail this worktree's push.

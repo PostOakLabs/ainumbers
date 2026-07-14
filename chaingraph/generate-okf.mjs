@@ -5,30 +5,42 @@
  * Reads chaingraph.json (the DCAT Graph Index) and emits an Open Knowledge
  * Format (OKF v0.1) bundle under ./okf/ — one markdown "concept" per live
  * node, with YAML frontmatter and markdown links mirroring the consumes/feeds
- * edges. Run in CI on every chaingraph.json change so the bundle never drifts.
+ * edges. Wired into `scripts/preflight.mjs` + CI via `--check` (same freshness-gate
+ * pattern as gen-chain-index.mjs / gen-llms-full.mjs) so the bundle never drifts.
  *
  * OKF concepts are KNOWLEDGE, never decision artifacts: they carry NO
  * execution_hash and NO audit_signature. Nothing in OpenChainGraph's
  * verification path depends on this bundle — it is a discovery surface only.
  *
- * Usage:  node generate-okf.mjs
- * Output: ./okf/{index.md, log.md, tools/*.md, mandate-types/*.md}
+ * The frontmatter `timestamp` is derived from chaingraph.json's own `updated`
+ * date field, NOT wall-clock time — a wall-clock timestamp would make every
+ * `--check` run report stale regardless of content, since it differs on every
+ * invocation even when nothing changed.
+ *
+ * Usage:
+ *   node generate-okf.mjs          # write ./okf/{index.md, log.md, tools/*.md, mandate-types/*.md}
+ *   node generate-okf.mjs --check  # freshness gate (exit 1 if okf/ doesn't match chaingraph.json)
  *
  * Zero dependencies (Node 18+ ESM).
  */
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const INDEX = resolve(HERE, 'chaingraph.json');
 const OUT = resolve(HERE, 'okf');
+const CHECK = process.argv.includes('--check');
 
 const idx = JSON.parse(readFileSync(INDEX, 'utf8'));
 const live = idx.nodes.filter((n) => n.status === 'live');
 const byId = new Map(live.map((n) => [n.tool_id, n]));
-const now = new Date().toISOString();
+const now = idx.updated ?? new Date().toISOString().slice(0, 10);
+// files: relative-path (posix, from OUT) -> content. Built up-front so --check
+// can diff against disk without ever touching the filesystem.
+const files = new Map();
+const write = (relPath, content) => files.set(relPath, content);
 
 // --- helpers -------------------------------------------------------------
 const fileFor = (id) => `${id}.md`;
@@ -86,14 +98,10 @@ function conceptBody(n) {
   return lines.join('\n');
 }
 
-// --- write bundle --------------------------------------------------------
-rmSync(OUT, { recursive: true, force: true });
-mkdirSync(resolve(OUT, 'tools'), { recursive: true });
-mkdirSync(resolve(OUT, 'mandate-types'), { recursive: true });
-
+// --- build bundle (in-memory; see finalize step below for write vs --check) --
 // one concept per live tool
 for (const n of live) {
-  writeFileSync(resolve(OUT, 'tools', fileFor(n.tool_id)), `${frontmatter(n)}\n\n${conceptBody(n)}`);
+  write(`tools/${fileFor(n.tool_id)}`, `${frontmatter(n)}\n\n${conceptBody(n)}`);
 }
 
 // group by mandate_type
@@ -122,12 +130,12 @@ for (const [type, members] of groups) {
     ...members.map((n) => `- [${n.display_name}](../tools/${fileFor(n.tool_id)})`),
     '',
   ].join('\n');
-  writeFileSync(resolve(OUT, 'mandate-types', `${type}.md`), `${fm}\n\n${body}`);
+  write(`mandate-types/${type}.md`, `${fm}\n\n${body}`);
 }
 
 // mandate-types/index.md
-writeFileSync(
-  resolve(OUT, 'mandate-types', 'index.md'),
+write(
+  'mandate-types/index.md',
   [
     '---',
     'type: Index',
@@ -143,8 +151,8 @@ writeFileSync(
 );
 
 // tools/index.md
-writeFileSync(
-  resolve(OUT, 'tools', 'index.md'),
+write(
+  'tools/index.md',
   [
     '---',
     'type: Index',
@@ -163,8 +171,8 @@ writeFileSync(
 );
 
 // root index.md (progressive disclosure)
-writeFileSync(
-  resolve(OUT, 'index.md'),
+write(
+  'index.md',
   [
     '---',
     'type: Index',
@@ -197,9 +205,10 @@ writeFileSync(
   ].join('\n'),
 );
 
-// log.md (chronological history — append-style; regenerated here for simplicity)
-writeFileSync(
-  resolve(OUT, 'log.md'),
+// log.md (regenerated deterministically from chaingraph.json state, not an append log —
+// same content every run for the same chaingraph.json, so --check stays meaningful)
+write(
+  'log.md',
   [
     '---',
     'type: Log',
@@ -214,4 +223,43 @@ writeFileSync(
   ].join('\n'),
 );
 
-console.log(`OKF bundle written to ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups.`);
+// --- finalize: write to disk, or diff against disk for --check -------------
+function listExistingFiles(dir, base = dir) {
+  let out = [];
+  for (const ent of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, ent.name);
+    if (ent.isDirectory()) out = out.concat(listExistingFiles(full, base));
+    else out.push(full.slice(base.length + 1).split('\\').join('/'));
+  }
+  return out;
+}
+
+if (CHECK) {
+  const problems = [];
+  for (const [relPath, content] of files) {
+    let current = null;
+    try { current = readFileSync(resolve(OUT, relPath), 'utf8'); } catch { /* missing */ }
+    if (current !== content) problems.push(current === null ? `missing: ${relPath}` : `stale: ${relPath}`);
+  }
+  let existing = [];
+  try { existing = listExistingFiles(OUT); } catch { /* okf/ doesn't exist yet */ }
+  for (const relPath of existing) {
+    if (!files.has(relPath)) problems.push(`orphaned (no longer generated): ${relPath}`);
+  }
+  if (problems.length) {
+    console.error(`generate-okf --check: okf/ is out of sync with chaingraph.json (${problems.length} issue(s)):`);
+    for (const p of problems.slice(0, 20)) console.error(`  - ${p}`);
+    if (problems.length > 20) console.error(`  ...and ${problems.length - 20} more`);
+    console.error('Run `node chaingraph/generate-okf.mjs` to regenerate.');
+    process.exit(1);
+  }
+  console.log(`generate-okf --check: okf/ is fresh (${files.size} files match chaingraph.json).`);
+} else {
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(resolve(OUT, 'tools'), { recursive: true });
+  mkdirSync(resolve(OUT, 'mandate-types'), { recursive: true });
+  for (const [relPath, content] of files) {
+    writeFileSync(resolve(OUT, relPath), content);
+  }
+  console.log(`OKF bundle written to ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups.`);
+}

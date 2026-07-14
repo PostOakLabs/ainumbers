@@ -2,13 +2,14 @@
 type: MandateTypeGroup
 title: "capital_assessment"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"capital_assessment\"."
-tags: ["capital_assessment", "count-2"]
-timestamp: 2026-06-18T15:18:23.408Z
+tags: ["capital_assessment", "count-3"]
+timestamp: 2026-07-14
 ---
 
 # capital_assessment
 
-2 tool(s) in this mandate-type group:
+3 tool(s) in this mandate-type group:
 
 - [Basel 3.1 Reporting Delta Calculator](../tools/art-07-basel31-reporting-delta-calculator.md)
 - [Basel RWA Scenario Modeler](../tools/sim-03-basel-rwa-scenario-modeler.md)
+- [Settlement-Risk Capital Efficiency Optimizer](../tools/504-settlement-risk-capital-optimizer.md)

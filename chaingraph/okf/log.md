@@ -1,9 +1,9 @@
 ---
 type: Log
 title: "Generation log"
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # Generation log
 
-- 2026-06-18T15:18:23.408Z — generated 48 concepts across 19 mandate types from chaingraph.json v1.11.0 (spec v0.3.1).
+- 2026-07-14 — generated 337 concepts across 27 mandate types from chaingraph.json v1.63.0 (spec v0.8.7).

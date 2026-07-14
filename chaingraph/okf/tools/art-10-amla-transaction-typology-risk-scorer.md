@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "AMLA Transaction-Typology Risk Scorer"
-description: "Scores a synthetic transaction graph against AML typologies and FATF Travel Rule predicates; exports an AML risk determination per account/cluster. Chains into CRY-01 for ZK proof of the same predicate — a uniquely coherent two-tool story."
+description: "Scores a synthetic transaction graph against AML typologies and FATF Travel Rule predicates; exports an AML risk determination per account/cluster. Chains into CRY-01 for ZK proof of the same predicate: a uniquely coherent two-tool story."
 resource: https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html
 tags: ["risk_control", "wave-1", "mcp:score_aml_typologies"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # AMLA Transaction-Typology Risk Scorer

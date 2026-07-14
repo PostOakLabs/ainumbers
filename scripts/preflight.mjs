@@ -43,6 +43,7 @@ const GATES = [
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
+  ['OKF bundle freshness (chaingraph/okf)', 'node chaingraph/generate-okf.mjs --check'],
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
   ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],

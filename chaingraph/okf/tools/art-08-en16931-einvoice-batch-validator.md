@@ -4,7 +4,7 @@ title: "EN 16931 / Factur-X E-Invoicing Batch Validator"
 description: "Batch validation of e-invoices against EN 16931 mandatory fields, VAT logic, and country profiles. France mandatory September 2026; SMEs September 2027."
 resource: https://ainumbers.co/chaingraph/art-08-en16931-einvoice-batch-validator.html
 tags: ["compliance_mandate", "wave-2", "mcp:validate_einvoice_batch"]
-timestamp: 2026-06-18T15:18:23.408Z
+timestamp: 2026-07-14
 ---
 
 # EN 16931 / Factur-X E-Invoicing Batch Validator
