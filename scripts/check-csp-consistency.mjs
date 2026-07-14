@@ -52,7 +52,16 @@ if (MODE === 'check' && existsSync(BASELINE)) {
   baseline = JSON.parse(readFileSync(BASELINE, 'utf-8'));
 }
 
-const files = SCAN_DIRS.flatMap(d => existsSync(join(ROOT, d)) ? walk(join(ROOT, d)) : []);
+function rootHtmlFiles() {
+  return readdirSync(ROOT, { withFileTypes: true })
+    .filter(e => e.isFile() && e.name.endsWith('.html'))
+    .map(e => join(ROOT, e.name));
+}
+
+const files = [
+  ...rootHtmlFiles(),
+  ...SCAN_DIRS.flatMap(d => existsSync(join(ROOT, d)) ? walk(join(ROOT, d)) : []),
+];
 const drifted = {}; // rel path -> csp content
 const missing = [];
 
