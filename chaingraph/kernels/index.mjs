@@ -240,6 +240,7 @@ import * as art293 from './art-293-einvoice-format-validator.kernel.mjs';
 import * as art294 from './art-294-einvoice-vat-calc-verifier.kernel.mjs';
 import * as art295 from './art-295-einvoice-jurisdiction-mandate-router.kernel.mjs';
 import * as art296 from './art-296-einvoice-transmission-receipt-builder.kernel.mjs';
+import * as art297 from './art-297-agentic-dispute-ce30-linter.kernel.mjs';
 import * as art30  from './art-30-agent-commerce-conformance-validator.kernel.mjs';
 import * as art31  from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
 import * as art32  from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
@@ -566,6 +567,7 @@ export const KERNELS = {
   'art-294-einvoice-vat-calc-verifier':                       art294,
   'art-295-einvoice-jurisdiction-mandate-router':             art295,
   'art-296-einvoice-transmission-receipt-builder':            art296,
+  'art-297-agentic-dispute-ce30-linter':                      art297,
   'art-30-agent-commerce-conformance-validator':              art30,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
