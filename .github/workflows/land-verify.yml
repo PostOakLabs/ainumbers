@@ -1,0 +1,66 @@
+name: Land Verify
+
+# Gate-coverage fix for LANDCI-1 (2026-07-14): `.land` PRs (art proof-attach
+# splices) touch chaingraph.json + receipt fixtures + compute-proof-baseline
+# + zk-sentinel HTML but NOT any *.kernel.mjs / kernel fixture file, so
+# cross-engine-parity.yml's path filters never fire for them. That left the
+# §18 compute-proof attachments — the evidence behind the public "N/N
+# ZK-proven" claim — machine-verified nowhere in CI; only the landing
+# session's local preflight.mjs attested it.
+#
+# This workflow runs the cheap, land-relevant SSOT/proof-coverage gates
+# (NOT the cross-engine parity matrix — that needs kernel source and is
+# already covered by cross-engine-parity.yml for actual kernel edits).
+# Additive only: does not replace or weaken any existing gate.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'chaingraph/chaingraph.json'
+      - 'chaingraph/**.receipt.json'
+      - 'scripts/compute-proof-baseline.json'
+      - 'chaingraph/zkvm-compute-integrity.html'
+      - 'chaingraph/chaingraph-hub.html'
+      - '.github/workflows/land-verify.yml'
+  pull_request:
+    paths:
+      - 'chaingraph/chaingraph.json'
+      - 'chaingraph/**.receipt.json'
+      - 'scripts/compute-proof-baseline.json'
+      - 'chaingraph/zkvm-compute-integrity.html'
+      - 'chaingraph/chaingraph-hub.html'
+      - '.github/workflows/land-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  land-verify:
+    name: §18 proof coverage + SSOT gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: §18 compute-proof coverage
+        run: node scripts/check-compute-proof-coverage.mjs
+
+      - name: Count-drift gate
+        run: node scripts/verify-counts.mjs --check
+
+      - name: SSOT schema-validate
+        run: node chaingraph/standard/schema-validate.mjs
+
+      - name: SSOT version-consistency
+        run: node chaingraph/standard/spec-version-consistency.mjs
+
+      - name: SSOT gate-coverage
+        run: node chaingraph/standard/spec-gate-coverage.mjs
