@@ -256,6 +256,10 @@ timestamp: 2026-07-14
 - [PLD Disclosure Pack Builder](./art-308-pld-disclosure-pack-builder.md) — `build_pld_disclosure_pack`
 - [Parametric Index Deriver](./art-309-parametric-index-deriver.md) — `derive_parametric_index_from_receipts`
 - [A2A x402-Extension Mandate Validator](./art-31-a2a-x402-extension-mandate-validator.md) — `validate_a2a_x402_mandate`
+- [TRAIGA Exposure Assessor](./art-313-traiga-exposure-assessor.md) — `assess_traiga_exposure`
+- [TRAIGA Safe Harbor Pack Builder](./art-314-traiga-safe-harbor-pack-builder.md) — `build_traiga_safe_harbor_pack`
+- [AB 2013 Training Data Disclosure Linter](./art-315-ab2013-training-data-disclosure-linter.md) — `lint_ab2013_training_data_disclosure`
+- [SB 53 Frontier Scope Checker](./art-316-sb53-frontier-scope-checker.md) — `check_sb53_frontier_scope`
 - [A2A Agent-Card Trust-Chain Validator](./art-32-a2a-agent-card-trust-chain-validator.md) — `validate_a2a_trust_chain`
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`

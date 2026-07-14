@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-218"]
+tags: ["compliance_mandate", "count-222"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-218 tool(s) in this mandate-type group:
+222 tool(s) in this mandate-type group:
 
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
@@ -228,3 +228,7 @@ timestamp: 2026-07-14
 - [Claim Dispute Bundle Builder](../tools/art-307-claim-dispute-bundle-builder.md)
 - [PLD Disclosure Pack Builder](../tools/art-308-pld-disclosure-pack-builder.md)
 - [Parametric Index Deriver](../tools/art-309-parametric-index-deriver.md)
+- [TRAIGA Exposure Assessor](../tools/art-313-traiga-exposure-assessor.md)
+- [TRAIGA Safe Harbor Pack Builder](../tools/art-314-traiga-safe-harbor-pack-builder.md)
+- [AB 2013 Training Data Disclosure Linter](../tools/art-315-ab2013-training-data-disclosure-linter.md)
+- [SB 53 Frontier Scope Checker](../tools/art-316-sb53-frontier-scope-checker.md)

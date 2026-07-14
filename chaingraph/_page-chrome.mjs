@@ -47,7 +47,22 @@ export function buildNav(breadcrumbCurrent) {
 export const FOOTER = `<footer>
   <div class="footer-inner">
     <div class="footer-brand">
-      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
       <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
     </div>
     <div class="footer-cols">
@@ -120,6 +135,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
 .footer-brand span{color:var(--muted)}
 .footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
 .footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
@@ -150,6 +166,7 @@ export const NAV_REQUIRED_TOKENS = [
 export const FOOTER_REQUIRED_TOKENS = [
   'class="footer-inner"',
   'class="footer-brand"',
+  'class="footer-brand-mark"',
   'class="footer-cols"',
   'class="footer-col"',
   'OpenChainGraph Suite',
