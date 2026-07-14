@@ -8,8 +8,8 @@ const REPO = resolve(HERE, '..');
 const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
 const chains = cg.chains || [];
 
-// Resolve a chain's composer page to a hub-relative path (same derivation used for the
-// CHAIN_INDEX links below). The hub lives in chaingraph/, so resolve against that dir.
+// Resolve a chain's composer page to a hub-relative path. The hub lives in chaingraph/,
+// so resolve against that dir.
 function composerRel(c) {
   let rel = (c.composer_url || '')
     .replace('https://ainumbers.co/chaingraph/', '')
@@ -18,11 +18,8 @@ function composerRel(c) {
   return rel;
 }
 
-// Composer-existence gate: every chain must have an on-disk composer page. The hub's chain
-// grid links via a JS array (CHAIN_INDEX) that the dead-link gate cannot see, so a chain added
-// to chaingraph.json without authoring its composer HTML ships a dangling hub card (this
-// silently happened for 3 W41 chains — a whole prove session had to investigate + author them).
-// gen-chain-index runs in preflight (--check) and on every regenerate, so assert it in both modes.
+// Composer-existence gate: every chain must have an on-disk composer page. A chain added
+// to chaingraph.json without authoring its composer HTML would ship a dangling hub card.
 const missingComposers = chains
   .map((c) => ({ name: c.name, rel: composerRel(c) }))
   .filter((x) => !existsSync(resolve(REPO, 'chaingraph', x.rel)));
@@ -33,66 +30,119 @@ if (missingComposers.length) {
   process.exit(1);
 }
 
-const entries = chains.map(c => {
-  let domain = 'Other';
-  const n = c.name || '';
-  if (n.startsWith('agent-economy-')) domain = 'Agent Economy';
-  else if (n.startsWith('ai-governance-')) domain = 'AI Governance';
-  else if (n.startsWith('treasury-clearing-')) domain = 'Treasury Clearing';
-  else if (n.startsWith('wholesale-settlement-')) domain = 'Wholesale Settlement';
-  else if (n.startsWith('settlement-discipline-')) domain = 'Settlement Discipline';
-  else if (n.startsWith('digital-trade-')) domain = 'Digital Trade';
-  else if (n.startsWith('cbam-')) domain = 'CBAM';
-  else if (n.startsWith('sanctions-')) domain = 'Sanctions';
-  else if (n.startsWith('export-control-')) domain = 'Export Control';
+function domainOf(name) {
+  const n = name || '';
+  if (n.startsWith('agent-economy-')) return 'Agent Economy';
+  if (n.startsWith('ai-governance-')) return 'AI Governance';
+  if (n.startsWith('treasury-clearing-')) return 'Treasury Clearing';
+  if (n.startsWith('wholesale-settlement-')) return 'Wholesale Settlement';
+  if (n.startsWith('settlement-discipline-')) return 'Settlement Discipline';
+  if (n.startsWith('digital-trade-')) return 'Digital Trade';
+  if (n.startsWith('cbam-')) return 'CBAM';
+  if (n.startsWith('sanctions-')) return 'Sanctions';
+  if (n.startsWith('export-control-')) return 'Export Control';
+  return 'Other';
+}
 
-  const steps = (c.steps || []).length;
-  const url = c.composer_url || '';
-  let relUrl = url
-    .replace('https://ainumbers.co/chaingraph/', '')
-    .replace('https://ainumbers.co/', '../');
-  if (!relUrl) relUrl = 'chains/' + c.name + '.html';
-  const desc = (c.description || '').slice(0, 120);
-  const title = c.title || c.name;
-  return JSON.stringify({ n: c.name, t: title, d: desc, s: steps, u: relUrl, dom: domain });
-});
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-const jsData = 'var CHAIN_INDEX=[' + entries.join(',') + '];';
+// chaingraph.json descriptions are internal build-tracking copy (written for ORCH, served
+// to agents over MCP where build jargon is fine) — this generator renders them as VISIBLE
+// reader-facing text for the first time, so scrub CONTRACT §1.4 copy-hallmarks (em-dash,
+// W-[A-F]/D0 wave badge codes) before display. The underlying chaingraph.json is untouched.
+function sanitizeCopy(s) {
+  return String(s)
+    .replace(/^W-[A-F] chain\.\s*/, '')
+    .replace(/\bW-[A-F]\b\s*/g, '')
+    .replace(/\bD0\b\s*/g, '')
+    .replace(/—/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const truth = chains.length;
 
-// Embed directly into the hub (single-line CHAIN_INDEX block at ~line 2409).
+// GEN:MORE-CHAINS block — statically renders EVERY chain's composer page as a clickable
+// .tool-card, reusing the hub's existing (already-styled) tool-card CSS. This is separate
+// from the 122 hand-curated individual-tool cards above it (those link to single-tool
+// pages, not chain composer pages, and are out of this generator's fence).
+const cardsHtml = chains
+  .slice()
+  .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  .map((c) => {
+    const rel = composerRel(c);
+    const title = escHtml(sanitizeCopy(c.title || c.name));
+    const descClean = sanitizeCopy(c.description || '');
+    const descRaw = descClean.slice(0, 140);
+    const desc = escHtml(descRaw) + (descClean.length > 140 ? '…' : '');
+    const steps = (c.steps || []).length;
+    const stepLabel = steps ? `${steps}-step chain` : 'chain';
+    const domain = escHtml(domainOf(c.name));
+    return `    <a href="${escHtml(rel)}" class="tool-card">
+      <div class="card-inner">
+        <div class="card-top"><span class="card-num">${escHtml(stepLabel)}</span><span class="card-arrow">→</span></div>
+        <div class="card-name">${title}</div>
+        <div class="card-desc">${desc}</div>
+      </div>
+      <div class="card-footer">
+        <div class="card-tags"><span class="ctag ctag-body">${domain}</span></div>
+        <span class="live-dot">Live</span>
+      </div>
+    </a>`;
+  })
+  .join('\n\n');
+
+const genBlock =
+`<!-- GEN:MORE-CHAINS:START (generator-owned — do not hand-edit; regenerate via node scripts/gen-chain-index.mjs) -->
+  <div class="cat-heading" style="margin-top:36px">
+    <span class="cat-tag-label" style="border-color:rgba(20,184,166,.3);color:var(--teal)">All Chains</span>
+    <h2 class="cat-name">OpenChainGraph Composed Workflows</h2>
+    <span class="cat-n">${truth} chains</span>
+  </div>
+  <p class="cat-sub">Every multi-step workflow in chaingraph.json, generator-maintained: new chains appear here automatically on the next regenerate.</p>
+  <div class="tool-grid">
+
+${cardsHtml}
+
+  </div>
+  <!-- GEN:MORE-CHAINS:END -->`;
+
 const HUB = resolve(REPO, 'chaingraph', 'chaingraph-hub.html');
 const hub = readFileSync(HUB, 'utf8');
-const RE = /var CHAIN_INDEX=\[.*\];/; // no /s — block is one line; greedy to last ]; on that line
-const m = hub.match(RE);
-if (!m) { console.error('gen-chain-index: CHAIN_INDEX block not found in chaingraph-hub.html'); process.exit(2); }
-const embedded = (m[0].match(/"n":"/g) || []).length;
+const BLOCK_RE = /<!-- GEN:MORE-CHAINS:START[\s\S]*?GEN:MORE-CHAINS:END -->/;
+const blockMatch = hub.match(BLOCK_RE);
+if (!blockMatch) {
+  console.error('gen-chain-index: GEN:MORE-CHAINS markers not found in chaingraph-hub.html');
+  process.exit(2);
+}
+const embeddedCount = (blockMatch[0].match(/class="tool-card"/g) || []).length;
 
-// --check: freshness gate (hub embedded chains must equal chaingraph.json chains).
-// Wired into CI + preflight so the hub can never silently drift behind a chain build.
+// --check: freshness gate. Verifies BOTH the hero stats a human sees AND the actual
+// rendered card grid a human can click — the prior version only checked the hero
+// number + an orphaned JS array, which is exactly how the hub drifted to 122/290
+// (58% of chains undiscoverable) undetected for weeks.
 if (process.argv.includes('--check')) {
-  // Check BOTH the searchable CHAIN_INDEX and the displayed hero stats — the hero
-  // is what a human sees, so it must be gated too (this is the 122-vs-200 bug).
   const heroIds = ['hub-total-n', 'hub-mcp-n', 'hub-eyebrow-n'];
-  const heroBad = heroIds.filter(id => {
+  const heroBad = heroIds.filter((id) => {
     const hm = hub.match(new RegExp(`id="${id}">(\\d+)`));
     return !hm || Number(hm[1]) !== truth;
   });
-  if (embedded !== truth || heroBad.length) {
-    console.error(`gen-chain-index --check FAIL: chaingraph.json has ${truth} chains; hub CHAIN_INDEX=${embedded}` +
+  if (embeddedCount !== truth || heroBad.length) {
+    console.error(`gen-chain-index --check FAIL: chaingraph.json has ${truth} chains; hub rendered card grid=${embeddedCount}` +
       (heroBad.length ? `, stale hero stat(s): ${heroBad.join(', ')}` : '') +
       `. Run: node scripts/gen-chain-index.mjs`);
     process.exit(1);
   }
-  console.log(`gen-chain-index --check: hub fresh (${truth} chains, hero stats match).`);
+  console.log(`gen-chain-index --check: hub fresh (${truth} chains, ${embeddedCount} rendered cards, hero stats match).`);
   process.exit(0);
 }
 
-// Write mode: re-embed the index + refresh the hero static fallbacks (the runtime
-// JS overrides these from the live card count, but keep the static HTML honest too).
-let out = hub.replace(RE, jsData)
-  .replace(/(id="hub-total-n">)\d+/,   `$1${truth}`)
-  .replace(/(id="hub-mcp-n">)\d+/,     `$1${truth}`)
+// Write mode: re-render the full chain-card grid + refresh the hero static fallbacks.
+let out = hub.replace(BLOCK_RE, genBlock)
+  .replace(/(id="hub-total-n">)\d+/, `$1${truth}`)
+  .replace(/(id="hub-mcp-n">)\d+/, `$1${truth}`)
   .replace(/(id="hub-eyebrow-n">)\d+/, `$1${truth}`);
 writeFileSync(HUB, out);
-console.log(`gen-chain-index: embedded ${truth} chains into chaingraph-hub.html (was ${embedded}).`);
+console.log(`gen-chain-index: rendered ${truth} chain cards into chaingraph-hub.html (was ${embeddedCount}).`);
