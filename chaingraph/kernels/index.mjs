@@ -247,6 +247,13 @@ import * as art30     from './art-30-agent-commerce-conformance-validator.kernel
 import * as art300    from './art-300-aca-226j-response-evidence-pack.kernel.mjs';
 import * as art301    from './art-301-section125-ndt.kernel.mjs';
 import * as art302401 from './art-302-401k-adp-acp-test.kernel.mjs';
+import * as art303    from './art-303-aiuc1-control-evidence-linter.kernel.mjs';
+import * as art304    from './art-304-aiuc1-evidence-pack-assembler.kernel.mjs';
+import * as art305    from './art-305-aiuc1-evidence-freshness-lint.kernel.mjs';
+import * as art306    from './art-306-agent-insurability-evidence-scorer.kernel.mjs';
+import * as art307    from './art-307-claim-dispute-bundle-builder.kernel.mjs';
+import * as art308    from './art-308-pld-disclosure-pack-builder.kernel.mjs';
+import * as art309    from './art-309-parametric-index-deriver.kernel.mjs';
 import * as art31     from './art-31-a2a-x402-extension-mandate-validator.kernel.mjs';
 import * as art32     from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
 import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
@@ -579,6 +586,13 @@ export const KERNELS = {
   'art-300-aca-226j-response-evidence-pack':                  art300,
   'art-301-section125-ndt':                                   art301,
   'art-302-401k-adp-acp-test':                                art302401,
+  'art-303-aiuc1-control-evidence-linter':                    art303,
+  'art-304-aiuc1-evidence-pack-assembler':                    art304,
+  'art-305-aiuc1-evidence-freshness-lint':                    art305,
+  'art-306-agent-insurability-evidence-scorer':               art306,
+  'art-307-claim-dispute-bundle-builder':                     art307,
+  'art-308-pld-disclosure-pack-builder':                      art308,
+  'art-309-parametric-index-deriver':                         art309,
   'art-31-a2a-x402-extension-mandate-validator':              art31,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
   'art-33-mcp-server-self-attestation-pack':                  art33,
