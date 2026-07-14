@@ -97,15 +97,86 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
 pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:420px}
 .hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
-footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
 </style>
 </head>
 <body>
+<nav>
+  <div class="nav-inner">
+    <a href="../start.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../start.html">Start</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">Kernel VM</span>
+    </div>
+    <div class="nav-right">
+      <a href="boundary-explorer.html" class="nav-pill">Boundary Explorer &#8594;</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
 <div class="wrap">
 <div class="eyebrow">OpenChainGraph &middot; VM-1b</div>
 <h1>Kernel VM</h1>
 <p class="sub">Runs a ChainGraph decision kernel's <code>compute(policy_parameters)</code> inside a sandboxed, hermetic, in-browser QuickJS-ng WebAssembly VM under the <code>ocg-deterministic-compute@2</code> profile (SPEC.md &sect;24). The VM is a fifth compute surface beside the worker, embed bundle, composer, and zkVM guest: this page runs the SAME kernel source twice, once in this VM and once natively in your browser's JavaScript engine, and shows whether the two <code>execution_hash</code> values agree.</p>
 <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+<div class="card">
+<div class="section-head">1. Choose kernel</div>
+<label class="q-label">kernel</label>
+<select id="kernelSelect"></select>
+<label class="q-label" style="margin-top:14px">policy_parameters (JSON)</label>
+<textarea id="ppInput" spellcheck="false"></textarea>
+<button id="runBtn" type="button">Run in kernel VM</button>
+<span id="status" style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)"></span>
+</div>
+
 <div class="card results-panel" id="results">
 <div class="section-head">2. Result</div>
 <div class="stat-row">
@@ -146,11 +217,48 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-
 
 <div class="cross-link" id="catalogRoutingBox">Want a different kernel? All <code>${TOTAL_GPU_FALSE_KERNELS}</code> <code>gpu:false</code> kernels in the catalog are runnable via the catalog and the MCP server &mdash; this page's ${DEMO_KERNELS.length}-kernel dropdown above is a curated demo subset, not the full set, and CI verifies every one of the ${TOTAL_GPU_FALSE_KERNELS} byte-identical in this same VM (<code>chaingraph/kernels/vm-parity-gate.mjs</code>) on every push. Browse the full catalog on the <a href="./chaingraph-hub.html">ChainGraph catalog</a> or call it over MCP at <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co</a>. See also the <a href="./boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs the same way the worker does.</div>
 
-<footer>
+<div class="cross-link">
 Vendors <a href="https://github.com/justjake/quickjs-emscripten" target="_blank" rel="noopener">quickjs-emscripten-core</a> +
 a base64-embedded <a href="https://github.com/quickjs-ng/quickjs" target="_blank" rel="noopener">QuickJS-ng</a> WebAssembly binary (MIT). Zero-fetch: the wasm ships inline in <code>chaingraph/vm/quickjs-ng-wasm.b64.mjs</code>, no CDN, no network call after page load. Phase VM-1b: a custom guest-pinned build of quickjs-ng v0.15.1 (the exact revision in the SPEC.md &sect;18 zkVM guest), with the deterministic WebCrypto subset (&sect;24.5) and full native BigInt bridged in.
-</footer>
 </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="workbench/canvas.html">Canvas</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Cross-links</div>
+        <a href="boundary-explorer.html">Decision Boundary Explorer</a>
+        <a href="chaingraph-hub.html">ChainGraph Catalog</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../start.html">Start</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+      </div>
+    </div>
+  </div>
+</footer>
 
 <script type="module">
 ${DEMO_DATA_JS}
