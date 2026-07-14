@@ -23,4 +23,4 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** [GPAI Code of Practice Conformance](./art-175-gpai-code-of-practice-conformance.md)
+**Feeds:** [GPAI Code of Practice Conformance](./art-175-gpai-code-of-practice-conformance.md), [TRAIGA Safe Harbor Pack Builder](./art-314-traiga-safe-harbor-pack-builder.md)
