@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// scripts/check-csp-consistency.mjs — FOOTER-1 rider (SSOT-CHROME-1 §C3).
+// scripts/check-csp-consistency.mjs — FOOTER-1 rider (SSOT-CHROME-1 §C3),
+// extended by CSP-CONTRACT-1 (CONTRACT.md §0 baseline CSP requirement).
 // Every static page's <meta http-equiv="Content-Security-Policy"> content must
-// match one of a small closed set of named canonical profiles. This is a
-// CHECKER only — CSP tags are still hand-authored per page; it just catches
-// drift. Baseline-shielded (mirrors dead-link-check.mjs): a drifted file NOT
-// in the baseline -> FAIL (recurrence guard); a baselined file that now
-// matches a canonical profile -> WARN (prune). Counts only go down.
+// match one of a small closed set of named canonical profiles, AND every page
+// MUST carry a CSP tag at all. This is a CHECKER only — CSP tags are still
+// hand-authored per page; it just catches drift and absence. Baseline-shielded
+// (mirrors dead-link-check.mjs) on BOTH axes: a drifted or missing-CSP file
+// NOT in the baseline -> FAIL (recurrence guard); a baselined file that now
+// matches a canonical profile, or a baselined missing file that now has a
+// tag -> WARN (prune). Counts only go down.
 // Flags: --init / --update regenerate the baseline from current state.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -23,6 +26,11 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', 'worktrees']);
 const PROFILES = {
   CSP_STANDARD: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
   CSP_WASM_VM: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  // CSP-CONTRACT-1: Orchestrated Workflow Runner (CONTRACT §5.3) + ChainGraph
+  // chain pages (CONTRACT §A3.1) — the sole permitted relaxation is
+  // frame-src 'self' for the same-origin composer bridge iframe. No worker
+  // usage in this bridge, so worker-src stays 'none' (same as CSP_STANDARD).
+  CSP_COMPOSER: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
 };
 const CANONICAL_VALUES = new Set(Object.values(PROFILES));
 
@@ -57,24 +65,37 @@ for (const abs of files) {
 }
 
 if (MODE === 'update') {
-  writeFileSync(BASELINE, JSON.stringify({ generated: 'check-csp-consistency.mjs --update', files: drifted }, null, 2) + '\n');
+  writeFileSync(BASELINE, JSON.stringify({ generated: 'check-csp-consistency.mjs --update', files: drifted, missing }, null, 2) + '\n');
   console.log(`csp-consistency: baseline written — ${Object.keys(drifted).length} drifted file(s), ${missing.length} missing-CSP file(s).`);
   process.exit(0);
 }
 
 const baselineFiles = baseline.files || {};
+const baselineMissing = new Set(baseline.missing || []);
 const newDrift = Object.keys(drifted).filter(f => !(f in baselineFiles));
 const healed = Object.keys(baselineFiles).filter(f => !(f in drifted));
+const newMissing = missing.filter(f => !baselineMissing.has(f));
+const healedMissing = [...baselineMissing].filter(f => !missing.includes(f));
 
-if (newDrift.length) {
-  console.error(`check-csp-consistency: ${newDrift.length} file(s) have a NEW CSP value not matching a canonical profile and not in the baseline:`);
-  newDrift.slice(0, 20).forEach(f => console.error(`  ${f}`));
-  console.error('\nEither match CSP_STANDARD/CSP_WASM_VM in scripts/check-csp-consistency.mjs, or run --update after a deliberate CSP change (review the diff).');
+if (newDrift.length || newMissing.length) {
+  if (newDrift.length) {
+    console.error(`check-csp-consistency: ${newDrift.length} file(s) have a NEW CSP value not matching a canonical profile and not in the baseline:`);
+    newDrift.slice(0, 20).forEach(f => console.error(`  ${f}`));
+    console.error('Either match CSP_STANDARD/CSP_WASM_VM/CSP_COMPOSER in scripts/check-csp-consistency.mjs, or run --update after a deliberate CSP change (review the diff).');
+  }
+  if (newMissing.length) {
+    console.error(`check-csp-consistency: ${newMissing.length} file(s) have NO <meta http-equiv="Content-Security-Policy"> tag and are not in the baseline:`);
+    newMissing.slice(0, 20).forEach(f => console.error(`  ${f}`));
+    console.error('CONTRACT.md §0 requires a baseline CSP on every page. Add a canonical profile tag (see RESEARCH-CSP-MISSING-2026-07-14.md for the page->profile mapping), or run --update after a deliberate, reviewed exception.');
+  }
   process.exit(1);
 }
 
 if (healed.length) {
   console.warn(`check-csp-consistency: ${healed.length} baselined file(s) now match a canonical profile — prune with --update.`);
 }
+if (healedMissing.length) {
+  console.warn(`check-csp-consistency: ${healedMissing.length} baselined missing-CSP file(s) now carry a tag — prune with --update.`);
+}
 
-console.log(`check-csp-consistency: 0 new drift (${Object.keys(drifted).length} baselined, ${missing.length} missing-CSP file(s) — not gated by this checker).`);
+console.log(`check-csp-consistency: 0 new drift, 0 new missing-CSP (${Object.keys(drifted).length} drift-baselined, ${missing.length} missing-baselined).`);
