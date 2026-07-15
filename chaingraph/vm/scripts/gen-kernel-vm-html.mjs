@@ -1,3 +1,16 @@
+/**
+ * chaingraph/vm/scripts/gen-kernel-vm-html.mjs
+ *
+ * Generates chaingraph/kernel-vm.html (VM-1b Kernel VM page) from the demo-kernel
+ * fixtures/sources + shared page chrome. GENERATED FILE — never hand-edit
+ * chaingraph/kernel-vm.html directly; edit this generator instead (see
+ * memory project-ainumbers-vm1b-build: two direct-HTML edits had to be hand-ported
+ * back into this generator after drifting silently).
+ *
+ * Usage:
+ *   node chaingraph/vm/scripts/gen-kernel-vm-html.mjs          # write chaingraph/kernel-vm.html
+ *   node chaingraph/vm/scripts/gen-kernel-vm-html.mjs --check  # freshness gate (exit 1 if stale)
+ */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -5,6 +18,8 @@ import { CHROME_CSS } from '../../_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..', '..');
+const CHECK = process.argv.includes('--check');
+const OUT = `${ROOT}/chaingraph/kernel-vm.html`;
 const DEMO_KERNELS = [
   '503-canton-tokenization-readiness-diagnostic',
   '508-repo-haircut-collateral-calculator',
@@ -420,5 +435,16 @@ pasteRunBtn.addEventListener('click', async () => {
 </html>
 `;
 
-writeFileSync(`${ROOT}/chaingraph/kernel-vm.html`, html);
-console.log('wrote', html.length, 'chars');
+if (CHECK) {
+  let current = null;
+  try { current = readFileSync(OUT, 'utf8'); } catch { /* missing */ }
+  if (current !== html) {
+    console.error(`gen-kernel-vm-html --check: ${OUT} is out of sync with the generator.`);
+    console.error('Run `node chaingraph/vm/scripts/gen-kernel-vm-html.mjs` to regenerate.');
+    process.exit(1);
+  }
+  console.log('gen-kernel-vm-html --check: OK (kernel-vm.html matches generator).');
+} else {
+  writeFileSync(OUT, html);
+  console.log('wrote', html.length, 'chars');
+}

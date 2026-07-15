@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
 """
-add_pii_banners.py — V3 compliance fix
+add_pii_banners.py — idempotent PII-banner enforcer (originally a V3 one-shot
+compliance fix; converted to a safe-to-re-run generator per SSOT-GATES-1 §G2.4).
 Ensures every target tool has the exact CONTRACT §1.3 PII banner.
 
 CONTRACT §1.3 canonical text:
   🔒 All inputs are processed locally in your browser. No data is transmitted.
      Do not enter real personal data — use synthetic or anonymised inputs only.
 
+Idempotency contract (verified by running twice against the full TARGETS corpus
+and diffing repo state — the second run must be a true no-op):
+  - has_correct_banner() guards every file: if the canonical text is already
+    present, fix_file() returns "skip" and never touches the file (no write,
+    no mtime bump, no duplicate CSS/div injection).
+  - A file whose pii-notice div exists but carries drifted text is fixed
+    IN PLACE (text swapped for the canonical block, nothing else touched).
+  - Do NOT change CANON_TEXT / CANON_DIV — the banner text itself is frozen
+    by CONTRACT §1.3; this script's re-run safety is about write avoidance,
+    never about the text it enforces.
+
 Usage:
   python scripts/add_pii_banners.py           # dry-run (print changes, no writes)
-  python scripts/add_pii_banners.py --apply   # apply changes
+  python scripts/add_pii_banners.py --apply   # apply changes (idempotent: safe to re-run)
 """
 
 import re
