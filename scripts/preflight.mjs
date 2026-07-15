@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SCRIPTSCI-1 throwaway trigger-proof line — remove before merge, never merged.
 /**
  * scripts/preflight.mjs — run EVERY hard CI gate locally, in CI order.
  *
