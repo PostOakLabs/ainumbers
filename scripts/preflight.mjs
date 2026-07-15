@@ -47,6 +47,9 @@ const GATES = [
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['OKF bundle freshness (chaingraph/okf)', 'node chaingraph/generate-okf.mjs --check'],
+  ['Kernel VM page freshness',      'node chaingraph/vm/scripts/gen-kernel-vm-html.mjs --check'],
+  ['Kernel VM widget freshness',    'node chaingraph/vm/scripts/gen-kernel-vm-widget.mjs --check'],
+  ['OpenAPI freshness',             'node scripts/gen-openapi.mjs --check'],
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
   ['SSOT gate-coverage',           'node chaingraph/standard/spec-gate-coverage.mjs'],
@@ -72,6 +75,7 @@ const GATES = [
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
+  ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
 ];
 
 let failed = null;

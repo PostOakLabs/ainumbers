@@ -1,3 +1,16 @@
+/**
+ * chaingraph/vm/scripts/gen-kernel-vm-widget.mjs
+ *
+ * Flattens chaingraph/vm/*.mjs (the multi-file Kernel VM module graph) into one
+ * self-contained script scope for the MCP Apps PILOT widget surface, and writes
+ * tools/kernel-vm-widget.html. GENERATED FILE — never hand-edit
+ * tools/kernel-vm-widget.html directly; edit this generator instead (same
+ * doctrine as gen-kernel-vm-html.mjs / memory project-ainumbers-vm1b-build).
+ *
+ * Usage:
+ *   node chaingraph/vm/scripts/gen-kernel-vm-widget.mjs          # write tools/kernel-vm-widget.html
+ *   node chaingraph/vm/scripts/gen-kernel-vm-widget.mjs --check  # freshness gate (exit 1 if stale)
+ */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +19,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..', '..');
 const VM = `${ROOT}/chaingraph/vm`;
 const read = (p) => readFileSync(p, 'utf8');
+const CHECK = process.argv.includes('--check');
+const OUT = `${ROOT}/tools/kernel-vm-widget.html`;
 
 // Strip a single leading `import {...} from "./x.mjs";` (already known to be the only
 // import line in each of these minified/hand-written files) -- verified per-file below.
@@ -372,5 +387,16 @@ window.ocgKernelVmRun = async (tool_id, policy_parameters) => {
 </html>
 `;
 
-writeFileSync(`${ROOT}/tools/kernel-vm-widget.html`, html);
-console.log('wrote', html.length, 'chars');
+if (CHECK) {
+  let current = null;
+  try { current = readFileSync(OUT, 'utf8'); } catch { /* missing */ }
+  if (current !== html) {
+    console.error(`gen-kernel-vm-widget --check: ${OUT} is out of sync with the generator.`);
+    console.error('Run `node chaingraph/vm/scripts/gen-kernel-vm-widget.mjs` to regenerate.');
+    process.exit(1);
+  }
+  console.log('gen-kernel-vm-widget --check: OK (kernel-vm-widget.html matches generator).');
+} else {
+  writeFileSync(OUT, html);
+  console.log('wrote', html.length, 'chars');
+}

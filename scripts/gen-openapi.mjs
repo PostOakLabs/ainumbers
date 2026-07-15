@@ -12,6 +12,10 @@
  * They become functional only if the REST shim (Area 2 Path B) is deployed.
  *
  * Never hardcode tool counts — derived at generation time from manifests on disk.
+ *
+ * Usage:
+ *   node scripts/gen-openapi.mjs          # write openapi.json + docs/{openapi,catalog}.json + docs/index.html sentinels
+ *   node scripts/gen-openapi.mjs --check  # freshness gate (exit 1 if any output is stale)
  */
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, copyFileSync } from 'fs'
@@ -21,6 +25,7 @@ import { deriveCounts } from './counts.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
+const CHECK = process.argv.includes('--check')
 
 // Derive counts once — used for the OpenAPI description and docs/index.html sentinels.
 const C = deriveCounts()
@@ -252,49 +257,66 @@ const openapi = {
   }
 }
 
-// ── 5. Write outputs ─────────────────────────────────────────────────────────
+// ── 5. Render outputs in-memory (so --check can diff against disk without writing) ──
 const json = JSON.stringify(openapi, null, 2)
 
-// Primary: repo/openapi.json (DreamHost → ainumbers.co/openapi.json)
-const primaryOut = join(repoRoot, 'openapi.json')
-writeFileSync(primaryOut, json, 'utf8')
-console.log(`Wrote ${primaryOut}`)
-
-// Docs copy: repo/docs/openapi.json (Cloudflare Pages → docs.ainumbers.co/openapi.json)
+const primaryOut = join(repoRoot, 'openapi.json') // DreamHost → ainumbers.co/openapi.json
 const docsDir = join(repoRoot, 'docs')
-if (!existsSync(docsDir)) mkdirSync(docsDir, { recursive: true })
-
-const docsOpenapi = join(docsDir, 'openapi.json')
-writeFileSync(docsOpenapi, json, 'utf8')
-console.log(`Wrote ${docsOpenapi}`)
-
-// Catalog copy: repo/docs/catalog.json (Cloudflare Pages)
+const docsOpenapi = join(docsDir, 'openapi.json') // Cloudflare Pages → docs.ainumbers.co/openapi.json
 const catalogSrc  = join(repoRoot, 'mcp', 'catalog.json')
 const catalogDest = join(docsDir, 'catalog.json')
-copyFileSync(catalogSrc, catalogDest)
-console.log(`Copied catalog.json → ${catalogDest}`)
+const catalogJson = readFileSync(catalogSrc, 'utf8')
 
-// ── 6. Fill docs/index.html sentinels (closes the orphan that caused the incident) ──
 const docsIndexPath = join(docsDir, 'index.html')
-if (existsSync(docsIndexPath)) {
+let docsHtml = existsSync(docsIndexPath) ? readFileSync(docsIndexPath, 'utf8') : null
+if (docsHtml !== null) {
   const SENTINEL_RE = /<!--COUNT:([^-]+?)-->(\d+)<!--\/COUNT-->/g
   const DATA_COUNT_RE = /(<[^>]+\bdata-count="([^"]+)"[^>]*>)(\d+)(<\/)/g
-  let docsHtml = readFileSync(docsIndexPath, 'utf8')
-  let changed = false
   docsHtml = docsHtml.replace(SENTINEL_RE, (match, key, valStr) => {
     const expected = C[key]
     if (expected === undefined) return match
-    if (parseInt(valStr, 10) !== expected) { changed = true; return `<!--COUNT:${key}-->${expected}<!--/COUNT-->` }
+    if (parseInt(valStr, 10) !== expected) return `<!--COUNT:${key}-->${expected}<!--/COUNT-->`
     return match
   })
   docsHtml = docsHtml.replace(DATA_COUNT_RE, (match, openFull, key, valStr, close) => {
     const expected = C[key]
     if (expected === undefined) return match
-    if (parseInt(valStr, 10) !== expected) { changed = true; return `${openFull}${expected}${close}` }
+    if (parseInt(valStr, 10) !== expected) return `${openFull}${expected}${close}`
     return match
   })
-  if (changed) { writeFileSync(docsIndexPath, docsHtml, 'utf8'); console.log(`Updated sentinels in ${docsIndexPath}`) }
-  else { console.log(`docs/index.html sentinels already current`) }
 }
 
-console.log(`\nDone. ${toolCount} operations in openapi.json.`)
+// ── 6. Write, or diff against disk for --check ──────────────────────────────
+if (CHECK) {
+  const problems = []
+  const readOrNull = (p) => { try { return readFileSync(p, 'utf8') } catch { return null } }
+  if (readOrNull(primaryOut) !== json) problems.push(`stale: ${primaryOut}`)
+  if (readOrNull(docsOpenapi) !== json) problems.push(`stale: ${docsOpenapi}`)
+  if (readOrNull(catalogDest) !== catalogJson) problems.push(`stale: ${catalogDest}`)
+  if (docsHtml !== null && readOrNull(docsIndexPath) !== docsHtml) problems.push(`stale sentinels: ${docsIndexPath}`)
+  if (problems.length) {
+    console.error(`gen-openapi --check: ${problems.length} output(s) out of sync with manifests/chaingraph.json:`)
+    for (const p of problems) console.error(`  - ${p}`)
+    console.error('Run `node scripts/gen-openapi.mjs` to regenerate.')
+    process.exit(1)
+  }
+  console.log(`gen-openapi --check: OK (${toolCount} operations, all outputs fresh).`)
+} else {
+  writeFileSync(primaryOut, json, 'utf8')
+  console.log(`Wrote ${primaryOut}`)
+
+  if (!existsSync(docsDir)) mkdirSync(docsDir, { recursive: true })
+  writeFileSync(docsOpenapi, json, 'utf8')
+  console.log(`Wrote ${docsOpenapi}`)
+
+  copyFileSync(catalogSrc, catalogDest)
+  console.log(`Copied catalog.json → ${catalogDest}`)
+
+  if (docsHtml !== null) {
+    const original = readFileSync(docsIndexPath, 'utf8')
+    if (docsHtml !== original) { writeFileSync(docsIndexPath, docsHtml, 'utf8'); console.log(`Updated sentinels in ${docsIndexPath}`) }
+    else { console.log(`docs/index.html sentinels already current`) }
+  }
+
+  console.log(`\nDone. ${toolCount} operations in openapi.json.`)
+}

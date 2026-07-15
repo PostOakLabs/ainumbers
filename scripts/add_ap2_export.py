@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-add_ap2_export.py — V6 compliance fix
-Injects the AP2 Policy Mandate export button into tools that need it.
+add_ap2_export.py — idempotent AP2-export-button enforcer (originally a V6
+one-shot compliance fix; converted to a safe-to-re-run generator per
+SSOT-GATES-1 §G2.4). Injects the AP2 Policy Mandate export button into tools
+that need it.
 
 What gets injected into each target file:
   1. Export button HTML (inline-styled) before <section id="mfstSec">
@@ -12,9 +14,17 @@ The bridge-wrap intercepts the tool's declared AIN_BRIDGE_CFG.runFn and:
     window._mandate (T477 compatibility) then falls back to a DOM snapshot.
   - Enables the ap2ExportBtn once a mandate is ready.
 
+Idempotency contract (verified by running twice against the full TARGETS corpus
+and diffing repo state — the second run must be a true no-op):
+  - fix_file() guards on 'id="ap2ExportBtn"' in content: if the button is
+    already present, it returns "skip" and never touches the file (no write,
+    no duplicate button/script-block injection).
+  - The retained legacy id `ap2ExportBtn` (CONTRACT §3.1) is both the injected
+    id AND the guard this script re-runs against — do not rename it.
+
 Usage:
   python scripts/add_ap2_export.py           # dry-run (no writes)
-  python scripts/add_ap2_export.py --apply   # write changes
+  python scripts/add_ap2_export.py --apply   # write changes (idempotent: safe to re-run)
 """
 
 import re
