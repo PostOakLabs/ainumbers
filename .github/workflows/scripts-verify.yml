@@ -1,0 +1,46 @@
+name: Scripts Verify
+
+# Gate-coverage fix for SCRIPTSCI-1 (2026-07-15), 3rd instance of the
+# "zero CI checks ran" class LANDCI-1/HTMLCI-1 each closed once (PR #257,
+# #267). PR #273 (`scripts/`-only) got zero checks: all existing workflows
+# are path-filtered and none has a `pull_request` trigger matching
+# `scripts/**` — cross-engine-parity.yml covers only
+# scripts/check-engine-parity.mjs; deploy-docs.yml names scripts/gen-openapi.mjs
+# but is push-only, so it never gates a PR. The gates themselves live in
+# scripts/ — a PR that breaks/weakens a gate is the one diff shape with no
+# CI. This workflow runs the full preflight gate suite on any scripts/ change.
+# Additive only: does not replace or weaken any existing gate.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/**'
+      - 'chaingraph/vm/scripts/**'
+      - '.github/workflows/scripts-verify.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'chaingraph/vm/scripts/**'
+      - '.github/workflows/scripts-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  scripts-verify:
+    name: Full preflight gate suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preflight (full gate suite)
+        run: node scripts/preflight.mjs
