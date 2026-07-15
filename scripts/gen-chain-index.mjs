@@ -30,20 +30,6 @@ if (missingComposers.length) {
   process.exit(1);
 }
 
-function domainOf(name) {
-  const n = name || '';
-  if (n.startsWith('agent-economy-')) return 'Agent Economy';
-  if (n.startsWith('ai-governance-')) return 'AI Governance';
-  if (n.startsWith('treasury-clearing-')) return 'Treasury Clearing';
-  if (n.startsWith('wholesale-settlement-')) return 'Wholesale Settlement';
-  if (n.startsWith('settlement-discipline-')) return 'Settlement Discipline';
-  if (n.startsWith('digital-trade-')) return 'Digital Trade';
-  if (n.startsWith('cbam-')) return 'CBAM';
-  if (n.startsWith('sanctions-')) return 'Sanctions';
-  if (n.startsWith('export-control-')) return 'Export Control';
-  return 'Other';
-}
-
 function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -79,7 +65,7 @@ const cardsHtml = chains
     const desc = escHtml(descRaw) + (descClean.length > 140 ? '…' : '');
     const steps = (c.steps || []).length;
     const stepLabel = steps ? `${steps}-step chain` : 'chain';
-    const domain = escHtml(domainOf(c.name));
+    const domain = escHtml(c.domain);
     return `    <a href="${escHtml(rel)}" class="tool-card">
       <div class="card-inner">
         <div class="card-top"><span class="card-num">${escHtml(stepLabel)}</span><span class="card-arrow">→</span></div>
