@@ -12,9 +12,16 @@ Five checks, all hard failures that block deploy:
                              (soft-skips only if Node is absent; CI always enforces)
 
 Usage:
-  python scripts/verify_repo.py   # exits 0 (pass) or 1 (fail)
+  python scripts/verify_repo.py                     # full-estate scan (CI default)
+  python scripts/verify_repo.py --changed <ref>      # incremental: only files touched vs <ref>
+                                                      # (pre-push hook default — CI always runs full)
+
+--changed scopes checks 1-4 (PII/manifest/AP2/sitemap) to touched files, and skips the
+Node hash/syntax gates entirely when no kernel-relevant path changed (they scan every
+kernel regardless of git diff, so skipping is only safe when nothing they cover moved).
 """
 
+import argparse
 import json
 import re
 import shutil
@@ -54,6 +61,43 @@ def fail(msg):
     errors.append(msg)
 
 
+# ── --changed support ──────────────────────────────────────────────────────────
+def get_changed_files(ref):
+    """Union of files touched vs <ref> (committed) and in the working tree (uncommitted).
+    Returns None if git or <ref> is unavailable — caller falls back to a full scan."""
+    if not shutil.which("git"):
+        return None
+    try:
+        subprocess.run(["git", "rev-parse", "--verify", ref],
+                        cwd=str(REPO), capture_output=True, text=True, check=True)
+    except Exception:
+        print(f"  ⚠️  --changed {ref}: ref not resolvable — falling back to full scan")
+        return None
+    changed = set()
+    for cmd in (["git", "diff", "--name-only", f"{ref}...HEAD"],
+                ["git", "diff", "--name-only", "HEAD"],
+                ["git", "status", "--porcelain"]):
+        res = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True)
+        if res.returncode != 0:
+            continue
+        for line in res.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # `git status --porcelain` prefixes each line with a 2-char status code.
+            if cmd[1] == "status":
+                line = line[3:]
+            changed.add(line)
+    return changed
+
+
+def _touched(paths, changed):
+    """Filter an iterable of Path objects to those whose repo-relative path is in `changed`."""
+    if changed is None:
+        return list(paths)
+    return [p for p in paths if str(p.relative_to(REPO)).replace("\\", "/") in changed]
+
+
 # ── Check 1: PII text correctness ─────────────────────────────────────────────
 def _pii_scan_dirs():
     dirs = [TOOLS]
@@ -64,12 +108,12 @@ def _pii_scan_dirs():
     return dirs
 
 
-def check_pii_text():
+def check_pii_text(changed=None):
     bad = []
     scanned = 0
     n = 0
     for d in _pii_scan_dirs():
-        for path in sorted(d.glob("*.html")):
+        for path in _touched(sorted(d.glob("*.html")), changed):
             scanned += 1
             text = path.read_text(encoding="utf-8", errors="replace")
             m = re.search(r'<div\s+class="pii-notice">(.*?)</div>', text, re.S)
@@ -82,13 +126,15 @@ def check_pii_text():
         for f in bad:
             fail(f"  {f}")
     else:
-        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/)")
+        scope = f"{scanned} touched page(s)" if changed is not None else f"{scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/"
+        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scope})")
 
 
 # ── Check 2: Manifest coverage ────────────────────────────────────────────────
-def check_manifests():
+def check_manifests(changed=None):
+    tools = _touched(sorted(TOOLS.glob("*.html")), changed)
     missing = []
-    for path in sorted(TOOLS.glob("*.html")):
+    for path in tools:
         stem = path.stem
         if not (MANIFESTS / f"{stem}.manifest.json").exists():
             missing.append(path.name)
@@ -97,19 +143,31 @@ def check_manifests():
         for f in missing:
             fail(f"  {f}")
     else:
-        print(f"  ✅ Manifests: all {len(list(TOOLS.glob('*.html')))} tools have a .manifest.json")
+        scope = f"{len(tools)} touched tool(s)" if changed is not None else f"all {len(tools)} tools"
+        print(f"  ✅ Manifests: {scope} have a .manifest.json")
 
 
 # ── Check 3: AP2 consistency ──────────────────────────────────────────────────
-def check_ap2():
+def check_ap2(changed=None):
+    manifests = _touched(sorted(MANIFESTS.glob("*.manifest.json")), changed)
+    if changed is not None:
+        # A tool's export button can drift out of sync with an unchanged manifest,
+        # so also re-check any touched tool whose manifest declares ap2_export:true.
+        touched_tool_stems = {p.stem for p in _touched(sorted(TOOLS.glob("*.html")), changed)}
+        for stem in touched_tool_stems:
+            mp = MANIFESTS / f"{stem}.manifest.json"
+            if mp.exists() and mp not in manifests:
+                manifests.append(mp)
     mismatches = []
-    for mfst_path in sorted(MANIFESTS.glob("*.manifest.json")):
+    checked = 0
+    for mfst_path in manifests:
         try:
             mfst = json.loads(mfst_path.read_text(encoding="utf-8"))
         except Exception:
             continue
         if not mfst.get("ap2_export"):
             continue
+        checked += 1
         stem = mfst_path.name.replace(".manifest.json", "")
         tool_path = TOOLS / f"{stem}.html"
         if not tool_path.exists():
@@ -122,15 +180,12 @@ def check_ap2():
         for f in mismatches:
             fail(f"  {f}")
     else:
-        ap2_count = sum(
-            1 for p in MANIFESTS.glob("*.manifest.json")
-            if json.loads(p.read_text(encoding="utf-8")).get("ap2_export")
-        )
-        print(f"  ✅ AP2 consistency: all {ap2_count} ap2_export:true manifests have the button")
+        scope = f"{checked} touched ap2_export:true manifest(s)" if changed is not None else f"all {checked} ap2_export:true manifests"
+        print(f"  ✅ AP2 consistency: {scope} have the button")
 
 
 # ── Check 4: Sitemap coverage ─────────────────────────────────────────────────
-def check_sitemap():
+def check_sitemap(changed=None):
     if not SITEMAP.exists():
         fail("[SITEMAP] sitemap.xml not found")
         return
@@ -140,11 +195,14 @@ def check_sitemap():
                    SITEMAP.read_text(encoding="utf-8"))
     )
 
+    tools = _touched(sorted(TOOLS.glob("*.html")), changed)
+    guides = _touched(sorted(GUIDES.glob("*.html")), changed)
+
     missing = []
-    for path in sorted(TOOLS.glob("*.html")):
+    for path in tools:
         if f"tools/{path.name}" not in sitemap_locs:
             missing.append(f"tools/{path.name}")
-    for path in sorted(GUIDES.glob("*.html")):
+    for path in guides:
         # Skip redirect stubs — noindex pages don't belong in sitemap
         content = path.read_text(encoding="utf-8", errors="replace")
         if "noindex" in content:
@@ -159,14 +217,27 @@ def check_sitemap():
         if len(missing) > 25:
             fail(f"  ... and {len(missing) - 25} more — run: python scripts/regen_sitemap.py --apply")
     else:
-        t = len(list(TOOLS.glob("*.html")))
-        g = len([p for p in GUIDES.glob("*.html")
-                 if "noindex" not in p.read_text(encoding="utf-8", errors="replace")])
-        print(f"  ✅ Sitemap: all {t} tools + {g} indexable guides present")
+        g = [p for p in guides if "noindex" not in p.read_text(encoding="utf-8", errors="replace")]
+        scope = f"{len(tools)} touched tool(s) + {len(g)} touched guide(s)" if changed is not None else f"all {len(tools)} tools + {len(g)} indexable guides"
+        print(f"  ✅ Sitemap: {scope} present")
 
 
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────
-def check_hash_gates():
+def _hash_relevant(changed):
+    """True if any touched path could affect kernel hash/syntax integrity.
+    These Node scripts scan every live kernel regardless of git diff, so skipping
+    them is only safe when nothing they cover moved."""
+    if changed is None:
+        return True
+    prefixes = ("chaingraph/kernels/", "chaingraph/standard/", "tools/", "manifests/",
+                "chaingraph.json", "scripts/verify_repo.py")
+    return any(f.startswith(prefixes) or f in ("chaingraph.json",) for f in changed)
+
+
+def check_hash_gates(changed=None):
+    if changed is not None and not _hash_relevant(changed):
+        print("  ⏭️  Hash/syntax gates: no kernel/tool/manifest changes touched — skipped (CI runs the full scan)")
+        return
     node = shutil.which("node")
     if not node:
         # Soft-skip when Node is absent (e.g. a Python-only checkout). CI installs
@@ -190,12 +261,21 @@ def check_hash_gates():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    print("\n=== verify_repo.py — deploy gate ===\n")
-    check_pii_text()
-    check_manifests()
-    check_ap2()
-    check_sitemap()
-    check_hash_gates()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--changed", metavar="REF",
+                         help="incremental mode: scope checks to files touched vs REF "
+                              "(e.g. origin/main). CI never passes this — full scan stays the default.")
+    args = parser.parse_args()
+
+    changed = get_changed_files(args.changed) if args.changed else None
+    mode = f"incremental vs {args.changed}" if changed is not None else "full estate"
+    print(f"\n=== verify_repo.py — deploy gate ({mode}) ===\n")
+
+    check_pii_text(changed)
+    check_manifests(changed)
+    check_ap2(changed)
+    check_sitemap(changed)
+    check_hash_gates(changed)
 
     if errors:
         print(f"\n❌  FAILED — {len(errors)} error(s) block deploy:\n")
