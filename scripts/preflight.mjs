@@ -20,6 +20,14 @@ import { fileURLToPath } from 'node:url';
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python gates print ✓/✗
 
+// --changed <ref>: incremental mode for local/pre-push runs only (PREFLIGHT-BUDGET-1 §1).
+// Scopes verify_repo.py to files touched vs <ref>. CI never passes this — the
+// land-verify.yml / deploy-to-dreamhost.yml workflows call the gates directly with a
+// full-estate scan, so nothing here weakens what CI checks.
+const changedIdx = process.argv.indexOf('--changed');
+const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+const BUDGET_MS = 60_000;
+
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
@@ -58,7 +66,7 @@ const GATES = [
   ['SSOT catalog-parity (no orphans)', 'node scripts/check-catalog-parity.mjs'],
   ['SSOT spec-page parity',        'node chaingraph/standard/spec-page-parity.mjs'],
   ['SSOT spec-page subsections',   'node chaingraph/standard/spec-page-subsection-parity.mjs'],
-  ['verify_repo (PII/sitemap/AP2)','python scripts/verify_repo.py'],
+  ['verify_repo (PII/sitemap/AP2)', changedRef ? `python scripts/verify_repo.py --changed ${changedRef}` : 'python scripts/verify_repo.py'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
   ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
   ['§17 kernel identity (unit)',   'node chaingraph/kernels/kernel-identity.test.mjs'],
@@ -81,13 +89,21 @@ const GATES = [
 ];
 
 let failed = null;
+const timings = []; // [label, ms]
+const suiteStart = Date.now();
+
 for (const [label, cmd] of GATES) {
   process.stdout.write(`▶ ${label} … `);
+  const t0 = Date.now();
   try {
     execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    console.log('✓');
+    const ms = Date.now() - t0;
+    timings.push([label, ms]);
+    console.log(`✓ (${ms}ms)`);
   } catch (e) {
-    console.log('✗');
+    const ms = Date.now() - t0;
+    timings.push([label, ms]);
+    console.log(`✗ (${ms}ms)`);
     const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
     console.log('\n' + out.trim() + '\n');
     failed = label;
@@ -98,16 +114,29 @@ for (const [label, cmd] of GATES) {
 // mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
 if (!failed) {
   process.stdout.write('▶ mfstSec presence (every tool) … ');
+  const t0 = Date.now();
   const missing = readdirSync(resolve(REPO, 'tools'))
     .filter(f => f.endsWith('.html'))
     .filter(f => !readFileSync(resolve(REPO, 'tools', f), 'utf8').includes('mfstSec'));
+  const ms = Date.now() - t0;
+  timings.push(['mfstSec presence (every tool)', ms]);
   if (missing.length) {
-    console.log('✗');
+    console.log(`✗ (${ms}ms)`);
     console.log('\nTools missing the mfstSec manifest panel:\n  ' + missing.join('\n  ') + '\n');
     failed = 'mfstSec presence';
   } else {
-    console.log('✓');
+    console.log(`✓ (${ms}ms)`);
   }
+}
+
+const totalMs = Date.now() - suiteStart;
+console.log(`\nTOTAL ${(totalMs / 1000).toFixed(1)}s`);
+
+if (totalMs > BUDGET_MS) {
+  const slowest = [...timings].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  console.log(`⚠️  BUDGET ADVISORY: preflight took ${(totalMs / 1000).toFixed(1)}s, over the ${(BUDGET_MS / 1000).toFixed(0)}s budget. Slowest 3 gates:`);
+  for (const [label, ms] of slowest) console.log(`    ${ms}ms — ${label}`);
+  console.log('    (advisory only — not a hard fail; wall-clock budgets are machine-dependent)');
 }
 
 if (failed) {
