@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Annuity PV / FV / Payment Solver · ART-327 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Annuity PV/FV/PMT solver matching Excel semantics, ordinary or annuity-due. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-327-tvm-annuity.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Annuity PV / FV / Payment Solver · ART-327 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Annuity PV/FV/PMT solver matching Excel semantics, ordinary or annuity-due. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-327-tvm-annuity.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Annuity PV / FV / Payment Solver · ART-327 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-327-tvm-annuity.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Annuity PV/FV/PMT solver matching Excel semantics, ordinary or annuity-due. Client-side. Zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:880px;margin:0 auto;padding:0 2rem}
+.hero{padding:3rem 0 1.6rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.8rem}
+.hero h1{font-size:2rem;color:var(--white);margin-bottom:.8rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{max-width:720px;font-size:.92rem;color:var(--body);line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.5rem}
+.tool-body{padding:2rem 0 4rem}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.25rem}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body)}
+.field input[type=text],.field input[type=number],.field select,.field textarea{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.5rem .65rem}
+.field textarea{min-height:96px;resize:vertical;line-height:1.5}
+.field .field-hint{font-size:.6rem;color:var(--muted);line-height:1.4}
+.field-check{flex-direction:row;align-items:center;gap:.5rem}
+.field-check input{width:auto}
+.run-btn{display:block;width:100%;background:var(--teal);color:var(--bg);border:none;padding:.85rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;margin:1.25rem 0 2rem;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{display:none}
+.results-panel.visible{display:block}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.1rem 1.25rem}
+.out-row{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.out-row:last-child{border-bottom:none}
+.out-row .k{color:var(--body)}
+.out-row .v{color:var(--bright);font-family:'JetBrains Mono',monospace;text-align:right;word-break:break-word}
+.flag-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+.flag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.22rem .55rem;border-radius:3px;border:1px solid rgba(245,158,11,.35);color:var(--warn)}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}.btn-ghost.ready:hover{background:var(--bg-4)}.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.hash-row{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);word-break:break-all;padding:.5rem .7rem;background:var(--bg-4);border-radius:var(--radius);border:1px solid var(--border);margin-top:.75rem}
+.hash-label{color:var(--teal);margin-right:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:2rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:680px){.hero h1{font-size:1.5rem}}
+</style>
+<style>
+
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-327 · Annuity PV / FV / Payment Solver</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="tool-body"><div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">ART-327 &middot; OpenChainGraph &middot; TVM Primitive</div>
+    <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+    <h1>Annuity PV / FV / <em>Payment Solver</em></h1>
+    <p>Solves present value, future value, or payment for an ordinary annuity or annuity-due, given the other two plus rate and number of periods, using the standard closed-form annuity factor. Matches Excel PV/FV/PMT semantics including the due=true (beginning-of-period) adjustment.</p>
+    <div class="hero-meta">
+      <span class="badge badge-teal">Policy Mandate Export</span>
+      <span class="badge badge-gold">TVM Primitive</span>
+      <span class="badge badge-muted">analytics_mandate</span>
+      <span class="badge badge-warn">Proof deferred</span>
+    </div>
+  </div>
+
+  <div style="padding-top:1.5rem">
+    <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+    <div class="field-grid">
+      <div class="field"><label for="ratePct">Rate (% per period)</label><input type="text" id="ratePct" value="5"></div>
+      <div class="field"><label for="nper">Number of periods</label><input type="text" id="nper" value="10"></div>
+      <div class="field"><label for="pv">Present value (PV)</label><input type="text" id="pv" value="0"></div>
+      <div class="field"><label for="fv">Future value (FV)</label><input type="text" id="fv" value="0"></div>
+      <div class="field"><label for="pmt">Payment (PMT)</label><input type="text" id="pmt" value="-1000"></div>
+      <div class="field field-check"><input type="checkbox" id="due"><label for="due">Annuity-due (payments at period start)</label></div>
+      <div class="field"><label for="solveFor">Solve for</label><select id="solveFor"><option value="pv">PV</option><option value="fv" selected>FV</option><option value="pmt">PMT</option></select></div>
+    </div>
+
+    <button class="run-btn" onclick="runCompute()">&#9654; Solve Annuity</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Result</span></div>
+        <div class="out-body" id="outBody"></div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportPolicyMandate()">
+          {} Export Policy Mandate<span class="btn-subtitle">chaingraph_version: 0.4.0 &middot; execution_hash</span>
+        </button>
+        <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+          &#x21E9; Export Markdown<span class="btn-subtitle">Report</span>
+        </button>
+      </div>
+      <div class="hash-row" id="hashRow" style="display:none">
+        <span class="hash-label">sha256:</span><span id="hashVal"></span>
+      </div>
+    </div>
+
+    <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">
+      <span>{} MCP Manifest &mdash; ART-327</span><span id="mfstArrow">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div>
+</div></div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ART-327 · Annuity PV / FV / Payment Solver — OpenChainGraph node. analytics_mandate. */
+const MANIFEST = {
+  tool_id: 'art-327-tvm-annuity',
+  version: '1.0.0',
+  title: 'Annuity PV / FV / Payment Solver',
+  mcp_tool_definition: {
+    name: 'compute_annuity',
+    description: "Solves present value, future value, or payment for an ordinary annuity or annuity-due given the other two plus rate_pct and nper, matching Excel PV/FV/PMT semantics.",
+    inputSchema: { type: 'object', properties: {"rate_pct":{"type":"number","description":"Periodic rate, percent"},"nper":{"type":"number","description":"Number of periods"},"pv":{"type":"number"},"fv":{"type":"number"},"pmt":{"type":"number"},"due":{"type":"boolean","description":"true = annuity-due (start of period), false = ordinary (end)"},"solve_for":{"type":"string","enum":["pv","fv","pmt"]}}, required: [] }
+  },
+  ap2_export: true,
+  chaingraph: true
+};
+
+function myExp(x){if(!Number.isFinite(x))return 0;let sum=1,term=1;for(let n=1;n<=80;n++){term*=x/n;sum+=term;if(Math.abs(term)<1e-17*Math.abs(sum))break;}return sum;}
+function myLn(x){if(x<=0||!Number.isFinite(x))return -1e300;const y=(x-1)/(x+1);let sum=0,ypow=y,y2=y*y;for(let k=0;k<100;k++){sum+=ypow/(2*k+1);ypow*=y2;if(Math.abs(ypow)<1e-17)break;}return 2*sum;}
+function myPow(base,exp){if(!Number.isFinite(base)||!Number.isFinite(exp))return 0;if(exp===0)return 1;if(base===1)return 1;const iExp=Math.round(exp);if(Math.abs(exp-iExp)<1e-12){const n=Math.abs(iExp);let r=1;for(let i=0;i<n;i++)r*=base;return iExp<0?1/r:r;}return myExp(exp*myLn(base));}
+function safeNum(v,def){const n=Number(v);return Number.isFinite(n)?n:def;}
+function r2(v){return Number.isFinite(v)?Math.round(v*100)/100:0;}
+function r4(v){return Number.isFinite(v)?Math.round(v*1e4)/1e4:0;}
+function r6(v){return Number.isFinite(v)?Math.round(v*1e6)/1e6:0;}
+function toJDN(y,m,d){const a=Math.floor((14-m)/12);const yy=y+4800-a;const mm=m+12*a-3;return d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;}
+function parseDate(s){const p=String(s).split('-');return {y:Number(p[0]),m:Number(p[1]),d:Number(p[2])};}
+function daysBetween(d1s,d2s){const d1=parseDate(d1s),d2=parseDate(d2s);return toJDN(d2.y,d2.m,d2.d)-toJDN(d1.y,d1.m,d1.d);}
+function yearFrac(d1s,d2s,convention){const actualDays=daysBetween(d1s,d2s);if(convention==='ACT/360')return actualDays/360;if(convention==='ACT/ACT')return actualDays/365.25;if(convention==='30/360'){const d1=parseDate(d1s),d2=parseDate(d2s);let dd1=d1.d===31?30:d1.d;let dd2=(d2.d===31&&dd1===30)?30:d2.d;const days360=(d2.y-d1.y)*360+(d2.m-d1.m)*30+(dd2-dd1);return days360/360;}return actualDays/365;}
+function parseCashFlowLines(text){return String(text||'').split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){const parts=l.split(',').map(function(s){return s.trim();});return parts;});}
+
+
+function annuityFactor(rate, nper, type) {
+  if (Math.abs(rate) < 1e-15) return nper;
+  const growth = myPow(1 + rate, nper);
+  const factor = (growth - 1) / rate / myPow(1 + rate, nper);
+  return factor * (1 + rate * type);
+}
+function compute(pp) {
+  pp = pp || {};
+  const rate = safeNum(pp.rate_pct, 0) / 100;
+  const nper = safeNum(pp.nper, 0);
+  const type = pp.due === true ? 1 : 0;
+  const solveFor = pp.solve_for === 'fv' || pp.solve_for === 'pmt' ? pp.solve_for : 'pv';
+  const compliance_flags = [];
+  if (nper <= 0) compliance_flags.push('NPER_NOT_POSITIVE');
+  const annFactor = annuityFactor(rate, nper, type);
+  const discPow = myPow(1 + rate, -nper);
+  let pv = safeNum(pp.pv, 0), fv = safeNum(pp.fv, 0), pmt = safeNum(pp.pmt, 0);
+  const growth = myPow(1 + rate, nper);
+  if (solveFor === 'fv') {
+    fv = -(pv * growth + pmt * (annFactor * growth));
+  } else if (solveFor === 'pmt') {
+    pmt = annFactor !== 0 ? -(pv + fv * discPow) / annFactor : 0;
+    if (annFactor === 0) compliance_flags.push('ANNUITY_FACTOR_ZERO_CANNOT_SOLVE_PMT');
+  } else {
+    pv = -(fv * discPow + pmt * annFactor);
+  }
+  const output_payload = {
+    solved_for: solveFor, pv: r2(pv), fv: r2(fv), pmt: r2(pmt),
+    rate_pct: safeNum(pp.rate_pct, 0), nper, due: type === 1,
+    annuity_factor: Number.isFinite(annFactor) ? Math.round(annFactor * 1e6) / 1e6 : 0,
+  };
+  return { output_payload, compliance_flags };
+}
+
+let _result = null;
+let _artifact = null;
+let _pp = null;
+
+function runCompute() {
+  _pp = readInputs();
+  const { output_payload, compliance_flags } = compute(_pp);
+  _result = { output_payload, compliance_flags };
+  document.getElementById('outBody').innerHTML =
+    '<div class="out-row"><span class="k">Solved for</span><span class="v">'+(o.solved_for)+'</span></div>'+
+    '<div class="out-row"><span class="k">PV</span><span class="v">'+(o.pv.toFixed(2))+'</span></div>'+
+    '<div class="out-row"><span class="k">FV</span><span class="v">'+(o.fv.toFixed(2))+'</span></div>'+
+    '<div class="out-row"><span class="k">PMT</span><span class="v">'+(o.pmt.toFixed(2))+'</span></div>'+
+    '<div class="out-row"><span class="k">Rate (%)</span><span class="v">'+(o.rate_pct)+'</span></div>'+
+    '<div class="out-row"><span class="k">Periods</span><span class="v">'+(o.nper)+'</span></div>'+
+    '<div class="out-row"><span class="k">Due (annuity-due)</span><span class="v">'+(o.due)+'</span></div>'+
+    '<div class="out-row"><span class="k">Annuity factor</span><span class="v">'+(o.annuity_factor)+'</span></div>' +
+    (compliance_flags.length ? '<div class="flag-row">' + compliance_flags.map(function(f){return '<span class="flag">'+f+'</span>';}).join('') + '</div>' : '');
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  buildArtifact();
+}
+
+
+function readInputs() {
+  return {
+    rate_pct: safeNum(document.getElementById('ratePct').value, 0),
+    nper: safeNum(document.getElementById('nper').value, 0),
+    pv: safeNum(document.getElementById('pv').value, 0),
+    fv: safeNum(document.getElementById('fv').value, 0),
+    pmt: safeNum(document.getElementById('pmt').value, 0),
+    due: document.getElementById('due').checked,
+    solve_for: document.getElementById('solveFor').value,
+  };
+}
+
+async function buildArtifact() {
+  const pp = _pp;
+  const output_payload = _result.output_payload;
+  const hash = await sha256({ policy_parameters: pp, output_payload });
+
+  document.getElementById('hashRow').style.display = 'block';
+  document.getElementById('hashVal').textContent = hash;
+
+  _artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'analytics_mandate',
+    tool_id: 'art-327-tvm-annuity',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload,
+    compliance_flags: _result.compliance_flags,
+    compute_mode: 'client',
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  ['ap2ExportBtn', 'mdBtn'].forEach(function(id) {
+    const b = document.getElementById(id);
+    b.disabled = false;
+    b.classList.add('ready');
+  });
+}
+
+async function sha256(obj) {
+  const c = __ocgCanonStr(obj);
+  const b = new TextEncoder().encode(c);
+  const h = await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(h)).map(function(x) { return x.toString(16).padStart(2, '0'); }).join('');
+}
+
+function ts14() { return new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); }
+
+function showToast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+function exportPolicyMandate() {
+  if (!_artifact) return;
+  const ts = ts14();
+  const b = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: 'art-327-tvm-annuity_' + ts + '.policy.json' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate exported');
+}
+
+function exportMd() {
+  if (!_result || !_artifact) return;
+  const ts = ts14();
+  const lines = [
+    '# Annuity PV / FV / Payment Solver Report',
+    '',
+    '_' + new Date().toISOString() + ' · ainumbers.co/chaingraph/art-327-tvm-annuity.html · client-side, zero PII_',
+    '',
+    '**ART-327 · OpenChainGraph**',
+    '**execution_hash:** ' + _artifact.execution_hash,
+    '',
+    '## Output',
+    '',
+    JSON.stringify(_result.output_payload, null, 2),
+    '',
+    '---',
+    '> *ART-327 · OpenChainGraph Suite · Post Oak Labs · CC BY 4.0*'
+  ];
+  const b = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: 'art-327-tvm-annuity_' + ts + '.md' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Markdown exported');
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody'), arrow = document.getElementById('mfstArrow'), btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  btn.setAttribute('aria-expanded', String(!open));
+  body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+</body>
+</html>

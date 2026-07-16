@@ -268,7 +268,15 @@ timestamp: 2026-07-14
 - [BoLD Challenge-Window Finality Classifier](./art-321-rhc-bold-finality-classifier.md) — `classify_bold_challenge_finality`
 - [AP Concentration + Redemption-Path Stress](./art-322-rhc-ap-redemption-stress.md) — `stress_test_ap_redemption_path`
 - [Robinhood Chain Fit Diagnostic](./art-323-rhc-fit-diagnostic.md) — `run_robinhood_chain_fit_diagnostic`
+- [Net Present Value (NPV)](./art-324-tvm-npv.md) — `compute_npv`
+- [Internal Rate of Return (IRR)](./art-325-tvm-irr.md) — `compute_irr`
+- [XIRR (Irregular Dated Cash Flows)](./art-326-tvm-xirr.md) — `compute_xirr`
+- [Annuity PV / FV / Payment Solver](./art-327-tvm-annuity.md) — `compute_annuity`
+- [Breakeven / CVP Analysis](./art-328-tvm-breakeven.md) — `compute_breakeven`
+- [Bond Macaulay / Modified Duration](./art-329-tvm-bond-duration.md) — `compute_bond_duration`
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
+- [Bond DV01 (Price Value of a Basis Point)](./art-330-tvm-dv01.md) — `compute_dv01`
+- [Bond Convexity](./art-331-tvm-convexity.md) — `compute_convexity`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
