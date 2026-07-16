@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "agent_guardrail_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"agent_guardrail_mandate\"."
-tags: ["agent_guardrail_mandate", "count-16"]
+tags: ["agent_guardrail_mandate", "count-17"]
 timestamp: 2026-07-14
 ---
 
 # agent_guardrail_mandate
 
-16 tool(s) in this mandate-type group:
+17 tool(s) in this mandate-type group:
 
 - [Agent-Traffic Acceptance Policy Builder](../tools/art-21-agent-traffic-acceptance-policy-builder.md)
 - [Agentic Payments Readiness Diagnostic](../tools/art-27-agentic-readiness-diagnostic.md)
@@ -26,3 +26,4 @@ timestamp: 2026-07-14
 - [Sanctions & Export-Control Screening Fit Diagnostic](../tools/art-90-sanctions-screening-fit-diagnostic.md)
 - [MiCA CASP Fit Diagnostic](../tools/art-98-mica-casp-fit-diagnostic.md)
 - [MiCA Token & Service Scoper](../tools/art-105-mica-token-service-scoper.md)
+- [Robinhood Chain Fit Diagnostic](../tools/art-323-rhc-fit-diagnostic.md)

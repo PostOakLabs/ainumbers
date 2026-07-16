@@ -267,6 +267,7 @@ timestamp: 2026-07-14
 - [Halt + Staleness Collateral Haircut](./art-320-rhc-collateral-haircut.md) — `compute_stock_token_collateral_haircut`
 - [BoLD Challenge-Window Finality Classifier](./art-321-rhc-bold-finality-classifier.md) — `classify_bold_challenge_finality`
 - [AP Concentration + Redemption-Path Stress](./art-322-rhc-ap-redemption-stress.md) — `stress_test_ap_redemption_path`
+- [Robinhood Chain Fit Diagnostic](./art-323-rhc-fit-diagnostic.md) — `run_robinhood_chain_fit_diagnostic`
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`

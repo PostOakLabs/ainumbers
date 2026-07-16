@@ -266,6 +266,7 @@ import * as art32     from './art-32-a2a-agent-card-trust-chain-validator.kernel
 import * as art320    from './art-320-rhc-collateral-haircut.kernel.mjs';
 import * as art321    from './art-321-rhc-bold-finality-classifier.kernel.mjs';
 import * as art322    from './art-322-rhc-ap-redemption-stress.kernel.mjs';
+import * as art323    from './art-323-rhc-fit-diagnostic.kernel.mjs';
 import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
@@ -615,6 +616,7 @@ export const KERNELS = {
   'art-320-rhc-collateral-haircut':                           art320,
   'art-321-rhc-bold-finality-classifier':                     art321,
   'art-322-rhc-ap-redemption-stress':                         art322,
+  'art-323-rhc-fit-diagnostic':                               art323,
   'art-33-mcp-server-self-attestation-pack':                  art33,
   'art-34-tempo-fit-diagnostic':                              art34,
   'art-35-tempo-payments-business-case':                      art35,
