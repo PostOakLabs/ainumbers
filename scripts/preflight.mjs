@@ -87,6 +87,7 @@ const GATES = [
   ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
+  ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
 ];
 
 let failed = null;
