@@ -1133,6 +1133,40 @@ A verifier correct for v0.7/v0.8 computes an identical `execution_hash` for a v0
 `input_attestations` entirely. Any type whose binding would require folding attestation data INTO the preimage
 is out of profile — attestations are adjacent evidence, never inputs to the hash.
 
+### §23.4 Freshness and consent (NORMATIVE, OPTIONAL — new in v0.8.9)
+An `input_attestations` entry MAY carry an OPTIONAL `freshness` object stating how current the attested
+value was, and (declaratively) what consent/retention basis it was collected under:
+
+```json
+"freshness": {
+  "observed_at": "2026-07-16T12:00:00Z",
+  "expires_at": "2026-07-17T12:00:00Z",
+  "freshness_class": "realtime|intraday|daily|point-in-time|static",
+  "consent_ref": "sha256:...",
+  "retention_class": "transient|case-file|regulatory-N-years"
+}
+```
+
+- `observed_at` (REQUIRED if `freshness` is present) — the instant the attested value was true at its
+  source.
+- `expires_at` (OPTIONAL) — after this instant, a verifier MUST report the entry stale.
+- `freshness_class` (REQUIRED if `freshness` is present) — closed enum `{ realtime, intraday, daily,
+  point-in-time, static }`, informative context for how the value ages.
+- `consent_ref` (OPTIONAL) — a SHA-256 digest of a consent artifact covering the value's collection/use.
+  Presence is asserted only; the referenced artifact is out of profile.
+- `retention_class` (OPTIONAL) — declarative only; `{ transient, case-file, regulatory-N-years }`. Carries
+  no enforcement machinery — a retention statement, not a retention mechanism.
+
+Like the rest of §23, `freshness` is hash-excluded (§23.3 applies unchanged — a `freshness` block never
+enters the `execution_hash` preimage). A verifier's §23.2 per-entry report gains one more field,
+`freshness_status: "fresh" | "stale" | "undeclared"`: `undeclared` when the entry carries no `freshness`
+object; `stale` when `expires_at` is present and past at verification time; `fresh` otherwise. Staleness is
+reporting-only — it NEVER invalidates `structural`, `verifiable`, or the `execution_hash` verdict. A §21.4
+decision gate MAY target a copied-forward `freshness_status` in `output_payload` (so a mandate can require
+fresh evidence before proceeding); the gate mechanism itself is unchanged by this section.
+**Done:** spec section merged · reference verifier reports `freshness_status` per entry · one conformance
+fixture pair (fresh/stale) demonstrates both outcomes.
+
 ## §24 Deterministic Compute Profile — `ocg-deterministic-compute` (NORMATIVE, profile-scoped — new in v0.8.4)
 OCG's integrity model already assumes a kernel is a **pure, deterministic function of its inputs**: §4 makes the
 output tamper-evident, §17 pins *which* kernel source ran, §18 proves *that* it ran, and §18.5 fixes the specific
