@@ -50,6 +50,7 @@ const GATES = [
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
+  ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
