@@ -1037,14 +1037,26 @@ async function sha256HexOfCanon(value) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// §23.4 freshness_status: 'undeclared' (no freshness object) | 'stale' (expires_at past) | 'fresh'.
+// Reporting-only — never touches structural/verifiable or the execution_hash verdict.
+function _freshnessStatusOf(att, nowMs) {
+  const fr = att && att.freshness;
+  if (!fr || typeof fr !== 'object') return 'undeclared';
+  if (!fr.expires_at) return 'fresh';
+  const expiry = Date.parse(fr.expires_at);
+  if (Number.isNaN(expiry)) return 'fresh';
+  return expiry <= nowMs ? 'stale' : 'fresh';
+}
+
 async function _verifyInputAttestations(artifact) {
   const list = artifact.input_attestations;
   if (!Array.isArray(list) || list.length === 0) return { status: 'absent', entries: [] };
 
   const pp = artifact.policy_parameters || {};
+  const nowMs = Date.now();
   const entries = [];
   for (const att of list) {
-    const entry = { pointer: att.pointer, type: att.type, structural: 'fail', verifiable: 'n/a', note: '' };
+    const entry = { pointer: att.pointer, type: att.type, structural: 'fail', verifiable: 'n/a', note: '', freshnessStatus: _freshnessStatusOf(att, nowMs) };
     try {
       const { found, value } = rfc6901(pp, att.pointer);
       if (!found) { entry.note = 'Pointer does not resolve inside policy_parameters.'; entries.push(entry); continue; }
@@ -2427,6 +2439,11 @@ async function showRecord(artifact) {
       e.verifiable === 'failed' ? chipHtml('fail', 'Failed') :
       e.verifiable === 'external' ? chipHtml('partial', 'External') :
       chipHtml('absent', verifiableLabel);
+    // §23.4 freshness_status — reporting-only, never affects structural/verifiable above.
+    const freshnessChip =
+      e.freshnessStatus === 'fresh' ? chipHtml('pass', 'Fresh') :
+      e.freshnessStatus === 'stale' ? chipHtml('warn', 'Stale') :
+      chipHtml('absent', 'Undeclared');
     return `<div class="verify-row">
       <span class="verify-icon">${structPass ? '&#10003;' : '&#10007;'}</span>
       <div class="verify-label">${escapeHtml(e.type)} <span class="mono" style="font-weight:400">${escapeHtml(e.pointer)}</span>
@@ -2436,6 +2453,7 @@ async function showRecord(artifact) {
       <div class="verify-chip" style="display:flex;flex-direction:column;gap:.25rem;align-items:flex-end">
         ${structPass ? chipHtml('pass','Structural pass') : chipHtml('fail','Structural fail')}
         ${verifiableChip}
+        ${freshnessChip}
       </div>
     </div>`;
   }).join('');
