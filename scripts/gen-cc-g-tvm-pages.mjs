@@ -2,11 +2,22 @@
 // Reuses canonical chrome from chaingraph/_page-chrome.mjs. Each page reimplements
 // its kernel's pure-math compute() inline (client-side, zero network, self-contained
 // per CONTRACT.md — HTML pages never import the ESM kernel modules).
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { buildNav, FOOTER, CHROME_CSS } from '../chaingraph/_page-chrome.mjs';
 
 const CG = resolve('chaingraph');
+
+// Proof badge is derived from chaingraph.json, never hardcoded: a page that claims
+// "Proof deferred" after the node is proven is a false statement to the reader.
+const GRAPH_NODES = JSON.parse(readFileSync(resolve(CG, 'chaingraph.json'), 'utf8')).nodes;
+function proofBadge(slug) {
+  const node = GRAPH_NODES.find((n) => n.tool_id === slug);
+  if (!node) throw new Error('node not in chaingraph.json: ' + slug);
+  return node.compute_proof_ready === 'ready' && node.compute_proof
+    ? '<span class="badge badge-green">Proof verified</span>'
+    : '<span class="badge badge-warn">Proof deferred</span>';
+}
 
 const MATH_HELPERS = `
 function myExp(x){if(!Number.isFinite(x))return 0;let sum=1,term=1;for(let n=1;n<=80;n++){term*=x/n;sum+=term;if(Math.abs(term)<1e-17*Math.abs(sum))break;}return sum;}
@@ -160,7 +171,7 @@ ${buildNav(breadcrumb)}
       <span class="badge badge-teal">Policy Mandate Export</span>
       <span class="badge badge-gold">TVM Primitive</span>
       <span class="badge badge-muted">analytics_mandate</span>
-      <span class="badge badge-warn">Proof deferred</span>
+      ${proofBadge(cfg.slug)}
     </div>
   </div>
 
