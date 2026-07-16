@@ -1,0 +1,82 @@
+{
+  "chain_id": "kya-agent-counterparty-receipt",
+  "fixture_type": "golden_end_to_end",
+  "spec_version": "0.8.7",
+  "description": "Golden fixture: input bundle -> expected chain-definition execution_hash. Reuses shipped per-kernel fixtures for step inputs; this file fixtures the chain composition, not the kernels. The gate's end branch (below-threshold reputation, no acceptance receipt) is exercised conceptually here; the passing branch is the default scenario for this chain.",
+  "input_bundle": {
+    "revocation_check": {},
+    "attestation_check": {},
+    "key_rotation_audit": {},
+    "reputation_inputs": { "subject_id": "agent-alpha", "attestations": [], "as_of": "2026-01-01" },
+    "acceptance_binding": {},
+    "expected_gate_branch": "default"
+  },
+  "policy_parameters": {
+    "execution_backend": "browser",
+    "chain_id": "kya-agent-counterparty-receipt",
+    "step_count": 5,
+    "step_tool_ids": [
+      "art-287-revocation-status-verifier",
+      "art-04-agent-identity-attestation-checker",
+      "art-132-agent-key-rotation-auditor",
+      "art-278-reputation-score-aggregator",
+      "art-277-agreement-acceptance-binder"
+    ],
+    "gates": [
+      {
+        "tool_id": "art-278-reputation-score-aggregator",
+        "input": "/composite",
+        "rules": [
+          {
+            "op": "lt",
+            "value": 0.5,
+            "next": "end"
+          }
+        ]
+      }
+    ]
+  },
+  "output_payload": {
+    "chain_title": "Agent Counterparty Due-Diligence Receipt (KYA)",
+    "chain_description": "Know-Your-Agent (KYA) receipt for onboarding an autonomous agent counterparty: checks the agent's key is not revoked against a supplied BitstringStatusList credential (art-287), verifies its delegated-authority attestation chain (art-04), audits its key rotation posture (art-132), then GATES on a provable reputation score composed from prior OCG execution receipts (art-278). GATE: a composite reputation score below the tunable threshold theta ends the chain with no acceptance receipt issued; a score at or above theta continues to bind an NDA acceptance receipt referenced by hash (art-277). Theta is a composer policy_parameter, never a literal baked into kernel code, so it can be retuned without a rebuild. The receipt asserts unrevoked key, unexpired mandate, reputation at or above theta, and NDA accepted, each with its own evidence class; composite claim_strength honestly reports the weakest verification class among its steps. A Web Bot Auth signed-agent verification tail is an optional planned upgrade (rides the AGENTIC-NAV Section N2 landing, whose bypass-half is still unverified) and is omitted here, not missing. Verify-only; asserts only the four conditions it checked, never a broader safe-to-transact guarantee.",
+    "spec_version": "0.8.7",
+    "steps": [
+      {
+        "tool_id": "art-287-revocation-status-verifier",
+        "handoff": "revocation posture (BitstringStatusList lookup) feeds the delegated-authority attestation chain check",
+        "gate": null
+      },
+      {
+        "tool_id": "art-04-agent-identity-attestation-checker",
+        "handoff": "delegated-authority credential chain and scope classification feed the key rotation audit",
+        "gate": null
+      },
+      {
+        "tool_id": "art-132-agent-key-rotation-auditor",
+        "handoff": "key rotation posture (HEALTHY / ROTATION_STAGED / ACTION_REQUIRED) feeds the reputation aggregation",
+        "gate": null
+      },
+      {
+        "tool_id": "art-278-reputation-score-aggregator",
+        "handoff": "composite reputation score gates continuation: GATE composite < theta ends the chain with no acceptance receipt issued; composite >= theta continues to the NDA acceptance binder",
+        "gate": {
+          "input": "/composite",
+          "rules": [
+            {
+              "op": "lt",
+              "value": 0.5,
+              "next": "end"
+            }
+          ],
+          "default": "art-277-agreement-acceptance-binder"
+        }
+      },
+      {
+        "tool_id": "art-277-agreement-acceptance-binder",
+        "handoff": "binds the counterparty's NDA acceptance by hash reference, completing the KYA receipt. Final stage.",
+        "gate": null
+      }
+    ]
+  },
+  "expected_execution_hash": "89367b08b816ff6a0d31c179f33091f4a44e434c24985d4acba4fc19086da7bb"
+}
