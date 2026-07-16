@@ -86,6 +86,7 @@ const GATES = [
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
+  ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
 ];
 
 let failed = null;
