@@ -73,6 +73,7 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
+  ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['§20 anchor binding (unit)',    'node chaingraph/kernels/anchor-binding.test.mjs'],
   ['§13.12 SD-JWT round-trip',     'node chaingraph/exporters/sd-export-roundtrip.test.mjs'],
   ['Chain runners up-to-date',    'node scripts/gen-chain-runners.mjs --check'],
