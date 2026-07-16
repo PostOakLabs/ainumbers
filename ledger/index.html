@@ -373,6 +373,9 @@ section.main-section{padding:2rem 0}
 <div class="tab-bar" id="tab-bar">
   <div class="tab-inner">
     <button class="tab-btn active" data-tab="ledger">Ledger</button>
+    <button class="tab-btn" data-tab="mandates">Mandates</button>
+    <button class="tab-btn" data-tab="obligations">Obligations</button>
+    <button class="tab-btn" data-tab="evidence">Evidence</button>
     <button class="tab-btn" data-tab="exceptions">Exceptions</button>
     <button class="tab-btn" data-tab="about">What is this?</button>
   </div>
@@ -1677,6 +1680,189 @@ async function renderExceptions() {
     }));
 }
 
+/* ── MANDATES VIEW (§22, EF-3) ───────────────────────────────────── */
+// §0 scope test: this view answers "which policies are governing my agents" from
+// already-stored receipts alone — no new storage, zero fetch. A mandate is derived
+// from policy_parameters.mandate_hash (§22.5 conditional-presence key, folded into
+// every step of a mandate-bound run) and, where present, its §22.8 escalation records.
+async function renderMandates() {
+  const main = document.getElementById('main');
+  const records = await dbGetAll();
+  const byMandate = new Map();
+
+  const touch = (hash) => {
+    if (!hash) return null;
+    if (!byMandate.has(hash)) byMandate.set(hash, { hash, runs: 0, escalated: 0, closed: 0, lastSeen: 0, chains: new Set() });
+    return byMandate.get(hash);
+  };
+
+  for (const r of records) {
+    const artifact = r.artifact;
+    const mh = artifact?.policy_parameters?.mandate_hash || artifact?.composite_policy?.mandate_hash;
+    if (mh) {
+      const m = touch(mh);
+      m.runs++;
+      m.lastSeen = Math.max(m.lastSeen, r.added_at || 0);
+      m.chains.add(artifactChainName(artifact) || artifact.tool_id || 'unknown');
+    }
+    if (hasEscalation(artifact)) {
+      const record = escalationRecordOf(artifact);
+      const m = touch(record.mandate_hash);
+      if (m) {
+        const closureCheck = await verifyEscalationClosure(artifact);
+        if (closureCheck.status === 'closed') m.closed++;
+        else if (closureCheck.status === 'open') m.escalated++;
+      }
+    }
+  }
+
+  const mandates = [...byMandate.values()].sort((a, b) => b.lastSeen - a.lastSeen);
+
+  if (mandates.length === 0) {
+    main.innerHTML = `<section class="main-section"><div class="container">
+      <div class="ledger-header"><span class="ledger-title">Mandates</span></div>
+      <div class="empty-state"><p>No mandate-bound runs in this ledger yet. When a stored artifact's <span class="mono">policy_parameters.mandate_hash</span> (OCG &sect;22.5) is present, its governing Work Mandate shows up here.</p></div>
+    </div></section>`;
+    return;
+  }
+
+  const rows = mandates.map(m => {
+    const state = m.escalated > 0 ? chipHtml('warn', 'Escalated')
+      : m.closed > 0 ? chipHtml('pass', 'Closed')
+      : chipHtml('info', 'Active');
+    return `<div class="artifact-card">
+      <div class="card-chip">${state}</div>
+      <div class="card-body">
+        <div class="card-title mono">${escapeHtml(m.hash.slice(0, 20))}&#8230;</div>
+        <div class="card-meta">
+          <span>${m.runs} run${m.runs === 1 ? '' : 's'}</span>
+          <span>${escapeHtml([...m.chains].join(', '))}</span>
+          <span>${m.escalated} open escalation${m.escalated === 1 ? '' : 's'} &middot; ${m.closed} closed</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="ledger-header">
+      <span class="ledger-title">Mandates</span>
+      <div class="filter-bar"><span class="filter-btn active">${mandates.length} mandate${mandates.length === 1 ? '' : 's'}</span></div>
+    </div>
+    <div class="ledger-list">${rows}</div>
+  </div></section>`;
+}
+
+/* ── OBLIGATIONS VIEW (mandate &rarr; execution &rarr; settlement-reference, EF-3) ── */
+// One row per stored execution, oldest-first. settlement_reference is surfaced only when
+// an artifact already carries one (asserted-by-mapping, SIDECAR-1/EF-4 territory) — this
+// view never fetches or proves it, it just reads what is already in the artifact.
+async function renderObligations() {
+  const main = document.getElementById('main');
+  const records = await dbGetAll();
+  records.sort((a, b) => (a.added_at || 0) - (b.added_at || 0));
+
+  if (records.length === 0) {
+    main.innerHTML = `<section class="main-section"><div class="container">
+      <div class="ledger-header"><span class="ledger-title">Obligations</span></div>
+      <div class="empty-state"><p>No stored executions yet. Import or run a chain to see mandate &rarr; execution &rarr; settlement-reference obligations here.</p></div>
+    </div></section>`;
+    return;
+  }
+
+  const rows = records.map(r => {
+    const artifact = r.artifact;
+    const chain = artifactChainName(artifact) || artifact.tool_id || 'Unknown';
+    const mh = artifact?.policy_parameters?.mandate_hash;
+    const settlementRef = artifact?.output_payload?.settlement_reference || artifact?.settlement_reference || null;
+    return `<div class="artifact-card" data-hash="${escapeHtml(artifact.execution_hash)}">
+      <div class="card-chip">${chipHtml(mh ? 'info' : 'absent', mh ? 'Mandate-bound' : 'Unbound')}</div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(chain)}</div>
+        <div class="card-meta">
+          <span class="mono">${escapeHtml((artifact.execution_hash || '').slice(0, 16))}&#8230;</span>
+          ${mh ? `<span class="mono">mandate ${escapeHtml(mh.slice(0, 12))}&#8230;</span>` : ''}
+        </div>
+        <div class="card-outcome truncate">settlement-reference: ${settlementRef ? escapeHtml(String(settlementRef)) : 'none on record'}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="ledger-header">
+      <span class="ledger-title">Obligations</span>
+      <div class="filter-bar"><span class="filter-btn active">${records.length} execution${records.length === 1 ? '' : 's'}</span></div>
+    </div>
+    <div class="ledger-list">${rows}</div>
+  </div></section>`;
+
+  main.querySelectorAll('.artifact-card').forEach(card =>
+    card.addEventListener('click', () => navigate('#view/' + card.dataset.hash)));
+}
+
+/* ── EVIDENCE VIEW (§23 input attestations + §23.4 freshness, EF-3) ─ */
+// freshness_status is computed client-side from each attestation's OPTIONAL §23.4
+// freshness block. Per §23.4 semantics this is hash-excluded and reports only — it
+// never invalidates execution_hash, it only flags what is already stored as stale.
+function _freshnessStatusOf(att) {
+  const f = att?.freshness;
+  if (!f || !f.expires_at) return 'undeclared';
+  const expires = Date.parse(f.expires_at);
+  if (Number.isNaN(expires)) return 'undeclared';
+  return Date.now() > expires ? 'stale' : 'fresh';
+}
+
+async function renderEvidence() {
+  const main = document.getElementById('main');
+  const records = await dbGetAll();
+  const rows = [];
+
+  for (const r of records) {
+    const artifact = r.artifact;
+    const list = artifact.input_attestations;
+    if (!Array.isArray(list) || list.length === 0) continue;
+    for (const att of list) rows.push({ artifact, att, freshness: _freshnessStatusOf(att) });
+  }
+
+  if (rows.length === 0) {
+    main.innerHTML = `<section class="main-section"><div class="container">
+      <div class="ledger-header"><span class="ledger-title">Evidence</span></div>
+      <div class="empty-state"><p>No &sect;23 input attestations in this ledger yet. When a stored artifact carries <span class="mono">input_attestations</span>, each entry shows up here with its freshness status.</p></div>
+    </div></section>`;
+    return;
+  }
+
+  const staleCount = rows.filter(x => x.freshness === 'stale').length;
+
+  const cards = rows.map(({ artifact, att, freshness }) => {
+    const chain = artifactChainName(artifact) || artifact.tool_id || 'Unknown';
+    const chip = freshness === 'stale' ? chipHtml('fail', 'Stale')
+      : freshness === 'fresh' ? chipHtml('pass', 'Fresh')
+      : chipHtml('unchecked', 'Undeclared');
+    const expires = att?.freshness?.expires_at ? escapeHtml(att.freshness.expires_at) : 'not declared';
+    return `<div class="artifact-card" data-hash="${escapeHtml(artifact.execution_hash)}">
+      <div class="card-chip">${chip}</div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(chain)} <span class="mono">${escapeHtml(att.type || 'unknown-type')}</span></div>
+        <div class="card-meta">
+          <span class="mono">pointer ${escapeHtml(att.pointer || '')}</span>
+          <span>expires ${expires}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  main.innerHTML = `<section class="main-section"><div class="container">
+    <div class="ledger-header">
+      <span class="ledger-title">Evidence</span>
+      <div class="filter-bar"><span class="filter-btn active">${staleCount} stale &middot; ${rows.length} total</span></div>
+    </div>
+    <div class="ledger-list">${cards}</div>
+  </div></section>`;
+
+  main.querySelectorAll('.artifact-card').forEach(card =>
+    card.addEventListener('click', () => navigate('#view/' + card.dataset.hash)));
+}
+
 /* ── ESCALATION REVIEW-AND-SIGN (§22.8.4) ───────────────────────── */
 // Deep-links to the live Anchorproof sign page (create_signature_envelope, allowlisted
 // §6 anchor endpoint) with the recomputed record hash as doc_digest. The pending request
@@ -2701,6 +2887,21 @@ async function route() {
     await renderExceptions();
     return;
   }
+  if (hash === '#mandates') {
+    setActiveTab('mandates');
+    await renderMandates();
+    return;
+  }
+  if (hash === '#obligations') {
+    setActiveTab('obligations');
+    await renderObligations();
+    return;
+  }
+  if (hash === '#evidence') {
+    setActiveTab('evidence');
+    await renderEvidence();
+    return;
+  }
   if (hash.startsWith('#view/')) {
     setActiveTab('ledger');
     const execHash = hash.slice(6);
@@ -2776,7 +2977,7 @@ function wireNav() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
-      navigate(tab === 'about' ? '#about' : tab === 'exceptions' ? '#exceptions' : '');
+      navigate(tab === 'ledger' ? '' : '#' + tab);
     });
   });
 
