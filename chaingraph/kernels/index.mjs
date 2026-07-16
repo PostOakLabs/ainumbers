@@ -259,7 +259,13 @@ import * as art313    from './art-313-traiga-exposure-assessor.kernel.mjs';
 import * as art314    from './art-314-traiga-safe-harbor-pack-builder.kernel.mjs';
 import * as art315    from './art-315-ab2013-training-data-disclosure-linter.kernel.mjs';
 import * as art316    from './art-316-sb53-frontier-scope-checker.kernel.mjs';
+import * as art317    from './art-317-rhc-multiplier-reconciler.kernel.mjs';
+import * as art318    from './art-318-rhc-regime-mapper.kernel.mjs';
+import * as art319    from './art-319-rhc-valuation-linter.kernel.mjs';
 import * as art32     from './art-32-a2a-agent-card-trust-chain-validator.kernel.mjs';
+import * as art320    from './art-320-rhc-collateral-haircut.kernel.mjs';
+import * as art321    from './art-321-rhc-bold-finality-classifier.kernel.mjs';
+import * as art322    from './art-322-rhc-ap-redemption-stress.kernel.mjs';
 import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
@@ -602,7 +608,13 @@ export const KERNELS = {
   'art-314-traiga-safe-harbor-pack-builder':                  art314,
   'art-315-ab2013-training-data-disclosure-linter':           art315,
   'art-316-sb53-frontier-scope-checker':                      art316,
+  'art-317-rhc-multiplier-reconciler':                        art317,
+  'art-318-rhc-regime-mapper':                                art318,
+  'art-319-rhc-valuation-linter':                             art319,
   'art-32-a2a-agent-card-trust-chain-validator':              art32,
+  'art-320-rhc-collateral-haircut':                           art320,
+  'art-321-rhc-bold-finality-classifier':                     art321,
+  'art-322-rhc-ap-redemption-stress':                         art322,
   'art-33-mcp-server-self-attestation-pack':                  art33,
   'art-34-tempo-fit-diagnostic':                              art34,
   'art-35-tempo-payments-business-case':                      art35,

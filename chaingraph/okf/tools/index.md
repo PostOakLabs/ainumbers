@@ -260,7 +260,13 @@ timestamp: 2026-07-14
 - [TRAIGA Safe Harbor Pack Builder](./art-314-traiga-safe-harbor-pack-builder.md) — `build_traiga_safe_harbor_pack`
 - [AB 2013 Training Data Disclosure Linter](./art-315-ab2013-training-data-disclosure-linter.md) — `lint_ab2013_training_data_disclosure`
 - [SB 53 Frontier Scope Checker](./art-316-sb53-frontier-scope-checker.md) — `check_sb53_frontier_scope`
+- [ERC-8056 Multiplier Reconciler](./art-317-rhc-multiplier-reconciler.md) — `reconcile_erc8056_multiplier`
+- [Financial-Instrument Regime Mapper](./art-318-rhc-regime-mapper.md) — `map_robinhood_chain_regime`
+- [Valuation Double-Count / Decimal Linter](./art-319-rhc-valuation-linter.md) — `lint_stock_token_valuation`
 - [A2A Agent-Card Trust-Chain Validator](./art-32-a2a-agent-card-trust-chain-validator.md) — `validate_a2a_trust_chain`
+- [Halt + Staleness Collateral Haircut](./art-320-rhc-collateral-haircut.md) — `compute_stock_token_collateral_haircut`
+- [BoLD Challenge-Window Finality Classifier](./art-321-rhc-bold-finality-classifier.md) — `classify_bold_challenge_finality`
+- [AP Concentration + Redemption-Path Stress](./art-322-rhc-ap-redemption-stress.md) — `stress_test_ap_redemption_path`
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
