@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-12"]
+tags: ["analytics_mandate", "count-20"]
 timestamp: 2026-07-14
 ---
 
 # analytics_mandate
 
-12 tool(s) in this mandate-type group:
+20 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -22,3 +22,11 @@ timestamp: 2026-07-14
 - [DeFi Lending Health and Liquidation Monitor](../tools/art-271-defi-lending-health.md)
 - [Restaking Delegation and Slashing Risk Analyzer](../tools/art-272-restaking-risk.md)
 - [Pendle Yield Tokenization Analyzer (PT/YT)](../tools/art-273-pendle-yield.md)
+- [Net Present Value (NPV)](../tools/art-324-tvm-npv.md)
+- [Internal Rate of Return (IRR)](../tools/art-325-tvm-irr.md)
+- [XIRR (Irregular Dated Cash Flows)](../tools/art-326-tvm-xirr.md)
+- [Annuity PV / FV / Payment Solver](../tools/art-327-tvm-annuity.md)
+- [Breakeven / CVP Analysis](../tools/art-328-tvm-breakeven.md)
+- [Bond Macaulay / Modified Duration](../tools/art-329-tvm-bond-duration.md)
+- [Bond DV01 (Price Value of a Basis Point)](../tools/art-330-tvm-dv01.md)
+- [Bond Convexity](../tools/art-331-tvm-convexity.md)

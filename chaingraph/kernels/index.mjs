@@ -267,7 +267,15 @@ import * as art320    from './art-320-rhc-collateral-haircut.kernel.mjs';
 import * as art321    from './art-321-rhc-bold-finality-classifier.kernel.mjs';
 import * as art322    from './art-322-rhc-ap-redemption-stress.kernel.mjs';
 import * as art323    from './art-323-rhc-fit-diagnostic.kernel.mjs';
+import * as art324    from './art-324-tvm-npv.kernel.mjs';
+import * as art325    from './art-325-tvm-irr.kernel.mjs';
+import * as art326    from './art-326-tvm-xirr.kernel.mjs';
+import * as art327    from './art-327-tvm-annuity.kernel.mjs';
+import * as art328    from './art-328-tvm-breakeven.kernel.mjs';
+import * as art329    from './art-329-tvm-bond-duration.kernel.mjs';
 import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs';
+import * as art330    from './art-330-tvm-dv01.kernel.mjs';
+import * as art331    from './art-331-tvm-convexity.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
@@ -617,7 +625,15 @@ export const KERNELS = {
   'art-321-rhc-bold-finality-classifier':                     art321,
   'art-322-rhc-ap-redemption-stress':                         art322,
   'art-323-rhc-fit-diagnostic':                               art323,
+  'art-324-tvm-npv':                                          art324,
+  'art-325-tvm-irr':                                          art325,
+  'art-326-tvm-xirr':                                         art326,
+  'art-327-tvm-annuity':                                      art327,
+  'art-328-tvm-breakeven':                                    art328,
+  'art-329-tvm-bond-duration':                                art329,
   'art-33-mcp-server-self-attestation-pack':                  art33,
+  'art-330-tvm-dv01':                                         art330,
+  'art-331-tvm-convexity':                                    art331,
   'art-34-tempo-fit-diagnostic':                              art34,
   'art-35-tempo-payments-business-case':                      art35,
   'art-36-tempo-mpp-agent-mandate':                           art36,
