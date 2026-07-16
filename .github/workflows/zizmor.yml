@@ -1,0 +1,44 @@
+name: Zizmor (Actions security lint)
+
+# GHA-PIN-1 (GATES-SHIFTLEFT-BUILD-SPEC.md §3): closes the "mutable action tag
+# in a runner holding the DreamHost SSH key" exposure. This job checks that
+# every workflow keeps its third-party actions SHA-pinned, has no over-broad
+# `permissions:`, and has no script-injection sinks (untrusted ${{ }}
+# interpolation directly into a `run:` shell command).
+#
+# Stage: CI-merge, not pre-push — zizmor itself is a Rust binary fetched by
+# the action, and the site repo's zero-dependency rule (CLAUDE.md) scopes to
+# committed browser artifacts and pre-push scripts, not CI-only tooling that
+# is never installed into the repo tree.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: zizmor static analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+        with:
+          inputs: .github/workflows
