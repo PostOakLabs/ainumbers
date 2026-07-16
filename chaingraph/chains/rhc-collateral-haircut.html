@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Robinhood Chain Collateral Haircut · OpenChainGraph Suite · AINumbers.co</title>
+<meta name="description" content="Gated three-step chain for accepting Robinhood Chain stock tokens as collateral: eligibility, base repo haircut, then the feed-staleness/sequencer/halt haircut layer.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/rhc-collateral-haircut.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Robinhood Chain Collateral Haircut","url":"https://ainumbers.co/chaingraph/chains/rhc-collateral-haircut.html","applicationCategory":"FinancialApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "chain_id": "rhc-collateral-haircut",
+  "version": "1.0.0",
+  "title": "Robinhood Chain Collateral Haircut",
+  "description": "Gated three-step chain for accepting Robinhood Chain stock tokens as collateral. Step 1 checks tokenized-collateral eligibility, step 2 computes the base repo haircut, step 3 layers the feed-staleness, sequencer-downtime, and underlying-halt haircut. Gate on /liquidation_risk: blocked halts the chain at the liquidation-risk verdict, default proceeds to the adjusted collateral value.",
+  "category": "chaingraph",
+  "chaingraph": true,
+  "mandate_type": "collateral_mandate",
+  "chain_depth": 3,
+  "page_url": "https://ainumbers.co/chaingraph/chains/rhc-collateral-haircut.html",
+  "steps": [
+    { "order": 1, "tool_id": "505-tokenized-collateral-eligibility-checker", "url": "https://ainumbers.co/tools/505-tokenized-collateral-eligibility-checker.html", "handoff": "DTC/Fed eligibility and Basel HQLA tier feed the repo haircut base." },
+    { "order": 2, "tool_id": "508-repo-haircut-collateral-calculator", "url": "https://ainumbers.co/tools/508-repo-haircut-collateral-calculator.html", "handoff": "base_haircut feeds the staleness/halt haircut layer." },
+    { "order": 3, "tool_id": "art-320-rhc-collateral-haircut", "url": "https://ainumbers.co/chaingraph/art-320-rhc-collateral-haircut.html", "handoff": "final_haircut, adjusted_collateral_value, and liquidation_risk are the chain output. Gate on /liquidation_risk: blocked ends the chain." }
+  ]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:880px;margin:0 auto;padding:0 2rem}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.nav-cta{background:var(--gold);color:#080E1A;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;padding:.35rem .85rem}
+.hero{padding:3rem 0 1.6rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.8rem}
+.hero h1{font-size:1.8rem;color:var(--white);margin-bottom:.8rem}
+.hero p{max-width:720px;font-size:.9rem;color:var(--body);line-height:1.8}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px;color:var(--teal);border-color:rgba(20,184,166,.3);display:inline-block;margin-top:.8rem}
+.stages{padding:2rem 0}
+.stage-card{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;margin-bottom:1rem}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:.4rem}
+.stage-name a{color:var(--teal-lt)}
+.stage-handoff{font-size:.8rem;color:var(--body);margin-top:.4rem;line-height:1.6}
+.gate-note{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--warn);margin-top:.5rem}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../../index.html" class="logo"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></a>
+  <div class="nav-breadcrumb"><a href="../../index.html">All Tools</a><span>&#8250;</span><a href="../chaingraph-hub.html">OpenChainGraph Suite</a><span>&#8250;</span><span style="color:var(--gold)">RHC Collateral Haircut</span></div>
+  <div class="nav-right"><a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a></div>
+</div></nav>
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">OpenChainGraph &middot; Robinhood Chain &middot; Gated</div>
+    <h1>Robinhood Chain Collateral Haircut</h1>
+    <p>Gated three-step chain for accepting Robinhood Chain stock tokens as collateral: tokenized-collateral eligibility, base repo haircut, then the feed-staleness / sequencer-downtime / underlying-halt haircut layer. Gate on liquidation_risk: blocked halts the chain, default proceeds to the adjusted collateral value.</p>
+    <span class="badge">collateral_mandate</span>
+  </div>
+  <div class="stages">
+    <div class="stage-card">
+      <div class="stage-num">STEP 1</div>
+      <div class="stage-name"><a href="../../tools/505-tokenized-collateral-eligibility-checker.html">Tokenized Collateral Eligibility Checker &#8594;</a></div>
+      <div class="stage-handoff">DTC/Fed eligibility and Basel HQLA tier feed the repo haircut base.</div>
+    </div>
+    <div class="stage-card">
+      <div class="stage-num">STEP 2</div>
+      <div class="stage-name"><a href="../../tools/508-repo-haircut-collateral-calculator.html">Repo Haircut Collateral Calculator &#8594;</a></div>
+      <div class="stage-handoff">base_haircut feeds the staleness/halt haircut layer.</div>
+    </div>
+    <div class="stage-card">
+      <div class="stage-num">STEP 3</div>
+      <div class="stage-name"><a href="../art-320-rhc-collateral-haircut.html">Halt + Staleness Collateral Haircut (ART-320) &#8594;</a></div>
+      <div class="stage-handoff">final_haircut, adjusted_collateral_value, and liquidation_risk are the chain output.</div>
+      <div class="gate-note">GATE on /liquidation_risk: "blocked" &#8594; end. Default &#8594; end (adjusted collateral value stands).</div>
+    </div>
+  </div>
+</div>
+<footer><div class="footer-inner">
+  <div><div class="footer-brand"><span style="color:var(--teal)">AI</span>Numbers.co &middot; OpenChainGraph Suite</div><div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; CC BY 4.0</div></div>
+</div></footer>
+</body>
+</html>
