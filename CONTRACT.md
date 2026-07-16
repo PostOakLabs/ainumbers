@@ -247,6 +247,9 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - **Tool:** `tools/{number}-{kebab-slug}.html`
 - **Index Update:** Add `data-cat="cat-XX"` to all tool cards in `index.html`. Update sidebar badges, hero stats, and MCP summary table rows.
 
+### 5.4 The `start.html` family-hub rule (Amendment, START-NAV-1)
+`start.html`'s "Explore the suite" grid links FAMILIES, never individual tools. One card per family hub; grid hard cap 12 cards. A new surface earns `start.html` presence by joining (or founding) a family hub, never by adding its own card. Card additions require a founding hub page and must cite this rule in the PR.
+
 ---
 
 ## ✅ 6. Build & Quality Assurance Workflow
