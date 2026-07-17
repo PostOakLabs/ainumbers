@@ -6,7 +6,9 @@ Five checks, all hard failures that block deploy:
   1. PII text correctness  — any pii-notice div must have canonical §1.3 text
   2. Manifest coverage     — every tools/*.html must have a .manifest.json
   3. AP2 consistency       — manifests with ap2_export:true must have the button in HTML
-  4. Sitemap coverage      — every tools/*.html and guides/*.html in sitemap.xml
+  4. Sitemap coverage      — every published page (scripts/published-dirs.json's dir
+                             list: tools/, guides/, chaingraph/, disclosures/, docs/,
+                             ledger/, attestations/) is in sitemap.xml (DISCOVER-1 §D-2)
   5. Hash + syntax gates   — Node: JS syntax parse, forbidden-hash lint, golden
                              execution_hash parity, art-01 canonicalizer self-test
                              (soft-skips only if Node is absent; CI always enforces)
@@ -185,6 +187,20 @@ def check_ap2(changed=None):
 
 
 # ── Check 4: Sitemap coverage ─────────────────────────────────────────────────
+# Directory scope is scripts/published-dirs.json — the SAME manifest
+# scripts/regen-sitemap.mjs reads, so the generator and this gate can never
+# scope-drift apart independently (DISCOVER-1 §D-2).
+PUBLISHED_DIRS = json.loads((REPO / "scripts" / "published-dirs.json").read_text(encoding="utf-8"))
+
+
+def _walk_html(dir_path, exclude_rel_prefixes):
+    for p in sorted(dir_path.rglob("*.html")):
+        rel = str(p.relative_to(REPO)).replace("\\", "/")
+        if any(rel.startswith(ex + "/") for ex in exclude_rel_prefixes):
+            continue
+        yield p
+
+
 def check_sitemap(changed=None):
     if not SITEMAP.exists():
         fail("[SITEMAP] sitemap.xml not found")
@@ -195,31 +211,36 @@ def check_sitemap(changed=None):
                    SITEMAP.read_text(encoding="utf-8"))
     )
 
-    tools = _touched(sorted(TOOLS.glob("*.html")), changed)
-    guides = _touched(sorted(GUIDES.glob("*.html")), changed)
-
     missing = []
-    for path in tools:
-        if f"tools/{path.name}" not in sitemap_locs:
-            missing.append(f"tools/{path.name}")
-    for path in guides:
-        # Skip redirect stubs — noindex pages don't belong in sitemap
-        content = path.read_text(encoding="utf-8", errors="replace")
-        if "noindex" in content:
-            continue
-        if f"guides/{path.name}" not in sitemap_locs:
-            missing.append(f"guides/{path.name}")
+
+    for dname in PUBLISHED_DIRS["flatDirs"]:
+        d = REPO / dname
+        for path in _touched(sorted(d.glob("*.html")), changed):
+            if dname in ("tools", "guides"):
+                content = path.read_text(encoding="utf-8", errors="replace")
+                if dname == "guides" and "noindex" in content:
+                    continue  # redirect stubs don't belong in sitemap
+            if f"{dname}/{path.name}" not in sitemap_locs:
+                missing.append(f"{dname}/{path.name}")
+
+    for dname in PUBLISHED_DIRS["recursiveDirs"]:
+        d = REPO / dname
+        exclude = [ex for ex in PUBLISHED_DIRS.get("recursiveExcludeSubdirs", []) if ex.startswith(dname + "/")]
+        for path in _touched(list(_walk_html(d, exclude)), changed):
+            rel = str(path.relative_to(REPO)).replace("\\", "/")
+            if rel not in sitemap_locs:
+                missing.append(rel)
 
     if missing:
         fail(f"[SITEMAP] {len(missing)} file(s) missing from sitemap.xml:")
         for f in missing[:25]:
             fail(f"  {f}")
         if len(missing) > 25:
-            fail(f"  ... and {len(missing) - 25} more — run: python scripts/regen_sitemap.py --apply")
+            fail(f"  ... and {len(missing) - 25} more — run: node scripts/regen-sitemap.mjs")
     else:
-        g = [p for p in guides if "noindex" not in p.read_text(encoding="utf-8", errors="replace")]
-        scope = f"{len(tools)} touched tool(s) + {len(g)} touched guide(s)" if changed is not None else f"all {len(tools)} tools + {len(g)} indexable guides"
-        print(f"  ✅ Sitemap: {scope} present")
+        dirs_checked = ", ".join(PUBLISHED_DIRS["flatDirs"] + PUBLISHED_DIRS["recursiveDirs"])
+        scope = "touched pages" if changed is not None else "all pages"
+        print(f"  ✅ Sitemap: {scope} present ({dirs_checked})")
 
 
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────

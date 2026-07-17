@@ -56,6 +56,7 @@ const GATES = [
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
+  ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],
   ['sitemap.html freshness (SITEMAP-1)', 'node scripts/gen-sitemap-html.mjs --check'],
   ['OKF bundle freshness (chaingraph/okf)', 'node chaingraph/generate-okf.mjs --check'],
   ['Kernel VM page freshness',      'node chaingraph/vm/scripts/gen-kernel-vm-html.mjs --check'],
