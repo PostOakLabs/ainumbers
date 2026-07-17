@@ -277,6 +277,7 @@ timestamp: 2026-07-14
 - [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
 - [Bond DV01 (Price Value of a Basis Point)](./art-330-tvm-dv01.md) — `compute_dv01`
 - [Bond Convexity](./art-331-tvm-convexity.md) — `compute_convexity`
+- [Amortization Schedule Builder](./art-332-build-amortization-schedule.md) — `build_amortization_schedule`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
 - [Quantized Credit Model Scorer](./art-348-score-credit-model-quantized.md) — `score_credit_model_quantized`
 - [Fedwire Structured Address Linter](./art-349-fedwire-structured-address-linter.md) — `lint_fedwire_structured_address`
