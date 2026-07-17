@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Disclosure Manifest Verifier · AINumbers.co</title>
+<meta name="description" content="Verify a disclosure manifest's eddsa-jcs-2022 signature, prove a single file's Merkle inclusion, or run a full coverage report of a folder against a manifest. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/547-disclosure-manifest-verifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Disclosure Manifest Verifier","url":"https://ainumbers.co/tools/547-disclosure-manifest-verifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "disclosure-manifest-verifier",
+  "version": "1.0.0",
+  "title": "Disclosure Manifest Verifier",
+  "description": "Verifies a disclosure manifest's eddsa-jcs-2022 signature, proves a single file's Merkle inclusion against a manifest's root, and runs a full present/missing/mismatched coverage report of a folder against a manifest.",
+  "category": "cat-31",
+  "tags": ["data room","disclosure manifest","merkle proof","inclusion proof","due diligence","M&A"],
+  "audience": ["deal counsel","M&A","compliance","engineer"],
+  "input_schema": {"type":"object","properties":{"manifest":{"type":"object"},"files":{"type":"array"}},"required":["manifest"]},
+  "output_schema": {"type":"object","properties":{"inclusion_proof":{"type":"object"},"coverage_report":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_disclosure_inclusion","description":"Verifies a Merkle inclusion proof for a file digest against a disclosure manifest's root, given the manifest's entry list.","inputSchema":{"type":"object","properties":{"manifest":{"type":"object","description":"The disclosure manifest to check against"},"path":{"type":"string","description":"Path of the entry to prove"},"digest":{"type":"string","description":"sha256:-prefixed digest of the file to prove"}},"required":["manifest","path","digest"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/547-disclosure-manifest-verifier.html","function_name":"verifySingleFile","timeout_ms":5000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:block}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-row textarea,.panel-row input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:4px;outline:none;width:100%}
+.panel-row textarea:focus,.panel-row input:focus{border-color:var(--purple)}
+.tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{background:var(--bg-2);border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}
+.tab-btn.active{border-color:var(--purple);color:var(--purple);background:var(--purple-dim)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:2rem 1.5rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);transition:border-color .2s;cursor:pointer;margin-bottom:1rem}
+.drop-zone.drag{border-color:var(--teal)}
+.drop-zone strong{color:var(--text)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.hashbox{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.6rem .75rem;margin-top:.5rem}
+.stat-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat{display:flex;flex-direction:column;gap:.2rem}
+.stat-v{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cov-table{width:100%;border-collapse:collapse;font-size:.66rem}
+.cov-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;border-bottom:1px solid var(--border);text-align:left;background:var(--bg-3)}
+.cov-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace}
+.cov-present{color:var(--green)}.cov-missing{color:var(--red)}.cov-mismatch{color:var(--warn)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-3);border-left:3px solid var(--warn);border-radius:4px}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>Disclosure Manifest Verifier</span></div>
+    <div class="nav-right"><a href="546-disclosure-manifest-builder.html" class="nav-cta">Builder &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-31 · Data Room Diligence</div>
+  <h1 class="tool-title">Disclosure Manifest <em>Verifier</em></h1>
+  <p class="hero-desc">Paste a disclosure manifest, then either prove a single file's Merkle inclusion or run a full coverage report of a folder against it. Everything recomputes locally, including the eddsa-jcs-2022 signature check.</p>
+  <div class="disclaimer">&#9888; Absence is only provable against the exact manifest pasted below. A missing file could mean it was never disclosed, or that you are checking against the wrong manifest version &mdash; always confirm the version number and Merkle root out of band before relying on a coverage report.</div>
+  <div class="hero-badges">
+    <span class="badge badge-purple">Inclusion Proof</span>
+    <span class="badge badge-gold">Coverage Report</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <span class="panel-label">Manifest</span>
+    <div class="panel-row"><label for="manifestInput">Paste the disclosure manifest JSON</label><textarea id="manifestInput" rows="6" placeholder="Paste a manifest produced by the Disclosure Manifest Builder"></textarea></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <button class="run-btn" onclick="loadManifest()">&#9654; Load Manifest</button>
+      <span id="manifestStatus" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabSingleBtn" onclick="switchTab('single')">Single File &middot; Inclusion Proof</button>
+    <button class="tab-btn" id="tabBatchBtn" onclick="switchTab('batch')">Batch &middot; Coverage Report</button>
+  </div>
+
+  <div class="tab-panel active" id="tabSingle">
+    <div class="panel">
+      <span class="panel-label">File to Prove</span>
+      <div class="drop-zone" id="dropSingle">Drag one file here, or <strong>click to choose</strong></div>
+      <input type="file" id="fileSingleInput" style="display:none">
+      <button class="run-btn" id="verifySingleBtn" onclick="verifySingleFile()" disabled>&#9654; Verify Inclusion</button>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tabBatch">
+    <div class="panel">
+      <span class="panel-label">Folder to Check</span>
+      <div class="drop-zone" id="dropBatch">Drag files/folder here, or <strong>click to choose files</strong></div>
+      <input type="file" id="fileBatchInput" multiple style="display:none">
+      <div id="batchCount" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:.75rem"></div>
+      <button class="run-btn" id="verifyBatchBtn" onclick="runCoverageReport()" disabled>&#9654; Run Coverage Report</button>
+    </div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="546-disclosure-manifest-builder.html">Manifest Builder</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 verify path (OCG §16). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_proof.mjs. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgVerify=verify;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+var MANIFEST = {"tool_id":"disclosure-manifest-verifier","version":"1.0.0","title":"Disclosure Manifest Verifier","description":"Verifies a disclosure manifest's eddsa-jcs-2022 signature, proves a single file's Merkle inclusion against a manifest's root, and runs a full present/missing/mismatched coverage report of a folder against a manifest.","category":"cat-31","tags":["data room","disclosure manifest","merkle proof","inclusion proof","due diligence","M&A"],"audience":["deal counsel","M&A","compliance","engineer"],"input_schema":{"type":"object","properties":{"manifest":{"type":"object"},"files":{"type":"array"}},"required":["manifest"]},"output_schema":{"type":"object","properties":{"inclusion_proof":{"type":"object"},"coverage_report":{"type":"object"}}},"mcp_tool_definition":{"name":"verify_disclosure_inclusion","description":"Verifies a Merkle inclusion proof for a file digest against a disclosure manifest's root, given the manifest's entry list.","inputSchema":{"type":"object","properties":{"manifest":{"type":"object","description":"The disclosure manifest to check against"},"path":{"type":"string","description":"Path of the entry to prove"},"digest":{"type":"string","description":"sha256:-prefixed digest of the file to prove"}},"required":["manifest","path","digest"]}},"execution":{"type":"browser-javascript","entry":"tools/547-disclosure-manifest-verifier.html","function_name":"verifySingleFile","timeout_ms":5000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+function switchTab(name){
+  document.getElementById('tabSingle').classList.toggle('active', name==='single');
+  document.getElementById('tabBatch').classList.toggle('active', name==='batch');
+  document.getElementById('tabSingleBtn').classList.toggle('active', name==='single');
+  document.getElementById('tabBatchBtn').classList.toggle('active', name==='batch');
+}
+
+var _manifest = null;
+var _singleFile = null;
+var _batchFiles = [];
+
+function loadManifest(){
+  var raw = document.getElementById('manifestInput').value.trim();
+  var statusEl = document.getElementById('manifestStatus');
+  if(!raw){ statusEl.textContent='No manifest pasted.'; statusEl.style.color='var(--red)'; return; }
+  try{
+    var m = JSON.parse(raw);
+    if(!m.entries || !m.merkle_root){ throw new Error('missing entries / merkle_root'); }
+    _manifest = m;
+    document.getElementById('verifySingleBtn').disabled = !_singleFile;
+    document.getElementById('verifyBatchBtn').disabled = _batchFiles.length===0;
+    statusEl.textContent = 'Loaded: '+(m.room_label||'untitled')+' v'+(m.version||'?')+' — '+m.entries.length+' entries';
+    statusEl.style.color='var(--green)';
+    verifyManifestSignature(m);
+  }catch(e){
+    _manifest = null;
+    statusEl.textContent = 'Invalid manifest: '+e.message;
+    statusEl.style.color='var(--red)';
+  }
+}
+
+async function verifyManifestSignature(m){
+  var el = document.getElementById('outputSection');
+  var proof = m.audit_signature && m.audit_signature.proof;
+  if(!proof){ el.innerHTML = '<div class="out-section"><div class="out-body"><div class="verdict fail">No §16 signature present on this manifest.</div></div></div>'; return; }
+  try{
+    var pub = await __ocgPubFromDidKey(proof.verificationMethod);
+    var ok = await __ocgVerify(m, pub);
+    el.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Manifest Signature</span></div><div class="out-body"><div class="verdict '+(ok?'pass':'fail')+'">'+(ok?'✓ eddsa-jcs-2022 signature valid':'✗ signature invalid / tampered')+'</div><div class="hashbox">'+proof.verificationMethod+'</div></div></div>';
+  }catch(e){
+    el.innerHTML = '<div class="out-section"><div class="out-body"><div class="verdict fail">✗ could not verify signature: '+e.message+'</div></div></div>';
+  }
+}
+
+/* ── single-file inclusion proof ────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function(){
+  var z1=document.getElementById('dropSingle'), i1=document.getElementById('fileSingleInput');
+  z1.addEventListener('click', function(){i1.click();});
+  i1.addEventListener('change', function(){ if(i1.files[0]) setSingleFile(i1.files[0]); });
+  z1.addEventListener('dragover', function(e){e.preventDefault();z1.classList.add('drag');});
+  z1.addEventListener('dragleave', function(){z1.classList.remove('drag');});
+  z1.addEventListener('drop', function(e){e.preventDefault();z1.classList.remove('drag'); if(e.dataTransfer.files[0]) setSingleFile(e.dataTransfer.files[0]); });
+
+  var z2=document.getElementById('dropBatch'), i2=document.getElementById('fileBatchInput');
+  z2.addEventListener('click', function(){i2.click();});
+  i2.addEventListener('change', function(){ setBatchFiles(i2.files); });
+  z2.addEventListener('dragover', function(e){e.preventDefault();z2.classList.add('drag');});
+  z2.addEventListener('dragleave', function(){z2.classList.remove('drag');});
+  z2.addEventListener('drop', function(e){
+    e.preventDefault();z2.classList.remove('drag');
+    var items=e.dataTransfer.items;
+    if(items && items.length && items[0].webkitGetAsEntry){
+      var entries=[];for(var k=0;k<items.length;k++){var it=items[k].webkitGetAsEntry&&items[k].webkitGetAsEntry();if(it)entries.push(it);}
+      if(entries.length){ walkEntriesBatch(entries); return; }
+    }
+    setBatchFiles(e.dataTransfer.files);
+  });
+});
+
+function walkEntriesBatch(entries){
+  var out=[];
+  function walk(entry, prefix){
+    return new Promise(function(resolve){
+      if(entry.isFile){
+        entry.file(function(f){ try{Object.defineProperty(f,'webkitRelativePath',{value:prefix+f.name});}catch(e){} out.push(f); resolve(); });
+      } else if(entry.isDirectory){
+        var reader=entry.createReader();
+        reader.readEntries(function(children){ Promise.all(children.map(function(c){return walk(c, prefix+entry.name+'/');})).then(resolve); });
+      } else resolve();
+    });
+  }
+  Promise.all(entries.map(function(e){return walk(e,'');})).then(function(){ setBatchFiles(out); });
+}
+
+function setSingleFile(f){
+  _singleFile = f;
+  document.getElementById('dropSingle').innerHTML = 'Selected: <strong>'+escHtml(f.webkitRelativePath||f.name)+'</strong> ('+f.size+' bytes)';
+  document.getElementById('verifySingleBtn').disabled = !_manifest;
+}
+function setBatchFiles(list){
+  _batchFiles = Array.from(list);
+  document.getElementById('batchCount').textContent = _batchFiles.length+' file(s) selected';
+  document.getElementById('verifyBatchBtn').disabled = !_manifest || _batchFiles.length===0;
+}
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+/* leaf/tree — identical scheme to the Builder tool: sha256(path|digest|size), duplicate-last on odd level */
+async function leafHash(e){ return __ocgSha256Hex(e.path+'|'+e.digest+'|'+e.size); }
+async function buildLevels(entries){
+  var level=[]; for(var i=0;i<entries.length;i++) level.push(await leafHash(entries[i]));
+  var levels=[level];
+  while(level.length>1){
+    var next=[];
+    for(var j=0;j<level.length;j+=2){ var l=level[j], r=(j+1<level.length)?level[j+1]:level[j]; next.push(await __ocgSha256Hex(l+r)); }
+    level=next; levels.push(level);
+  }
+  return levels;
+}
+async function proofForIndex(levels, index){
+  var proof=[], idx=index;
+  for(var lv=0; lv<levels.length-1; lv++){
+    var arr=levels[lv];
+    var isRight = idx%2===1;
+    var pairIdx = isRight ? idx-1 : idx+1;
+    var sibling = (pairIdx<arr.length) ? arr[pairIdx] : arr[idx];
+    proof.push({hash:sibling, dir:isRight?'left':'right'});
+    idx = Math.floor(idx/2);
+  }
+  return proof;
+}
+async function applyProof(leaf, proof){
+  var h = leaf;
+  for(var i=0;i<proof.length;i++){ var p=proof[i]; h = (p.dir==='left') ? await __ocgSha256Hex(p.hash+h) : await __ocgSha256Hex(h+p.hash); }
+  return h;
+}
+
+async function verifySingleFile(){
+  if(!_manifest || !_singleFile) return;
+  var buf = await _singleFile.arrayBuffer();
+  var digest = 'sha256:' + await __ocgSha256Hex(buf);
+  var path = _singleFile.webkitRelativePath || _singleFile.name;
+
+  var entries = _manifest.entries.slice().sort(function(a,b){return a.path<b.path?-1:a.path>b.path?1:0;});
+  var idx = entries.findIndex(function(e){ return e.path===path; });
+
+  var out = document.getElementById('outputSection');
+  if(idx===-1){
+    out.innerHTML = '<div class="out-section"><div class="out-body"><div class="verdict fail">✗ Path "'+escHtml(path)+'" is not present in this manifest.</div><div class="exclusion-note">Absence is only provable against the manifest actually pasted above (v'+(_manifest.version||'?')+'). Confirm you are checking against the correct version before treating this as evidence of non-disclosure.</div></div></div>';
+    return;
+  }
+  var digestMatches = entries[idx].digest === digest;
+
+  var levels = await buildLevels(entries);
+  var proof = await proofForIndex(levels, idx);
+  var leaf = await leafHash(entries[idx]);
+  var computedRoot = 'sha256:' + await applyProof(leaf, proof);
+  var rootMatches = computedRoot === _manifest.merkle_root;
+
+  var pass = digestMatches && rootMatches;
+  out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Inclusion Proof</span></div><div class="out-body">'
+    + '<div class="verdict '+(pass?'pass':'fail')+'">'+(pass?'✓ File is provably included in manifest v'+_manifest.version:'✗ File does NOT match this manifest — '+(digestMatches?'digest matches but Merkle path failed':'digest mismatch: file was modified since disclosure'))+'</div>'
+    + '<div class="stat-row" style="margin-top:1rem">'
+    + '<div class="stat"><div class="stat-v">'+(digestMatches?'✓':'✗')+'</div><div class="stat-l">Digest Match</div></div>'
+    + '<div class="stat"><div class="stat-v">'+(rootMatches?'✓':'✗')+'</div><div class="stat-l">Merkle Root Match</div></div>'
+    + '<div class="stat"><div class="stat-v">'+proof.length+'</div><div class="stat-l">Proof Depth</div></div>'
+    + '</div>'
+    + '<div class="panel-row"><label>Recomputed Digest</label><div class="hashbox">'+digest+'</div></div>'
+    + '<div class="panel-row"><label>Recomputed Root (via proof)</label><div class="hashbox">'+computedRoot+'</div></div>'
+    + '<div class="panel-row"><label>Manifest Root</label><div class="hashbox">'+_manifest.merkle_root+'</div></div>'
+    + '</div></div>';
+}
+
+/* ── batch coverage report ──────────────────────────────────────────── */
+async function runCoverageReport(){
+  if(!_manifest || _batchFiles.length===0) return;
+  var manifestByPath = {}; _manifest.entries.forEach(function(e){ manifestByPath[e.path]=e; });
+  var seen = {};
+  var present=[], mismatched=[];
+  for(var i=0;i<_batchFiles.length;i++){
+    var f=_batchFiles[i];
+    var path = f.webkitRelativePath || f.name;
+    var buf = await f.arrayBuffer();
+    var digest = 'sha256:' + await __ocgSha256Hex(buf);
+    seen[path]=true;
+    var entry = manifestByPath[path];
+    if(!entry){ continue; } // not in manifest at all — neither present nor mismatched, just extraneous
+    if(entry.digest===digest) present.push(path); else mismatched.push(path);
+  }
+  var missing = Object.keys(manifestByPath).filter(function(p){ return !seen[p]; });
+  var extraneous = _batchFiles.map(function(f){return f.webkitRelativePath||f.name;}).filter(function(p){ return !(p in manifestByPath); });
+
+  var out = document.getElementById('outputSection');
+  out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Coverage Report vs. v'+(_manifest.version||'?')+'</span></div><div class="out-body">'
+    + '<div class="stat-row">'
+    + '<div class="stat"><div class="stat-v" style="color:var(--green)">'+present.length+'</div><div class="stat-l">Present &amp; Matched</div></div>'
+    + '<div class="stat"><div class="stat-v" style="color:var(--red)">'+missing.length+'</div><div class="stat-l">Missing</div></div>'
+    + '<div class="stat"><div class="stat-v" style="color:var(--warn)">'+mismatched.length+'</div><div class="stat-l">Mismatched</div></div>'
+    + '<div class="stat"><div class="stat-v" style="color:var(--muted)">'+extraneous.length+'</div><div class="stat-l">Not In Manifest</div></div>'
+    + '</div>'
+    + '<table class="cov-table"><thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>'
+    + present.map(function(p){return '<tr><td>'+escHtml(p)+'</td><td class="cov-present">present</td></tr>';}).join('')
+    + missing.map(function(p){return '<tr><td>'+escHtml(p)+'</td><td class="cov-missing">missing</td></tr>';}).join('')
+    + mismatched.map(function(p){return '<tr><td>'+escHtml(p)+'</td><td class="cov-mismatch">mismatched (content changed)</td></tr>';}).join('')
+    + extraneous.map(function(p){return '<tr><td>'+escHtml(p)+'</td><td style="color:var(--muted)">not in manifest</td></tr>';}).join('')
+    + '</tbody></table>'
+    + '<div class="exclusion-note">This report is only as complete as the manifest checked against. A "missing" verdict means the file is absent from manifest v'+(_manifest.version||'?')+' specifically — verify you hold the correct, latest version before treating an absence as proof a document was never disclosed.</div>'
+    + '</div></div>';
+}
+</script>
+</body>
+</html>
