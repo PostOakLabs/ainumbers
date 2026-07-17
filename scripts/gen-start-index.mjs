@@ -5,8 +5,11 @@
  * Builds the inline search index for start.html.
  *
  * Scans:
- *   tools/*.html          → standalone tools  (w: false)
- *   chaingraph/chains/*.html → gated workflows (w: true)
+ *   tools/*.html             → standalone tools  (w: false)
+ *   chaingraph/chains/*.html → gated workflows   (w: true)
+ *   chaingraph.json nodes    → OCG node pages     (n: true) — DISCOVER-1 §D-3:
+ *     380 node pages had no start.html search entry at all, discoverable only
+ *     via sitemap.html or a chain composer link.
  *
  * Extracts the display title from each file's <title> tag (part before " | ").
  * Injects a `const SEARCH_INDEX=[...];` script block between the
@@ -33,6 +36,14 @@ function extractTitle(html, fallback) {
   return m[1].split('|')[0].trim();
 }
 
+// Node titles/mcp_names are sourced from chaingraph.json for other contexts and
+// can carry CONTRACT §1.4 copy-hallmarks (em-dash) that the gate disallows in
+// newly-rendered visible text — scrub before embedding, same pattern as
+// gen-sitemap-html.mjs's sanitizeCopy (source data is left untouched).
+function sanitizeCopy(s) {
+  return String(s).replace(/—/g, ', ').replace(/\s{2,}/g, ' ').trim();
+}
+
 function slug(filename) {
   return basename(filename, '.html');
 }
@@ -54,23 +65,38 @@ function scanDir(dirPath, relPrefix, isWorkflow) {
     });
 }
 
+function scanChaingraphNodes(repo) {
+  let cg;
+  try { cg = JSON.parse(readFileSync(resolve(repo, 'chaingraph', 'chaingraph.json'), 'utf8')); } catch { return []; }
+  return (cg.nodes || [])
+    .filter(n => (n.url || '').includes('/chaingraph/') && !(n.url || '').includes('/chaingraph/chains/'))
+    .map(n => {
+      const u = (n.url || '').replace('https://ainumbers.co/', '');
+      const name = basename(u, '.html');
+      return { n: name, t: sanitizeCopy(n.display_name || name), u, ocg: true };
+    })
+    .sort((a, b) => a.n.localeCompare(b.n));
+}
+
 function buildIndex() {
   const tools     = scanDir(resolve(REPO, 'tools'),                  'tools',                  false);
   const workflows = scanDir(resolve(REPO, 'chaingraph', 'chains'),   'chaingraph/chains',       true);
-  return { tools, workflows, all: [...tools, ...workflows] };
+  const nodes     = scanChaingraphNodes(REPO);
+  return { tools, workflows, nodes, all: [...tools, ...workflows, ...nodes] };
 }
 
 function serializeIndex(items) {
   const compact = items.map(x => {
     const parts = ['"n":' + JSON.stringify(x.n), '"t":' + JSON.stringify(x.t), '"u":' + JSON.stringify(x.u)];
     if (x.w) parts.push('"w":true');
+    if (x.ocg) parts.push('"ocg":true');
     return '{' + parts.join(',') + '}';
   });
   return compact.join(',');
 }
 
 const CHECK = process.argv.includes('--check');
-const { tools, workflows, all: items } = buildIndex();
+const { tools, workflows, nodes, all: items } = buildIndex();
 const serialized = serializeIndex(items);
 const scriptBlock = '<script>const SEARCH_INDEX=[' + serialized + '];</script>';
 const replacement = SENTINEL_START + '\n' + scriptBlock + '\n' + SENTINEL_END;
@@ -99,7 +125,7 @@ if (CHECK) {
 if (isStale) {
   const updated = original.slice(0, startIdx) + replacement + original.slice(endIdx + SENTINEL_END.length);
   writeFileSync(TARGET, updated, 'utf8');
-  console.log('gen-start-index: injected ' + items.length + ' items (' + tools.length + ' tools + ' + workflows.length + ' workflows).');
+  console.log('gen-start-index: injected ' + items.length + ' items (' + tools.length + ' tools + ' + workflows.length + ' workflows + ' + nodes.length + ' OCG nodes).');
 } else {
   console.log('gen-start-index: already fresh (' + items.length + ' items).');
 }
