@@ -280,6 +280,7 @@ import * as art332    from './art-332-build-amortization-schedule.kernel.mjs';
 import * as art335    from './art-335-compute-dti-ratios.kernel.mjs';
 import * as art336    from './art-336-compute-ltv-ratios.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
+import * as art346    from './art-346-compute-experience-mod.kernel.mjs';
 import * as art348    from './art-348-score-credit-model-quantized.kernel.mjs';
 import * as art349    from './art-349-fedwire-structured-address-linter.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
@@ -644,6 +645,7 @@ export const KERNELS = {
   'art-335-compute-dti-ratios':                               art335,
   'art-336-compute-ltv-ratios':                               art336,
   'art-34-tempo-fit-diagnostic':                              art34,
+  'art-346-compute-experience-mod':                           art346,
   'art-348-score-credit-model-quantized':                     art348,
   'art-349-fedwire-structured-address-linter':                art349,
   'art-35-tempo-payments-business-case':                      art35,
