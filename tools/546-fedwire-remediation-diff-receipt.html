@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Fedwire/CHIPS Remediation Diff Receipt · AINumbers.co</title>
+<meta name="description" content="Paste an original and a remediated Fedwire/CHIPS payment file (CSV) and get a per-record structured-address diff plus a remediation-evidence receipt binding both file digests and the rule-clearance delta (N failures to 0). The artifact a bank shows its regulator or correspondents. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/546-fedwire-remediation-diff-receipt.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Fedwire/CHIPS Remediation Diff Receipt","url":"https://ainumbers.co/tools/546-fedwire-remediation-diff-receipt.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "546-fedwire-remediation-diff-receipt",
+  "version": "1.0.0",
+  "title": "Fedwire/CHIPS Remediation Diff Receipt",
+  "description": "Paste an original and a remediated Fedwire/CHIPS payment file (CSV, PostalAddress24 fields per record). Runs the November 2026 structured-address lint on both files, aligns records by row position, and produces a per-record clearance disposition (cleared, still-failing, regressed, unchanged-compliant, row-added, row-removed) plus a remediation-evidence receipt binding the original and remediated file digests and the rule-clearance delta (N failures to 0). Client-side, deterministic, zero PII.",
+  "category": "cat-19",
+  "tags": ["fedwire", "chips", "remediation", "diff", "structured address", "iso 20022", "compliance", "evidence"],
+  "audience": ["compliance", "engineer", "product"],
+  "input_schema": {"type":"object","properties":{"originalCsv":{"type":"string"},"remediatedCsv":{"type":"string"}},"required":["originalCsv","remediatedCsv"]},
+  "output_schema": {"type":"object","properties":{"original_file_digest":{"type":"string"},"remediated_file_digest":{"type":"string"},"clearance_delta":{"type":"number"},"per_record_diff":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the November 2026 lint, and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},
+  "execution": {"type":"browser-reference","entry":"tools/546-fedwire-remediation-diff-receipt.html","function_name":"runDiff"},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.6}
+.row-flex{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:760px){.two-col{grid-template-columns:1fr}}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.65rem .8rem;border-radius:var(--radius);outline:none;min-height:160px;resize:vertical;line-height:1.55}
+textarea:focus{border-color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.6rem 1.5rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.6rem 1.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.5rem}
+.hashline{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--body);margin-bottom:.4rem;word-break:break-all}
+.hashline b{color:var(--muted);font-weight:400}
+.hashline .h{color:var(--teal-lt)}
+.stat-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin:1rem 0}
+.stat{display:flex;flex-direction:column;gap:.15rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.3rem;color:var(--bright)}
+.stat-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.diff-table{width:100%;border-collapse:collapse;font-size:.7rem;margin-top:1rem}
+.diff-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;border-bottom:1px solid var(--border);text-align:left}
+.diff-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.tag-cleared{color:var(--green)}.tag-still_failing{color:var(--red)}.tag-regressed{color:var(--red)}.tag-unchanged_compliant{color:var(--muted)}.tag-row_added{color:var(--gold)}.tag-row_removed{color:var(--gold)}
+.badge-mini{font-family:'JetBrains Mono',monospace;font-size:.56rem;padding:.08rem .4rem;border-radius:3px;border:1px solid var(--border);margin-right:.25rem;display:inline-block;margin-bottom:.15rem}
+.verdict-box{padding:.75rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;margin-top:.5rem}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.status{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.5rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.68rem;color:var(--body);line-height:1.7;white-space:pre-wrap;margin-top:1rem;overflow-x:auto}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>Payment Scheme &amp; Network</span><span class="nav-sep">/</span><span>T-546</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-19 · T546 · Payment Scheme &amp; Network</div>
+  <h1>Fedwire/CHIPS <em>Remediation Diff Receipt</em></h1>
+  <p class="hero-desc">Paste the payment file you swept before remediation and the file you produced after remediation. Both run through the same November 2026 structured-address lint (the rules behind the Fedwire structured-address linter and payment-file sweep), aligned record by record, so you get a per-record disposition &mdash; cleared, still failing, regressed, unchanged &mdash; and one receipt binding both file digests plus the rule-clearance delta: how many records failed before, how many fail now. This is the artifact a bank shows its regulator or its correspondents to prove the migration actually worked.</p>
+  <div class="disclaimer">⚠ Deterministic, client-side comparison against the published Nov 2026 structured-address rule set. It is evidence of what the two files contain, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Remediation Evidence</span>
+    <span class="badge badge-gold">Fedwire · CHIPS</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Digests are computed with the browser SubtleCrypto SHA-256. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="panel">
+    <label class="q-label">1 &middot; Original and remediated files (CSV)</label>
+    <div class="q-help">Header: <code style="color:var(--gold)">network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines</code> (address_lines pipe-delimited). Records are compared by row position &mdash; keep both files in the same order.</div>
+    <div class="two-col">
+      <div>
+        <div class="q-label" style="margin-top:.5rem">Original (pre-remediation)</div>
+        <textarea id="originalCsv" placeholder="network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines"></textarea>
+      </div>
+      <div>
+        <div class="q-label" style="margin-top:.5rem">Remediated (post-remediation)</div>
+        <textarea id="remediatedCsv" placeholder="network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines"></textarea>
+      </div>
+    </div>
+    <div class="row-flex" style="margin-top:.75rem">
+      <button class="run-btn" onclick="runDiff()">▶ Compute remediation diff</button>
+      <button class="ghost-btn" onclick="loadDemo()">Load demo pair</button>
+      <button class="ghost-btn" onclick="verifyDigests()">Verify digests (tamper check)</button>
+      <span class="status" id="diffStatus"></span>
+    </div>
+    <div id="verifyResult" class="status"></div>
+  </div>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../suggest.html">Suggest</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// Fedwire/CHIPS remediation before/after diff receipt — client-side only (CONTRACT §1.2).
+// Lint rules mirror art-349 (lint_fedwire_structured_address) / art-350 (sweep_fedwire_addresses) verbatim.
+var _lastResult = null;
+
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function safeArr(v){ return Array.isArray(v) ? v : (v && typeof v === 'string' ? [v] : []); }
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){
+  return sha256Hex({policy_parameters: pp, output_payload: op});
+}
+
+/* ── Fedwire/CHIPS structured-address lint (mirrors art-349 / art-350 verbatim) ── */
+function lintFedwireRecord(rec){
+  var network  = ['fedwire','chips'].indexOf(safeStr(rec.network).toLowerCase()) !== -1 ? safeStr(rec.network).toLowerCase() : 'fedwire';
+  var strtNm   = safeStr(rec.street_name);
+  var bldgNb   = safeStr(rec.building_number);
+  var pstCd    = safeStr(rec.post_code);
+  var twnNm    = safeStr(rec.town_name);
+  var ctry     = safeStr(rec.country).toUpperCase();
+  var ctrySubD = safeStr(rec.country_subdivision);
+  var adrLines = safeArr(rec.address_lines);
+
+  var hasStrtNm = strtNm.length > 0, hasBldgNb = bldgNb.length > 0, hasPstCd = pstCd.length > 0;
+  var hasTwnNm  = twnNm.length > 0,  hasCtry   = ctry.length === 2 && /^[A-Z]{2}$/.test(ctry);
+  var hasCtrySubD = ctrySubD.length > 0, hasAdrLine = adrLines.length > 0;
+
+  var violations = [];
+  var structured_field_count = (hasStrtNm?1:0)+(hasBldgNb?1:0)+(hasPstCd?1:0)+(hasCtrySubD?1:0);
+
+  var structure_type;
+  if (!hasAdrLine && structured_field_count >= 1 && hasCtry) structure_type = 'FULLY_STRUCTURED';
+  else if (hasTwnNm && hasCtry && adrLines.length <= 2) structure_type = 'HYBRID';
+  else if (hasAdrLine && structured_field_count === 0 && !hasTwnNm) structure_type = 'UNSTRUCTURED';
+  else if (!hasAdrLine && !hasCtry && structured_field_count === 0 && !hasTwnNm) structure_type = 'EMPTY';
+  else structure_type = 'MIXED_INVALID';
+
+  if (structure_type === 'UNSTRUCTURED') violations.push({code:'UNSTRUCTURED_ADDRESS',severity:'ERROR'});
+  if (structure_type === 'MIXED_INVALID') violations.push({code:'INVALID_MIX',severity:'ERROR'});
+  if (structure_type === 'EMPTY') violations.push({code:'EMPTY_ADDRESS',severity:'ERROR'});
+  if (structure_type === 'HYBRID'){
+    if (!hasTwnNm) violations.push({code:'MISSING_TOWN_NAME',severity:'ERROR'});
+    if (adrLines.length > 2) violations.push({code:'EXCESS_ADR_LINES',severity:'ERROR'});
+    adrLines.forEach(function(l,i){ if (safeStr(l).length > 70) violations.push({code:'ADR_LINE_TOO_LONG',severity:'ERROR',field:'AdrLine['+i+']'}); });
+  }
+  if (hasAdrLine && (hasStrtNm||hasBldgNb||hasTwnNm||hasPstCd)){
+    var structuredValues = [strtNm,bldgNb,twnNm,pstCd].filter(function(v){return v.length>=3;});
+    adrLines.forEach(function(l){
+      var lLower = safeStr(l).toLowerCase();
+      structuredValues.forEach(function(sv){ if (lLower.indexOf(sv.toLowerCase())!==-1) violations.push({code:'SILENT_FAIL_DUPLICATION',severity:'ERROR'}); });
+    });
+  }
+  if (ctry.length > 0 && !/^[A-Z]{2}$/.test(ctry)) violations.push({code:'INVALID_COUNTRY',severity:'ERROR'});
+
+  var error_count = violations.length;
+  var compliant = error_count === 0 && (structure_type==='FULLY_STRUCTURED' || structure_type==='HYBRID');
+  return { network: network, structure_type: structure_type, compliant: compliant, error_count: error_count, violation_codes: violations.map(function(v){return v.code;}) };
+}
+
+/* ── Strict CSV parser (deterministic; mirrors art-350) ── */
+var CSV_HEADER = ['network','street_name','building_number','post_code','town_name','country','country_subdivision','address_lines'];
+function parseCsvLine(line){
+  var out = [], cur = '', inQ = false;
+  for (var i=0;i<line.length;i++){
+    var c = line[i];
+    if (c==='"'){ inQ=!inQ; continue; }
+    if (c===',' && !inQ){ out.push(cur); cur=''; continue; }
+    cur += c;
+  }
+  out.push(cur);
+  return out.map(function(s){ return s.replace(/\r$/,''); });
+}
+function parseCsv(fileContent){
+  var lines = safeStr(fileContent).split('\n').filter(function(l){ return l.trim().length>0; });
+  if (lines.length===0) return { records: [], parse_errors: [] };
+  var header = parseCsvLine(lines[0]).map(function(h){ return safeStr(h).toLowerCase(); });
+  var hasHeader = CSV_HEADER.some(function(h){ return header.indexOf(h)!==-1; });
+  var startIdx = hasHeader ? 1 : 0;
+  var cols = hasHeader ? header : CSV_HEADER;
+  var records = [], parse_errors = [];
+  for (var i=startIdx;i<lines.length;i++){
+    var parts = parseCsvLine(lines[i]);
+    if (parts.length===1 && parts[0].trim()==='') continue;
+    var rec = {};
+    cols.forEach(function(col, idx){
+      var val = safeStr(parts[idx]);
+      if (!val) return;
+      if (col==='address_lines') rec.address_lines = val.split('|').map(safeStr).filter(Boolean);
+      else if (CSV_HEADER.indexOf(col)!==-1) rec[col] = val;
+    });
+    if (Object.keys(rec).length===0){ parse_errors.push({row:i+1,message:'No recognised fields on this row.'}); continue; }
+    records.push(rec);
+  }
+  return { records: records, parse_errors: parse_errors };
+}
+
+function loadDemo(){
+  document.getElementById('originalCsv').value =
+    'network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines\n'
+    + 'fedwire,,,,,US,,123 Main Street Springfield IL\n'
+    + 'fedwire,Main Street,1,10005,Springfield,US,,Main Street\n'
+    + 'chips,,,,,GB,,\n'
+    + 'fedwire,Oak Avenue,5,10006,Springfield,US,,\n'
+    + 'fedwire,,,Chicago,,US,,\n';
+  document.getElementById('remediatedCsv').value =
+    'network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines\n'
+    + 'fedwire,Main Street,123,62701,Springfield,US,IL,\n'
+    + 'fedwire,Main Street,1,10005,Springfield,US,,\n'
+    + 'chips,High Street,10,SW1A,London,GB,,\n'
+    + 'fedwire,Elm Street,9,10007,Springfield,US,,\n'
+    + 'fedwire,,,Chicago,,US,,\n';
+  document.getElementById('diffStatus').textContent = 'Demo pair loaded. Compute remediation diff to see the clearance delta.';
+}
+
+/* ── Per-record row-position alignment + disposition (row_key vocabulary reuses T523's row-position diff shape) ── */
+function diffRecords(originalRecords, remediatedRecords){
+  var n = Math.max(originalRecords.length, remediatedRecords.length);
+  var per_record_diff = [];
+  var before_non_compliant = 0, after_non_compliant = 0;
+  for (var i=0;i<n;i++){
+    var rowKey = 'row#' + (i+1);
+    var before = originalRecords[i] ? lintFedwireRecord(originalRecords[i]) : null;
+    var after  = remediatedRecords[i] ? lintFedwireRecord(remediatedRecords[i]) : null;
+    if (before && !before.compliant) before_non_compliant++;
+    if (after && !after.compliant) after_non_compliant++;
+    var disposition;
+    if (before && !after) disposition = 'row_removed';
+    else if (!before && after) disposition = 'row_added';
+    else if (!before.compliant && after.compliant) disposition = 'cleared';
+    else if (before.compliant && !after.compliant) disposition = 'regressed';
+    else if (!before.compliant && !after.compliant) disposition = 'still_failing';
+    else disposition = 'unchanged_compliant';
+    per_record_diff.push({
+      row_key: rowKey,
+      disposition: disposition,
+      before_compliant: before ? before.compliant : null,
+      after_compliant: after ? after.compliant : null,
+      before_violation_codes: before ? before.violation_codes : [],
+      after_violation_codes: after ? after.violation_codes : []
+    });
+  }
+  return { per_record_diff: per_record_diff, before_non_compliant: before_non_compliant, after_non_compliant: after_non_compliant };
+}
+
+async function runDiff(){
+  var originalCsv = document.getElementById('originalCsv').value;
+  var remediatedCsv = document.getElementById('remediatedCsv').value;
+  if (!originalCsv.trim() || !remediatedCsv.trim()){ document.getElementById('diffStatus').textContent = 'Paste both an original and a remediated file.'; return; }
+
+  var origParsed = parseCsv(originalCsv);
+  var remParsed = parseCsv(remediatedCsv);
+  var d = diffRecords(origParsed.records, remParsed.records);
+
+  var clearance_delta = d.before_non_compliant - d.after_non_compliant;
+  var fully_cleared = d.after_non_compliant === 0;
+
+  var pp = { original_file_content: originalCsv, remediated_file_content: remediatedCsv };
+  var op = {
+    fedwire_chips_deadline: '2026-11-16',
+    total_records: d.per_record_diff.length,
+    before_non_compliant_count: d.before_non_compliant,
+    after_non_compliant_count: d.after_non_compliant,
+    clearance_delta: clearance_delta,
+    fully_cleared: fully_cleared,
+    per_record_diff: d.per_record_diff,
+    parse_errors: { original: origParsed.parse_errors, remediated: remParsed.parse_errors },
+    disambiguation: 'fedwire_remediation_diff_receipt aligns an original and remediated payment file by row position and re-runs lint_fedwire_structured_address (art-349) on each record to produce a per-record clearance disposition. It does not itself sweep a single file for risk -- use sweep_fedwire_addresses (art-350) for that.',
+    pii_note: 'All fields operate on STRUCTURAL address components only. No real party PII enters this tool -- use synthetic or anonymised payment-file data.',
+    table_version: 'FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1',
+    table_source: 'Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)',
+    regulatory_basis: 'Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release (deadline 16 Nov 2026); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules); ISO 20022 PostalAddress24'
+  };
+
+  var original_file_digest = await sha256Hex(originalCsv);
+  var remediated_file_digest = await sha256Hex(remediatedCsv);
+  var per_record_diff_digest = await sha256Hex(d.per_record_diff);
+  op.original_file_digest = 'sha256:' + original_file_digest;
+  op.remediated_file_digest = 'sha256:' + remediated_file_digest;
+  op.per_record_diff_digest = 'sha256:' + per_record_diff_digest;
+
+  _lastResult = { pp: pp, output_payload: op };
+
+  var deltaColor = fully_cleared ? 'var(--green)' : (clearance_delta > 0 ? 'var(--warn)' : 'var(--red)');
+  var deltaBg = fully_cleared ? 'rgba(34,197,94,.08)' : (clearance_delta > 0 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)');
+
+  var rows = d.per_record_diff.map(function(r){
+    return '<tr><td>' + r.row_key + '</td>' +
+      '<td class="tag-' + r.disposition + '">' + r.disposition + '</td>' +
+      '<td>' + (r.before_compliant===null?'—':r.before_compliant) + (r.before_violation_codes.length?' '+r.before_violation_codes.map(function(c){return '<span class="badge-mini" style="color:var(--red);border-color:rgba(239,68,68,.3)">'+c+'</span>';}).join(''):'') + '</td>' +
+      '<td>' + (r.after_compliant===null?'—':r.after_compliant) + (r.after_violation_codes.length?' '+r.after_violation_codes.map(function(c){return '<span class="badge-mini" style="color:var(--red);border-color:rgba(239,68,68,.3)">'+c+'</span>';}).join(''):'') + '</td></tr>';
+  }).join('');
+
+  var memo = 'FEDWIRE/CHIPS REMEDIATION DIFF RECEIPT\n' +
+    'total_records: ' + op.total_records + '\n' +
+    'before_non_compliant_count: ' + op.before_non_compliant_count + '\n' +
+    'after_non_compliant_count: ' + op.after_non_compliant_count + '\n' +
+    'clearance_delta (before - after): ' + clearance_delta + '\n' +
+    'fully_cleared: ' + fully_cleared + '\n\n' +
+    'original_file_digest:   ' + op.original_file_digest + '\n' +
+    'remediated_file_digest: ' + op.remediated_file_digest + '\n' +
+    'per_record_diff_digest: ' + op.per_record_diff_digest + '\n\n' +
+    'PER-RECORD DISPOSITION\n' +
+    d.per_record_diff.map(function(r){ return '  [' + r.disposition + '] ' + r.row_key; }).join('\n');
+
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section">' +
+      '<div class="out-header"><span class="out-title">Remediation Evidence Receipt</span>' +
+        '<button class="copy-btn" onclick="copyM()">Copy memo</button></div>' +
+      '<div class="out-body">' +
+        '<div class="verdict-box" style="color:' + deltaColor + ';background:' + deltaBg + ';border:1px solid ' + deltaColor + '">' +
+          (fully_cleared ? '&#10003; Fully cleared &mdash; 0 non-compliant records remain.' : 'Clearance delta ' + clearance_delta + ' &mdash; ' + op.after_non_compliant_count + ' record(s) still non-compliant.') +
+        '</div>' +
+        '<div class="stat-row">' +
+          '<div class="stat"><span class="stat-val">' + op.total_records + '</span><span class="stat-key">Records</span></div>' +
+          '<div class="stat"><span class="stat-val" style="color:var(--red)">' + op.before_non_compliant_count + '</span><span class="stat-key">Failing before</span></div>' +
+          '<div class="stat"><span class="stat-val" style="color:' + (fully_cleared?'var(--green)':'var(--red)') + '">' + op.after_non_compliant_count + '</span><span class="stat-key">Failing after</span></div>' +
+          '<div class="stat"><span class="stat-val">' + clearance_delta + '</span><span class="stat-key">Clearance delta</span></div>' +
+        '</div>' +
+        '<div class="hashline"><b>original_file_digest</b> &nbsp;<span class="h">' + op.original_file_digest + '</span></div>' +
+        '<div class="hashline"><b>remediated_file_digest</b> <span class="h">' + op.remediated_file_digest + '</span></div>' +
+        '<div class="hashline"><b>per_record_diff_digest</b> <span class="h">' + op.per_record_diff_digest + '</span></div>' +
+        '<table class="diff-table"><thead><tr><th>Row</th><th>Disposition</th><th>Before</th><th>After</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<div class="out-header" style="background:transparent;border:none;padding:0;margin-top:1rem"><span class="out-title">Execution hash</span></div>' +
+        '<div class="hashline"><span class="h" id="execHashBox">computing...</span></div>' +
+        '<div class="memo-block">' + memo.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+      '</div>' +
+    '</div>';
+  window._memo = memo;
+  computeExecHash(pp, op).then(function(h){ var el = document.getElementById('execHashBox'); if (el) el.textContent = h; });
+  document.getElementById('diffStatus').textContent = 'Diff complete. ' + op.total_records + ' rows compared, ' + d.per_record_diff.filter(function(r){return r.disposition==='cleared';}).length + ' cleared.';
+}
+
+function verifyDigests(){
+  if (!_lastResult){ document.getElementById('verifyResult').textContent = 'Run the diff first.'; return; }
+  var originalCsv = document.getElementById('originalCsv').value;
+  var remediatedCsv = document.getElementById('remediatedCsv').value;
+  Promise.all([sha256Hex(originalCsv), sha256Hex(remediatedCsv)]).then(function(hashes){
+    var curOrig = 'sha256:' + hashes[0], curRem = 'sha256:' + hashes[1];
+    var ok = curOrig === _lastResult.output_payload.original_file_digest && curRem === _lastResult.output_payload.remediated_file_digest;
+    document.getElementById('verifyResult').innerHTML = ok
+      ? '<span style="color:var(--green)">&#10003; Both digests verified &mdash; textarea content matches the receipt.</span>'
+      : '<span style="color:var(--red)">&#10007; Mismatch &mdash; textarea content has changed since the receipt was generated. This receipt no longer describes what is pasted above.</span>';
+  });
+}
+
+function copyM(){if(window._memo){navigator.clipboard.writeText(window._memo).then(function(){var b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy memo';},2000);}});}}
+</script>
+
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"546-fedwire-remediation-diff-receipt","version":"1.0.0","title":"Fedwire/CHIPS Remediation Diff Receipt","description":"Diffs an original and a remediated Fedwire/CHIPS payment file (CSV) record-by-record against the November 2026 structured-address lint and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta. Client-side, deterministic, zero PII.","category":"cat-19","tags":["fedwire","chips","remediation","diff","structured address","iso 20022","compliance","evidence"],"audience":["compliance","engineer","product"],"input_schema":{"type":"object","properties":{"originalCsv":{"type":"string"},"remediatedCsv":{"type":"string"}},"required":["originalCsv","remediatedCsv"]},"output_schema":{"type":"object","properties":{"original_file_digest":{"type":"string"},"remediated_file_digest":{"type":"string"},"clearance_delta":{"type":"number"},"per_record_diff":{"type":"array"}}},"mcp_tool_definition":{"name":"fedwire_remediation_diff_receipt","description":"Diffs an original and a remediated Fedwire/CHIPS structured-address payment file (CSV) record-by-record against the November 2026 lint, and returns a remediation-evidence receipt binding both file digests and the rule-clearance delta (non-compliant count before minus after).","inputSchema":{"type":"object","properties":{"originalCsv":{"type":"string","description":"Raw CSV content of the pre-remediation payment file"},"remediatedCsv":{"type":"string","description":"Raw CSV content of the post-remediation payment file"}},"required":["originalCsv","remediatedCsv"]}},"execution":{"type":"browser-reference","entry":"tools/546-fedwire-remediation-diff-receipt.html","function_name":"runDiff"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3–§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    var inputs={};
+    window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'546-fedwire-remediation-diff-receipt';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_mandate',
+    jurisdiction:['US'],regulatory_frameworks:['Fedwire Funds Service ISO 20022 November 2026 Release','CHIPS ISO 20022'],
+    payload:window._ap2Result,
+    remediation_diff:_lastResult?_lastResult.output_payload:null,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — remediation diff '+ts.slice(0,10),
+    disclaimer:'Deterministic client-side comparison against the published Nov 2026 structured-address rule set. Evidence of file contents, not a submission to Fedwire, CHIPS, or a regulator, and not legal or compliance advice.',
+    agent_instructions:['Verify original_file_digest and remediated_file_digest against the source files before relying on the clearance delta.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:['Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release','The Clearing House CHIPS ISO 20022 implementation'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0: prefill deep-links (#in=<base64url JSON>[&run=1]) ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runDiff',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    el.value=String(fields[id]);
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=document.querySelector('.scope-note')||document.body.firstElementChild;if(a&&a.parentNode)a.parentNode.insertBefore(d,a);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ Inputs prefilled from link and parsed ('+n+' fields)','ok');
+    else notice('🔗 Inputs prefilled from link — review, then Compute remediation diff','ok');
+  }
+}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
