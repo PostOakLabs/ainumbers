@@ -157,7 +157,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
       <a href="chaingraph-hub.html" style="color:var(--muted)">OpenChainGraph Suite</a>
       <a href="openchain-graph-spec.html" style="color:var(--muted)">Spec v0.4</a>
     </div>
-    <div>© 2024–2026 Post Oak Labs · CC BY 4.0 · Zero PII · Client-side only</div>
+    <div>CC BY 4.0 · Zero PII · Client-side only</div>
   </div>
 </footer>
 

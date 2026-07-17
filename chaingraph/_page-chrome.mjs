@@ -43,8 +43,18 @@ export function buildNav(breadcrumbCurrent) {
 </nav>`;
 }
 
-/** Canonical footer — verbatim from chaingraph-hub.html */
-export const FOOTER = `<footer>
+/**
+ * Canonical 4-column footer — single source of truth for node pages AND root pages.
+ * Path-parameterized so the same template serves both depths:
+ *   root = prefix to reach the repo root  (node pages: '../'          root pages: '')
+ *   cg   = prefix to reach chaingraph/ dir (node pages: ''            root pages: 'chaingraph/')
+ * The DATA & ARTIFACTS column folds in the full machine-artifact surface
+ * (openapi.json, .well-known/mcp.json, mcp/server.json, mcp/catalog.json, sitemap.xml,
+ * robots.txt, SPEC.md) so the agent-facing links live in one column, not a separate row.
+ * Copyright line: license/promise trio only (no year, no company name).
+ */
+export function buildFooter({ root = '../', cg = '' } = {}) {
+  return `<footer>
   <div class="footer-inner">
     <div class="footer-brand">
       <div class="footer-brand-mark">
@@ -63,51 +73,71 @@ export const FOOTER = `<footer>
         </svg>
         <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
       </div>
-      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
     </div>
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
-        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
-        <a href="openchain-graph-explainer.html">OCG Explainer</a>
-        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
-        <a href="ocg-sandbox.html">Sandbox</a>
-        <a href="ocg-chain-builder.html">Chain Builder</a>
-        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
-        <a href="ocg-integration-guide.html">Integration Guide</a>
-        <a href="ocg-guide-export.html">Export Profiles</a>
-        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="${cg}openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="${cg}ocg-sandbox.html">Sandbox</a>
+        <a href="${cg}ocg-chain-builder.html">Chain Builder</a>
+        <a href="${cg}ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="${cg}ocg-integration-guide.html">Integration Guide</a>
+        <a href="${cg}ocg-guide-export.html">Export Profiles</a>
+        <a href="${cg}ocg-industries.html">Industry Concepts</a>
+        <a href="${root}convert.html">Conversion Suite</a>
+        <a href="${root}guides/agreement-standards-directory.html">Agreement Standards</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
-        <a href="guide-tempo.html">Tempo Network</a>
-        <a href="guide-prov-dm.html">W3C PROV-DM</a>
-        <a href="guide-buildtype.html">buildType / SLSA</a>
-        <a href="guide-intoto.html">in-toto / DSSE</a>
-        <a href="guide-ed25519.html">Ed25519 Signing</a>
-        <a href="guide-otel.html">OpenTelemetry</a>
-        <a href="guide-iso20022.html">ISO 20022 Profile</a>
-        <a href="guide-okf.html">Open Knowledge Format</a>
+        <a href="${cg}guide-tempo.html">Tempo Network</a>
+        <a href="${cg}guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="${cg}guide-buildtype.html">buildType / SLSA</a>
+        <a href="${cg}guide-intoto.html">in-toto / DSSE</a>
+        <a href="${cg}guide-ed25519.html">Ed25519 Signing</a>
+        <a href="${cg}guide-otel.html">OpenTelemetry</a>
+        <a href="${cg}guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="${cg}guide-okf.html">Open Knowledge Format</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Data &amp; Artifacts</div>
-        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
-        <a href="okf/index.md" target="_blank">OKF bundle</a>
-        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
-        <a href="../llms.txt" target="_blank">llms.txt</a>
-        <a href="../sitemap.html">Sitemap</a>
+        <a href="${cg}chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="${cg}okf/index.md" target="_blank">OKF bundle</a>
+        <a href="${root}data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="${root}openapi.json" target="_blank">openapi.json</a>
+        <a href="${root}llms.txt" target="_blank">llms.txt</a>
+        <a href="${root}.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="${root}mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="${root}mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="${cg}standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="${root}sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="${root}robots.txt" target="_blank">robots.txt</a>
+        <a href="${root}sitemap.html">Sitemap</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Network</div>
-        <a href="../index.html">All Tools</a>
-        <a href="../mcp.html">MCP Docs</a>
+        <a href="${root}tools.html">All Tools</a>
+        <a href="${root}mcp.html">MCP Docs</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
-        <a href="../about.html">About</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="${root}about.html">About</a>
+        <a href="${root}suggest.html">Suggest</a>
+        <a href="${root}contact.html">Contact</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>
   </div>
 </footer>`;
+}
+
+/** Node-page footer (depth: chaingraph/art-*.html) — the default consumers import this. */
+export const FOOTER = buildFooter({ root: '../', cg: '' });
+
+/** Root-page footer (depth: repo root, e.g. index.html / start.html). */
+export const ROOT_FOOTER = buildFooter({ root: '', cg: 'chaingraph/' });
 
 /** Unique marker injected into <style> — used by both normalizer and gate to detect presence */
 export const CSS_MARKER = '/* OCG-CHROME-CSS:v1 */';
@@ -144,6 +174,27 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
 .footer-col a:hover{color:var(--teal)}
 `;
+
+/** Marker for the root-page footer CSS block (injected by gen-root-chrome.mjs). */
+export const ROOT_FOOTER_CSS_MARKER = '/* OCG-ROOT-FOOTER-CSS:v1 */';
+
+/**
+ * Footer-only CSS for root-level pages (index.html, start.html).
+ * Same classes as the node-page chrome footer; root pages carry their own nav CSS,
+ * so only the footer subset is injected here.
+ */
+export const ROOT_FOOTER_CSS = `${ROOT_FOOTER_CSS_MARKER}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}`;
 
 /**
  * Structural tokens the gate checks for in each page's nav.
