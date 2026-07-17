@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-225"]
+tags: ["compliance_mandate", "count-233"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-225 tool(s) in this mandate-type group:
+233 tool(s) in this mandate-type group:
 
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
@@ -235,3 +235,11 @@ timestamp: 2026-07-14
 - [TRAIGA Safe Harbor Pack Builder](../tools/art-314-traiga-safe-harbor-pack-builder.md)
 - [AB 2013 Training Data Disclosure Linter](../tools/art-315-ab2013-training-data-disclosure-linter.md)
 - [SB 53 Frontier Scope Checker](../tools/art-316-sb53-frontier-scope-checker.md)
+- [DTI Ratio Calculator](../tools/art-335-compute-dti-ratios.md)
+- [LTV/CLTV/HCLTV Ratio Calculator](../tools/art-336-compute-ltv-ratios.md)
+- [Federal Withholding Calculator (Percentage Method)](../tools/art-338-compute-federal-withholding.md)
+- [Gross-to-Net Payroll Calculator (FICA)](../tools/art-339-compute-gross-to-net.md)
+- [FLSA Regular Rate & Overtime Calculator](../tools/art-340-compute-flsa-regular-rate.md)
+- [RESPA Aggregate Escrow Analysis](../tools/art-342-compute-escrow-analysis.md)
+- [MLR Rebate Calculator](../tools/art-344-compute-mlr-rebate.md)
+- [NCCI Experience Modification Calculator](../tools/art-346-compute-experience-mod.md)

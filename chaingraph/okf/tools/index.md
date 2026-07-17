@@ -278,7 +278,15 @@ timestamp: 2026-07-14
 - [Bond DV01 (Price Value of a Basis Point)](./art-330-tvm-dv01.md) — `compute_dv01`
 - [Bond Convexity](./art-331-tvm-convexity.md) — `compute_convexity`
 - [Amortization Schedule Builder](./art-332-build-amortization-schedule.md) — `build_amortization_schedule`
+- [DTI Ratio Calculator](./art-335-compute-dti-ratios.md) — `compute_dti_ratios`
+- [LTV/CLTV/HCLTV Ratio Calculator](./art-336-compute-ltv-ratios.md) — `compute_ltv_ratios`
+- [Federal Withholding Calculator (Percentage Method)](./art-338-compute-federal-withholding.md) — `compute_federal_withholding`
+- [Gross-to-Net Payroll Calculator (FICA)](./art-339-compute-gross-to-net.md) — `compute_gross_to_net`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
+- [FLSA Regular Rate & Overtime Calculator](./art-340-compute-flsa-regular-rate.md) — `compute_flsa_regular_rate`
+- [RESPA Aggregate Escrow Analysis](./art-342-compute-escrow-analysis.md) — `compute_escrow_analysis`
+- [MLR Rebate Calculator](./art-344-compute-mlr-rebate.md) — `compute_mlr_rebate`
+- [NCCI Experience Modification Calculator](./art-346-compute-experience-mod.md) — `compute_experience_mod`
 - [Quantized Credit Model Scorer](./art-348-score-credit-model-quantized.md) — `score_credit_model_quantized`
 - [Fedwire Structured Address Linter](./art-349-fedwire-structured-address-linter.md) — `lint_fedwire_structured_address`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
