@@ -47,6 +47,7 @@ const GATES = [
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
