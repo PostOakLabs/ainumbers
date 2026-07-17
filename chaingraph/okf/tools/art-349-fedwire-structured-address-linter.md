@@ -23,4 +23,4 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** _terminal node_
+**Feeds:** [Fedwire Payment-File Address Sweep](./art-350-fedwire-address-sweep.md)

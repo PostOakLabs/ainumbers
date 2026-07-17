@@ -1,0 +1,141 @@
+{
+  "tool_id": "art-350-fedwire-address-sweep",
+  "note": "Fedwire/CHIPS payment-file pre-migration sweep (FA-3). Vector 1: all-compliant inline records. Vector 2: CSV batch with mixed violations. Vector 3: empty-file finite edge case.",
+  "vectors": [
+    {
+      "name": "inline_records_all_compliant",
+      "description": "Three fully-structured Fedwire/CHIPS records, all compliant -- zero risk.",
+      "policy_parameters": {
+        "records": [
+          {
+            "network": "fedwire",
+            "street_name": "400 South Hope Street",
+            "post_code": "90071",
+            "town_name": "Los Angeles",
+            "country": "US",
+            "country_subdivision": "CA"
+          },
+          {
+            "network": "chips",
+            "street_name": "1 Chase Manhattan Plaza",
+            "post_code": "10005",
+            "town_name": "New York",
+            "country": "US"
+          },
+          {
+            "network": "fedwire",
+            "town_name": "Zurich",
+            "country": "CH",
+            "address_lines": [
+              "Bahnhofstrasse 1"
+            ]
+          }
+        ]
+      },
+      "output_payload": {
+        "fedwire_chips_deadline": "2026-11-16",
+        "rejection_risk_report": {
+          "total_records": 3,
+          "compliant_count": 3,
+          "non_compliant_count": 0,
+          "compliant_pct": 100,
+          "by_rule": {},
+          "worst_offenders": [],
+          "worst_offenders_truncated": false,
+          "parse_errors": []
+        },
+        "risk_score": 0,
+        "disambiguation": "sweep_fedwire_addresses batch-sweeps a payment file (CSV or pre-parsed records) through the same rules as lint_fedwire_structured_address (art-349), per record, and rolls the results into a rejection-risk report. For a single-message lint use lint_fedwire_structured_address (art-349) directly.",
+        "pii_note": "All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised payment-file data.",
+        "table_version": "FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1",
+        "table_source": "Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org/resources/financial-services/wires/iso-20022-implementation-center/november-release-faq); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)",
+        "regulatory_basis": "Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)",
+        "file_digest": "sha256:e43fe437e1713efe693b1d2d1a54b94770de11588f04b2b0ac6d541a4c6d65d8",
+        "per_record_findings_digest": "sha256:f5966ed1b94751002863853d3fdb1963cd19bbb82c95a82032d3020b567b6006"
+      },
+      "golden_hash": "c31bab72420808fc000aa468d57f2d1cc1cc0c0f92df118f74405babccf1a310"
+    },
+    {
+      "name": "csv_mixed_risk",
+      "description": "CSV payment file with one unstructured (banned) record, one silent-fail duplication, one compliant record.",
+      "policy_parameters": {
+        "file_content": "network,street_name,building_number,post_code,town_name,country,country_subdivision,address_lines\nfedwire,,,,,US,,123 Main Street Springfield\nchips,Main Street,1,10005,Springfield,US,,Main Street\nfedwire,Oak Ave,5,10006,Springfield,US,,\n"
+      },
+      "output_payload": {
+        "fedwire_chips_deadline": "2026-11-16",
+        "rejection_risk_report": {
+          "total_records": 3,
+          "compliant_count": 1,
+          "non_compliant_count": 2,
+          "compliant_pct": 33.33,
+          "by_rule": {
+            "SILENT_FAIL_DUPLICATION": 1,
+            "UNSTRUCTURED_ADDRESS": 1
+          },
+          "worst_offenders": [
+            {
+              "index": 0,
+              "network": "fedwire",
+              "structure_type": "UNSTRUCTURED",
+              "compliant": false,
+              "error_count": 1,
+              "violation_codes": [
+                "UNSTRUCTURED_ADDRESS"
+              ]
+            },
+            {
+              "index": 1,
+              "network": "chips",
+              "structure_type": "HYBRID",
+              "compliant": false,
+              "error_count": 1,
+              "violation_codes": [
+                "SILENT_FAIL_DUPLICATION"
+              ]
+            }
+          ],
+          "worst_offenders_truncated": false,
+          "parse_errors": []
+        },
+        "risk_score": 66.67,
+        "disambiguation": "sweep_fedwire_addresses batch-sweeps a payment file (CSV or pre-parsed records) through the same rules as lint_fedwire_structured_address (art-349), per record, and rolls the results into a rejection-risk report. For a single-message lint use lint_fedwire_structured_address (art-349) directly.",
+        "pii_note": "All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised payment-file data.",
+        "table_version": "FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1",
+        "table_source": "Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org/resources/financial-services/wires/iso-20022-implementation-center/november-release-faq); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)",
+        "regulatory_basis": "Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)",
+        "file_digest": "sha256:6ead53bd2567f986e4ae626a6347201187716ed9679795b11035a832062f723b",
+        "per_record_findings_digest": "sha256:55c82ac22cd7e08f21a6bd7cfaf777a35d34aa8fcc935ee759af1d8364ec94fc"
+      },
+      "golden_hash": "dbb320d22ce1e5fdd21e61be8dc45692faa2dbfe51c5900f82a6992fb6d819a6"
+    },
+    {
+      "name": "empty_file_finite",
+      "description": "Empty payment file -- zero records, zero risk, finite (no NaN/Infinity).",
+      "policy_parameters": {
+        "file_content": ""
+      },
+      "output_payload": {
+        "fedwire_chips_deadline": "2026-11-16",
+        "rejection_risk_report": {
+          "total_records": 0,
+          "compliant_count": 0,
+          "non_compliant_count": 0,
+          "compliant_pct": 100,
+          "by_rule": {},
+          "worst_offenders": [],
+          "worst_offenders_truncated": false,
+          "parse_errors": []
+        },
+        "risk_score": 0,
+        "disambiguation": "sweep_fedwire_addresses batch-sweeps a payment file (CSV or pre-parsed records) through the same rules as lint_fedwire_structured_address (art-349), per record, and rolls the results into a rejection-risk report. For a single-message lint use lint_fedwire_structured_address (art-349) directly.",
+        "pii_note": "All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised payment-file data.",
+        "table_version": "FEDWIRE-CHIPS-STRUCTURED-ADDRESS-NOV2026-V1",
+        "table_source": "Federal Reserve Financial Services, Fedwire Funds Service ISO 20022 November 2026 Release FAQ (frbservices.org/resources/financial-services/wires/iso-20022-implementation-center/november-release-faq); The Clearing House CHIPS ISO 20022 address rules (aligned to Fedwire)",
+        "regulatory_basis": "Federal Reserve Financial Services Fedwire Funds Service ISO 20022 November 2026 Release; The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules)",
+        "file_digest": "sha256:27830ff05f7c69f78dd49040f4e108631b8b352f20b4e38875915916637e1f11",
+        "per_record_findings_digest": "sha256:45ccacbe6b1d280500c487dffbc902799928f0a8abe91a568e6b9d70ff68f3f1"
+      },
+      "golden_hash": "7ff535eb7bb52a5c8571b0326a93e1685b48b1320c1c7307bc6c17e095cc61d3"
+    }
+  ]
+}
