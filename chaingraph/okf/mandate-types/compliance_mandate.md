@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-224"]
+tags: ["compliance_mandate", "count-225"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-224 tool(s) in this mandate-type group:
+225 tool(s) in this mandate-type group:
 
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
@@ -153,6 +153,7 @@ timestamp: 2026-07-14
 - [Royalty Split Validator](../tools/art-208-royalty-split-validator.md)
 - [NFT Metadata Validator](../tools/art-209-nft-metadata-validator.md)
 - [IPFS CID Computer](../tools/art-210-ipfs-cid-computer.md)
+- [Amortization Schedule Builder](../tools/art-332-build-amortization-schedule.md)
 - [Reg Z Appendix J APR Solver](../tools/art-215-reg-z-appendix-j-apr.md)
 - [TRID Fee Tolerance and Cure](../tools/art-216-trid-tolerance-cure.md)
 - [TRID APR Accuracy Verifier](../tools/art-217-trid-apr-accuracy.md)

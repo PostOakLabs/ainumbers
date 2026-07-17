@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Amortization Schedule Builder &middot; ART-332 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Deterministic amortization schedule builder: level-payment, ARM, interest-only, balloon, and temporary buydown loans, per 12 CFR 1026 Appendix J unit-period and odd-days conventions. Feeds directly into the Reg Z Appendix J APR solver.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-332-build-amortization-schedule.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:640px){.row2,.row3{grid-template-columns:1fr}}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{resize:vertical;min-height:70px}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:180px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:8px}
+th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+td{padding:.4rem .55rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+tr:hover td{background:var(--bg-3)}
+.typefield{display:none}
+.typefield.on{display:block}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-332 · Amortization Schedule Builder</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="art-215-reg-z-appendix-j-apr.html" class="nav-pill">APR Solver (ART-215) &#8594;</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-332 &middot; US Mortgage Compliance</div>
+  <h1>Amortization Schedule Builder</h1>
+  <p class="sub">Builds a full period-by-period amortization schedule for level-payment, adjustable-rate (index plus margin, caps, recast), interest-only, balloon, and temporary buydown (2-1 or 3-2-1) loans, following the unit-period and odd-days conventions in 12 CFR 1026 Appendix J. The output feeds directly into the <a href="art-215-reg-z-appendix-j-apr.html">Reg Z Appendix J APR Solver</a> as its advances/payments input.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Reg Z Appendix J</span>
+    <span class="flag info">Level Payment / ARM / IO / Balloon / Buydown</span>
+    <span class="flag">Cents-Integer Math</span>
+    <span class="flag">Feeds APR Solver</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Schedule parameters</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="scheduleType">Schedule type</label>
+        <select id="scheduleType" onchange="onTypeChange()">
+          <option value="level_payment">Level payment</option>
+          <option value="arm">Adjustable rate (ARM)</option>
+          <option value="interest_only">Interest-only</option>
+          <option value="balloon">Balloon</option>
+          <option value="temp_buydown">Temporary buydown</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="loanAmount">Loan amount ($)</label>
+        <input type="number" id="loanAmount" value="200000" min="1" step="1000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="noteRatePct">Note rate (annual %)</label>
+        <div class="q-help">Initial/fixed rate for level_payment, ARM, IO, balloon, and the full note rate a temp_buydown eventually pays.</div>
+        <input type="number" id="noteRatePct" value="6.5" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="numPayments">Number of payments</label>
+        <input type="number" id="numPayments" value="360" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="periodsPerYear">Periods per year</label>
+        <input type="number" id="periodsPerYear" value="12" min="1" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="paymentAmount">Payment override ($, level_payment only)</label>
+        <div class="q-help">Leave blank to auto-compute the level payment via the standard annuity formula.</div>
+        <input type="number" id="paymentAmount" value="" min="0" step="0.01" placeholder="auto">
+      </div>
+    </div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="oddDays">Odd days (App J unit-period)</label>
+        <input type="number" id="oddDays" value="0" min="0" step="1">
+      </div>
+      <div class="q">
+        <label class="q-label" for="unitPeriodDays">Unit period days</label>
+        <input type="number" id="unitPeriodDays" value="30" min="1" step="1">
+      </div>
+      <div></div>
+    </div>
+
+    <div id="tf-interest_only" class="typefield">
+      <div class="section-head" style="margin-top:10px">Interest-only</div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label" for="ioPeriods">IO periods</label>
+          <input type="number" id="ioPeriods" value="60" min="0" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div id="tf-balloon" class="typefield">
+      <div class="section-head" style="margin-top:10px">Balloon</div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label" for="nominalAmortPeriods">Nominal amortization periods</label>
+          <div class="q-help">Payment is computed on this longer term; the note matures at Number of payments above.</div>
+          <input type="number" id="nominalAmortPeriods" value="360" min="1" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div id="tf-arm" class="typefield">
+      <div class="section-head" style="margin-top:10px">ARM: index, margin, caps, resets</div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label" for="marginPct">Margin (%)</label>
+          <input type="number" id="marginPct" value="2.75" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="periodicCapPct">Periodic cap (+/- pts)</label>
+          <input type="number" id="periodicCapPct" value="2" min="0" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="lifetimeCapPct">Lifetime cap (+pts vs initial)</label>
+          <input type="number" id="lifetimeCapPct" value="5" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label" for="lifetimeFloorPct">Lifetime floor (pts vs initial, negative)</label>
+          <input type="number" id="lifetimeFloorPct" value="-5" step="0.01">
+        </div>
+        <div class="q">
+          <label class="q-label" for="recastOnReset">Recast at each reset</label>
+          <select id="recastOnReset"><option value="true" selected>Yes: recompute payment to fully amortize remaining balance/term</option><option value="false">No: keep prior payment (may negative-amortize)</option></select>
+        </div>
+      </div>
+      <div class="q">
+        <label class="q-label" for="rateChanges">Rate changes (period_index:index_value_pct, one per line)</label>
+        <div class="q-help">No live index fetching &mdash; supply the resolved index value your contractual lookback observed at each reset.</div>
+        <textarea id="rateChanges">37:4.5
+49:6.0</textarea>
+      </div>
+    </div>
+
+    <div id="tf-temp_buydown" class="typefield">
+      <div class="section-head" style="margin-top:10px">Temporary buydown</div>
+      <div class="row3">
+        <div class="q">
+          <label class="q-label" for="buydownType">Buydown type</label>
+          <select id="buydownType"><option value="2-1">2-1 (year 1 -2pts, year 2 -1pt)</option><option value="3-2-1">3-2-1 (year 1 -3pts, year 2 -2pts, year 3 -1pt)</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runBuild()">&#9654; Build Schedule</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Schedule summary</div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:6px 0"></div>
+
+      <div class="section-head" style="margin-top:14px">Schedule (first 6 / last 3 periods)</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>#</th><th>t (periods)</th><th>Payment</th><th>Principal</th><th>Interest</th><th>Ending balance</th></tr></thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
+      </div>
+
+      <div id="buydownSection" style="display:none">
+        <div class="section-head" style="margin-top:14px">Buydown subsidy schedule (first 6 / last 3 periods)</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Year</th><th>Reduction (pts)</th><th>Borrower pays</th><th>Subsidy covers</th></tr></thead>
+            <tbody id="buydownBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:14px">Advances / payments (feeds ART-215)</div>
+      <div class="kv"><span class="kv-k">advances[]</span><span class="kv-v">1 entry: loan amount at t=0</span></div>
+      <div class="kv"><span class="kv-k">payments[]</span><span class="kv-v" id="paymentsCountBox"></span></div>
+
+      <div class="section-head" style="margin-top:14px">Totals and digest</div>
+      <div id="kvDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <button class="verify-btn" onclick="sendToAprSolver()">&#8594; Send to APR Solver (ART-215)</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc">&copy; 2024&ndash;2026 Post Oak Labs &middot; <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../index.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-332-build-amortization-schedule',
+  version: '1.0.0',
+  mcp_name: 'build_amortization_schedule',
+  title: 'Amortization Schedule Builder',
+  description: 'Deterministic amortization schedule builder: level-payment, ARM (index plus margin, caps, recast), interest-only, balloon, and temporary buydown (2-1 or 3-2-1) loans, per 12 CFR 1026 Appendix J unit-period and odd-days conventions. Emits advances/payments arrays shaped for the Reg Z Appendix J APR solver.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: '12 CFR 1026 Appendix J (Reg Z general actuarial equation, unit-period and odd-days conventions)',
+  mcp_tool_definition: {
+    name: 'build_amortization_schedule',
+    description: 'Build a full amortization schedule (level_payment, arm, interest_only, balloon, or temp_buydown) with totals, a schedule_digest, and advances/payments arrays ready for compute_reg_z_appendix_j_apr.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        schedule_type: { type: 'string', enum: ['level_payment', 'arm', 'interest_only', 'balloon', 'temp_buydown'] },
+        loan_amount: { type: 'number', description: 'Loan amount in dollars' },
+        note_rate_pct: { type: 'number', description: 'Annual note rate percent' },
+        num_payments: { type: 'number', description: 'Total number of payments' },
+        periods_per_year: { type: 'number', description: 'Payment periods per year (12=monthly)' },
+        payment_amount: { type: 'number', description: 'Optional level_payment override; auto-computed when omitted' },
+        odd_days: { type: 'number', description: 'App J odd days in first period' },
+        unit_period_days: { type: 'number', description: 'Days in one unit period (30 for monthly)' },
+        io_periods: { type: 'number', description: 'Leading interest-only periods (interest_only type)' },
+        nominal_amortization_periods: { type: 'number', description: 'Longer nominal term used to size the payment (balloon type)' },
+        margin_pct: { type: 'number', description: 'ARM margin added to the observed index value' },
+        periodic_cap_pct: { type: 'number', description: 'ARM per-reset cap, +/- percentage points' },
+        lifetime_cap_pct: { type: 'number', description: 'ARM lifetime cap above the initial note rate' },
+        lifetime_floor_pct: { type: 'number', description: 'ARM lifetime floor relative to the initial note rate (negative)' },
+        recast: { type: 'boolean', description: 'ARM: recompute the payment at each reset (default true)' },
+        rate_changes: { type: 'array', items: { type: 'object', properties: { period_index: { type: 'number' }, index_value_pct: { type: 'number' } } }, description: 'ARM resolved index observations, no live fetching' },
+        buydown_type: { type: 'string', enum: ['2-1', '3-2-1'], description: 'Temporary buydown point-reduction schedule' },
+      },
+      required: ['schedule_type', 'loan_amount', 'note_rate_pct', 'num_payments'],
+    },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){ return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function safeNum(v, d){ var n = Number(v); return Number.isFinite(n) ? n : d; }
+function toCents(d){ return Math.round(safeNum(d,0) * 100); }
+function fromCents(c){ return Number.isFinite(c) ? Math.round(c) / 100 : 0; }
+function r2(v){ return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function r6(v){ return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
+
+/* Mirrors chaingraph/kernels/art-332-build-amortization-schedule.kernel.mjs -- keep both in sync. */
+function compoundFactor(rate, n){
+  var f = 1, steps = Math.max(0, Math.round(safeNum(n,0)));
+  for (var k=0;k<steps;k++) f *= (1+rate);
+  return f;
+}
+function levelPaymentCents(principalCents, rate, n){
+  var steps = Math.max(1, Math.round(safeNum(n,1)));
+  if (Math.abs(rate) < 1e-12) return Math.round(principalCents / steps);
+  var f = compoundFactor(rate, steps);
+  if (!Number.isFinite(f) || f <= 1) return Math.round(principalCents / steps);
+  var pDollars = principalCents / 100;
+  var payDollars = pDollars * rate * f / (f - 1);
+  return Number.isFinite(payDollars) ? Math.round(payDollars * 100) : Math.round(principalCents / steps);
+}
+function amortizeCents(principalCents, rate, paymentCents, nPeriods, ioPeriods, trueUpFinal){
+  ioPeriods = ioPeriods || 0; trueUpFinal = trueUpFinal !== false;
+  var rows = [], balance = Math.max(0, Math.round(principalCents));
+  var steps = Math.max(1, Math.round(safeNum(nPeriods,1)));
+  var io = Math.max(0, Math.min(steps, Math.round(safeNum(ioPeriods,0))));
+  for (var k=1;k<=steps;k++){
+    var interestCents = Math.round(balance * rate);
+    var principalPortion, pmt;
+    if (k <= io){ principalPortion = 0; pmt = interestCents; }
+    else {
+      principalPortion = paymentCents - interestCents;
+      if (principalPortion < 0) principalPortion = 0;
+      if (principalPortion > balance) principalPortion = balance;
+      if (trueUpFinal && k === steps) principalPortion = balance;
+      pmt = interestCents + principalPortion;
+    }
+    balance -= principalPortion;
+    if (balance < 0) balance = 0;
+    rows.push({ period_index:k, interest_cents:interestCents, principal_cents:principalPortion, payment_cents:pmt, ending_balance_cents:balance });
+  }
+  return { rows: rows, ending_balance_cents: balance };
+}
+function buildArmSchedule(principalCents, notePeriodicRate, numPayments, periodsPerYear, noteRatePct, opts, complianceFlags){
+  var margin = opts.margin_pct, periodicCap = Math.max(0, opts.periodic_cap_pct), lifetimeCap = Math.max(0, opts.lifetime_cap_pct), lifetimeFloor = opts.lifetime_floor_pct;
+  var recast = opts.recast !== false;
+  var changes = opts.rate_changes.slice().sort(function(a,b){ return a.period_index - b.period_index; });
+  var rows = [], balance = Math.max(0, Math.round(principalCents));
+  var currentRatePct = noteRatePct, currentPeriodicRate = notePeriodicRate;
+  var currentPaymentCents = levelPaymentCents(balance, currentPeriodicRate, numPayments);
+  var changeIdx = 0, rateResetLog = [];
+  for (var k=1;k<=numPayments;k++){
+    while (changeIdx < changes.length && changes[changeIdx].period_index === k){
+      var chg = changes[changeIdx];
+      var uncapped = chg.index_value_pct + margin;
+      var capped = uncapped;
+      if (capped > currentRatePct + periodicCap) capped = currentRatePct + periodicCap;
+      if (capped < currentRatePct - periodicCap) capped = currentRatePct - periodicCap;
+      if (capped > noteRatePct + lifetimeCap) capped = noteRatePct + lifetimeCap;
+      if (capped < noteRatePct + lifetimeFloor) capped = noteRatePct + lifetimeFloor;
+      if (capped !== uncapped) complianceFlags.push('ARM_RATE_CAPPED_AT_PERIOD_' + k);
+      currentRatePct = r6(capped);
+      currentPeriodicRate = currentRatePct / 100 / periodsPerYear;
+      rateResetLog.push({ period_index:k, index_value_pct: chg.index_value_pct, margin_pct: margin, uncapped_rate_pct: r6(uncapped), effective_rate_pct: currentRatePct });
+      var remaining = numPayments - k + 1;
+      if (recast) currentPaymentCents = levelPaymentCents(balance, currentPeriodicRate, remaining);
+      changeIdx++;
+    }
+    var interestCents = Math.round(balance * currentPeriodicRate);
+    var principalPortion = currentPaymentCents - interestCents;
+    if (principalPortion < 0) complianceFlags.push('ARM_NEGATIVE_AMORTIZATION_PERIOD_' + k);
+    if (principalPortion > balance) principalPortion = balance;
+    if (k === numPayments && principalPortion < balance) principalPortion = balance;
+    var pmt = interestCents + principalPortion;
+    balance -= principalPortion;
+    if (balance < 0) balance = 0;
+    rows.push({ period_index:k, interest_cents:interestCents, principal_cents:principalPortion, payment_cents:pmt, ending_balance_cents:balance });
+  }
+  return { rows: rows, ending_balance_cents: balance, rate_reset_log: rateResetLog, recast: recast, initial_rate_pct: r6(noteRatePct) };
+}
+function buydownReductions(buydownType){
+  if (buydownType === '3-2-1') return {1:3,2:2,3:1};
+  return {1:2,2:1};
+}
+
+function readArmChanges(){
+  var raw = document.getElementById('rateChanges').value.split('\n');
+  var out = [];
+  raw.forEach(function(line){
+    var parts = line.split(':');
+    if (parts.length < 2) return;
+    var p = Math.round(safeNum(parts[0], 0));
+    var v = safeNum(parts[1], 0);
+    if (p > 0) out.push({ period_index: p, index_value_pct: v });
+  });
+  return out;
+}
+
+function onTypeChange(){
+  var t = document.getElementById('scheduleType').value;
+  ['interest_only','balloon','arm','temp_buydown'].forEach(function(id){
+    document.getElementById('tf-'+id).classList.toggle('on', id === t);
+  });
+}
+
+function runBuild(){
+  var schedule_type = document.getElementById('scheduleType').value;
+  var loan_amount = Math.max(0, safeNum(document.getElementById('loanAmount').value, 0));
+  var principalCents = toCents(loan_amount);
+  var note_rate_pct = safeNum(document.getElementById('noteRatePct').value, 0);
+  var num_payments = Math.max(1, Math.round(safeNum(document.getElementById('numPayments').value, 1)));
+  var periods_per_year = Math.max(1, Math.round(safeNum(document.getElementById('periodsPerYear').value, 12)));
+  var odd_days = Math.max(0, safeNum(document.getElementById('oddDays').value, 0));
+  var unit_period_days = Math.max(1, safeNum(document.getElementById('unitPeriodDays').value, 30));
+  var odd_frac = odd_days / unit_period_days;
+  var note_periodic_rate = note_rate_pct / 100 / periods_per_year;
+
+  var compliance_flags = [];
+  var rows = [], ending_balance_cents = principalCents, extra = {}, buydown_subsidy_schedule = null;
+
+  if (schedule_type === 'level_payment'){
+    var pOverride = document.getElementById('paymentAmount').value;
+    var paymentCents = (pOverride !== '' && Number.isFinite(Number(pOverride))) ? toCents(Number(pOverride)) : levelPaymentCents(principalCents, note_periodic_rate, num_payments);
+    var res = amortizeCents(principalCents, note_periodic_rate, paymentCents, num_payments, 0, true);
+    rows = res.rows; ending_balance_cents = res.ending_balance_cents;
+    extra.payment_amount = fromCents(paymentCents);
+  } else if (schedule_type === 'interest_only'){
+    var io_periods = Math.max(0, Math.min(num_payments - 1, Math.round(safeNum(document.getElementById('ioPeriods').value, 0))));
+    var amortizing_periods = num_payments - io_periods;
+    var ioPayCents = amortizing_periods > 0 ? levelPaymentCents(principalCents, note_periodic_rate, amortizing_periods) : principalCents;
+    var res2 = amortizeCents(principalCents, note_periodic_rate, ioPayCents, num_payments, io_periods, true);
+    rows = res2.rows; ending_balance_cents = res2.ending_balance_cents;
+    extra.io_periods = io_periods; extra.amortizing_periods = amortizing_periods; extra.amortizing_payment_amount = fromCents(ioPayCents);
+  } else if (schedule_type === 'balloon'){
+    var nominal = Math.max(num_payments, Math.round(safeNum(document.getElementById('nominalAmortPeriods').value, num_payments)));
+    var balPayCents = levelPaymentCents(principalCents, note_periodic_rate, nominal);
+    var res3 = amortizeCents(principalCents, note_periodic_rate, balPayCents, num_payments, 0, false);
+    rows = res3.rows;
+    var balloonCents = res3.ending_balance_cents;
+    if (rows.length > 0 && balloonCents > 0){
+      var last = rows[rows.length-1];
+      last.principal_cents += balloonCents; last.payment_cents += balloonCents; last.ending_balance_cents = 0;
+    }
+    ending_balance_cents = 0;
+    extra.nominal_amortization_periods = nominal; extra.regular_payment_amount = fromCents(balPayCents); extra.balloon_payment_amount = fromCents(balloonCents);
+  } else if (schedule_type === 'arm'){
+    var opts = {
+      margin_pct: safeNum(document.getElementById('marginPct').value, 0),
+      periodic_cap_pct: safeNum(document.getElementById('periodicCapPct').value, 999),
+      lifetime_cap_pct: safeNum(document.getElementById('lifetimeCapPct').value, 999),
+      lifetime_floor_pct: safeNum(document.getElementById('lifetimeFloorPct').value, -999),
+      recast: document.getElementById('recastOnReset').value === 'true',
+      rate_changes: readArmChanges(),
+    };
+    var armRes = buildArmSchedule(principalCents, note_periodic_rate, num_payments, periods_per_year, note_rate_pct, opts, compliance_flags);
+    rows = armRes.rows; ending_balance_cents = armRes.ending_balance_cents;
+    extra.recast = armRes.recast; extra.rate_reset_log = armRes.rate_reset_log; extra.initial_rate_pct = armRes.initial_rate_pct;
+  } else if (schedule_type === 'temp_buydown'){
+    var notePayCents = levelPaymentCents(principalCents, note_periodic_rate, num_payments);
+    var res4 = amortizeCents(principalCents, note_periodic_rate, notePayCents, num_payments, 0, true);
+    rows = res4.rows; ending_balance_cents = res4.ending_balance_cents;
+    extra.note_payment_amount = fromCents(notePayCents);
+    var buydownType = document.getElementById('buydownType').value;
+    var reductions = buydownReductions(buydownType);
+    buydown_subsidy_schedule = [];
+    for (var k=1;k<=num_payments;k++){
+      var year = Math.ceil(k / periods_per_year);
+      var reduction = reductions[year] || 0;
+      var borrowerPayCents = notePayCents;
+      if (reduction > 0){
+        var reducedRate = Math.max(0, note_rate_pct - reduction) / 100 / periods_per_year;
+        borrowerPayCents = levelPaymentCents(principalCents, reducedRate, num_payments);
+      }
+      var subsidyCents = Math.max(0, notePayCents - borrowerPayCents);
+      buydown_subsidy_schedule.push({ period_index:k, year:year, reduction_pct:reduction, borrower_payment_amount: fromCents(borrowerPayCents), subsidy_amount: fromCents(subsidyCents) });
+    }
+    extra.buydown_type = buydownType;
+  }
+
+  var schedule = rows.map(function(r){
+    return { period_index: r.period_index, periods_from_consummation: r2(odd_frac + r.period_index), payment_amount: fromCents(r.payment_cents), principal: fromCents(r.principal_cents), interest: fromCents(r.interest_cents), ending_balance: fromCents(r.ending_balance_cents) };
+  });
+  var total_interest = r2(rows.reduce(function(s,r){return s+r.interest_cents;},0)/100);
+  var total_principal = r2(rows.reduce(function(s,r){return s+r.principal_cents;},0)/100);
+  var advances = [{ amount: loan_amount, periods_from_consummation: 0 }];
+  var payments = rows.map(function(r){ return { amount: fromCents(r.payment_cents), periods_from_consummation: r2(odd_frac + r.period_index) }; });
+
+  if (Math.abs(fromCents(ending_balance_cents)) > 0.01) compliance_flags.push('SCHEDULE_DID_NOT_FULLY_AMORTIZE');
+  if (rows.length !== num_payments) compliance_flags.push('SCHEDULE_LENGTH_MISMATCH');
+
+  var pp = { schedule_type: schedule_type, loan_amount: loan_amount, note_rate_pct: note_rate_pct, num_payments: num_payments, periods_per_year: periods_per_year };
+  if (odd_days > 0) { pp.odd_days = odd_days; pp.unit_period_days = unit_period_days; }
+  if (schedule_type === 'level_payment' && document.getElementById('paymentAmount').value !== '') pp.payment_amount = Number(document.getElementById('paymentAmount').value);
+  if (schedule_type === 'interest_only') pp.io_periods = extra.io_periods;
+  if (schedule_type === 'balloon') pp.nominal_amortization_periods = extra.nominal_amortization_periods;
+  if (schedule_type === 'arm') {
+    pp.margin_pct = safeNum(document.getElementById('marginPct').value, 0);
+    pp.periodic_cap_pct = safeNum(document.getElementById('periodicCapPct').value, 999);
+    pp.lifetime_cap_pct = safeNum(document.getElementById('lifetimeCapPct').value, 999);
+    pp.lifetime_floor_pct = safeNum(document.getElementById('lifetimeFloorPct').value, -999);
+    pp.recast = document.getElementById('recastOnReset').value === 'true';
+    pp.rate_changes = readArmChanges();
+  }
+  if (schedule_type === 'temp_buydown') pp.buydown_type = document.getElementById('buydownType').value;
+
+  var op = Object.assign({
+    schedule_type: schedule_type, loan_amount: r2(loan_amount), note_rate_pct: r6(note_rate_pct), periods_per_year: periods_per_year,
+    num_payments: rows.length, odd_days: odd_days, unit_period_days: unit_period_days, schedule: schedule,
+    totals: { total_interest: total_interest, total_principal: total_principal, num_payments: rows.length, ending_balance: fromCents(ending_balance_cents) },
+    advances: advances, payments: payments,
+    regulatory_basis: '12 CFR 1026 Appendix J (Reg Z general actuarial equation, unit-period and odd-days conventions). Buydown modeling (temp_buydown) is a schedule-construction convenience, not an Appendix J concept.',
+    note: 'Odd-days fraction shifts periods_from_consummation for the first period per Appendix J unit-period convention; it does not change per-period interest/principal allocation. Feed advances/payments directly into compute_reg_z_appendix_j_apr (art-215) for an actuarial APR on this schedule.',
+  }, extra);
+  if (buydown_subsidy_schedule) op.buydown_subsidy_schedule = buydown_subsidy_schedule;
+
+  sha256Hex(schedule).then(function(digest){
+    op.schedule_digest = 'sha256:' + digest;
+    _lastResult = { pp: pp, output_payload: op, compliance_flags: compliance_flags };
+    renderResults();
+  });
+}
+
+function renderResults(){
+  var pp = _lastResult.pp, op = _lastResult.output_payload;
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+op.num_payments+'</span><span class="stat-key">Payments</span></div>'+
+    '<div class="stat"><span class="stat-val">$'+op.totals.total_interest.toLocaleString()+'</span><span class="stat-key">Total interest</span></div>'+
+    '<div class="stat"><span class="stat-val">$'+op.totals.total_principal.toLocaleString()+'</span><span class="stat-key">Total principal</span></div>'+
+    '<div class="stat"><span class="stat-val">$'+op.totals.ending_balance.toLocaleString()+'</span><span class="stat-key">Ending balance</span></div>';
+
+  document.getElementById('flagRow').innerHTML = _lastResult.compliance_flags.length === 0
+    ? '<span class="badge ok">FULLY AMORTIZED</span>'
+    : _lastResult.compliance_flags.map(function(f){ return '<span class="badge warn">'+f+'</span>'; }).join('');
+
+  var sched = op.schedule;
+  var shown = sched.length <= 9 ? sched : sched.slice(0,6).concat(sched.slice(-3));
+  document.getElementById('scheduleBody').innerHTML = shown.map(function(r){
+    return '<tr><td>'+r.period_index+'</td><td>'+r.periods_from_consummation+'</td><td>$'+r.payment_amount.toFixed(2)+'</td><td>$'+r.principal.toFixed(2)+'</td><td>$'+r.interest.toFixed(2)+'</td><td>$'+r.ending_balance.toFixed(2)+'</td></tr>';
+  }).join('');
+
+  var bdSection = document.getElementById('buydownSection');
+  if (op.buydown_subsidy_schedule){
+    bdSection.style.display = 'block';
+    var bs = op.buydown_subsidy_schedule;
+    var bshown = bs.length <= 9 ? bs : bs.slice(0,6).concat(bs.slice(-3));
+    document.getElementById('buydownBody').innerHTML = bshown.map(function(r){
+      return '<tr><td>'+r.period_index+'</td><td>'+r.year+'</td><td>'+r.reduction_pct+'</td><td>$'+r.borrower_payment_amount.toFixed(2)+'</td><td>$'+r.subsidy_amount.toFixed(2)+'</td></tr>';
+    }).join('');
+  } else { bdSection.style.display = 'none'; }
+
+  document.getElementById('paymentsCountBox').textContent = op.payments.length + ' entries, amount + periods_from_consummation each';
+
+  var kvRows = [
+    ['Schedule type', op.schedule_type],
+    ['Loan amount', '$' + op.loan_amount.toLocaleString()],
+    ['Note rate', op.note_rate_pct + '%'],
+    ['Total interest', '$' + op.totals.total_interest.toLocaleString()],
+    ['Total principal', '$' + op.totals.total_principal.toLocaleString()],
+    ['Ending balance', '$' + op.totals.ending_balance.toLocaleString()],
+    ['Schedule digest', op.schedule_digest],
+  ];
+  if (op.balloon_payment_amount !== undefined) kvRows.push(['Balloon payment', '$' + op.balloon_payment_amount.toLocaleString()]);
+  document.getElementById('kvDiv').innerHTML = kvRows.map(function(x){ return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_mandate', tool_id: 'art-332-build-amortization-schedule', tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser', compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-332-build-amortization-schedule.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function sendToAprSolver(){
+  if (!_lastResult) return;
+  var payload = { fields: { loanAmount: _lastResult.pp.loan_amount, numPayments: _lastResult.output_payload.num_payments, periodsPerYear: _lastResult.output_payload.periods_per_year } };
+  var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  window.open('art-215-reg-z-appendix-j-apr.html#in=' + b64, '_blank');
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+onTypeChange();
+</script>
+</body>
+</html>

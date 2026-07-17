@@ -21,6 +21,6 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** _none (root node)_
+**Consumes:** [Amortization Schedule Builder](./art-332-build-amortization-schedule.md)
 
 **Feeds:** [TRID APR Accuracy Verifier](./art-217-trid-apr-accuracy.md)
