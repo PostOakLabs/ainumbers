@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-223"]
+tags: ["compliance_mandate", "count-224"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-223 tool(s) in this mandate-type group:
+224 tool(s) in this mandate-type group:
 
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
@@ -181,6 +181,7 @@ timestamp: 2026-07-14
 - [NAIC AI Systems Program Readiness Assessment](../tools/art-240-assess-naic-ais-program-readiness.md)
 - [CBPR+ Structured Address Linter](../tools/art-241-cbpr-structured-address-linter.md)
 - [Fedwire Structured Address Linter](../tools/art-349-fedwire-structured-address-linter.md)
+- [Fedwire Payment-File Address Sweep](../tools/art-350-fedwire-address-sweep.md)
 - [pacs.008 Party Completeness Validator](../tools/art-242-pacs008-party-completeness-validator.md)
 - [ISO 20022 Purpose Code Requirement Checker](../tools/art-243-purpose-code-requirement-checker.md)
 - [SWIFT GPI Tracker Lifecycle Simulator](../tools/art-244-gpi-tracker-lifecycle-simulator.md)
