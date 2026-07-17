@@ -1,0 +1,176 @@
+{
+  "tool_id": "art-342-compute-escrow-analysis",
+  "note": "12 CFR 1024.17 aggregate escrow accounting method. All 5 vectors share the same disbursement schedule ($600 insurance in month 3, $1,200 property tax in months 6 and 12 -- $3,000/yr total) and $250/mo escrow payment (= total annual disbursements / 12, a steady-state deposit) so only starting_balance varies across the balanced/shortage/deficiency/surplus branches -- each hand-derived from the trial-balance recurrence balance[m] = balance[m-1] + monthly_escrow_payment - disbursements[m-1], low point at month 6 in every vector. golden_hash filled by golden-parity.test.mjs --update.",
+  "vectors": [
+    {
+      "name": "balanced_no_shortage_no_surplus",
+      "description": "$800 starting balance. Low point ($500 at month 6) lands exactly on the 1/6-of-annual-disbursements cushion target ($500) -- no shortage, no surplus, no deficiency.",
+      "policy_parameters": {
+        "starting_balance": 800,
+        "monthly_escrow_payment": 250,
+        "disbursements": [0, 0, 600, 0, 0, 1200, 0, 0, 0, 0, 0, 1200],
+        "cushion_fraction": 0.16666666666666666
+      },
+      "output_payload": {
+        "trial_balances": [800, 1050, 1300, 950, 1200, 1450, 500, 750, 1000, 1250, 1500, 1750, 800],
+        "low_point_balance": 500,
+        "low_point_month": 6,
+        "total_annual_disbursements": 3000,
+        "cushion_fraction_used": 0.16666666666666666,
+        "cushion_target": 500,
+        "spread_vs_target": 0,
+        "account_status": "balanced",
+        "deficiency_amount": 0,
+        "shortage_amount": 0,
+        "surplus_amount": 0,
+        "monthly_deficiency_spread_amount": 0,
+        "monthly_shortage_spread_amount": 0,
+        "shortage_spread_required": false,
+        "surplus_refund_required": false,
+        "new_monthly_escrow_payment": 250,
+        "starting_balance": 800,
+        "monthly_escrow_payment": 250,
+        "regulatory_basis": "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: (c)/(b) cushion cap (1/6 estimated total annual disbursements); (d) trial running balance; (f)(1) deficiency remedies (30-day demand or spread over at least 2 years); (f)(2) shortage remedies (spread over at least 12 months when the shortage equals or exceeds one month’s escrow payment) and mandatory refund of a surplus of $50 or more within 30 days.",
+        "note": "Deficiency = a negative trial balance at any point in the computation year. Shortage = the low point falls short of the cushion target without going negative. Surplus = the low point exceeds the cushion target. Pairs with test_hpml_escrow (art-235), which determines whether an escrow account was required to be established for a first-lien HPML in the first place (§1026.35(b))."
+      },
+      "compliance_flags": ["ESCROW_ANALYSIS_BALANCED"],
+      "golden_hash": "9f7c3cb53a5edd10b0989e7ead63d326367178d3c37544db0f964af4ae5dfd80"
+    },
+    {
+      "name": "shortage_mandatory_spread",
+      "description": "$500 starting balance. Low point ($200) is $300 below the $500 cushion target without going negative -- a shortage. $300 >= the $250 monthly escrow payment, so §1024.17(f)(2) makes the >=12-month spread mandatory (not just an option); monthly_shortage_spread_amount = $300/12 = $25.",
+      "policy_parameters": {
+        "starting_balance": 500,
+        "monthly_escrow_payment": 250,
+        "disbursements": [0, 0, 600, 0, 0, 1200, 0, 0, 0, 0, 0, 1200],
+        "cushion_fraction": 0.16666666666666666
+      },
+      "output_payload": {
+        "trial_balances": [500, 750, 1000, 650, 900, 1150, 200, 450, 700, 950, 1200, 1450, 500],
+        "low_point_balance": 200,
+        "low_point_month": 6,
+        "total_annual_disbursements": 3000,
+        "cushion_fraction_used": 0.16666666666666666,
+        "cushion_target": 500,
+        "spread_vs_target": -300,
+        "account_status": "shortage",
+        "deficiency_amount": 0,
+        "shortage_amount": 300,
+        "surplus_amount": 0,
+        "monthly_deficiency_spread_amount": 0,
+        "monthly_shortage_spread_amount": 25,
+        "shortage_spread_required": true,
+        "surplus_refund_required": false,
+        "new_monthly_escrow_payment": 250,
+        "starting_balance": 500,
+        "monthly_escrow_payment": 250,
+        "regulatory_basis": "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: (c)/(b) cushion cap (1/6 estimated total annual disbursements); (d) trial running balance; (f)(1) deficiency remedies (30-day demand or spread over at least 2 years); (f)(2) shortage remedies (spread over at least 12 months when the shortage equals or exceeds one month’s escrow payment) and mandatory refund of a surplus of $50 or more within 30 days.",
+        "note": "Deficiency = a negative trial balance at any point in the computation year. Shortage = the low point falls short of the cushion target without going negative. Surplus = the low point exceeds the cushion target. Pairs with test_hpml_escrow (art-235), which determines whether an escrow account was required to be established for a first-lien HPML in the first place (§1026.35(b))."
+      },
+      "compliance_flags": ["ESCROW_SHORTAGE", "ESCROW_SHORTAGE_MANDATORY_SPREAD"],
+      "golden_hash": "518a976a4142b5f08449e385a90484d09dbaf54f4c219ddcba8cac67febbd54e"
+    },
+    {
+      "name": "deficiency_negative_low_point",
+      "description": "$100 starting balance. Trial balance goes negative at month 6 (-$200) -- a deficiency (distinct from a shortage, which never goes below zero). §1024.17(f)(1) options: 30-day demand or spread over at least 24 months; monthly_deficiency_spread_amount = $200/24 = $8.33.",
+      "policy_parameters": {
+        "starting_balance": 100,
+        "monthly_escrow_payment": 250,
+        "disbursements": [0, 0, 600, 0, 0, 1200, 0, 0, 0, 0, 0, 1200],
+        "cushion_fraction": 0.16666666666666666
+      },
+      "output_payload": {
+        "trial_balances": [100, 350, 600, 250, 500, 750, -200, 50, 300, 550, 800, 1050, 100],
+        "low_point_balance": -200,
+        "low_point_month": 6,
+        "total_annual_disbursements": 3000,
+        "cushion_fraction_used": 0.16666666666666666,
+        "cushion_target": 500,
+        "spread_vs_target": -700,
+        "account_status": "deficiency",
+        "deficiency_amount": 200,
+        "shortage_amount": 0,
+        "surplus_amount": 0,
+        "monthly_deficiency_spread_amount": 8.33,
+        "monthly_shortage_spread_amount": 0,
+        "shortage_spread_required": false,
+        "surplus_refund_required": false,
+        "new_monthly_escrow_payment": 250,
+        "starting_balance": 100,
+        "monthly_escrow_payment": 250,
+        "regulatory_basis": "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: (c)/(b) cushion cap (1/6 estimated total annual disbursements); (d) trial running balance; (f)(1) deficiency remedies (30-day demand or spread over at least 2 years); (f)(2) shortage remedies (spread over at least 12 months when the shortage equals or exceeds one month’s escrow payment) and mandatory refund of a surplus of $50 or more within 30 days.",
+        "note": "Deficiency = a negative trial balance at any point in the computation year. Shortage = the low point falls short of the cushion target without going negative. Surplus = the low point exceeds the cushion target. Pairs with test_hpml_escrow (art-235), which determines whether an escrow account was required to be established for a first-lien HPML in the first place (§1026.35(b))."
+      },
+      "compliance_flags": ["ESCROW_DEFICIENCY"],
+      "golden_hash": "768316a86c068169814ca2c3fc1b85b4a2f2352a4c554166b768419e183215d2"
+    },
+    {
+      "name": "surplus_refund_required",
+      "description": "$1,500 starting balance. Low point ($1,200) exceeds the $500 cushion target by $700 -- a surplus of $50 or more, so §1024.17(f)(2) makes a refund within 30 days mandatory.",
+      "policy_parameters": {
+        "starting_balance": 1500,
+        "monthly_escrow_payment": 250,
+        "disbursements": [0, 0, 600, 0, 0, 1200, 0, 0, 0, 0, 0, 1200],
+        "cushion_fraction": 0.16666666666666666
+      },
+      "output_payload": {
+        "trial_balances": [1500, 1750, 2000, 1650, 1900, 2150, 1200, 1450, 1700, 1950, 2200, 2450, 1500],
+        "low_point_balance": 1200,
+        "low_point_month": 6,
+        "total_annual_disbursements": 3000,
+        "cushion_fraction_used": 0.16666666666666666,
+        "cushion_target": 500,
+        "spread_vs_target": 700,
+        "account_status": "surplus",
+        "deficiency_amount": 0,
+        "shortage_amount": 0,
+        "surplus_amount": 700,
+        "monthly_deficiency_spread_amount": 0,
+        "monthly_shortage_spread_amount": 0,
+        "shortage_spread_required": false,
+        "surplus_refund_required": true,
+        "new_monthly_escrow_payment": 250,
+        "starting_balance": 1500,
+        "monthly_escrow_payment": 250,
+        "regulatory_basis": "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: (c)/(b) cushion cap (1/6 estimated total annual disbursements); (d) trial running balance; (f)(1) deficiency remedies (30-day demand or spread over at least 2 years); (f)(2) shortage remedies (spread over at least 12 months when the shortage equals or exceeds one month’s escrow payment) and mandatory refund of a surplus of $50 or more within 30 days.",
+        "note": "Deficiency = a negative trial balance at any point in the computation year. Shortage = the low point falls short of the cushion target without going negative. Surplus = the low point exceeds the cushion target. Pairs with test_hpml_escrow (art-235), which determines whether an escrow account was required to be established for a first-lien HPML in the first place (§1026.35(b))."
+      },
+      "compliance_flags": ["ESCROW_SURPLUS", "ESCROW_SURPLUS_REFUND_REQUIRED"],
+      "golden_hash": "343ab5b71f9bdf325c9e915da3a7f9736bbd891b9932b666917b3ce4bec81570"
+    },
+    {
+      "name": "surplus_below_refund_threshold",
+      "description": "$830 starting balance. Low point ($530) exceeds the $500 cushion target by only $30 -- a surplus under the $50 mandatory-refund floor, so the servicer may either refund it or credit it against next year's payments.",
+      "policy_parameters": {
+        "starting_balance": 830,
+        "monthly_escrow_payment": 250,
+        "disbursements": [0, 0, 600, 0, 0, 1200, 0, 0, 0, 0, 0, 1200],
+        "cushion_fraction": 0.16666666666666666
+      },
+      "output_payload": {
+        "trial_balances": [830, 1080, 1330, 980, 1230, 1480, 530, 780, 1030, 1280, 1530, 1780, 830],
+        "low_point_balance": 530,
+        "low_point_month": 6,
+        "total_annual_disbursements": 3000,
+        "cushion_fraction_used": 0.16666666666666666,
+        "cushion_target": 500,
+        "spread_vs_target": 30,
+        "account_status": "surplus",
+        "deficiency_amount": 0,
+        "shortage_amount": 0,
+        "surplus_amount": 30,
+        "monthly_deficiency_spread_amount": 0,
+        "monthly_shortage_spread_amount": 0,
+        "shortage_spread_required": false,
+        "surplus_refund_required": false,
+        "new_monthly_escrow_payment": 250,
+        "starting_balance": 830,
+        "monthly_escrow_payment": 250,
+        "regulatory_basis": "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: (c)/(b) cushion cap (1/6 estimated total annual disbursements); (d) trial running balance; (f)(1) deficiency remedies (30-day demand or spread over at least 2 years); (f)(2) shortage remedies (spread over at least 12 months when the shortage equals or exceeds one month’s escrow payment) and mandatory refund of a surplus of $50 or more within 30 days.",
+        "note": "Deficiency = a negative trial balance at any point in the computation year. Shortage = the low point falls short of the cushion target without going negative. Surplus = the low point exceeds the cushion target. Pairs with test_hpml_escrow (art-235), which determines whether an escrow account was required to be established for a first-lien HPML in the first place (§1026.35(b))."
+      },
+      "compliance_flags": ["ESCROW_SURPLUS", "ESCROW_SURPLUS_BELOW_REFUND_THRESHOLD"],
+      "golden_hash": "8ce2a1a3b1e411c4bffa669bc017e89d8562af2a2eb8bdff25e2cf1ace34df68"
+    }
+  ]
+}
