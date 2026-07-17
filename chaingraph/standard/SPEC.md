@@ -1281,6 +1281,37 @@ class-appropriate property (byte-exact for `bit-exact`, finite + idempotent for 
 Attribution: **FrankenSim** determinism-class idea — IDEAS ONLY, same license caveat as §21.5. Modeled alongside
 the W3C WebAssembly Deterministic Profile framing already cited in §24.
 
+**§24.6.1 quantization_parity sub-declaration (NORMATIVE, OPTIONAL — new in v0.8.8, ZKML-GUEST-1-BUILD-SPEC.md
+§ZG-3).** A `bit-exact` kernel that performs pure-integer inference over a statically quantized model MAY attach
+a hash-excluded top-level `quantization_parity` object declaring the float-reference-vs-quantized agreement rate
+the quantization achieved over a committed, frozen held-out test-vector set:
+
+```json
+"quantization_parity": {
+  "quant_method": "static-linear", "bits": 8,
+  "scale": 0.018568686683702897, "zero_point": 0, "granularity": "per-tensor",
+  "reference_model_digest": "sha256:...",
+  "test_vectors_digest": "sha256:...",
+  "n_vectors": 1000,
+  "agreement": {"metric": "top1-match", "value": 0.998}
+}
+```
+
+Field names align ONNX `QuantizeLinear` (`scale`/`zero_point`/per-tensor granularity) and the HuggingFace
+`quantization_config` convention; there is no prior-art receipt-vocabulary standard for this block, per
+2026-07-16 research. The declaration is metadata about the OFFLINE quantization step, never a claim
+`compute()` itself makes: the kernel's integer arithmetic stays 100% deterministic and the float
+`scale`/agreement figures are recorded, never evaluated, inside `compute()`.
+
+Same §24.6 doctrine applies — **TESTED, not merely asserted.** `quantization-parity.test.mjs` re-runs the
+kernel's `compute()` over the committed `n_vectors`-row test-vector set, reproduces the vector set's own
+recorded `quantized_prediction` for every row (kernel-fidelity check), independently recomputes the top1
+`agreement.value` from scratch, and fails the kernel if the recomputed value does not match the declared one
+(declared-agreement drift, e.g. a stale figure left after a kernel edit). This is an extension of the existing
+§24.6 gate suite, run against the SAME committed vector set ZG-1's offline generator produced
+(`fixtures/<tool_id>.test-vectors.json`) — no new hash, no `chaingraph_version` bump, no envelope change; a
+kernel with no `quantization_parity` block is unaffected and fully conformant.
+
 ## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
 §18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
 place of cleartext, §4 recompute becomes unavailable to third parties, and the receipt is the sole verification
@@ -1553,7 +1584,9 @@ hash-excluded `claim_strength = min(step strengths)` weakest-link composite on �
 success side, PIN AR4SI -10), §22.10 (§ATTEN-1: Biscuit offline attenuation-block chaining for multi-hop
 mandates, construction-only and never the Datalog runtime, widening structurally impossible), §24.6
 (§DETCLASS-1: per-kernel `bit-exact`/`replayable`/`estimated` declaration TESTED by the re-bound §4
-parity/finite gates). Riders: DSSE v1.0 PAE named for in-toto / VSA exports (§13), an advisory §16 SHOULD to
+parity/finite gates), §24.6.1 (the `quantization_parity` sub-declaration for statically-quantized
+integer-inference kernels, TESTED by the new `quantization-parity.test.mjs`, ZKML-GUEST-1-BUILD-SPEC.md
+§ZG-3). Riders: DSSE v1.0 PAE named for in-toto / VSA exports (§13), an advisory §16 SHOULD to
 transparency-log long-lived signer keys (KEYTRANS / Sigsum), and the Bao / BLAKE3 §SIDECAR.4 verified-streaming
 note GATED pending a ≥ 1 MB median measurement. All additive: no envelope/hash/schema change,
 `chaingraph_version` stays `0.4.0`, every existing `execution_hash` is byte-identical, and every new normative
