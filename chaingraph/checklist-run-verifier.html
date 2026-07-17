@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Checklist Run Verifier, OpenChainGraph, AINumbers</title>
+<meta name="description" content="Paste a checklist run bundle and check every step receipt's hash chain and the run's Merkle root. A tampered step is named exactly, offline, client-side.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/checklist-run-verifier.html">
+<meta property="og:title" content="Checklist Run Verifier, AINumbers">
+<meta property="og:description" content="Verify a checklist run's hash chain and Merkle root offline, client-side.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.85rem; line-height:1.6; -webkit-font-smoothing:antialiased; }
+a { color:inherit; text-decoration:none; }
+
+nav { position:sticky; top:0; z-index:100; background:rgba(8,14,26,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:1440px; margin:0 auto; display:flex; align-items:center; gap:16px; padding:0 24px; height:58px; }
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.nav-breadcrumb { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.nav-breadcrumb a { color:var(--body); transition:color .15s; }
+.nav-breadcrumb a:hover { color:var(--teal); }
+.nav-breadcrumb-sep { color:var(--muted); }
+.nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
+.nav-pill { background:none; border:1px solid var(--border-2); border-radius:var(--radius); color:var(--body); font-size:.65rem; padding:.3rem .75rem; font-family:'JetBrains Mono',monospace; letter-spacing:.04em; transition:border-color .15s,color .15s; display:inline-block; }
+.nav-pill:hover { border-color:var(--text); color:var(--text); }
+.nav-cta { background:var(--gold); color:#080E1A; border:none; border-radius:var(--radius); font-size:.65rem; font-family:'JetBrains Mono',monospace; font-weight:600; letter-spacing:.06em; padding:.35rem .85rem; display:inline-block; transition:opacity .15s; }
+.nav-cta:hover { opacity:.85; }
+
+.page-inner { max-width:900px; margin:0 auto; padding:40px 24px 80px; }
+
+.hero-eyebrow { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.hero-title { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--white); margin-bottom:10px; }
+.hero-sub { font-size:.82rem; color:var(--body); line-height:1.75; max-width:660px; margin-bottom:24px; }
+.pii-notice { background:var(--teal-dim); border:1px solid rgba(20,184,166,.3); border-radius:var(--radius); padding:10px 14px; font-size:.72rem; color:var(--text); margin-bottom:20px; }
+
+.card { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; margin-bottom:16px; }
+.card-label { font-family:'JetBrains Mono',monospace; font-size:.48rem; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); margin-bottom:14px; }
+
+textarea { width:100%; background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); color:var(--text); font-family:'JetBrains Mono',monospace; font-size:.72rem; line-height:1.6; padding:12px 14px; resize:vertical; min-height:200px; outline:none; }
+textarea:focus { border-color:rgba(20,184,166,.5); }
+
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.btn { font-family:'JetBrains Mono',monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; padding:.5rem 1.1rem; border-radius:var(--radius); border:1px solid; cursor:pointer; transition:all .15s; background:transparent; }
+.btn-primary { background:var(--teal); color:var(--bg); border-color:var(--teal); }
+.btn-primary:hover { opacity:.85; }
+.btn-ghost { color:var(--body); border-color:var(--border-2); }
+.btn-ghost:hover { border-color:var(--teal); color:var(--teal-lt); }
+
+.error-box { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); border-radius:var(--radius-lg); padding:14px 18px; font-size:.76rem; color:var(--red); display:none; margin-bottom:16px; white-space:pre-wrap; }
+
+#result { display:none; }
+.result-banner { border-radius:var(--radius-lg); padding:18px 22px; margin-bottom:16px; display:flex; align-items:center; gap:14px; }
+.result-banner.pass { background:var(--green-dim); border:1px solid rgba(34,197,94,.3); }
+.result-banner.fail { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); }
+.result-icon { font-size:1.4rem; flex-shrink:0; }
+.result-status { font-family:'DM Serif Display',serif; font-size:1.2rem; }
+.result-banner.pass .result-status { color:var(--green); }
+.result-banner.fail .result-status { color:var(--red); }
+.result-detail { font-size:.75rem; color:var(--body); margin-top:3px; }
+
+.step-check { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--radius); margin-bottom:6px; font-size:.75rem; }
+.step-check.ok { background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); }
+.step-check.bad { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.35); }
+.step-check .mark { font-weight:700; }
+.step-check.ok .mark { color:var(--green); }
+.step-check.bad .mark { color:var(--red); }
+.step-check .detail { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:.62rem; }
+
+.merkle-row { font-family:'JetBrains Mono',monospace; font-size:.68rem; word-break:break-all; margin-bottom:6px; }
+.merkle-row .lbl { color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-size:.58rem; display:block; margin-bottom:2px; }
+.merkle-row .val.mismatch { color:var(--red); }
+.merkle-row .val { color:var(--teal-lt); }
+
+footer { border-top:1px solid var(--border); background:var(--bg-2); padding:24px 0; }
+.footer-inner { max-width:1440px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.footer-brand { font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:500; color:var(--bright); }
+.footer-cc { font-size:.65rem; color:var(--muted); margin-top:4px; }
+.footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+.footer-links a { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--body); transition:color .15s; }
+.footer-links a:hover { color:var(--teal); }
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="chaingraph-hub.html">OpenChainGraph</a>
+      <span class="nav-breadcrumb-sep">/</span>
+      <span style="color:var(--bright)">Run Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="checklist-definition-builder.html" class="nav-pill">Definition Builder</a>
+      <a href="checklist-run-executor.html" class="nav-pill">Run Executor</a>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="hero-eyebrow">OpenChainGraph · Checklist / SOP Runner</div>
+  <h1 class="hero-title">Checklist Run Verifier</h1>
+  <p class="hero-sub">Paste a run bundle exported by the Run Executor. This recomputes every step receipt's execution hash, checks the hash chain step by step, and rebuilds the Merkle root over the whole run. Any single altered field, in any single step, is named exactly.</p>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="card-label">Run bundle JSON</div>
+    <textarea id="bundleInput" placeholder="Paste a checklist run bundle (definition + step_receipts + run_receipt)."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runVerify()">Verify</button>
+      <button class="btn btn-ghost" onclick="pasteClean()">Paste clean example</button>
+      <button class="btn btn-ghost" onclick="pasteTampered()">Paste tampered example</button>
+      <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div id="result">
+    <div class="result-banner" id="resultBanner">
+      <div class="result-icon" id="resultIcon"></div>
+      <div>
+        <div class="result-status" id="resultStatus"></div>
+        <div class="result-detail" id="resultDetail"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Step-by-step chain check</div>
+      <div id="stepChecks"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Merkle root (§20.1)</div>
+      <div class="merkle-row"><span class="lbl">Stored merkle_root</span><span class="val" id="storedRoot"></span></div>
+      <div class="merkle-row"><span class="lbl">Recomputed (this browser)</span><span class="val" id="computedRoot"></span></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+      <div class="footer-cc">CC BY 4.0 · Post Oak Labs · Deterministic, client-side fintech tools</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a>
+      <a href="checklist-definition-builder.html">Definition Builder</a>
+      <a href="checklist-run-executor.html">Run Executor</a>
+      <a href="checklist-fixtures.html">Fixture library</a>
+      <a href="verify.html">Artifact Verifier</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   OCG CANONICALIZATION + HASH + §20.1 MERKLE — inlined, same
+   clean-room constructions as the Builder / Executor / _checklist.mjs.
+   ───────────────────────────────────────────────────────────────── */
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53 — not safe I-JSON.');
+  } else if (Array.isArray(v)) { v.forEach(assertIJson); }
+  else if (v && typeof v === 'object') { for (const k of Object.keys(v)) assertIJson(v[k]); }
+}
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  return v;
+}
+async function executionHash(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function leafHash(h) { return sha256Hex('leaf:' + String(h ?? '')); }
+async function combineNodes(l, r) { return sha256Hex('node:' + l + ':' + r); }
+async function merkleRoot(hashes) {
+  const n = hashes.length;
+  if (n === 0) return sha256Hex('');
+  if (n === 1) return leafHash(hashes[0]);
+  let k = 1; while (k * 2 < n) k *= 2;
+  const left = await merkleRoot(hashes.slice(0, k));
+  const right = await merkleRoot(hashes.slice(k));
+  return combineNodes(left, right);
+}
+
+async function verifyRun(runReceipt, stepReceipts) {
+  const stepResults = [];
+  let brokenAt = null, prevHash = null;
+  for (let i = 0; i < stepReceipts.length; i++) {
+    const r = stepReceipts[i];
+    const recomputed = await executionHash(r.policy_parameters, r.output_payload);
+    const hashOk = recomputed === r.execution_hash;
+    const linkOk = i === 0 ? (r.policy_parameters.prev_step_receipt_digest == null) : (r.policy_parameters.prev_step_receipt_digest === prevHash);
+    const ok = hashOk && linkOk;
+    if (!ok && brokenAt === null) brokenAt = i;
+    stepResults.push({ index: i, step_id: r.policy_parameters.step_id, hash_ok: hashOk, link_ok: linkOk, ok, recomputed_hash: recomputed, stored_hash: r.execution_hash });
+    prevHash = r.execution_hash;
+  }
+  const leaves = stepReceipts.map(r => r.execution_hash);
+  const recomputedRoot = await merkleRoot(leaves);
+  const storedRoot = runReceipt && runReceipt.output_payload ? runReceipt.output_payload.merkle_root : null;
+  const merkleOk = recomputedRoot === storedRoot;
+  const runRecomputed = runReceipt ? await executionHash(runReceipt.policy_parameters, runReceipt.output_payload) : null;
+  const runHashOk = runReceipt ? runRecomputed === runReceipt.execution_hash : false;
+  const chainOk = stepResults.every(s => s.ok);
+  return { valid: chainOk && merkleOk && runHashOk, chain_ok: chainOk, merkle_ok: merkleOk, run_hash_ok: runHashOk, broken_at: brokenAt, recomputed_root: recomputedRoot, stored_root: storedRoot, steps: stepResults };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VERIFY UI
+   ───────────────────────────────────────────────────────────────── */
+async function runVerify() {
+  hideError(); hideResult();
+  const raw = document.getElementById('bundleInput').value.trim();
+  if (!raw) { showError('Paste a run bundle first.'); return; }
+  let bundle;
+  try { bundle = JSON.parse(raw); } catch (e) { showError('JSON parse error: ' + e.message); return; }
+  const stepReceipts = bundle.step_receipts;
+  const runReceipt = bundle.run_receipt;
+  if (!Array.isArray(stepReceipts) || stepReceipts.length === 0) { showError('Bundle is missing step_receipts[].'); return; }
+  if (!runReceipt) { showError('Bundle is missing run_receipt.'); return; }
+
+  let result;
+  try { result = await verifyRun(runReceipt, stepReceipts); }
+  catch (e) { showError('Verification failed to run: ' + e.message); return; }
+
+  const banner = document.getElementById('resultBanner');
+  banner.className = 'result-banner ' + (result.valid ? 'pass' : 'fail');
+  document.getElementById('resultIcon').textContent = result.valid ? '✓' : '✗';
+  document.getElementById('resultStatus').textContent = result.valid ? 'Run verified' : 'Chain broken';
+  document.getElementById('resultDetail').textContent = result.valid
+    ? ('All ' + stepReceipts.length + ' step receipts chain correctly and the Merkle root matches.')
+    : (result.broken_at !== null
+        ? ('Step ' + (result.broken_at + 1) + ' (' + stepReceipts[result.broken_at].policy_parameters.step_id + ') is the first broken link.')
+        : 'The run receipt or Merkle root does not match the step receipts.');
+
+  document.getElementById('stepChecks').innerHTML = result.steps.map(s =>
+    '<div class="step-check ' + (s.ok ? 'ok' : 'bad') + '"><span class="mark">' + (s.ok ? '✓' : '✗') + '</span>' +
+    '<div><div>Step ' + (s.index + 1) + ' · ' + s.step_id + (s.ok ? '' : (!s.hash_ok ? ' — execution_hash mismatch (evidence or payload changed)' : ' — chain link broken (prev_step_receipt_digest does not match the prior step)')) + '</div>' +
+    '<div class="detail">stored: ' + s.stored_hash + '<br>recomputed: ' + s.recomputed_hash + '</div></div></div>'
+  ).join('');
+
+  document.getElementById('storedRoot').textContent = result.stored_root || '(missing)';
+  const computedEl = document.getElementById('computedRoot');
+  computedEl.textContent = result.recomputed_root;
+  computedEl.className = 'val' + (result.merkle_ok ? '' : ' mismatch');
+
+  document.getElementById('result').style.display = 'block';
+}
+
+function showError(msg) { const el = document.getElementById('errorBox'); el.textContent = msg; el.style.display = 'block'; }
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function hideResult() { document.getElementById('result').style.display = 'none'; }
+function clearAll() { document.getElementById('bundleInput').value = ''; hideError(); hideResult(); }
+
+function cleanExampleObj() {
+  return {
+    checklist_run_bundle: true, chaingraph_version: '0.4.0',
+    definition: { definition_id: 'ckl-fixture-permit-to-work', title: 'Permit-to-Work Ops Check (fixture)', version: '1.0.0' },
+    step_receipts: window.__ckl_example_receipts,
+    run_receipt: window.__ckl_example_run,
+  };
+}
+async function buildExample() {
+  const steps = [
+    { step_id: 's1', title: 'Isolate energy source', gate: 'blocking', evidence_requirement: 'text' },
+    { step_id: 's2', title: 'Confirm zero energy state', gate: 'blocking', evidence_requirement: 'text' },
+    { step_id: 's3', title: 'Log completion', gate: 'advisory', evidence_requirement: 'none' },
+  ];
+  const defDigest = await sha256Hex('ckl-fixture-permit-to-work:1.0.0');
+  const receipts = [];
+  let prev = null;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const evidence = step.evidence_requirement === 'none' ? null : { text_digest: await sha256Hex('fixture-evidence-' + i) };
+    const policy_parameters = { definition_digest: defDigest, step_id: step.step_id, step_index: i, completer_key: 'operator', timestamp: '2026-07-16T10:0' + i + ':00.000Z', evidence, prev_step_receipt_digest: prev };
+    const output_payload = { step_title: step.title, gate: step.gate, evidence_requirement: step.evidence_requirement, evidence_provided: step.evidence_requirement === 'none' ? true : !!evidence };
+    const execution_hash = await executionHash(policy_parameters, output_payload);
+    const receipt = { '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld', chaingraph_version: '0.4.0', mandate_type: 'compliance_control', tool_id: 'checkrun-step-receipt', tool_version: '1.0.0', generated_at: policy_parameters.timestamp, execution_hash, chain: { parent_hashes: prev ? [prev] : [], parent_tool_ids: prev ? ['checkrun-step-receipt'] : [], chain_depth: i }, policy_parameters, output_payload, compliance_flags: [step.gate === 'blocking' ? 'CHECKRUN_BLOCKING_GATE' : 'CHECKRUN_ADVISORY_GATE'], compute_mode: 'client', audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+    receipts.push(receipt); prev = execution_hash;
+  }
+  const merkle_root = await merkleRoot(receipts.map(r => r.execution_hash));
+  const runPolicy = { definition_digest: defDigest, run_id: 'run-fixture-1', started_at: '2026-07-16T10:00:00.000Z', completed_at: '2026-07-16T10:05:00.000Z', outcome: 'complete', step_count: receipts.length };
+  const runOutput = { merkle_root, merkle_algorithm: 'rfc6962', steps: receipts.map((r, i) => ({ step_id: r.policy_parameters.step_id, index: i, execution_hash: r.execution_hash })), outcome: 'complete', escalation: null };
+  const run_execution_hash = await executionHash(runPolicy, runOutput);
+  const run = { '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld', chaingraph_version: '0.4.0', mandate_type: 'compliance_control', tool_id: 'checkrun-run-receipt', tool_version: '1.0.0', generated_at: runPolicy.completed_at, execution_hash: run_execution_hash, chain: { parent_hashes: receipts.map(r => r.execution_hash), parent_tool_ids: receipts.map(() => 'checkrun-step-receipt'), chain_depth: receipts.length }, policy_parameters: runPolicy, output_payload: runOutput, compliance_flags: ['CHECKRUN_COMPLETE'], compute_mode: 'client', audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+  window.__ckl_example_receipts = receipts; window.__ckl_example_run = run;
+}
+async function pasteClean() {
+  await buildExample();
+  document.getElementById('bundleInput').value = JSON.stringify(cleanExampleObj(), null, 2);
+  hideError(); hideResult();
+}
+async function pasteTampered() {
+  await buildExample();
+  const bundle = cleanExampleObj();
+  // Tamper step 2's evidence after the fact — the stored execution_hash no
+  // longer matches what a recompute over the (now-altered) policy_parameters produces.
+  bundle.step_receipts = bundle.step_receipts.map(r => JSON.parse(JSON.stringify(r)));
+  bundle.step_receipts[1].policy_parameters.evidence = { text_digest: 'sha256:TAMPERED-AFTER-THE-FACT' };
+  document.getElementById('bundleInput').value = JSON.stringify(bundle, null, 2);
+  hideError(); hideResult();
+}
+
+const MANIFEST = {
+  tool_id: 'checklist-run-verifier',
+  version: '1.0.0',
+  title: 'Checklist Run Verifier',
+  description: 'Recomputes and checks a checklist run bundle offline: per-step execution_hash, the hash chain between steps, and the §20.1 Merkle root over the whole run. Names the exact broken step on tamper.',
+  category: 'chaingraph',
+  tags: ['OpenChainGraph','checklist','verification','Merkle','audit-trail'],
+  chaingraph: false,
+  prefill: false
+};
+</script>
+</body>
+</html>
