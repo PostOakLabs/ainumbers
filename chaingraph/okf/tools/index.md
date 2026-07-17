@@ -279,6 +279,7 @@ timestamp: 2026-07-14
 - [Bond Convexity](./art-331-tvm-convexity.md) — `compute_convexity`
 - [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md) — `run_tempo_fit_diagnostic`
 - [Quantized Credit Model Scorer](./art-348-score-credit-model-quantized.md) — `score_credit_model_quantized`
+- [Fedwire Structured Address Linter](./art-349-fedwire-structured-address-linter.md) — `lint_fedwire_structured_address`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
