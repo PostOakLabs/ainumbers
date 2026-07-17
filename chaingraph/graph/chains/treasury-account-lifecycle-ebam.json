@@ -1,0 +1,35 @@
+{
+      "name": "treasury-account-lifecycle-ebam",
+      "domain": "Corporate Treasury & FX",
+      "title": "Treasury Account Lifecycle (eBAM)",
+      "spec_version": "0.8.0",
+      "wave": 44,
+      "description": "Gated two-step chain for TMS account lifecycle straight-through processing. Step 1 validates the CGI-MP eBAM 2023 acmt state machine (acmt.007/010/011/017/019) and detects orphan messages. Gate on /acmt_state: OPENING_CONFIRMED -> Step 2 (IHB interest pool onboarding for the new account). All other states (CLOSURE_CONFIRMED, MODIFICATION_CONFIRMED, PENDING, INVALID) -> END. Automates TMS account lifecycle STP with automatic pool interest setup for newly confirmed accounts. ZERO PII BY CONSTRUCTION.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/treasury-account-lifecycle-ebam.html",
+      "regulatory_refs": [
+        "CGI-MP eBAM Usage Guide 2023 (acmt message types)",
+        "ISO 20022 acmt.007/010/011/017/019 message schemas",
+        "OECD Transfer Pricing Guidelines 2022 Chapter X (IHB pool interest)"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-262-validate-ebam-acmt-flow",
+          "handoff": "CGI-MP eBAM 2023 acmt state machine validation. Orphan detection. Emits acmt_state (OPENING_CONFIRMED/CLOSURE_CONFIRMED/MODIFICATION_CONFIRMED/PENDING/INVALID). GATE: OPENING_CONFIRMED -> art-260. All others -> END.",
+          "gate": {
+            "input": "/acmt_state",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "OPENING_CONFIRMED",
+                "next": "art-260-allocate-ihb-interest"
+              }
+            ],
+            "default": "end"
+          }
+        },
+        {
+          "tool_id": "art-260-allocate-ihb-interest",
+          "handoff": "IHB pool interest allocation for newly confirmed account. OECD TP arm's-length rate, ACT/360. Per-member interest schedule. Only reached for OPENING_CONFIRMED accounts entering the notional pool. Final stage."
+        }
+      ]
+    }

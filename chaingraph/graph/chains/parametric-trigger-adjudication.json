@@ -1,0 +1,37 @@
+{
+      "name": "parametric-trigger-adjudication",
+      "domain": "Insurance & Reinsurance",
+      "title": "Parametric Trigger Adjudication",
+      "spec_version": "0.8.0",
+      "wave": 43,
+      "description": "Gated two-step chain for parametric insurance trigger adjudication and cat bond term validation. Step 1 evaluates the parametric trigger (threshold / tiered / linear_index) and emits trigger_hit and payout_amount. Gate on /trigger_hit: if false (trigger not fired), the chain ends -- no payout, no bond validation needed. If true (default), Step 2 validates the cat bond trigger terms (attachment/exhaustion ordering, pro-rata arithmetic, layer position). Outputs a tamper-evident trigger receipt anchored at anchor.ainumbers.co/mcp for neutral dispute adjudication per IAIS ICP 19. ZERO PII BY CONSTRUCTION.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/parametric-trigger-adjudication.html",
+      "regulatory_refs": [
+        "ISO 11116:2023 (parametric insurance trigger methodology)",
+        "ISDA/IAIS cat bond trigger definitions",
+        "Swiss Re sigma 1/2024 (cat bond trigger types)",
+        "IAIS ICP 19 (claims handling, neutral adjudication)",
+        "NAIC catastrophe bond guidelines"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-251-compute-parametric-trigger-payout",
+          "handoff": "Trigger evaluation result including trigger_hit boolean, payout_amount, trigger_fraction, and trigger_receipt. Gate on /trigger_hit: false exits -- no payout triggered. Default (true): proceed to cat bond term validation.",
+          "gate": {
+            "input": "/trigger_hit",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-252-validate-cat-bond-trigger-terms"
+          }
+        },
+        {
+          "tool_id": "art-252-validate-cat-bond-trigger-terms",
+          "handoff": "Cat bond layer position (BELOW_ATTACHMENT / WITHIN_LAYER / ABOVE_EXHAUSTION), pro-rata factor, and payout_amount. Final stage -- anchor both execution_hashes for a two-node trigger receipt."
+        }
+      ]
+    }

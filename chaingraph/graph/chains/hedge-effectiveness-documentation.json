@@ -1,0 +1,35 @@
+{
+      "name": "hedge-effectiveness-documentation",
+      "domain": "Corporate Treasury & FX",
+      "title": "Hedge Effectiveness Documentation",
+      "spec_version": "0.8.0",
+      "wave": 44,
+      "description": "Gated two-step chain for ASC 815 hedge accounting designation. Step 1 applies the dollar-offset test (80-125%) and OLS R-squared regression (>=0.8) for retrospective effectiveness. Gate on /is_effective: if false (INEFFECTIVE), the chain ends -- hedge accounting not permitted. Default (true, EFFECTIVE): Step 2 scores AFP 2024 cash-flow forecast accuracy for prospective effectiveness documentation required by ASC 815-20-35. ZERO PII BY CONSTRUCTION.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/hedge-effectiveness-documentation.html",
+      "regulatory_refs": [
+        "ASC 815-20-35 (FASB Codification, hedge effectiveness assessment)",
+        "ASC 815-20-25 (formal hedge documentation requirements)",
+        "AFP Cash Forecasting Survey 2024 (prospective effectiveness benchmarks)"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-261-test-hedge-effectiveness",
+          "handoff": "ASC 815 dollar-offset ratio (80-125%) + OLS R-squared (>=0.8). Emits is_effective (bool), offset_ratio_pct, r_squared, compliance_flags. GATE: is_effective=false -> END (INEFFECTIVE). Default -> Step 2.",
+          "gate": {
+            "input": "/is_effective",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-263-score-cash-forecast-accuracy"
+          }
+        },
+        {
+          "tool_id": "art-263-score-cash-forecast-accuracy",
+          "handoff": "AFP 2024 MAPE/bias scoring of hedged cash-flow forecasts for prospective effectiveness evidence. Returns accuracy_tier and by_horizon breakdown. Final stage."
+        }
+      ]
+    }

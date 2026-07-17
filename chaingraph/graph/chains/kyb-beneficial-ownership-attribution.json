@@ -1,0 +1,35 @@
+{
+      "name": "kyb-beneficial-ownership-attribution",
+      "domain": "SME & Commercial Finance",
+      "title": "KYB Beneficial Ownership Attribution",
+      "spec_version": "0.8.0",
+      "wave": 45,
+      "description": "Gated two-step bank KYB chain under FinCEN CDD Rule 31 CFR 1010.230. Step 1 computes indirect natural-person beneficial ownership via recursive ownership-tier multiplication (25% threshold). Gate on /is_beneficial_owner: false exits early (no beneficial owner at or above 25%). Default (true, beneficial owner identified) proceeds to Step 2: W-8 series structural validation for withholding compliance. NOT the CTA/BOI domestic reporting rule. Synthetic entity IDs only. Zero PII by construction.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/kyb-beneficial-ownership-attribution.html",
+      "regulatory_refs": [
+        "FinCEN CDD Rule 31 CFR 1010.230 (Customer Due Diligence -- Beneficial Ownership of Legal Entity Customers)",
+        "Treas. Reg. 1.1441-1(e)(4)(ii) (W-8 series 3-year validity window)",
+        "IRS Pub 901 (treaty dividend rates by country)"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-268-compute-cdd-ownership-25pct",
+          "handoff": "Recursive ownership: is_beneficial_owner (bool), total_indirect_pct, natural_person_breakdown. GATE: is_beneficial_owner=false -> END (no BO at 25%). Default (true) -> Step 2.",
+          "gate": {
+            "input": "/is_beneficial_owner",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-269-validate-w8-series-structural"
+          }
+        },
+        {
+          "tool_id": "art-269-validate-w8-series-structural",
+          "handoff": "W-8 structural checks: is_structurally_valid (bool), violations[], validity_expiry_date, days_until_expiry. Final stage."
+        }
+      ]
+    }

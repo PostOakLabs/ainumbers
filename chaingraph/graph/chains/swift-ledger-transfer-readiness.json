@@ -1,0 +1,47 @@
+{
+      "name": "swift-ledger-transfer-readiness",
+      "domain": "Digital-Asset Rails",
+      "title": "Shared-Ledger Transfer Readiness Receipt",
+      "description": "Gated four-step preflight for a shared-ledger tokenized-deposit transfer: ISO 20022-to-EVM calldata mapping, batch sanctions and purpose-code screen, L2 finality window classification, and cash-leg finality check compose into one receipt. An unmapped required field or a screening hit halts the chain before commit.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/swift-ledger-transfer-readiness-composer.html",
+      "steps": [
+        {
+          "tool_id": "art-288-map-iso20022-to-evm-calldata",
+          "handoff": "resolved_call and mapping_ok feed Stage 2 batch screening; an incomplete mapping stops the chain",
+          "gate": {
+            "input": "/mapping_ok",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-291-screen-onledger-transfer-batch"
+          }
+        },
+        {
+          "tool_id": "art-291-screen-onledger-transfer-batch",
+          "handoff": "batch_clean feeds Stage 3 finality classification; a screening hit stops the chain",
+          "gate": {
+            "input": "/batch_clean",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-290-check-linea-l2-finality-window"
+          }
+        },
+        {
+          "tool_id": "art-290-check-linea-l2-finality-window",
+          "handoff": "finality_tier and safe_to_release feed Stage 4 cash-leg finality check"
+        },
+        {
+          "tool_id": "506-onchain-cash-leg-finality-checker",
+          "handoff": "Composes the transfer-readiness receipt -- final stage"
+        }
+      ]
+    }

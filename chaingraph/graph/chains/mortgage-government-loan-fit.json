@@ -1,0 +1,42 @@
+{
+      "name": "mortgage-government-loan-fit",
+      "domain": "Consumer Lending & Fair Lending",
+      "title": "Mortgage Government Loan Fit",
+      "spec_version": "0.8.0",
+      "wave": 38,
+      "description": "Gated two-step government loan program router. First step surfaces the target loan program into output_payload (loan_program field). Gate routes VA program to VA funding fee and residual income calculation; all other programs (FHA and others) continue to FHA MIP eligibility and cost calculation. Both branches are reachable: VA path computes funding fee + 38 USC §3729 table; FHA/default path computes HUD 4000.1 MIP. Total function with mandatory default.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/mortgage-government-loan-fit.html",
+      "regulatory_refs": [
+        "38 USC §3729 (VA funding fee)",
+        "38 CFR Part 36 (VA home loans)",
+        "VA Pamphlet 26-7 Ch.4 (residual income tables)",
+        "12 USC 1709 (FHA §203(b))",
+        "HUD Handbook 4000.1 §II.A.8 (MIP)",
+        "HUD Mortgagee Letter 2023-05 (annual MIP rates)"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-223-conforming-loan-limit",
+          "handoff": "loan_program field (VA/FHA/Conventional) surfaces into output_payload; gate routes VA to funding-fee path, default to FHA MIP path",
+          "gate": {
+            "input": "/loan_program",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "VA",
+                "next": "art-225-va-funding-fee-residual"
+              }
+            ],
+            "default": "art-224-fha-mip-eligibility"
+          }
+        },
+        {
+          "tool_id": "art-225-va-funding-fee-residual",
+          "handoff": "VA funding fee (38 USC §3729) and residual income (Pamphlet 26-7 Ch.4) -- VA path final stage"
+        },
+        {
+          "tool_id": "art-224-fha-mip-eligibility",
+          "handoff": "FHA MIP eligibility and cost (HUD 4000.1, ML 2023-05) -- FHA/default path final stage"
+        }
+      ]
+    }
