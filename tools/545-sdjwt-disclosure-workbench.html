@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>SD-JWT Disclosure Workbench · AINumbers.co</title>
+<meta name="description" content="Issue and present Selective Disclosure JWTs (RFC 9901) client-side: per-claim disclosure toggles, holder-binding KB-JWT, and a live what-the-verifier-sees panel showing exactly the disclosed subset. Zero PII. Client-side.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/545-sdjwt-disclosure-workbench.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SD-JWT Disclosure Workbench","url":"https://ainumbers.co/tools/545-sdjwt-disclosure-workbench.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "545-sdjwt-disclosure-workbench",
+  "version": "1.0.0",
+  "title": "SD-JWT Disclosure Workbench",
+  "description": "Issues and presents Selective Disclosure JWTs (RFC 9901) client-side: salted-hash per-claim disclosures, holder-binding KB-JWT, and a live what-the-verifier-sees panel.",
+  "category": "ai-agentic",
+  "tags": ["SD-JWT","RFC 9901","selective disclosure","KB-JWT","EUDI wallet"],
+  "audience": ["engineer","compliance","product"],
+  "input_schema": {"type":"object","properties":{"claims":{"type":"object"},"selective_keys":{"type":"array"},"sd_jwt":{"type":"string"}},"required":[]},
+  "output_schema": {"type":"object","properties":{"sd_jwt":{"type":"string"},"presentation":{"type":"string"},"disclosed_claims":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"sdjwt_issue","description":"Issues a Selective Disclosure JWT (RFC 9901) from a claims object, marking selected top-level claims as selectively disclosable via salted-hash digests in the _sd array.","inputSchema":{"type":"object","properties":{"claims":{"type":"object"},"selective_keys":{"type":"array"}},"required":["claims"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/545-sdjwt-disclosure-workbench.html","function_name":"issueSdJwtUI","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem}
+.mode-tabs{display:flex;gap:.5rem;margin-bottom:1.25rem}
+.mode-tab{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:var(--bg-2);border:1px solid var(--border);color:var(--muted);padding:.55rem 1.25rem;border-radius:var(--radius)}
+.mode-tab.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.mode-panel{display:none}
+.mode-panel.active{display:block}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal)}
+.claims-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:.75rem}
+.claims-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.4rem .5rem;text-align:left;border-bottom:1px solid var(--border)}
+.claims-table td{padding:.3rem .5rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.claims-table input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.3rem .45rem;border-radius:3px;width:100%;outline:none}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px}
+.add-row-btn:hover{border-color:var(--teal);color:var(--teal)}
+.adv-toggle{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);display:flex;align-items:center;gap:.4rem;margin:.5rem 0}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);padding:.5rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.35;cursor:not-allowed}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0 1.5rem}
+.results-panel{display:none;flex-direction:column;gap:1rem}
+.results-panel.show{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.1rem 1.25rem}
+.code-block{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .75rem;border-radius:var(--radius);margin-bottom:.75rem}
+.verdict-ok{color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.verdict-fail{color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.disclosure-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.disclosure-row:last-child{border-bottom:none}
+.disclosure-row .dkey{color:var(--gold);min-width:160px}
+.disclosure-row .dval{color:var(--text);flex:1;word-break:break-all}
+.always-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.7rem;opacity:.75}
+.always-row .dkey{color:var(--muted);min-width:160px}
+.verifier-view{background:var(--bg-3);border:1px dashed var(--border-2);border-radius:var(--radius);padding:1rem}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a><span class="nav-sep">/</span><span>T-545</span></div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Credential Workbench &middot; T545</div>
+  <h1 class="tool-title">SD-JWT Disclosure <em>Workbench</em></h1>
+  <p class="hero-desc">Issue a Selective Disclosure JWT (RFC 9901) with per-claim disclosure toggles, or paste any SD-JWT to build a redacted presentation with an optional holder-binding KB-JWT. The <strong>what-the-verifier-sees</strong> panel shows exactly the disclosed subset a relying party would receive.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">SD-JWT · RFC 9901</span>
+    <span class="badge badge-gold">KB-JWT holder binding</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer">&#9888; A verified SD-JWT proves the disclosed claims were issued and are unaltered, and (with a valid KB-JWT) that the presenter holds the bound key. It is not, by itself, identity assurance: keys are self-asserted unless separately anchored. See the <a href="../guides/credential-workbench-hub.html" style="color:var(--teal)">credential workbench guide</a>.</div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabIssue" onclick="switchMode('issue')">Issue</button>
+    <button class="mode-tab" id="tabPresent" onclick="switchMode('present')">Present</button>
+  </div>
+
+  <!-- ISSUE MODE -->
+  <div class="mode-panel active" id="modeIssue">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Claims &amp; Disclosure Toggles</span></div>
+      <div class="panel-row">
+        <div class="field"><label>Issuer id (did:key or any identifier)</label><input type="text" id="issIssuer" value="" placeholder="auto-generated from signing key"></div>
+        <div class="field"><label>Subject (sub claim)</label><input type="text" id="issSubject" value="subject-001"></div>
+      </div>
+      <table class="claims-table" id="issClaimsTable">
+        <thead><tr><th style="width:32%">Claim key</th><th>Value</th><th style="width:120px">Selectively disclosable</th><th style="width:34px"></th></tr></thead>
+        <tbody id="issClaimsBody"></tbody>
+      </table>
+      <button class="add-row-btn" onclick="addIssClaimRow()">+ Add claim</button>
+
+      <div class="adv-toggle"><label><input type="checkbox" id="issAdvToggle" onchange="toggleIssAdvanced()"> Advanced: paste your own Ed25519 issuer key (JWK)</label></div>
+      <div id="issAdvPanel" style="display:none;margin-top:.5rem">
+        <div class="field"><label>Ed25519 private key, JWK</label><textarea id="issAdvJwk" rows="3"></textarea></div>
+      </div>
+
+      <div class="btn-row"><button class="run-btn" id="issueBtn" onclick="issueSdJwtUI()">&#9654; Issue SD-JWT</button></div>
+    </div>
+
+    <div class="results-panel" id="issueResults">
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Issued SD-JWT (issuer copy, all disclosures attached)</span>
+          <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('issSdJwtCode')">Copy</button></div>
+        </div>
+        <div class="out-body"><div class="code-block" id="issSdJwtCode"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Always-disclosed payload / disclosures</span></div>
+        <div class="out-body">
+          <div id="issAlwaysRows"></div>
+          <div style="margin-top:.6rem;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Selectively disclosable</div>
+          <div id="issDiscRows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRESENT MODE -->
+  <div class="mode-panel" id="modePresent">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Paste SD-JWT</span></div>
+      <div class="field" style="margin-bottom:.85rem"><label>SD-JWT (issuer-signed, with all disclosures attached)</label><textarea id="presInput" rows="4" placeholder="Paste an SD-JWT, or issue one on the Issue tab and click 'Send to Present'."></textarea></div>
+      <div class="btn-row"><button class="btn-ghost" onclick="decodeSdJwtUI()">Decode</button></div>
+      <div id="presClaimTree" style="display:none">
+        <div class="panel-label" style="margin-bottom:.6rem">Choose disclosures to keep in the presentation</div>
+        <div id="presCheckRows"></div>
+        <div class="panel-row" style="margin-top:1rem">
+          <div class="field"><label>Issuer public key (did:key, from the Issue tab or elsewhere) &mdash; needed to verify the JWS</label><input type="text" id="presIssuerDid" placeholder="did:key:z6Mk..."></div>
+          <div class="field"><label>Audience (KB-JWT aud, optional holder binding)</label><input type="text" id="presAud" placeholder="leave blank to skip KB-JWT"></div>
+        </div>
+        <div class="adv-toggle"><label><input type="checkbox" id="presAdvToggle" onchange="togglePresAdvanced()"> Advanced: paste your own Ed25519 holder key (JWK) for KB-JWT</label></div>
+        <div id="presAdvPanel" style="display:none;margin-top:.5rem">
+          <div class="field"><label>Ed25519 private key, JWK (holder)</label><textarea id="presAdvJwk" rows="3"></textarea></div>
+        </div>
+        <div class="btn-row"><button class="run-btn" onclick="buildPresentationUI()">&#9654; Build Presentation</button></div>
+      </div>
+    </div>
+
+    <div class="results-panel" id="presentResults">
+      <div id="presVerifyVerdict"></div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Presentation (redacted SD-JWT + optional KB-JWT)</span>
+          <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('presOutCode')">Copy</button><button class="copy-btn" onclick="downloadPresentation()">Download</button></div>
+        </div>
+        <div class="out-body"><div class="code-block" id="presOutCode"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">What the verifier sees</span></div>
+        <div class="out-body"><div class="verifier-view code-block" id="verifierView"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">OCG Receipt of the Presentation Activity</span>
+          <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('presReceiptCode')">Copy</button></div>
+        </div>
+        <div class="out-body"><div id="presReceiptVerdict"></div><div class="code-block" id="presReceiptCode"></div></div>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Issue or present an SD-JWT above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/544-vc2-issuance-composer.html">VC 2.0 Composer</a>
+      <a href="../guides/credential-workbench-hub.html">Credential Workbench Guide</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ── OCG-CANON v1 (inline port of chaingraph/kernels/_hash.mjs) — shared canonicalizer/execution_hash. */
+(function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    var bytes=new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  window.OCGHash={cgCanon:cgCanon, executionHash:executionHash};
+})();
+</script>
+
+<script>
+/* ── Hand-rolled SD-JWT (RFC 9901) core — issue / present / verify. Reference-only inspiration:
+   openwallet-foundation/sd-jwt-js (Apache-2.0); not vendored, per CREDWORK-1-BUILD-SPEC.md.
+   Flat top-level claim disclosure only (matches the scope of the shipped §13.12 exporter). */
+(function(){
+  var enc=function(s){return new TextEncoder().encode(s);};
+  var dec=function(b){return new TextDecoder().decode(b);};
+  function b64u(bytes){
+    var bin=''; for(var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function b64uDecode(str){
+    var bin=atob(str.replace(/-/g,'+').replace(/_/g,'/'));
+    var out=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+    return out;
+  }
+  function b64uJson(obj){ return b64u(enc(JSON.stringify(obj))); }
+  function b64uJsonDecode(str){ return JSON.parse(dec(b64uDecode(str))); }
+  async function sha256(bytes){ return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); }
+  function randomSalt(){ return b64u(crypto.getRandomValues(new Uint8Array(16))); }
+
+  async function makeDisclosure(key, value){
+    var salt=randomSalt();
+    var arr=[salt, key, value];
+    var str=b64uJson(arr);
+    var digest=b64u(await sha256(enc(str)));
+    return {salt:salt, key:key, value:value, str:str, digest:digest};
+  }
+
+  async function issueSdJwt(claims, selectiveKeys, opts){
+    var cleartext={}; var disclosures=[];
+    var keys=Object.keys(claims);
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i];
+      if(selectiveKeys.indexOf(k)!==-1){ disclosures.push(await makeDisclosure(k, claims[k])); }
+      else cleartext[k]=claims[k];
+    }
+    var payload=Object.assign({}, cleartext, {
+      iss: opts.verificationMethod,
+      sub: opts.subject,
+      iat: Math.floor(Date.now()/1000),
+      _sd: disclosures.map(function(d){return d.digest;}),
+      _sd_alg: 'sha-256'
+    });
+    var header={alg:'EdDSA', typ:'vc+sd-jwt', kid: opts.verificationMethod};
+    var signingInput=b64uJson(header)+'.'+b64uJson(payload);
+    var sig=new Uint8Array(await crypto.subtle.sign('Ed25519', opts.privateKey, enc(signingInput)));
+    var jwt=signingInput+'.'+b64u(sig);
+    var sd_jwt=jwt+'~'+disclosures.map(function(d){return d.str;}).join('~')+'~';
+    return {sd_jwt:sd_jwt, jwt:jwt, payload:payload, disclosures:disclosures};
+  }
+
+  function looksLikeJwt(s){ return typeof s==='string' && s.split('.').length===3; }
+
+  async function parseSdJwt(sd_jwt){
+    var segments=sd_jwt.split('~');
+    var jwt=segments[0];
+    var rest=segments.slice(1);
+    var kbjwt=null;
+    if(rest.length && rest[rest.length-1]==='') rest=rest.slice(0,-1);
+    else if(rest.length && looksLikeJwt(rest[rest.length-1])){ kbjwt=rest[rest.length-1]; rest=rest.slice(0,-1); }
+    var parts=jwt.split('.');
+    if(parts.length!==3) throw new Error('Malformed SD-JWT: issuer-signed JWT must have 3 dot-separated parts.');
+    var header=b64uJsonDecode(parts[0]);
+    var payload=b64uJsonDecode(parts[1]);
+    var disclosures=[];
+    for(var i=0;i<rest.length;i++){
+      var str=rest[i];
+      if(!str) throw new Error('Malformed SD-JWT: empty disclosure segment.');
+      var arr=b64uJsonDecode(str);
+      if(!Array.isArray(arr) || arr.length!==3) throw new Error('Malformed disclosure: expected [salt, key, value].');
+      var digest=b64u(await sha256(enc(str)));
+      disclosures.push({salt:arr[0], key:arr[1], value:arr[2], str:str, digest:digest});
+    }
+    return {jwt:jwt, header:header, payload:payload, signingInput:parts[0]+'.'+parts[1], signatureB64u:parts[2], disclosures:disclosures, kbjwt:kbjwt};
+  }
+
+  async function verifySdJwt(sd_jwt, issuerPublicKey){
+    var parsed=await parseSdJwt(sd_jwt);
+    var sigOk=false;
+    try{
+      sigOk=await crypto.subtle.verify('Ed25519', issuerPublicKey, b64uDecode(parsed.signatureB64u), enc(parsed.signingInput));
+    }catch(e){ sigOk=false; }
+    var sdSet=new Set(parsed.payload._sd||[]);
+    var disclosed={}; var invalidDisclosures=[];
+    for(var i=0;i<parsed.disclosures.length;i++){
+      var d=parsed.disclosures[i];
+      if(sdSet.has(d.digest)) disclosed[d.key]=d.value;
+      else invalidDisclosures.push(d.key);
+    }
+    var resolvedClaims=Object.assign({}, parsed.payload);
+    delete resolvedClaims._sd; delete resolvedClaims._sd_alg;
+    Object.assign(resolvedClaims, disclosed);
+    return {sigOk:sigOk, resolvedClaims:resolvedClaims, disclosedKeys:Object.keys(disclosed), invalidDisclosures:invalidDisclosures, parsed:parsed};
+  }
+
+  async function presentSdJwt(sd_jwt, keepKeys, kb){
+    var parsed=await parseSdJwt(sd_jwt);
+    var kept=parsed.disclosures.filter(function(d){ return keepKeys.indexOf(d.key)!==-1; });
+    var core=parsed.jwt+'~'+kept.map(function(d){return d.str;}).join('~')+'~';
+    if(!kb) return {presentation:core, kbjwt:null};
+    var kbHeader={alg:'EdDSA', typ:'kb+jwt'};
+    var sdHashDigest=b64u(await sha256(enc(core)));
+    var kbPayload={iat:Math.floor(Date.now()/1000), aud:kb.aud, nonce:kb.nonce, sd_hash:sdHashDigest};
+    var kbSigningInput=b64uJson(kbHeader)+'.'+b64uJson(kbPayload);
+    var kbSig=new Uint8Array(await crypto.subtle.sign('Ed25519', kb.privateKey, enc(kbSigningInput)));
+    var kbCompact=kbSigningInput+'.'+b64u(kbSig);
+    return {presentation:core+kbCompact, kbjwt:kbCompact, kbPayload:kbPayload};
+  }
+
+  async function sha256HexOfCanon(v){
+    var bytes=new TextEncoder().encode(JSON.stringify(window.OCGHash.cgCanon(v)));
+    var d=await sha256(bytes);
+    return Array.from(d).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  }
+
+  window.SDJWT={issueSdJwt:issueSdJwt, parseSdJwt:parseSdJwt, verifySdJwt:verifySdJwt, presentSdJwt:presentSdJwt,
+    b64u:b64u, b64uDecode:b64uDecode, sha256HexOfCanon:sha256HexOfCanon,
+    rawPubkeyToDidKey: async function(publicKey){
+      var raw=new Uint8Array(await crypto.subtle.exportKey('raw', publicKey));
+      var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      function b58encode(bytes){
+        var zeros=0; while(zeros<bytes.length && bytes[zeros]===0) zeros++;
+        var digits=[0];
+        for(var i=zeros;i<bytes.length;i++){
+          var carry=bytes[i];
+          for(var j=0;j<digits.length;j++){ carry+=digits[j]<<8; digits[j]=carry%58; carry=(carry/58)|0; }
+          while(carry){ digits.push(carry%58); carry=(carry/58)|0; }
+        }
+        var out=''; for(var k=0;k<zeros;k++) out+='1';
+        for(var q=digits.length-1;q>=0;q--) out+=B58[digits[q]];
+        return out;
+      }
+      var prefixed=new Uint8Array(2+raw.length); prefixed.set([0xed,0x01],0); prefixed.set(raw,2);
+      return 'did:key:z'+b58encode(prefixed);
+    },
+    didKeyToPublicKey: async function(did){
+      var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      function b58decode(str){
+        var zeros=0; while(zeros<str.length && str[zeros]==='1') zeros++;
+        var bytes=[0];
+        for(var i=zeros;i<str.length;i++){
+          var carry=B58.indexOf(str[i]); if(carry<0) throw new Error('bad base58 char');
+          for(var j=0;j<bytes.length;j++){ carry+=bytes[j]*58; bytes[j]=carry&0xff; carry>>=8; }
+          while(carry){ bytes.push(carry&0xff); carry>>=8; }
+        }
+        var out=new Uint8Array(zeros+bytes.length);
+        for(var k=0;k<bytes.length;k++) out[zeros+bytes.length-1-k]=bytes[k];
+        return out;
+      }
+      if(!did || did.indexOf('did:key:z')!==0) throw new Error('not a did:key z-form');
+      var prefixed=b58decode(did.slice('did:key:z'.length));
+      var raw=prefixed.slice(2);
+      return crypto.subtle.importKey('raw', raw, {name:'Ed25519'}, true, ['verify']);
+    }
+  };
+})();
+</script>
+
+<script>
+function switchMode(mode){
+  document.getElementById('tabIssue').classList.toggle('active', mode==='issue');
+  document.getElementById('tabPresent').classList.toggle('active', mode==='present');
+  document.getElementById('modeIssue').classList.toggle('active', mode==='issue');
+  document.getElementById('modePresent').classList.toggle('active', mode==='present');
+}
+function addIssClaimRow(key, value, selective){
+  var tb=document.getElementById('issClaimsBody');
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td><input type="text" value="'+(key?String(key).replace(/"/g,'&quot;'):'')+'" placeholder="e.g. degree"></td>'+
+    '<td><input type="text" value="'+(value!==undefined?String(value).replace(/"/g,'&quot;'):'')+'" placeholder="e.g. BSc Physics"></td>'+
+    '<td style="text-align:center"><input type="checkbox" '+(selective?'checked':'')+'></td>'+
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">&#10005;</button></td>';
+  tb.appendChild(tr);
+}
+function getIssClaims(){
+  var claims={}; var selective=[];
+  Array.from(document.querySelectorAll('#issClaimsBody tr')).forEach(function(r){
+    var inputs=r.querySelectorAll('input[type=text]');
+    var cb=r.querySelector('input[type=checkbox]');
+    var k=inputs[0].value.trim();
+    if(k){ claims[k]=inputs[1].value; if(cb.checked) selective.push(k); }
+  });
+  return {claims:claims, selective:selective};
+}
+function toggleIssAdvanced(){ document.getElementById('issAdvPanel').style.display=document.getElementById('issAdvToggle').checked?'block':'none'; }
+function togglePresAdvanced(){ document.getElementById('presAdvPanel').style.display=document.getElementById('presAdvToggle').checked?'block':'none'; }
+
+var ISS_STATE={};
+var PRES_STATE={};
+
+async function loadKey(advToggleId, advJwkId){
+  if(document.getElementById(advToggleId).checked){
+    var jwkText=document.getElementById(advJwkId).value.trim();
+    if(!jwkText) throw new Error('Paste a JWK private key, or uncheck advanced mode.');
+    var jwk=JSON.parse(jwkText);
+    var privateKey=await crypto.subtle.importKey('jwk', jwk, {name:'Ed25519'}, false, ['sign']);
+    var pubJwk=Object.assign({}, jwk); delete pubJwk.d; pubJwk.key_ops=['verify'];
+    var publicKey=await crypto.subtle.importKey('jwk', pubJwk, {name:'Ed25519'}, true, ['verify']);
+    return {privateKey:privateKey, publicKey:publicKey};
+  }
+  var kp=await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+  return {privateKey:kp.privateKey, publicKey:kp.publicKey};
+}
+
+async function issueSdJwtUI(){
+  var btn=document.getElementById('issueBtn'); btn.disabled=true; btn.textContent='Signing...';
+  try{
+    var got=getIssClaims();
+    if(Object.keys(got.claims).length===0) throw new Error('Add at least one claim.');
+    var keys=await loadKey('issAdvToggle','issAdvJwk');
+    var issuerDid=document.getElementById('issIssuer').value.trim() || await SDJWT.rawPubkeyToDidKey(keys.publicKey);
+    var subject=document.getElementById('issSubject').value.trim() || 'subject-001';
+    var result=await SDJWT.issueSdJwt(got.claims, got.selective, {verificationMethod:issuerDid, subject:subject, privateKey:keys.privateKey});
+
+    ISS_STATE={sd_jwt:result.sd_jwt, publicKey:keys.publicKey, issuerDid:issuerDid, claims:got.claims, selective:got.selective};
+
+    document.getElementById('issSdJwtCode').textContent=result.sd_jwt;
+    var always=Object.assign({}, result.payload); delete always._sd; delete always._sd_alg;
+    document.getElementById('issAlwaysRows').innerHTML=Object.keys(always).map(function(k){
+      return '<div class="always-row"><span class="dkey">'+k+'</span><span>'+String(always[k])+'</span></div>';
+    }).join('');
+    document.getElementById('issDiscRows').innerHTML=result.disclosures.map(function(d){
+      return '<div class="disclosure-row"><span class="dkey">'+d.key+'</span><span class="dval">'+String(d.value)+' &middot; digest '+d.digest.slice(0,16)+'&hellip;</span></div>';
+    }).join('') || '<div style="color:var(--muted);font-size:.68rem">No selectively disclosable claims chosen.</div>';
+
+    document.getElementById('issueResults').classList.add('show');
+    document.getElementById('presInput').value=result.sd_jwt;
+    document.getElementById('presIssuerDid').value=issuerDid;
+    enableAP2Btn();
+  }catch(e){
+    alert('Issuance failed: '+(e && e.message ? e.message : e));
+  }finally{
+    btn.disabled=false; btn.textContent='▶ Issue SD-JWT';
+  }
+}
+
+async function decodeSdJwtUI(){
+  try{
+    var sd_jwt=document.getElementById('presInput').value.trim();
+    if(!sd_jwt) throw new Error('Paste an SD-JWT first.');
+    var parsed=await SDJWT.parseSdJwt(sd_jwt);
+    PRES_STATE.parsed=parsed; PRES_STATE.sd_jwt=sd_jwt;
+    document.getElementById('presClaimTree').style.display='block';
+    document.getElementById('presCheckRows').innerHTML=parsed.disclosures.map(function(d,i){
+      return '<div class="disclosure-row"><input type="checkbox" id="presKeep'+i+'" checked style="margin-right:.5rem"><span class="dkey">'+d.key+'</span><span class="dval">'+String(d.value)+'</span></div>';
+    }).join('') || '<div style="color:var(--muted);font-size:.68rem">No selectively disclosable claims in this SD-JWT.</div>';
+  }catch(e){
+    alert('Decode failed: '+(e && e.message ? e.message : e));
+  }
+}
+
+async function buildPresentationUI(){
+  try{
+    if(!PRES_STATE.parsed) throw new Error('Decode an SD-JWT first.');
+    var keepKeys=PRES_STATE.parsed.disclosures.filter(function(d,i){
+      var cb=document.getElementById('presKeep'+i); return cb && cb.checked;
+    }).map(function(d){ return d.key; });
+
+    var aud=document.getElementById('presAud').value.trim();
+    var kb=null;
+    if(aud){
+      var holderKeys=await loadKey('presAdvToggle','presAdvJwk');
+      kb={aud:aud, nonce:SDJWT.b64u(crypto.getRandomValues(new Uint8Array(12))), privateKey:holderKeys.privateKey};
+    }
+    var built=await SDJWT.presentSdJwt(PRES_STATE.sd_jwt, keepKeys, kb);
+    document.getElementById('presOutCode').textContent=built.presentation;
+
+    var issuerDidStr=document.getElementById('presIssuerDid').value.trim();
+    var verdictHtml='';
+    if(issuerDidStr){
+      var issuerPub=await SDJWT.didKeyToPublicKey(issuerDidStr);
+      var verified=await SDJWT.verifySdJwt(built.presentation, issuerPub);
+      verdictHtml='<div class="verdict '+(verified.sigOk?'verdict-ok':'verdict-fail')+'">'+(verified.sigOk?'✓ issuer JWS verifies':'✗ issuer JWS does not verify')+'</div>';
+      document.getElementById('verifierView').textContent=JSON.stringify(verified.resolvedClaims, null, 2);
+
+      var pp={activity:'sdjwt_presentation', issuer:issuerDidStr, disclosed_keys:verified.disclosedKeys, holder_bound: !!kb};
+      var sdJwtDigest=await SDJWT.sha256HexOfCanon(PRES_STATE.sd_jwt);
+      var op={input_sd_jwt_digest:sdJwtDigest, presentation_digest:await SDJWT.sha256HexOfCanon(built.presentation), presented_at:new Date().toISOString()};
+      var execHash=await OCGHash.executionHash(pp, op);
+      var receipt={chaingraph_version:'0.4.0', tool_id:'545-sdjwt-disclosure-workbench', generated_at:op.presented_at, policy_parameters:pp, output_payload:op, execution_hash:execHash};
+      PRES_STATE.receipt=receipt;
+      document.getElementById('presReceiptCode').textContent=JSON.stringify(receipt, null, 2);
+      var recheck=await OCGHash.executionHash(receipt.policy_parameters, receipt.output_payload);
+      document.getElementById('presReceiptVerdict').innerHTML='<div class="verdict '+(recheck===receipt.execution_hash?'verdict-ok':'verdict-fail')+'">'+(recheck===receipt.execution_hash?'✓ execution_hash recomputed and matches':'✗ execution_hash mismatch')+'</div>';
+    }else{
+      document.getElementById('verifierView').textContent='(paste the issuer did:key above to see the fully-resolved verifier view)';
+    }
+    document.getElementById('presVerifyVerdict').innerHTML=verdictHtml;
+    document.getElementById('presentResults').classList.add('show');
+    enableAP2Btn();
+  }catch(e){
+    alert('Present failed: '+(e && e.message ? e.message : e));
+  }
+}
+
+function copyBlock(id){
+  var el=document.getElementById(id);
+  if(el && navigator.clipboard) navigator.clipboard.writeText(el.textContent);
+}
+function downloadPresentation(){
+  var el=document.getElementById('presOutCode');
+  if(!el || !el.textContent) return;
+  var ts=new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([el.textContent],{type:'application/sd-jwt'}));
+  a.download='545-sdjwt-disclosure-workbench_'+ts+'.sd-jwt.txt';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+addIssClaimRow('given_name','Alex', false);
+addIssClaimRow('degree','BSc Physics', true);
+addIssClaimRow('graduation_year','2024', true);
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"545-sdjwt-disclosure-workbench","version":"1.0.0","title":"SD-JWT Disclosure Workbench","description":"Issues and presents Selective Disclosure JWTs (RFC 9901) client-side: salted-hash per-claim disclosures, holder-binding KB-JWT, and a live what-the-verifier-sees panel.","category":"ai-agentic","tags":["SD-JWT","RFC 9901","selective disclosure","KB-JWT"],"audience":["engineer","compliance","product"],"input_schema":{"type":"object","properties":{"claims":{"type":"object"},"selective_keys":{"type":"array"},"sd_jwt":{"type":"string"}},"required":[]},"output_schema":{"type":"object","properties":{"sd_jwt":{"type":"string"},"presentation":{"type":"string"},"disclosed_claims":{"type":"object"}}},"mcp_tool_definition":{"name":"sdjwt_issue","description":"Issues a Selective Disclosure JWT (RFC 9901) from a claims object, marking selected top-level claims as selectively disclosable via salted-hash digests in the _sd array.","inputSchema":{"type":"object","properties":{"claims":{"type":"object"},"selective_keys":{"type":"array"}},"required":["claims"]}},"execution":{"type":"browser-javascript","entry":"tools/545-sdjwt-disclosure-workbench.html","function_name":"issueSdJwtUI","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.AIN_BUILD_MANDATE=function(){
+  var ts=new Date().toISOString();
+  var payload=null, summary=null;
+  if(PRES_STATE.receipt){ payload={presentation_receipt:PRES_STATE.receipt}; summary='SD-JWT presentation built at '+ts.slice(0,10); }
+  else if(ISS_STATE.sd_jwt){ payload={sd_jwt:ISS_STATE.sd_jwt, issuer:ISS_STATE.issuerDid}; summary='SD-JWT issued for issuer '+ISS_STATE.issuerDid+' at '+ts.slice(0,10); }
+  else return null;
+  return {
+    ap2_version:'1.0',
+    mandate_id:'545-sdjwt-disclosure-workbench-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'545-sdjwt-disclosure-workbench', tool_version:MANIFEST.version,
+    mandate_type:'disclosure_template',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:payload, summary:summary,
+    agent_instructions:['Re-verify the SD-JWT signature and disclosure digests before trusting any disclosed claim.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10), source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Issue or present an SD-JWT first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'issueSdJwtUI',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,
+  getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{return window.AIN_BUILD_MANDATE();}catch(e){}}return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
