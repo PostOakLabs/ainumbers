@@ -1,0 +1,54 @@
+{
+      "name": "mortgage-compliance-preflight",
+      "domain": "Consumer Lending & Fair Lending",
+      "title": "Mortgage Compliance Preflight",
+      "spec_version": "0.8.0",
+      "description": "Gated four-step preflight: Reg Z threshold lookup -> TRID APR accuracy check (gate: exit on understated_violation) -> QM points-and-fees test (gate: exit on fail) -> QM APR-APOR spread classification. First live OCG gated chain using OCG §21.4 decision gates.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/mortgage-compliance-preflight.html",
+      "regulatory_refs": [
+        "Reg Z §1026.22(a) APR accuracy",
+        "Reg Z §1026.43(e)(3) QM points and fees",
+        "Reg Z §1026.43(e)(2)(vi) QM APR-APOR spread",
+        "Reg Z Appendix J actuarial APR"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-220-reg-z-threshold-lookup",
+          "handoff": "Version-pinned threshold tables feed downstream QM and TRID nodes"
+        },
+        {
+          "tool_id": "art-217-trid-apr-accuracy",
+          "handoff": "verdict feeds Stage 3 QM points-and-fees; understated_violation stops the chain",
+          "gate": {
+            "input": "/verdict",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "understated_violation",
+                "next": "end"
+              }
+            ],
+            "default": "art-218-qm-points-and-fees"
+          }
+        },
+        {
+          "tool_id": "art-218-qm-points-and-fees",
+          "handoff": "pass flag feeds Stage 4 QM spread; points-and-fees failure stops the chain",
+          "gate": {
+            "input": "/pass",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-219-qm-apr-apor-spread"
+          }
+        },
+        {
+          "tool_id": "art-219-qm-apr-apor-spread",
+          "handoff": "qm_status and is_hpct complete the preflight report -- final stage"
+        }
+      ]
+    }

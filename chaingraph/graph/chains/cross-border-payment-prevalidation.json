@@ -1,0 +1,39 @@
+{
+      "name": "cross-border-payment-prevalidation",
+      "domain": "Cross-Border & Instant Payments",
+      "title": "Cross-Border Payment Pre-Validation",
+      "spec_version": "0.8.0",
+      "wave": 41,
+      "description": "Gated two-step chain for CBPR+ payment pre-validation. Step 1 checks whether a purpose code is mandatory for the beneficiary jurisdiction (UAE, India, Bahrain, Jordan, China, Malaysia per BIS CPMI d218) and whether SwiftGo eligibility conditions are met. Step 2 runs aggregate pre-validation (IBAN mod-97, BIC format, LEI format, UETR UUIDv4, PostalAddress24 structure) and emits a /ready boolean. Gate on /ready: both branches terminate, recording in decisions[] which path was taken. ready=true = STP-eligible; ready=false = remediation required. ZERO PII BY CONSTRUCTION.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/cross-border-payment-prevalidation.html",
+      "regulatory_refs": [
+        "SWIFT CBPR+ Structured Address Migration Bulletin (deadline 14 Nov 2026)",
+        "BIS CPMI d218 country payment profiles",
+        "SWIFT SwiftGo eligibility rules",
+        "ISO 13616:2020 IBAN",
+        "ISO 9362:2022 BIC",
+        "ISO 17442:2020 LEI",
+        "ISO 20022 pacs.008.001.10"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-243-purpose-code-requirement-checker",
+          "handoff": "Jurisdiction purpose code requirement and SwiftGo eligibility. Passes to aggregate pre-validation."
+        },
+        {
+          "tool_id": "art-247-prevalidation-readiness-scorer",
+          "handoff": "Aggregate /ready boolean and per-check detail. Gate: ready=true exits STP-eligible; ready=false exits requiring remediation.",
+          "gate": {
+            "input": "/ready",
+            "rules": [
+              {
+                "op": "eq",
+                "value": true,
+                "next": "end"
+              }
+            ],
+            "default": "end"
+          }
+        }
+      ]
+    }

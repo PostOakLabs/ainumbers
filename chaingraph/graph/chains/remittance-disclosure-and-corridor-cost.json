@@ -1,0 +1,37 @@
+{
+      "name": "remittance-disclosure-and-corridor-cost",
+      "domain": "Cross-Border & Instant Payments",
+      "title": "Remittance Disclosure and Corridor Cost",
+      "spec_version": "0.8.0",
+      "wave": 42,
+      "description": "Gated two-step chain for Reg E remittance disclosure and corridor cost benchmarking. Step 1 computes the required CFPB Reg E subpart B (12 CFR 1005.31/1005.32) disclosure fields and emits estimate_permissible. Gate on /estimate_permissible: if true (12 CFR 1005.32 estimated disclosure applies), the chain ends at the disclosure receipt -- no corridor benchmarking required. If false (exact disclosure, default path), Step 2 runs compare_corridor_cost to benchmark total cost (fee % + FX margin %) against the World Bank RPW Q1 2026 snapshot and SDG 10.c 3% target. ZERO PII BY CONSTRUCTION.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/remittance-disclosure-and-corridor-cost.html",
+      "regulatory_refs": [
+        "12 CFR 1005.31 (CFPB Reg E subpart B, required disclosure fields)",
+        "12 CFR 1005.32 (CFPB Reg E, estimate permissibility conditions)",
+        "12 CFR 1005.33 (CFPB Reg E, error resolution)",
+        "World Bank Remittance Prices Worldwide (RPW) Q1 2026",
+        "SDG 10.c <=3% target (UN 2030 Agenda)"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-248-compute-remittance-disclosure",
+          "handoff": "Reg E disclosure fields including estimate_permissible. Gate: estimate_permissible=true exits with ESTIMATED disclosure (12 CFR 1005.32 path). Default: proceed to corridor cost benchmarking.",
+          "gate": {
+            "input": "/estimate_permissible",
+            "rules": [
+              {
+                "op": "eq",
+                "value": true,
+                "next": "end"
+              }
+            ],
+            "default": "art-249-compare-corridor-cost"
+          }
+        },
+        {
+          "tool_id": "art-249-compare-corridor-cost",
+          "handoff": "Corridor cost vs RPW benchmark, SmaRT average, and SDG 10.c target. Includes meets_sdg_target and cost_at_200_usd/cost_at_500_usd. Final stage."
+        }
+      ]
+    }

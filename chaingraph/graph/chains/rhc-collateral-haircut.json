@@ -1,0 +1,38 @@
+{
+      "name": "rhc-collateral-haircut",
+      "domain": "Digital-Asset Rails",
+      "title": "Robinhood Chain Collateral Haircut",
+      "spec_version": "0.8.0",
+      "wave": 56,
+      "description": "Gated three-step chain for accepting Robinhood Chain stock tokens as collateral. Step 1 checks tokenized-collateral eligibility, step 2 computes the base repo haircut, step 3 layers the feed-staleness, sequencer-downtime, and underlying-halt haircut. Gate on /liquidation_risk: blocked halts the chain at the liquidation-risk verdict, default proceeds to the adjusted collateral value.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/rhc-collateral-haircut.html",
+      "regulatory_refs": [
+        "BCBS d349/SCO60 (HQLA)",
+        "Chainlink staleness + Arbitrum sequencer-uptime best practice"
+      ],
+      "steps": [
+        {
+          "tool_id": "505-tokenized-collateral-eligibility-checker",
+          "handoff": "DTC/Fed eligibility and Basel HQLA tier feed the repo haircut base."
+        },
+        {
+          "tool_id": "508-repo-haircut-collateral-calculator",
+          "handoff": "base_haircut feeds the staleness/halt haircut layer."
+        },
+        {
+          "tool_id": "art-320-rhc-collateral-haircut",
+          "handoff": "final_haircut, adjusted_collateral_value, and liquidation_risk are the chain output.",
+          "gate": {
+            "input": "/liquidation_risk",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "blocked",
+                "next": "end"
+              }
+            ],
+            "default": "end"
+          }
+        }
+      ]
+    }
