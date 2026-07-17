@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>in-toto Link Builder &amp; Verifier, OpenChainGraph, AINumbers</title>
+<meta name="description" content="Build a DSSE-signed in-toto link or in-toto attestation statement from drag-drop file hashing, and verify a layout against links offline in your browser.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/intoto-link-builder.html">
+<meta property="og:title" content="in-toto Link Builder &amp; Verifier, AINumbers">
+<meta property="og:description" content="Create DSSE-signed in-toto links and attestation statements, then verify a layout against them offline.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.85rem; line-height:1.6; -webkit-font-smoothing:antialiased; }
+a { color:inherit; text-decoration:none; }
+
+nav { position:sticky; top:0; z-index:100; background:rgba(8,14,26,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:1440px; margin:0 auto; display:flex; align-items:center; gap:16px; padding:0 24px; height:58px; }
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.nav-breadcrumb { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.nav-breadcrumb a { color:var(--body); transition:color .15s; }
+.nav-breadcrumb a:hover { color:var(--teal); }
+.nav-breadcrumb-sep { color:var(--muted); }
+.nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
+.nav-pill { background:none; border:1px solid var(--border-2); border-radius:var(--radius); color:var(--body); font-size:.65rem; padding:.3rem .75rem; font-family:'JetBrains Mono',monospace; letter-spacing:.04em; transition:border-color .15s,color .15s; display:inline-block; }
+.nav-pill:hover { border-color:var(--text); color:var(--text); }
+.nav-cta { background:var(--gold); color:#080E1A; border:none; border-radius:var(--radius); font-size:.65rem; font-family:'JetBrains Mono',monospace; font-weight:600; letter-spacing:.06em; padding:.35rem .85rem; display:inline-block; transition:opacity .15s; }
+.nav-cta:hover { opacity:.85; }
+
+.page-inner { max-width:900px; margin:0 auto; padding:40px 24px 80px; }
+
+.hero-eyebrow { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.hero-title { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--white); margin-bottom:10px; }
+.hero-sub { font-size:.82rem; color:var(--body); line-height:1.75; max-width:660px; margin-bottom:24px; }
+
+.pii-notice { background:var(--teal-dim); border:1px solid rgba(20,184,166,.3); border-radius:var(--radius); padding:10px 14px; font-size:.72rem; color:var(--text); margin-bottom:20px; }
+.attrib-notice { background:var(--purple-dim); border:1px solid rgba(155,114,245,.3); border-radius:var(--radius); padding:10px 14px; font-size:.72rem; color:var(--text); margin-bottom:20px; }
+.attrib-notice a { color:var(--purple); text-decoration:underline; }
+
+.tabs { display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); }
+.tab { font-family:'JetBrains Mono',monospace; font-size:.65rem; letter-spacing:.08em; text-transform:uppercase; color:var(--body); padding:10px 16px; cursor:pointer; border-bottom:2px solid transparent; }
+.tab.active { color:var(--teal-lt); border-bottom-color:var(--teal); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+.card { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; margin-bottom:16px; }
+.card-label { font-family:'JetBrains Mono',monospace; font-size:.48rem; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); margin-bottom:14px; }
+
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field.full { grid-column:1/-1; }
+label { font-family:'JetBrains Mono',monospace; font-size:.58rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+input, select, textarea {
+  width:100%; background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius);
+  color:var(--text); font-family:'Sora',sans-serif; font-size:.78rem; padding:8px 10px; outline:none; transition:border-color .15s;
+}
+input:focus, select:focus, textarea:focus { border-color:rgba(20,184,166,.5); }
+textarea { font-family:'JetBrains Mono',monospace; font-size:.72rem; resize:vertical; min-height:60px; }
+#verifyLayoutInput, #verifyLinksInput, #predicateJson { min-height:140px; }
+
+.drop-zone { border:2px dashed var(--border-2); border-radius:var(--radius); padding:20px; text-align:center; font-size:.72rem; color:var(--body); cursor:pointer; transition:border-color .15s; }
+.drop-zone.drag { border-color:var(--teal); color:var(--teal-lt); }
+.file-list { margin-top:10px; }
+.file-row { display:flex; justify-content:space-between; align-items:center; background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); padding:8px 12px; margin-bottom:6px; font-family:'JetBrains Mono',monospace; font-size:.65rem; }
+.file-row .digest { color:var(--teal-lt); word-break:break-all; }
+.file-remove { background:none; border:none; color:var(--red); cursor:pointer; }
+
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+.btn { font-family:'JetBrains Mono',monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase;
+  padding:.5rem 1.1rem; border-radius:var(--radius); border:1px solid; cursor:pointer; transition:all .15s; background:transparent; }
+.btn-primary { background:var(--teal); color:var(--bg); border-color:var(--teal); }
+.btn-primary:hover { opacity:.85; }
+.btn-ghost { color:var(--body); border-color:var(--border-2); }
+.btn-ghost:hover { border-color:var(--teal); color:var(--teal-lt); }
+.btn-sm { padding:.35rem .8rem; font-size:.58rem; }
+
+.error-box { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); border-radius:var(--radius-lg); padding:14px 18px; font-size:.76rem; color:var(--red); display:none; margin-bottom:16px; white-space:pre-wrap; }
+.result-banner { border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:16px; display:none; }
+.result-banner.pass { background:var(--green-dim); border:1px solid rgba(34,197,94,.3); }
+.result-banner.fail { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); }
+.result-banner.show { display:block; }
+.result-title { font-family:'DM Serif Display',serif; font-size:1.05rem; margin-bottom:4px; }
+.result-banner.pass .result-title { color:var(--green); }
+.result-banner.fail .result-title { color:var(--red); }
+.result-detail { font-size:.75rem; color:var(--body); }
+.hash-val { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--teal-lt); word-break:break-all; margin-top:6px; }
+
+.unsupported-note { background:var(--gold-dim); border:1px solid rgba(212,168,71,.3); border-radius:var(--radius); padding:10px 14px; font-size:.7rem; color:var(--gold); margin-bottom:12px; }
+
+pre#outJson, pre#verifyOut { background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); padding:14px; font-family:'JetBrains Mono',monospace; font-size:.66rem; overflow-x:auto; max-height:340px; display:none; }
+
+footer { border-top:1px solid var(--border); background:var(--bg-2); padding:24px 0; }
+.footer-inner { max-width:1440px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.footer-brand { font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:500; color:var(--bright); }
+.footer-cc { font-size:.65rem; color:var(--muted); margin-top:4px; }
+.footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+.footer-links a { font-family:'JetBrains Mono',monospace; font-size:.62rem; color:var(--body); transition:color .15s; }
+.footer-links a:hover { color:var(--teal); }
+
+@media(max-width:640px) { .field-row { grid-template-columns:1fr; } .hero-title { font-size:1.35rem; } }
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="chaingraph-hub.html">OpenChainGraph</a>
+      <span class="nav-breadcrumb-sep">/</span>
+      <span style="color:var(--bright)">Link Builder &amp; Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="intoto-layout-composer.html" class="nav-pill">Layout Composer</a>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="hero-eyebrow">OpenChainGraph · in-toto Supply-Chain Attestation</div>
+  <h1 class="hero-title">in-toto Link Builder &amp; Verifier</h1>
+  <p class="hero-sub">Create a link (evidence that a layout step ran, with hashed materials and products) or an in-toto attestation statement (subject digests plus a predicate). Or paste a layout and its links to check them against each other offline, right here. Files are hashed locally with SHA-256 and never leave the browser.</p>
+
+  <div class="attrib-notice">Produces standard <a href="https://in-toto.io/" target="_blank" rel="noopener">in-toto</a> links (Specification v1.0) and <a href="https://github.com/in-toto/attestation" target="_blank" rel="noopener">in-toto attestation framework</a> statements. Independent authoring tool, not part of the in-toto project. Verify mode checks a strict rule subset, see the notice in that tab.</div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="link" onclick="showTab('link')">Build a link</div>
+    <div class="tab" data-tab="attest" onclick="showTab('attest')">Build an attestation</div>
+    <div class="tab" data-tab="verify" onclick="showTab('verify')">Verify offline</div>
+  </div>
+
+  <!-- ═══════════ LINK TAB ═══════════ -->
+  <div class="tab-panel active" id="panel-link">
+    <div class="card">
+      <div class="card-label">Step identity</div>
+      <div class="field-row">
+        <div class="field"><label for="lStepName">Step name</label><input id="lStepName" placeholder="package"></div>
+        <div class="field"><label for="lCommand">Command (space-separated)</label><input id="lCommand" placeholder="tar czf foo.tar.gz foo.py"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Materials (drag files here to hash)</div>
+      <div class="drop-zone" id="materialsDrop">Drop material files, or click to choose</div>
+      <input type="file" id="materialsFile" multiple style="display:none;">
+      <div class="file-list" id="materialsList"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Products (drag files here to hash)</div>
+      <div class="drop-zone" id="productsDrop">Drop product files, or click to choose</div>
+      <input type="file" id="productsFile" multiple style="display:none;">
+      <div class="file-list" id="productsList"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Byproducts (optional)</div>
+      <div class="field-row">
+        <div class="field full"><label for="lStdout">stdout (free text)</label><textarea id="lStdout"></textarea></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="buildLink()">Validate, sign &amp; export link</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ ATTESTATION TAB ═══════════ -->
+  <div class="tab-panel" id="panel-attest">
+    <div class="card">
+      <div class="card-label">Subject (drag files here to hash)</div>
+      <div class="drop-zone" id="subjectDrop">Drop subject files, or click to choose</div>
+      <input type="file" id="subjectFile" multiple style="display:none;">
+      <div class="file-list" id="subjectList"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Predicate</div>
+      <div class="field-row">
+        <div class="field full"><label for="predicateType">predicateType (URI)</label><input id="predicateType" placeholder="https://in-toto.io/attestation/link/v0.3" value="https://in-toto.io/attestation/link/v0.3"></div>
+      </div>
+      <div class="field-row">
+        <div class="field full"><label for="predicateJson">predicate (JSON)</label><textarea id="predicateJson" placeholder='{"byproducts":{},"environment":{}}'></textarea></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="buildAttestation()">Validate, sign &amp; export statement</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ VERIFY TAB ═══════════ -->
+  <div class="tab-panel" id="panel-verify">
+    <div class="unsupported-note">This verifier checks a strict subset of in-toto artifact rules client-side: <strong>MATCH</strong> (materials/products against a named prior step's products, same-name only), <strong>ALLOW</strong>, and <strong>DISALLOW</strong>. It does <strong>not</strong> implement CREATE/DELETE/MODIFY rule inference, inspections, or the full artifact-rule queue algorithm; unsupported rule kinds are reported, not silently passed. For a binding verification, use a reference implementation (in-toto-golang or in-toto python).</div>
+    <div class="card">
+      <div class="card-label">Layout (paste the <code>intoto_layout</code> JSON)</div>
+      <textarea id="verifyLayoutInput" placeholder="Paste the layout object exported by the Layout Composer."></textarea>
+    </div>
+    <div class="card">
+      <div class="card-label">Links (paste a JSON array of link objects, one per step)</div>
+      <textarea id="verifyLinksInput" placeholder='[{"name":"write-code","materials":{},"products":{"foo.py":{"sha256":"..."}}}, ...]'></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runVerify()">Verify</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadVerifyFixtureClean()">Load clean fixture</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadVerifyFixtureTampered()">Load tampered fixture</button>
+    </div>
+    <div class="result-banner" id="verifyBanner">
+      <div class="result-title" id="verifyTitle"></div>
+      <div class="result-detail" id="verifyDetail"></div>
+    </div>
+    <pre id="verifyOut"></pre>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result-banner pass" id="resultBanner">
+    <div class="result-title">Built</div>
+    <div class="result-detail" id="resultDetail"></div>
+    <div class="hash-val" id="resultDigest"></div>
+  </div>
+
+  <pre id="outJson"></pre>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+      <div class="footer-cc">CC BY 4.0 · Post Oak Labs · Deterministic, client-side fintech tools</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">OpenChainGraph Hub</a>
+      <a href="intoto-layout-composer.html">Layout Composer</a>
+      <a href="verify.html">Artifact Verifier</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   OCG CANONICALIZATION + HASH — inlined from chaingraph/kernels/_hash.mjs
+   ───────────────────────────────────────────────────────────────── */
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  return v;
+}
+async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256HexOfBytes(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   §16-STYLE SIGNER + DSSE — same eddsa-jcs-2022 / DSSE-PAE approach as
+   intoto-layout-composer.html (see that file for provenance notes).
+   ───────────────────────────────────────────────────────────────── */
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes) {
+  let zeros = 0; while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) { carry += digits[j] << 8; digits[j] = carry % 58; carry = (carry / 58) | 0; }
+    while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = ''; for (let k = 0; k < zeros; k++) out += '1';
+  for (let q = digits.length - 1; q >= 0; q--) out += B58[digits[q]];
+  return out;
+}
+const ED25519_MULTICODEC = [0xed, 0x01];
+async function rawPubkeyToDidKey(publicKey) {
+  const raw = new Uint8Array(await crypto.subtle.exportKey('raw', publicKey));
+  const prefixed = new Uint8Array(ED25519_MULTICODEC.length + raw.length);
+  prefixed.set(ED25519_MULTICODEC, 0); prefixed.set(raw, ED25519_MULTICODEC.length);
+  return 'did:key:z' + b58encode(prefixed);
+}
+function b64encode(bytes) { let bin = ''; for (const b of bytes) bin += String.fromCharCode(b); return btoa(bin); }
+function dssePAE(payloadType, payloadBytes) {
+  const enc = new TextEncoder();
+  const typeBytes = enc.encode(payloadType);
+  const parts = [
+    enc.encode('DSSEv1'), enc.encode(' '),
+    enc.encode(String(typeBytes.length)), enc.encode(' '), typeBytes, enc.encode(' '),
+    enc.encode(String(payloadBytes.length)), enc.encode(' '), payloadBytes,
+  ];
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0; for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+async function dsseSignEnvelope(payloadObj, payloadType, { verificationMethod, privateKey }) {
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(payloadObj));
+  const pae = dssePAE(payloadType, payloadBytes);
+  const sigBytes = new Uint8Array(await crypto.subtle.sign('Ed25519', privateKey, pae));
+  return { payload: b64encode(payloadBytes), payloadType, signatures: [{ keyid: verificationMethod, sig: b64encode(sigBytes) }] };
+}
+async function signEphemeral(obj, payloadType) {
+  try {
+    const kp = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+    const vm = await rawPubkeyToDidKey(kp.publicKey);
+    return await dsseSignEnvelope(obj, payloadType, { verificationMethod: vm, privateKey: kp.privateKey });
+  } catch (e) {
+    return null; // browser lacks WebCrypto Ed25519 — caller falls back to digest-only export
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE HASHING — drag-drop / click, local-only, no upload
+   ───────────────────────────────────────────────────────────────── */
+const bags = { materials: {}, products: {}, subject: {} };
+async function hashFilesInto(bagKey, files) {
+  for (const f of files) {
+    const buf = await f.arrayBuffer();
+    const digest = await sha256HexOfBytes(buf);
+    bags[bagKey][f.name] = { sha256: digest };
+  }
+  renderFileList(bagKey);
+}
+function renderFileList(bagKey) {
+  const el = document.getElementById(bagKey + 'List');
+  const names = Object.keys(bags[bagKey]);
+  el.innerHTML = names.map(n =>
+    '<div class="file-row"><span>' + esc(n) + '</span><span class="digest">' + bags[bagKey][n].sha256.slice(0, 16) + '…</span>' +
+    '<button class="file-remove" onclick="removeFile(\'' + bagKey + '\',\'' + esc(n).replace(/'/g, "\\'") + '\')">✕</button></div>'
+  ).join('') || '<p style="color:var(--muted);font-size:.7rem;">No files yet.</p>';
+}
+function removeFile(bagKey, name) { delete bags[bagKey][name]; renderFileList(bagKey); }
+function wireDropZone(zoneId, inputId, bagKey) {
+  const zone = document.getElementById(zoneId), input = document.getElementById(inputId);
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => hashFilesInto(bagKey, Array.from(input.files)));
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag'); hashFilesInto(bagKey, Array.from(e.dataTransfer.files)); });
+}
+wireDropZone('materialsDrop', 'materialsFile', 'materials');
+wireDropZone('productsDrop', 'productsFile', 'products');
+wireDropZone('subjectDrop', 'subjectFile', 'subject');
+
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ─────────────────────────────────────────────────────────────────
+   TABS
+   ───────────────────────────────────────────────────────────────── */
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  hideError(); hideResult();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BUILD LINK — in-toto Link schema (Specification v1.0)
+   ───────────────────────────────────────────────────────────────── */
+async function buildLink() {
+  hideError(); hideResult();
+  const name = document.getElementById('lStepName').value.trim();
+  if (!name) { showError('Step name is required.'); return; }
+  const command = document.getElementById('lCommand').value.trim().split(/\s+/).filter(Boolean);
+  const stdout = document.getElementById('lStdout').value;
+  const link = {
+    _type: 'link', name,
+    materials: cgCanon(bags.materials), products: cgCanon(bags.products),
+    byproducts: stdout ? { stdout } : {}, environment: {}, command,
+  };
+  const envelope = await signEphemeral(link, 'application/vnd.in-toto+json');
+  document.getElementById('resultDetail').textContent =
+    Object.keys(bags.materials).length + ' material(s), ' + Object.keys(bags.products).length + ' product(s), signed: ' + (envelope ? 'yes (DSSE / Ed25519)' : 'no (browser lacks WebCrypto Ed25519)');
+  document.getElementById('resultBanner').classList.add('show');
+  const out = envelope ? { intoto_link: link, dsse_envelope: envelope } : { intoto_link: link };
+  showOut(out, name + '.link.json');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BUILD ATTESTATION — in-toto attestation framework Statement (ITE-6)
+   ───────────────────────────────────────────────────────────────── */
+async function buildAttestation() {
+  hideError(); hideResult();
+  const predicateType = document.getElementById('predicateType').value.trim();
+  if (!predicateType) { showError('predicateType is required.'); return; }
+  let predicate;
+  try { predicate = document.getElementById('predicateJson').value.trim() ? JSON.parse(document.getElementById('predicateJson').value) : {}; }
+  catch (e) { showError('predicate is not valid JSON: ' + e.message); return; }
+  const subjectNames = Object.keys(bags.subject);
+  if (subjectNames.length === 0) { showError('At least one subject file is required.'); return; }
+  const statement = {
+    _type: 'https://in-toto.io/Statement/v1',
+    subject: subjectNames.map(n => ({ name: n, digest: { sha256: bags.subject[n].sha256 } })),
+    predicateType, predicate,
+  };
+  const envelope = await signEphemeral(statement, 'application/vnd.in-toto+json');
+  document.getElementById('resultDetail').textContent = subjectNames.length + ' subject(s), signed: ' + (envelope ? 'yes (DSSE / Ed25519)' : 'no (browser lacks WebCrypto Ed25519)');
+  document.getElementById('resultBanner').classList.add('show');
+  const out = envelope ? { intoto_statement: statement, dsse_envelope: envelope } : { intoto_statement: statement };
+  showOut(out, 'attestation.statement.json');
+}
+
+function showOut(obj, filename) {
+  document.getElementById('resultDigest').textContent = '';
+  const pre = document.getElementById('outJson');
+  pre.textContent = JSON.stringify(obj, null, 2);
+  pre.style.display = 'block';
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VERIFY — strict subset of the in-toto artifact-rule algorithm.
+   Supported: MATCH (same-name, WITH PRODUCTS/MATERIALS FROM step),
+   ALLOW, DISALLOW. Unsupported kinds (CREATE/DELETE/MODIFY inference)
+   are reported as "unsupported" rather than silently treated as pass.
+   ───────────────────────────────────────────────────────────────── */
+const SUPPORTED_RULES = new Set(['MATCH', 'ALLOW', 'DISALLOW']);
+function applyRules(rules, artifactBag, linksByName) {
+  const names = new Set(Object.keys(artifactBag));
+  const consumed = new Set();
+  const notes = [];
+  for (const rule of rules) {
+    const kind = rule[0];
+    if (!SUPPORTED_RULES.has(kind)) { notes.push({ rule, status: 'unsupported', detail: kind + ' rules are not evaluated by this client-side verifier.' }); continue; }
+    if (kind === 'DISALLOW') {
+      const pattern = rule[1];
+      const hit = Array.from(names).find(n => globMatch(pattern, n) && !consumed.has(n));
+      if (hit) { notes.push({ rule, status: 'fail', detail: 'DISALLOW matched artifact "' + hit + '".' }); }
+      else notes.push({ rule, status: 'pass', detail: 'no unconsumed artifact matches "' + pattern + '".' });
+      continue;
+    }
+    if (kind === 'ALLOW') {
+      const pattern = rule[1];
+      const matches = Array.from(names).filter(n => globMatch(pattern, n) && !consumed.has(n));
+      matches.forEach(m => consumed.add(m));
+      notes.push({ rule, status: 'pass', detail: matches.length + ' artifact(s) allowed by "' + pattern + '".' });
+      continue;
+    }
+    if (kind === 'MATCH') {
+      // ['MATCH', pattern, 'WITH', 'PRODUCTS'|'MATERIALS', 'FROM', stepName]
+      const pattern = rule[1];
+      const sourceField = (rule[3] || 'PRODUCTS').toLowerCase();
+      const sourceStep = rule[5];
+      const sourceLink = linksByName[sourceStep];
+      if (!sourceLink) { notes.push({ rule, status: 'fail', detail: 'source step "' + sourceStep + '" has no link in the pasted set.' }); continue; }
+      const sourceBag = sourceField === 'materials' ? (sourceLink.materials || {}) : (sourceLink.products || {});
+      const candidates = Array.from(names).filter(n => globMatch(pattern, n) && !consumed.has(n));
+      if (candidates.length === 0) { notes.push({ rule, status: 'fail', detail: 'no unconsumed artifact matches "' + pattern + '".' }); continue; }
+      let allOk = true;
+      for (const c of candidates) {
+        const theirs = sourceBag[c];
+        const oursDigest = artifactBag[c] && artifactBag[c].sha256;
+        const ok = theirs && theirs.sha256 === oursDigest;
+        if (!ok) allOk = false;
+        consumed.add(c);
+      }
+      notes.push({ rule, status: allOk ? 'pass' : 'fail', detail: candidates.join(', ') + (allOk ? ' match ' : ' do NOT match ') + sourceStep + '.' + sourceField });
+    }
+  }
+  return notes;
+}
+function globMatch(pattern, name) {
+  if (pattern === '*') return true;
+  const esc = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp('^' + esc + '$').test(name);
+}
+
+function runVerify() {
+  hideError();
+  document.getElementById('verifyBanner').classList.remove('show', 'pass', 'fail');
+  document.getElementById('verifyOut').style.display = 'none';
+  let layout, links;
+  try { layout = JSON.parse(document.getElementById('verifyLayoutInput').value.trim() || '{}'); }
+  catch (e) { showError('Layout JSON parse error: ' + e.message); return; }
+  try { links = JSON.parse(document.getElementById('verifyLinksInput').value.trim() || '[]'); }
+  catch (e) { showError('Links JSON parse error: ' + e.message); return; }
+  if (!layout.steps || !Array.isArray(layout.steps)) { showError('Layout is missing steps[].'); return; }
+  if (!Array.isArray(links)) { showError('Links must be a JSON array.'); return; }
+
+  const linksByName = {};
+  links.forEach(l => { linksByName[l.name] = l; });
+
+  const stepResults = [];
+  let allPass = true, anyUnsupported = false;
+  for (const step of layout.steps) {
+    const link = linksByName[step.name];
+    if (!link) { stepResults.push({ step: step.name, status: 'missing-link', notes: [] }); allPass = false; continue; }
+    const matNotes = applyRules(step.expected_materials || [], link.materials || {}, linksByName);
+    const prodNotes = applyRules(step.expected_products || [], link.products || {}, linksByName);
+    const notes = matNotes.concat(prodNotes);
+    const hasFail = notes.some(n => n.status === 'fail');
+    const hasUnsupported = notes.some(n => n.status === 'unsupported');
+    if (hasUnsupported) anyUnsupported = true;
+    if (hasFail) allPass = false;
+    stepResults.push({ step: step.name, status: hasFail ? 'fail' : (hasUnsupported ? 'partial' : 'pass'), notes });
+  }
+
+  const banner = document.getElementById('verifyBanner');
+  banner.className = 'result-banner show ' + (allPass ? 'pass' : 'fail');
+  document.getElementById('verifyTitle').textContent = allPass ? 'Artifact rules check out' : 'Artifact rule mismatch found';
+  document.getElementById('verifyDetail').textContent =
+    stepResults.length + ' step(s) checked' + (anyUnsupported ? ', some rule kinds were unsupported and reported honestly, not silently passed' : '') + '.';
+
+  const pre = document.getElementById('verifyOut');
+  pre.textContent = stepResults.map(s =>
+    'STEP ' + s.step + ': ' + s.status.toUpperCase() +
+    (s.notes.length ? '\n' + s.notes.map(n => '  [' + n.status + '] ' + n.rule.join(' ') + ' — ' + n.detail).join('\n') : '')
+  ).join('\n\n');
+  pre.style.display = 'block';
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VERIFY-TAB FIXTURES — mirror the composer's write-then-package fixture
+   ───────────────────────────────────────────────────────────────── */
+function verifyFixtureLayout() {
+  return {
+    _type: 'layout', name: 'write-then-package',
+    steps: [
+      { name: 'write-code', threshold: 1, pubkeys: [], expected_materials: [], expected_products: [['CREATE', 'foo.py']] },
+      { name: 'package', threshold: 1, pubkeys: [], expected_materials: [['MATCH', 'foo.py', 'WITH', 'PRODUCTS', 'FROM', 'write-code']], expected_products: [['CREATE', 'foo.tar.gz']] },
+    ],
+  };
+}
+async function verifyFixtureLinks(tamper) {
+  const writeDigest = await sha256Hex('foo.py contents (fixture)');
+  const tamperedDigest = tamper ? await sha256Hex('foo.py contents (TAMPERED)') : writeDigest;
+  return [
+    { name: 'write-code', materials: {}, products: { 'foo.py': { sha256: writeDigest } } },
+    { name: 'package', materials: { 'foo.py': { sha256: tamperedDigest } }, products: { 'foo.tar.gz': { sha256: await sha256Hex('foo.tar.gz contents') } } },
+  ];
+}
+async function loadVerifyFixtureClean() {
+  document.getElementById('verifyLayoutInput').value = JSON.stringify(verifyFixtureLayout(), null, 2);
+  document.getElementById('verifyLinksInput').value = JSON.stringify(await verifyFixtureLinks(false), null, 2);
+}
+async function loadVerifyFixtureTampered() {
+  document.getElementById('verifyLayoutInput').value = JSON.stringify(verifyFixtureLayout(), null, 2);
+  document.getElementById('verifyLinksInput').value = JSON.stringify(await verifyFixtureLinks(true), null, 2);
+}
+
+function showError(msg) { const el = document.getElementById('errorBox'); el.textContent = msg; el.style.display = 'block'; }
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function hideResult() { document.getElementById('resultBanner').classList.remove('show'); document.getElementById('outJson').style.display = 'none'; }
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'intoto-link-builder',
+  version: '1.0.0',
+  title: 'in-toto Link Builder & Verifier',
+  description: 'Builds a DSSE-signed in-toto link or attestation-framework statement from drag-drop file hashing, and verifies a layout against links offline using a strict client-side artifact-rule subset (MATCH/ALLOW/DISALLOW). Zero server state.',
+  category: 'chaingraph',
+  tags: ['OpenChainGraph','in-toto','supply-chain','DSSE','attestation','audit-trail'],
+  chaingraph: false,
+  prefill: false
+};
+</script>
+</body>
+</html>
