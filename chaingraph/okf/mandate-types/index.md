@@ -14,7 +14,7 @@ timestamp: 2026-07-14
 - [collateral_mandate](./collateral_mandate.md) (9)
 - [compliance_control](./compliance_control.md) (4)
 - [compliance_mandate](./compliance_mandate.md) (222)
-- [credit_assessment](./credit_assessment.md) (1)
+- [credit_assessment](./credit_assessment.md) (2)
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)
 - [cryptographic_mandate](./cryptographic_mandate.md) (9)
 - [derivatives_margin_health](./derivatives_margin_health.md) (2)

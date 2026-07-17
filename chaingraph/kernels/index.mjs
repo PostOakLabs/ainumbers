@@ -277,6 +277,7 @@ import * as art33     from './art-33-mcp-server-self-attestation-pack.kernel.mjs
 import * as art330    from './art-330-tvm-dv01.kernel.mjs';
 import * as art331    from './art-331-tvm-convexity.kernel.mjs';
 import * as art34     from './art-34-tempo-fit-diagnostic.kernel.mjs';
+import * as art348    from './art-348-score-credit-model-quantized.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
 import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
@@ -635,6 +636,7 @@ export const KERNELS = {
   'art-330-tvm-dv01':                                         art330,
   'art-331-tvm-convexity':                                    art331,
   'art-34-tempo-fit-diagnostic':                              art34,
+  'art-348-score-credit-model-quantized':                     art348,
   'art-35-tempo-payments-business-case':                      art35,
   'art-36-tempo-mpp-agent-mandate':                           art36,
   'art-37-tempo-stablecoin-issuance':                         art37,
