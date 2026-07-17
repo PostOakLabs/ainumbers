@@ -10,5 +10,5 @@ timestamp: 2026-07-14
 
 2 tool(s) in this mandate-type group:
 
-- [APP Fraud Graph Simulator](../tools/mms-03-app-fraud-graph.md)
 - [Tempo On-Chain AML & Travel Rule Screener](../tools/art-38-tempo-onchain-aml.md)
+- [APP Fraud Graph Simulator](../tools/mms-03-app-fraud-graph.md)

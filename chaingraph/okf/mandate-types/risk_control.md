@@ -11,6 +11,6 @@ timestamp: 2026-07-14
 4 tool(s) in this mandate-type group:
 
 - [AMLA Transaction-Typology Risk Scorer](../tools/art-10-amla-transaction-typology-risk-scorer.md)
-- [Portfolio Covariance & VaR Engine](../tools/qfa-02-portfolio-var-engine.md)
 - [Isolation Forest Transaction Anomaly Detector](../tools/ml-01-isolation-forest.md)
 - [Time-Series Anomaly Detector](../tools/ml-03-timeseries-anomaly-detector.md)
+- [Portfolio Covariance & VaR Engine](../tools/qfa-02-portfolio-var-engine.md)

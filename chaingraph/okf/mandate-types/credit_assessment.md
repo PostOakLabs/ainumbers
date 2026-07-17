@@ -10,5 +10,5 @@ timestamp: 2026-07-14
 
 2 tool(s) in this mandate-type group:
 
-- [Credit Default Risk Scorer](../tools/ml-02-credit-default-risk-scorer.md)
 - [Quantized Credit Model Scorer](../tools/art-348-score-credit-model-quantized.md)
+- [Credit Default Risk Scorer](../tools/ml-02-credit-default-risk-scorer.md)

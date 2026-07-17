@@ -10,8 +10,6 @@ timestamp: 2026-07-14
 
 9 tool(s) in this mandate-type group:
 
-- [Merkle Batch Verifier](../tools/cry-04-merkle-batch-verifier.md)
-- [Agent-Action Audit-Trail Aggregator](../tools/cry-05-agent-action-audit-trail-aggregator.md)
 - [Trade Document Provenance & Consistency Verifier](../tools/art-55-trade-document-provenance-verifier.md)
 - [Conversion Receipt Builder](../tools/art-191-conversion-receipt-builder.md)
 - [Conversion Receipt Verifier](../tools/art-192-conversion-receipt-verifier.md)
@@ -19,3 +17,5 @@ timestamp: 2026-07-14
 - [License Election Certifier](../tools/art-199-license-election-certifier.md)
 - [License Election Verifier](../tools/art-200-license-election-verifier.md)
 - [State-Proof Verifier](../tools/art-279-state-proof-verifier.md)
+- [Merkle Batch Verifier](../tools/cry-04-merkle-batch-verifier.md)
+- [Agent-Action Audit-Trail Aggregator](../tools/cry-05-agent-action-audit-trail-aggregator.md)
