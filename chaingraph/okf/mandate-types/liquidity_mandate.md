@@ -10,5 +10,5 @@ timestamp: 2026-07-14
 
 2 tool(s) in this mandate-type group:
 
-- [Liquidity Stress Test Simulator (LCR/NSFR)](../tools/sim-01-lcr-nsfr-liquidity-stress-test.md)
 - [MiCA Stablecoin Reserve Stress Simulator](../tools/rca-02-mica-reserve-stress.md)
+- [Liquidity Stress Test Simulator (LCR/NSFR)](../tools/sim-01-lcr-nsfr-liquidity-stress-test.md)

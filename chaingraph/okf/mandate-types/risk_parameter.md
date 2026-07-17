@@ -10,9 +10,9 @@ timestamp: 2026-07-14
 
 6 tool(s) in this mandate-type group:
 
-- [Options Greeks Calculator](../tools/qfa-01-options-greeks.md)
-- [XVA / CVA Calculator](../tools/qfa-04-xva-cva-calculator.md)
-- [FRTB IMA Expected Shortfall Pre-Validator](../tools/rca-01-frtb-ima-pre-validator.md)
-- [Stress Test Engine](../tools/qfa-03-stress-test-engine.md)
 - [FICC Margin & Netting Estimator](../tools/art-50-ficc-margin-netting-estimator.md)
 - [FICC-CME Cross-Margining Estimator](../tools/art-51-cross-margining-benefit-estimator.md)
+- [Options Greeks Calculator](../tools/qfa-01-options-greeks.md)
+- [Stress Test Engine](../tools/qfa-03-stress-test-engine.md)
+- [XVA / CVA Calculator](../tools/qfa-04-xva-cva-calculator.md)
+- [FRTB IMA Expected Shortfall Pre-Validator](../tools/rca-01-frtb-ima-pre-validator.md)

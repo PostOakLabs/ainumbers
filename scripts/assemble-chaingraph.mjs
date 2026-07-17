@@ -15,11 +15,18 @@
  *   node scripts/assemble-chaingraph.mjs           # writes chaingraph.json
  *   node scripts/assemble-chaingraph.mjs --check   # verify only, exit 1 on drift
  *
- * MIGRATION MODE (CS-1): reassembly uses the `raw` glue block in
- * chaingraph.meta.json to reproduce the legacy monolith byte-identically,
- * including its as-authored (non-canonical) insertion order and per-element
- * whitespace. CS-2 flips to canonical sorted order + uniform formatting and
- * drops the `raw` block — that is a separate, reviewable commit.
+ * CANONICAL ORDER (CS-2, replaces CS-1's migration-mode byte-parity glue):
+ * nodes are emitted sorted by tool_id, chains sorted by name, both via a
+ * numeric-aware natural sort (so "art-9" < "art-10" < "art-100", not
+ * lexical). order.nodes/order.chains in chaingraph.meta.json are the SET of
+ * shard ids to include — a future WU only needs to append its id there;
+ * this script re-sorts at assembly time regardless of array position, so
+ * append order never affects the emitted order. Separators between elements
+ * are uniform (",\n    " between elements, "\n  " after the last) since
+ * shard formatting is already normalized — no more per-position separator
+ * array. meta.raw.header/betweenNodesAndChains/footer (the fixed wrapper
+ * text: $schema, version, metadata block, closing brace) are unchanged by
+ * this flip — only node/chain ORDER and inter-element whitespace changed.
  */
 
 import { readFileSync, writeFileSync } from 'fs'
@@ -39,28 +46,31 @@ const meta = JSON.parse(readFileSync(META_PATH, 'utf8'))
 const { order, raw } = meta
 
 if (!raw) {
-  console.error('assemble-chaingraph.mjs: meta.raw missing — canonical (post-CS-2) generation not yet implemented. This build is MIGRATION MODE only.')
+  console.error('assemble-chaingraph.mjs: meta.raw missing — header/footer wrapper text is required.')
   process.exit(1)
 }
+
+const naturalSort = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
 
 function readShard(dir, id) {
   const text = readFileSync(resolve(dir, `${id}.json`), 'utf8')
   return text.endsWith('\n') ? text.slice(0, -1) : text
 }
 
-const nodeTexts = order.nodes.map((id) => readShard(NODES_DIR, id))
-const chainTexts = order.chains.map((name) => readShard(CHAINS_DIR, name))
+const sortedNodeIds = [...order.nodes].sort(naturalSort)
+const sortedChainIds = [...order.chains].sort(naturalSort)
 
-if (nodeTexts.length !== raw.nodeSeparators.length || chainTexts.length !== raw.chainSeparators.length) {
-  console.error('assemble-chaingraph.mjs: order/separator length mismatch — meta.json is inconsistent (did a shard get added without updating raw.*Separators?).')
-  process.exit(1)
+const nodeTexts = sortedNodeIds.map((id) => readShard(NODES_DIR, id))
+const chainTexts = sortedChainIds.map((name) => readShard(CHAINS_DIR, name))
+
+function joinShards(texts) {
+  let joined = ''
+  texts.forEach((text, i) => { joined += text + (i < texts.length - 1 ? ',\n    ' : '\n  ') })
+  return joined
 }
 
-let nodesJoined = ''
-nodeTexts.forEach((text, i) => { nodesJoined += text + raw.nodeSeparators[i] })
-
-let chainsJoined = ''
-chainTexts.forEach((text, i) => { chainsJoined += text + raw.chainSeparators[i] })
+const nodesJoined = joinShards(nodeTexts)
+const chainsJoined = joinShards(chainTexts)
 
 const assembled = raw.header + nodesJoined + raw.betweenNodesAndChains + chainsJoined + raw.footer
 
