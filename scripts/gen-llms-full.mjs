@@ -39,6 +39,28 @@ function truncate(s, n) {
   return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…';
 }
 
+function extractTitle(html, fallback) {
+  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (!m) return fallback;
+  return m[1].split('|')[0].trim();
+}
+
+function extractDesc(html) {
+  const m = html.match(/<meta\s+name="description"\s+content="([^"]*)"/i);
+  return m ? m[1].trim() : '';
+}
+
+function collectGuides(repo) {
+  return readdirSync(resolve(repo, 'guides'))
+    .filter((f) => f.endsWith('.html'))
+    .sort()
+    .map((f) => {
+      const html = readFileSync(resolve(repo, 'guides', f), 'utf8');
+      const name = f.replace(/\.html$/, '');
+      return { name, title: extractTitle(html, name), desc: humanize(truncate(extractDesc(html), 160)) };
+    });
+}
+
 function renderBody() {
   const counts = deriveCounts();
   const chaingraph = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
@@ -63,12 +85,14 @@ function renderBody() {
     .map((n) => ({ name: n.mcp_name, title: n.display_name || n.mcp_name, desc: humanize(truncate(n.description || '', 160)) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const guides = collectGuides(REPO);
+
   const lines = [];
   lines.push('# AINumbers.co - Full Tool & Workflow Inventory (llms-full.txt)');
   lines.push('');
   lines.push('Expanded companion to llms.txt: one line per registered browser tool and per named');
   lines.push('workflow, generator-sourced from chaingraph.json + manifests/ (never hand-typed).');
-  lines.push(`Generated from ${counts.manifests} manifests, ${counts['mcp.live']} live MCP tools, ${counts.chains} workflows.`);
+  lines.push(`Generated from ${counts.manifests} manifests, ${counts['mcp.live']} live MCP tools, ${counts.chains} workflows, ${guides.length} guides.`);
   lines.push('MCP server: https://mcp.ainumbers.co/mcp (use find_tool / find_chain to discover by task).');
   lines.push('');
   lines.push('## Browser tools (' + browserTools.length + ')');
@@ -85,6 +109,10 @@ function renderBody() {
   lines.push('## Live MCP tool names (' + workflowNodes.length + ')');
   lines.push('');
   for (const n of workflowNodes) lines.push(`- ${n.name} :: ${n.title} - ${n.desc}`);
+  lines.push('');
+  lines.push('## Guides (' + guides.length + ')');
+  lines.push('');
+  for (const g of guides) lines.push(`- guides/${g.name}.html :: ${g.title} - ${g.desc}`);
   lines.push('');
   return lines.join('\n') + '\n';
 }
