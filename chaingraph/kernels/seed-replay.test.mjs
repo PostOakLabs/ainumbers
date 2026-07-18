@@ -19,9 +19,10 @@
 //                 (a DIFFERENT hash REQUIRED), plus the three fields MUST all be present.
 //
 // (a) and (b) run UNCONDITIONALLY, before any kernel scan — same pattern as
-// quantization-parity.test.mjs's self-test — so the replay and tamper-detect paths stay proven in
-// an estate with zero `seeded-stochastic` kernels. At v0.8.8 that is exactly the estate: the class
-// is specified and not yet adopted (art-371 still declares the weaker, sound `estimated`).
+// quantization-parity.test.mjs's self-test — so the replay and tamper-detect paths stay proven
+// even in an estate with zero `seeded-stochastic` kernels. `art-371` (ART371-CLASS-RELOCATE)
+// is the first live adopter: determinism_class is hash-excluded metadata (§24.6) and lives on
+// the top-level artifact, never inside output_payload — the estate scan below checks it there.
 //
 // Zero-dependency. Wired into scripts/preflight.mjs.
 //   node chaingraph/kernels/seed-replay.test.mjs
@@ -126,7 +127,9 @@ for (const [id, kernel] of Object.entries(KERNELS)) {
   let probe;
   try { probe = await kernel.buildArtifact({}, { now: null }); } catch { continue; }
   const op = probe?.output_payload;
-  if (op?.determinism_class !== 'seeded-stochastic') continue; // other classes are out of scope
+  // determinism_class is hash-excluded metadata (SPEC.md §24.6) — it lives on the top-level
+  // artifact, never inside output_payload; check the artifact field, not the payload.
+  if (probe?.determinism_class !== 'seeded-stochastic') continue; // other classes are out of scope
 
   const missing = ['prng_algorithm', 'seed', 'draw_count'].filter((f) => op[f] === undefined || op[f] === null);
   if (missing.length) {

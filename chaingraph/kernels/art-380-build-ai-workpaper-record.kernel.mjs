@@ -29,7 +29,11 @@ export const meta = {
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const SHA256_PREFIXED = /^sha256:[0-9a-f]{64}$/;
-const VALID_DETERMINISM_CLASSES = ['deterministic', 'estimated'];
+// SPEC.md §24.6 defines four classes: bit-exact, replayable, seeded-stochastic,
+// estimated. 'deterministic' is pre-existing drift (never a §24.6 value) kept
+// here because a shipped fixture already carries a receipt declaring it
+// (ART371-CLASS-RELOCATE row: retiring it is a separate call, not this WU's).
+const VALID_DETERMINISM_CLASSES = ['bit-exact', 'replayable', 'seeded-stochastic', 'estimated', 'deterministic'];
 
 function _str(v) { return typeof v === 'string' ? v : ''; }
 

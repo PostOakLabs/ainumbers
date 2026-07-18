@@ -3,16 +3,13 @@
  * Portfolio VaR by Monte Carlo — integer-only PRNG (xoshiro256**), fixed-point
  * arithmetic throughout the path simulation (no float accumulation drift).
  *
- * OCG SPEC.md §24.6 (v0.8.8, unreleased at kernel ship time — see node shard note):
- * this kernel declares determinism_class "estimated" (the EXISTING normative
- * §24.6 class), NOT the not-yet-normative "seeded-stochastic" value. A declared
- * integer seed replays byte-identically (kernel-contract.test.mjs re-verifies
- * this every CI run by recomputing from policy_parameters and comparing against
- * the pinned output_payload) — stronger than "estimated" implies, but the
- * weaker class is what SPEC.md currently defines, so that is what ships. The
- * PRNG algorithm, seed, and draw count are carried as ordinary fields in
- * policy_parameters and echoed in output_payload, so a future re-declaration
- * against a landed v0.8.8 is a one-line change.
+ * OCG SPEC.md §24.6.2 (v0.8.8): this kernel declares determinism_class
+ * "seeded-stochastic" — a declared integer seed replays byte-identically
+ * (seed-replay.test.mjs re-verifies this every CI run), and the same kernel
+ * re-run at a tampered seed produces a different hash. determinism_class is
+ * hash-excluded metadata per §24.6 and is attached in buildArtifact, not
+ * inside output_payload. prng_algorithm, seed, and draw_count remain ordinary
+ * receipt content inside output_payload, as §24.6.2 requires.
  *
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random().
  */
@@ -27,7 +24,7 @@ export const meta = {
 };
 
 const TOOL_ID      = 'art-371-simulate-var-monte-carlo';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 const FP        = 1_000_000n;       // fixed-point scale: 1.0 == 1_000_000n
 const MASK64    = (1n << 64n) - 1n;
@@ -145,7 +142,6 @@ export function compute(pp) {
     n_assets,
     n_paths,
     correlation,
-    determinism_class:  'estimated',
     prng_algorithm,
     seed,
     draw_count,
@@ -166,6 +162,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
     execution_hash: hash,
+    determinism_class: 'seeded-stochastic',
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,

@@ -142,12 +142,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-371 &middot; Simulation &amp; replay</div>
   <h1>Portfolio VaR: Monte Carlo (Integer PRNG)</h1>
-  <p class="sub">Runs a one-factor correlated-asset Monte Carlo simulation of portfolio Value-at-Risk and Expected Shortfall. The entire path loop, including the pseudo-random draws (xoshiro256**) and every arithmetic step, runs on integers in fixed-point, never a floating-point accumulator, so a declared seed reproduces the identical result every time. Declares the OpenChainGraph <code>estimated</code> determinism class (SPEC.md &sect;24.6): stochastic output, exempt from cross-surface byte-identity, still required to be finite and idempotent for a fixed seed.</p>
+  <p class="sub">Runs a one-factor correlated-asset Monte Carlo simulation of portfolio Value-at-Risk and Expected Shortfall. The entire path loop, including the pseudo-random draws (xoshiro256**) and every arithmetic step, runs on integers in fixed-point, never a floating-point accumulator, so a declared seed reproduces the identical result every time and a tampered seed does not. Declares the OpenChainGraph <code>seeded-stochastic</code> determinism class (SPEC.md &sect;24.6.2).</p>
   <div style="margin-bottom:6px"><span class="flag warn">Simulation &amp; Replay</span><span class="flag info">Integer PRNG · fixed-point</span><span class="flag">Zero PII</span><span class="flag purple">W3C VC &sect;13.11</span></div>
 
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
 
-  <div class="info-box fence"><div class="ib-title">Estimated, not bit-exact</div>This kernel declares the SPEC.md &sect;24.6 <code>estimated</code> determinism class, not <code>bit-exact</code>. It is exempt from cross-surface byte-identity but is proven, in the shipped fixtures, to replay byte-identically for a fixed declared seed and to change output when the seed changes. It is not a claim of parametric or historical-simulation VaR accuracy: it is a Monte Carlo estimate over a simplified one-factor correlation model.</div>
+  <div class="info-box fence"><div class="ib-title">Seeded-stochastic, not bit-exact</div>This kernel declares the SPEC.md &sect;24.6.2 <code>seeded-stochastic</code> determinism class, not <code>bit-exact</code>. It is proven, in the shipped fixtures, to replay byte-identically for a fixed declared seed, and to produce a different result and a different hash when the seed changes. It is not a claim of parametric or historical-simulation VaR accuracy: it is a Monte Carlo estimate over a simplified one-factor correlation model.</div>
 
   <div class="info-box"><div class="ib-title">Determinism inputs</div>PRNG algorithm: <b>xoshiro256**</b> (splitmix64 seed expansion), integer-only. Every path draw and every arithmetic step in the simulation loop is fixed-point (scale 1e6), never a JS float accumulator. The declared <code>seed</code>, <code>prng_algorithm</code>, and <code>draw_count</code> are carried as ordinary fields in the receipt below.</div>
 
@@ -300,11 +300,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 const MANIFEST = {
   "tool_id": "art-371-simulate-var-monte-carlo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Portfolio VaR — Monte Carlo (Integer PRNG)",
   "mcp_tool_definition": {
     "name": "simulate_var_monte_carlo",
-    "description": "Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model. Integer xoshiro256** PRNG, fixed-point arithmetic throughout — a declared seed replays byte-identically. Declares SPEC.md §24.6 'estimated' determinism class. Zero network, zero PII.",
+    "description": "Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model. Integer xoshiro256** PRNG, fixed-point arithmetic throughout — a declared seed replays byte-identically, a tampered seed does not. Declares SPEC.md §24.6.2 'seeded-stochastic' determinism class. Zero network, zero PII.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -324,9 +324,11 @@ const MANIFEST = {
 
 /* ── Integer-only PRNG + fixed-point Monte Carlo kernel — mirrors
    kernels/art-371-simulate-var-monte-carlo.kernel.mjs. Declared class is
-   'estimated' (SPEC.md §24.6), which is exempt from cross-surface byte-
-   identity, so this browser copy need not be bit-identical to the server
-   kernel — it reuses the identical algorithm anyway for consistency. ── */
+   'seeded-stochastic' (SPEC.md §24.6.2): a declared seed replays byte-
+   identically and a tampered seed yields a different hash. determinism_class
+   is hash-excluded metadata, attached on the artifact, not inside
+   output_payload. This browser copy reuses the identical algorithm as the
+   server kernel for consistency. ── */
 const FP = 1000000n;
 const MASK64 = (1n << 64n) - 1n;
 const SECTOR_VOLS_BP = [250000n, 200000n, 180000n, 300000n, 150000n, 220000n, 280000n, 160000n, 240000n, 190000n];
@@ -414,7 +416,7 @@ function compute(pp) {
     verdict: mc_var_pct > 0.10 ? 'HIGH_RISK' : mc_var_pct > 0.05 ? 'MODERATE_RISK' : 'LOW_RISK',
     mc_var_pct, mc_es_pct, var_dollar_mm, es_dollar_mm,
     conf_level, holding_period, n_assets, n_paths, correlation,
-    determinism_class: 'estimated', prng_algorithm, seed, draw_count,
+    prng_algorithm, seed, draw_count,
     compliance_flags,
   };
 }
@@ -442,13 +444,14 @@ async function run() {
   const compliance_flags = output_payload.compliance_flags;
   const rawHash = await cgHash(pp, output_payload);
   const execHash = 'sha256:' + rawHash;
-  const artifact = { '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld', chaingraph_version: '0.4.0', spec_version: '0.8.7', compute_mode: 'browser', mandate_type: 'risk_control', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version, generated_at: new Date().toISOString(), execution_hash: execHash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 1 }, policy_parameters: pp, output_payload, compliance_flags, audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+  const determinism_class = 'seeded-stochastic';
+  const artifact = { '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld', chaingraph_version: '0.4.0', spec_version: '0.8.8', compute_mode: 'browser', mandate_type: 'risk_control', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version, generated_at: new Date().toISOString(), execution_hash: execHash, determinism_class: 'seeded-stochastic', chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 1 }, policy_parameters: pp, output_payload, compliance_flags, audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
   _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastHash = execHash; _lastFlags = compliance_flags;
-  renderResults(output_payload, compliance_flags, execHash, artifact);
+  renderResults(output_payload, compliance_flags, execHash, artifact, determinism_class);
   document.getElementById('ap2ExportBtn').disabled = false;
 }
 
-function renderResults(op, flags, execHash, artifact) {
+function renderResults(op, flags, execHash, artifact, determinism_class) {
   document.getElementById('heroRow').innerHTML =
     '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + (op.mc_var_pct * 100).toFixed(2) + '%</div><div class="hero-lbl">MC VaR</div></div>' +
     '<div class="hero-stat"><div class="hero-val" style="color:var(--gold)">' + (op.mc_es_pct * 100).toFixed(2) + '%</div><div class="hero-lbl">MC Expected Shortfall</div></div>' +
@@ -456,7 +459,7 @@ function renderResults(op, flags, execHash, artifact) {
     '<div class="hero-stat"><div class="hero-val" style="color:var(--body)">' + op.draw_count.toLocaleString() + '</div><div class="hero-lbl">Draws (seed ' + op.seed + ')</div></div>';
   const cls = op.verdict === 'HIGH_RISK' ? 'fail' : 'pass';
   document.getElementById('verdictDiv').innerHTML =
-    '<div class="verdict ' + cls + '">' + op.verdict + ' &middot; ' + op.n_paths.toLocaleString() + ' paths &middot; ' + op.prng_algorithm + ' &middot; determinism_class: ' + op.determinism_class + '</div>' +
+    '<div class="verdict ' + cls + '">' + op.verdict + ' &middot; ' + op.n_paths.toLocaleString() + ' paths &middot; ' + op.prng_algorithm + ' &middot; determinism_class: ' + determinism_class + '</div>' +
     '<div class="gap-list">' + flags.map(f => '<span class="badge ok">' + f + '</span>').join('') + '</div>';
   document.getElementById('execHash').textContent = execHash;
   document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
