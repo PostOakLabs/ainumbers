@@ -312,6 +312,7 @@ import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
 import * as art370    from './art-370-supervisory-scenario-replay.kernel.mjs';
 import * as art371    from './art-371-simulate-var-monte-carlo.kernel.mjs';
 import * as art373    from './art-373-recompute-fund-nav.kernel.mjs';
+import * as art374    from './art-374-test-nav-error-materiality.kernel.mjs';
 import * as art376    from './art-376-score-payee-name-match.kernel.mjs';
 import * as art378    from './art-378-quarterly-test-evidence-composer.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
@@ -706,6 +707,7 @@ export const KERNELS = {
   'art-370-supervisory-scenario-replay':                      art370,
   'art-371-simulate-var-monte-carlo':                         art371,
   'art-373-recompute-fund-nav':                               art373,
+  'art-374-test-nav-error-materiality':                       art374,
   'art-376-score-payee-name-match':                           art376,
   'art-378-quarterly-test-evidence-composer':                 art378,
   'art-38-tempo-onchain-aml':                                 art38,

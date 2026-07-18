@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Test NAV-Error Materiality · ART-374 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Compares an erroneous NAV-per-share against a corrected NAV-per-share against a declared materiality policy (industry half-cent and 1% conventions, plus the fund's own policy) using fixed-point money math. Returns a material/immaterial verdict, affected-period math, and a reprocessing-need indication.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-374-test-nav-error-materiality.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Test NAV-Error Materiality · ART-374 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Fixed-point error-versus-declared-policy materiality test for a fund NAV correction, with affected-period math and reprocessing-need indication. Never an accounting opinion. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-374-test-nav-error-materiality.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-374 · Test NAV-Error Materiality</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-374 · Funds/NAV Family</div>
+  <h1>Test NAV-Error Materiality</h1>
+  <p class="sub">Compares an <b>erroneous NAV-per-share</b> against a <b>corrected NAV-per-share</b> against a <b>declared materiality policy</b>, using <b>fixed-point money math throughout</b> (no float accumulation). The policy defaults to industry half-cent absolute and 1% relative conventions, and a fund may supply its own thresholds to override either. Returns a material/immaterial verdict, affected-period math, an estimated impact figure, and a reprocessing-need indication. The fund-ops incident artifact, riding <a href="art-373-recompute-fund-nav.html">recompute_fund_nav</a>'s conventions.</p>
+  <div>
+    <span class="flag">Fixed-Point Money Math</span>
+    <span class="flag warn">Supplied NAV Values, Never Fetched</span>
+    <span class="flag red">Not an Accounting Opinion</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">What this does NOT prove</div>
+    The erroneous and corrected NAV-per-share values here are <b>supplied by you</b> and merely asserted: this tool performs zero independent NAV recomputation (that is <a href="art-373-recompute-fund-nav.html">recompute_fund_nav</a>'s job) and zero market-data lookups (zero-egress, no network calls of any kind). It attests the <b>arithmetic</b> of the error comparison against a <b>declared</b> materiality policy. This is <b>never</b> an accounting opinion, <b>never</b> a determination that a fund must reprocess, and <b>never</b> advice — it computes what the declared policy implies, nothing more.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('immaterial')">Immaterial: small error, industry-default policy</button>
+    <button class="preset-btn" onclick="loadPreset('material')">Material: half-cent breach, reprocessing indicated</button>
+    <button class="preset-btn" onclick="loadPreset('fundPolicy')">Fund's own tighter policy overrides industry default</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Fund &amp; NAV Values</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Fund ID</label>
+        <input type="text" id="fund_id" placeholder="e.g. FUND-STD-01"></div>
+      <div class="q"><label><span class="dim">Field</span>Valuation Date</label>
+        <input type="text" id="valuation_date" placeholder="e.g. 2026-07-18"></div>
+      <div class="q"><label><span class="dim">Field</span>Shares Outstanding (optional)</label>
+        <input type="number" id="shares_outstanding" step="any" placeholder="e.g. 5000000"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Erroneous NAV / Share</label>
+        <input type="text" id="erroneous_nav_per_share" placeholder="e.g. 1.01"></div>
+      <div class="q"><label><span class="dim">Field</span>Corrected NAV / Share</label>
+        <input type="text" id="corrected_nav_per_share" placeholder="e.g. 1.00"></div>
+    </div>
+
+    <div class="section-head">Declared Materiality Policy (leave blank for the industry defaults: half-cent absolute, 1% relative)</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Absolute Threshold ($/share)</label>
+        <input type="text" id="absolute_threshold" placeholder="default 0.005"></div>
+      <div class="q"><label><span class="dim">Field</span>Percent Threshold (%)</label>
+        <input type="text" id="percent_threshold" placeholder="default 1"></div>
+      <div class="q"><label><span class="dim">Field</span>Policy Source (optional label)</label>
+        <input type="text" id="policy_source" placeholder="e.g. fund_declared"></div>
+    </div>
+
+    <div class="section-head">Affected Period (optional)</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Start Date</label>
+        <input type="text" id="period_start" placeholder="e.g. 2026-07-10"></div>
+      <div class="q"><label><span class="dim">Field</span>End Date</label>
+        <input type="text" id="period_end" placeholder="e.g. 2026-07-15"></div>
+      <div class="q"><label><span class="dim">Field</span>Days</label>
+        <input type="number" id="period_days" step="1" min="0" placeholder="e.g. 5"></div>
+    </div>
+
+    <button class="run-btn" onclick="run()">Test NAV-Error Materiality →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="verdictVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Materiality Verdict</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="errAbsVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Error (Abs, $/Share)</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="errPctVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Error (Abs, %)</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Error detail</div>
+    <table class="section-table">
+      <tbody id="errorTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Industry convention vs. declared policy</div>
+    <table class="section-table">
+      <thead><tr><th>Test</th><th>Absolute Threshold</th><th>Percent Threshold</th><th>Breach</th></tr></thead>
+      <tbody id="policyTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Affected period &amp; reprocessing indication</div>
+    <table class="section-table">
+      <tbody id="periodTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Provenance</div>
+      Fixed-point (BigInt) money math throughout, mirroring recompute_fund_nav (ART-373): every value is parsed from its decimal string representation, never via floating multiplication, so there is no float-accumulation error anywhere in the arithmetic path.
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Not an accounting opinion, not a determination that a fund must reprocess, not advice. NAV values are supplied and asserted only.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-374-test-nav-error-materiality",
+  tool_version: "1.0.0",
+  mcp_name: "test_nav_error_materiality",
+  mandate_type: "attestation_mandate",
+  wave: 51,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.7',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Compares an erroneous NAV-per-share against a corrected NAV-per-share against a declared materiality policy (industry half-cent and 1% conventions, plus the fund's own policy) using fixed-point money math. Returns a material/immaterial verdict, affected-period math, and a reprocessing-need indication.",
+  chain: "nav-verification-pack",
+  url: "https://ainumbers.co/chaingraph/art-374-test-nav-error-materiality.html"
+};
+
+// --- Fixed-point (BigInt) money math — mirrors chaingraph/kernels/art-374-test-nav-error-materiality.kernel.mjs
+//     byte-for-byte. No floats in the arithmetic path; every value is parsed from its decimal string. ---
+
+const SCALE_EXP = 8;
+const SCALE = 10n ** BigInt(SCALE_EXP);
+
+function toFixed(value) {
+  let s = String(value == null ? 0 : value).trim();
+  let neg = false;
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  else if (s.startsWith('+')) { s = s.slice(1); }
+  if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
+  let parts = s.split('.');
+  let intPart = parts[0] || '0';
+  let fracPart = parts[1] || '';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  fracPart = fracPart.padEnd(SCALE_EXP, '0');
+  let mag = BigInt(intPart + fracPart);
+  if (neg) mag = -mag;
+  return mag;
+}
+function mulFixed(a, b) { return (a * b) / SCALE; }
+function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+function absFixed(a) { return a < 0n ? -a : a; }
+
+function fixedToPlainString(value, places) {
+  const neg = value < 0n;
+  const abs = neg ? -value : value;
+  const divisor = 10n ** BigInt(SCALE_EXP - places);
+  const q = abs / divisor;
+  let qs = q.toString();
+  let result;
+  if (places === 0) { result = qs; }
+  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
+  return (neg && q !== 0n) ? ('-' + result) : result;
+}
+
+const INDUSTRY_ABSOLUTE_THRESHOLD = '0.005';
+const INDUSTRY_PERCENT_THRESHOLD = '1';
+
+const NOT_PROVEN = [
+  { item: 'Accounting opinion', detail: 'This tool computes what the DECLARED materiality policy implies over the supplied error figures. It is never an accounting opinion, never a legal or regulatory determination of materiality.' },
+  { item: 'Reprocessing decision authority', detail: 'A material-verdict flag indicates a reprocessing REVIEW is warranted per the declared policy. The decision to reprocess, and how, rests with the fund’s accounting/compliance function, never this tool.' },
+  { item: 'NAV accuracy of underlying inputs', detail: 'The erroneous and corrected NAV-per-share values are caller-supplied and asserted, not independently recomputed or verified here (see recompute_fund_nav, ART-373, for that arithmetic).' },
+  { item: 'Regulatory materiality standard', detail: 'The half-cent and 1% figures are common industry conventions, not a codified SEC/40-Act materiality rule. This tool makes no compliance claim under either framework.' },
+];
+
+function compute(pp) {
+  const fundId = pp.fund_id || null;
+  const valuationDate = pp.valuation_date || null;
+
+  const erroneousFixed = toFixed(pp.erroneous_nav_per_share);
+  const correctedFixed = toFixed(pp.corrected_nav_per_share);
+
+  const policy = pp.materiality_policy || {};
+  const absoluteThresholdRaw = policy.absolute_threshold != null ? policy.absolute_threshold : INDUSTRY_ABSOLUTE_THRESHOLD;
+  const percentThresholdRaw = policy.percent_threshold != null ? policy.percent_threshold : INDUSTRY_PERCENT_THRESHOLD;
+  const policySource = policy.policy_source || ((policy.absolute_threshold != null || policy.percent_threshold != null) ? 'fund_declared' : 'industry_default');
+  const absoluteThresholdFixed = toFixed(absoluteThresholdRaw);
+  const percentThresholdFixed = toFixed(percentThresholdRaw);
+
+  let structuralError = null;
+  if (correctedFixed === 0n) structuralError = 'corrected_nav_per_share must be non-zero to compute a relative error.';
+
+  const errorFixed = erroneousFixed - correctedFixed;
+  const absErrorFixed = absFixed(errorFixed);
+  const errorDirection = errorFixed > 0n ? 'overstated' : (errorFixed < 0n ? 'understated' : 'none');
+
+  const errorPctFixed = structuralError ? 0n : mulFixed(divFixed(absErrorFixed, absFixed(correctedFixed)), toFixed(100));
+
+  const industryAbsoluteFixed = toFixed(INDUSTRY_ABSOLUTE_THRESHOLD);
+  const industryPercentFixed = toFixed(INDUSTRY_PERCENT_THRESHOLD);
+  const industryAbsoluteBreach = absErrorFixed >= industryAbsoluteFixed;
+  const industryPercentBreach = errorPctFixed >= industryPercentFixed;
+  const industryMaterial = industryAbsoluteBreach || industryPercentBreach;
+
+  const policyAbsoluteBreach = absErrorFixed >= absoluteThresholdFixed;
+  const policyPercentBreach = errorPctFixed >= percentThresholdFixed;
+  const policyMaterial = !structuralError && (policyAbsoluteBreach || policyPercentBreach);
+
+  const materialityVerdict = structuralError ? 'INDETERMINATE' : (policyMaterial ? 'MATERIAL' : 'IMMATERIAL');
+
+  const period = pp.affected_period || {};
+  const affectedDays = period.days != null ? Number(period.days) : null;
+  const sharesOutstandingFixed = pp.shares_outstanding != null ? toFixed(pp.shares_outstanding) : null;
+  const estimatedImpactFixed = (policyMaterial && sharesOutstandingFixed != null) ? mulFixed(absErrorFixed, sharesOutstandingFixed) : null;
+
+  const reprocessingNeedIndicated = policyMaterial;
+
+  const compliance_flags = [];
+  if (structuralError) compliance_flags.push('NAV_ERROR_STRUCTURAL_ERROR');
+  else compliance_flags.push(policyMaterial ? 'NAV_ERROR_MATERIAL' : 'NAV_ERROR_IMMATERIAL');
+  if (errorDirection === 'overstated') compliance_flags.push('NAV_ERROR_OVERSTATED');
+  else if (errorDirection === 'understated') compliance_flags.push('NAV_ERROR_UNDERSTATED');
+  if (reprocessingNeedIndicated) compliance_flags.push('REPROCESSING_REVIEW_INDICATED');
+  if (!structuralError && industryMaterial !== policyMaterial) compliance_flags.push('NAV_ERROR_POLICY_DIVERGES_FROM_INDUSTRY_DEFAULT');
+  compliance_flags.push('NAV_ERROR_INPUTS_SUPPLIED_NOT_VERIFIED');
+
+  const output_payload = {
+    fund_id: fundId,
+    valuation_date: valuationDate,
+    structural_error: structuralError,
+    error: {
+      erroneous_nav_per_share: fixedToPlainString(erroneousFixed, SCALE_EXP),
+      corrected_nav_per_share: fixedToPlainString(correctedFixed, SCALE_EXP),
+      error_amount: fixedToPlainString(errorFixed, SCALE_EXP),
+      error_amount_abs: fixedToPlainString(absErrorFixed, SCALE_EXP),
+      error_direction: errorDirection,
+      error_pct_abs: structuralError ? null : fixedToPlainString(errorPctFixed, 6),
+    },
+    industry_convention: {
+      absolute_threshold: INDUSTRY_ABSOLUTE_THRESHOLD,
+      percent_threshold: INDUSTRY_PERCENT_THRESHOLD,
+      absolute_breach: industryAbsoluteBreach,
+      percent_breach: industryPercentBreach,
+      material: industryMaterial,
+    },
+    declared_policy: {
+      absolute_threshold: fixedToPlainString(absoluteThresholdFixed, SCALE_EXP),
+      percent_threshold: fixedToPlainString(percentThresholdFixed, 6),
+      policy_source: policySource,
+      absolute_breach: policyAbsoluteBreach,
+      percent_breach: policyPercentBreach,
+      material: policyMaterial,
+    },
+    materiality_verdict: materialityVerdict,
+    affected_period: {
+      start_date: period.start_date || null,
+      end_date: period.end_date || null,
+      days: affectedDays,
+    },
+    shares_outstanding: sharesOutstandingFixed != null ? fixedToPlainString(sharesOutstandingFixed, SCALE_EXP) : null,
+    estimated_impact: estimatedImpactFixed != null ? fixedToPlainString(estimatedImpactFixed, SCALE_EXP) : null,
+    reprocessing_need_indicated: reprocessingNeedIndicated,
+    not_proven: NOT_PROVEN,
+    fence: 'The erroneous and corrected NAV-per-share values are SUPPLIED, asserted, and digested into this receipt. This tool attests the ARITHMETIC of the error comparison against a DECLARED materiality policy — never an accounting opinion, never a determination that a fund must reprocess, never advice. It computes what the declared policy implies.',
+    regulatory_framework: 'Industry half-cent / 1% NAV-error materiality conventions referenced as informative context only; this tool makes no compliance claim under any specific regulatory framework.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+const PRESETS = {
+  immaterial: {
+    fund_id: 'FUND-A', valuation_date: '2026-07-18', erroneous_nav_per_share: '10.001', corrected_nav_per_share: '10.00',
+    absolute_threshold: '', percent_threshold: '', policy_source: '', period_start: '', period_end: '', period_days: '', shares_outstanding: '',
+  },
+  material: {
+    fund_id: 'FUND-A', valuation_date: '2026-07-18', erroneous_nav_per_share: '10.02', corrected_nav_per_share: '10.00',
+    absolute_threshold: '', percent_threshold: '', policy_source: '', period_start: '2026-07-10', period_end: '2026-07-15', period_days: '5', shares_outstanding: '5000000',
+  },
+  fundPolicy: {
+    fund_id: 'FUND-TIGHT', valuation_date: '2026-07-18', erroneous_nav_per_share: '10.002', corrected_nav_per_share: '10.00',
+    absolute_threshold: '0.001', percent_threshold: '0.1', policy_source: 'fund_declared', period_start: '', period_end: '', period_days: '', shares_outstanding: '',
+  },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('fund_id', pr.fund_id);
+  setVal('valuation_date', pr.valuation_date);
+  setVal('erroneous_nav_per_share', pr.erroneous_nav_per_share);
+  setVal('corrected_nav_per_share', pr.corrected_nav_per_share);
+  setVal('absolute_threshold', pr.absolute_threshold);
+  setVal('percent_threshold', pr.percent_threshold);
+  setVal('policy_source', pr.policy_source);
+  setVal('period_start', pr.period_start);
+  setVal('period_end', pr.period_end);
+  setVal('period_days', pr.period_days);
+  setVal('shares_outstanding', pr.shares_outstanding);
+}
+
+function getPP() {
+  const absT = document.getElementById('absolute_threshold').value.trim();
+  const pctT = document.getElementById('percent_threshold').value.trim();
+  const policySrc = document.getElementById('policy_source').value.trim();
+  const materiality_policy = {};
+  if (absT !== '') materiality_policy.absolute_threshold = absT;
+  if (pctT !== '') materiality_policy.percent_threshold = pctT;
+  if (policySrc !== '') materiality_policy.policy_source = policySrc;
+
+  const pStart = document.getElementById('period_start').value.trim();
+  const pEnd = document.getElementById('period_end').value.trim();
+  const pDays = document.getElementById('period_days').value.trim();
+  const affected_period = {};
+  if (pStart !== '') affected_period.start_date = pStart;
+  if (pEnd !== '') affected_period.end_date = pEnd;
+  if (pDays !== '') affected_period.days = Number(pDays);
+
+  const sharesRaw = document.getElementById('shares_outstanding').value.trim();
+
+  return {
+    fund_id: document.getElementById('fund_id').value || null,
+    valuation_date: document.getElementById('valuation_date').value || null,
+    erroneous_nav_per_share: document.getElementById('erroneous_nav_per_share').value,
+    corrected_nav_per_share: document.getElementById('corrected_nav_per_share').value,
+    materiality_policy: Object.keys(materiality_policy).length ? materiality_policy : undefined,
+    affected_period: Object.keys(affected_period).length ? affected_period : undefined,
+    shares_outstanding: sharesRaw !== '' ? sharesRaw : undefined,
+  };
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + jcs(v[k]); }).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+async function run() {
+  const pp = getPP();
+  const result = compute(pp);
+  const output_payload = result.output_payload, compliance_flags = result.compliance_flags;
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('verdictVal').textContent = output_payload.materiality_verdict;
+  document.getElementById('verdictVal').style.color = output_payload.materiality_verdict === 'MATERIAL' ? 'var(--red)' : (output_payload.materiality_verdict === 'INDETERMINATE' ? 'var(--warn)' : 'var(--teal-lt)');
+  document.getElementById('errAbsVal').textContent = output_payload.error.error_amount_abs;
+  document.getElementById('errPctVal').textContent = output_payload.error.error_pct_abs !== null ? output_payload.error.error_pct_abs + '%' : '–';
+
+  const vClass = output_payload.structural_error ? 'fail' : (output_payload.materiality_verdict === 'MATERIAL' ? 'warn' : 'pass');
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + (output_payload.structural_error || output_payload.fence) + '</div>';
+
+  const e = output_payload.error;
+  document.getElementById('errorTableBody').innerHTML =
+    '<tr><td>Erroneous NAV / share</td><td>' + e.erroneous_nav_per_share + '</td></tr>' +
+    '<tr><td>Corrected NAV / share</td><td>' + e.corrected_nav_per_share + '</td></tr>' +
+    '<tr><td>Error amount (signed)</td><td>' + e.error_amount + '</td></tr>' +
+    '<tr><td>Error amount (abs)</td><td>' + e.error_amount_abs + '</td></tr>' +
+    '<tr><td>Error direction</td><td>' + e.error_direction + '</td></tr>' +
+    '<tr><td>Error % (abs)</td><td>' + (e.error_pct_abs !== null ? e.error_pct_abs + '%' : '–') + '</td></tr>';
+
+  const ic = output_payload.industry_convention, dp = output_payload.declared_policy;
+  document.getElementById('policyTableBody').innerHTML =
+    '<tr><td>Industry convention</td><td>' + ic.absolute_threshold + '</td><td>' + ic.percent_threshold + '%</td><td>' + (ic.material ? '<span class="badge err">BREACH</span>' : '<span class="badge ok">clear</span>') + '</td></tr>' +
+    '<tr><td>Declared policy (' + dp.policy_source + ')</td><td>' + dp.absolute_threshold + '</td><td>' + dp.percent_threshold + '%</td><td>' + (dp.material ? '<span class="badge err">BREACH</span>' : '<span class="badge ok">clear</span>') + '</td></tr>';
+
+  const ap = output_payload.affected_period;
+  document.getElementById('periodTableBody').innerHTML =
+    '<tr><td>Affected period</td><td>' + (ap.start_date || '–') + ' → ' + (ap.end_date || '–') + (ap.days !== null ? ' (' + ap.days + ' days)' : '') + '</td></tr>' +
+    '<tr><td>Shares outstanding</td><td>' + (output_payload.shares_outstanding || '–') + '</td></tr>' +
+    '<tr><td>Estimated impact</td><td>' + (output_payload.estimated_impact || '–') + '</td></tr>' +
+    '<tr><td>Reprocessing review indicated</td><td>' + (output_payload.reprocessing_need_indicated ? '<span class="badge warn-b">YES</span>' : '<span class="badge ok">no</span>') + '</td></tr>';
+
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(function (n) { return '<li><b>' + n.item + '</b>: ' + n.detail + '</li>'; }).join('');
+
+  const flagsHtml = compliance_flags.map(function (f) {
+    const cls = f.indexOf('STRUCTURAL_ERROR') >= 0 || f === 'NAV_ERROR_MATERIAL' ? 'err' : (f.indexOf('SUPPLIED_NOT_VERIFIED') >= 0 || f.indexOf('DIVERGES') >= 0 ? 'info' : (f.indexOf('REPROCESSING') >= 0 ? 'warn-b' : 'ok'));
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-374 Test NAV-Error Materiality</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Test NAV-Error Materiality, ART-374</h1>');
+  w.document.write('<p><b>Verdict:</b> ' + o.materiality_verdict + ' | <b>Error (abs):</b> ' + o.error.error_amount_abs + ' | <b>Error % (abs):</b> ' + (o.error.error_pct_abs || 'n/a') + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(function (n) { w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'); });
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT, not an accounting opinion or legal advice. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [['field','value']];
+  rows.push(['fund_id', o.fund_id || '']);
+  rows.push(['valuation_date', o.valuation_date || '']);
+  rows.push(['materiality_verdict', o.materiality_verdict]);
+  rows.push(['error_amount_abs', o.error.error_amount_abs]);
+  rows.push(['error_pct_abs', o.error.error_pct_abs || '']);
+  rows.push(['error_direction', o.error.error_direction]);
+  rows.push(['estimated_impact', o.estimated_impact || '']);
+  rows.push(['reprocessing_need_indicated', o.reprocessing_need_indicated]);
+  const csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
