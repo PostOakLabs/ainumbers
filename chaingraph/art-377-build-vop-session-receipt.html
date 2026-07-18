@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>VoP Session Receipt Builder · ART-377 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Signed, hash-chained Verification-of-Payee / Confirmation-of-Payee session receipt: binds the match result, the warning shown, and the consumer's action across a session's attempts. Zero network, zero PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-377-build-vop-session-receipt.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VoP Session Receipt Builder","applicationCategory":"FinanceApplication","description":"Signed, hash-chained Verification-of-Payee / Confirmation-of-Payee session receipt binding the declared match result, warning shown, and consumer action across a session's attempts. Zero network.","url":"https://ainumbers.co/chaingraph/art-377-build-vop-session-receipt.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:720px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);color:var(--gold)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.info-box.fence{border-left-color:var(--red)}
+.info-box.fence .ib-title{color:var(--red)}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-label span{color:var(--muted);margin-left:4px}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+.attempt-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin:10px 0}
+.attempt-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.attempt-hd b{color:var(--bright);font-size:.78rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.receipt-row{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin:6px 0;word-break:break-all}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-377 &middot; VoP Session Receipt</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-377 &middot; VoP / CoP liability evidence</div>
+  <h1>VoP Session Receipt Builder</h1>
+  <p class="sub">Binds a Verification-of-Payee / Confirmation-of-Payee session into a <b>signed, hash-chained receipt</b>: the declared match result, the warning text and severity shown, and the consumer's action (proceeded, abandoned, retried) for each attempt in the session. Each attempt's receipt hash chains to the prior receipt hash, rooted at a session-anchored genesis hash &mdash; reordering, inserting, or editing any attempt breaks every downstream hash. This is the liability artifact: <b>&ldquo;close-match warning displayed, score 82, consumer proceeded at T.&rdquo;</b></p>
+  <div style="margin-bottom:6px"><span class="flag warn">VoP / CoP Evidence</span><span class="flag info">Hash-chained &middot; offline-verifiable</span><span class="flag">Zero PII</span><span class="flag purple">W3C VC &sect;13.11</span></div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box fence"><div class="ib-title">Scope &amp; fences</div>This receipt attests the COMPUTATION on the DECLARED session record &mdash; not ground-truth identity, and not what a PSP's own UI actually displayed. The PSP asserts the match result, the warning text/severity, and the consumer's action; this tool binds those assertions into a tamper-evident chain and says so in the artifact. An accepted score always carries its declared source &mdash; an undeclared source is not discarded, it is flagged (<code>VOP_MATCH_SOURCE_UNDECLARED</code>). Feeds from <a href="art-376-score-payee-name-match.html">art-376 Payee Name-Match Score</a> by <code>tool_id</code> reference only (no runtime dependency); an external score is equally acceptable with its own declared source string.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('proceed')">Proceed on clean match</button>
+      <button class="preset-btn" onclick="loadPreset('abandon')">Abandon after blocking warning</button>
+      <button class="preset-btn" onclick="loadPreset('retry')">Retry &rarr; corrected &rarr; proceed</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="session_id">session_id <span>(session identifier, as supplied)</span></label>
+      <input type="text" id="session_id" placeholder="vop-sess-0001">
+    </div>
+
+    <div id="attemptsWrap"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button class="preset-btn" onclick="addAttempt()">+ Add retry attempt</button>
+    </div>
+
+    <button class="run-btn" onclick="run()">Build Session Receipt</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="receiptsDiv" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; &sect;4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">&#8681; Sign artifact (Ed25519 &middot; &sect;16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">&#128271; Verify signature (&sect;16)</button>
+        <button onclick="exportArtifact()">Export &sect;4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (&sect;13.11)</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-377-build-vop-session-receipt",
+  "version": "1.0.0",
+  "title": "VoP Session Receipt Builder",
+  "mcp_tool_definition": {
+    "name": "build_vop_session_receipt",
+    "description": "Signed, hash-chained VoP/CoP session receipt binding the declared match result, warning shown, and consumer action across a session's attempts. Attests the computation over the declared record, not ground-truth identity or the PSP's own UI. Zero network, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {"type": "string"},
+        "attempts": {"type": "array", "items": {"type": "object", "properties": {
+          "attempt_id": {"type": "string"},
+          "match_result": {"type": "object", "properties": {
+            "source": {"type": "string"},
+            "algorithm_version": {"type": ["string", "null"]},
+            "score": {"type": ["integer", "null"]},
+            "match_band": {"type": "string", "enum": ["MATCH", "CLOSE_MATCH", "NO_MATCH"]}
+          }},
+          "warning_shown": {"type": "object", "properties": {
+            "text": {"type": "string"},
+            "severity": {"type": "string", "enum": ["none", "info", "warning", "blocking"]}
+          }},
+          "consumer_action": {"type": "string", "enum": ["proceeded", "abandoned", "retried"]},
+          "asserted_at": {"type": "string"}
+        }}}
+      }
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+/* ── Deterministic session-receipt builder — mirrors
+   kernels/art-377-build-vop-session-receipt.kernel.mjs. ── */
+const VALID_SEVERITY = ['none', 'info', 'warning', 'blocking'];
+const VALID_BAND = ['MATCH', 'CLOSE_MATCH', 'NO_MATCH'];
+const VALID_ACTION = ['proceeded', 'abandoned', 'retried'];
+const TOOL_ID = 'art-377-build-vop-session-receipt';
+
+function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
+function safeInt(v) { return Number.isInteger(v) ? v : null; }
+
+function normalizeAttempt(raw, i) {
+  const a = raw || {};
+  const mr = a.match_result || {};
+  const source = safeStr(mr.source);
+  const source_declared = source.length > 0;
+  const algorithm_version = mr.algorithm_version != null ? safeStr(mr.algorithm_version) : null;
+  const score = safeInt(mr.score);
+  const match_band = VALID_BAND.includes(mr.match_band) ? mr.match_band : 'NO_MATCH';
+  const warn = a.warning_shown || {};
+  const warning_text = safeStr(warn.text);
+  const severity = VALID_SEVERITY.includes(warn.severity) ? warn.severity : 'none';
+  const action_declared = VALID_ACTION.includes(a.consumer_action);
+  const consumer_action = action_declared ? a.consumer_action : 'unknown';
+  return {
+    attempt_id: safeStr(a.attempt_id) || String(i),
+    match_result: { source, source_declared, algorithm_version, score, match_band },
+    warning_shown: { text: warning_text, severity },
+    consumer_action,
+    consumer_action_declared: action_declared,
+    asserted_at: safeStr(a.asserted_at),
+  };
+}
+
+function compute(pp) {
+  pp = pp || {};
+  const session_id = safeStr(pp.session_id);
+  const rawAttempts = Array.isArray(pp.attempts) ? pp.attempts : [];
+  const attempts = rawAttempts.map(normalizeAttempt);
+  const attempt_count = attempts.length;
+  let session_outcome = 'incomplete', final_match_band = null, warning_overridden = false, warning_heeded = false;
+  if (attempt_count > 0) {
+    const last = attempts[attempt_count - 1];
+    final_match_band = last.match_result.match_band;
+    if (last.consumer_action === 'proceeded') session_outcome = 'proceeded';
+    else if (last.consumer_action === 'abandoned') session_outcome = 'abandoned';
+    else session_outcome = 'incomplete';
+    const lastWarned = last.warning_shown.severity === 'warning' || last.warning_shown.severity === 'blocking';
+    warning_overridden = session_outcome === 'proceeded' && lastWarned;
+    warning_heeded = session_outcome === 'abandoned' && lastWarned;
+  }
+  const compliance_flags = ['VOP_SESSION_RECEIPT_BUILT'];
+  if (attempt_count === 0) compliance_flags.push('VOP_SESSION_EMPTY');
+  if (attempts.some((a) => !a.match_result.source_declared)) compliance_flags.push('VOP_MATCH_SOURCE_UNDECLARED');
+  if (attempts.some((a) => !a.consumer_action_declared)) compliance_flags.push('VOP_CONSUMER_ACTION_UNDECLARED');
+  if (warning_overridden) compliance_flags.push('VOP_WARNING_OVERRIDDEN_BY_CONSUMER');
+  if (warning_heeded) compliance_flags.push('VOP_WARNING_HEEDED_ABANDONED');
+  if (attempt_count > 0 && session_outcome === 'incomplete') compliance_flags.push('VOP_SESSION_INCOMPLETE');
+  const output_payload = {
+    session_id, attempt_count, session_outcome, final_match_band, warning_overridden,
+    session_receipts: null, chain_genesis_hash: null, final_receipt_hash: null,
+    note: 'Attests the computation over the declared session record -- match result, warning shown, and consumer action as asserted by the PSP -- NOT ground-truth identity and NOT the PSP\'s own UI. Hash-chained per attempt; tampering with any attempt breaks every downstream receipt hash. Verifies fully offline.',
+  };
+  return { output_payload, compliance_flags, attempts, session_id };
+}
+
+const canon = v => Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => (o[k] = canon(v[k]), o), {}) : v);
+async function execHash(pp, op) { const s = JSON.stringify(canon({ policy_parameters: pp, output_payload: op })); const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+
+let attemptCount = 0;
+function attemptTemplate(i, data = {}) {
+  const mr = data.match_result || {}, ws = data.warning_shown || {};
+  return `<div class="attempt-card" id="attempt-${i}">
+    <div class="attempt-hd"><b>Attempt ${i === 0 ? '1 (initial)' : i + 1}</b>${i > 0 ? `<button class="preset-btn" onclick="document.getElementById('attempt-${i}').remove()" style="color:var(--red);border-color:rgba(239,68,68,.3)">&#10005; remove</button>` : ''}</div>
+    <div class="grid2">
+      <div class="form-group"><label class="form-label">match_result.source</label><input type="text" class="a-source" value="${mr.source ?? ''}" placeholder="score_payee_name_match"></div>
+      <div class="form-group"><label class="form-label">match_result.algorithm_version</label><input type="text" class="a-algver" value="${mr.algorithm_version ?? ''}" placeholder="vop-namematch-1.0.0"></div>
+      <div class="form-group"><label class="form-label">match_result.score</label><input type="number" class="a-score" value="${mr.score ?? ''}" placeholder="0-100"></div>
+      <div class="form-group"><label class="form-label">match_result.match_band</label><select class="a-band"><option value="MATCH" ${mr.match_band === 'MATCH' ? 'selected' : ''}>MATCH</option><option value="CLOSE_MATCH" ${mr.match_band === 'CLOSE_MATCH' ? 'selected' : ''}>CLOSE_MATCH</option><option value="NO_MATCH" ${(!mr.match_band || mr.match_band === 'NO_MATCH') ? 'selected' : ''}>NO_MATCH</option></select></div>
+      <div class="form-group"><label class="form-label">warning_shown.text</label><input type="text" class="a-wtext" value="${ws.text ?? ''}" placeholder="warning text as displayed"></div>
+      <div class="form-group"><label class="form-label">warning_shown.severity</label><select class="a-severity"><option value="none" ${(!ws.severity || ws.severity === 'none') ? 'selected' : ''}>none</option><option value="info" ${ws.severity === 'info' ? 'selected' : ''}>info</option><option value="warning" ${ws.severity === 'warning' ? 'selected' : ''}>warning</option><option value="blocking" ${ws.severity === 'blocking' ? 'selected' : ''}>blocking</option></select></div>
+      <div class="form-group"><label class="form-label">consumer_action</label><select class="a-action"><option value="proceeded" ${data.consumer_action === 'proceeded' ? 'selected' : ''}>proceeded</option><option value="abandoned" ${data.consumer_action === 'abandoned' ? 'selected' : ''}>abandoned</option><option value="retried" ${data.consumer_action === 'retried' ? 'selected' : ''}>retried</option></select></div>
+      <div class="form-group"><label class="form-label">asserted_at (ISO)</label><input type="text" class="a-asserted" value="${data.asserted_at ?? ''}" placeholder="2026-07-18T09:00:00Z"></div>
+    </div>
+  </div>`;
+}
+function addAttempt(data = {}) { const i = attemptCount++; document.getElementById('attemptsWrap').insertAdjacentHTML('beforeend', attemptTemplate(i, data)); }
+function resetAttempts() { document.getElementById('attemptsWrap').innerHTML = ''; attemptCount = 0; }
+
+function getAttempts() {
+  const cards = document.querySelectorAll('#attemptsWrap .attempt-card');
+  const out = [];
+  cards.forEach((c) => {
+    out.push({
+      attempt_id: '',
+      match_result: {
+        source: c.querySelector('.a-source').value,
+        algorithm_version: c.querySelector('.a-algver').value || null,
+        score: c.querySelector('.a-score').value ? parseInt(c.querySelector('.a-score').value, 10) : null,
+        match_band: c.querySelector('.a-band').value,
+      },
+      warning_shown: { text: c.querySelector('.a-wtext').value, severity: c.querySelector('.a-severity').value },
+      consumer_action: c.querySelector('.a-action').value,
+      asserted_at: c.querySelector('.a-asserted').value,
+    });
+  });
+  return out;
+}
+
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastHash = null, _lastFlags = null;
+
+async function run() {
+  const pp = { session_id: document.getElementById('session_id').value, attempts: getAttempts() };
+  const { output_payload, compliance_flags, attempts } = compute(pp);
+
+  const genesis = await execHash({ genesis: true, session_id: output_payload.session_id }, { receipt_marker: TOOL_ID });
+  const session_receipts = [];
+  let prev = genesis;
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
+    const receipt_hash = await execHash({ attempt, prev_receipt_hash: prev }, { receipt_marker: TOOL_ID });
+    session_receipts.push({ index: i, ...attempt, prev_receipt_hash: prev, receipt_hash });
+    prev = receipt_hash;
+  }
+  output_payload.session_receipts = session_receipts;
+  output_payload.chain_genesis_hash = genesis;
+  output_payload.final_receipt_hash = prev;
+
+  const rawHash = await execHash(pp, output_payload);
+  const execHashStr = 'sha256:' + rawHash;
+  const artifact = { '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld', chaingraph_version: '0.4.0', spec_version: '0.8.7', compute_mode: 'browser', mandate_type: 'compliance_mandate', tool_id: TOOL_ID, tool_version: MANIFEST.version, generated_at: new Date().toISOString(), execution_hash: execHashStr, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: attempts.length ? 1 : 0 }, policy_parameters: pp, output_payload, compliance_flags, compute_proof_ready: 'deferred', audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastHash = execHashStr; _lastFlags = compliance_flags;
+  renderResults(output_payload, compliance_flags, execHashStr, artifact);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function renderResults(op, flags, execHashStr, artifact) {
+  document.getElementById('heroRow').innerHTML =
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + op.attempt_count + '</div><div class="hero-lbl">Attempts</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--gold)">' + op.session_outcome + '</div><div class="hero-lbl">Session Outcome</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--body);font-size:.85rem">' + (op.final_match_band ?? '&mdash;') + '</div><div class="hero-lbl">Final Match Band</div></div>';
+  const cls = op.session_outcome === 'proceeded' ? (op.warning_overridden ? 'warn' : 'pass') : op.session_outcome === 'abandoned' ? 'pass' : 'warn';
+  document.getElementById('verdictDiv').innerHTML =
+    '<div class="verdict ' + cls + '">' + op.session_outcome.toUpperCase() + (op.warning_overridden ? ' &middot; warning overridden by consumer' : '') + '</div>' +
+    '<div class="gap-list">' + flags.map(f => '<span class="badge ok">' + f + '</span>').join('') + '</div>';
+  document.getElementById('receiptsDiv').innerHTML = '<div class="muted-txt" style="margin-bottom:6px">Hash-chained session receipts (tamper-evident):</div>' +
+    '<div class="receipt-row">genesis: ' + op.chain_genesis_hash + '</div>' +
+    (op.session_receipts || []).map(r => '<div class="receipt-row">#' + r.index + ' ' + r.attempt_id + ' &middot; ' + r.consumer_action + ' &middot; ' + r.match_result.match_band + '<br>prev: ' + r.prev_receipt_hash.slice(0, 24) + '&hellip; &rarr; receipt: ' + r.receipt_hash.slice(0, 24) + '&hellip;</div>').join('');
+  document.getElementById('execHash').textContent = execHashStr;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2() { if (!_lastArtifact) return; const ap2 = { schema: 'ainumbers-policy-mandate-v1.0', tool_id: MANIFEST.tool_id, version: MANIFEST.version, mandate_type: 'compliance_mandate', generated_at: _lastArtifact.generated_at, execution_hash: _lastHash, policy_parameters: _lastPP, output_payload: _lastOP, compliance_flags: _lastFlags }; dl(JSON.stringify(ap2, null, 2), 'art-377-build-vop-session-receipt-policy-mandate.json', 'application/json'); }
+function exportArtifact() { if (!_lastArtifact) return; dl(JSON.stringify(_lastArtifact, null, 2), 'art-377-build-vop-session-receipt-artifact.json', 'application/json'); }
+function exportVC() { if (!_lastArtifact) return; const vc = { "@context": ["https://www.w3.org/ns/credentials/v2", "https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"], type: ["VerifiableCredential", "OpenChainGraphArtifact"], issuer: "did:web:ainumbers.co", validFrom: _lastArtifact.generated_at, credentialSubject: { ...{ id: "urn:ocg:" + _lastHash }, ..._lastArtifact } }; dl(JSON.stringify(vc, null, 2), 'art-377-build-vop-session-receipt-vc.json', 'application/json'); }
+function dl(c, f, m) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: m })); a.download = f; a.click(); }
+function toggleMfst() { const b = document.getElementById('mfstBody'), c = document.getElementById('mfstCode'); if (b.style.display === 'none' || !b.style.display) { if (!c.textContent) c.textContent = JSON.stringify(MANIFEST, null, 2); b.style.display = 'block'; } else b.style.display = 'none'; }
+
+const PRESETS = {
+  proceed: { session_id: 'vop-sess-0001', attempts: [
+    { match_result: { source: 'score_payee_name_match', algorithm_version: 'vop-namematch-1.0.0', score: 100, match_band: 'MATCH' }, warning_shown: { text: '', severity: 'none' }, consumer_action: 'proceeded', asserted_at: '2026-07-18T09:00:00Z' },
+  ]},
+  abandon: { session_id: 'vop-sess-0002', attempts: [
+    { match_result: { source: 'score_payee_name_match', algorithm_version: 'vop-namematch-1.0.0', score: 62, match_band: 'NO_MATCH' }, warning_shown: { text: 'Name does not match the account holder on record.', severity: 'blocking' }, consumer_action: 'abandoned', asserted_at: '2026-07-18T09:05:00Z' },
+  ]},
+  retry: { session_id: 'vop-sess-0003', attempts: [
+    { match_result: { source: 'score_payee_name_match', algorithm_version: 'vop-namematch-1.0.0', score: 82, match_band: 'CLOSE_MATCH' }, warning_shown: { text: 'Name is a close match, not exact. Check the details before continuing.', severity: 'warning' }, consumer_action: 'retried', asserted_at: '2026-07-18T09:10:00Z' },
+    { match_result: { source: 'score_payee_name_match', algorithm_version: 'vop-namematch-1.0.0', score: 100, match_band: 'MATCH' }, warning_shown: { text: '', severity: 'none' }, consumer_action: 'proceeded', asserted_at: '2026-07-18T09:11:30Z' },
+  ]},
+};
+function loadPreset(n) {
+  const d = PRESETS[n]; if (!d) return;
+  document.getElementById('session_id').value = d.session_id;
+  resetAttempts();
+  d.attempts.forEach(a => addAttempt(a));
+}
+loadPreset('proceed');
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}return null;}
+async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
+async function verifySignature(){var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}var pr=art&&art.audit_signature&&art.audit_signature.proof;if(!pr){alert('✗ no §16 proof on this artifact');return;}try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}}
+(function(){var el=document.getElementById('ap2ExportBtn');if(!el)return;var obs=new MutationObserver(function(){var sab=document.getElementById('signArtifactBtn');if(sab){sab.disabled=false;}obs.disconnect();});obs.observe(el,{attributes:true,attributeFilter:['disabled']});})();
+</script>
+</body>
+</html>

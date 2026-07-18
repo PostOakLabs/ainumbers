@@ -1,0 +1,265 @@
+{
+  "tool_id": "art-377-build-vop-session-receipt",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. Synthetic session data only (zero PII). Covers: single-attempt proceed on a clean MATCH, single-attempt abandon after a blocking NO_MATCH warning, a two-attempt retry chain (CLOSE_MATCH warning -> retried -> corrected MATCH -> proceeded), and an undeclared-source + undeclared-action attempt proving those gaps are flagged (VOP_MATCH_SOURCE_UNDECLARED / VOP_CONSUMER_ACTION_UNDECLARED), never silently dropped.",
+  "vectors": [
+    {
+      "name": "single-attempt-proceeded-clean-match",
+      "policy_parameters": {
+        "session_id": "vop-sess-0001",
+        "attempts": [
+          {
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 100,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "proceeded",
+            "asserted_at": "2026-07-18T09:00:00Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "session_id": "vop-sess-0001",
+        "attempt_count": 1,
+        "session_outcome": "proceeded",
+        "final_match_band": "MATCH",
+        "warning_overridden": false,
+        "session_receipts": [
+          {
+            "index": 0,
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "source_declared": true,
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 100,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "proceeded",
+            "consumer_action_declared": true,
+            "asserted_at": "2026-07-18T09:00:00Z",
+            "prev_receipt_hash": "9bae133dfc56da197048d357223d8718ac4de05f356acd54be956dbcff2ba793",
+            "receipt_hash": "7fff02298857a766fc2ce70d5c9adc146a9b9227d148529824d54b22a5993f66"
+          }
+        ],
+        "chain_genesis_hash": "9bae133dfc56da197048d357223d8718ac4de05f356acd54be956dbcff2ba793",
+        "final_receipt_hash": "7fff02298857a766fc2ce70d5c9adc146a9b9227d148529824d54b22a5993f66",
+        "note": "Attests the computation over the declared session record -- match result, warning shown, and consumer action as asserted by the PSP -- NOT ground-truth identity and NOT the PSP's own UI. Hash-chained per attempt; tampering with any attempt breaks every downstream receipt hash. Verifies fully offline."
+      },
+      "golden_hash": "ee8271a85e666cddf31592669061c06ee2a53d0d21d3437169a07077aa703a36"
+    },
+    {
+      "name": "single-attempt-abandoned-after-warning",
+      "policy_parameters": {
+        "session_id": "vop-sess-0002",
+        "attempts": [
+          {
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 62,
+              "match_band": "NO_MATCH"
+            },
+            "warning_shown": {
+              "text": "Name does not match the account holder on record.",
+              "severity": "blocking"
+            },
+            "consumer_action": "abandoned",
+            "asserted_at": "2026-07-18T09:05:00Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "session_id": "vop-sess-0002",
+        "attempt_count": 1,
+        "session_outcome": "abandoned",
+        "final_match_band": "NO_MATCH",
+        "warning_overridden": false,
+        "session_receipts": [
+          {
+            "index": 0,
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "source_declared": true,
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 62,
+              "match_band": "NO_MATCH"
+            },
+            "warning_shown": {
+              "text": "Name does not match the account holder on record.",
+              "severity": "blocking"
+            },
+            "consumer_action": "abandoned",
+            "consumer_action_declared": true,
+            "asserted_at": "2026-07-18T09:05:00Z",
+            "prev_receipt_hash": "e43b553b7ac28b12b3574c55e16e01569dd23b6f3eb2ad62cacd422edaee6f3f",
+            "receipt_hash": "084fdcc2aba65effe18bc908f039f3232730c45603b5634dcac06b91944ab358"
+          }
+        ],
+        "chain_genesis_hash": "e43b553b7ac28b12b3574c55e16e01569dd23b6f3eb2ad62cacd422edaee6f3f",
+        "final_receipt_hash": "084fdcc2aba65effe18bc908f039f3232730c45603b5634dcac06b91944ab358",
+        "note": "Attests the computation over the declared session record -- match result, warning shown, and consumer action as asserted by the PSP -- NOT ground-truth identity and NOT the PSP's own UI. Hash-chained per attempt; tampering with any attempt breaks every downstream receipt hash. Verifies fully offline."
+      },
+      "golden_hash": "abea02a8aaf126745e051c8464e976325ba4f856ccccf9a0b3f90b666c37dd7d"
+    },
+    {
+      "name": "retry-close-match-then-corrected-proceeded",
+      "policy_parameters": {
+        "session_id": "vop-sess-0003",
+        "attempts": [
+          {
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 82,
+              "match_band": "CLOSE_MATCH"
+            },
+            "warning_shown": {
+              "text": "Name is a close match, not exact. Check the details before continuing.",
+              "severity": "warning"
+            },
+            "consumer_action": "retried",
+            "asserted_at": "2026-07-18T09:10:00Z"
+          },
+          {
+            "attempt_id": "a2",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 100,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "proceeded",
+            "asserted_at": "2026-07-18T09:11:30Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "session_id": "vop-sess-0003",
+        "attempt_count": 2,
+        "session_outcome": "proceeded",
+        "final_match_band": "MATCH",
+        "warning_overridden": false,
+        "session_receipts": [
+          {
+            "index": 0,
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "source_declared": true,
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 82,
+              "match_band": "CLOSE_MATCH"
+            },
+            "warning_shown": {
+              "text": "Name is a close match, not exact. Check the details before continuing.",
+              "severity": "warning"
+            },
+            "consumer_action": "retried",
+            "consumer_action_declared": true,
+            "asserted_at": "2026-07-18T09:10:00Z",
+            "prev_receipt_hash": "8dde2a8b4fe440fbbaee69e73fb3f5024ccd79e8112fd9f486b6a1daa9611061",
+            "receipt_hash": "62f18adb7e32ed39809fb4aa61536ae3e104b994a79f449df24463bced7c70e7"
+          },
+          {
+            "index": 1,
+            "attempt_id": "a2",
+            "match_result": {
+              "source": "score_payee_name_match",
+              "source_declared": true,
+              "algorithm_version": "vop-namematch-1.0.0",
+              "score": 100,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "proceeded",
+            "consumer_action_declared": true,
+            "asserted_at": "2026-07-18T09:11:30Z",
+            "prev_receipt_hash": "62f18adb7e32ed39809fb4aa61536ae3e104b994a79f449df24463bced7c70e7",
+            "receipt_hash": "9ec386bb78894d7a88933de00afa0f1b7073d677ba99b6aa1d3ea118940fd27c"
+          }
+        ],
+        "chain_genesis_hash": "8dde2a8b4fe440fbbaee69e73fb3f5024ccd79e8112fd9f486b6a1daa9611061",
+        "final_receipt_hash": "9ec386bb78894d7a88933de00afa0f1b7073d677ba99b6aa1d3ea118940fd27c",
+        "note": "Attests the computation over the declared session record -- match result, warning shown, and consumer action as asserted by the PSP -- NOT ground-truth identity and NOT the PSP's own UI. Hash-chained per attempt; tampering with any attempt breaks every downstream receipt hash. Verifies fully offline."
+      },
+      "golden_hash": "fe5ab9b3b9b05cf86183f5e0ecf19b38f254c6e7c61e1f7a2e52b80f20536beb"
+    },
+    {
+      "name": "undeclared-source-and-action-flagged",
+      "policy_parameters": {
+        "session_id": "vop-sess-0004",
+        "attempts": [
+          {
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "",
+              "algorithm_version": null,
+              "score": 91,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "proceeded_early",
+            "asserted_at": "2026-07-18T09:15:00Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "session_id": "vop-sess-0004",
+        "attempt_count": 1,
+        "session_outcome": "incomplete",
+        "final_match_band": "MATCH",
+        "warning_overridden": false,
+        "session_receipts": [
+          {
+            "index": 0,
+            "attempt_id": "a1",
+            "match_result": {
+              "source": "",
+              "source_declared": false,
+              "algorithm_version": null,
+              "score": 91,
+              "match_band": "MATCH"
+            },
+            "warning_shown": {
+              "text": "",
+              "severity": "none"
+            },
+            "consumer_action": "unknown",
+            "consumer_action_declared": false,
+            "asserted_at": "2026-07-18T09:15:00Z",
+            "prev_receipt_hash": "82c247735ef7cada9e56296270051bf909f2bf578dcd4374b8348690e5a880ad",
+            "receipt_hash": "d1b133ac65a24e2dcf4cc8d9f1bc7de9862286ee82a1e78a5913f10d13d57be4"
+          }
+        ],
+        "chain_genesis_hash": "82c247735ef7cada9e56296270051bf909f2bf578dcd4374b8348690e5a880ad",
+        "final_receipt_hash": "d1b133ac65a24e2dcf4cc8d9f1bc7de9862286ee82a1e78a5913f10d13d57be4",
+        "note": "Attests the computation over the declared session record -- match result, warning shown, and consumer action as asserted by the PSP -- NOT ground-truth identity and NOT the PSP's own UI. Hash-chained per attempt; tampering with any attempt breaks every downstream receipt hash. Verifies fully offline."
+      },
+      "golden_hash": "f732cfe0f0ac5666193588f141f2ae0a04d81be60370099624c1d054726bf359"
+    }
+  ]
+}
