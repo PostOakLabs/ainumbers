@@ -1,0 +1,194 @@
+{
+  "tool_id": "art-385-agent-token-scope-checker",
+  "note": "golden_hash empty until first `node golden-parity.test.mjs --update`.",
+  "vectors": [
+    {
+      "name": "in-scope-request",
+      "policy_parameters": {
+        "requested_action": {
+          "amount": 50,
+          "currency": "USD",
+          "mcc": "5411",
+          "requested_at": "2026-07-18T12:00:00Z"
+        },
+        "token": {
+          "token_id": "tok_leaf_1",
+          "max_amount": 100,
+          "currency": "USD",
+          "allowed_mccs": [
+            "5411",
+            "5412"
+          ],
+          "expires_at": "2026-08-01T00:00:00Z"
+        }
+      },
+      "output_payload": {
+        "verdict": "IN_SCOPE",
+        "checks_run": 5,
+        "failing_checks": [],
+        "token_id": "tok_leaf_1",
+        "attenuation_depth": 0,
+        "enforcement": "none"
+      },
+      "golden_hash": "4ece36acbd4cd1b130dc8cddc293d5a2d5494fb2d022e84b2dfe06ee554be87c"
+    },
+    {
+      "name": "amount-cap-exceeded",
+      "policy_parameters": {
+        "requested_action": {
+          "amount": 500,
+          "currency": "USD",
+          "mcc": "5411",
+          "requested_at": "2026-07-18T12:00:00Z"
+        },
+        "token": {
+          "token_id": "tok_leaf_2",
+          "max_amount": 100,
+          "currency": "USD",
+          "allowed_mccs": [
+            "5411"
+          ],
+          "expires_at": "2026-08-01T00:00:00Z"
+        }
+      },
+      "output_payload": {
+        "verdict": "OUT_OF_SCOPE",
+        "checks_run": 5,
+        "failing_checks": [
+          {
+            "id": "amount_cap",
+            "detail": "Requested amount 500 exceeds token max_amount 100 (over by 400.00)."
+          }
+        ],
+        "token_id": "tok_leaf_2",
+        "attenuation_depth": 0,
+        "enforcement": "none"
+      },
+      "golden_hash": "f3ef16240b0c8cb4cf30655b4ae950cb1215bf9291f583a5ff8b6897de2430a3"
+    },
+    {
+      "name": "wrong-mcc-and-expired",
+      "policy_parameters": {
+        "requested_action": {
+          "amount": 20,
+          "currency": "USD",
+          "mcc": "7995",
+          "requested_at": "2026-09-01T00:00:00Z"
+        },
+        "token": {
+          "token_id": "tok_leaf_3",
+          "max_amount": 100,
+          "currency": "USD",
+          "allowed_mccs": [
+            "5411"
+          ],
+          "expires_at": "2026-08-01T00:00:00Z"
+        }
+      },
+      "output_payload": {
+        "verdict": "OUT_OF_SCOPE",
+        "checks_run": 5,
+        "failing_checks": [
+          {
+            "id": "expiry",
+            "detail": "Token EXPIRED — expires_at 2026-08-01T00:00:00Z ≤ requested_at 2026-09-01T00:00:00.000Z."
+          },
+          {
+            "id": "mcc",
+            "detail": "MCC \"7995\" not in token allowed_mccs [5411]."
+          }
+        ],
+        "token_id": "tok_leaf_3",
+        "attenuation_depth": 0,
+        "enforcement": "none"
+      },
+      "golden_hash": "a6fbe379e1f8fc797c6c00707d14618d24898ae9dda1ab35f839fae655f6daed"
+    },
+    {
+      "name": "attenuation-chain-widened",
+      "policy_parameters": {
+        "requested_action": {
+          "amount": 80,
+          "currency": "USD",
+          "mcc": "5411",
+          "requested_at": "2026-07-18T12:00:00Z"
+        },
+        "token": {
+          "token_id": "tok_leaf_4",
+          "max_amount": 100,
+          "currency": "USD",
+          "allowed_mccs": [
+            "5411"
+          ],
+          "expires_at": "2026-08-01T00:00:00Z"
+        },
+        "attenuation_chain": [
+          {
+            "token_id": "tok_root_4",
+            "max_amount": 50,
+            "currency": "USD",
+            "allowed_mccs": [
+              "5411"
+            ],
+            "expires_at": "2026-08-15T00:00:00Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "OUT_OF_SCOPE",
+        "checks_run": 5,
+        "failing_checks": [
+          {
+            "id": "attenuation",
+            "detail": "link 1 (tok_root_4 → tok_leaf_4): max_amount WIDENED 50→100."
+          }
+        ],
+        "token_id": "tok_leaf_4",
+        "attenuation_depth": 1,
+        "enforcement": "none"
+      },
+      "golden_hash": "983f4d3d70f75747676d228bd659147b4cec6cdd840740b4d62f8e213959a765"
+    },
+    {
+      "name": "attenuation-chain-valid-narrowing",
+      "policy_parameters": {
+        "requested_action": {
+          "amount": 30,
+          "currency": "USD",
+          "mcc": "5411",
+          "requested_at": "2026-07-18T12:00:00Z"
+        },
+        "token": {
+          "token_id": "tok_leaf_5",
+          "max_amount": 40,
+          "currency": "USD",
+          "allowed_mccs": [
+            "5411"
+          ],
+          "expires_at": "2026-07-20T00:00:00Z"
+        },
+        "attenuation_chain": [
+          {
+            "token_id": "tok_root_5",
+            "max_amount": 100,
+            "currency": "USD",
+            "allowed_mccs": [
+              "5411",
+              "5412"
+            ],
+            "expires_at": "2026-08-01T00:00:00Z"
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "IN_SCOPE",
+        "checks_run": 5,
+        "failing_checks": [],
+        "token_id": "tok_leaf_5",
+        "attenuation_depth": 1,
+        "enforcement": "none"
+      },
+      "golden_hash": "ea6bb6f4839e96116f6f8ba584262ae839387a8a44166c2b730a9785fba99bc7"
+    }
+  ]
+}
