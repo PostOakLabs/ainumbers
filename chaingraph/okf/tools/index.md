@@ -308,7 +308,10 @@ timestamp: 2026-07-14
 - [Embedded Insurance Pricing Modeller](./art-366-price-embedded-insurance.md) — `price_embedded_insurance`
 - [Cross-Border B2B Fee Calculator](./art-367-compute-cross-border-fees.md) — `compute_cross_border_fees`
 - [Multilateral FX Netting Calculator](./art-368-compute-fx-netting-positions.md) — `compute_fx_netting_positions`
+- [Rate Shock Ladder Replay](./art-369-run-rate-shock-ladder.md) — `run_rate_shock_ladder`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
+- [Supervisory Scenario Replay (DFAST-lite)](./art-370-supervisory-scenario-replay.md) — `replay_supervisory_scenario`
+- [Portfolio VaR — Monte Carlo (Integer PRNG)](./art-371-simulate-var-monte-carlo.md) — `simulate_var_monte_carlo`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
 - [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md) — `validate_tempo_zone_disclosure`
 - [Tempo Agentic Checkout Settlement Mapper](./art-40-tempo-agentic-checkout.md) — `map_tempo_settlement`
