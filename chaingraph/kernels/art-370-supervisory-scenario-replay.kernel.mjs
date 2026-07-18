@@ -10,9 +10,10 @@
  * for the source PDF, release date, and per-file digests.
  *
  * Pure decision kernel — no DOM, no window, no Date.now(), no Math.random(),
- * no fetch (scenario data is a build-time-pinned constant, never fetched at
- * runtime). Cents-integer fixed-point discipline throughout (house
- * discipline: no float drift across a 13-quarter cumulative walk).
+ * no network access of any kind: scenario data is a build-time-pinned
+ * constant, never retrieved at runtime. Cents-integer fixed-point discipline
+ * throughout (house discipline: no float drift across a 13-quarter
+ * cumulative walk).
  */
 
 import { executionHash } from './_hash.mjs';
