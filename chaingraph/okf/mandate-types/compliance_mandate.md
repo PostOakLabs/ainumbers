@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-235"]
+tags: ["compliance_mandate", "count-237"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-235 tool(s) in this mandate-type group:
+237 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -242,6 +242,8 @@ timestamp: 2026-07-14
 - [Fedwire Payment-File Address Sweep](../tools/art-350-fedwire-address-sweep.md)
 - [ETR Singularity & Exclusive-Control Evidence Checker](../tools/art-352-etr-control-evidence-checker.md)
 - [MLETR Jurisdiction-Adoption Lookup](../tools/art-354-mletr-jurisdiction-adoption-lookup.md)
+- [Basel 2023-vs-2026 Capital-Delta Comparator](../tools/art-357-basel-2023-vs-2026-capital-delta-comparator.md)
+- [Basel Output-Floor Phase-In Simulator](../tools/art-358-simulate-output-floor.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
