@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-236-build-ai-decision-log-record';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -110,7 +110,7 @@ export function compute(pp) {
         enforcement_dates: {
           original: '2026-08-02',
           digital_omnibus_proposed: '2027-12-02',
-          note: 'Digital Omnibus (provisional agreement 7 May 2026) proposes Annex III high-risk obligations to 2 Dec 2027; legal effect only on formal adoption. Verify current AI Act status.'
+          note: 'Digital Omnibus amendments (European Parliament final approval, 16 June 2026) confirm Annex III high-risk obligations move to 2 December 2027.'
         },
       },
       compliance_flags: ['EMPTY_INPUT'],
@@ -170,7 +170,7 @@ export function compute(pp) {
     enforcement_dates: {
       original: '2026-08-02',
       digital_omnibus_proposed: '2027-12-02',
-      note: 'Digital Omnibus (provisional agreement 7 May 2026) proposes Annex III high-risk obligations to 2 Dec 2027; legal effect only on formal adoption. Verify current AI Act status.',
+      note: 'Digital Omnibus amendments (European Parliament final approval, 16 June 2026) confirm Annex III high-risk obligations move to 2 December 2027.',
     },
   };
 
