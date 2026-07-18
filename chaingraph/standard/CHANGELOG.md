@@ -3,6 +3,28 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.8 — `seeded-stochastic` determinism class (§24.6.2) + the deferred vouch-hunt record bump
+- **Record bump plus one new section.** The vouch-hunt additive pass (§20.2 witness cosignatures, §21.5
+  `claim_strength`, §22.9 AR4SI/EAR failure receipts, §22.10 Biscuit attenuation, §24.6 determinism-class
+  declaration, §24.6.1 `quantization_parity`) was already normative in `SPEC.md`; its `spec_version` bump was
+  deferred to a coordinated K landing to avoid a `chaingraph.json` single-writer collision. This entry moves the
+  record from 0.8.7 to 0.8.8 across every declared surface and adds §24.6.2.
+- **§24.6.2 `seeded-stochastic`** — a determinism class STRONGER than `estimated`: the kernel MUST carry a named
+  `prng_algorithm` (integer-only; the reference deployment uses `xoshiro256**` seeded through `splitmix64`), an
+  integer `seed`, and the `draw_count` consumed, and replay at the same inputs and seed MUST reproduce a
+  bit-identical `output_payload`, hence a byte-identical `execution_hash`. A kernel that cannot meet that bar MUST
+  declare `estimated` — under-claiming stays conformant (§11).
+- **Gated, not asserted** — new §15 row + `seed-replay.test.mjs`: replay against a committed reference vector, a
+  tampered-seed negative fixture that MUST fail (proving the seed is load-bearing, not decorative), and a
+  per-kernel replay/perturb check for any kernel declaring the class. The first two run unconditionally, so the
+  paths stay proven while the estate has no adopters.
+- **Specified, not yet adopted** — no live kernel declares `seeded-stochastic` at 0.8.8. `art-371`
+  (`simulate_var_monte_carlo`) already carries `prng_algorithm`/`seed`/`draw_count` but continues to declare
+  `estimated`; migrating it moves that node's `execution_hash`, so it is a kernel-versioning event tracked
+  separately, not part of this tick.
+- Fully additive: no envelope/hash/schema change, `chaingraph_version` stays `0.4.0`, every existing
+  `execution_hash` is byte-identical.
+
 ## 0.8.7 — ML landing-pass riders (§HASHRES-1, §PQC-1, §REVOKE-1, §SIDECAR)
 - **Record bump only — all four sections were already normative in `SPEC.md` since the additive landing pass.**
   This entry moves the `spec_version` of record from 0.8.6 to 0.8.7 across every declared surface. Folded into the
