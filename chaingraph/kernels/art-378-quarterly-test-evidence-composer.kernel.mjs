@@ -9,16 +9,13 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// Scope correction (AU-2 board row, Standing Order #22): the spec text names a
-// 'seeded-stochastic' determinism class from SIM-REPLAY SR-3. That class was
-// NEVER shipped -- SR-3 itself shipped under the existing §24.6 'estimated'
-// class and the new class was deferred to a future SPEC-TICK. This kernel
-// therefore only ever declares 'deterministic' or 'estimated'; any other
-// class on an input test record (including the literal string
-// 'seeded-stochastic') is COERCED to 'estimated' and flagged
-// AU2_DETERMINISM_CLASS_COERCED rather than passed through. PRNG algorithm/
-// seed/draw count are still carried as ordinary declared inputs so a later
-// re-declaration under a real 'seeded-stochastic' class is a one-liner.
+// Scope correction (ART371-CLASS-RELOCATE, 2026-07-18): SPEC-TICK-088 landed
+// §24.6.2 'seeded-stochastic' as a normative class in SPEC.md v0.8.8. This
+// kernel now accepts all four §24.6 classes on an input test record; only a
+// class OUTSIDE that set is coerced to 'estimated' and flagged
+// AU2_DETERMINISM_CLASS_COERCED. PRNG algorithm/seed/draw count are carried
+// as ordinary declared inputs for both 'estimated' and 'seeded-stochastic'
+// records, since both classes are seed/PRNG-bearing per §24.6/§24.6.2.
 //
 // Evidence fence (spec copy guard): this is a testing-evidence FORMAT, never a
 // certification claim. certification_note is fixed to "prepared for AIUC-1"
@@ -33,7 +30,7 @@ export const meta = {
 // lineage) sets tamper_detected and degrades pack_claim_strength to
 // 'chain-broken' rather than silently accepting the claimed lineage.
 
-const ALLOWED_CLASSES = new Set(['deterministic', 'estimated']);
+const ALLOWED_CLASSES = new Set(['bit-exact', 'replayable', 'seeded-stochastic', 'estimated', 'deterministic']);
 
 export function compute(pp) {
   const quarter = pp && typeof pp.quarter === 'string' ? pp.quarter : null;
@@ -51,7 +48,7 @@ export function compute(pp) {
     const coerced_from_forbidden_class = !ALLOWED_CLASSES.has(declared);
     const determinism_class = coerced_from_forbidden_class ? 'estimated' : declared;
     const prngIn = t && typeof t.prng === 'object' && t.prng;
-    const prng = determinism_class === 'estimated' && prngIn ? {
+    const prng = (determinism_class === 'estimated' || determinism_class === 'seeded-stochastic') && prngIn ? {
       algorithm: typeof prngIn.algorithm === 'string' ? prngIn.algorithm : null,
       seed: typeof prngIn.seed === 'string' || typeof prngIn.seed === 'number' ? prngIn.seed : null,
       draws: Number.isFinite(prngIn.draws) ? prngIn.draws : null,
