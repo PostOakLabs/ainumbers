@@ -321,7 +321,10 @@ import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art380    from './art-380-build-ai-workpaper-record.kernel.mjs';
 import * as art385    from './art-385-agent-token-scope-checker.kernel.mjs';
 import * as art387    from './art-387-pqc-deadline-ladder-calculator.kernel.mjs';
+import * as art388    from './art-388-tempo-fee-amm-converter.kernel.mjs';
+import * as art389    from './art-389-tempo-mainnet-fee-capacity.kernel.mjs';
 import * as art39     from './art-39-tempo-zone-disclosure.kernel.mjs';
+import * as art390    from './art-390-tip20-memo-commitment-validator.kernel.mjs';
 import * as art391    from './art-391-compute-canton-traffic-cost.kernel.mjs';
 import * as art392    from './art-392-compute-canton-app-reward-estimate.kernel.mjs';
 import * as art393    from './art-393-x402-v2-migration-linter.kernel.mjs';
@@ -723,7 +726,10 @@ export const KERNELS = {
   'art-380-build-ai-workpaper-record':                        art380,
   'art-385-agent-token-scope-checker':                        art385,
   'art-387-pqc-deadline-ladder-calculator':                   art387,
+  'art-388-tempo-fee-amm-converter':                          art388,
+  'art-389-tempo-mainnet-fee-capacity':                       art389,
   'art-39-tempo-zone-disclosure':                             art39,
+  'art-390-tip20-memo-commitment-validator':                  art390,
   'art-391-compute-canton-traffic-cost':                      art391,
   'art-392-compute-canton-app-reward-estimate':               art392,
   'art-393-x402-v2-migration-linter':                         art393,
