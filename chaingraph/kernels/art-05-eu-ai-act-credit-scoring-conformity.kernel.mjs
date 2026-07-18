@@ -2,12 +2,12 @@
 // Faithful port of the scoring logic in
 //   repo/chaingraph/art-05-eu-ai-act-credit-scoring-conformity.html
 // Pure: no DOM, no window, no network, no Date.now().
-// EU AI Act Annex III Part 5(b) — full obligations apply 2026-08-02.
+// EU AI Act Annex III Part 5(b) — full obligations apply 2027-12-02 (per Digital Omnibus, June 2026).
 
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-05-eu-ai-act-credit-scoring-conformity';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 // Bias thresholds (indicative — EEOC four-fifths rule + equalized-odds guidance)
 const DIR_THRESHOLD    = 0.80; // disparate impact ratio lower bound
@@ -175,8 +175,8 @@ export function compute(pp) {
     data_governance_score_pct: Math.round(dataScore.score * 100),
     art_checklist_score_pct:   Math.round(artScore.score  * 100),
     failing_dimensions,
-    applicable_deadline:       '2026-08-02',
-    applicable_deadline_note:  'EU AI Act Annex III Part 5(b) — credit-scoring high-risk obligations fully apply August 2, 2026',
+    applicable_deadline:       '2027-12-02',
+    applicable_deadline_note:  'EU AI Act Annex III Part 5(b) — credit-scoring high-risk obligations fully apply 2 December 2027, per the Digital Omnibus amendments (Parliament final approval, June 2026)',
     regulatory_framework:      'EU AI Act (Regulation (EU) 2024/1689) — Annex III Part 5(b)',
   };
 
