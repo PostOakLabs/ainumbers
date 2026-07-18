@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-23"]
+tags: ["analytics_mandate", "count-24"]
 timestamp: 2026-07-14
 ---
 
 # analytics_mandate
 
-23 tool(s) in this mandate-type group:
+24 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -33,3 +33,4 @@ timestamp: 2026-07-14
 - [Embedded Insurance Pricing Modeller](../tools/art-366-price-embedded-insurance.md)
 - [Cross-Border B2B Fee Calculator](../tools/art-367-compute-cross-border-fees.md)
 - [Multilateral FX Netting Calculator](../tools/art-368-compute-fx-netting-positions.md)
+- [Rate Shock Ladder Replay](../tools/art-369-run-rate-shock-ladder.md)
