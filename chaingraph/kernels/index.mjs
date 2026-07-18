@@ -317,6 +317,7 @@ import * as art375    from './art-375-compute-fund-expense-ratios.kernel.mjs';
 import * as art376    from './art-376-score-payee-name-match.kernel.mjs';
 import * as art377    from './art-377-build-vop-session-receipt.kernel.mjs';
 import * as art378    from './art-378-quarterly-test-evidence-composer.kernel.mjs';
+import * as art379    from './art-379-agent-incident-record-composer.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art380    from './art-380-build-ai-workpaper-record.kernel.mjs';
 import * as art385    from './art-385-agent-token-scope-checker.kernel.mjs';
@@ -722,6 +723,7 @@ export const KERNELS = {
   'art-376-score-payee-name-match':                           art376,
   'art-377-build-vop-session-receipt':                        art377,
   'art-378-quarterly-test-evidence-composer':                 art378,
+  'art-379-agent-incident-record-composer':                   art379,
   'art-38-tempo-onchain-aml':                                 art38,
   'art-380-build-ai-workpaper-record':                        art380,
   'art-385-agent-token-scope-checker':                        art385,
