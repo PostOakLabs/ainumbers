@@ -299,6 +299,7 @@ import * as art357    from './art-357-basel-2023-vs-2026-capital-delta-comparato
 import * as art358    from './art-358-simulate-output-floor.kernel.mjs';
 import * as art359    from './art-359-idv-session-receipt-builder.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
+import * as art361    from './art-361-camera-provenance-check.kernel.mjs';
 import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art39     from './art-39-tempo-zone-disclosure.kernel.mjs';
@@ -677,6 +678,7 @@ export const KERNELS = {
   'art-358-simulate-output-floor':                            art358,
   'art-359-idv-session-receipt-builder':                      art359,
   'art-36-tempo-mpp-agent-mandate':                           art36,
+  'art-361-camera-provenance-check':                          art361,
   'art-37-tempo-stablecoin-issuance':                         art37,
   'art-38-tempo-onchain-aml':                                 art38,
   'art-39-tempo-zone-disclosure':                             art39,
