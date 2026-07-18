@@ -32,12 +32,42 @@ const PROTECTED_PATHS = [
   'chaingraph/standard/openchain-graph-v0.4.schema.json',
 ];
 
-function changedFiles() {
+function refExists(ref) {
   try {
-    const out = execSync('git diff --name-only origin/main', { cwd: REPO, encoding: 'utf8' });
+    execSync(`git rev-parse --verify ${ref}`, { cwd: REPO, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Local clones (worktrees, pre-push hook) have a full history and origin/main
+// already exists. CI's actions/checkout is fetch-depth:1 on the head ref
+// only — origin/main isn't there, so fetch it (git fetch is a plain git
+// operation, not a new Action). GITHUB_BASE_REF names the PR's base branch;
+// fall back to 'main' for the push-to-main trigger, where it self-diffs to
+// empty (correct — that gate matters pre-merge, not post-merge).
+function resolveDiffTarget() {
+  if (refExists('origin/main')) return 'origin/main';
+
+  const base = process.env.GITHUB_BASE_REF || 'main';
+  try {
+    execSync(`git fetch --depth=1 origin ${base}`, { cwd: REPO, stdio: 'ignore' });
+    return 'FETCH_HEAD';
+  } catch (e) {
+    console.error(`check-protected-paths: could not fetch origin/${base} to diff against.`);
+    console.error((e.stderr?.toString() || e.message || '').trim());
+    process.exit(1);
+  }
+}
+
+function changedFiles() {
+  const target = resolveDiffTarget();
+  try {
+    const out = execSync(`git diff --name-only ${target}`, { cwd: REPO, encoding: 'utf8' });
     return out.split('\n').map(l => l.trim()).filter(Boolean);
   } catch (e) {
-    console.error('check-protected-paths: could not diff against origin/main — is origin/main fetched?');
+    console.error(`check-protected-paths: could not diff against ${target}.`);
     console.error((e.stderr?.toString() || e.message || '').trim());
     process.exit(1);
   }
