@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.7
+spec_version: 0.8.8
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -1265,8 +1265,9 @@ of the deterministic WebCrypto subset to what those gates already check (`vm-par
 **§24.6 Per-kernel determinism-class declaration (NORMATIVE, OPTIONAL — new in v0.8.8).** A kernel entry in
 `chaingraph.json` metadata MAY declare a **determinism class**: `bit-exact` (byte-identical across the browser
 tool, the Cloudflare Worker, and the QuickJS VM — the §24 default for `gpu:false` live kernels), `replayable`
-(same output for the same inputs but not cross-surface byte-identical), or `estimated` (stochastic / model-output
-whose replay bounds are not bit-exact). The declaration is **TESTED, not merely asserted**: the existing §4
+(same output for the same inputs but not cross-surface byte-identical), `seeded-stochastic` (§24.6.2 — draws
+from a declared pseudo-random generator, bit-identical on replay from the declared seed), or `estimated`
+(stochastic / model-output whose replay bounds are not bit-exact). The declaration is **TESTED, not merely asserted**: the existing §4
 parity and finite gates are RE-BOUND per class — a `bit-exact` kernel MUST pass the cross-surface byte-identity
 check; an `estimated` kernel is exempt from byte-identity but MUST still pass finite-output and
 idempotency-within-tolerance. A kernel whose declared class does NOT match its measured behavior MUST fail. This
@@ -1311,6 +1312,33 @@ recorded `quantized_prediction` for every row (kernel-fidelity check), independe
 §24.6 gate suite, run against the SAME committed vector set ZG-1's offline generator produced
 (`fixtures/<tool_id>.test-vectors.json`) — no new hash, no `chaingraph_version` bump, no envelope change; a
 kernel with no `quantization_parity` block is unaffected and fully conformant.
+
+**§24.6.2 `seeded-stochastic` determinism class (NORMATIVE, OPTIONAL — new in v0.8.8).** A kernel whose output
+depends on pseudo-random draws MAY declare the class `seeded-stochastic` instead of `estimated`. The class is a
+STRONGER claim than `estimated` and carries a replay obligation: the kernel MUST record, in the receipt, the
+`prng_algorithm` (a named, integer-only generator — the reference deployment uses `xoshiro256**` seeded through
+`splitmix64`), the integer `seed`, and the `draw_count` actually consumed; and a replay of the kernel at the
+SAME `policy_parameters` and the SAME declared seed MUST reproduce a **bit-identical** `output_payload`, hence a
+byte-identical `execution_hash`. Floating-point draws are permitted only where the generator's integer state is
+the seeded quantity and the float derivation is itself deterministic. A kernel that cannot meet bit-identical
+replay MUST declare `estimated`, not `seeded-stochastic`: under-claiming is always conformant (§11), and the
+weaker class is the honest default while a kernel's replay behavior is unproven.
+
+Same §24.6 doctrine applies — **TESTED, not merely asserted**, and this class earns a gate of its own because
+its claim (replay determinism) is not what the §4 parity/finite gates already measure. `seed-replay.test.mjs`
+(§15) does three things: (a) it re-runs every kernel declaring `seeded-stochastic` at its own declared seed and
+fails the kernel unless both runs' `execution_hash` values are byte-identical; (b) it re-runs the same kernel at
+a **tampered seed** drawn from the committed negative fixture and fails if the hash does NOT change, which is
+what proves the seed is genuinely load-bearing rather than a decorative field; and (c) it exercises (a) and (b)
+unconditionally against a committed reference vector (`fixtures/seed-replay.fixtures.json`), so the replay and
+tamper-detect paths stay proven even in an estate with zero `seeded-stochastic` kernels. The declared class,
+`prng_algorithm`, `seed`, and `draw_count` are ordinary receipt content; this section adds no envelope change,
+no new hash, and no `chaingraph_version` bump, and a kernel declaring any other class is unaffected.
+
+At v0.8.8 the class is **specified and not yet adopted**: no live kernel declares `seeded-stochastic`. The
+reference deployment's Monte Carlo VaR node (`art-371`) carries the `prng_algorithm` / `seed` / `draw_count`
+fields already but continues to declare `estimated`, which is a sound under-claim (§11) — its migration to the
+new class is a kernel-versioning event, not a spec change, and is tracked separately.
 
 ## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
 §18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
@@ -1574,9 +1602,15 @@ A `< 1 MB` median means do NOT adopt — a second hash surface fights the one-ca
 commitment and no gate; this is a measurement note only.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **Unreleased (pending v0.8.8 — SPEC-text additive pass landed; the record
-`spec_version` bump 0.8.7 → 0.8.8 is DEFERRED to a coordinated K landing to avoid a `chaingraph.json`
-single-writer collision, exactly as v0.8.7 folded into the GD-1 landing):** Vouch-hunt #3 additive §s —
+See `standard/CHANGELOG.md`. **v0.8.8 (2026-07-18 — the record `spec_version` bump 0.8.7 → 0.8.8 landed here,
+at the coordinated K landing it was deferred to, exactly as v0.8.7 folded into the GD-1 landing; the SPEC-text
+additive pass below had landed earlier, so this release carries it plus one genuinely new section, §24.6.2):**
+§24.6.2 (`seeded-stochastic`: a determinism class STRONGER than `estimated`, requiring a declared
+`prng_algorithm` + integer `seed` + `draw_count` in the receipt and bit-identical replay from that seed, TESTED
+by the new `seed-replay.test.mjs` — replay against a committed reference vector PLUS a tampered-seed negative
+fixture that MUST fail. Specified and NOT YET ADOPTED: no live kernel declares it, and `art-371` continues to
+declare the sound weaker class `estimated`; its migration is a kernel-versioning event, not a spec change).
+Carried from the earlier additive pass — Vouch-hunt #3 additive §s —
 §20.2 (§WITNESS-1: OPTIONAL k-of-n C2SP witness cosignatures on §20/§20.1 batch anchors, closes
 anchor-equivocation without operating a log, verify-only, offline-verifiable), §21.5 (§CLAIMSTR-1:
 hash-excluded `claim_strength = min(step strengths)` weakest-link composite on §21 receipts), §22.9
@@ -1710,6 +1744,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
+| §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

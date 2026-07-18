@@ -40,6 +40,7 @@ const GATES = [
   ['VM↔worker parity (§24)',       'node chaingraph/kernels/vm-parity-gate.mjs --strict'],
   ['Kernel empty-input finite',    'node chaingraph/kernels/empty-input-finite.test.mjs'],
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
+  ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
