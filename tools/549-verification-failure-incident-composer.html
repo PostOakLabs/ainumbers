@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Verification-Failure Incident Composer · AINumbers.co</title>
+<meta name="description" content="Compose a signed verification-failure incident record client-side: session context, failure classification (OCG Standard §22.9 AR4SI tier), and escalation routing for fraud teams, regulators, or insurers. Attests the declared record only, never detection quality. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/549-verification-failure-incident-composer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Verification-Failure Incident Composer","url":"https://ainumbers.co/tools/549-verification-failure-incident-composer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "549-verification-failure-incident-composer",
+  "version": "1.0.0",
+  "title": "Verification-Failure Incident Composer",
+  "description": "Composes and signs (eddsa-jcs-2022, ephemeral did:key) a verification-failure incident record from session context, an OCG Standard §22.9 AR4SI-tiered failure classification, and an escalation target, for fraud teams, regulators, or insurers. Attests the declared record only, never detection quality.",
+  "category": "ai-agentic",
+  "tags": ["incident record","IDV","§22.9","AR4SI","failure receipt","escalation"],
+  "audience": ["engineer","compliance","fraud-ops"],
+  "input_schema": {"type":"object","properties":{"verifier_identity":{"type":"string"},"session_id":{"type":"string"},"session_timestamp":{"type":"string"},"session_receipt_digest":{"type":"string"},"failing_rule_id":{"type":"string"},"tier":{"type":"string"},"description":{"type":"string"},"detection_source":{"type":"string"},"escalation_target_type":{"type":"string"},"escalation_reference":{"type":"string"},"escalation_notes":{"type":"string"}},"required":["failing_rule_id","tier","description"]},
+  "output_schema": {"type":"object","properties":{"incident":{"type":"object"},"receipt":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"compose_verification_failure_incident","description":"Composes and signs a verification-failure incident record (OCG §22.9 AR4SI-tiered) from session context, failure classification, and an escalation target.","inputSchema":{"type":"object","properties":{"verifier_identity":{"type":"string"},"session_id":{"type":"string"},"session_timestamp":{"type":"string"},"session_receipt_digest":{"type":"string"},"failing_rule_id":{"type":"string"},"tier":{"type":"string"},"description":{"type":"string"},"detection_source":{"type":"string"},"escalation_target_type":{"type":"string"},"escalation_reference":{"type":"string"},"escalation_notes":{"type":"string"}},"required":["failing_rule_id","tier","description"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/549-verification-failure-incident-composer.html","function_name":"composeIncident","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal)}
+.asserted-hint{font-size:.62rem;color:var(--muted);margin-top:.2rem}
+.adv-toggle{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);display:flex;align-items:center;gap:.4rem;margin:.5rem 0}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);padding:.5rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.35;cursor:not-allowed}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0 1.5rem}
+.results-panel{display:none;flex-direction:column;gap:1rem}
+.results-panel.show{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.1rem 1.25rem}
+.code-block{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .75rem;border-radius:var(--radius);margin-bottom:.75rem}
+.verdict-ok{color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.verdict-fail{color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a><span class="nav-sep">/</span><span>T-549</span></div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Identity Verification &middot; T549</div>
+  <h1 class="tool-title">Verification-Failure Incident <em>Composer</em></h1>
+  <p class="hero-desc">Compose a signed incident record from a verification session's declared context, an OCG Standard &sect;22.9 AR4SI-tiered failure classification, and an escalation target &mdash; ready to hand to a fraud team, regulator, or insurer. Signed client-side with an eddsa-jcs-2022 Data Integrity proof over an ephemeral <code>did:key</code>.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">&sect;22.9 AR4SI</span>
+    <span class="badge badge-gold">eddsa-jcs-2022</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer">&#9888; This record attests what the verifier <strong>declared</strong> about the session, meaning the fields you enter below, not that a failure genuinely occurred or that any detection was accurate. Every asserted field is labeled <code>asserted</code> in the output. A verified signature proves the record was not altered after signing and that it was signed by whoever holds the issuing key; it is not, by itself, evidence of fraud, injection, or identity. See the <a href="../guides/aml-kyc-compliance-hub.html" style="color:var(--teal)">AML/KYC compliance guide</a> for the surrounding identity-evidence context.</div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Session Context (asserted)</span></div>
+    <div class="panel-row">
+      <div class="field"><label>Verifier identity + version</label><input type="text" id="verifierIdentity" value="acme-idv-verifier/2.4.1"></div>
+      <div class="field"><label>Session id</label><input type="text" id="sessionId" value="sess-0001"></div>
+    </div>
+    <div class="panel-row">
+      <div class="field"><label>Session timestamp</label><input type="datetime-local" id="sessionTimestamp"></div>
+      <div class="field"><label>Session receipt execution_hash (optional, from an IS-1 session receipt if one exists)</label><input type="text" id="sessionReceiptDigest" placeholder="e.g. sha256 hex, leave blank if none"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Failure Classification &middot; OCG &sect;22.9</span></div>
+    <div class="panel-row">
+      <div class="field"><label>Failing rule id</label><input type="text" id="failingRuleId" value="injection-detection.verdict"></div>
+      <div class="field"><label>AR4SI trustworthiness tier</label>
+        <select id="tier">
+          <option value="affirming">affirming</option>
+          <option value="warning" selected>warning</option>
+          <option value="contraindicated">contraindicated</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:.85rem"><label>Failure description</label><textarea id="description" rows="2">Injection-detection vendor flagged the capture as a likely virtual-camera source; session did not complete liveness at the declared confidence threshold.</textarea></div>
+    <div class="field" style="margin-bottom:.85rem"><label>Detection source (vendor + version, asserted)</label><input type="text" id="detectionSource" value="acme-injection-detect/1.9.0"></div>
+    <div class="asserted-hint">Tier is a representative AR4SI code point (informative only; this tool does not implement the full IETF RATS EAR claim set). See the export below for the numeric code.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Escalation Target</span></div>
+    <div class="panel-row">
+      <div class="field"><label>Target type</label>
+        <select id="escalationTargetType">
+          <option value="fraud_team">fraud_team</option>
+          <option value="regulator">regulator</option>
+          <option value="insurer">insurer</option>
+        </select>
+      </div>
+      <div class="field"><label>Escalation reference / case id</label><input type="text" id="escalationReference" value="case-2026-0001"></div>
+    </div>
+    <div class="field" style="margin-bottom:.85rem"><label>Escalation notes</label><textarea id="escalationNotes" rows="2">Routed for manual review per session-level detection policy.</textarea></div>
+
+    <div class="adv-toggle"><label><input type="checkbox" id="advToggle" onchange="toggleAdvanced()"> Advanced: paste your own Ed25519 signing key (JWK) instead of an ephemeral key</label></div>
+    <div id="advPanel" style="display:none;margin-top:.5rem">
+      <div class="field"><label>Ed25519 private key, JWK ({"kty":"OKP","crv":"Ed25519","d":"...","x":"..."})</label><textarea id="advJwk" rows="3"></textarea></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="run-btn" id="composeBtn" onclick="composeIncident()">&#9654; Compose &amp; Sign Incident</button>
+      <button class="btn-ghost" id="verifyBtn" onclick="verifyIncident()" disabled>Verify Signature (in-page)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div id="verifyVerdict"></div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Signed Verification-Failure Incident Record</span>
+        <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('incidentCode')">Copy</button><button class="copy-btn" onclick="downloadFile('incidentFile')">Download .incident.json</button></div>
+      </div>
+      <div class="out-body"><div class="code-block" id="incidentCode"></div></div>
+    </div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">OCG Receipt of the Composing Activity</span>
+        <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('receiptCode')">Copy</button><button class="copy-btn" onclick="downloadFile('receiptFile')">Download .receipt.json</button></div>
+      </div>
+      <div class="out-body">
+        <div id="receiptVerdict"></div>
+        <div class="code-block" id="receiptCode"></div>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Compose an incident above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ── OCG-PROOF v1 (inline, single-file port of chaingraph/kernels/_proof.mjs + _hash.mjs).
+   Generalized over ANY doc + root-level proof-field pair. This tool signs at doc.proof,
+   the incident-record root, per the same convention as the VC 2.0 composer (T544).
+   DO NOT hand-edit independently of the source modules. */
+(function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  function canonicalPreimage(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    return JSON.stringify(cgCanon(obj));
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  var enc=function(s){return new TextEncoder().encode(s);};
+  function jcsBytes(obj){ return enc(JSON.stringify(cgCanon(obj))); }
+  async function sha256(bytes){ var d=await crypto.subtle.digest('SHA-256', bytes); return new Uint8Array(d); }
+  async function sha256HexOfCanon(v){
+    var b=await sha256(jcsBytes(v));
+    return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  }
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58encode(bytes){
+    var zeros=0; while(zeros<bytes.length && bytes[zeros]===0) zeros++;
+    var digits=[0];
+    for(var i=zeros;i<bytes.length;i++){
+      var carry=bytes[i];
+      for(var j=0;j<digits.length;j++){ carry+=digits[j]<<8; digits[j]=carry%58; carry=(carry/58)|0; }
+      while(carry){ digits.push(carry%58); carry=(carry/58)|0; }
+    }
+    var out=''; for(var k=0;k<zeros;k++) out+='1';
+    for(var q=digits.length-1;q>=0;q--) out+=B58[digits[q]];
+    return out;
+  }
+  function b58decode(str){
+    var zeros=0; while(zeros<str.length && str[zeros]==='1') zeros++;
+    var bytes=[0];
+    for(var i=zeros;i<str.length;i++){
+      var carry=B58.indexOf(str[i]); if(carry<0) throw new Error('bad base58 char');
+      for(var j=0;j<bytes.length;j++){ carry+=bytes[j]*58; bytes[j]=carry&0xff; carry>>=8; }
+      while(carry){ bytes.push(carry&0xff); carry>>=8; }
+    }
+    var out=new Uint8Array(zeros+bytes.length);
+    for(var k=0;k<bytes.length;k++) out[zeros+bytes.length-1-k]=bytes[k];
+    return out;
+  }
+  var ED25519_MULTICODEC=[0xed,0x01];
+  async function rawPubkeyToDidKey(publicKey){
+    var raw=new Uint8Array(await crypto.subtle.exportKey('raw', publicKey));
+    var prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+    prefixed.set(ED25519_MULTICODEC,0); prefixed.set(raw, ED25519_MULTICODEC.length);
+    return 'did:key:z'+b58encode(prefixed);
+  }
+  function proofOptions(o){
+    return {type:'DataIntegrityProof', cryptosuite:'eddsa-jcs-2022', verificationMethod:o.verificationMethod, proofPurpose:'assertionMethod', created:o.created};
+  }
+  async function hashData(doc, opts){
+    var optHash=await sha256(jcsBytes(opts));
+    var docHash=await sha256(jcsBytes(doc));
+    var cat=new Uint8Array(optHash.length+docHash.length);
+    cat.set(optHash,0); cat.set(docHash, optHash.length);
+    return cat;
+  }
+  async function signDoc(doc, proofField, o){
+    if(!o.verificationMethod || !o.created || !o.privateKey) throw new Error('signDoc requires verificationMethod, created, privateKey');
+    var opts=proofOptions(o);
+    var secured=JSON.parse(JSON.stringify(doc)); delete secured[proofField];
+    var sigBytes=new Uint8Array(await crypto.subtle.sign('Ed25519', o.privateKey, await hashData(secured, opts)));
+    var proof=Object.assign({}, opts, {proofValue:'z'+b58encode(sigBytes)});
+    var out=JSON.parse(JSON.stringify(doc)); out[proofField]=proof;
+    return out;
+  }
+  async function verifyDoc(doc, proofField, publicKey){
+    var proof=doc[proofField];
+    if(!proof || proof.type!=='DataIntegrityProof' || proof.cryptosuite!=='eddsa-jcs-2022') return false;
+    if(proof.proofPurpose!=='assertionMethod' || typeof proof.proofValue!=='string' || proof.proofValue[0]!=='z') return false;
+    var opts=proofOptions({verificationMethod:proof.verificationMethod, created:proof.created});
+    try{
+      var sig=b58decode(proof.proofValue.slice(1));
+      var secured=JSON.parse(JSON.stringify(doc)); delete secured[proofField];
+      return await crypto.subtle.verify('Ed25519', publicKey, sig, await hashData(secured, opts));
+    }catch(e){ return false; }
+  }
+  window.OCG={cgCanon:cgCanon, executionHash:executionHash, sha256HexOfCanon:sha256HexOfCanon,
+    rawPubkeyToDidKey:rawPubkeyToDidKey, signDoc:signDoc, verifyDoc:verifyDoc};
+})();
+</script>
+
+<script>
+/* AR4SI tier → representative numeric code point (informative only, per OCG SPEC.md §22.9;
+   not an implementation of the full IETF RATS EAR / draft-ietf-rats-ar4si claim set). */
+var AR4SI_CODE={affirming:2, warning:32, contraindicated:96};
+
+function toggleAdvanced(){
+  document.getElementById('advPanel').style.display=document.getElementById('advToggle').checked?'block':'none';
+}
+function isoLocal(d){
+  var pad=function(n){return String(n).padStart(2,'0');};
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+document.getElementById('sessionTimestamp').value=isoLocal(new Date());
+
+var STATE={incident:null, publicKey:null, receipt:null};
+
+async function loadOrGenerateKey(){
+  if(document.getElementById('advToggle').checked){
+    var jwkText=document.getElementById('advJwk').value.trim();
+    if(!jwkText) throw new Error('Paste a JWK private key, or uncheck advanced mode to use an ephemeral key.');
+    var jwk=JSON.parse(jwkText);
+    var privateKey=await crypto.subtle.importKey('jwk', jwk, {name:'Ed25519'}, false, ['sign']);
+    var pubJwk=Object.assign({}, jwk); delete pubJwk.d; pubJwk.key_ops=['verify'];
+    var publicKey=await crypto.subtle.importKey('jwk', pubJwk, {name:'Ed25519'}, true, ['verify']);
+    return {privateKey:privateKey, publicKey:publicKey};
+  }
+  var kp=await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+  return {privateKey:kp.privateKey, publicKey:kp.publicKey};
+}
+
+async function composeIncident(){
+  var btn=document.getElementById('composeBtn'); btn.disabled=true; btn.textContent='Signing...';
+  try{
+    var verifierIdentity=document.getElementById('verifierIdentity').value.trim();
+    var sessionId=document.getElementById('sessionId').value.trim();
+    var sessionTimestamp=document.getElementById('sessionTimestamp').value ? new Date(document.getElementById('sessionTimestamp').value).toISOString() : new Date().toISOString();
+    var sessionReceiptDigest=document.getElementById('sessionReceiptDigest').value.trim() || null;
+    var failingRuleId=document.getElementById('failingRuleId').value.trim();
+    var tier=document.getElementById('tier').value;
+    var description=document.getElementById('description').value.trim();
+    var detectionSource=document.getElementById('detectionSource').value.trim();
+    var escalationTargetType=document.getElementById('escalationTargetType').value;
+    var escalationReference=document.getElementById('escalationReference').value.trim();
+    var escalationNotes=document.getElementById('escalationNotes').value.trim();
+    if(!failingRuleId) throw new Error('Failing rule id is required.');
+    if(!description) throw new Error('Failure description is required.');
+
+    var keys=await loadOrGenerateKey();
+    var issuerDid=await OCG.rawPubkeyToDidKey(keys.publicKey);
+    var created=new Date().toISOString();
+
+    var unsigned={
+      type:'verification-failure-incident',
+      ocg_ref:'chaingraph/standard/SPEC.md#22.9',
+      issuer:issuerDid,
+      created:created,
+      session:{
+        verifier_identity:verifierIdentity, asserted:true,
+        session_id:sessionId, asserted_session_id:true,
+        timestamp:sessionTimestamp, asserted_timestamp:true,
+        session_receipt_execution_hash:sessionReceiptDigest, asserted_receipt_digest:!!sessionReceiptDigest
+      },
+      failure:{
+        failing_rule_id:failingRuleId,
+        ar4si_tier:tier, ar4si_code:AR4SI_CODE[tier],
+        description:description,
+        detection_source:detectionSource, asserted:true
+      },
+      escalation:{
+        target_type:escalationTargetType,
+        reference:escalationReference,
+        notes:escalationNotes,
+        escalated_at:created
+      }
+    };
+
+    var signed=await OCG.signDoc(unsigned, 'proof', {verificationMethod:issuerDid, created:created, privateKey:keys.privateKey});
+
+    STATE.incident=signed; STATE.publicKey=keys.publicKey;
+
+    document.getElementById('incidentCode').textContent=JSON.stringify(signed, null, 2);
+
+    var policy_parameters={activity:'verification_failure_incident', issuer:issuerDid, session_id:sessionId, failing_rule_id:failingRuleId, ar4si_tier:tier, escalation_target_type:escalationTargetType};
+    var incidentDigest=await OCG.sha256HexOfCanon(signed);
+    var output_payload={incident_digest:incidentDigest, verification_method:issuerDid, composed_at:created};
+    var execHash=await OCG.executionHash(policy_parameters, output_payload);
+    var receipt={chaingraph_version:'0.4.0', tool_id:'549-verification-failure-incident-composer', generated_at:created, policy_parameters:policy_parameters, output_payload:output_payload, execution_hash:execHash};
+    STATE.receipt=receipt;
+    document.getElementById('receiptCode').textContent=JSON.stringify(receipt, null, 2);
+    var recheck=await OCG.executionHash(receipt.policy_parameters, receipt.output_payload);
+    document.getElementById('receiptVerdict').innerHTML='<div class="verdict '+(recheck===receipt.execution_hash?'verdict-ok':'verdict-fail')+'">'+(recheck===receipt.execution_hash?'✓ execution_hash recomputed and matches':'✗ execution_hash mismatch')+'</div>';
+
+    document.getElementById('resultsPanel').classList.add('show');
+    document.getElementById('verifyVerdict').innerHTML='';
+    document.getElementById('verifyBtn').disabled=false;
+    enableAP2Btn();
+  }catch(e){
+    alert('Composition failed: '+(e && e.message ? e.message : e));
+  }finally{
+    btn.disabled=false; btn.textContent='▶ Compose & Sign Incident';
+  }
+}
+
+async function verifyIncident(){
+  if(!STATE.incident || !STATE.publicKey){ return; }
+  var ok=await OCG.verifyDoc(STATE.incident, 'proof', STATE.publicKey);
+  document.getElementById('verifyVerdict').innerHTML='<div class="verdict '+(ok?'verdict-ok':'verdict-fail')+'">'+(ok?'✓ eddsa-jcs-2022 proof verifies against the issuer did:key':'✗ signature does not verify')+'</div>';
+}
+
+function copyBlock(id){
+  var el=document.getElementById(id);
+  if(el && navigator.clipboard) navigator.clipboard.writeText(el.textContent);
+}
+function downloadFile(kind){
+  var ts=new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+  var content, filename;
+  if(kind==='incidentFile'){ content=JSON.stringify(STATE.incident,null,2); filename='549-verification-failure-incident-composer_'+ts+'.incident.json'; }
+  else { content=JSON.stringify(STATE.receipt,null,2); filename='549-verification-failure-incident-composer_'+ts+'.receipt.json'; }
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+  a.download=filename; a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"549-verification-failure-incident-composer","version":"1.0.0","title":"Verification-Failure Incident Composer","description":"Composes and signs (eddsa-jcs-2022, ephemeral did:key) a verification-failure incident record from session context, an OCG Standard §22.9 AR4SI-tiered failure classification, and an escalation target, for fraud teams, regulators, or insurers. Attests the declared record only, never detection quality.","category":"ai-agentic","tags":["incident record","IDV","§22.9","AR4SI","failure receipt","escalation"],"audience":["engineer","compliance","fraud-ops"],"input_schema":{"type":"object","properties":{"verifier_identity":{"type":"string"},"session_id":{"type":"string"},"session_timestamp":{"type":"string"},"session_receipt_digest":{"type":"string"},"failing_rule_id":{"type":"string"},"tier":{"type":"string"},"description":{"type":"string"},"detection_source":{"type":"string"},"escalation_target_type":{"type":"string"},"escalation_reference":{"type":"string"},"escalation_notes":{"type":"string"}},"required":["failing_rule_id","tier","description"]},"output_schema":{"type":"object","properties":{"incident":{"type":"object"},"receipt":{"type":"object"}}},"mcp_tool_definition":{"name":"compose_verification_failure_incident","description":"Composes and signs a verification-failure incident record (OCG §22.9 AR4SI-tiered) from session context, failure classification, and an escalation target.","inputSchema":{"type":"object","properties":{"verifier_identity":{"type":"string"},"session_id":{"type":"string"},"session_timestamp":{"type":"string"},"session_receipt_digest":{"type":"string"},"failing_rule_id":{"type":"string"},"tier":{"type":"string"},"description":{"type":"string"},"detection_source":{"type":"string"},"escalation_target_type":{"type":"string"},"escalation_reference":{"type":"string"},"escalation_notes":{"type":"string"}},"required":["failing_rule_id","tier","description"]}},"execution":{"type":"browser-javascript","entry":"tools/549-verification-failure-incident-composer.html","function_name":"composeIncident","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.AIN_BUILD_MANDATE=function(){
+  if(!STATE.incident) return null;
+  var ts=new Date().toISOString();
+  return {
+    ap2_version:'1.0',
+    mandate_id:'549-verification-failure-incident-composer-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'549-verification-failure-incident-composer', tool_version:MANIFEST.version,
+    mandate_type:'incident_record',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:{incident:STATE.incident, receipt:STATE.receipt},
+    summary:'Verification-failure incident composed for session '+(STATE.incident.session&&STATE.incident.session.session_id||'?')+' at '+ts.slice(0,10),
+    agent_instructions:['Re-verify the eddsa-jcs-2022 proof before routing to a downstream fraud/regulator/insurer system.','Every field marked asserted:true is a declared value from the composing party, not an independently verified fact.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10), source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Compose an incident first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'composeIncident',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,
+  getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{return window.AIN_BUILD_MANDATE();}catch(e){}}return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
