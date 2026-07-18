@@ -30,6 +30,7 @@ const BUDGET_MS = 60_000;
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
+  ['Protected-path guard (CONTRACT-GUARD-1)', 'node scripts/check-protected-paths.mjs'],
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
   ['Kernel JS syntax',             'node chaingraph/kernels/syntax-check.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
