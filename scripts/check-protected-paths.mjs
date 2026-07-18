@@ -16,10 +16,11 @@
  *   3. ALLOW_PROTECTED_EDIT=1 — bypass, in either mode, for a Tim-approved
  *      change. Must be a deliberate, visible act, never a reflex.
  *
- * Any infra failure (ref won't resolve, fetch fails) is NOT a policy verdict
- * and must fail OPEN — exit 0 with a warning — in every mode, including PR
- * mode. A guard that can't tell whether a policy was violated must not
- * assert that it was.
+ * Any infra failure (ref won't resolve, fetch fails) is NOT a policy verdict.
+ * In DEFAULT/override mode it fails OPEN — exit 0 with a warning — since
+ * enforcement is server-side and a local infra gap must never block a push.
+ * In PR mode it fails CLOSED — exit 1 — since PR mode is the only enforcing
+ * mode: an unevaluable guard there must block, not silently pass through.
  *
  * Compares the working tree (staged + unstaged) against origin/main.
  *
@@ -53,6 +54,11 @@ function refExists(ref) {
 function failOpen(reason) {
   console.error(`check-protected-paths: could not evaluate the guard — ${reason}`);
   console.error('check-protected-paths: WARNING — unable to tell whether a protected path changed.');
+  if (IS_PR) {
+    console.error('check-protected-paths: in PR context an unevaluable guard blocks; re-run the check.');
+    console.error('check-protected-paths: failing CLOSED (exit 1).');
+    process.exit(1);
+  }
   console.error('check-protected-paths: failing OPEN (exit 0). This is an infra gap, not a policy pass.');
   process.exit(0);
 }
