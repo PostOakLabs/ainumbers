@@ -301,6 +301,13 @@ timestamp: 2026-07-14
 - [IDV/KYC Session Evidence Receipt Builder](./art-359-idv-session-receipt-builder.md) — `build_idv_session_receipt`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
 - [Camera-Provenance Check](./art-361-camera-provenance-check.md) — `check_camera_provenance`
+- [RAROC Loan Pricing Calculator](./art-362-compute-raroc-loan-price.md) — `compute_raroc_loan_price`
+- [DSCR & Interest Coverage Ratio Calculator](./art-363-compute-dscr.md) — `compute_dscr`
+- [LCR / NSFR / Leverage Ratio Calculator](./art-364-compute-lcr-nsfr-leverage.md) — `compute_lcr_nsfr_leverage`
+- [GloBE Top-Up Tax & QDMTT Allocation Calculator](./art-365-compute-globe-topup-tax.md) — `compute_globe_topup_tax`
+- [Embedded Insurance Pricing Modeller](./art-366-price-embedded-insurance.md) — `price_embedded_insurance`
+- [Cross-Border B2B Fee Calculator](./art-367-compute-cross-border-fees.md) — `compute_cross_border_fees`
+- [Multilateral FX Netting Calculator](./art-368-compute-fx-netting-positions.md) — `compute_fx_netting_positions`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
 - [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md) — `validate_tempo_zone_disclosure`
