@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reproducing the Basel Endgame 2026 Reproposal's Capital Relief on Your Own Book · AINumbers.co</title>
+<meta name="description" content="Why the $87.7bn headline relief number from the 2026 Basel Endgame reproposal doesn't tell any one bank what its own capital requirement will be, and how the ERBA/standardized RWA calculator, operational-risk SMA, output-floor simulator, and 2023-vs-2026 comparator chain together to answer that on the caller's own book. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/basel-take2-impact-assessment-guide.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Reproducing the Basel Endgame 2026 Reproposal's Capital Relief on Your Own Book · AINumbers.co">
+<meta property="og:description" content="How the ERBA/standardized RWA, operational-risk SMA, output-floor, and 2023-vs-2026 comparator workflow reproduces the reproposal's headline capital-relief story on a bank's own exposure book.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Reproducing the Basel Endgame 2026 Reproposal's Capital Relief on Your Own Book","url":"https://ainumbers.co/guides/basel-take2-impact-assessment-guide.html","description":"How to use the ERBA/standardized RWA calculator, operational-risk SMA, output-floor simulator, and 2023-vs-2026 capital-delta comparator to reproduce the Basel Endgame 2026 reproposal's headline relief number on a bank's own exposure book.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.25;color:var(--white)}
+a{color:var(--teal-lt);text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:820px;margin:0 auto;padding:0 2rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-links{display:flex;gap:1.25rem}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body)}
+.nav-links a:hover{color:var(--teal-lt);text-decoration:none}
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:26px;height:1px;background:var(--purple)}
+h1.doc-title{font-size:clamp(1.7rem,3.2vw,2.4rem);margin-bottom:1rem;max-width:680px}
+.audience{font-size:.85rem;color:var(--body);max-width:680px;margin-bottom:1.25rem}
+.pii-notice{display:flex;gap:.7rem;align-items:flex-start;padding:.7rem 1rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.75rem 1rem;font-size:.76rem;color:var(--body);line-height:1.65;border-radius:var(--radius)}
+.tool-links{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem}
+.tool-link-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1.1rem;flex:1;min-width:220px}
+.tool-link-card h4{font-size:.85rem;color:var(--bright);font-family:'Sora',sans-serif;font-weight:500}
+.tool-link-card p{font-size:.72rem;color:var(--body);margin-top:.3rem;line-height:1.6}
+.tool-link-card a{display:inline-block;margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt)}
+article{padding:2rem 0 4rem}
+h2{font-size:1.2rem;margin:2.25rem 0 .9rem}
+p{margin-bottom:1rem;color:var(--text)}
+ol,ul{margin:0 0 1.1rem 1.4rem}
+li{margin-bottom:.6rem;color:var(--text)}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--gold)}
+.status-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.85rem 1.1rem;font-size:.78rem;color:var(--body);line-height:1.7;margin:1.5rem 0}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
+.footer-inner-ai{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+  </a>
+  <div class="nav-links"><a href="../tools.html">All Tools</a><a href="../sitemap.html">Sitemap</a></div>
+</div></nav>
+
+<section class="hero"><div class="container">
+  <div class="hero-eyebrow">Bank Capital &amp; Credit Risk</div>
+  <h1 class="doc-title">Reproducing the Basel Endgame 2026 reproposal's capital relief on your own book</h1>
+  <p class="audience">For bank capital-planning teams, regulatory-affairs staff, and consultants who need to know what the reproposed US Basel Endgame rules mean for their own institution's capital requirement, not just the industry-wide headline number.</p>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer"><strong style="color:var(--gold)">Scope.</strong> This workflow covers four calculators: credit-risk ERBA/standardized RWA, operational-risk SMA, the output-floor phase-in path, and a 2023-vs-2026 capital-delta comparator. <code>rule_status: proposed</code> on every stage -- the underlying rule text was reproposed 2026-03-19, comments closed 2026-06-18, and a final rule is expected around Q4 2026. None of these tools is a regulatory filing system or a substitute for a bank's own model validation.</div>
+  <div class="tool-links">
+    <div class="tool-link-card"><h4>ERBA / Standardized RWA Calculator</h4><p>Credit-risk risk weights across residential RE, retail, corporate/SME, and off-balance-sheet exposures under the 2026 reproposal.</p><a href="../chaingraph/art-355-erba-standardized-rwa-calculator.html">Open tool &#8594;</a></div>
+    <div class="tool-link-card"><h4>Operational-Risk SMA (2026)</h4><p>Business Indicator Component across the $1bn/$30bn buckets and the Internal Loss Multiplier, with the US-variant neutralization switch.</p><a href="../chaingraph/art-356-compute-oprisk-sma-2026.html">Open tool &#8594;</a></div>
+    <div class="tool-link-card"><h4>Output-Floor Phase-In Simulator</h4><p>Year-by-year binding-floor capital-impact path off a caller-supplied phase-in schedule.</p><a href="../chaingraph/art-358-simulate-output-floor.html">Open tool &#8594;</a></div>
+    <div class="tool-link-card"><h4>2023-vs-2026 Capital-Delta Comparator</h4><p>Runs the same portfolio through both rule sets and reports the RWA and minimum-capital delta, with a receipt.</p><a href="../chaingraph/art-357-basel-2023-vs-2026-capital-delta-comparator.html">Open tool &#8594;</a></div>
+  </div>
+</div></section>
+
+<article><div class="container">
+
+  <h2>The problem this solves</h2>
+  <p>The 2026 Basel Endgame reproposal's headline number, roughly $87.7bn in aggregate capital relief versus the withdrawn 2023 proposal, is an industry-wide estimate built from the agencies' own impact study on a representative sample of large banks. It tells any single institution almost nothing about its own outcome. A bank whose book skews toward higher-risk-weight retail exposures, or whose trading desks are closer to the output floor than the sample average, could see relief well below the headline number, or none at all. Capital-planning teams need to run their own exposure mix and business-indicator inputs through the actual reproposed formulas, not extrapolate from an industry aggregate.</p>
+  <p>The further complication is that the rule is not final. Comments closed 2026-06-18 and the agencies are expected to finalize around Q4 2026, which means every input to this workflow, risk-weight tables, ILM neutralization treatment, phase-in schedule, is provisional and subject to change before the rule takes effect.</p>
+
+  <h2>How the four calculators fit together</h2>
+  <ol>
+    <li><strong>Credit-risk RWA</strong> with the ERBA / Standardized RWA Calculator. Supply the exposure book (residential RE by LTV band, retail QRRE transactor/revolver and other retail, corporate ECRA/SCRA, SME support factor, off-balance-sheet CCFs) and a <code>rule_set</code> of either the original 2023 NPR or the 2026 reproposal. The calculator returns per-exposure risk weights and aggregate RWA under whichever rule set is selected.</li>
+    <li><strong>Operational-risk capital</strong> with the Operational-Risk SMA tool, run in parallel off the same institution's business-indicator inputs: the Business Indicator Component across the $1bn/$30bn size buckets and the Internal Loss Multiplier, with a switch for the reproposal's US-variant ILM neutralization (defaults to 1) versus the non-neutralized BCBS d424 formula.</li>
+    <li><strong>Output-floor impact</strong> with the Output-Floor Phase-In Simulator, also run off the same standardized RWA figure from stage one, using the caller's own phase-in schedule (jurisdiction-specific and, pre-finalization, still provisional) to trace the year-by-year capital-impact path, the first year the floor actually binds, and the maximum incremental RWA the floor adds versus the internal-model number.</li>
+    <li><strong>Reproduce the headline number on your own book</strong> with the 2023-vs-2026 Capital-Delta Comparator: the same portfolio run through both rule sets, reporting the RWA and minimum-capital delta plus a receipt, this institution's own version of the industry $87.7bn story.</li>
+  </ol>
+
+  <h2>What the comparator proves, and what it does not</h2>
+  <p>A clean delta report from the comparator demonstrates, deterministically and reproducibly, what the caller's own supplied exposure book and business-indicator inputs produce under the 2023 NPR versus the 2026 reproposal's credit-risk and operational-risk formulas, and receipts the calculation for later reference. That is a materially different, and materially more useful, number than an industry-average estimate for a bank's own capital-planning purposes.</p>
+  <p>It does not predict what the final rule will actually say. Every stage in this workflow is fixed to <code>rule_status: proposed</code> against the reproposal text as published 2026-03-19, and a final rule expected around Q4 2026 can change risk-weight tables, the ILM treatment, or the phase-in schedule before it takes effect. It also is not an exhaustive regulatory risk-weight table or a substitute for a bank's own internal model validation and regulatory filing process.</p>
+
+  <div class="status-note"><strong style="color:var(--warn)">Family linkage &amp; re-pin.</strong> This workflow sits alongside AINumbers' broader Basel IV, FRTB &amp; model-risk tool family, see the <a href="basel-iv-frtb-model-risk-hub.html">Basel IV, FRTB &amp; Model Risk Hub</a> for the full set, including the earlier 2023-era Basel III endgame capital-impact estimator this workflow's comparator sits beside. Every stage here is provisional against the 2026 reproposal text; a re-pin work unit is due when the rule finalizes (~Q4 2026) to update risk-weight tables, ILM treatment, and phase-in schedules against the final text.</div>
+
+</div></article>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../chaingraph/art-355-erba-standardized-rwa-calculator.html">ERBA/Standardized RWA</a>
+      <a href="../chaingraph/art-356-compute-oprisk-sma-2026.html">Op-Risk SMA</a>
+      <a href="../chaingraph/art-358-simulate-output-floor.html">Output-Floor Simulator</a>
+      <a href="../chaingraph/art-357-basel-2023-vs-2026-capital-delta-comparator.html">2023-vs-2026 Comparator</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+</body>
+</html>
