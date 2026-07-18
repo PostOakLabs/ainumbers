@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Portfolio VaR — Monte Carlo (Integer PRNG)"
-description: "Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model. Integer-only xoshiro256** PRNG and fixed-point arithmetic run the full path simulation, so a declared seed replays byte-identically. Declares the SPEC.md §24.6 estimated determinism class (stochastic output, exempt from cross-surface byte-identity, still finite-output and idempotency-within-tolerance); the PRNG algorithm, seed, and draw count are carried in the receipt as ordinary inputs/outputs."
+description: "Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model. Integer-only xoshiro256** PRNG and fixed-point arithmetic run the full path simulation, so a declared seed replays byte-identically, and a tampered seed produces a different hash. Declares the SPEC.md §24.6.2 seeded-stochastic determinism class; the PRNG algorithm, seed, and draw count are carried in the receipt as ordinary inputs/outputs."
 resource: https://ainumbers.co/chaingraph/art-371-simulate-var-monte-carlo.html
 tags: ["risk_control", "wave-2", "mcp:simulate_var_monte_carlo"]
 timestamp: 2026-07-14
