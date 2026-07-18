@@ -327,6 +327,8 @@ import * as art39     from './art-39-tempo-zone-disclosure.kernel.mjs';
 import * as art390    from './art-390-tip20-memo-commitment-validator.kernel.mjs';
 import * as art391    from './art-391-compute-canton-traffic-cost.kernel.mjs';
 import * as art392    from './art-392-compute-canton-app-reward-estimate.kernel.mjs';
+import * as art393    from './art-393-x402-v2-migration-linter.kernel.mjs';
+import * as art394    from './art-394-x402-deferred-handshake-validator.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
 import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
@@ -730,6 +732,8 @@ export const KERNELS = {
   'art-390-tip20-memo-commitment-validator':                  art390,
   'art-391-compute-canton-traffic-cost':                      art391,
   'art-392-compute-canton-app-reward-estimate':               art392,
+  'art-393-x402-v2-migration-linter':                         art393,
+  'art-394-x402-deferred-handshake-validator':                art394,
   'art-40-tempo-agentic-checkout':                            art40,
   'art-41-tempo-validator-readiness':                         art41,
   'art-42-arc-fit-diagnostic':                                art42,
