@@ -86,11 +86,18 @@ const edits = []; // { start, end, replacement }
 let stamped = 0, inserted = 0, replaced = 0;
 
 for (const n of inScope) {
-  const anchor = `      "tool_id": ${JSON.stringify(n.tool_id)},`;
-  const at = raw.indexOf(anchor);
-  if (at < 0) { console.error(`! could not locate node anchor for ${n.tool_id}`); process.exit(3); }
-  // Node block ends at the next node's tool_id anchor (or the chains array if last node).
-  const nextTool = raw.indexOf('\n      "tool_id": "', at + anchor.length);
+  // Node's own tool_id line is the SHALLOWEST-indent occurrence of this id (nested chain-step
+  // refs to the same tool_id sit deeper, e.g. 10 spaces vs. 6 — but node indent isn't uniformly
+  // 6 across the file, so scan all occurrences and pick the least-indented one).
+  const idRe = new RegExp(`\\n( *)"tool_id": ${JSON.stringify(n.tool_id)},`, 'g');
+  let m2, best = null;
+  while ((m2 = idRe.exec(raw))) { if (!best || m2[1].length < best[1].length) best = m2; }
+  if (!best) { console.error(`! could not locate node anchor for ${n.tool_id}`); process.exit(3); }
+  const at = best.index + 1; // skip the leading \n
+  const anchorLen = best[0].length - 1;
+  const nodeIndent = best[1];
+  // Node block ends at the next node's tool_id anchor (any indent) or EOF.
+  const nextTool = raw.indexOf('\n' + nodeIndent + '"tool_id": "', at + anchorLen);
   const end = nextTool < 0 ? raw.length : nextTool;
   const blockTxt = raw.slice(at, end);
 

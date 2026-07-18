@@ -11,7 +11,7 @@ timestamp: 2026-07-14
 
 > Exports a decision via MCP `check_agent_attestation` — mandate type `compliance_mandate`.
 
-**Deadline:** 2026-08 — EU AI Act Aug 2026 pushes agent KYA toward compliance requirement; KYA-OS donated to DIF March 2026
+**Deadline:** 2027-12 — EU AI Act Annex III high-risk obligations (Digital Omnibus, Parliament final approval June 2026) push agent KYA toward compliance requirement from 2 December 2027; KYA-OS donated to DIF March 2026
 
 ## Inputs
 
