@@ -298,7 +298,9 @@ timestamp: 2026-07-14
 - [Basel Operational Risk SMA (2026 Reproposal)](./art-356-compute-oprisk-sma-2026.md) — `compute_oprisk_sma_2026`
 - [Basel 2023-vs-2026 Capital-Delta Comparator](./art-357-basel-2023-vs-2026-capital-delta-comparator.md) — `compare_basel_2023_vs_2026`
 - [Basel Output-Floor Phase-In Simulator](./art-358-simulate-output-floor.md) — `simulate_output_floor`
+- [IDV/KYC Session Evidence Receipt Builder](./art-359-idv-session-receipt-builder.md) — `build_idv_session_receipt`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
+- [Camera-Provenance Check](./art-361-camera-provenance-check.md) — `check_camera_provenance`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
 - [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md) — `validate_tempo_zone_disclosure`
