@@ -310,6 +310,7 @@ import * as art368    from './art-368-compute-fx-netting-positions.kernel.mjs';
 import * as art369    from './art-369-run-rate-shock-ladder.kernel.mjs';
 import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
 import * as art370    from './art-370-supervisory-scenario-replay.kernel.mjs';
+import * as art371    from './art-371-simulate-var-monte-carlo.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art39     from './art-39-tempo-zone-disclosure.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
@@ -698,6 +699,7 @@ export const KERNELS = {
   'art-369-run-rate-shock-ladder':                            art369,
   'art-37-tempo-stablecoin-issuance':                         art37,
   'art-370-supervisory-scenario-replay':                      art370,
+  'art-371-simulate-var-monte-carlo':                         art371,
   'art-38-tempo-onchain-aml':                                 art38,
   'art-39-tempo-zone-disclosure':                             art39,
   'art-40-tempo-agentic-checkout':                            art40,
