@@ -11,7 +11,7 @@ timestamp: 2026-07-14
 
 > Exports a decision via MCP `score_credit_default_risk` — mandate type `credit_assessment`.
 
-**Deadline:** 2026-08-02 — EU AI Act Annex III Part 5(b) credit-scoring high-risk obligations — August 2026; EBA GL/2017/16 IRB model performance
+**Deadline:** 2027-12-02 — EU AI Act Annex III Part 5(b) credit-scoring high-risk obligations — 2 December 2027, per the Digital Omnibus amendments (June 2026); EBA GL/2017/16 IRB model performance
 
 ## Inputs
 
