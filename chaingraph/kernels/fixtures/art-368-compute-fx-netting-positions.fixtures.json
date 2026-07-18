@@ -1,0 +1,152 @@
+{
+  "tool_id": "art-368-compute-fx-netting-positions",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1 reproduces tools/105-fx-netting-simulator.html default seed rows exactly (EUR/GBP/JPY, tool<->kernel parity). Vector 2: 2-currency book with forward-points adjustment on the effective rate, including a currency with exactly offsetting pay/rec (net zero contributes to gross but not net). Vector 3: zero-spot degenerate edge (finite gate).",
+  "vectors": [
+    {
+      "name": "default_seed_eur_gbp_jpy",
+      "description": "EUR(pay 850000, rec 620000), GBP(pay 420000, rec 580000), JPY(pay 95000000, rec 72000000) at tools/105 default spot rates, zero forward points -- reproduces tools/105 default seed exactly: gross_volume_usd 3970500, net_volume_usd 604900, netting_efficiency_pct 84.77%, estimated_settlement_savings_usd 90.",
+      "policy_parameters": {
+        "positions": [
+          {
+            "ccy": "EUR",
+            "pay": 850000,
+            "rec": 620000,
+            "spot": 1.085,
+            "fwd_bps": 0,
+            "vol_30d": 0.032
+          },
+          {
+            "ccy": "GBP",
+            "pay": 420000,
+            "rec": 580000,
+            "spot": 1.265,
+            "fwd_bps": 0,
+            "vol_30d": 0.038
+          },
+          {
+            "ccy": "JPY",
+            "pay": 95000000,
+            "rec": 72000000,
+            "spot": 0.00665,
+            "fwd_bps": 0,
+            "vol_30d": 0.041
+          }
+        ]
+      },
+      "output_payload": {
+        "gross_volume_usd": 3970500,
+        "net_volume_usd": 604900,
+        "netting_efficiency_pct": 84.77,
+        "estimated_settlement_savings_usd": 90,
+        "currency_count": 3,
+        "positions": [
+          {
+            "ccy": "EUR",
+            "net_fcy": -230000,
+            "net_usd": -249550,
+            "var_approx_usd": 13176.24
+          },
+          {
+            "ccy": "GBP",
+            "net_fcy": 160000,
+            "net_usd": 202400,
+            "var_approx_usd": 12690.48
+          },
+          {
+            "ccy": "JPY",
+            "net_fcy": -23000000,
+            "net_usd": -152950,
+            "var_approx_usd": 10347.07
+          }
+        ],
+        "regulatory_basis": "Settlement cost estimate uses SWIFT-wire mid-range per-transaction cost; VaR uses a 95% one-tailed normal approximation (z=1.65) against caller-supplied 30-day volatility. Spot rates, forward points, and volatility inputs are caller-supplied reference data, never vendored."
+      },
+      "compliance_flags": [],
+      "golden_hash": "221a9ed1043d6f3e92201b39552558593e210cb64c122467dd1f8d62fea89fc3"
+    },
+    {
+      "name": "forward_points_two_currency",
+      "description": "2-currency book with non-zero forward-points bps adjustments to the effective rate on each leg.",
+      "policy_parameters": {
+        "positions": [
+          {
+            "ccy": "CHF",
+            "pay": 100000,
+            "rec": 100000,
+            "spot": 1.115,
+            "fwd_bps": 25,
+            "vol_30d": 0.028
+          },
+          {
+            "ccy": "CAD",
+            "pay": 200000,
+            "rec": 150000,
+            "spot": 0.735,
+            "fwd_bps": -10,
+            "vol_30d": 0.025
+          }
+        ]
+      },
+      "output_payload": {
+        "gross_volume_usd": 480550.25,
+        "net_volume_usd": 36713.25,
+        "netting_efficiency_pct": 92.36,
+        "estimated_settlement_savings_usd": 90,
+        "currency_count": 2,
+        "positions": [
+          {
+            "ccy": "CHF",
+            "net_fcy": 0,
+            "net_usd": 0,
+            "var_approx_usd": 0
+          },
+          {
+            "ccy": "CAD",
+            "net_fcy": -50000,
+            "net_usd": -36713.25,
+            "var_approx_usd": 1514.42
+          }
+        ],
+        "regulatory_basis": "Settlement cost estimate uses SWIFT-wire mid-range per-transaction cost; VaR uses a 95% one-tailed normal approximation (z=1.65) against caller-supplied 30-day volatility. Spot rates, forward points, and volatility inputs are caller-supplied reference data, never vendored."
+      },
+      "compliance_flags": [],
+      "golden_hash": "4f18190b14d41e6e5fd3eaad9ec186eb5c98a60e104cb3bbb44248e62d7e5e0b"
+    },
+    {
+      "name": "zero_spot_edge",
+      "description": "Zero spot rate on a position -- effective_rate and all derived USD amounts resolve to 0 instead of NaN, and the non-positive-spot compliance flag fires.",
+      "policy_parameters": {
+        "positions": [
+          {
+            "ccy": "ZZZ",
+            "pay": 0,
+            "rec": 0,
+            "spot": 0,
+            "fwd_bps": 0,
+            "vol_30d": 0.04
+          }
+        ]
+      },
+      "output_payload": {
+        "gross_volume_usd": 0,
+        "net_volume_usd": 0,
+        "netting_efficiency_pct": 0,
+        "estimated_settlement_savings_usd": 60,
+        "currency_count": 1,
+        "positions": [
+          {
+            "ccy": "ZZZ",
+            "net_fcy": 0,
+            "net_usd": 0,
+            "var_approx_usd": 0
+          }
+        ],
+        "regulatory_basis": "Settlement cost estimate uses SWIFT-wire mid-range per-transaction cost; VaR uses a 95% one-tailed normal approximation (z=1.65) against caller-supplied 30-day volatility. Spot rates, forward points, and volatility inputs are caller-supplied reference data, never vendored."
+      },
+      "compliance_flags": [
+        "FXNET_NON_POSITIVE_SPOT:ZZZ"
+      ],
+      "golden_hash": "f0d80f8c384d09756a1219c74cd31fc152ff8a7fe2027c38efbc87ab091700ac"
+    }
+  ]
+}
