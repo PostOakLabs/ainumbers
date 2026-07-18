@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-241"]
+tags: ["compliance_mandate", "count-249"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-241 tool(s) in this mandate-type group:
+249 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -248,6 +248,14 @@ timestamp: 2026-07-14
 - [DSCR & Interest Coverage Ratio Calculator](../tools/art-363-compute-dscr.md)
 - [LCR / NSFR / Leverage Ratio Calculator](../tools/art-364-compute-lcr-nsfr-leverage.md)
 - [GloBE Top-Up Tax & QDMTT Allocation Calculator](../tools/art-365-compute-globe-topup-tax.md)
+- [Payee Name-Match Score (VoP/CoP)](../tools/art-376-score-payee-name-match.md)
+- [VoP Session Receipt Builder](../tools/art-377-build-vop-session-receipt.md)
+- [Quarterly Agent Test Evidence Composer](../tools/art-378-quarterly-test-evidence-composer.md)
+- [Agent Incident Record Composer](../tools/art-379-agent-incident-record-composer.md)
+- [AI-Tool-Usage Workpaper Record](../tools/art-380-build-ai-workpaper-record.md)
+- [Agent Token Scope Checker](../tools/art-385-agent-token-scope-checker.md)
+- [CNSA 2.0 Deadline Ladder Calculator](../tools/art-387-pqc-deadline-ladder-calculator.md)
+- [TIP-20 Memo/Commitment Validator](../tools/art-390-tip20-memo-commitment-validator.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

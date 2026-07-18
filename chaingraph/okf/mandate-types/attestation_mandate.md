@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "attestation_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"attestation_mandate\"."
-tags: ["attestation_mandate", "count-6"]
+tags: ["attestation_mandate", "count-9"]
 timestamp: 2026-07-14
 ---
 
 # attestation_mandate
 
-6 tool(s) in this mandate-type group:
+9 tool(s) in this mandate-type group:
 
 - [On-Chain Cash-Leg Finality Checker](../tools/506-onchain-cash-leg-finality-checker.md)
 - [GENIUS Act Reserve Attestation Pre-Check](../tools/art-06-genius-act-reserve-attestation.md)
@@ -16,3 +16,6 @@ timestamp: 2026-07-14
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](../tools/art-62-ap2-payment-receipt-verifier.md)
 - [Canton Selective-Disclosure DvP Reconciliation Attestation](../tools/art-108-canton-selective-disclosure.md)
 - [Provable Reputation Score Aggregator](../tools/art-278-reputation-score-aggregator.md)
+- [Recompute Fund NAV](../tools/art-373-recompute-fund-nav.md)
+- [Test NAV-Error Materiality](../tools/art-374-test-nav-error-materiality.md)
+- [Compute Fund Expense Ratios](../tools/art-375-compute-fund-expense-ratios.md)

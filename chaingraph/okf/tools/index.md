@@ -312,8 +312,25 @@ timestamp: 2026-07-14
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
 - [Supervisory Scenario Replay (DFAST-lite)](./art-370-supervisory-scenario-replay.md) — `replay_supervisory_scenario`
 - [Portfolio VaR — Monte Carlo (Integer PRNG)](./art-371-simulate-var-monte-carlo.md) — `simulate_var_monte_carlo`
+- [Recompute Fund NAV](./art-373-recompute-fund-nav.md) — `recompute_fund_nav`
+- [Test NAV-Error Materiality](./art-374-test-nav-error-materiality.md) — `test_nav_error_materiality`
+- [Compute Fund Expense Ratios](./art-375-compute-fund-expense-ratios.md) — `compute_fund_expense_ratios`
+- [Payee Name-Match Score (VoP/CoP)](./art-376-score-payee-name-match.md) — `score_payee_name_match`
+- [VoP Session Receipt Builder](./art-377-build-vop-session-receipt.md) — `build_vop_session_receipt`
+- [Quarterly Agent Test Evidence Composer](./art-378-quarterly-test-evidence-composer.md) — `build_agent_test_evidence`
+- [Agent Incident Record Composer](./art-379-agent-incident-record-composer.md) — `build_agent_incident_record`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
+- [AI-Tool-Usage Workpaper Record](./art-380-build-ai-workpaper-record.md) — `build_ai_workpaper_record`
+- [Agent Token Scope Checker](./art-385-agent-token-scope-checker.md) — `check_agent_token_scope`
+- [CNSA 2.0 Deadline Ladder Calculator](./art-387-pqc-deadline-ladder-calculator.md) — `compute_pqc_deadline_ladder`
+- [Tempo Fee-AMM Conversion Calculator](./art-388-tempo-fee-amm-converter.md) — `convert_tempo_fee_amm`
+- [TIP-1010 Mainnet Fee & Payment-Lane Capacity Calculator](./art-389-tempo-mainnet-fee-capacity.md) — `compute_tempo_mainnet_fee_capacity`
 - [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md) — `validate_tempo_zone_disclosure`
+- [TIP-20 Memo/Commitment Validator](./art-390-tip20-memo-commitment-validator.md) — `validate_tip20_memo_commitment`
+- [Canton Synchronizer Traffic-Cost Calculator](./art-391-compute-canton-traffic-cost.md) — `compute_canton_traffic_cost`
+- [Canton App-Reward Estimator (CIP-0104)](./art-392-compute-canton-app-reward-estimate.md) — `compute_canton_app_reward_estimate`
+- [x402 v2 Wire-Format Migration Linter](./art-393-x402-v2-migration-linter.md) — `lint_x402_v2_migration`
+- [x402 Deferred-Scheme Handshake Validator](./art-394-x402-deferred-handshake-validator.md) — `validate_x402_deferred_handshake`
 - [Tempo Agentic Checkout Settlement Mapper](./art-40-tempo-agentic-checkout.md) — `map_tempo_settlement`
 - [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
