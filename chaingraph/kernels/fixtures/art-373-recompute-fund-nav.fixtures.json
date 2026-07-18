@@ -1,0 +1,482 @@
+{
+  "tool_id": "art-373-recompute-fund-nav",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. Vectors cover: standard single-currency rounding, multi-currency holdings + computed accruals + MMF-style rounding, and the full rounding-mode matrix (half_up/half_even/truncate) at an exact .XX5 boundary — the case most likely to be silently wrong.",
+  "vectors": [
+    {
+      "name": "single-currency-standard-rounding",
+      "description": "Two USD holdings, no accruals or liabilities, 2-decimal half_up rounding (standard fund convention).",
+      "policy_parameters": {
+        "fund_id": "FUND-STD-01",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "holdings": [
+          {
+            "security_id": "SEC-A",
+            "quantity": 1000,
+            "price": 10.005,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          },
+          {
+            "security_id": "SEC-B",
+            "quantity": 500,
+            "price": 20.02,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "liabilities": [],
+        "shares_outstanding": 15000,
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-STD-01",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "structural_error": null,
+        "components": {
+          "holdings": [
+            {
+              "security_id": "SEC-A",
+              "currency": "USD",
+              "quantity": "1000.00000000",
+              "price": "10.00500000",
+              "local_value": "10005.00000000",
+              "base_value": "10005.00000000"
+            },
+            {
+              "security_id": "SEC-B",
+              "currency": "USD",
+              "quantity": "500.00000000",
+              "price": "20.02000000",
+              "local_value": "10010.00000000",
+              "base_value": "10010.00000000"
+            }
+          ],
+          "holdings_value": "20015.00000000",
+          "accrued_income": [],
+          "accrued_income_total": "0.00000000",
+          "accrued_expense": [],
+          "accrued_expense_total": "0.00000000",
+          "liabilities": [],
+          "liabilities_total": "0.00000000",
+          "total_assets": "20015.00000000",
+          "total_liabilities": "0.00000000",
+          "net_assets": "20015.00000000",
+          "shares_outstanding": "15000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "nav_per_share": "1.33",
+        "not_proven": [
+          {
+            "item": "Price/FX accuracy",
+            "detail": "Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Fair value / independent valuation",
+            "detail": "This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation."
+          },
+          {
+            "item": "Live/real-time pricing",
+            "detail": "All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment."
+          },
+          {
+            "item": "Regulatory NAV filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's NAV-computation or filing rules."
+          }
+        ],
+        "fence": "Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).",
+        "regulatory_framework": "40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "b874d5fffb10e2ceb7bb15592aa46486a4e14eaf9384990bc38338571cb8cdc5"
+    },
+    {
+      "name": "multi-currency-accruals-mmf-rounding",
+      "description": "EUR holding converted via supplied FX, a principal/rate/day-count computed income accrual, a direct-amount expense accrual, a liability, and 4-decimal half_even (MMF-style) rounding.",
+      "policy_parameters": {
+        "fund_id": "FUND-MMF-EU-02",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "holdings": [
+          {
+            "security_id": "SEC-EUR-A",
+            "quantity": 2000,
+            "price": 100,
+            "currency": "EUR",
+            "fx_rate_to_base": 1.08
+          },
+          {
+            "security_id": "SEC-USD-B",
+            "quantity": 1000,
+            "price": 50,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "accruals": {
+          "income": [
+            {
+              "description": "coupon accrual",
+              "principal": 100000,
+              "annual_rate": 0.05,
+              "days": 30,
+              "day_count_convention": "30/360",
+              "currency": "USD",
+              "fx_rate_to_base": 1
+            }
+          ],
+          "expense": [
+            {
+              "description": "management fee accrual",
+              "amount": 41.6667,
+              "currency": "USD",
+              "fx_rate_to_base": 1
+            }
+          ]
+        },
+        "liabilities": [
+          {
+            "description": "payable to broker",
+            "amount": 500,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "shares_outstanding": 250000,
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_even"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-MMF-EU-02",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "structural_error": null,
+        "components": {
+          "holdings": [
+            {
+              "security_id": "SEC-EUR-A",
+              "currency": "EUR",
+              "quantity": "2000.00000000",
+              "price": "100.00000000",
+              "local_value": "200000.00000000",
+              "base_value": "216000.00000000"
+            },
+            {
+              "security_id": "SEC-USD-B",
+              "currency": "USD",
+              "quantity": "1000.00000000",
+              "price": "50.00000000",
+              "local_value": "50000.00000000",
+              "base_value": "50000.00000000"
+            }
+          ],
+          "holdings_value": "266000.00000000",
+          "accrued_income": [
+            {
+              "description": "coupon accrual",
+              "currency": "USD",
+              "day_count_convention": "30/360",
+              "amount": "416.66665000",
+              "base_value": "416.66665000"
+            }
+          ],
+          "accrued_income_total": "416.66665000",
+          "accrued_expense": [
+            {
+              "description": "management fee accrual",
+              "currency": "USD",
+              "day_count_convention": null,
+              "amount": "41.66670000",
+              "base_value": "41.66670000"
+            }
+          ],
+          "accrued_expense_total": "41.66670000",
+          "liabilities": [
+            {
+              "description": "payable to broker",
+              "currency": "USD",
+              "amount": "500.00000000",
+              "base_value": "500.00000000"
+            }
+          ],
+          "liabilities_total": "500.00000000",
+          "total_assets": "266416.66665000",
+          "total_liabilities": "541.66670000",
+          "net_assets": "265874.99995000",
+          "shares_outstanding": "250000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_even"
+        },
+        "nav_per_share": "1.0635",
+        "not_proven": [
+          {
+            "item": "Price/FX accuracy",
+            "detail": "Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Fair value / independent valuation",
+            "detail": "This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation."
+          },
+          {
+            "item": "Live/real-time pricing",
+            "detail": "All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment."
+          },
+          {
+            "item": "Regulatory NAV filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's NAV-computation or filing rules."
+          }
+        ],
+        "fence": "Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).",
+        "regulatory_framework": "40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "5adb7b206a4d0a9a6824f28e8f5094dbf1ddeba64d31be19574b2dca8c3a3be7"
+    },
+    {
+      "name": "rounding-matrix-half-up-boundary",
+      "description": "Rounding-mode matrix vector 1/3: net_assets/shares lands exactly on the 1.005 boundary at 2 decimal places. half_up rounds half away from zero -> 1.01.",
+      "policy_parameters": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "holdings": [
+          {
+            "security_id": "SEC-A",
+            "quantity": 1000,
+            "price": 1.005,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "liabilities": [],
+        "shares_outstanding": 1000,
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "structural_error": null,
+        "components": {
+          "holdings": [
+            {
+              "security_id": "SEC-A",
+              "currency": "USD",
+              "quantity": "1000.00000000",
+              "price": "1.00500000",
+              "local_value": "1005.00000000",
+              "base_value": "1005.00000000"
+            }
+          ],
+          "holdings_value": "1005.00000000",
+          "accrued_income": [],
+          "accrued_income_total": "0.00000000",
+          "accrued_expense": [],
+          "accrued_expense_total": "0.00000000",
+          "liabilities": [],
+          "liabilities_total": "0.00000000",
+          "total_assets": "1005.00000000",
+          "total_liabilities": "0.00000000",
+          "net_assets": "1005.00000000",
+          "shares_outstanding": "1000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "nav_per_share": "1.01",
+        "not_proven": [
+          {
+            "item": "Price/FX accuracy",
+            "detail": "Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Fair value / independent valuation",
+            "detail": "This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation."
+          },
+          {
+            "item": "Live/real-time pricing",
+            "detail": "All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment."
+          },
+          {
+            "item": "Regulatory NAV filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's NAV-computation or filing rules."
+          }
+        ],
+        "fence": "Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).",
+        "regulatory_framework": "40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "30652fca71a1fc3fd92b7fbc566758dc039893744657884eb3f6953741dbfe80"
+    },
+    {
+      "name": "rounding-matrix-half-even-boundary",
+      "description": "Rounding-mode matrix vector 2/3: same 1.005 boundary. half_even rounds to the nearest even digit -> 1.00 (0 is even, 1 is odd).",
+      "policy_parameters": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "holdings": [
+          {
+            "security_id": "SEC-A",
+            "quantity": 1000,
+            "price": 1.005,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "liabilities": [],
+        "shares_outstanding": 1000,
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_even"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "structural_error": null,
+        "components": {
+          "holdings": [
+            {
+              "security_id": "SEC-A",
+              "currency": "USD",
+              "quantity": "1000.00000000",
+              "price": "1.00500000",
+              "local_value": "1005.00000000",
+              "base_value": "1005.00000000"
+            }
+          ],
+          "holdings_value": "1005.00000000",
+          "accrued_income": [],
+          "accrued_income_total": "0.00000000",
+          "accrued_expense": [],
+          "accrued_expense_total": "0.00000000",
+          "liabilities": [],
+          "liabilities_total": "0.00000000",
+          "total_assets": "1005.00000000",
+          "total_liabilities": "0.00000000",
+          "net_assets": "1005.00000000",
+          "shares_outstanding": "1000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_even"
+        },
+        "nav_per_share": "1.00",
+        "not_proven": [
+          {
+            "item": "Price/FX accuracy",
+            "detail": "Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Fair value / independent valuation",
+            "detail": "This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation."
+          },
+          {
+            "item": "Live/real-time pricing",
+            "detail": "All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment."
+          },
+          {
+            "item": "Regulatory NAV filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's NAV-computation or filing rules."
+          }
+        ],
+        "fence": "Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).",
+        "regulatory_framework": "40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "8caeebe9c45632805c7f887d57515fcf7a0b30e42d3f21b2f64ae698f936f1e9"
+    },
+    {
+      "name": "rounding-matrix-truncate-boundary",
+      "description": "Rounding-mode matrix vector 3/3: same 1.005 boundary. truncate drops all sub-cent precision -> 1.00.",
+      "policy_parameters": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "holdings": [
+          {
+            "security_id": "SEC-A",
+            "quantity": 1000,
+            "price": 1.005,
+            "currency": "USD",
+            "fx_rate_to_base": 1
+          }
+        ],
+        "liabilities": [],
+        "shares_outstanding": 1000,
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "truncate"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-ROUND-03",
+        "valuation_date": "2026-07-18",
+        "base_currency": "USD",
+        "structural_error": null,
+        "components": {
+          "holdings": [
+            {
+              "security_id": "SEC-A",
+              "currency": "USD",
+              "quantity": "1000.00000000",
+              "price": "1.00500000",
+              "local_value": "1005.00000000",
+              "base_value": "1005.00000000"
+            }
+          ],
+          "holdings_value": "1005.00000000",
+          "accrued_income": [],
+          "accrued_income_total": "0.00000000",
+          "accrued_expense": [],
+          "accrued_expense_total": "0.00000000",
+          "liabilities": [],
+          "liabilities_total": "0.00000000",
+          "total_assets": "1005.00000000",
+          "total_liabilities": "0.00000000",
+          "net_assets": "1005.00000000",
+          "shares_outstanding": "1000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "truncate"
+        },
+        "nav_per_share": "1.00",
+        "not_proven": [
+          {
+            "item": "Price/FX accuracy",
+            "detail": "Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Fair value / independent valuation",
+            "detail": "This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation."
+          },
+          {
+            "item": "Live/real-time pricing",
+            "detail": "All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment."
+          },
+          {
+            "item": "Regulatory NAV filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's NAV-computation or filing rules."
+          }
+        ],
+        "fence": "Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).",
+        "regulatory_framework": "40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "e1d1fd94a5a412ac187e7807da8d8048721b40f6473f6b1fb1a4aae21fcb665f"
+    }
+  ]
+}
