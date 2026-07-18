@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Portfolio VaR: Monte Carlo (Integer PRNG) · ART-371 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model, run entirely with an integer xoshiro256** PRNG and fixed-point arithmetic so a declared seed replays byte-identically. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-371-simulate-var-monte-carlo.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Portfolio VaR — Monte Carlo (Integer PRNG)","applicationCategory":"FinanceApplication","description":"Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model, using an integer-only xoshiro256** PRNG and fixed-point path arithmetic so a declared seed replays byte-identically. Zero network.","url":"https://ainumbers.co/chaingraph/art-371-simulate-var-monte-carlo.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.info-box.fence{border-left-color:var(--red)}
+.info-box.fence .ib-title{color:var(--red)}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-label span{color:var(--muted);margin-left:4px}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:8px}
+th,td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:.54rem}
+td:first-child,th:first-child{text-align:left}
+.tbl-wrap{overflow-x:auto}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-371 · Portfolio VaR Monte Carlo</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-371 &middot; Simulation &amp; replay</div>
+  <h1>Portfolio VaR: Monte Carlo (Integer PRNG)</h1>
+  <p class="sub">Runs a one-factor correlated-asset Monte Carlo simulation of portfolio Value-at-Risk and Expected Shortfall. The entire path loop, including the pseudo-random draws (xoshiro256**) and every arithmetic step, runs on integers in fixed-point, never a floating-point accumulator, so a declared seed reproduces the identical result every time. Declares the OpenChainGraph <code>estimated</code> determinism class (SPEC.md &sect;24.6): stochastic output, exempt from cross-surface byte-identity, still required to be finite and idempotent for a fixed seed.</p>
+  <div style="margin-bottom:6px"><span class="flag warn">Simulation &amp; Replay</span><span class="flag info">Integer PRNG · fixed-point</span><span class="flag">Zero PII</span><span class="flag purple">W3C VC &sect;13.11</span></div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box fence"><div class="ib-title">Estimated, not bit-exact</div>This kernel declares the SPEC.md &sect;24.6 <code>estimated</code> determinism class, not <code>bit-exact</code>. It is exempt from cross-surface byte-identity but is proven, in the shipped fixtures, to replay byte-identically for a fixed declared seed and to change output when the seed changes. It is not a claim of parametric or historical-simulation VaR accuracy: it is a Monte Carlo estimate over a simplified one-factor correlation model.</div>
+
+  <div class="info-box"><div class="ib-title">Determinism inputs</div>PRNG algorithm: <b>xoshiro256**</b> (splitmix64 seed expansion), integer-only. Every path draw and every arithmetic step in the simulation loop is fixed-point (scale 1e6), never a JS float accumulator. The declared <code>seed</code>, <code>prng_algorithm</code>, and <code>draw_count</code> are carried as ordinary fields in the receipt below.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('baseline')">Baseline &middot; 10 assets, &rho;=0.30</button>
+      <button class="preset-btn" onclick="loadPreset('high_corr')">Stressed &middot; high correlation</button>
+      <button class="preset-btn" onclick="loadPreset('reseed')">Baseline &middot; alternate seed</button>
+    </div>
+
+    <div class="section-head">Simulation Parameters</div>
+    <div class="form-group">
+      <label class="form-label" for="seed">seed <span>(integer PRNG seed)</span></label>
+      <input type="number" id="seed" step="1" placeholder="42">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="n_paths">n_paths <span>(100&ndash;20000)</span></label>
+      <input type="number" id="n_paths" step="100" placeholder="10000">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="n_assets">n_assets <span>(2&ndash;10)</span></label>
+      <input type="number" id="n_assets" step="1" placeholder="10">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="holding_period">holding_period <span>(trading days)</span></label>
+      <input type="number" id="holding_period" step="1" placeholder="10">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="conf_level">conf_level</label>
+      <select id="conf_level"><option value="0.99">0.99</option><option value="0.95">0.95</option><option value="0.999">0.999</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="correlation">correlation <span>(0&ndash;0.95, one-factor)</span></label>
+      <input type="number" id="correlation" step="0.05" placeholder="0.30">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="portfolio_value_mm">portfolio_value_mm <span>($mn)</span></label>
+      <input type="number" id="portfolio_value_mm" step="1" placeholder="100">
+    </div>
+
+    <button class="run-btn" style="margin-top:16px" onclick="run()">Run Monte Carlo</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; &sect;4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">&#8681; Sign artifact (Ed25519 &middot; &sect;16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">&#128271; Verify signature (&sect;16)</button>
+        <button onclick="exportArtifact()">Export &sect;4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (&sect;13.11)</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-371-simulate-var-monte-carlo",
+  "version": "1.0.0",
+  "title": "Portfolio VaR — Monte Carlo (Integer PRNG)",
+  "mcp_tool_definition": {
+    "name": "simulate_var_monte_carlo",
+    "description": "Monte Carlo portfolio Value-at-Risk and Expected Shortfall over a one-factor correlated-asset model. Integer xoshiro256** PRNG, fixed-point arithmetic throughout — a declared seed replays byte-identically. Declares SPEC.md §24.6 'estimated' determinism class. Zero network, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "seed": {"type": "integer"},
+        "n_paths": {"type": "integer"},
+        "n_assets": {"type": "integer"},
+        "holding_period": {"type": "integer"},
+        "conf_level": {"type": "number", "enum": [0.95, 0.99, 0.999]},
+        "correlation": {"type": "number"},
+        "portfolio_value_mm": {"type": "number"}
+      }
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+/* ── Integer-only PRNG + fixed-point Monte Carlo kernel — mirrors
+   kernels/art-371-simulate-var-monte-carlo.kernel.mjs. Declared class is
+   'estimated' (SPEC.md §24.6), which is exempt from cross-surface byte-
+   identity, so this browser copy need not be bit-identical to the server
+   kernel — it reuses the identical algorithm anyway for consistency. ── */
+const FP = 1000000n;
+const MASK64 = (1n << 64n) - 1n;
+const SECTOR_VOLS_BP = [250000n, 200000n, 180000n, 300000n, 150000n, 220000n, 280000n, 160000n, 240000n, 190000n];
+
+function fpMul(a, b) { return (a * b) / FP; }
+function fpDiv(a, b) { return (a * FP) / b; }
+function isqrt(n) { if (n < 0n) throw new Error('isqrt: negative'); if (n < 2n) return n; let x0 = n, x1 = (x0 + 1n) >> 1n; while (x1 < x0) { x0 = x1; x1 = (x0 + n / x0) >> 1n; } return x0; }
+function fpSqrt(a) { return isqrt(a * FP); }
+
+function splitmix64(seed) {
+  let z = seed & MASK64;
+  return function next() {
+    z = (z + 0x9E3779B97F4A7C15n) & MASK64;
+    let x = z;
+    x = ((x ^ (x >> 30n)) * 0xBF58476D1CE4E5B9n) & MASK64;
+    x = ((x ^ (x >> 27n)) * 0x94D049BB133111EBn) & MASK64;
+    x = x ^ (x >> 31n);
+    return x & MASK64;
+  };
+}
+function rotl(x, k) { return ((x << k) | (x >> (64n - k))) & MASK64; }
+function makeXoshiro256ss(seed) {
+  const sm = splitmix64(BigInt(seed) & MASK64);
+  let s0 = sm(), s1 = sm(), s2 = sm(), s3 = sm();
+  return function next() {
+    const result = (rotl((s1 * 5n) & MASK64, 7n) * 9n) & MASK64;
+    const t = (s1 << 17n) & MASK64;
+    s2 ^= s0; s3 ^= s1; s1 ^= s2; s0 ^= s3; s2 ^= t;
+    s3 = rotl(s3, 45n);
+    return result;
+  };
+}
+function uniformFixed(rng) { return rng() % FP; }
+function normalFixed(rng) { let sum = 0n; for (let i = 0; i < 12; i++) sum += uniformFixed(rng); return sum - 6n * FP; }
+
+function compute(pp) {
+  const n_assets = Math.min(Math.max(Math.trunc(pp.n_assets ?? 10), 2), SECTOR_VOLS_BP.length);
+  const n_paths = Math.min(Math.max(Math.trunc(pp.n_paths ?? 10000), 100), 20000);
+  const holding_period = Math.max(1, Math.trunc(pp.holding_period ?? 10));
+  const conf_level = [0.95, 0.99, 0.999].includes(pp.conf_level) ? pp.conf_level : 0.99;
+  const correlation = Math.min(0.95, Math.max(0, pp.correlation ?? 0.30));
+  const portfolio_value_mm = pp.portfolio_value_mm ?? 100;
+  const seed = Math.trunc(pp.seed ?? (42 + n_assets));
+  const prng_algorithm = 'xoshiro256**';
+  const draw_count = n_paths * n_assets * 12;
+
+  const rho_fixed = BigInt(Math.round(correlation * 1e6));
+  const sqrtRho = fpSqrt(rho_fixed);
+  const sqrtOneMinusRho = fpSqrt(FP - rho_fixed);
+  const wt_fixed = FP / BigInt(n_assets);
+  const hp_fixed = fpDiv(BigInt(holding_period) * FP, 252n * FP);
+  const hpSqrtFixed = fpSqrt(hp_fixed);
+
+  const rng = makeXoshiro256ss(seed);
+  const pnlFixed = new Array(n_paths);
+  for (let p = 0; p < n_paths; p++) {
+    const commonZ = normalFixed(rng);
+    let retFixed = 0n;
+    for (let i = 0; i < n_assets; i++) {
+      const idioZ = normalFixed(rng);
+      const zCorr = fpMul(sqrtRho, commonZ) + fpMul(sqrtOneMinusRho, idioZ);
+      retFixed += fpMul(fpMul(wt_fixed, SECTOR_VOLS_BP[i]), fpMul(hpSqrtFixed, zCorr));
+    }
+    pnlFixed[p] = retFixed;
+  }
+  pnlFixed.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+  const alphaIdx = Math.max(0, Math.floor(n_paths * (1 - conf_level)) - 1);
+  const mcVarFixed = -pnlFixed[alphaIdx];
+  let esSumFixed = 0n;
+  for (let i = 0; i <= alphaIdx; i++) esSumFixed += pnlFixed[i];
+  const mcEsFixed = alphaIdx >= 0 ? -esSumFixed / BigInt(alphaIdx + 1) : mcVarFixed;
+
+  const toPct = (v) => Math.round(Number(v) / Number(FP) * 1e6) / 1e6;
+  const mc_var_pct = toPct(mcVarFixed);
+  const mc_es_pct = toPct(mcEsFixed);
+  const var_dollar_mm = Math.round(mc_var_pct * portfolio_value_mm * 1e4) / 1e4;
+  const es_dollar_mm = Math.round(mc_es_pct * portfolio_value_mm * 1e4) / 1e4;
+
+  const compliance_flags = [];
+  if (mc_var_pct > 0.10) compliance_flags.push('HIGH_VAR_BREACH_RISK'); else compliance_flags.push('VAR_WITHIN_LIMITS');
+  if (mc_es_pct > mc_var_pct * 1.5) compliance_flags.push('ELEVATED_TAIL_RISK');
+
+  return {
+    verdict: mc_var_pct > 0.10 ? 'HIGH_RISK' : mc_var_pct > 0.05 ? 'MODERATE_RISK' : 'LOW_RISK',
+    mc_var_pct, mc_es_pct, var_dollar_mm, es_dollar_mm,
+    conf_level, holding_period, n_assets, n_paths, correlation,
+    determinism_class: 'estimated', prng_algorithm, seed, draw_count,
+    compliance_flags,
+  };
+}
+
+function getParams() {
+  return {
+    seed: document.getElementById('seed').value ? parseInt(document.getElementById('seed').value, 10) : undefined,
+    n_paths: document.getElementById('n_paths').value ? parseInt(document.getElementById('n_paths').value, 10) : undefined,
+    n_assets: document.getElementById('n_assets').value ? parseInt(document.getElementById('n_assets').value, 10) : undefined,
+    holding_period: document.getElementById('holding_period').value ? parseInt(document.getElementById('holding_period').value, 10) : undefined,
+    conf_level: parseFloat(document.getElementById('conf_level').value),
+    correlation: document.getElementById('correlation').value ? parseFloat(document.getElementById('correlation').value) : undefined,
+    portfolio_value_mm: document.getElementById('portfolio_value_mm').value ? parseFloat(document.getElementById('portfolio_value_mm').value) : undefined,
+  };
+}
+
+async function cgHash(pp, op) { const obj = cgCanon({ policy_parameters: pp, output_payload: op }); const buf = new TextEncoder().encode(JSON.stringify(obj)); const dig = await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+function cgCanon(v) { if (v === null || typeof v !== 'object') return v; if (Array.isArray(v)) return v.map(cgCanon); const o = {}; for (const k of Object.keys(v).sort()) o[k] = cgCanon(v[k]); return o; }
+
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastHash = null, _lastFlags = null;
+
+async function run() {
+  const pp = getParams();
+  const output_payload = compute(pp);
+  const compliance_flags = output_payload.compliance_flags;
+  const rawHash = await cgHash(pp, output_payload);
+  const execHash = 'sha256:' + rawHash;
+  const artifact = { '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld', chaingraph_version: '0.4.0', spec_version: '0.8.7', compute_mode: 'browser', mandate_type: 'risk_control', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version, generated_at: new Date().toISOString(), execution_hash: execHash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 1 }, policy_parameters: pp, output_payload, compliance_flags, audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastHash = execHash; _lastFlags = compliance_flags;
+  renderResults(output_payload, compliance_flags, execHash, artifact);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function renderResults(op, flags, execHash, artifact) {
+  document.getElementById('heroRow').innerHTML =
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">' + (op.mc_var_pct * 100).toFixed(2) + '%</div><div class="hero-lbl">MC VaR</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--gold)">' + (op.mc_es_pct * 100).toFixed(2) + '%</div><div class="hero-lbl">MC Expected Shortfall</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">$' + op.var_dollar_mm.toLocaleString() + 'mn</div><div class="hero-lbl">VaR Dollar</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--body)">' + op.draw_count.toLocaleString() + '</div><div class="hero-lbl">Draws (seed ' + op.seed + ')</div></div>';
+  const cls = op.verdict === 'HIGH_RISK' ? 'fail' : 'pass';
+  document.getElementById('verdictDiv').innerHTML =
+    '<div class="verdict ' + cls + '">' + op.verdict + ' &middot; ' + op.n_paths.toLocaleString() + ' paths &middot; ' + op.prng_algorithm + ' &middot; determinism_class: ' + op.determinism_class + '</div>' +
+    '<div class="gap-list">' + flags.map(f => '<span class="badge ok">' + f + '</span>').join('') + '</div>';
+  document.getElementById('execHash').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2() { if (!_lastArtifact) return; const ap2 = { schema: 'ainumbers-policy-mandate-v1.0', tool_id: MANIFEST.tool_id, version: MANIFEST.version, mandate_type: 'risk_control', generated_at: _lastArtifact.generated_at, execution_hash: _lastHash, policy_parameters: _lastPP, output_payload: _lastOP, compliance_flags: _lastFlags }; dl(JSON.stringify(ap2, null, 2), 'art-371-simulate-var-monte-carlo-policy-mandate.json', 'application/json'); }
+function exportArtifact() { if (!_lastArtifact) return; dl(JSON.stringify(_lastArtifact, null, 2), 'art-371-simulate-var-monte-carlo-artifact.json', 'application/json'); }
+function exportVC() { if (!_lastArtifact) return; const vc = { "@context": ["https://www.w3.org/ns/credentials/v2", "https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"], type: ["VerifiableCredential", "OpenChainGraphArtifact"], issuer: "did:web:ainumbers.co", validFrom: _lastArtifact.generated_at, credentialSubject: { ...{ id: "urn:ocg:" + _lastHash }, ..._lastArtifact } }; dl(JSON.stringify(vc, null, 2), 'art-371-simulate-var-monte-carlo-vc.json', 'application/json'); }
+function dl(c, f, m) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: m })); a.download = f; a.click(); }
+function toggleMfst() { const b = document.getElementById('mfstBody'), c = document.getElementById('mfstCode'); if (b.style.display === 'none' || !b.style.display) { if (!c.textContent) c.textContent = JSON.stringify(MANIFEST, null, 2); b.style.display = 'block'; } else b.style.display = 'none'; }
+
+const PRESETS = {
+  baseline: { seed: '42', n_paths: '10000', n_assets: '10', holding_period: '10', conf_level: '0.99', correlation: '0.30', portfolio_value_mm: '100' },
+  high_corr: { seed: '42', n_paths: '10000', n_assets: '10', holding_period: '10', conf_level: '0.99', correlation: '0.80', portfolio_value_mm: '100' },
+  reseed: { seed: '43', n_paths: '10000', n_assets: '10', holding_period: '10', conf_level: '0.99', correlation: '0.30', portfolio_value_mm: '100' },
+};
+function loadPreset(n) {
+  const d = PRESETS[n]; if (!d) return;
+  document.getElementById('seed').value = d.seed;
+  document.getElementById('n_paths').value = d.n_paths;
+  document.getElementById('n_assets').value = d.n_assets;
+  document.getElementById('holding_period').value = d.holding_period;
+  document.getElementById('conf_level').value = d.conf_level;
+  document.getElementById('correlation').value = d.correlation;
+  document.getElementById('portfolio_value_mm').value = d.portfolio_value_mm;
+}
+loadPreset('baseline');
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}return null;}
+async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
+async function verifySignature(){var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}var pr=art&&art.audit_signature&&art.audit_signature.proof;if(!pr){alert('✗ no §16 proof on this artifact');return;}try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}}
+(function(){var el=document.getElementById('ap2ExportBtn');if(!el)return;var obs=new MutationObserver(function(){var sab=document.getElementById('signArtifactBtn');if(sab){sab.disabled=false;}obs.disconnect();});obs.observe(el,{attributes:true,attributeFilter:['disabled']});})();
+</script>
+</body>
+</html>
