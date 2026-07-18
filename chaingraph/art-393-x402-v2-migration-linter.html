@@ -257,6 +257,14 @@ var V1_HEADER_NAMES = ['X-PAYMENT','X-PAYMENT-RESPONSE'];
 var V2_HEADER_NAMES = ['PAYMENT-REQUIRED','PAYMENT-SIGNATURE','PAYMENT-RESPONSE'];
 var V1_TO_V2_HEADER = {'X-PAYMENT':'PAYMENT-SIGNATURE','X-PAYMENT-RESPONSE':'PAYMENT-RESPONSE'};
 var CAIP2_RE = /^[-a-z0-9]{3,8}:[-a-zA-Z0-9]{1,32}$/;
+var VERSION_RE = /^v?(\d+(?:\.\d+)?)$/i;
+// Mirrors kernels/art-393-x402-v2-migration-linter.kernel.mjs parseProtocolVersion — never NaN (X402LINT-FIX-1).
+function parseProtocolVersion(raw){
+  if(raw===undefined || raw===null) return null;
+  if(typeof raw==='number') return isFinite(raw)?raw:null;
+  if(typeof raw==='string'){ var m=VERSION_RE.exec(raw.trim()); if(m) return Number(m[1]); }
+  return null;
+}
 
 function F(level,msg){ return {level:level,msg:msg}; }
 function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
@@ -271,7 +279,9 @@ function lint(pp){
   var findings=[];
   var headers=normHeaders(pp.headers);
   var body=(pp.body && typeof pp.body==='object')?pp.body:null;
-  var declaredVersion=(pp.protocol_version!==undefined && pp.protocol_version!==null)?Number(pp.protocol_version):null;
+  var declaredVersion=parseProtocolVersion(pp.protocol_version);
+  var versionUnparseable = pp.protocol_version!==undefined && pp.protocol_version!==null && declaredVersion===null;
+  if(versionUnparseable){ findings.push(F('error','protocol_version "'+pp.protocol_version+'" could not be parsed as a version number (expected e.g. 2 or "v2") — treating as unspecified.')); }
 
   var v1Present=V1_HEADER_NAMES.filter(function(h){return h.toUpperCase() in headers;});
   var v2Present=V2_HEADER_NAMES.filter(function(h){return h.toUpperCase() in headers;});
@@ -302,7 +312,7 @@ function lint(pp){
   if(declaredVersion!==null && declaredVersion!==inferredVersion) findings.push(F('warn','Declared protocol_version ('+declaredVersion+') does not match wire evidence (inferred v'+inferredVersion+').'));
   if(!v1Present.length && !v2Present.length && !body) findings.push(F('error','No x402 headers or body supplied — nothing to lint.'));
 
-  return {findings:findings, inferredVersion:inferredVersion, v1Present:v1Present, v2Present:v2Present};
+  return {findings:findings, inferredVersion:inferredVersion, v1Present:v1Present, v2Present:v2Present, declaredVersion:declaredVersion};
 }
 
 function scoreOf(f){ var e=0,w=0,p=0; f.forEach(function(x){ if(x.level==='error')e++; else if(x.level==='warn')w++; else if(x.level==='pass')p++; }); var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100; return {score:sc,e:e,w:w,p:p}; }
@@ -333,7 +343,7 @@ async function runLint(){
 
   var net=document.getElementById('netIn').value.trim() || null;
   var verRaw=document.getElementById('verIn').value.trim();
-  var pv = verRaw ? Number(verRaw) : null;
+  var pv = verRaw || null;
 
   var pp={ headers:headers||{}, body:body||null, network:net, protocol_version:pv };
   var res=lint(pp);
@@ -342,7 +352,7 @@ async function runLint(){
 
   var sc=scoreOf(res.findings);
   _policyParams=pp;
-  _outputPayload={ protocol_version:2, declared_protocol_version:pv, inferred_wire_version:res.inferredVersion, deprecated_headers_found:res.v1Present, v2_headers_found:res.v2Present, score:sc.score, errors:sc.e, warnings:sc.w, passes:sc.p };
+  _outputPayload={ protocol_version:2, declared_protocol_version:res.declaredVersion, inferred_wire_version:res.inferredVersion, deprecated_headers_found:res.v1Present, v2_headers_found:res.v2Present, score:sc.score, errors:sc.e, warnings:sc.w, passes:sc.p };
   _ap2Hash=await sha256({policy_parameters:_policyParams,output_payload:_outputPayload});
   var btn=document.getElementById('exportBtn');
   if(btn){btn.disabled=false;btn.classList.add('ready');}
