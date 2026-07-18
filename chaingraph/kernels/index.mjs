@@ -315,6 +315,7 @@ import * as art373    from './art-373-recompute-fund-nav.kernel.mjs';
 import * as art376    from './art-376-score-payee-name-match.kernel.mjs';
 import * as art378    from './art-378-quarterly-test-evidence-composer.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
+import * as art380    from './art-380-build-ai-workpaper-record.kernel.mjs';
 import * as art387    from './art-387-pqc-deadline-ladder-calculator.kernel.mjs';
 import * as art39     from './art-39-tempo-zone-disclosure.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
@@ -708,6 +709,7 @@ export const KERNELS = {
   'art-376-score-payee-name-match':                           art376,
   'art-378-quarterly-test-evidence-composer':                 art378,
   'art-38-tempo-onchain-aml':                                 art38,
+  'art-380-build-ai-workpaper-record':                        art380,
   'art-387-pqc-deadline-ladder-calculator':                   art387,
   'art-39-tempo-zone-disclosure':                             art39,
   'art-40-tempo-agentic-checkout':                            art40,
