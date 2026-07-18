@@ -300,6 +300,9 @@ import * as art358    from './art-358-simulate-output-floor.kernel.mjs';
 import * as art359    from './art-359-idv-session-receipt-builder.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
 import * as art361    from './art-361-camera-provenance-check.kernel.mjs';
+import * as art362    from './art-362-compute-raroc-loan-price.kernel.mjs';
+import * as art363    from './art-363-compute-dscr.kernel.mjs';
+import * as art364    from './art-364-compute-lcr-nsfr-leverage.kernel.mjs';
 import * as art365    from './art-365-compute-globe-topup-tax.kernel.mjs';
 import * as art366    from './art-366-price-embedded-insurance.kernel.mjs';
 import * as art367    from './art-367-compute-cross-border-fees.kernel.mjs';
@@ -683,6 +686,9 @@ export const KERNELS = {
   'art-359-idv-session-receipt-builder':                      art359,
   'art-36-tempo-mpp-agent-mandate':                           art36,
   'art-361-camera-provenance-check':                          art361,
+  'art-362-compute-raroc-loan-price':                         art362,
+  'art-363-compute-dscr':                                     art363,
+  'art-364-compute-lcr-nsfr-leverage':                        art364,
   'art-365-compute-globe-topup-tax':                          art365,
   'art-366-price-embedded-insurance':                         art366,
   'art-367-compute-cross-border-fees':                        art367,

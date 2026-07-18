@@ -1,0 +1,129 @@
+{
+  "tool_id": "art-364-compute-lcr-nsfr-leverage",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: seeded defaults from tools/469-lcr-calculator.html, tools/470-nsfr-calculator.html, tools/471-leverage-ratio-calculator.html, all three ratios compliant. Vector 2: all three ratios deficient. Vector 3: zero-input edge (finite gate, ratios return null not Infinity/NaN).",
+  "vectors": [
+    {
+      "name": "seeded_default_compliant",
+      "description": "LCR: L1 $5000M + L2A $2000M + L2B(25% haircut) $500M HQLA; retail/wholesale outflow presets; retail/corporate inflows. NSFR: Tier1+2 capital, retail deposit ASF tiers vs L1 HQLA / retail-SME / corporate loan RSF tiers. Leverage: CET1 $5000M + AT1 $500M Tier 1 vs $70000M total exposure. All three ratios pass their Basel minimum.",
+      "policy_parameters": {
+        "lcr": {
+          "hqla_positions": [
+            { "level": "l1", "market_value_musd": 5000 },
+            { "level": "l2a", "market_value_musd": 2000 },
+            { "level": "l2b", "market_value_musd": 500 }
+          ],
+          "outflows": [
+            { "label": "Retail stable deposits", "balance_musd": 8000, "rate_pct": 5 },
+            { "label": "Retail less-stable deposits", "balance_musd": 3000, "rate_pct": 10 },
+            { "label": "Wholesale deposits - financial institution", "balance_musd": 500, "rate_pct": 100 },
+            { "label": "Committed credit facilities - non-financial corporates", "balance_musd": 2000, "rate_pct": 10 }
+          ],
+          "inflows": [
+            { "label": "Retail customer inflows", "balance_musd": 1000, "rate_pct": 50 },
+            { "label": "Non-financial corporate inflows", "balance_musd": 800, "rate_pct": 50 }
+          ]
+        },
+        "nsfr": {
+          "asf_items": [
+            { "label": "Tier 1 + Tier 2 regulatory capital", "amount_musd": 8000, "factor_pct": 100 },
+            { "label": "Retail stable deposits >=1yr", "amount_musd": 5000, "factor_pct": 95 },
+            { "label": "Retail less-stable <1yr", "amount_musd": 2000, "factor_pct": 90 },
+            { "label": "Other liabilities residual <1yr", "amount_musd": 3000, "factor_pct": 0 }
+          ],
+          "rsf_items": [
+            { "label": "Unencumbered Level 1 HQLA", "amount_musd": 5000, "factor_pct": 5 },
+            { "label": "Loans to retail/SME <1yr", "amount_musd": 4000, "factor_pct": 50 },
+            { "label": "Loans to non-financial corporate >=1yr", "amount_musd": 3000, "factor_pct": 65 },
+            { "label": "All other assets residual", "amount_musd": 2000, "factor_pct": 100 }
+          ]
+        },
+        "leverage": {
+          "cet1_musd": 5000, "at1_musd": 500, "gsib_bucket": 0,
+          "onbs_exposure_musd": 60000, "derivative_exposure_musd": 3000, "sft_exposure_musd": 5000,
+          "offbs_exposure_musd": 2000, "other_exposure_musd": 0
+        }
+      },
+      "output_payload": {
+        "lcr": {
+          "hqla_total_musd": 7075, "gross_outflows_musd": 1400, "gross_inflows_musd": 900,
+          "inflow_cap_musd": 1050, "net_inflows_musd": 900, "net_cash_outflows_musd": 500,
+          "lcr_pct": 1415, "lcr_compliant": true, "lcr_surplus_shortfall_musd": 6575
+        },
+        "nsfr": { "total_asf_musd": 14550, "total_rsf_musd": 6200, "nsfr_pct": 234.68, "nsfr_compliant": true },
+        "leverage": {
+          "tier1_capital_musd": 5500, "total_exposure_musd": 70000, "leverage_ratio_pct": 7.86,
+          "min_leverage_ratio_pct": 3, "leverage_ratio_compliant": true, "gsib_leverage_buffer_pct": 0
+        },
+        "regulatory_basis": "Basel III Liquidity Coverage Ratio (BCBS 238); Net Stable Funding Ratio (BCBS 295); Leverage Ratio (BCBS 270, finalized BCBS 360).",
+        "note": "Deterministic point calculation from caller-supplied positions and regulatory factors for a single reporting date. For a stochastic multi-scenario liquidity stress distribution, use sim-01-lcr-nsfr-liquidity-stress-test."
+      },
+      "compliance_flags": ["ALL_THREE_RATIOS_COMPLIANT"],
+      "golden_hash": "a7398d0760fef907b9a075dc5c3c59bd883e79c888e44372b0fe40d2afd2aec7"
+    },
+    {
+      "name": "lcr_deficient_case",
+      "description": "Thin HQLA buffer ($500M L1) against a large single wholesale-FI outflow ($5000M @ 100%) with no inflows: LCR 10%. Thin ASF against a large residual RSF bucket: NSFR 19%. G-SIB bucket 1 raises the leverage minimum to 3.5%, and Tier 1 capital of only $100M against $10000M exposure yields a 1% leverage ratio -- all three ratios deficient.",
+      "policy_parameters": {
+        "lcr": {
+          "hqla_positions": [{ "level": "l1", "market_value_musd": 500 }],
+          "outflows": [{ "label": "Wholesale deposits - financial institution", "balance_musd": 5000, "rate_pct": 100 }],
+          "inflows": []
+        },
+        "nsfr": {
+          "asf_items": [{ "label": "Retail stable deposits", "amount_musd": 1000, "factor_pct": 95 }],
+          "rsf_items": [{ "label": "All other assets residual", "amount_musd": 5000, "factor_pct": 100 }]
+        },
+        "leverage": {
+          "cet1_musd": 100, "at1_musd": 0, "gsib_bucket": 1,
+          "onbs_exposure_musd": 10000, "derivative_exposure_musd": 0, "sft_exposure_musd": 0,
+          "offbs_exposure_musd": 0, "other_exposure_musd": 0
+        }
+      },
+      "output_payload": {
+        "lcr": {
+          "hqla_total_musd": 500, "gross_outflows_musd": 5000, "gross_inflows_musd": 0,
+          "inflow_cap_musd": 3750, "net_inflows_musd": 0, "net_cash_outflows_musd": 5000,
+          "lcr_pct": 10, "lcr_compliant": false, "lcr_surplus_shortfall_musd": -4500
+        },
+        "nsfr": { "total_asf_musd": 950, "total_rsf_musd": 5000, "nsfr_pct": 19, "nsfr_compliant": false },
+        "leverage": {
+          "tier1_capital_musd": 100, "total_exposure_musd": 10000, "leverage_ratio_pct": 1,
+          "min_leverage_ratio_pct": 3.5, "leverage_ratio_compliant": false, "gsib_leverage_buffer_pct": 0.5
+        },
+        "regulatory_basis": "Basel III Liquidity Coverage Ratio (BCBS 238); Net Stable Funding Ratio (BCBS 295); Leverage Ratio (BCBS 270, finalized BCBS 360).",
+        "note": "Deterministic point calculation from caller-supplied positions and regulatory factors for a single reporting date. For a stochastic multi-scenario liquidity stress distribution, use sim-01-lcr-nsfr-liquidity-stress-test."
+      },
+      "compliance_flags": ["LCR_BELOW_100PCT_DEFICIENT", "NSFR_BELOW_100PCT_DEFICIENT", "LEVERAGE_RATIO_BELOW_MINIMUM_DEFICIENT"],
+      "golden_hash": "a8fe11896b834c2d453e57c5a1fbf6e362178263bf80a4226d346aaae63510bf"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No HQLA/outflow/inflow/ASF/RSF/capital/exposure positions supplied at all. Finite gate: all three ratios resolve to null (not Infinity/NaN) rather than an unbounded pass, and are treated as vacuously compliant (no denominator to breach).",
+      "policy_parameters": {
+        "lcr": { "hqla_positions": [], "outflows": [], "inflows": [] },
+        "nsfr": { "asf_items": [], "rsf_items": [] },
+        "leverage": {
+          "cet1_musd": 0, "at1_musd": 0, "gsib_bucket": 0,
+          "onbs_exposure_musd": 0, "derivative_exposure_musd": 0, "sft_exposure_musd": 0,
+          "offbs_exposure_musd": 0, "other_exposure_musd": 0
+        }
+      },
+      "output_payload": {
+        "lcr": {
+          "hqla_total_musd": 0, "gross_outflows_musd": 0, "gross_inflows_musd": 0,
+          "inflow_cap_musd": 0, "net_inflows_musd": 0, "net_cash_outflows_musd": 0,
+          "lcr_pct": null, "lcr_compliant": true, "lcr_surplus_shortfall_musd": 0
+        },
+        "nsfr": { "total_asf_musd": 0, "total_rsf_musd": 0, "nsfr_pct": null, "nsfr_compliant": true },
+        "leverage": {
+          "tier1_capital_musd": 0, "total_exposure_musd": 0, "leverage_ratio_pct": null,
+          "min_leverage_ratio_pct": 3, "leverage_ratio_compliant": true, "gsib_leverage_buffer_pct": 0
+        },
+        "regulatory_basis": "Basel III Liquidity Coverage Ratio (BCBS 238); Net Stable Funding Ratio (BCBS 295); Leverage Ratio (BCBS 270, finalized BCBS 360).",
+        "note": "Deterministic point calculation from caller-supplied positions and regulatory factors for a single reporting date. For a stochastic multi-scenario liquidity stress distribution, use sim-01-lcr-nsfr-liquidity-stress-test."
+      },
+      "compliance_flags": ["ALL_THREE_RATIOS_COMPLIANT"],
+      "golden_hash": "3004090f03e88f6493c7f9bce08a1d541dc42b9e9620adc4a490b4ee9ff9aee2"
+    }
+  ]
+}

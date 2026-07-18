@@ -1,0 +1,69 @@
+{
+  "tool_id": "art-362-compute-raroc-loan-price",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: AIRB approach, seeded default parameters from tools/437-raroc-loan-pricing.html (EAD $50M, 5yr, 250bps margin, PD 0.18% BBB, LGD 40% senior unsecured). Vector 2: SA approach with elevated PD. Vector 3: zero-EAD edge (finite gate).",
+  "vectors": [
+    {
+      "name": "airb_seeded_default",
+      "description": "EAD $50M, 5yr tenor, 250bps margin, 5.25% benchmark, 50bps arrangement fee, 30bps commitment fee, 85% utilization, PD 0.18%, LGD 40%, AIRB approach, 300bps capital buffer, 12% hurdle, 4.80% cost of funds, $100K operating cost, 25% tax. Ported byte-for-byte from tools/437-raroc-loan-pricing.html calcRAROC() with the same seeded defaults.",
+      "policy_parameters": {
+        "ead_musd": 50, "tenor_years": 5, "margin_bps": 250, "benchmark_rate_pct": 5.25,
+        "arrangement_fee_bps": 50, "commitment_fee_bps": 30, "utilization_pct": 85,
+        "pd_pct": 0.18, "lgd_pct": 40, "capital_approach": "airb", "capital_buffer_bps": 300,
+        "hurdle_rate_pct": 12, "cost_of_funds_pct": 4.8, "operating_cost_kusd": 100, "tax_rate_pct": 25
+      },
+      "output_payload": {
+        "raroc_pct": 28, "value_creating": true, "hurdle_rate_pct": 12, "value_spread_pct": 16,
+        "gross_revenue_musd": 3.37, "expected_loss_musd": 0.03, "funding_cost_musd": 2.04,
+        "operating_cost_musd": 0.1, "net_income_before_tax_musd": 1.2, "net_income_after_tax_musd": 0.9,
+        "economic_capital_musd": 3.2, "break_even_spread_bps": 150, "break_even_gap_bps": -100,
+        "drawn_musd": 42.5, "undrawn_musd": 7.5, "capital_approach": "airb",
+        "regulatory_basis": "Basel II BCBS 128 (2006); Basel III BCBS 189 (2010). Simplified public approximation of the IRB economic-capital formula; not a substitute for an internally approved IRB model.",
+        "note": "RAROC = Net Income after Tax / Economic Capital. AIRB/FIRB economic capital uses the Basel single-factor Vasicek model at 99.9% confidence; SA approach uses a risk-weight bucket table."
+      },
+      "compliance_flags": ["SIMPLIFIED_IRB_APPROXIMATION_NOT_INTERNAL_MODEL", "RAROC_ABOVE_HURDLE"],
+      "golden_hash": "92320bde103b7ddb325c6c7d2fc7fad726ade831cf0b2bb65d35988ffa5f2adb"
+    },
+    {
+      "name": "sa_approach_high_pd",
+      "description": "EAD $20M, 3yr tenor, 400bps margin, SA capital approach, PD 1.5%, LGD 45%, 200bps capital buffer, 12% hurdle, 5.0% cost of funds, $80K operating cost. SA risk-weight bucket for PD 1.5% (>=0.5% and <2%) is 75%.",
+      "policy_parameters": {
+        "ead_musd": 20, "tenor_years": 3, "margin_bps": 400, "benchmark_rate_pct": 5.25,
+        "arrangement_fee_bps": 75, "commitment_fee_bps": 25, "utilization_pct": 90,
+        "pd_pct": 1.5, "lgd_pct": 45, "capital_approach": "sa", "capital_buffer_bps": 200,
+        "hurdle_rate_pct": 12, "cost_of_funds_pct": 5, "operating_cost_kusd": 80, "tax_rate_pct": 25
+      },
+      "output_payload": {
+        "raroc_pct": 25.77, "value_creating": true, "hurdle_rate_pct": 12, "value_spread_pct": 13.77,
+        "gross_revenue_musd": 1.72, "expected_loss_musd": 0.12, "funding_cost_musd": 0.9,
+        "operating_cost_musd": 0.08, "net_income_before_tax_musd": 0.62, "net_income_after_tax_musd": 0.46,
+        "economic_capital_musd": 1.8, "break_even_spread_bps": 300, "break_even_gap_bps": -100,
+        "drawn_musd": 18, "undrawn_musd": 2, "capital_approach": "sa",
+        "regulatory_basis": "Basel II BCBS 128 (2006); Basel III BCBS 189 (2010). Simplified public approximation of the IRB economic-capital formula; not a substitute for an internally approved IRB model.",
+        "note": "RAROC = Net Income after Tax / Economic Capital. AIRB/FIRB economic capital uses the Basel single-factor Vasicek model at 99.9% confidence; SA approach uses a risk-weight bucket table."
+      },
+      "compliance_flags": ["SIMPLIFIED_IRB_APPROXIMATION_NOT_INTERNAL_MODEL", "RAROC_ABOVE_HURDLE"],
+      "golden_hash": "43c55bd76996eb0dcaa35d5018c908d33bffab266a62d0a9fd55f4833327a947"
+    },
+    {
+      "name": "zero_ead_edge",
+      "description": "Zero EAD. Finite gate: drawn/undrawn/economic capital/revenue all resolve to 0, never NaN/Infinity; net income is negative (pure operating cost drag) so RAROC reports 0, not Infinity.",
+      "policy_parameters": {
+        "ead_musd": 0, "tenor_years": 5, "margin_bps": 250, "benchmark_rate_pct": 5.25,
+        "arrangement_fee_bps": 50, "commitment_fee_bps": 30, "utilization_pct": 85,
+        "pd_pct": 0.18, "lgd_pct": 40, "capital_approach": "airb", "capital_buffer_bps": 300,
+        "hurdle_rate_pct": 12, "cost_of_funds_pct": 4.8, "operating_cost_kusd": 100, "tax_rate_pct": 25
+      },
+      "output_payload": {
+        "raroc_pct": 0, "value_creating": false, "hurdle_rate_pct": 12, "value_spread_pct": -12,
+        "gross_revenue_musd": 0, "expected_loss_musd": 0, "funding_cost_musd": 0,
+        "operating_cost_musd": 0.1, "net_income_before_tax_musd": -0.1, "net_income_after_tax_musd": -0.08,
+        "economic_capital_musd": 0, "break_even_spread_bps": 350, "break_even_gap_bps": 100,
+        "drawn_musd": 0, "undrawn_musd": 0, "capital_approach": "airb",
+        "regulatory_basis": "Basel II BCBS 128 (2006); Basel III BCBS 189 (2010). Simplified public approximation of the IRB economic-capital formula; not a substitute for an internally approved IRB model.",
+        "note": "RAROC = Net Income after Tax / Economic Capital. AIRB/FIRB economic capital uses the Basel single-factor Vasicek model at 99.9% confidence; SA approach uses a risk-weight bucket table."
+      },
+      "compliance_flags": ["SIMPLIFIED_IRB_APPROXIMATION_NOT_INTERNAL_MODEL", "RAROC_BELOW_HURDLE_REVIEW_PRICING"],
+      "golden_hash": "7e6a278f15dc0062774737611b708a8ba8793d8ab1559060cb752260ea11692a"
+    }
+  ]
+}
