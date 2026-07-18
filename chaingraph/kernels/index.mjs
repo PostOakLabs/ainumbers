@@ -321,6 +321,7 @@ import * as art379    from './art-379-agent-incident-record-composer.kernel.mjs'
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
 import * as art380    from './art-380-build-ai-workpaper-record.kernel.mjs';
 import * as art385    from './art-385-agent-token-scope-checker.kernel.mjs';
+import * as art386    from './art-386-lint-cbom-structure.kernel.mjs';
 import * as art387    from './art-387-pqc-deadline-ladder-calculator.kernel.mjs';
 import * as art388    from './art-388-tempo-fee-amm-converter.kernel.mjs';
 import * as art389    from './art-389-tempo-mainnet-fee-capacity.kernel.mjs';
@@ -727,6 +728,7 @@ export const KERNELS = {
   'art-38-tempo-onchain-aml':                                 art38,
   'art-380-build-ai-workpaper-record':                        art380,
   'art-385-agent-token-scope-checker':                        art385,
+  'art-386-lint-cbom-structure':                              art386,
   'art-387-pqc-deadline-ladder-calculator':                   art387,
   'art-388-tempo-fee-amm-converter':                          art388,
   'art-389-tempo-mainnet-fee-capacity':                       art389,
