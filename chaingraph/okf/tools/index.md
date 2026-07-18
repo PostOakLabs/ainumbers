@@ -294,6 +294,10 @@ timestamp: 2026-07-14
 - [ETR Singularity & Exclusive-Control Evidence Checker](./art-352-etr-control-evidence-checker.md) — `check_etr_control_evidence`
 - [ETR Possession-Chain Receipt Builder](./art-353-etr-possession-chain-builder.md) — `build_etr_possession_chain`
 - [MLETR Jurisdiction-Adoption Lookup](./art-354-mletr-jurisdiction-adoption-lookup.md) — `lookup_mletr_jurisdiction_adoption`
+- [ERBA / Standardized RWA Calculator (Basel Endgame 2026)](./art-355-erba-standardized-rwa-calculator.md) — `compute_rwa_erba_2026`
+- [Basel Operational Risk SMA (2026 Reproposal)](./art-356-compute-oprisk-sma-2026.md) — `compute_oprisk_sma_2026`
+- [Basel 2023-vs-2026 Capital-Delta Comparator](./art-357-basel-2023-vs-2026-capital-delta-comparator.md) — `compare_basel_2023_vs_2026`
+- [Basel Output-Floor Phase-In Simulator](./art-358-simulate-output-floor.md) — `simulate_output_floor`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
