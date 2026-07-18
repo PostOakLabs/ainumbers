@@ -1,0 +1,35 @@
+name: Protected Paths Guard
+
+# GUARD-COVER-1 (2026-07-18): check-protected-paths.mjs's PR-blocking mode
+# never ran — no pull_request trigger covered CONTRACT.md, SPEC.md, or the
+# v0.4 schema, and html-verify/land-verify/scripts-verify don't invoke the
+# guard even when they do trigger. This workflow is the missing coverage:
+# it runs the guard, in PR context, on exactly the three protected paths
+# (plus itself, so the guard can't be weakened without review).
+
+on:
+  pull_request:
+    paths:
+      - 'CONTRACT.md'
+      - 'chaingraph/standard/SPEC.md'
+      - 'chaingraph/standard/openchain-graph-v0.4.schema.json'
+      - '.github/workflows/protected-paths.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  protected-paths:
+    name: Guard normative surface
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check protected paths
+        run: node scripts/check-protected-paths.mjs
