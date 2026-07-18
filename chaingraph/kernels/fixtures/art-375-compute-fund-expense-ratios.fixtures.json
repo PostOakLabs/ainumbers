@@ -1,0 +1,584 @@
+{
+  "tool_id": "art-375-compute-fund-expense-ratios",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. Vectors cover: no-waiver baseline, a single fixed-dollar waiver, and three declared waiver orderings (fixed-then-percent vs percent-then-fixed vs cap-then-fixed) that prove the declared order changes the net expense ratio, plus a structural-error case.",
+  "vectors": [
+    {
+      "name": "baseline-no-waivers",
+      "description": "No waivers: gross expense components sum directly to net; gross, net, and TER all equal.",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-01",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 100000000,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "principal": 100000000,
+            "annual_rate": 0.0075,
+            "days": 365,
+            "day_count_convention": "actual/365"
+          },
+          {
+            "description": "admin fee",
+            "amount": 150000
+          },
+          {
+            "description": "12b-1 fee",
+            "amount": 100000
+          }
+        ],
+        "waivers": [],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-01",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": null,
+        "components": {
+          "average_net_assets": "100000000.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": "actual/365",
+              "amount": "750000.00000000"
+            },
+            {
+              "description": "admin fee",
+              "day_count_convention": null,
+              "amount": "150000.00000000"
+            },
+            {
+              "description": "12b-1 fee",
+              "day_count_convention": null,
+              "amount": "100000.00000000"
+            }
+          ],
+          "gross_expense_total": "1000000.00000000",
+          "waivers_applied": [],
+          "net_expense_total": "1000000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": "0.0100",
+        "net_expense_ratio": "0.0100",
+        "total_expense_ratio": "0.0100",
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "8b2846bebd04f6f1408b3175138a428d822e522b7a84f31b558ce7caf7dc9f4c"
+    },
+    {
+      "name": "single-fixed-waiver",
+      "description": "One fixed-dollar advisor fee waiver reduces gross expense by a flat amount.",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-02",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 50000000,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "amount": 500000
+          },
+          {
+            "description": "admin fee",
+            "amount": 75000
+          }
+        ],
+        "waivers": [
+          {
+            "description": "advisor fee waiver, fixed",
+            "order": 1,
+            "method": "fixed_amount",
+            "amount": 100000
+          }
+        ],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-02",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": null,
+        "components": {
+          "average_net_assets": "50000000.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": null,
+              "amount": "500000.00000000"
+            },
+            {
+              "description": "admin fee",
+              "day_count_convention": null,
+              "amount": "75000.00000000"
+            }
+          ],
+          "gross_expense_total": "575000.00000000",
+          "waivers_applied": [
+            {
+              "description": "advisor fee waiver, fixed",
+              "order": 1,
+              "method": "fixed_amount",
+              "error": null,
+              "remaining_before": "575000.00000000",
+              "reduction": "100000.00000000",
+              "remaining_after": "475000.00000000"
+            }
+          ],
+          "net_expense_total": "475000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": "0.0115",
+        "net_expense_ratio": "0.0095",
+        "total_expense_ratio": "0.0115",
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "723a5b48cedb39d96af064c0f950054df35c8111d43e82973a60588e6e501dd7"
+    },
+    {
+      "name": "waiver-order-fixed-then-percent",
+      "description": "Fixed-dollar waiver applied FIRST (order 1), then a 10% percent-of-remaining reimbursement (order 2) computed off the post-fixed-waiver remainder.",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-03",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 20000000,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "amount": 300000
+          },
+          {
+            "description": "admin fee",
+            "amount": 50000
+          }
+        ],
+        "waivers": [
+          {
+            "description": "fixed advisor waiver",
+            "order": 1,
+            "method": "fixed_amount",
+            "amount": 50000
+          },
+          {
+            "description": "distributor percent-of-remaining reimbursement",
+            "order": 2,
+            "method": "percent_of_remaining",
+            "percent": 0.1
+          }
+        ],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-03",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": null,
+        "components": {
+          "average_net_assets": "20000000.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": null,
+              "amount": "300000.00000000"
+            },
+            {
+              "description": "admin fee",
+              "day_count_convention": null,
+              "amount": "50000.00000000"
+            }
+          ],
+          "gross_expense_total": "350000.00000000",
+          "waivers_applied": [
+            {
+              "description": "fixed advisor waiver",
+              "order": 1,
+              "method": "fixed_amount",
+              "error": null,
+              "remaining_before": "350000.00000000",
+              "reduction": "50000.00000000",
+              "remaining_after": "300000.00000000"
+            },
+            {
+              "description": "distributor percent-of-remaining reimbursement",
+              "order": 2,
+              "method": "percent_of_remaining",
+              "error": null,
+              "remaining_before": "300000.00000000",
+              "reduction": "30000.00000000",
+              "remaining_after": "270000.00000000"
+            }
+          ],
+          "net_expense_total": "270000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": "0.0175",
+        "net_expense_ratio": "0.0135",
+        "total_expense_ratio": "0.0175",
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "ae275732e893bbddac32738cf073d3c383bd2701d3187fe58e9850b501ad150e"
+    },
+    {
+      "name": "waiver-order-percent-then-fixed",
+      "description": "SAME gross expenses and SAME two waivers as waiver-order-fixed-then-percent, but declared order reversed: 10% percent-of-remaining applied FIRST (order 1) off the full gross base, then the fixed-dollar waiver (order 2). Produces a DIFFERENT net_expense_ratio (0.0133 vs 0.0135) — proof the declared order, not house convention, drives the result.",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-03",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 20000000,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "amount": 300000
+          },
+          {
+            "description": "admin fee",
+            "amount": 50000
+          }
+        ],
+        "waivers": [
+          {
+            "description": "distributor percent-of-remaining reimbursement",
+            "order": 1,
+            "method": "percent_of_remaining",
+            "percent": 0.1
+          },
+          {
+            "description": "fixed advisor waiver",
+            "order": 2,
+            "method": "fixed_amount",
+            "amount": 50000
+          }
+        ],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-03",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": null,
+        "components": {
+          "average_net_assets": "20000000.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": null,
+              "amount": "300000.00000000"
+            },
+            {
+              "description": "admin fee",
+              "day_count_convention": null,
+              "amount": "50000.00000000"
+            }
+          ],
+          "gross_expense_total": "350000.00000000",
+          "waivers_applied": [
+            {
+              "description": "distributor percent-of-remaining reimbursement",
+              "order": 1,
+              "method": "percent_of_remaining",
+              "error": null,
+              "remaining_before": "350000.00000000",
+              "reduction": "35000.00000000",
+              "remaining_after": "315000.00000000"
+            },
+            {
+              "description": "fixed advisor waiver",
+              "order": 2,
+              "method": "fixed_amount",
+              "error": null,
+              "remaining_before": "315000.00000000",
+              "reduction": "50000.00000000",
+              "remaining_after": "265000.00000000"
+            }
+          ],
+          "net_expense_total": "265000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": "0.0175",
+        "net_expense_ratio": "0.0133",
+        "total_expense_ratio": "0.0175",
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "ce95cdfdc4b1a9673746cdbeceb2c654e4fb5746d67253c8137a84cd68cba296"
+    },
+    {
+      "name": "waiver-order-cap-then-fixed",
+      "description": "A rate-cap waiver (cap net ratio to 1.00% of average net assets, order 1) applied before a further fixed-dollar waiver (order 2).",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-04",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 10000000,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "amount": 120000
+          },
+          {
+            "description": "admin fee",
+            "amount": 30000
+          }
+        ],
+        "waivers": [
+          {
+            "description": "cap net ratio to 1.00%",
+            "order": 1,
+            "method": "cap_to_rate",
+            "cap_rate": 0.01
+          },
+          {
+            "description": "fixed 2000 waiver after cap",
+            "order": 2,
+            "method": "fixed_amount",
+            "amount": 2000
+          }
+        ],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-04",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": null,
+        "components": {
+          "average_net_assets": "10000000.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": null,
+              "amount": "120000.00000000"
+            },
+            {
+              "description": "admin fee",
+              "day_count_convention": null,
+              "amount": "30000.00000000"
+            }
+          ],
+          "gross_expense_total": "150000.00000000",
+          "waivers_applied": [
+            {
+              "description": "cap net ratio to 1.00%",
+              "order": 1,
+              "method": "cap_to_rate",
+              "error": null,
+              "remaining_before": "150000.00000000",
+              "reduction": "50000.00000000",
+              "remaining_after": "100000.00000000"
+            },
+            {
+              "description": "fixed 2000 waiver after cap",
+              "order": 2,
+              "method": "fixed_amount",
+              "error": null,
+              "remaining_before": "100000.00000000",
+              "reduction": "2000.00000000",
+              "remaining_after": "98000.00000000"
+            }
+          ],
+          "net_expense_total": "98000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": "0.0150",
+        "net_expense_ratio": "0.0098",
+        "total_expense_ratio": "0.0150",
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "0794cd7eddde489d5204a0b5c286ad9d0a9a2dfe6d2376fc860d24f9fe8d3dec"
+    },
+    {
+      "name": "structural-error-zero-average-net-assets",
+      "description": "average_net_assets is zero: structural error, no ratios computed.",
+      "policy_parameters": {
+        "fund_id": "FUND-EXP-ERR",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "average_net_assets": 0,
+        "gross_expense_components": [
+          {
+            "description": "management fee",
+            "amount": 1000
+          }
+        ],
+        "waivers": [],
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "fund_id": "FUND-EXP-ERR",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "structural_error": "average_net_assets must be a positive number.",
+        "components": {
+          "average_net_assets": "0.00000000",
+          "gross_expense_components": [
+            {
+              "description": "management fee",
+              "day_count_convention": null,
+              "amount": "1000.00000000"
+            }
+          ],
+          "gross_expense_total": "1000.00000000",
+          "waivers_applied": [],
+          "net_expense_total": "1000.00000000"
+        },
+        "rounding": {
+          "decimal_places": 4,
+          "mode": "half_up"
+        },
+        "gross_expense_ratio": null,
+        "net_expense_ratio": null,
+        "total_expense_ratio": null,
+        "not_proven": [
+          {
+            "item": "Expense accuracy",
+            "detail": "Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source."
+          },
+          {
+            "item": "Waiver economic substance / permissibility",
+            "detail": "This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund's governing documents."
+          },
+          {
+            "item": "Regulatory NAV/expense filing compliance",
+            "detail": "40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework's expense-ratio disclosure or filing rules."
+          },
+          {
+            "item": "Total Expense Ratio scope completeness",
+            "detail": "TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund's reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions."
+          }
+        ],
+        "fence": "Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.",
+        "regulatory_framework": "40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework."
+      },
+      "golden_hash": "284ed7a4b5b682a93ed8285ca18161b07d4465c3fda454e58e19756ded7f3122"
+    }
+  ]
+}
