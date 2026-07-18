@@ -291,6 +291,9 @@ timestamp: 2026-07-14
 - [Fedwire Structured Address Linter](./art-349-fedwire-structured-address-linter.md) — `lint_fedwire_structured_address`
 - [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md) — `model_tempo_payment_economics`
 - [Fedwire Payment-File Address Sweep](./art-350-fedwire-address-sweep.md) — `sweep_fedwire_addresses`
+- [ETR Singularity & Exclusive-Control Evidence Checker](./art-352-etr-control-evidence-checker.md) — `check_etr_control_evidence`
+- [ETR Possession-Chain Receipt Builder](./art-353-etr-possession-chain-builder.md) — `build_etr_possession_chain`
+- [MLETR Jurisdiction-Adoption Lookup](./art-354-mletr-jurisdiction-adoption-lookup.md) — `lookup_mletr_jurisdiction_adoption`
 - [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md) — `decode_mpp_session`
 - [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md) — `validate_tempo_token_compliance`
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
