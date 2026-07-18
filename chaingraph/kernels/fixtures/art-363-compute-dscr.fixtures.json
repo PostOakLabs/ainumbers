@@ -1,0 +1,81 @@
+{
+  "tool_id": "art-363-compute-dscr",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: seeded default from tools/438-dscr-interest-coverage-calculator.html (EBITDA $30M). Vector 2: tight covenant case failing IG/leveraged-loan thresholds but passing infrastructure/SME. Vector 3: zero debt service (finite gate, ratios return null not Infinity/NaN).",
+  "vectors": [
+    {
+      "name": "seeded_default",
+      "description": "EBITDA $30M, EBIT $22M, interest $6M, principal $5M, leases $2M, capex $6M, taxes $5M, WC change $1.5M, amort $5M, revolver $0, total debt $80M, cash $12M. Ported byte-for-byte from tools/438-dscr-interest-coverage-calculator.html calcRatios() with the same seeded defaults. Passes all 5 lender categories.",
+      "policy_parameters": {
+        "ebitda_musd": 30, "ebit_musd": 22, "interest_musd": 6, "principal_musd": 5, "leases_musd": 2,
+        "capex_musd": 6, "taxes_musd": 5, "working_capital_change_musd": 1.5, "amortization_musd": 5,
+        "revolver_draw_musd": 0, "total_debt_musd": 80, "cash_musd": 12
+      },
+      "output_payload": {
+        "basic_dscr": 2.73, "cash_dscr": 1.73, "fcf_dscr": 1.59, "fccr": 2.46,
+        "icr_ebit_basis": 3.67, "icr_ebitda_basis": 5, "net_leverage": 2.27, "gross_leverage": 2.67,
+        "total_debt_service_musd": 11,
+        "lender_assessment": [
+          { "lender_category": "Investment Grade Corporate", "dscr_min": 1.5, "icr_min": 4, "dscr_pass": true, "icr_pass": true, "meets_threshold": true },
+          { "lender_category": "Leveraged Loan (BB)", "dscr_min": 1.25, "icr_min": 2.5, "dscr_pass": true, "icr_pass": true, "meets_threshold": true },
+          { "lender_category": "CRE / Property", "dscr_min": 1.25, "icr_min": null, "dscr_pass": true, "icr_pass": null, "meets_threshold": true },
+          { "lender_category": "Infrastructure", "dscr_min": 1.15, "icr_min": null, "dscr_pass": true, "icr_pass": null, "meets_threshold": true },
+          { "lender_category": "SME / Mid-market", "dscr_min": 1.2, "icr_min": 2, "dscr_pass": true, "icr_pass": true, "meets_threshold": true }
+        ],
+        "regulatory_basis": "Standard credit-analysis DSCR/ICR/leverage definitions used in commercial lending covenant testing; lender threshold matrix reflects typical market convention, not a regulatory mandate.",
+        "note": "Ratios with a non-positive denominator return null rather than an unbounded or NaN value."
+      },
+      "compliance_flags": [],
+      "golden_hash": "af1383fb176d095e7d7115e439d2aecbe612999d5aed4f3d8417b2d2e2508cfc"
+    },
+    {
+      "name": "tight_covenant_case",
+      "description": "EBITDA $12M, EBIT $8M, interest $5M, principal $4M, leases $1M, capex $3M, taxes $2M, WC change $0.5M, amort $4M, revolver $1M, total debt $60M, cash $3M. Fails IG and leveraged-loan thresholds (Basic DSCR 1.20x < 1.50x/1.25x-adjacent ICR), passes infrastructure and SME.",
+      "policy_parameters": {
+        "ebitda_musd": 12, "ebit_musd": 8, "interest_musd": 5, "principal_musd": 4, "leases_musd": 1,
+        "capex_musd": 3, "taxes_musd": 2, "working_capital_change_musd": 0.5, "amortization_musd": 4,
+        "revolver_draw_musd": 1, "total_debt_musd": 60, "cash_musd": 3
+      },
+      "output_payload": {
+        "basic_dscr": 1.2, "cash_dscr": 0.7, "fcf_dscr": 0.65, "fccr": 1.3,
+        "icr_ebit_basis": 1.6, "icr_ebitda_basis": 2.4, "net_leverage": 4.75, "gross_leverage": 5,
+        "total_debt_service_musd": 10,
+        "lender_assessment": [
+          { "lender_category": "Investment Grade Corporate", "dscr_min": 1.5, "icr_min": 4, "dscr_pass": false, "icr_pass": false, "meets_threshold": false },
+          { "lender_category": "Leveraged Loan (BB)", "dscr_min": 1.25, "icr_min": 2.5, "dscr_pass": false, "icr_pass": false, "meets_threshold": false },
+          { "lender_category": "CRE / Property", "dscr_min": 1.25, "icr_min": null, "dscr_pass": false, "icr_pass": null, "meets_threshold": false },
+          { "lender_category": "Infrastructure", "dscr_min": 1.15, "icr_min": null, "dscr_pass": true, "icr_pass": null, "meets_threshold": true },
+          { "lender_category": "SME / Mid-market", "dscr_min": 1.2, "icr_min": 2, "dscr_pass": true, "icr_pass": true, "meets_threshold": true }
+        ],
+        "regulatory_basis": "Standard credit-analysis DSCR/ICR/leverage definitions used in commercial lending covenant testing; lender threshold matrix reflects typical market convention, not a regulatory mandate.",
+        "note": "Ratios with a non-positive denominator return null rather than an unbounded or NaN value."
+      },
+      "compliance_flags": [],
+      "golden_hash": "254fbc3ce15713c89fb0ec3161904a3a226ba869598417ccb3d315ea599b977e"
+    },
+    {
+      "name": "zero_debt_service_edge",
+      "description": "Zero interest, principal, and total debt. Finite gate: all debt-service ratios (basic/cash/FCF DSCR, FCCR, both ICRs) must resolve to null, never NaN/Infinity, and WITHHOLDING-style flag DSCR_ZERO_DEBT_SERVICE_DENOMINATOR fires.",
+      "policy_parameters": {
+        "ebitda_musd": 30, "ebit_musd": 22, "interest_musd": 0, "principal_musd": 0, "leases_musd": 0,
+        "capex_musd": 6, "taxes_musd": 5, "working_capital_change_musd": 1.5, "amortization_musd": 0,
+        "revolver_draw_musd": 0, "total_debt_musd": 0, "cash_musd": 12
+      },
+      "output_payload": {
+        "basic_dscr": null, "cash_dscr": null, "fcf_dscr": null, "fccr": null,
+        "icr_ebit_basis": null, "icr_ebitda_basis": null, "net_leverage": -0.4, "gross_leverage": 0,
+        "total_debt_service_musd": 0,
+        "lender_assessment": [
+          { "lender_category": "Investment Grade Corporate", "dscr_min": 1.5, "icr_min": 4, "dscr_pass": false, "icr_pass": false, "meets_threshold": false },
+          { "lender_category": "Leveraged Loan (BB)", "dscr_min": 1.25, "icr_min": 2.5, "dscr_pass": false, "icr_pass": false, "meets_threshold": false },
+          { "lender_category": "CRE / Property", "dscr_min": 1.25, "icr_min": null, "dscr_pass": false, "icr_pass": null, "meets_threshold": false },
+          { "lender_category": "Infrastructure", "dscr_min": 1.15, "icr_min": null, "dscr_pass": false, "icr_pass": null, "meets_threshold": false },
+          { "lender_category": "SME / Mid-market", "dscr_min": 1.2, "icr_min": 2, "dscr_pass": false, "icr_pass": false, "meets_threshold": false }
+        ],
+        "regulatory_basis": "Standard credit-analysis DSCR/ICR/leverage definitions used in commercial lending covenant testing; lender threshold matrix reflects typical market convention, not a regulatory mandate.",
+        "note": "Ratios with a non-positive denominator return null rather than an unbounded or NaN value."
+      },
+      "compliance_flags": ["DSCR_ZERO_DEBT_SERVICE_DENOMINATOR"],
+      "golden_hash": "674a8cdb6820921fdfb2b9220fbf2af3634ac0dd61b8ff0ab8444ba973e8a021"
+    }
+  ]
+}
