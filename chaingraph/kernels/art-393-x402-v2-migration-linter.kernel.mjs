@@ -22,6 +22,20 @@ const V1_HEADER_NAMES = ['X-PAYMENT', 'X-PAYMENT-RESPONSE'];
 const V2_HEADER_NAMES = ['PAYMENT-REQUIRED', 'PAYMENT-SIGNATURE', 'PAYMENT-RESPONSE'];
 const V1_TO_V2_HEADER = { 'X-PAYMENT': 'PAYMENT-SIGNATURE', 'X-PAYMENT-RESPONSE': 'PAYMENT-RESPONSE' };
 const CAIP2_RE = /^[-a-z0-9]{3,8}:[-a-zA-Z0-9]{1,32}$/;
+// Accepts a bare number (1, 2) or a conventional v-prefixed string ("v1", "V2"), case-insensitive.
+// Anything else (including numeric strings that don't match, garbage, objects) returns null --
+// NEVER NaN. A caller-supplied protocol_version that fails to parse must degrade to "unspecified",
+// not crash the finite gate (X402LINT-FIX-1: Number('v2') === NaN was reaching the hash canonicalizer).
+const VERSION_RE = /^v?(\d+(?:\.\d+)?)$/i;
+function parseProtocolVersion(raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  if (typeof raw === 'string') {
+    const m = VERSION_RE.exec(raw.trim());
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
 
 function normalizeHeaderKeys(headers) {
   const out = {};
@@ -35,7 +49,11 @@ function lint(pp) {
   const findings = [];
   const headers = normalizeHeaderKeys(pp.headers);
   const body = (pp.body && typeof pp.body === 'object') ? pp.body : null;
-  const declaredVersion = (pp.protocol_version !== undefined) ? Number(pp.protocol_version) : null;
+  const declaredVersion = parseProtocolVersion(pp.protocol_version);
+  const versionUnparseable = pp.protocol_version !== undefined && pp.protocol_version !== null && declaredVersion === null;
+  if (versionUnparseable) {
+    findings.push({ level: 'error', msg: `protocol_version "${pp.protocol_version}" could not be parsed as a version number (expected e.g. 2 or "v2") — treating as unspecified.` });
+  }
 
   const v1HeadersPresent = V1_HEADER_NAMES.filter(h => h.toUpperCase() in headers);
   const v2HeadersPresent = V2_HEADER_NAMES.filter(h => h.toUpperCase() in headers);
@@ -87,7 +105,7 @@ function lint(pp) {
     findings.push({ level: 'error', msg: 'No x402 headers or body supplied — nothing to lint.' });
   }
 
-  return { findings, inferredVersion, v1HeadersPresent, v2HeadersPresent };
+  return { findings, inferredVersion, v1HeadersPresent, v2HeadersPresent, declaredVersion, versionUnparseable };
 }
 
 function scoreOf(findings) {
@@ -104,18 +122,19 @@ function scoreOf(findings) {
 }
 
 export function compute(pp) {
-  const { findings, inferredVersion, v1HeadersPresent, v2HeadersPresent } = lint(pp || {});
+  const { findings, inferredVersion, v1HeadersPresent, v2HeadersPresent, declaredVersion, versionUnparseable } = lint(pp || {});
   const { score, errors, warnings, passes } = scoreOf(findings);
 
   const compliance_flags = ['X402_V2_MIGRATION_CHECKED'];
   compliance_flags.push(inferredVersion === 2 ? 'X402_WIRE_V2' : 'X402_WIRE_V1');
   if (v1HeadersPresent.length) compliance_flags.push('DEPRECATED_V1_HEADER_PRESENT');
   if (v1HeadersPresent.length && v2HeadersPresent.length) compliance_flags.push('MIGRATION_INCOMPLETE');
+  if (versionUnparseable) compliance_flags.push('X402_PROTOCOL_VERSION_UNPARSEABLE');
   if (errors === 0) compliance_flags.push('X402_V2_MIGRATION_CLEAN');
 
   const output_payload = {
     protocol_version: 2,
-    declared_protocol_version: (pp && pp.protocol_version !== undefined) ? Number(pp.protocol_version) : null,
+    declared_protocol_version: declaredVersion,
     inferred_wire_version: inferredVersion,
     deprecated_headers_found: v1HeadersPresent,
     v2_headers_found: v2HeadersPresent,
