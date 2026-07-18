@@ -293,6 +293,7 @@ import * as art350    from './art-350-fedwire-address-sweep.kernel.mjs';
 import * as art352    from './art-352-etr-control-evidence-checker.kernel.mjs';
 import * as art353    from './art-353-etr-possession-chain-builder.kernel.mjs';
 import * as art354    from './art-354-mletr-jurisdiction-adoption-lookup.kernel.mjs';
+import * as art355    from './art-355-erba-standardized-rwa-calculator.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
 import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
 import * as art38     from './art-38-tempo-onchain-aml.kernel.mjs';
@@ -666,6 +667,7 @@ export const KERNELS = {
   'art-352-etr-control-evidence-checker':                     art352,
   'art-353-etr-possession-chain-builder':                     art353,
   'art-354-mletr-jurisdiction-adoption-lookup':               art354,
+  'art-355-erba-standardized-rwa-calculator':                 art355,
   'art-36-tempo-mpp-agent-mandate':                           art36,
   'art-37-tempo-stablecoin-issuance':                         art37,
   'art-38-tempo-onchain-aml':                                 art38,
