@@ -290,6 +290,7 @@ import * as art348    from './art-348-score-credit-model-quantized.kernel.mjs';
 import * as art349    from './art-349-fedwire-structured-address-linter.kernel.mjs';
 import * as art35     from './art-35-tempo-payments-business-case.kernel.mjs';
 import * as art350    from './art-350-fedwire-address-sweep.kernel.mjs';
+import * as art353    from './art-353-etr-possession-chain-builder.kernel.mjs';
 import * as art354    from './art-354-mletr-jurisdiction-adoption-lookup.kernel.mjs';
 import * as art36     from './art-36-tempo-mpp-agent-mandate.kernel.mjs';
 import * as art37     from './art-37-tempo-stablecoin-issuance.kernel.mjs';
@@ -661,6 +662,7 @@ export const KERNELS = {
   'art-349-fedwire-structured-address-linter':                art349,
   'art-35-tempo-payments-business-case':                      art35,
   'art-350-fedwire-address-sweep':                            art350,
+  'art-353-etr-possession-chain-builder':                     art353,
   'art-354-mletr-jurisdiction-adoption-lookup':               art354,
   'art-36-tempo-mpp-agent-mandate':                           art36,
   'art-37-tempo-stablecoin-issuance':                         art37,
