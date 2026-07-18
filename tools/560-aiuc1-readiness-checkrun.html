@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AIUC-1 Readiness Checkrun · AINumbers.co</title>
+<meta name="description" content="Walk the 23 automatable AIUC-1 controls (pillars A-F) as a CHECKRUN, attach attestations or evidence digests per control, and produce a hash-chained, Merkle-rooted readiness bundle prepared for AIUC-1 review. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/560-aiuc1-readiness-checkrun.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AIUC-1 Readiness Checkrun","url":"https://ainumbers.co/tools/560-aiuc1-readiness-checkrun.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "aiuc1-readiness-checkrun",
+  "version": "1.0.0",
+  "title": "AIUC-1 Readiness Checkrun",
+  "description": "CHECKRUN definition covering the 23 automatable AIUC-1 controls (pillars A-F). Each control is one step; attach an attestation note or an evidence digest, then produce a hash-chained, Merkle-rooted readiness bundle prepared for AIUC-1 review.",
+  "category": "cat-2",
+  "tags": ["aiuc-1","ai-underwriting","checkrun","readiness","evidence-bundle"],
+  "audience": ["compliance","engineer","risk"],
+  "input_schema": {"type":"object","properties":{"control_evidence":{"type":"array"}}},
+  "output_schema": {"type":"object","properties":{"readiness_bundle":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"run_aiuc1_readiness_checkrun","description":"Runs the 23-step AIUC-1 automatable-control CHECKRUN and produces a Merkle-rooted readiness bundle.","inputSchema":{"type":"object","properties":{"control_evidence":{"type":"array","description":"Per-control evidence notes or digests"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/560-aiuc1-readiness-checkrun.html","function_name":"produceReadinessBundle","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.pillar-heading{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:1.25rem 0 .5rem;display:flex;align-items:center;gap:.6rem}
+.pillar-heading .n{color:var(--muted)}
+.step-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .9rem;margin-bottom:.5rem}
+.step-top{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.4rem}
+.step-id{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bright)}
+.step-status{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .5rem;border-radius:3px;border:1px solid var(--border);color:var(--muted)}
+.step-status.attestation-only{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.step-status.receipt-backed{color:var(--green);border-color:rgba(34,197,94,.3)}
+.step-input{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .55rem;outline:none}
+.step-input:focus{border-color:var(--teal)}
+.step-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem}
+.run-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin:1.25rem 0;padding-top:1rem;border-top:1px solid var(--border)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.55rem 1.1rem;border-radius:var(--radius);font-weight:500}
+.run-btn:disabled{background:var(--bg-3);color:var(--muted);cursor:not-allowed}
+.coverage-row{display:flex;gap:1rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.coverage-row b{color:var(--bright)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--body);white-space:pre-wrap;word-break:break-all;max-height:50vh;overflow:auto}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+.tb-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--text);padding:.4rem .8rem;border-radius:var(--radius);transition:all .2s}
+.tb-btn:hover{border-color:var(--teal);color:var(--teal)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T560</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-2 · T560 · Compliance &amp; Consent</div>
+  <h1 class="tool-title">AIUC-1 Readiness <em>Checkrun</em></h1>
+  <p class="hero-desc">Work the 23 automatable AIUC-1 controls (pillars A through F) as a step-by-step CHECKRUN. Attach an attestation note or an evidence digest to each control, then produce a hash-chained, Merkle-rooted readiness bundle prepared for AIUC-1 review.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">AIUC-1 2026-Q1</span>
+    <span class="badge badge-gold">CHECKRUN</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance:</strong> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data: use synthetic or anonymised inputs only. This produces an evidence format prepared for AIUC-1 review, citing the section it prepares for. It is not an AIUC certification and does not claim AIUC-1 compliance: AIUC certifies, this tool prepares the evidence. Scope is the 23 automatable AIUC-1 controls only; the remaining procedural controls are structurally out of automatable scope. For a coverage score across the same taxonomy, see the companion control-evidence linter (art-303).</div>
+
+  <div id="stepsHost"></div>
+
+  <div class="run-bar">
+    <button class="run-btn" id="runBtn" onclick="produceReadinessBundle()" disabled>Produce Readiness Bundle</button>
+    <div class="coverage-row" id="coverageRow"></div>
+  </div>
+
+  <div class="out-section" id="bundleSection" style="display:none">
+    <div class="out-header"><span class="out-title">Readiness Bundle</span><button class="tb-btn" onclick="copyBundle()">Copy</button></div>
+    <div class="out-body" id="bundleBody"></div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Produce a readiness bundle above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<!-- ═══ CHECKRUN-1 core (AIUC-EVIDENCE-BUILD-SPEC.md §AU-1) — verbatim from
+     chaingraph/kernels/_hash.mjs + chaingraph/kernels/_checklist.mjs, import/export
+     stripped for inline same-origin execution (CONTRACT §0: zero network calls).
+     Do NOT hand-edit the logic below; port fixes back to the source modules. ═══ -->
+<script>
+// ---- chaingraph/kernels/_hash.mjs (verbatim, export stripped) ----
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---- chaingraph/kernels/_checklist.mjs (verbatim, export stripped) ----
+const CHECKLIST_CONTEXT = 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld';
+const CG_VERSION = '0.4.0';
+async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(str);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function leafHash(contentHash) { return sha256Hex('leaf:' + String(contentHash ?? '')); }
+async function combineNodes(left, right) { return sha256Hex('node:' + left + ':' + right); }
+async function merkleRoot(leafContentHashes) {
+  const n = leafContentHashes.length;
+  if (n === 0) return sha256Hex('');
+  if (n === 1) return leafHash(leafContentHashes[0]);
+  let k = 1;
+  while (k * 2 < n) k *= 2;
+  const left = await merkleRoot(leafContentHashes.slice(0, k));
+  const right = await merkleRoot(leafContentHashes.slice(k));
+  return combineNodes(left, right);
+}
+async function definitionDigest(def) {
+  const stripped = { ...def };
+  delete stripped.definition_digest;
+  delete stripped.audit_signature;
+  const canon = cgCanon(stripped);
+  const bytes = new TextEncoder().encode(JSON.stringify(canon));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function buildStepReceipt({ definition_digest, step, step_index, completer_key, timestamp, evidence, prev_step_receipt_digest }) {
+  const policy_parameters = {
+    definition_digest, step_id: step.step_id, step_index,
+    completer_key: completer_key ?? null, timestamp, evidence: evidence ?? null,
+    prev_step_receipt_digest: prev_step_receipt_digest ?? null,
+  };
+  const output_payload = {
+    step_title: step.title, gate: step.gate, evidence_requirement: step.evidence_requirement,
+    evidence_provided: step.evidence_requirement === 'none' ? true : !!evidence,
+  };
+  const execution_hash = await executionHash(policy_parameters, output_payload);
+  return {
+    '@context': CHECKLIST_CONTEXT, chaingraph_version: CG_VERSION, mandate_type: 'compliance_control',
+    tool_id: 'checkrun-step-receipt', tool_version: '1.0.0', generated_at: timestamp, execution_hash,
+    chain: { parent_hashes: prev_step_receipt_digest ? [prev_step_receipt_digest] : [], parent_tool_ids: prev_step_receipt_digest ? ['checkrun-step-receipt'] : [], chain_depth: step_index },
+    policy_parameters, output_payload,
+    compliance_flags: step.gate === 'blocking' ? ['CHECKRUN_BLOCKING_GATE'] : ['CHECKRUN_ADVISORY_GATE'],
+    compute_mode: 'client',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
+async function buildRunReceipt({ definition_digest, run_id, started_at, completed_at, outcome, stepReceipts, escalation }) {
+  const leaves = stepReceipts.map((r) => r.execution_hash);
+  const merkle_root = await merkleRoot(leaves);
+  const policy_parameters = { definition_digest, run_id, started_at, completed_at, outcome, step_count: stepReceipts.length };
+  const output_payload = {
+    merkle_root, merkle_algorithm: 'rfc6962',
+    steps: stepReceipts.map((r, i) => ({ step_id: r.policy_parameters.step_id, index: i, execution_hash: r.execution_hash })),
+    outcome, escalation: escalation ?? null,
+  };
+  const execution_hash = await executionHash(policy_parameters, output_payload);
+  return {
+    '@context': CHECKLIST_CONTEXT, chaingraph_version: CG_VERSION, mandate_type: 'compliance_control',
+    tool_id: 'checkrun-run-receipt', tool_version: '1.0.0', generated_at: completed_at, execution_hash,
+    chain: { parent_hashes: leaves, parent_tool_ids: stepReceipts.map(() => 'checkrun-step-receipt'), chain_depth: stepReceipts.length },
+    policy_parameters, output_payload,
+    compliance_flags: outcome === 'complete' ? ['CHECKRUN_COMPLETE'] : outcome === 'escalated' ? ['CHECKRUN_ESCALATED'] : ['CHECKRUN_ABORTED'],
+    compute_mode: 'client',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
+</script>
+
+<!-- ═══ AIUC-1 automatable-control taxonomy — verbatim IDs/pillars from
+     chaingraph/kernels/art-303-aiuc1-control-evidence-linter.kernel.mjs (CATALOG_VERSION
+     2026-Q1). Reused here, not re-derived, so this CHECKRUN and art-303's coverage
+     score are always scoped to the identical 23-control set. ═══ -->
+<script>
+const CATALOG_VERSION = '2026-Q1';
+const PROCEDURAL_CONTROLS_OUT_OF_SCOPE = 26;
+const AUTOMATABLE_CONTROLS = [
+  { control_id: 'AIUC-A-01', pillar: 'A' }, { control_id: 'AIUC-A-02', pillar: 'A' },
+  { control_id: 'AIUC-A-03', pillar: 'A' }, { control_id: 'AIUC-A-04', pillar: 'A' },
+  { control_id: 'AIUC-B-01', pillar: 'B' }, { control_id: 'AIUC-B-02', pillar: 'B' },
+  { control_id: 'AIUC-B-03', pillar: 'B' }, { control_id: 'AIUC-B-04', pillar: 'B' },
+  { control_id: 'AIUC-C-01', pillar: 'C' }, { control_id: 'AIUC-C-02', pillar: 'C' },
+  { control_id: 'AIUC-C-03', pillar: 'C' }, { control_id: 'AIUC-C-04', pillar: 'C' },
+  { control_id: 'AIUC-D-01', pillar: 'D' }, { control_id: 'AIUC-D-02', pillar: 'D' },
+  { control_id: 'AIUC-D-03', pillar: 'D' }, { control_id: 'AIUC-D-04', pillar: 'D' },
+  { control_id: 'AIUC-E-01', pillar: 'E' }, { control_id: 'AIUC-E-02', pillar: 'E' },
+  { control_id: 'AIUC-E-03', pillar: 'E' }, { control_id: 'AIUC-E-04', pillar: 'E' },
+  { control_id: 'AIUC-F-01', pillar: 'F' }, { control_id: 'AIUC-F-02', pillar: 'F' },
+  { control_id: 'AIUC-F-03', pillar: 'F' },
+];
+const PILLAR_NAMES = { A: 'Data & Privacy', B: 'Security', C: 'Safety', D: 'Reliability', E: 'Accountability', F: 'Society' };
+const DIGEST_RE = /^[0-9a-f]{64}$/i;
+
+// Same classification as art-303's evidenceStatusFor: a hex-64 digest reads as
+// receipt-backed evidence; any other non-empty note is attestation-only.
+function evidenceStatusFor(value) {
+  if (!value) return 'missing';
+  return DIGEST_RE.test(value.trim()) ? 'receipt-backed' : 'attestation-only';
+}
+
+function checkrunDefinition() {
+  return {
+    definition_id: 'aiuc1-readiness-checkrun-2026-q1',
+    title: 'AIUC-1 Readiness Checkrun (2026-Q1)',
+    version: '1.0.0',
+    source_citation: 'AIUC-1 v2026-Q1 (aiuc-1.com), pillars A-F, 23 automatable controls. Coverage crosswalk: art-303-aiuc1-control-evidence-linter.',
+    steps: AUTOMATABLE_CONTROLS.map((c) => ({
+      step_id: c.control_id,
+      title: `Pillar ${c.pillar} (${PILLAR_NAMES[c.pillar]}): ${c.control_id}`,
+      instruction: `Attach an attestation note or a sha256 evidence digest demonstrating coverage of ${c.control_id}, prepared for AIUC-1 §${c.pillar}.`,
+      evidence_requirement: 'attestation',
+      approver_role: 'compliance',
+      gate: 'blocking',
+    })),
+  };
+}
+</script>
+
+<!-- ═══ Thin UI renderer — step list, evidence capture, run + coverage summary.
+     No hashing, canonicalization, or taxonomy logic lives below this line. ═══ -->
+<script>
+const DEFINITION = checkrunDefinition();
+const evidence = {}; // step_id -> raw evidence string
+
+function renderSteps() {
+  const host = document.getElementById('stepsHost');
+  let html = '';
+  let currentPillar = null;
+  DEFINITION.steps.forEach((step) => {
+    const c = AUTOMATABLE_CONTROLS.find((x) => x.control_id === step.step_id);
+    if (c.pillar !== currentPillar) {
+      currentPillar = c.pillar;
+      html += `<div class="pillar-heading"><span class="n">Pillar ${c.pillar}</span> ${PILLAR_NAMES[c.pillar]}</div>`;
+    }
+    const status = evidenceStatusFor(evidence[step.step_id]);
+    html += `<div class="step-card">
+      <div class="step-top"><span class="step-id">${step.step_id}</span><span class="step-status ${status}">${status}</span></div>
+      <input class="step-input" data-step="${step.step_id}" placeholder="Attestation note, or a sha256 evidence digest (64 hex chars)" value="${(evidence[step.step_id] || '').replace(/"/g, '&quot;')}" oninput="onEvidenceInput(this)">
+      <div class="step-hint">${step.instruction}</div>
+    </div>`;
+  });
+  host.innerHTML = html;
+  updateRunState();
+}
+
+function onEvidenceInput(input) {
+  const id = input.dataset.step;
+  evidence[id] = input.value;
+  const card = input.closest('.step-card');
+  const status = evidenceStatusFor(input.value);
+  const badge = card.querySelector('.step-status');
+  badge.className = `step-status ${status}`;
+  badge.textContent = status;
+  updateRunState();
+}
+
+function updateRunState() {
+  const complete = DEFINITION.steps.every((s) => evidenceStatusFor(evidence[s.step_id]) !== 'missing');
+  document.getElementById('runBtn').disabled = !complete;
+  const missing = DEFINITION.steps.filter((s) => evidenceStatusFor(evidence[s.step_id]) === 'missing').length;
+  document.getElementById('coverageRow').innerHTML = missing
+    ? `<span>${missing} of ${DEFINITION.steps.length} controls still need evidence</span>`
+    : `<span>All ${DEFINITION.steps.length} controls have evidence. Ready to produce the bundle.</span>`;
+}
+
+let lastBundle = null;
+async function produceReadinessBundle() {
+  const definition_digest = await definitionDigest(DEFINITION);
+  const now = new Date().toISOString();
+  const run_id = 'aiuc1-checkrun-' + now.replace(/[:.]/g, '-');
+  const stepReceipts = [];
+  let prevDigest = null;
+  for (let i = 0; i < DEFINITION.steps.length; i++) {
+    const step = DEFINITION.steps[i];
+    const receipt = await buildStepReceipt({
+      definition_digest, step, step_index: i, completer_key: null,
+      timestamp: now, evidence: evidence[step.step_id] || null, prev_step_receipt_digest: prevDigest,
+    });
+    stepReceipts.push(receipt);
+    prevDigest = receipt.execution_hash;
+  }
+  const runReceipt = await buildRunReceipt({
+    definition_digest, run_id, started_at: now, completed_at: now, outcome: 'complete', stepReceipts,
+  });
+
+  // Coverage summary — same formula as art-303's compute(), scoped to the same 23 controls.
+  const per_control = DEFINITION.steps.map((s) => ({
+    control_id: s.step_id, pillar: AUTOMATABLE_CONTROLS.find((c) => c.control_id === s.step_id).pillar,
+    status: evidenceStatusFor(evidence[s.step_id]),
+  }));
+  let receipt_backed_count = 0, attestation_only_count = 0, missing_count = 0;
+  const pillarTotals = {}, pillarScores = {};
+  for (const c of AUTOMATABLE_CONTROLS) { pillarTotals[c.pillar] = (pillarTotals[c.pillar] || 0) + 1; pillarScores[c.pillar] = 0; }
+  for (const row of per_control) {
+    if (row.status === 'receipt-backed') { receipt_backed_count++; pillarScores[row.pillar] += 1; }
+    else if (row.status === 'attestation-only') { attestation_only_count++; pillarScores[row.pillar] += 0.5; }
+    else missing_count++;
+  }
+  const per_pillar_coverage = {};
+  for (const pillar of Object.keys(pillarTotals)) per_pillar_coverage[pillar] = pillarScores[pillar] / pillarTotals[pillar];
+  const overall_coverage = (receipt_backed_count + 0.5 * attestation_only_count) / AUTOMATABLE_CONTROLS.length;
+
+  lastBundle = {
+    aiuc1_version: CATALOG_VERSION,
+    definition: DEFINITION,
+    definition_digest,
+    run_receipt: runReceipt,
+    step_receipts: stepReceipts,
+    coverage_summary: {
+      per_control, per_pillar_coverage, overall_coverage,
+      receipt_backed_count, attestation_only_count, missing_count,
+      procedural_controls_out_of_scope: PROCEDURAL_CONTROLS_OUT_OF_SCOPE,
+      automatable_scope: AUTOMATABLE_CONTROLS.length,
+    },
+    disclosure: 'Prepared for AIUC-1 review (2026-Q1 taxonomy). This is an evidence bundle, not an AIUC-1 certification: AIUC certifies, this tool prepares the evidence.',
+    produced_at: now,
+  };
+  document.getElementById('bundleSection').style.display = '';
+  document.getElementById('bundleBody').textContent = JSON.stringify(lastBundle, null, 2);
+  window.enableAP2Btn();
+}
+
+function copyBundle() {
+  if (lastBundle) navigator.clipboard.writeText(JSON.stringify(lastBundle, null, 2));
+}
+
+renderSteps();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "560-aiuc1-readiness-checkrun", "version": "1.0.0", "title": "AIUC-1 Readiness Checkrun", "description": "CHECKRUN definition covering the 23 automatable AIUC-1 controls (pillars A-F). Each control is one step; attach an attestation note or an evidence digest, then produce a hash-chained, Merkle-rooted readiness bundle prepared for AIUC-1 review. Client-side. Zero PII.", "category": "compliance-consent", "tags": ["aiuc-1", "ai-underwriting", "checkrun", "readiness", "evidence-bundle"], "audience": ["compliance", "engineer", "risk"], "input_schema": {"type": "object", "properties": {"control_evidence": {"type": "array", "description": "Per-control attestation notes or sha256 evidence digests"}}}, "output_schema": {"type": "object", "properties": {"readiness_bundle": {"type": "object", "description": "definition, definition_digest, run_receipt, step_receipts, coverage_summary"}}}, "mcp_tool_definition": {"name": "run_aiuc1_readiness_checkrun", "description": "Runs the 23-step AIUC-1 automatable-control CHECKRUN and produces a Merkle-rooted readiness bundle prepared for AIUC-1 review.", "inputSchema": {"type": "object", "properties": {"control_evidence": {"type": "array"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/560-aiuc1-readiness-checkrun.html", "function_name": "produceReadinessBundle"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": false, "bridge_version": "1.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3-§4. Retained legacy identifiers (ap2ExportBtn / AP2Schema) — do not rename. */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.exportAP2=function(){
+  if(!lastBundle){alert('Produce a readiness bundle first to generate a Policy Mandate.');return;}
+  var ts=new Date().toISOString();
+  var tid='560-aiuc1-readiness-checkrun';
+  var mandate={
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'disclosure_template',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:lastBundle,
+    summary:'AIUC-1 readiness bundle: '+lastBundle.coverage_summary.receipt_backed_count+' receipt-backed, '+lastBundle.coverage_summary.attestation_only_count+' attestation-only of '+lastBundle.coverage_summary.automatable_scope+' controls, '+ts.slice(0,10),
+    agent_instructions:['Bind run_receipt.execution_hash into policy_parameters for the consuming OCG artifact.','Treat this as evidence prepared for AIUC-1 review, never as an AIUC-1 certification claim.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:['AIUC-1 (aiuc-1.com), 2026-Q1'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
