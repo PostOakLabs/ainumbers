@@ -12,9 +12,9 @@
 <!-- manifest.json
 {
   "tool_id": "550-c2pa-manifest-composer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "C2PA Manifest Composer",
-  "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs.",
+  "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs. Exports a c2patool-compatible manifest-definition file for external signing.",
   "category": "cat-2",
   "tags": ["C2PA", "content credentials", "provenance", "manifest", "assertions", "CAWG"],
   "audience": ["engineer", "compliance", "trust-safety"],
@@ -122,7 +122,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
 <div class="hero"><div class="container">
   <div class="hero-eyebrow">Cat-2 · T550 · Compliance &amp; Consent</div>
-  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <span class="hero-badge badge-muted"><span>v1.1</span></span>
   <h1 class="tool-title">C2PA Manifest <em>Composer</em></h1>
   <p class="hero-desc">Author a C2PA manifest DEFINITION in your browser: actions assertions (c2pa.actions v2, including a digitalSourceType picker), ingredient declarations with client-side SHA-256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Exports the definition JSON, its digest, and an OCG authoring receipt.</p>
   <div class="disclaimer">⚠ <strong style="color:var(--red)">This tool composes and structurally validates manifest DEFINITIONS. It does not sign.</strong> Trusted C2PA signing requires a conformance-program-passed product holding a Trust List claim-signing certificate - this tool is not that, and no browser-held key ever could be. Nothing exported here should be presented as a signed or trusted C2PA manifest. Sign the exported definition yourself with your own certificate and tooling (e.g. c2patool).</div>
@@ -197,6 +197,21 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     <div class="field-grid">
       <div class="field"><label>Intended Signature Algorithm</label><select id="sigAlg"><option value="">- none declared -</option><option value="ES256">ES256</option><option value="Ed25519">Ed25519</option><option value="PS256">PS256</option></select></div>
     </div>
+  </div>
+
+  <!-- EXPORT FOR SIGNING (c2patool bridge) -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Export for Signing &middot; c2patool Bridge</span></div>
+    <div class="p-sub" style="margin-bottom:.6rem">This tool never signs. Compose above, then export a <code>c2patool</code>-compatible manifest-definition file and sign it yourself with your own certificate and tooling. The OCG receipt binds this definition's digest to whatever you sign later as an <strong>asserted correspondence</strong> - we cannot observe your signing act, so the receipt never claims one happened.</div>
+    <div class="code-block" style="font-size:.62rem;margin-bottom:.6rem" id="c2patoolCmdBlock">c2patool &lt;your-asset-file&gt; -m c2patool-manifest-definition.json -o &lt;signed-output-file&gt;
+# c2patool reads signing credentials from its own config/trust settings (see
+# https://opensource.contentauthenticity.org/docs/c2patool/x_509 ) - this
+# exported file carries no certificate or private key, by design.
+# Ingredient hashes above are whole-file sha256 of the bytes you dropped here;
+# c2patool recomputes ingredient hashes from the actual file at sign time, so
+# use the byte-identical file or the signed manifest will not match.</div>
+    <button class="sec-btn" onclick="downloadC2patoolDefinition()" id="c2patoolBtn" disabled>⬇ Export c2patool Manifest Definition</button>
+    <div class="p-sub" style="margin-top:.6rem">Format compatibility: mapped from this composer's internal definition to the field names <code>c2patool</code>'s manifest JSON documents (<code>claim_generator</code>, <code>title</code>, <code>format</code>, <code>instanceId</code>, <code>assertions[]</code>). The draft CAWG identity block is intentionally omitted from this export - it is a representative shape only, not a validated encoding, and is not part of c2patool's documented schema. <strong>Verification status:</strong> this environment is zero-dependency/zero-egress and cannot install or run <code>c2patool</code>, so acceptance is documented as a reproducible manual proof rather than a live CI check - see the checked-off row for the exact recipe.</div>
   </div>
 
   <div style="display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap">
@@ -461,7 +476,37 @@ async function composeManifest() {
     </div>
   `;
   document.getElementById('downloadBtn').disabled = false;
+  document.getElementById('c2patoolBtn').disabled = false;
   if (window.enableAP2Btn) window.enableAP2Btn();
+}
+
+// c2patool manifest-definition bridge (CC-2). Field names per c2patool's documented
+// manifest JSON: https://opensource.contentauthenticity.org/docs/c2patool/manifest
+// We map our internal definition {claim_generator, claim:{format,instanceID}, assertions}
+// onto c2patool's {claim_generator, title, format, instanceId, assertions}. The assertions
+// array is already {label, data} shaped, which is what c2patool's manifest.json expects -
+// no transform needed there beyond dropping the draft CAWG block (not part of its schema).
+function buildC2patoolDefinition() {
+  if (!lastComposed) return null;
+  const { definition } = lastComposed;
+  const assertions = definition.assertions.filter(a => a.label !== 'cawg.identity');
+  return {
+    claim_generator: definition.claim_generator,
+    title: (definition.claim && definition.claim.instanceID) || 'AINumbers-composed asset',
+    format: definition.claim.format,
+    instanceId: definition.claim.instanceID,
+    assertions,
+  };
+}
+function downloadC2patoolDefinition() {
+  const def = buildC2patoolDefinition();
+  if (!def) return;
+  const json = JSON.stringify(def, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'c2patool-manifest-definition_' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function escapeHtml(s) { return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
@@ -483,7 +528,7 @@ setupDropzone();
 renderIngredients();
 </script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
 <script>
-  var MANIFEST = JSON.parse('{"tool_id": "550-c2pa-manifest-composer", "version": "1.0.0", "title": "C2PA Manifest Composer", "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs.", "category": "c2pa-content-provenance", "tags": ["C2PA", "content credentials", "provenance", "manifest", "assertions", "CAWG"], "audience": ["engineer", "compliance", "trust-safety"], "input_schema": {"type": "object", "properties": {"actions": {"type": "array", "description": "c2pa.actions.v2 rows"}, "ingredients": {"type": "array", "description": "Ingredient declarations with sha256 digests"}}}, "output_schema": {"type": "object", "properties": {"manifest_definition": {"type": "object"}, "definition_digest": {"type": "string"}}}, "mcp_tool_definition": {"name": "compose_c2pa_manifest_definition", "description": "Composes a C2PA manifest DEFINITION (actions, ingredients, creative-work/EXIF-subset, draft CAWG identity) with client-side sha256 ingredient digests. Structural validation only; never signs and makes no trust-list claims.", "inputSchema": {"type": "object", "properties": {"actions": {"type": "array"}, "ingredients": {"type": "array"}}}}, "execution": {"type": "browser-reference", "entry": "tools/550-c2pa-manifest-composer.html", "function_name": "composeManifest"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+  var MANIFEST = JSON.parse('{"tool_id": "550-c2pa-manifest-composer", "version": "1.1.0", "title": "C2PA Manifest Composer", "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs. Exports a c2patool-compatible manifest-definition file for external signing.", "category": "c2pa-content-provenance", "tags": ["C2PA", "content credentials", "provenance", "manifest", "assertions", "CAWG", "c2patool"], "audience": ["engineer", "compliance", "trust-safety"], "input_schema": {"type": "object", "properties": {"actions": {"type": "array", "description": "c2pa.actions.v2 rows"}, "ingredients": {"type": "array", "description": "Ingredient declarations with sha256 digests"}}}, "output_schema": {"type": "object", "properties": {"manifest_definition": {"type": "object"}, "definition_digest": {"type": "string"}, "c2patool_definition": {"type": "object"}}}, "mcp_tool_definition": {"name": "compose_c2pa_manifest_definition", "description": "Composes a C2PA manifest DEFINITION (actions, ingredients, creative-work/EXIF-subset, draft CAWG identity) with client-side sha256 ingredient digests. Structural validation only; never signs and makes no trust-list claims. Also exports a c2patool-compatible manifest-definition file for external signing.", "inputSchema": {"type": "object", "properties": {"actions": {"type": "array"}, "ingredients": {"type": "array"}}}}, "execution": {"type": "browser-reference", "entry": "tools/550-c2pa-manifest-composer.html", "function_name": "composeManifest"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
     function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
   function copyMfst(){
     var s = JSON.stringify(MANIFEST, null, 2);
@@ -529,9 +574,9 @@ window.exportAP2=function(){
     tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
     mandate_type:'compliance_mandate',
     jurisdiction:['ZZ'],regulatory_frameworks:[],
-    payload:{definition:lastComposed.definition,definition_digest:lastComposed.definition_digest,structural_validation:lastComposed.validation},
+    payload:{definition:lastComposed.definition,definition_digest:lastComposed.definition_digest,structural_validation:lastComposed.validation,signing_correspondence:{type:'asserted',claim:'definition_digest is asserted to correspond to whatever the holder signs externally later (e.g. via c2patool) - this tool never observes or performs that signing act',definition_digest:lastComposed.definition_digest,observed:false}},
     summary:'C2PA manifest definition composed (not signed) - '+ts.slice(0,10)+' - digest '+lastComposed.definition_digest,
-    agent_instructions:['This is an authoring receipt for a composed C2PA manifest DEFINITION. It is not a signed C2PA manifest and carries no Trust List status. Sign the definition externally before treating it as a C2PA manifest.'],
+    agent_instructions:['This is an authoring receipt for a composed C2PA manifest DEFINITION. It is not a signed C2PA manifest and carries no Trust List status. The signing_correspondence field is an asserted claim only, not an observation - sign the definition externally (e.g. with c2patool) before treating it as a C2PA manifest.'],
     valid_from:ts.slice(0,10),
     valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
     last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],
