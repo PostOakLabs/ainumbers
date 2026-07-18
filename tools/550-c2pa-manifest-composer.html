@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>C2PA Manifest Composer · AINumbers.co</title>
+<meta name="description" content="Author a C2PA manifest DEFINITION in your browser: actions assertions, ingredient hashes, creative-work/EXIF-subset fields, and a draft CAWG identity block. Composes and verifies structure only - does not sign. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/550-c2pa-manifest-composer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"C2PA Manifest Composer","url":"https://ainumbers.co/tools/550-c2pa-manifest-composer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "550-c2pa-manifest-composer",
+  "version": "1.0.0",
+  "title": "C2PA Manifest Composer",
+  "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs.",
+  "category": "cat-2",
+  "tags": ["C2PA", "content credentials", "provenance", "manifest", "assertions", "CAWG"],
+  "audience": ["engineer", "compliance", "trust-safety"],
+  "input_schema": {"type":"object","properties":{"actions":{"type":"array"},"ingredients":{"type":"array"},"creative_work":{"type":"object"},"cawg_identity":{"type":"object"}}},
+  "output_schema": {"type":"object","properties":{"manifest_definition":{"type":"object"},"definition_digest":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"compose_c2pa_manifest_definition","description":"Composes a C2PA manifest DEFINITION (actions, ingredients, creative-work/EXIF-subset, draft CAWG identity) with client-side sha256 ingredient digests. Structural validation only - never signs and makes no trust-list claims.","inputSchema":{"type":"object","properties":{"actions":{"type":"array"},"ingredients":{"type":"array"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/550-c2pa-manifest-composer.html","function_name":"composeManifest","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--red);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.p-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.p-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.p-sub{font-size:.68rem;color:var(--muted);margin-top:.15rem}
+.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+@media(max-width:760px){.field-grid{grid-template-columns:1fr 1fr}}
+.field{display:flex;flex-direction:column;gap:.25rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.4rem .55rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--purple)}
+.field textarea{resize:vertical;min-height:2.4rem;font-family:'Sora',sans-serif}
+.row-list{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.75rem}
+.row-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;position:relative}
+.row-item .del-btn{position:absolute;top:.5rem;right:.5rem;background:transparent;border:none;color:var(--muted);font-size:.8rem}
+.row-item .del-btn:hover{color:var(--red)}
+.add-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.32rem .8rem;border-radius:3px;transition:all .2s}
+.add-btn:hover{border-color:var(--purple);color:var(--purple)}
+.dropzone{border:1px dashed var(--border-2);border-radius:var(--radius);padding:1.25rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);margin-bottom:.75rem;transition:border-color .2s}
+.dropzone.drag{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.sec-btn{background:transparent;border:1px solid var(--border);color:var(--text);padding:.55rem 1.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.sec-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.code-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:420px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+.validity-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .75rem;border-radius:3px;border:1px solid}
+.validity-ok{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.validity-bad{color:var(--red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08)}
+.missing-list{margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-550</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-2 · T550 · Compliance &amp; Consent</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">C2PA Manifest <em>Composer</em></h1>
+  <p class="hero-desc">Author a C2PA manifest DEFINITION in your browser: actions assertions (c2pa.actions v2, including a digitalSourceType picker), ingredient declarations with client-side SHA-256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Exports the definition JSON, its digest, and an OCG authoring receipt.</p>
+  <div class="disclaimer">⚠ <strong style="color:var(--red)">This tool composes and structurally validates manifest DEFINITIONS. It does not sign.</strong> Trusted C2PA signing requires a conformance-program-passed product holding a Trust List claim-signing certificate - this tool is not that, and no browser-held key ever could be. Nothing exported here should be presented as a signed or trusted C2PA manifest. Sign the exported definition yourself with your own certificate and tooling (e.g. c2patool).</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-purple">C2PA</span>
+    <span class="badge badge-gold">Compose, Not Sign</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data - use synthetic or anonymised inputs only.</span> This composer produces a manifest DEFINITION, not a signed or embedded C2PA manifest, and makes no Trust List validation claims. Ingredient digests are whole-file SHA-256 hashes computed locally, not byte-exclusion-range hashes from a full C2PA embedder. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <!-- CLAIM -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Claim</span><span class="p-sub">claim_generator · format · instanceID</span></div>
+    <div class="field-grid">
+      <div class="field"><label>Claim Generator</label><input type="text" id="claimGenerator" value="AINumbers C2PA Manifest Composer 1.0" placeholder="e.g. My App 2.1"></div>
+      <div class="field"><label>Asset Format (MIME)</label><input type="text" id="claimFormat" value="image/jpeg" placeholder="image/jpeg"></div>
+      <div class="field"><label>Instance ID</label><div style="display:flex;gap:.4rem"><input type="text" id="claimInstanceId" placeholder="xmp:iid:..."><button class="add-btn" onclick="genInstanceId()">Gen</button></div></div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Actions (c2pa.actions.v2)</span><button class="add-btn" onclick="addAction()">+ Add Action</button></div>
+    <div class="p-sub" style="margin-bottom:.6rem">One row per action performed to produce this asset. digitalSourceType uses the IPTC/C2PA vocabulary, including trainedAlgorithmicMedia.</div>
+    <div class="row-list" id="actionsList"></div>
+  </div>
+
+  <!-- INGREDIENTS -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Ingredients</span><span class="p-sub">drag a file to compute its SHA-256 digest client-side</span></div>
+    <div class="dropzone" id="ingredientDrop">Drag a file here, or <label style="color:var(--teal);cursor:pointer;text-decoration:underline">choose a file<input type="file" id="ingredientFile" style="display:none"></label> - never uploaded, hashed in-browser only</div>
+    <div class="row-list" id="ingredientsList"></div>
+    <div class="p-sub">The first ingredient with "use as hard binding" checked populates this manifest's c2pa.hash.data assertion below.</div>
+  </div>
+
+  <!-- CREATIVE WORK / EXIF SUBSET -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Creative Work &amp; EXIF Subset</span><span class="p-sub">stds.schema-org.CreativeWork + stds.exif (no location fields - zero PII)</span></div>
+    <div class="field-grid">
+      <div class="field"><label>Author / Creator</label><input type="text" id="cwAuthor" placeholder="Jane Doe or Org Name"></div>
+      <div class="field"><label>Credit Line</label><input type="text" id="cwCredit" placeholder="Credit line"></div>
+      <div class="field"><label>Copyright Notice</label><input type="text" id="cwCopyright" placeholder="© 2026 ..."></div>
+      <div class="field"><label>Date Created</label><input type="date" id="cwDateCreated"></div>
+      <div class="field"><label>EXIF Make</label><input type="text" id="exifMake" placeholder="Camera / device make"></div>
+      <div class="field"><label>EXIF Model</label><input type="text" id="exifModel" placeholder="Camera / device model"></div>
+      <div class="field"><label>EXIF Software</label><input type="text" id="exifSoftware" placeholder="Editing software"></div>
+      <div class="field"><label>EXIF DateTimeOriginal</label><input type="datetime-local" id="exifDateTime"></div>
+    </div>
+  </div>
+
+  <!-- CAWG IDENTITY DRAFT -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">CAWG Identity Assertion <span class="badge badge-red" style="margin-left:.4rem">DRAFT</span></span><label style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);display:flex;align-items:center;gap:.35rem"><input type="checkbox" id="cawgEnable">include block</label></div>
+    <div class="p-sub" style="margin-bottom:.6rem">Representative CAWG Identity Assertion v1.3 shape. Unsigned, unverified - a draft structure only, not a validated encoding of the CAWG spec and not a verified identity claim.</div>
+    <div class="field-grid">
+      <div class="field"><label>Verified Identity Type</label><select id="cawgType"><option value="cawg.social_media">cawg.social_media</option><option value="cawg.web">cawg.web</option><option value="cawg.crypto_wallet">cawg.crypto_wallet</option></select></div>
+      <div class="field"><label>Username / Handle</label><input type="text" id="cawgUsername" placeholder="handle"></div>
+      <div class="field"><label>Provider Name</label><input type="text" id="cawgProvider" placeholder="e.g. GitHub"></div>
+      <div class="field"><label>Provider URI</label><input type="text" id="cawgProviderUri" placeholder="https://..."></div>
+    </div>
+  </div>
+
+  <!-- SIGNING INTENT -->
+  <div class="panel">
+    <div class="p-header"><span class="p-title">Signing (Declared Intent Only)</span></div>
+    <div class="p-sub" style="margin-bottom:.6rem">This composer never holds or uses a signing key. Declaring an intended algorithm here only records which algorithm you plan to sign with later, external to this tool - it does not create a signature.</div>
+    <div class="field-grid">
+      <div class="field"><label>Intended Signature Algorithm</label><select id="sigAlg"><option value="">- none declared -</option><option value="ES256">ES256</option><option value="Ed25519">Ed25519</option><option value="PS256">PS256</option></select></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap">
+    <button class="run-btn" onclick="composeManifest()">▶ Compose Manifest Definition</button>
+    <button class="sec-btn" onclick="downloadDefinition()" id="downloadBtn" disabled>⬇ Download Definition JSON</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Compose the manifest above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate (OCG Authoring Receipt)<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+const DST_OPTIONS = [
+  ['trainedAlgorithmicMedia','Trained Algorithmic Media (AI-generated)'],
+  ['compositeWithTrainedAlgorithmicMedia','Composite w/ Trained Algorithmic Media'],
+  ['algorithmicMedia','Algorithmic Media'],
+  ['compositeSynthetic','Composite Synthetic'],
+  ['digitalCapture','Digital Capture'],
+  ['digitalArt','Digital Art'],
+  ['negativeFilm','Negative Film'],
+  ['positiveFilm','Positive Film'],
+  ['print','Print'],
+  ['screenCapture','Screen Capture'],
+  ['minorHumanEdits','Minor Human Edits'],
+  ['humanEdits','Human Edits'],
+  ['dataDrivenMedia','Data-Driven Media'],
+  ['empty','Empty / Unspecified'],
+];
+const ACTION_TYPES = ['c2pa.created','c2pa.edited','c2pa.converted','c2pa.opened','c2pa.placed','c2pa.removed','c2pa.cropped','c2pa.filtered','c2pa.resized','c2pa.color_adjustments','c2pa.published'];
+
+let actionRows = [];
+let ingredientRows = [];
+let ingredientSeq = 0;
+let actionSeq = 0;
+let lastComposed = null;
+
+function uuid4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+function genInstanceId() { document.getElementById('claimInstanceId').value = 'xmp:iid:' + uuid4(); }
+
+function addAction() {
+  const id = 'a' + (actionSeq++);
+  actionRows.push({ id, action: 'c2pa.created', digitalSourceType: 'trainedAlgorithmicMedia', softwareAgent: '', when: '' });
+  renderActions();
+}
+function removeAction(id) { actionRows = actionRows.filter(a => a.id !== id); renderActions(); }
+function updateAction(id, field, value) { const a = actionRows.find(x => x.id === id); if (a) a[field] = value; }
+
+function renderActions() {
+  const el = document.getElementById('actionsList');
+  el.innerHTML = actionRows.map(a => `
+    <div class="row-item">
+      <button class="del-btn" onclick="removeAction('${a.id}')">✕</button>
+      <div class="field-grid">
+        <div class="field"><label>Action</label><select onchange="updateAction('${a.id}','action',this.value)">${ACTION_TYPES.map(t => `<option value="${t}" ${t===a.action?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="field"><label>digitalSourceType</label><select onchange="updateAction('${a.id}','digitalSourceType',this.value)">${DST_OPTIONS.map(([v,l]) => `<option value="${v}" ${v===a.digitalSourceType?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label>Software Agent</label><input type="text" value="${a.softwareAgent}" placeholder="tool name/version" onchange="updateAction('${a.id}','softwareAgent',this.value)"></div>
+      </div>
+    </div>`).join('') || '<div class="p-sub">No actions added yet.</div>';
+}
+
+async function sha256Hex(buf) {
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setupDropzone() {
+  const zone = document.getElementById('ingredientDrop');
+  const fileInput = document.getElementById('ingredientFile');
+  ['dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleIngredientFile(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) handleIngredientFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+}
+
+async function handleIngredientFile(file) {
+  const buf = await file.arrayBuffer();
+  const hash = await sha256Hex(buf);
+  const id = 'i' + (ingredientSeq++);
+  ingredientRows.push({
+    id, title: file.name, format: file.type || 'application/octet-stream',
+    relationship: 'componentOf', hash, hardBinding: ingredientRows.length === 0,
+  });
+  renderIngredients();
+}
+function removeIngredient(id) { ingredientRows = ingredientRows.filter(r => r.id !== id); renderIngredients(); }
+function updateIngredient(id, field, value) { const r = ingredientRows.find(x => x.id === id); if (r) r[field] = value; }
+function setHardBinding(id) { ingredientRows.forEach(r => r.hardBinding = (r.id === id)); renderIngredients(); }
+
+function renderIngredients() {
+  const el = document.getElementById('ingredientsList');
+  el.innerHTML = ingredientRows.map(r => `
+    <div class="row-item">
+      <button class="del-btn" onclick="removeIngredient('${r.id}')">✕</button>
+      <div class="field-grid">
+        <div class="field"><label>Title</label><input type="text" value="${r.title}" onchange="updateIngredient('${r.id}','title',this.value)"></div>
+        <div class="field"><label>Relationship</label><select onchange="updateIngredient('${r.id}','relationship',this.value)"><option value="componentOf" ${r.relationship==='componentOf'?'selected':''}>componentOf</option><option value="parentOf" ${r.relationship==='parentOf'?'selected':''}>parentOf</option></select></div>
+        <div class="field"><label>Hard Binding</label><label style="display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:${r.hardBinding?'var(--green)':'var(--muted)'}"><input type="radio" name="hardBindingPick" ${r.hardBinding?'checked':''} onchange="setHardBinding('${r.id}')"> use for c2pa.hash.data</label></div>
+      </div>
+      <div class="p-sub" style="margin-top:.5rem;word-break:break-all">sha256: ${r.hash}</div>
+    </div>`).join('') || '<div class="p-sub">No ingredients added yet.</div>';
+}
+
+// Structural validation - logic kept in parity with chaingraph/kernels/art-123-c2pa-manifest-validator.kernel.mjs.
+// This is a site tool (zero-dep, single-file) so the check is inlined rather than imported; the kernel fixtures are unchanged by this build.
+function validateStructure(pp) {
+  const { claim = {}, assertions = [], signature = {}, claim_generator } = pp;
+  const labels = Array.isArray(assertions) ? assertions.map(a => a && a.label).filter(Boolean) : [];
+  const has_hard_binding = labels.includes('c2pa.hash.data') || labels.includes('c2pa.hash.bmff');
+  const has_actions = labels.some(l => l === 'c2pa.actions' || l === 'c2pa.actions.v2');
+  const claim_well_formed =
+    typeof claim_generator === 'string' && claim_generator.length > 0 &&
+    typeof claim.format === 'string' && typeof claim.instanceID === 'string';
+  const sig_ref_present = !!signature && (signature.present === true || typeof signature.alg === 'string');
+
+  const missing_elements = [];
+  if (!claim_well_formed) missing_elements.push('CLAIM_GENERATOR_FORMAT_OR_INSTANCEID');
+  if (!has_hard_binding) missing_elements.push('HARD_BINDING_HASH_ASSERTION');
+  if (!sig_ref_present) missing_elements.push('CLAIM_SIGNATURE_REFERENCE');
+
+  const manifest_valid = missing_elements.length === 0;
+  return { manifest_valid, has_hard_binding, has_actions, assertion_count: labels.length, missing_elements };
+}
+
+function buildDefinition() {
+  const claim_generator = document.getElementById('claimGenerator').value.trim();
+  const claim = {
+    format: document.getElementById('claimFormat').value.trim(),
+    instanceID: document.getElementById('claimInstanceId').value.trim(),
+  };
+
+  const assertions = [];
+  if (actionRows.length) {
+    assertions.push({
+      label: 'c2pa.actions.v2',
+      data: { actions: actionRows.map(a => ({ action: a.action, digitalSourceType: a.digitalSourceType, softwareAgent: a.softwareAgent || undefined, when: a.when || undefined })) },
+    });
+  }
+  const hb = ingredientRows.find(r => r.hardBinding);
+  if (hb) assertions.push({ label: 'c2pa.hash.data', data: { hash: hb.hash, alg: 'sha256', name: hb.title, note: 'whole-file sha256, not a byte-exclusion-range hash' } });
+
+  ingredientRows.forEach(r => {
+    assertions.push({ label: 'c2pa.ingredient', data: { title: r.title, format: r.format, relationship: r.relationship, hash: r.hash, alg: 'sha256' } });
+  });
+
+  const cw = {
+    author: document.getElementById('cwAuthor').value.trim(),
+    creditLine: document.getElementById('cwCredit').value.trim(),
+    copyrightNotice: document.getElementById('cwCopyright').value.trim(),
+    dateCreated: document.getElementById('cwDateCreated').value,
+  };
+  const exif = {
+    Make: document.getElementById('exifMake').value.trim(),
+    Model: document.getElementById('exifModel').value.trim(),
+    Software: document.getElementById('exifSoftware').value.trim(),
+    DateTimeOriginal: document.getElementById('exifDateTime').value,
+  };
+  if (Object.values(cw).some(Boolean) || Object.values(exif).some(Boolean)) {
+    assertions.push({ label: 'stds.schema-org.CreativeWork', data: { creativeWork: cw, exifSubset: exif } });
+  }
+
+  let cawg_identity = null;
+  if (document.getElementById('cawgEnable').checked) {
+    cawg_identity = {
+      label: 'cawg.identity',
+      draft: true,
+      note: 'Representative CAWG Identity Assertion v1.3 shape. Unsigned, unverified draft - not a validated encoding of the CAWG spec.',
+      data: {
+        signer_payload: { referenced_assertions: [], sig_type: 'cawg.x509.cose', roles: ['cawg.creator'] },
+        credentials: {
+          verifiedIdentities: [{
+            type: document.getElementById('cawgType').value,
+            username: document.getElementById('cawgUsername').value.trim(),
+            provider: { name: document.getElementById('cawgProvider').value.trim(), uri: document.getElementById('cawgProviderUri').value.trim() },
+          }],
+        },
+        signature: null,
+      },
+    };
+    assertions.push(cawg_identity);
+  }
+
+  const sigAlg = document.getElementById('sigAlg').value;
+  const signature = sigAlg ? { alg: sigAlg, present: false, note: 'declared intended algorithm only - not an actual signature' } : {};
+
+  return { claim_generator, claim, assertions, signature };
+}
+
+async function digestJSON(obj) {
+  const enc = new TextEncoder().encode(JSON.stringify(obj));
+  return sha256Hex(enc);
+}
+
+async function composeManifest() {
+  const definition = buildDefinition();
+  const validation = validateStructure(definition);
+  const definition_digest = 'sha256:' + await digestJSON(definition);
+
+  lastComposed = { definition, validation, definition_digest, composed_at: new Date().toISOString() };
+
+  document.getElementById('outputSection').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Structural Validation</span>
+        <span class="validity-badge ${validation.manifest_valid ? 'validity-ok' : 'validity-bad'}">${validation.manifest_valid ? '✓ Structurally Valid' : '✗ Missing Elements'}</span>
+      </div>
+      <div class="out-body">
+        <div class="p-sub">Same structural checks as the house C2PA manifest validator (art-123): a well-formed claim, a hard-binding hash assertion, and a declared signature reference. This is a structural check only - it is not proof of a real signature or Trust List membership.</div>
+        ${validation.missing_elements.length ? `<div class="missing-list">Missing: ${validation.missing_elements.join(', ')}</div>` : ''}
+      </div>
+    </div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Manifest Definition JSON</span><button class="copy-btn" onclick="copyDefinition()">Copy</button></div>
+      <div class="out-body"><div class="code-block">${escapeHtml(JSON.stringify(definition, null, 2))}</div></div>
+    </div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Definition Digest</span><button class="copy-btn" onclick="copyDigest()">Copy</button></div>
+      <div class="out-body"><div class="code-block">${definition_digest}</div></div>
+    </div>
+  `;
+  document.getElementById('downloadBtn').disabled = false;
+  if (window.enableAP2Btn) window.enableAP2Btn();
+}
+
+function escapeHtml(s) { return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+function copyDefinition() { if (lastComposed) navigator.clipboard.writeText(JSON.stringify(lastComposed.definition, null, 2)); }
+function copyDigest() { if (lastComposed) navigator.clipboard.writeText(lastComposed.definition_digest); }
+function downloadDefinition() {
+  if (!lastComposed) return;
+  const json = JSON.stringify(lastComposed.definition, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'c2pa-manifest-definition_' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+genInstanceId();
+addAction();
+setupDropzone();
+renderIngredients();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "550-c2pa-manifest-composer", "version": "1.0.0", "title": "C2PA Manifest Composer", "description": "Authors a C2PA manifest DEFINITION in-browser: c2pa.actions v2 assertions with a digitalSourceType picker, ingredient declarations with client-side sha256 digests, a creative-work/EXIF-subset assertion, and a draft CAWG identity block. Composes and structurally validates only; never signs.", "category": "c2pa-content-provenance", "tags": ["C2PA", "content credentials", "provenance", "manifest", "assertions", "CAWG"], "audience": ["engineer", "compliance", "trust-safety"], "input_schema": {"type": "object", "properties": {"actions": {"type": "array", "description": "c2pa.actions.v2 rows"}, "ingredients": {"type": "array", "description": "Ingredient declarations with sha256 digests"}}}, "output_schema": {"type": "object", "properties": {"manifest_definition": {"type": "object"}, "definition_digest": {"type": "string"}}}, "mcp_tool_definition": {"name": "compose_c2pa_manifest_definition", "description": "Composes a C2PA manifest DEFINITION (actions, ingredients, creative-work/EXIF-subset, draft CAWG identity) with client-side sha256 ingredient digests. Structural validation only; never signs and makes no trust-list claims.", "inputSchema": {"type": "object", "properties": {"actions": {"type": "array"}, "ingredients": {"type": "array"}}}}, "execution": {"type": "browser-reference", "entry": "tools/550-c2pa-manifest-composer.html", "function_name": "composeManifest"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+
+<script>
+/* AP2 Policy Mandate Export - Phase 15 · CONTRACT §3–§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_ISO=/^\d{4}-\d{2}-\d{2}/,RE_VER=/^\d+\.\d+/,RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window.exportAP2=function(){
+  if(!lastComposed){alert('Compose the manifest above first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'550-c2pa-manifest-composer';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:{definition:lastComposed.definition,definition_digest:lastComposed.definition_digest,structural_validation:lastComposed.validation},
+    summary:'C2PA manifest definition composed (not signed) - '+ts.slice(0,10)+' - digest '+lastComposed.definition_digest,
+    agent_instructions:['This is an authoring receipt for a composed C2PA manifest DEFINITION. It is not a signed C2PA manifest and carries no Trust List status. Sign the definition externally before treating it as a C2PA manifest.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true,signs_content:false}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'composeManifest',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link - review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  getMandate:function(){return window._lastMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
