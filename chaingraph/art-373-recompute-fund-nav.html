@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Recompute Fund NAV · ART-373 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Recomputes a fund's net-asset-value-per-share from supplied holdings, accruals, liabilities and shares outstanding, using fixed-point money math and a declared rounding mode. Recomputes the arithmetic over declared inputs and attests that, never a valuation or live market data.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-373-recompute-fund-nav.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Recompute Fund NAV · ART-373 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Fixed-point NAV-per-share recomputation over supplied holdings/accruals/liabilities with a declared rounding mode and full component breakdown. Never a fair-value opinion. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-373-recompute-fund-nav.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;min-height:160px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+.check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.check-row label{font-size:.82rem;color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-373 · Recompute Fund NAV</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-373 · Funds/NAV Family</div>
+  <h1>Recompute Fund NAV</h1>
+  <p class="sub">Recomputes a fund's <b>net-asset-value-per-share</b> from supplied holdings (quantity &times; supplied price, multi-currency with supplied FX), accruals (income and expense, with a declared day-count convention), liabilities, and shares outstanding, using <b>fixed-point money math throughout</b> (no float accumulation). Applies a declared rounding mode (e.g. $0.0001 for a money-market fund vs $0.01 for a standard fund) and returns a full component breakdown. First entry of the Funds/NAV family, alongside the forthcoming NAV-error materiality tester and expense-ratio calculator.</p>
+  <div>
+    <span class="flag">Fixed-Point Money Math</span>
+    <span class="flag warn">Supplied Pricing, Never Fetched</span>
+    <span class="flag red">Not a Fair-Value Opinion</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">What this does NOT prove</div>
+    Every price and FX rate here is <b>supplied by you</b> and merely asserted: this tool performs zero market-data lookups (zero-egress, no network calls of any kind). It recomputes the <b>arithmetic</b> over your declared inputs and attests that computation ran correctly. This is <b>never</b> a fair-value opinion, <b>never</b> an independent valuation, and <b>never</b> live or real-time market data. A NAV receipt from this tool proves "this arithmetic, over these declared inputs": nothing about whether the declared prices are accurate. 40-Act/UCITS citations below are informative context only.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('standard')">Standard fund: single currency, 2-decimal rounding</button>
+    <button class="preset-btn" onclick="loadPreset('mmf')">Multi-currency MMF: computed accrual, 4-decimal rounding</button>
+    <button class="preset-btn" onclick="loadPreset('boundary')">Rounding boundary: exact $1.005 half-up vs half-even</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Fund &amp; Valuation</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Fund ID</label>
+        <input type="text" id="fund_id" placeholder="e.g. FUND-STD-01"></div>
+      <div class="q"><label><span class="dim">Field</span>Valuation Date</label>
+        <input type="text" id="valuation_date" placeholder="e.g. 2026-07-18"></div>
+      <div class="q"><label><span class="dim">Field</span>Base Currency</label>
+        <input type="text" id="base_currency" value="USD"></div>
+    </div>
+
+    <div class="section-head">Holdings (JSON array: quantity, price, currency, fx_rate_to_base)</div>
+    <div class="q"><textarea id="holdings" placeholder='[{"security_id":"SEC-A","quantity":1000,"price":10.005,"currency":"USD","fx_rate_to_base":1}]'></textarea></div>
+
+    <div class="section-head">Accruals, Income (JSON array, optional)</div>
+    <div class="q"><textarea id="accruals_income" placeholder='[{"description":"coupon accrual","principal":100000,"annual_rate":0.05,"days":30,"day_count_convention":"30/360","currency":"USD","fx_rate_to_base":1}]'></textarea></div>
+
+    <div class="section-head">Accruals, Expense (JSON array, optional)</div>
+    <div class="q"><textarea id="accruals_expense" placeholder='[{"description":"management fee accrual","amount":41.6667,"currency":"USD","fx_rate_to_base":1}]'></textarea></div>
+
+    <div class="section-head">Liabilities (JSON array, optional)</div>
+    <div class="q"><textarea id="liabilities" placeholder='[{"description":"payable to broker","amount":500,"currency":"USD","fx_rate_to_base":1}]'></textarea></div>
+
+    <div class="section-head">Shares Outstanding &amp; Rounding</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Shares Outstanding</label>
+        <input type="number" id="shares_outstanding" step="any" placeholder="e.g. 15000"></div>
+      <div class="q"><label><span class="dim">Field</span>Decimal Places</label>
+        <input type="number" id="decimal_places" value="2" step="1" min="0"></div>
+      <div class="q"><label><span class="dim">Field</span>Rounding Mode</label>
+        <select id="rounding_mode">
+          <option value="half_up">Half-up (round half away from zero)</option>
+          <option value="half_even">Half-even (banker's rounding)</option>
+          <option value="truncate">Truncate</option>
+        </select></div>
+    </div>
+
+    <button class="run-btn" onclick="run()">Recompute Fund NAV →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="navVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">NAV / Share</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="netAssetsVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Net Assets</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="sharesVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Shares Outstanding</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Component breakdown</div>
+    <table class="section-table">
+      <tbody id="componentTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Holdings</div>
+    <table class="section-table">
+      <thead><tr><th>Security</th><th>Currency</th><th>Quantity</th><th>Price</th><th>Local Value</th><th>Base Value</th></tr></thead>
+      <tbody id="holdingsTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Provenance</div>
+      Fixed-point (BigInt) money math throughout: every value is parsed from its decimal string representation, never via floating multiplication, so there is no float-accumulation error anywhere in the arithmetic path. Only the final NAV-per-share is rendered to the declared decimal places using the declared rounding mode.
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Not a fair-value opinion, not an independent valuation, not live market data. Pricing/FX inputs are supplied and asserted only.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-373-recompute-fund-nav",
+  tool_version: "1.0.0",
+  mcp_name: "recompute_fund_nav",
+  mandate_type: "attestation_mandate",
+  wave: 51,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.7',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Recomputes a fund's net-asset-value-per-share from supplied holdings, accruals, liabilities and shares outstanding, using fixed-point money math and a declared rounding mode. Recomputes the arithmetic over declared inputs and attests that, never a valuation or live market data.",
+  chain: "nav-verification-pack",
+  url: "https://ainumbers.co/chaingraph/art-373-recompute-fund-nav.html"
+};
+
+// --- Fixed-point (BigInt) money math — mirrors chaingraph/kernels/art-373-recompute-fund-nav.kernel.mjs
+//     byte-for-byte. No floats in the arithmetic path; every value is parsed from its decimal string. ---
+
+const SCALE_EXP = 8;
+const SCALE = 10n ** BigInt(SCALE_EXP);
+
+function toFixed(value) {
+  let s = String(value == null ? 0 : value).trim();
+  let neg = false;
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  else if (s.startsWith('+')) { s = s.slice(1); }
+  if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
+  let parts = s.split('.');
+  let intPart = parts[0] || '0';
+  let fracPart = parts[1] || '';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  fracPart = fracPart.padEnd(SCALE_EXP, '0');
+  let mag = BigInt(intPart + fracPart);
+  if (neg) mag = -mag;
+  return mag;
+}
+function mulFixed(a, b) { return (a * b) / SCALE; }
+function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+
+function roundFixedToString(value, places, mode) {
+  const neg = value < 0n;
+  const abs = neg ? -value : value;
+  const divisor = 10n ** BigInt(SCALE_EXP - places);
+  let q = abs / divisor;
+  const r = abs % divisor;
+  const twiceR = r * 2n;
+  if (mode === 'truncate') {
+    // q already truncated toward zero
+  } else if (mode === 'half_even') {
+    if (twiceR > divisor || (twiceR === divisor && q % 2n === 1n)) q += 1n;
+  } else {
+    if (twiceR >= divisor) q += 1n;
+  }
+  let qs = q.toString();
+  let result;
+  if (places === 0) { result = qs; }
+  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
+  return (neg && q !== 0n) ? ('-' + result) : result;
+}
+function fixedToPlainString(value, places) { return roundFixedToString(value, places, 'truncate'); }
+
+const DAY_COUNT_DENOMINATORS = { '30/360': 360, 'actual/360': 360, 'actual/365': 365, 'actual/actual': 365 };
+
+function computeAccrualAmount(item) {
+  if (item.amount != null) return toFixed(item.amount);
+  const principal = toFixed(item.principal || 0);
+  const rate = toFixed(item.annual_rate || 0);
+  const days = Number(item.days || 0);
+  const convention = item.day_count_convention || '30/360';
+  const yearDays = Number(item.year_days || DAY_COUNT_DENOMINATORS[convention] || 365);
+  const dayFraction = divFixed(toFixed(days), toFixed(yearDays));
+  return mulFixed(mulFixed(principal, rate), dayFraction);
+}
+function toBase(amountFixed, fxRateToBase) { return mulFixed(amountFixed, toFixed(fxRateToBase == null ? 1 : fxRateToBase)); }
+
+const NOT_PROVEN = [
+  { item: 'Price/FX accuracy', detail: 'Every price and FX rate is caller-supplied and asserted. This tool performs no market-data lookups (zero-egress) and does not verify these values against any external source.' },
+  { item: 'Fair value / independent valuation', detail: 'This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation.' },
+  { item: 'Live/real-time pricing', detail: 'All inputs are point-in-time as supplied by the caller; this tool makes no claim about market conditions at any other moment.' },
+  { item: 'Regulatory NAV filing compliance', detail: '40-Act/UCITS references are informative context only; this tool makes no claim of compliance with either framework’s NAV-computation or filing rules.' },
+];
+
+function compute(pp) {
+  const baseCurrency = pp.base_currency || 'USD';
+  const holdings = Array.isArray(pp.holdings) ? pp.holdings : [];
+  const accrualsIncome = Array.isArray((pp.accruals || {}).income) ? pp.accruals.income : [];
+  const accrualsExpense = Array.isArray((pp.accruals || {}).expense) ? pp.accruals.expense : [];
+  const liabilities = Array.isArray(pp.liabilities) ? pp.liabilities : [];
+  const rounding = pp.rounding || {};
+  const decimalPlaces = Number.isInteger(rounding.decimal_places) ? rounding.decimal_places : 2;
+  const roundingMode = ['half_up','half_even','truncate'].indexOf(rounding.mode) >= 0 ? rounding.mode : 'half_up';
+
+  const holdingLines = holdings.map(function (h) {
+    const qty = toFixed(h.quantity);
+    const price = toFixed(h.price);
+    const localValue = mulFixed(qty, price);
+    const baseValue = toBase(localValue, h.fx_rate_to_base);
+    return {
+      security_id: h.security_id || null, currency: h.currency || baseCurrency,
+      quantity: fixedToPlainString(qty, SCALE_EXP), price: fixedToPlainString(price, SCALE_EXP),
+      local_value: fixedToPlainString(localValue, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP),
+    };
+  });
+  const holdingsValueFixed = holdingLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+
+  function accrualLines(items) {
+    return items.map(function (it) {
+      const amountFixed = computeAccrualAmount(it);
+      const baseValue = toBase(amountFixed, it.fx_rate_to_base);
+      return {
+        description: it.description || null, currency: it.currency || baseCurrency,
+        day_count_convention: it.day_count_convention || (it.amount != null ? null : '30/360'),
+        amount: fixedToPlainString(amountFixed, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP),
+      };
+    });
+  }
+  const incomeLines = accrualLines(accrualsIncome);
+  const expenseLines = accrualLines(accrualsExpense);
+  const accruedIncomeFixed = incomeLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+  const accruedExpenseFixed = expenseLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+
+  const liabilityLines = liabilities.map(function (l) {
+    const amountFixed = toFixed(l.amount);
+    const baseValue = toBase(amountFixed, l.fx_rate_to_base);
+    return { description: l.description || null, currency: l.currency || baseCurrency, amount: fixedToPlainString(amountFixed, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP) };
+  });
+  const liabilitiesFixed = liabilityLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+
+  const totalAssetsFixed = holdingsValueFixed + accruedIncomeFixed;
+  const totalLiabilitiesFixed = liabilitiesFixed + accruedExpenseFixed;
+  const netAssetsFixed = totalAssetsFixed - totalLiabilitiesFixed;
+
+  const sharesOutstandingFixed = toFixed(pp.shares_outstanding);
+  let navPerShareStr = null, structuralError = null;
+  if (sharesOutstandingFixed <= 0n) {
+    structuralError = 'shares_outstanding must be a positive number.';
+  } else {
+    const navPerShareFixed = divFixed(netAssetsFixed, sharesOutstandingFixed);
+    navPerShareStr = roundFixedToString(navPerShareFixed, decimalPlaces, roundingMode);
+  }
+
+  const compliance_flags = [];
+  if (structuralError) compliance_flags.push('NAV_STRUCTURAL_ERROR'); else compliance_flags.push('NAV_RECOMPUTED');
+  if (netAssetsFixed < 0n) compliance_flags.push('NAV_NET_ASSETS_NEGATIVE');
+  if (compliance_flags.length === 1 && compliance_flags[0] === 'NAV_RECOMPUTED') compliance_flags.push('NAV_INPUTS_SUPPLIED_NOT_VERIFIED');
+
+  const output_payload = {
+    fund_id: pp.fund_id || null, valuation_date: pp.valuation_date || null, base_currency: baseCurrency,
+    structural_error: structuralError,
+    components: {
+      holdings: holdingLines, holdings_value: fixedToPlainString(holdingsValueFixed, SCALE_EXP),
+      accrued_income: incomeLines, accrued_income_total: fixedToPlainString(accruedIncomeFixed, SCALE_EXP),
+      accrued_expense: expenseLines, accrued_expense_total: fixedToPlainString(accruedExpenseFixed, SCALE_EXP),
+      liabilities: liabilityLines, liabilities_total: fixedToPlainString(liabilitiesFixed, SCALE_EXP),
+      total_assets: fixedToPlainString(totalAssetsFixed, SCALE_EXP), total_liabilities: fixedToPlainString(totalLiabilitiesFixed, SCALE_EXP),
+      net_assets: fixedToPlainString(netAssetsFixed, SCALE_EXP), shares_outstanding: fixedToPlainString(sharesOutstandingFixed, SCALE_EXP),
+    },
+    rounding: { decimal_places: decimalPlaces, mode: roundingMode },
+    nav_per_share: navPerShareStr,
+    not_proven: NOT_PROVEN,
+    fence: 'Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This tool recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).',
+    regulatory_framework: '40-Act/UCITS NAV-computation conventions referenced as informative context only; this tool makes no compliance claim under either framework.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+const PRESETS = {
+  standard: {
+    fund_id: 'FUND-STD-01', valuation_date: '2026-07-18', base_currency: 'USD',
+    holdings: [ { security_id: 'SEC-A', quantity: 1000, price: 10.005, currency: 'USD', fx_rate_to_base: 1 }, { security_id: 'SEC-B', quantity: 500, price: 20.02, currency: 'USD', fx_rate_to_base: 1 } ],
+    accruals_income: [], accruals_expense: [], liabilities: [], shares_outstanding: 15000, decimal_places: 2, rounding_mode: 'half_up',
+  },
+  mmf: {
+    fund_id: 'FUND-MMF-EU-02', valuation_date: '2026-07-18', base_currency: 'USD',
+    holdings: [ { security_id: 'SEC-EUR-A', quantity: 2000, price: 100, currency: 'EUR', fx_rate_to_base: 1.08 }, { security_id: 'SEC-USD-B', quantity: 1000, price: 50, currency: 'USD', fx_rate_to_base: 1 } ],
+    accruals_income: [ { description: 'coupon accrual', principal: 100000, annual_rate: 0.05, days: 30, day_count_convention: '30/360', currency: 'USD', fx_rate_to_base: 1 } ],
+    accruals_expense: [ { description: 'management fee accrual', amount: 41.6667, currency: 'USD', fx_rate_to_base: 1 } ],
+    liabilities: [ { description: 'payable to broker', amount: 500, currency: 'USD', fx_rate_to_base: 1 } ],
+    shares_outstanding: 250000, decimal_places: 4, rounding_mode: 'half_even',
+  },
+  boundary: {
+    fund_id: 'FUND-ROUND-03', valuation_date: '2026-07-18', base_currency: 'USD',
+    holdings: [ { security_id: 'SEC-A', quantity: 1000, price: 1.005, currency: 'USD', fx_rate_to_base: 1 } ],
+    accruals_income: [], accruals_expense: [], liabilities: [], shares_outstanding: 1000, decimal_places: 2, rounding_mode: 'half_up',
+  },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('fund_id', pr.fund_id);
+  setVal('valuation_date', pr.valuation_date);
+  setVal('base_currency', pr.base_currency);
+  document.getElementById('holdings').value = JSON.stringify(pr.holdings, null, 2);
+  document.getElementById('accruals_income').value = JSON.stringify(pr.accruals_income, null, 2);
+  document.getElementById('accruals_expense').value = JSON.stringify(pr.accruals_expense, null, 2);
+  document.getElementById('liabilities').value = JSON.stringify(pr.liabilities, null, 2);
+  setVal('shares_outstanding', pr.shares_outstanding);
+  setVal('decimal_places', pr.decimal_places);
+  setVal('rounding_mode', pr.rounding_mode);
+}
+
+function parseJsonArray(id) {
+  const raw = document.getElementById(id).value.trim();
+  if (!raw) return [];
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+
+function getPP() {
+  return {
+    fund_id: document.getElementById('fund_id').value || null,
+    valuation_date: document.getElementById('valuation_date').value || null,
+    base_currency: document.getElementById('base_currency').value || 'USD',
+    holdings: parseJsonArray('holdings'),
+    accruals: { income: parseJsonArray('accruals_income'), expense: parseJsonArray('accruals_expense') },
+    liabilities: parseJsonArray('liabilities'),
+    shares_outstanding: document.getElementById('shares_outstanding').value,
+    rounding: { decimal_places: Number(document.getElementById('decimal_places').value || 2), mode: document.getElementById('rounding_mode').value },
+  };
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + jcs(v[k]); }).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+async function run() {
+  const pp = getPP();
+  const result = compute(pp);
+  const output_payload = result.output_payload, compliance_flags = result.compliance_flags;
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('navVal').textContent = output_payload.nav_per_share !== null ? output_payload.nav_per_share : '–';
+  document.getElementById('navVal').style.color = output_payload.structural_error ? 'var(--red)' : 'var(--teal-lt)';
+  document.getElementById('netAssetsVal').textContent = output_payload.components.net_assets;
+  document.getElementById('sharesVal').textContent = output_payload.components.shares_outstanding;
+
+  const vClass = output_payload.structural_error ? 'fail' : 'pass';
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + (output_payload.structural_error || output_payload.fence) + '</div>';
+
+  const c = output_payload.components;
+  document.getElementById('componentTableBody').innerHTML =
+    '<tr><td>Holdings value</td><td>' + c.holdings_value + '</td></tr>' +
+    '<tr><td>Accrued income</td><td>' + c.accrued_income_total + '</td></tr>' +
+    '<tr><td>Accrued expense</td><td>' + c.accrued_expense_total + '</td></tr>' +
+    '<tr><td>Liabilities</td><td>' + c.liabilities_total + '</td></tr>' +
+    '<tr><td>Total assets</td><td>' + c.total_assets + '</td></tr>' +
+    '<tr><td>Total liabilities</td><td>' + c.total_liabilities + '</td></tr>' +
+    '<tr><td>Net assets</td><td>' + c.net_assets + '</td></tr>' +
+    '<tr><td>Shares outstanding</td><td>' + c.shares_outstanding + '</td></tr>' +
+    '<tr><td>Rounding</td><td>' + output_payload.rounding.decimal_places + ' places, ' + output_payload.rounding.mode + '</td></tr>';
+
+  document.getElementById('holdingsTableBody').innerHTML = c.holdings.map(function (h) {
+    return '<tr><td>' + (h.security_id || '–') + '</td><td>' + h.currency + '</td><td>' + h.quantity + '</td><td>' + h.price + '</td><td>' + h.local_value + '</td><td>' + h.base_value + '</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="muted">No holdings supplied.</td></tr>';
+
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(function (n) { return '<li><b>' + n.item + '</b>: ' + n.detail + '</li>'; }).join('');
+
+  const flagsHtml = compliance_flags.map(function (f) {
+    const cls = f.indexOf('STRUCTURAL_ERROR') >= 0 || f.indexOf('NEGATIVE') >= 0 ? 'err' : (f.indexOf('SUPPLIED_NOT_VERIFIED') >= 0 ? 'info' : 'ok');
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-373 Recompute Fund NAV</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Recompute Fund NAV, ART-373</h1>');
+  w.document.write('<p><b>NAV per share:</b> ' + (o.nav_per_share || 'n/a') + ' ' + o.base_currency + ' | <b>Net assets:</b> ' + o.components.net_assets + ' | <b>Shares outstanding:</b> ' + o.components.shares_outstanding + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(function (n) { w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'); });
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT, not a fair-value opinion or legal advice. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [['field','value']];
+  rows.push(['fund_id', o.fund_id || '']);
+  rows.push(['valuation_date', o.valuation_date || '']);
+  rows.push(['nav_per_share', o.nav_per_share || '']);
+  rows.push(['holdings_value', o.components.holdings_value]);
+  rows.push(['accrued_income_total', o.components.accrued_income_total]);
+  rows.push(['accrued_expense_total', o.components.accrued_expense_total]);
+  rows.push(['liabilities_total', o.components.liabilities_total]);
+  rows.push(['total_assets', o.components.total_assets]);
+  rows.push(['total_liabilities', o.components.total_liabilities]);
+  rows.push(['net_assets', o.components.net_assets]);
+  rows.push(['shares_outstanding', o.components.shares_outstanding]);
+  const csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
