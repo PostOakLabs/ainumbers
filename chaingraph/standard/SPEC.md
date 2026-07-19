@@ -1700,6 +1700,77 @@ sidecars (Bao / BLAKE3) are **measured-first**: adopt ONLY if real sidecar sizes
 A `< 1 MB` median means do NOT adopt — a second hash surface fights the one-canonical-hash doctrine. No spec
 commitment and no gate; this is a measurement note only.
 
+## §PPH-1 Policy-parameter digest — `policy_parameters_hash` (NORMATIVE, OPTIONAL — new in v0.8.10)
+An artifact MAY carry an OPTIONAL top-level member `policy_parameters_hash`: a standalone digest of
+`policy_parameters` alone, addressable without re-deriving it from the §4 preimage.
+
+**§PPH-1.1 Definition (MUST).** Where present, `policy_parameters_hash` MUST be the **WebCrypto SHA-256**
+over the **RFC 8785 / JCS-canonical** JSON of exactly the artifact's own `policy_parameters` value and
+nothing else, produced by the **same single shared canonicalizer `kernels/_hash.mjs`** that §4 uses
+(`cgCanon`). **There is no second canonicalization.** Every §4 FORBIDDEN construction is forbidden here
+identically and for the same reason: an array-replacer sort, a `simpleHash`/djb2/FNV placeholder, any
+string mislabeled `sha256:`, or hashing a reduced object different from the stored `policy_parameters`.
+The preimage is exactly `JSON.stringify(cgCanon(policy_parameters))` and the same `assertIJson` I-JSON
+rejection §4 applies — a non-finite number or an unsafe integer MUST fail loudly rather than produce an
+unstable digest. **Implementer note (this is a real trap, not a hypothetical): `cgCanon` returns a
+key-sorted OBJECT, not a string.** Digesting its return value without `JSON.stringify` yields
+`"[object Object]"` — a **constant** digest for every input, which still satisfies a determinism check and
+fails only under a mutation check. The §15 gate below asserts mutation-sensitivity for exactly this reason.
+
+**§PPH-1.1a Value form (MUST).** The value is a **bare 64-character lowercase hex digest, OPTIONALLY
+`sha256:`-prefixed** — the `#/$defs/sha256ref` form (`^(sha256:)?[0-9a-f]{64}$`) that `execution_hash` and
+`chain.parent_hashes[]` already carry. **Producers SHOULD emit the bare form**, because this member comes
+off the same shared digest path as `execution_hash` and that path returns bare hex. **Verifiers MUST accept
+either form.**
+
+`sha256ref` is chosen here for one narrow reason — it accepts what this member's producer will actually
+emit, and adds no further inline copy of a pattern the schema already names. **No general rule governs
+which members of this schema are prefix-mandatory and which are `sha256ref`, and this section does not
+invent one.** Two candidate rules were tried and both are falsified by the shipped schema, recorded so a
+third is not proposed: (a) *self-digest vs foreign-hash* fails because `chain.parent_hashes[]` holds OTHER
+artifacts' hashes and is nevertheless `sha256ref`; (b) *producer format* — "`sha256ref` types whatever
+byte-copies the shared bare-hex pipeline" — fails because §20's `anchored_hash` MUST equal the artifact's
+own `execution_hash` and therefore byte-copies that pipeline exactly, yet is prefix-mandatory. The honest
+reading is that the choice is **per-member and partly inconsistent**; that pre-existing inconsistency is
+out of scope here and is not resolved by this section.
+
+**§PPH-1.2 Hash exclusion (MUST).** `policy_parameters_hash` is **EXCLUDED from the §4 `execution_hash`
+preimage.** The preimage stays exactly `{ policy_parameters, output_payload }` and `canonicalPreimage()`
+behaviour is unchanged. Two consequences are normative, not incidental:
+
+- Adding the member to an existing artifact MUST NOT move its `execution_hash`. An artifact with the
+  member and the otherwise-identical artifact without it MUST produce **byte-identical** `execution_hash`.
+- The member is therefore **fully additive**: an artifact that omits it is unchanged and fully conformant,
+  `chaingraph_version` stays `"0.4.0"`, and every pinned golden vector stays byte-identical. **Adoption is
+  per-implementation and per-kernel; there is no MUST-emit anywhere in this standard.** A verifier MUST NOT
+  treat absence as a defect, and MUST NOT infer anything from absence — an omitted member is an unstated
+  digest, never an assertion that none exists.
+
+**§PPH-1.3 Verification (MUST, when present).** A verifier that checks this member MUST recompute the digest
+through `cgCanon` over the artifact's own stored `policy_parameters`, **strip the OPTIONAL `sha256:` prefix
+from the stored value, and compare the remaining 64 hex characters** byte-for-byte; a mismatch MUST fail.
+**Both `sha256ref` forms are equally valid inputs to this check — a verifier MUST NOT fail a value merely
+for carrying, or for lacking, the prefix.** Checking the member is itself OPTIONAL: skipping the check MUST
+NOT fail an otherwise-conformant artifact. It is a **content digest,
+not a signature and not a proof**: it attests nothing about authorship, carries no key material, and its
+agreement adds no authority that §16 does not already supply. It is not a substitute for the §4 hash and
+MUST NOT be used as a §HASHRES-1 resolution address.
+
+**§PPH-1.4 Placement rationale (informative).** The member sits at artifact level, alongside
+`execution_hash`, and **not** nested under `audit_signature`. That subschema is permissive and would have
+admitted the member with no schema change, which is precisely why the choice is recorded here rather than
+left to be rediscovered: `audit_signature` holds signing and proof metadata, a content digest is not
+signing metadata, and all three external formats §XMAP-1 maps place their equivalent at artifact level.
+Nesting it to avoid a schema review would have made that annex incoherent.
+
+**§PPH-1.5 Relationship to §XMAP-1 (informative).** This section is the normative home of the member that
+the §XMAP-1 annex, shipped in v0.8.9, already refers to as the OCG-side anchor for `covenantHash`,
+`credentialSubject.action.parameters_hash`, and `arguments_hash`. **That annex text is unchanged by this
+tick and is deliberately not restated here** — it stays INFORMATIVE, it defines nothing, and duplicating a
+definition across two sections is worse than leaving one place to look. What changes is that its reference
+now resolves: before this tick the annex named a member that no normative section defined and that
+`$defs.artifact` (`additionalProperties: false`) rejected outright.
+
 ## §XMAP-1 Annex — External receipt-format mappings (INFORMATIVE — new in v0.8.9)
 Three externally published agent-receipt formats independently converged on the same cryptographic stack
 this standard uses — RFC 8785 JCS canonicalization, SHA-256, Ed25519, and previous-hash chaining — and each
@@ -1898,6 +1969,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
 | §16.5 proof sets/chains: parallel proof set verifies, endorsement `previousProof` chain verifies in dependency order, broken `previousProof` MUST fail | `proof-binding.test.mjs` | validate |
 | §1 `supersedes` shape: array of `sha256:`-prefixed execution_hashes | `schema-validate.mjs` | validate |
+| §PPH-1 `policy_parameters_hash`: JCS-SHA-256 over `policy_parameters` alone through the one canonical `cgCanon` path, key-order independent and **mutation-sensitive** (catches the `cgCanon`-returns-an-object constant-digest trap), unmoved by an `output_payload` change; hash-EXCLUDED — the member demonstrably changes the artifact's canonical form yet the §4 preimage and `execution_hash` stay byte-identical (both halves asserted, either alone is vacuous), reinforced by `executionHash()`'s arity; `#/$defs/sha256ref` value form with **prefix-insensitive** verification (bare and `sha256:`-prefixed both accepted); absence conformant; tampered and stale digests detected | `policy-params-hash.test.mjs` (unit) + `schema-validate.mjs` (shape, exercised by `fixtures/policy-params-hash.fixture.json`) | validate |
 | §21.1–§21.3 linear composite contract: NO existing linear chain's `composite_execution_hash` moves (golden freeze over ≥10 chains, captured pre-change) | `linear-hash-freeze.mjs` | validate |
 | §21.4 gate static validity: RFC 6901 pointer syntax, closed op enum + value typing, `default` present, all targets resolve + FORWARD-ONLY, unique step ids, no unreachable step | `validate-chains.mjs` (Layer 4) + `gate-static.test.mjs` | validate |
 | §21.4 evaluator semantics: each op × type mismatch × first-match × mandatory default, determinism, decision recomputable + tamper-detect | `gate-semantics.test.mjs` | validate |
