@@ -27,6 +27,15 @@
  * array. meta.raw.header/betweenNodesAndChains/footer (the fixed wrapper
  * text: $schema, version, metadata block, closing brace) are unchanged by
  * this flip — only node/chain ORDER and inter-element whitespace changed.
+ *
+ * CANONICAL SHARD FORMAT (SHARD-DRIFT-CLASSIFY-1): a node shard's
+ * `compute_images` array and siblings COMPACT to one line
+ * (`"compute_images": [{...}]`, not one key/element per line) — every
+ * pre-ZK shard already looks like this. This assembler splices shard text
+ * VERBATIM (readShard/joinShards above), so shard format IS artifact
+ * format: a shard written multi-line ships multi-line into chaingraph.json
+ * and immediately drifts against this rule. Match an existing compact
+ * shard, don't reformat after the fact.
  */
 
 import { readFileSync, writeFileSync, readdirSync } from 'fs'
@@ -66,6 +75,47 @@ if (!raw) {
 
 const naturalSort = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
 
+// SHARD-DRIFT-CLASSIFY-1: chaingraph.json stores no literal "execution_hash"
+// field — it's computed at runtime by _hash.mjs from a node's content. But
+// that hash is a pure function of the content, so two byte-differing
+// chaingraph.json files carry the SAME hash set iff every node's PARSED
+// content is deep-equal. Canonicalize (sort keys recursively) so a pure
+// formatting difference (the only kind CS-2 shard compaction produces)
+// never registers as a content change.
+function canon(value) {
+  if (Array.isArray(value)) return value.map(canon)
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort().reduce((acc, k) => {
+      acc[k] = canon(value[k])
+      return acc
+    }, {})
+  }
+  return value
+}
+
+// Returns { verdict: 'HASH-NEUTRAL' | 'HASH-MOVING' | null, changedIds }.
+// verdict is null only on a JSON.parse failure (caller falls back to the
+// plain DRIFT message, no verdict claimed).
+function classifyDrift(committedText, assembledText) {
+  let committedObj, assembledObj
+  try {
+    committedObj = JSON.parse(committedText)
+    assembledObj = JSON.parse(assembledText)
+  } catch {
+    return { verdict: null, changedIds: [] }
+  }
+  const cMap = new Map(committedObj.nodes.map((n) => [n.tool_id, JSON.stringify(canon(n))]))
+  const aMap = new Map(assembledObj.nodes.map((n) => [n.tool_id, JSON.stringify(canon(n))]))
+  const changedIds = []
+  for (const [id, text] of aMap) {
+    if (cMap.get(id) !== text) changedIds.push(id)
+  }
+  for (const id of cMap.keys()) {
+    if (!aMap.has(id)) changedIds.push(id)
+  }
+  return { verdict: changedIds.length === 0 ? 'HASH-NEUTRAL' : 'HASH-MOVING', changedIds }
+}
+
 function readShard(dir, id) {
   const text = readFileSync(resolve(dir, `${id}.json`), 'utf8')
   return text.endsWith('\n') ? text.slice(0, -1) : text
@@ -104,6 +154,12 @@ if (CHECK) {
         console.error(`  assembled: ${JSON.stringify(assembled.slice(Math.max(0, i - 30), i + 30))}`)
         break
       }
+    }
+    const { verdict, changedIds } = classifyDrift(committed, assembled)
+    if (verdict === 'HASH-NEUTRAL') {
+      console.error('  HASH-NEUTRAL DRIFT — run the assembler and commit chaingraph.json in THIS push. Do NOT ride ASSEMBLE-LAND. Do NOT --no-verify.')
+    } else if (verdict === 'HASH-MOVING') {
+      console.error(`  HASH-MOVING DRIFT — BLOCKED-complete per RUNBOOK -0.7; the ASSEMBLE-LAND lands it per -0.6. (${changedIds.length} node(s) changed: ${changedIds.slice(0, 10).join(', ')}${changedIds.length > 10 ? ', ...' : ''})`)
     }
     console.error('  Run `node scripts/assemble-chaingraph.mjs` (no --check) to regenerate, then commit chaingraph.json.')
     process.exit(1)
