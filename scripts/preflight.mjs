@@ -102,6 +102,7 @@ const GATES = [
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
+  ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
 ];
 
 let failed = null;
