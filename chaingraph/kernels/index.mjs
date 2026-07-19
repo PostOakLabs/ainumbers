@@ -332,6 +332,7 @@ import * as art392    from './art-392-compute-canton-app-reward-estimate.kernel.
 import * as art393    from './art-393-x402-v2-migration-linter.kernel.mjs';
 import * as art394    from './art-394-x402-deferred-handshake-validator.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
+import * as art406    from './art-406-cross-venue-margin-estimator.kernel.mjs';
 import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
@@ -739,6 +740,7 @@ export const KERNELS = {
   'art-393-x402-v2-migration-linter':                         art393,
   'art-394-x402-deferred-handshake-validator':                art394,
   'art-40-tempo-agentic-checkout':                            art40,
+  'art-406-cross-venue-margin-estimator':                     art406,
   'art-41-tempo-validator-readiness':                         art41,
   'art-42-arc-fit-diagnostic':                                art42,
   'art-43-arc-cpn-model':                                     art43,
