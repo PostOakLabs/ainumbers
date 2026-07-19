@@ -16,7 +16,7 @@
 // integer beyond 2^53 that can't round-trip). assertIJson() rejects those so a
 // non-canonical value can never silently produce an unstable hash.
 
-function assertIJson(v) {
+export function assertIJson(v) {
   if (typeof v === 'number') {
     if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);

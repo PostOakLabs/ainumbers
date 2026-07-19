@@ -3,6 +3,49 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.10 — policy-parameter digest (§PPH-1)
+- **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.8 until
+  the next coordinated K landing moves it, the same separation v0.8.7 through v0.8.9 used.
+- **§PPH-1 `policy_parameters_hash`** — an OPTIONAL top-level member: the JCS-SHA-256 of `policy_parameters`
+  alone, computed through the one canonical `_hash.mjs` path (`JSON.stringify(cgCanon(...))`, never a second
+  canonicalization) and typed `#/$defs/sha256ref` — bare hex, `sha256:` prefix OPTIONAL. Producers SHOULD
+  emit bare (the shared digest path returns bare hex); verifiers MUST accept either and MUST NOT fail a value
+  for carrying or lacking the prefix. **No general prefix rule is claimed**: the two candidate rules were
+  tried and both are falsified by the shipped schema — *self-digest vs foreign-hash* dies on
+  `chain.parent_hashes[]` (foreign hashes, yet `sha256ref`), and *producer format* dies on §20 `anchored_hash`
+  (byte-copies the same bare-hex pipeline, yet prefix-mandatory). The counterexamples are recorded and no
+  third rule is proposed; the per-member inconsistency is pre-existing and out of scope. It is **EXCLUDED
+  from the §4 preimage**:
+  `canonicalPreimage()` is unchanged, `chaingraph_version` stays `"0.4.0"`, and every pinned golden vector is
+  byte-identical. Adoption is per-implementation; **absence is conformant and carries no meaning**, so a
+  verifier MUST NOT read anything into an omitted member. It is a content digest, not a signature — it adds
+  no authority §16 does not already supply, and is not a §HASHRES-1 resolution address.
+- **This closes a live incoherence rather than adding a new capability.** The §XMAP-1 annex shipped in v0.8.9
+  already named `policy_parameters_hash` as the OCG-side anchor for AGT `covenantHash`, agent-receipts
+  `credentialSubject.action.parameters_hash`, and AGA `arguments_hash` — but no normative section defined it
+  and `$defs.artifact` (`additionalProperties: false`) rejected it outright, so an implementer following the
+  annex would have produced artifacts that fail schema validation. **The annex text is unchanged**: it stays
+  INFORMATIVE and is not restated in §PPH-1, because a duplicated normative definition is worse than a single
+  place to look.
+- **Placement recorded so it is not re-litigated:** artifact level, not nested under `audit_signature`. That
+  subschema is permissive and needed no schema change, which is exactly why the rejection is written down —
+  a content digest is not signing metadata, and all three mapped formats place their equivalent at artifact
+  level.
+- **New §15 gate row** — `policy-params-hash.test.mjs`, wired into preflight and CI, plus
+  `fixtures/policy-params-hash.fixture.json` so the schema half actually executes (without a fixture carrying
+  the member, `sha256ref` would never be exercised and the row would be documented-but-not-enforced). It
+  proves the exclusion claim **non-vacuously** — asserting both that the member materially changes the
+  artifact's canonical form AND that the §4 preimage and `execution_hash` stay byte-identical, since either
+  half alone proves nothing — and asserts
+  **mutation-sensitivity**, which is not ceremony: `cgCanon` returns a key-sorted OBJECT, so digesting its
+  return value without `JSON.stringify` yields `"[object Object]"` — a constant digest for every input that
+  passes a determinism check and fails only under mutation. That trap fired for real while the gate was being
+  written, and §PPH-1.1 now warns about it in normative text. `assertIJson` is newly exported from `_hash.mjs`
+  so the digest reuses §4's I-JSON rejection instead of reimplementing it.
+- **Schema:** one OPTIONAL property added to `$defs.artifact`. Additive — no existing artifact changes.
+- **The code half is deliberately NOT in this tick.** No kernel emits the member yet; emission lands as a
+  separate R-class row against a reference kernel.
+
 ## 0.8.9 — exception classification (§22.11), anchor PQ note (§20), Wasm profile reference (§24), interop annex (§XMAP-1)
 - **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.8 until the
   next coordinated K landing moves it, the same separation v0.8.7 and v0.8.8 used to avoid a `chaingraph.json`
