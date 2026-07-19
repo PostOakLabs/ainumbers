@@ -12,6 +12,21 @@ name: Land Verify
 # (NOT the cross-engine parity matrix — that needs kernel source and is
 # already covered by cross-engine-parity.yml for actual kernel edits).
 # Additive only: does not replace or weaken any existing gate.
+#
+# Gate-coverage fix for KERNELCI-1 (2026-07-19): a PR touching
+# chaingraph/kernels/** or chaingraph/graph/nodes/** matched none of this
+# workflow's (or any PR workflow's) path filters, so the §17 kernel-identity
+# coverage gate — which only runs in deploy-to-dreamhost.yml's push-to-main
+# preflight — never fired until AFTER merge (PR #429 / PPH1-CODE-1: merged
+# all-green, then turned main red). Added those two path globs above plus
+# the §17 step below, reusing deploy-to-dreamhost.yml's exact invocation.
+#
+# EXPECTED BEHAVIOUR, NOT A BUG: an EDITED-EXISTING-kernel PR will now go RED
+# on its own PR, because the committed chaingraph.json still holds the old
+# digest until the ORCH's ASSEMBLE-LAND step regenerates it. That red is the
+# correct signal (RUNBOOK -0.7: edited-existing-shard PRs never self-merge).
+# A BRAND-NEW-kernel PR stays GREEN — a node not yet in order.nodes isn't in
+# the monolith yet, so the coverage check has nothing to compare.
 
 on:
   push:
@@ -22,6 +37,8 @@ on:
       - 'scripts/compute-proof-baseline.json'
       - 'chaingraph/zkvm-compute-integrity.html'
       - 'chaingraph/chaingraph-hub.html'
+      - 'chaingraph/kernels/**'
+      - 'chaingraph/graph/nodes/**'
       - '.github/workflows/land-verify.yml'
   pull_request:
     paths:
@@ -30,6 +47,8 @@ on:
       - 'scripts/compute-proof-baseline.json'
       - 'chaingraph/zkvm-compute-integrity.html'
       - 'chaingraph/chaingraph-hub.html'
+      - 'chaingraph/kernels/**'
+      - 'chaingraph/graph/nodes/**'
       - '.github/workflows/land-verify.yml'
 
 permissions:
@@ -76,3 +95,10 @@ jobs:
 
       - name: SSOT gate-coverage
         run: node chaingraph/standard/spec-gate-coverage.mjs
+
+      - name: §17 kernel-identity coverage (KERNELCI-1)
+        # Same invocation deploy-to-dreamhost.yml runs at push-to-main preflight.
+        # Now also runs on PRs touching kernel/node paths — see comment above.
+        run: |
+          node chaingraph/kernels/kernel-identity.test.mjs
+          node chaingraph/kernels/gen-kernel-identity.mjs --check
