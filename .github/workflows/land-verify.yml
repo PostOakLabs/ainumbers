@@ -96,9 +96,19 @@ jobs:
       - name: SSOT gate-coverage
         run: node chaingraph/standard/spec-gate-coverage.mjs
 
-      - name: §17 kernel-identity coverage (KERNELCI-1)
-        # Same invocation deploy-to-dreamhost.yml runs at push-to-main preflight.
+      - name: §17 kernel-identity coverage (KERNELCI-1 + KERNELID-GATE-1)
+        # Same invocations deploy-to-dreamhost.yml runs at push-to-main preflight.
         # Now also runs on PRs touching kernel/node paths — see comment above.
+        # TWO checks, deliberately BOTH kept (KERNELID-GATE-1 SPLIT design):
+        #   1. monolith --check is the PR-time BRAKE (KERNELCI-1) — an edited-existing-kernel
+        #      PR stays RED here until the next ASSEMBLE-LAND, by design (see failure-hint
+        #      diagnosis text in gen-kernel-identity.mjs for how to tell that apart from a
+        #      genuine identity mismatch). Do NOT remove this even though shard mode below
+        #      passes the same PR — removing it re-opens the PR #429 hole.
+        #   2. shard --check is the hard identity assertion + closes the "brand-new unstamped
+        #      kernel passes by absence from chaingraph.json" coverage gap that monolith mode
+        #      alone cannot see (see gen-kernel-identity.mjs header + KERNELID-GATE-1).
         run: |
           node chaingraph/kernels/kernel-identity.test.mjs
           node chaingraph/kernels/gen-kernel-identity.mjs --check
+          node chaingraph/kernels/gen-kernel-identity.mjs --check --shard

@@ -105,6 +105,27 @@ async function runShardMode(mode, onlyId, registered) {
   const allShardIds = readdirSync(NODES_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5));
   const targetIds = onlyId ? [onlyId] : allShardIds;
 
+  // SKIP-GAP CROSS-CHECK (KERNELID-GATE-1): a node assembled into chaingraph.json with NO shard
+  // file on disk is invisible to the scan below (it can't land in inScope OR skipped —
+  // readdirSync never returns it), so shard --check would silently pass a node it never looked
+  // at. assemble-chaingraph.mjs's own readShard() throws if a shard is missing for any
+  // chaingraph.meta.json order.nodes id, so this "should" be structurally impossible once
+  // assembled — but that invariant lives in a DIFFERENT script, so assert it here too rather
+  // than assume it holds. Full-scan only (a single --shard=<id> op has nothing to cross-check).
+  let populationNote = '';
+  if (!onlyId) {
+    const metaPath = resolve(HERE, '..', 'chaingraph.meta.json');
+    const orderNodeIds = JSON.parse(readFileSync(metaPath, 'utf8')).order.nodes;
+    const missingShards = orderNodeIds.filter((id) => !allShardIds.includes(id));
+    if (missingShards.length) {
+      console.error(`✗ §17 shard-mode SKIP GAP: ${missingShards.length} node(s) assembled into chaingraph.json (per chaingraph.meta.json order.nodes) have NO shard file on disk — shard --check cannot see them at all, which is exactly the coverage hole this cross-check exists to close:`);
+      for (const id of missingShards.slice(0, 25)) console.error(`  • ${id}`);
+      if (missingShards.length > 25) console.error(`  … and ${missingShards.length - 25} more`);
+      process.exit(1);
+    }
+    populationNote = ` Cross-checked ${orderNodeIds.length} assembled node id(s) (chaingraph.meta.json order.nodes) against ${allShardIds.length} shard file(s) on disk: 0 missing.`;
+  }
+
   const inScope = [];
   const skipped = [];
   for (const id of targetIds) {
@@ -152,7 +173,7 @@ async function runShardMode(mode, onlyId, registered) {
       console.error('\nRun: node chaingraph/kernels/gen-kernel-identity.mjs --write --shard  (then commit the shard file(s) — chaingraph.json is untouched)');
       process.exit(1);
     }
-    console.log(`✓ §17 kernel-identity coverage clean (shard mode) — all ${inScope.length} in-scope shard(s) carry a current sha256-source compute_images digest. ${skipped.length} shard(s) out of scope, skipped.`);
+    console.log(`✓ §17 kernel-identity coverage clean (shard mode) — all ${inScope.length} in-scope shard(s) carry a current sha256-source compute_images digest. ${skipped.length} shard(s) out of scope, skipped.${populationNote}`);
     return;
   }
 
@@ -225,10 +246,12 @@ if (mode === 'check') {
     console.error(`✗ §17 kernel-identity coverage FAILED — ${problems.length} node(s):`);
     for (const p of problems.slice(0, 25)) console.error('  • ' + p);
     if (problems.length > 25) console.error(`  … and ${problems.length - 25} more`);
-    console.error('\nRun: node chaingraph/kernels/gen-kernel-identity.mjs --write  (then commit chaingraph.json)');
+    console.error('\nDIAGNOSIS (monolith mode — this is the PR-time brake, KERNELCI-1): if you just edited one of the listed kernels and stamped ONLY its shard via `--write --shard=<tool_id>` (SO #6 — a kernel WU never touches chaingraph.json directly), this red is EXPECTED shard/monolith drift: chaingraph.json will not reflect your change until the next ASSEMBLE-LAND regenerates it from shards. That is correct — RIDE THE NEXT ASSEMBLE-LAND, do not try to clear this red yourself, and do NOT run `--write` below (it writes chaingraph.json directly, which SO #6 forbids for a kernel-editing WU).');
+    console.error('If you did NOT edit any of the listed kernels this session, this is a genuine identity mismatch (or main is carrying a stale/un-assembled chaingraph.json) — investigate before landing; do not assume drift.');
+    console.error('(`--write` here is the assembler-side/full-coverage path — chaingraph.json — for the ORCH\'s ASSEMBLE-LAND step only: node chaingraph/kernels/gen-kernel-identity.mjs --write)');
     process.exit(1);
   }
-  console.log(`✓ §17 kernel-identity coverage clean — all ${inScope.length} in-scope gpu:false live nodes carry a current sha256-source compute_images digest.`);
+  console.log(`✓ §17 kernel-identity coverage clean (monolith mode) — all ${inScope.length} in-scope gpu:false live nodes carry a current sha256-source compute_images digest.`);
   process.exit(0);
 }
 
