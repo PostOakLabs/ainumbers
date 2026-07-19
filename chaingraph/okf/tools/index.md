@@ -346,7 +346,9 @@ timestamp: 2026-07-14
 - [Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator](./art-406-cross-venue-margin-estimator.md) — `estimate_cross_venue_margin_capital`
 - [UMR / AANA Readiness Diagnostic](./art-407-umr-aana-readiness-diagnostic.md) — `run_umr_aana_readiness`
 - [Evidence Bundle Tier Labeler](./art-408-evidence-bundle-tier-labeler.md) — `assemble_ocg_evidence_bundle`
+- [DPA Article 28 Completeness Checker](./art-409-dpa-art28-completeness-checker.md) — `check_dpa_gdpr_art28`
 - [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
+- [Clause Coverage Scorer](./art-410-clause-coverage-scorer.md) — `score_clause_coverage`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
