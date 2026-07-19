@@ -159,6 +159,32 @@ if (failed) {
   process.exit(1);
 }
 
+// ── Advisory (non-blocking): worker vendor owed ─────────────────────────────
+// VENDOR-OWED-ADVISORY-1: an assembled chaingraph.json change means the worker
+// repo's freshness gate (check-vendor-fresh.mjs) will read RED until the batched
+// vendor land runs — an expected window, not breakage. De-noise it here so a
+// diagnosis isn't burned re-discovering that every time (see board/done/CW-1B.md).
+// Exit 0 always — this NEVER blocks, NEVER fails, NEVER becomes a gate.
+try {
+  const touched = new Set();
+  execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString().split('\n').forEach(f => f && touched.add(f));
+  execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString().split('\n').forEach(f => f && touched.add(f));
+  try {
+    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+  } catch { /* no upstream configured — uncommitted/staged diff already covers local work */ }
+
+  if (touched.has('chaingraph/chaingraph.json')) {
+    console.log('\n📦 ADVISORY: assembled chaingraph.json changed — a worker vendor land is now OWED.');
+    console.log('   Expect the worker freshness gate (check-vendor-fresh.mjs) to read RED until the');
+    console.log('   batched ASSEMBLE+LAND vendor run lands. That window is expected, not breakage.');
+  }
+} catch { /* advisory best-effort only — never let it affect preflight's exit code */ }
+
 // ── Advisory (non-blocking): version-prose drift ────────────────────────────
 // The version-of-record gate (spec-version-consistency) enforces the <meta>
 // marker. This --remnants pass surfaces stray vX.Y strings in PROSE so a spec
