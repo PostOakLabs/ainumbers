@@ -198,6 +198,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 // --- compute (MUST mirror kernels/art-48-treasury-clearing-fit-diagnostic.kernel.mjs) ---
 const DEADLINE_CASH='2026-12-31', DEADLINE_REPO='2027-06-30';
+const EXEMPTIONS=new Set(['none','inter-affiliate','central-bank-sovereign','state-local-govt']);
+const CCP_NOTE='FICC (DTCC) is the UST cash/repo CCP under the mandate. CMESC/ICE Clear Credit clear adjacent products (rates futures / credit), relevant for cross-margin context, not as UST cash/repo alternates.';
 const S={activity_cash:{none:4,occasional:2,core:1},activity_repo:{none:4,'triparty-only':2,bilateral:1,both:0},current_access:{'direct-member':4,sponsored:3,agent:3,none:0},im_funding_ready:{'yes-segregated':4,'yes-omnibus':3,unsure:1,no:0},capital_constrained:{'bank-SLR':1,'non-bank':3,na:4},cross_product_hedges:{both:4,'cme-futures':3,sofr:3,none:2},agreements_status:{executed:4,drafting:2,'not-started':0},connectivity:{live:4,'in-progress':2,none:0},intraday_liquidity:{strong:4,adequate:2,thin:0}};
 const pick=(t,v,d=0)=>v in t?t[v]:d;
 const breadthScore=n=>n>=6?4:n>=3?3:n>=1?2:0;
@@ -228,7 +230,11 @@ function compute(pp){
   if(pp.cross_product_hedges!=='none')compliance_flags.push('CROSS_MARGIN_CANDIDATE');
   if(overall_grade==='D'||overall_grade==='F')compliance_flags.push('LOW_READINESS');
   compliance_flags.push(pp.primary_product==='repo'?'DEADLINE_REPO_2027_06_30':'DEADLINE_CASH_2026_12_31');
-  return {output_payload:{overall_score:overall,overall_grade,dim_scores,primary_recommendation,secondary_recommendations,remediation_checklist,compliance_deadline,note:'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.'},compliance_flags};
+  const exemption=EXEMPTIONS.has(pp.exemption_claimed)?pp.exemption_claimed:'none';
+  const scope_classification={cash:{in_scope:pp.activity_cash!=='none'&&exemption==='none',deadline:DEADLINE_CASH},repo:{in_scope:pp.activity_repo!=='none'&&exemption==='none',deadline:DEADLINE_REPO},exemption_claimed:exemption};
+  if(exemption!=='none')compliance_flags.push('EXEMPTION_CLAIMED');
+  if(!scope_classification.cash.in_scope&&!scope_classification.repo.in_scope)compliance_flags.push('OUT_OF_SCOPE');
+  return {output_payload:{overall_score:overall,overall_grade,dim_scores,primary_recommendation,secondary_recommendations,remediation_checklist,compliance_deadline,scope_classification,ccp_selection:{recommended:'FICC',note:CCP_NOTE},note:'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.'},compliance_flags};
 }
 
 // Canonical hash — sorted-key JSON of {policy_parameters, output_payload} (OCG §2/§6).
@@ -243,7 +249,7 @@ async function run(){
   for(const id of ids){const el=document.getElementById(id);pp[id]=el.type==='number'?Number(el.value):el.value;}
   const {output_payload:op,compliance_flags}=compute(pp);
   const hash=await execHash(pp,op);
-  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'agent_guardrail_mandate',tool_id:'art-48-treasury-clearing-fit-diagnostic',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'agent_guardrail_mandate',tool_id:'art-48-treasury-clearing-fit-diagnostic',tool_version:'1.1.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
 
   document.getElementById('results').classList.add('show');
   const gb=document.getElementById('gradeBadge');gb.textContent=op.overall_grade;gb.style.color=GRADE_COLOR[op.overall_grade];gb.style.borderColor=GRADE_COLOR[op.overall_grade];

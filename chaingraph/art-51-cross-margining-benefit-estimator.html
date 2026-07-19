@@ -188,12 +188,16 @@ function compute(pp){
   const cross_margined_im=bucketVaRtotal(combined,z,sq);
   const im_reduction_usd=Math.max(0,standalone_im_total-cross_margined_im);
   const im_reduction_pct=standalone_im_total>0?+((im_reduction_usd/standalone_im_total)*100).toFixed(1):0;
+  const COMBINED_PORTFOLIO_MAX_SAVINGS_PCT=80, CUSTOMER_GO_LIVE='2026-04-30';
   const compliance_flags=[];
   if(pp.account_type==='customer')compliance_flags.push('CUSTOMER_CROSS_MARGIN_PENDING_GO_LIVE');
   if(ineligible_offsets.length)compliance_flags.push('OFFSET_OUTSIDE_ELIGIBLE_SCOPE');
   if(im_reduction_pct>=30)compliance_flags.push('MATERIAL_CROSS_MARGIN_BENEFIT');
-  const account_type_note=pp.account_type==='customer'?'Customer cross-margining expanded via SEC notice published 2025-12-22; confirm operational go-live before relying on it.':'House (member) cross-margining — established FICC–CME arrangement.';
-  return {output_payload:{standalone_im_total:Math.round(standalone_im_total),cross_margined_im:Math.round(cross_margined_im),im_reduction_usd:Math.round(im_reduction_usd),im_reduction_pct,eligible_offsets,ineligible_offsets,account_type_note,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,cme_dv01_table:'approx per-contract $/bp',bucket_corr:BUCKET_CORR},note:'Educational FICC–CME cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.'},compliance_flags};
+  if(im_reduction_pct>COMBINED_PORTFOLIO_MAX_SAVINGS_PCT)compliance_flags.push('EXCEEDS_CITED_PROGRAM_CAP');
+  const account_type_note=pp.account_type==='customer'?`Customer cross-margining (Combined Portfolio) expands to customer accounts ${CUSTOMER_GO_LIVE}; confirm operational go-live before relying on it.`:'House (member) cross-margining — established FICC–CME Combined Portfolio arrangement.';
+  const long_maturity_positions=(pp.ust_positions||[]).filter(p=>(+p.tenor_years||0)>1).length;
+  const combined_portfolio={program:'CME-FICC Combined Portfolio',max_savings_pct_cited:COMBINED_PORTFOLIO_MAX_SAVINGS_PCT,customer_go_live:CUSTOMER_GO_LIVE,maturity_eligibility_note:'Combined Portfolio covers UST cash/repo maturity >1yr vs CME rate futures; shorter-tenor positions are still netted in this estimate but fall outside the cited program scope.',long_maturity_position_count:long_maturity_positions};
+  return {output_payload:{standalone_im_total:Math.round(standalone_im_total),cross_margined_im:Math.round(cross_margined_im),im_reduction_usd:Math.round(im_reduction_usd),im_reduction_pct,eligible_offsets,ineligible_offsets,account_type_note,combined_portfolio,assumptions:{confidence_level:pp.confidence_level,mpor_days:+pp.mpor_days||1,cme_dv01_table:'approx per-contract $/bp',bucket_corr:BUCKET_CORR},note:'Educational FICC–CME Combined Portfolio cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.'},compliance_flags};
 }
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -203,7 +207,7 @@ async function run(){
   const pp={ust_positions:ust,cme_positions:cme,account_type:document.getElementById('account_type').value,confidence_level:Number(document.getElementById('confidence_level').value),mpor_days:Number(document.getElementById('mpor_days').value)};
   const {output_payload:op,compliance_flags}=compute(pp);
   const hash=await execHash(pp,op);
-  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'risk_parameter',tool_id:'art-51-cross-margining-benefit-estimator',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'risk_parameter',tool_id:'art-51-cross-margining-benefit-estimator',tool_version:'1.1.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   document.getElementById('results').classList.add('show');
   document.getElementById('standalone').textContent=fmt(op.standalone_im_total);
   document.getElementById('cross').textContent=fmt(op.cross_margined_im);

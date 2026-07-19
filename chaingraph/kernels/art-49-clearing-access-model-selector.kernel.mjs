@@ -9,7 +9,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-49-clearing-access-model-selector';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mcp_name: 'model_clearing_access_economics', mandate_type: 'treasury_mandate', gpu: false };
 
 const MODELS = ['direct', 'sponsored_done_with', 'sponsored_done_away', 'agent_done_away'];
@@ -21,6 +21,8 @@ const PARAMS = {
   agent_done_away:     { fee_bps: 0.25, im_mult: 0.80, capital_mult: 0.10, ops_fixed: 400_000,   exec: 0.95, net: 0.20, seg: 'either' },
 };
 const IM_RATE = 0.010;          // FICC VaR-margin proxy: ~1% of outstanding (educational)
+// CW-4 extension: FICC's Collateral-in-Lieu service — a lien on already-pledged repo collateral
+// substitutes for cash IM, saving the IM funding cost (im * im_funding_rate). Repo-only, educational.
 const W = { cost: 0.40, exec: 0.25, margin: 0.25, ops: 0.10 };
 
 export function compute(pp) {
@@ -35,6 +37,8 @@ export function compute(pp) {
     margin_segregation_pref = 'no-pref',
     im_funding_rate = 0.05,
     capital_charge_rate = 0.005,
+    collateral_in_lieu_eligible = false,
+    pledged_collateral_value = 0,
   } = pp;
 
   const feeBase = (Number(cash_notional_annual) || 0) + (Number(repo_notional_daily) || 0) * 250;
@@ -83,10 +87,23 @@ export function compute(pp) {
   const segregation_recommendation = firm_type === 'mmf' ? 'segregated'
     : (margin_segregation_pref !== 'no-pref' ? margin_segregation_pref : (best === 'agent_done_away' ? 'non-segregated (net CCP margining)' : 'segregated'));
 
+  const lienRequired = im_estimate_by_model[best] || 0;
+  const collateralSufficient = collateral_in_lieu_eligible && (Number(pledged_collateral_value) || 0) >= lienRequired && (Number(repo_notional_daily) || 0) > 0;
+  const collateral_in_lieu = {
+    eligible: !!collateral_in_lieu_eligible && (Number(repo_notional_daily) || 0) > 0,
+    lien_required_usd: lienRequired,
+    pledged_collateral_value: Number(pledged_collateral_value) || 0,
+    collateral_sufficient: collateralSufficient,
+    annual_funding_savings_usd: collateralSufficient ? Math.round(lienRequired * (Number(im_funding_rate) || 0.05)) : 0,
+    note: 'FICC Collateral-in-Lieu: a lien on pledged repo collateral substitutes for cash IM, saving IM funding cost. Repo-only; requires sufficient pledged collateral. Educational, not clearing advice.',
+  };
+
   const compliance_flags = [];
   if (!directEligible) compliance_flags.push('DIRECT_MEMBERSHIP_INELIGIBLE');
   if (best && best.includes('done_away')) compliance_flags.push('DONE_AWAY_RECOMMENDED');
   if (firm_type === 'mmf') compliance_flags.push('SEGREGATED_MARGIN_REQUIRED_2A7');
+  if (collateral_in_lieu.eligible && !collateral_in_lieu.collateral_sufficient) compliance_flags.push('COLLATERAL_IN_LIEU_SHORTFALL');
+  if (collateral_in_lieu.collateral_sufficient) compliance_flags.push('COLLATERAL_IN_LIEU_APPLICABLE');
 
   const cfo_memo = `Recommended access model: ${best}. ` +
     `Est. annual cost $${(annual_cost_by_model[best] / 1e6).toFixed(2)}M (vs Direct $${(annual_cost_by_model.direct / 1e6).toFixed(2)}M). ` +
@@ -102,6 +119,7 @@ export function compute(pp) {
     netting_efficiency_pct: +((PARAMS[best].net + (best.includes('done_away') ? dealerNet : 0)) * 100).toFixed(1),
     segregation_recommendation,
     eligibility_gates,
+    collateral_in_lieu,
     cfo_memo,
     note: 'Educational access-model economics for the SEC US Treasury clearing mandate. Assumptions documented in-kernel; not clearing advice.',
   };

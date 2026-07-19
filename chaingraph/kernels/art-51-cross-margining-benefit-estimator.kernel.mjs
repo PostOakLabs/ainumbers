@@ -9,7 +9,12 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-51-cross-margining-benefit-estimator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
+// CW-5 extension: CME-FICC "Combined Portfolio" branding — the combined UST cash/repo + CME rate
+// futures netting set this kernel already computes. Program cites up-to-80% margin savings on
+// eligible positions; customer accounts expand 2026-04-30 (was pending-go-live only).
+const COMBINED_PORTFOLIO_MAX_SAVINGS_PCT = 80;
+const CUSTOMER_GO_LIVE = '2026-04-30';
 export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mcp_name: 'estimate_cross_margin_benefit', mandate_type: 'risk_parameter', gpu: false };
 
 const Z = { 0.90: 1.282, 0.95: 1.645, 0.99: 2.326, 0.999: 3.090 };
@@ -80,10 +85,20 @@ export function compute(pp) {
   if (account_type === 'customer') compliance_flags.push('CUSTOMER_CROSS_MARGIN_PENDING_GO_LIVE');
   if (ineligible_offsets.length) compliance_flags.push('OFFSET_OUTSIDE_ELIGIBLE_SCOPE');
   if (im_reduction_pct >= 30) compliance_flags.push('MATERIAL_CROSS_MARGIN_BENEFIT');
+  if (im_reduction_pct > COMBINED_PORTFOLIO_MAX_SAVINGS_PCT) compliance_flags.push('EXCEEDS_CITED_PROGRAM_CAP');
 
   const account_type_note = account_type === 'customer'
-    ? 'Customer cross-margining expanded via SEC notice published 2025-12-22; confirm operational go-live before relying on it.'
-    : 'House (member) cross-margining — established FICC–CME arrangement.';
+    ? `Customer cross-margining (Combined Portfolio) expands to customer accounts ${CUSTOMER_GO_LIVE}; confirm operational go-live before relying on it.`
+    : 'House (member) cross-margining — established FICC–CME Combined Portfolio arrangement.';
+
+  const long_maturity_positions = ust_positions.filter((p) => (Number(p.tenor_years) || 0) > 1).length;
+  const combined_portfolio = {
+    program: 'CME-FICC Combined Portfolio',
+    max_savings_pct_cited: COMBINED_PORTFOLIO_MAX_SAVINGS_PCT,
+    customer_go_live: CUSTOMER_GO_LIVE,
+    maturity_eligibility_note: 'Combined Portfolio covers UST cash/repo maturity >1yr vs CME rate futures; shorter-tenor positions are still netted in this estimate but fall outside the cited program scope.',
+    long_maturity_position_count: long_maturity_positions,
+  };
 
   const output_payload = {
     standalone_im_total: Math.round(standalone_im_total),
@@ -93,8 +108,9 @@ export function compute(pp) {
     eligible_offsets,
     ineligible_offsets,
     account_type_note,
+    combined_portfolio,
     assumptions: { confidence_level, mpor_days: Number(mpor_days) || 1, cme_dv01_table: 'approx per-contract $/bp', bucket_corr: BUCKET_CORR },
-    note: 'Educational FICC–CME cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.',
+    note: 'Educational FICC–CME Combined Portfolio cross-margining estimate; CME DV01s are approximate. Not the official cross-margin calculator.',
   };
   return { output_payload, compliance_flags };
 }
