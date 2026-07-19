@@ -251,6 +251,19 @@ jobs:
             -o ConnectTimeout=10 \
             ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }} "echo '✅ SSH connection confirmed'"
 
+      - name: 🪪 Write deploy stamp (DEPLOYDRIFT-1)
+        # Written HERE, at rsync time, from the commit actually being deployed —
+        # never at preflight — so it attests what really shipped, not what merely
+        # passed checks. scripts/check-deploy-drift.mjs compares this against
+        # origin/main's HEAD to detect a deploy that silently failed to fire.
+        run: |
+          mkdir -p .well-known
+          printf '{"sha":"%s","deployed_at":"%s"}\n' \
+            "${{ github.sha }}" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > .well-known/deploy-stamp.json
+          cat .well-known/deploy-stamp.json
+
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
         # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/
         # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,
