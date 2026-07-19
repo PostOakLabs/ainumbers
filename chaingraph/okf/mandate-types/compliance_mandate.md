@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-250"]
+tags: ["compliance_mandate", "count-256"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-250 tool(s) in this mandate-type group:
+256 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -257,6 +257,12 @@ timestamp: 2026-07-14
 - [CBOM Structural Lint & CNSA-2.0 Classifier](../tools/art-386-lint-cbom-structure.md)
 - [CNSA 2.0 Deadline Ladder Calculator](../tools/art-387-pqc-deadline-ladder-calculator.md)
 - [TIP-20 Memo/Commitment Validator](../tools/art-390-tip20-memo-commitment-validator.md)
+- [15c3-3 Customer Reserve Formula Calculator](../tools/art-396-compute-15c3-3-reserve.md)
+- [TRACE / CAT Reporting Lint](../tools/art-397-lint-trace-cat-reports.md)
+- [Metro 2 Credit-Reporting Record Lint](../tools/art-398-lint-metro2-record.md)
+- [X12 837/835 Healthcare-Claim Records Lint](../tools/art-399-lint-x12-claim-records.md)
+- [Municipal Official Statement Completeness Checker](../tools/art-400-check-official-statement-completeness.md)
+- [ERISA Form 5500 Schedule Validator](../tools/art-401-validate-form5500-schedules.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
