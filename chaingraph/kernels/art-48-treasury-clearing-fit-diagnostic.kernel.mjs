@@ -9,7 +9,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-48-treasury-clearing-fit-diagnostic';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id:      TOOL_ID,
@@ -22,6 +22,12 @@ export const meta = {
 // SEC compliance dates (final rule 34-102487): cash 2026-12-31, repo 2027-06-30.
 const DEADLINE_CASH = '2026-12-31';
 const DEADLINE_REPO = '2027-06-30';
+
+// CW-3 extension: documented SEC final-rule exemptions from the clearing mandate (educational summary).
+const EXEMPTIONS = new Set(['none', 'inter-affiliate', 'central-bank-sovereign', 'state-local-govt']);
+// CCP selection: FICC is the only agency-cleared UST cash/repo CCP today; CMESC/ICE noted per spec for
+// cross-product context (futures/credit) only — not alternate UST cash/repo clearers. Educational, not advice.
+const CCP_NOTE = 'FICC (DTCC) is the UST cash/repo CCP under the mandate. CMESC/ICE Clear Credit clear adjacent products (rates futures / credit), relevant for cross-margin context, not as UST cash/repo alternates.';
 
 // Each answer → a 0..4 readiness sub-score (4 = most ready / least work).
 const S = {
@@ -56,7 +62,15 @@ export function compute(pp) {
     execution_breadth = 0, im_funding_ready = 'unsure', hqla_inventory_pct = 0,
     capital_constrained = 'non-bank', cross_product_hedges = 'none', agreements_status = 'not-started',
     connectivity = 'none', intraday_liquidity = 'adequate', primary_product = 'both',
+    exemption_claimed = 'none',
   } = pp;
+
+  const exemption = EXEMPTIONS.has(exemption_claimed) ? exemption_claimed : 'none';
+  const scope_classification = {
+    cash: { in_scope: activity_cash !== 'none' && exemption === 'none', deadline: DEADLINE_CASH },
+    repo: { in_scope: activity_repo !== 'none' && exemption === 'none', deadline: DEADLINE_REPO },
+    exemption_claimed: exemption,
+  };
 
   const hqlaScore = Math.max(0, Math.min(4, (Number(hqla_inventory_pct) || 0) / 25)); // 0..4
   const sub = {
@@ -101,6 +115,8 @@ export function compute(pp) {
   if (cross_product_hedges !== 'none') compliance_flags.push('CROSS_MARGIN_CANDIDATE');
   if (overall_grade === 'D' || overall_grade === 'F') compliance_flags.push('LOW_READINESS');
   compliance_flags.push(primary_product === 'repo' ? 'DEADLINE_REPO_2027_06_30' : 'DEADLINE_CASH_2026_12_31');
+  if (exemption !== 'none') compliance_flags.push('EXEMPTION_CLAIMED');
+  if (!scope_classification.cash.in_scope && !scope_classification.repo.in_scope) compliance_flags.push('OUT_OF_SCOPE');
 
   const output_payload = {
     overall_score: overall,
@@ -110,6 +126,8 @@ export function compute(pp) {
     secondary_recommendations,
     remediation_checklist,
     compliance_deadline,
+    scope_classification,
+    ccp_selection: { recommended: 'FICC', note: CCP_NOTE },
     note: 'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.',
   };
   return { output_payload, compliance_flags };
