@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reg F Call-Frequency Presumption Validator &middot; ART-402 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Checks a declared debt-collection call log against the 12 CFR 1006.14(b) Reg F 7-in-7 and post-conversation quiet-period rebuttable presumptions.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-402-validate-regf-call-frequency.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:220px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-402 · Reg F Call-Frequency Validator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-402 &middot; Debt Collection &middot; Reg F 12 CFR 1006.14(b)</div>
+  <h1>Reg F Call-Frequency Presumption Validator</h1>
+  <p class="sub">Checks a declared debt-collection call log against the two Regulation F rebuttable presumptions: more than seven calls to a person on a single debt within any seven consecutive days (1006.14(b)(2)(i)), and a call within seven days after a telephone conversation on that debt (1006.14(b)(2)(ii)).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">12 CFR 1006.14(b)</span>
+    <span class="flag info">Regulation F</span>
+    <span class="flag">Collections Compliance Family</span>
+  </div>
+  <div class="pii-notice">&#128274; All checking runs locally in your browser. No data is transmitted. Do not enter real consumer data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; PRESUMPTION NOTE: 1006.14(b)(2)(i)/(ii) presumptions are REBUTTABLE (1006.14(b)(3)). This tool attests the count/interval math over the declared call log &mdash; it is not a determination that harassment occurred and does not evaluate any rebuttal evidence.</div>
+
+  <div class="card">
+    <div class="section-head">Call log</div>
+    <label class="fld">Declared timezone offset from UTC, minutes (local = UTC + offset; applied only to timestamps with no "Z" suffix)</label>
+    <input type="number" id="tzOffset" value="0">
+    <label class="fld">Calls (JSON array: timestamp "YYYY-MM-DDTHH:MM:SS[Z]", debt_id, connected true/false)</label>
+    <textarea id="callsJson">[
+  { "timestamp": "2026-07-01T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-02T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-03T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-04T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-05T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-06T09:00:00Z", "debt_id": "DEBT-1", "connected": false },
+  { "timestamp": "2026-07-07T09:00:00Z", "debt_id": "DEBT-1", "connected": true },
+  { "timestamp": "2026-07-07T15:00:00Z", "debt_id": "DEBT-1", "connected": false }
+]</textarea>
+    <div style="margin-top:16px">
+      <button onclick="runCheck()">&#9654; Validate Call Frequency</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Per-debt findings</div>
+      <div id="debtsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var WINDOW_DAYS = 7, MS_PER_DAY = 86400000;
+
+var MANIFEST = {
+  tool_id: 'art-402-validate-regf-call-frequency',
+  version: '1.0.0',
+  mcp_name: 'validate_regf_call_frequency',
+  title: 'Reg F Call-Frequency Presumption Validator',
+  description: 'Checks a declared debt-collection call log against the 12 CFR 1006.14(b) 7-in-7 and post-conversation quiet-period rebuttable presumptions.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: '12 CFR 1006.14(b)(2)(i)/(ii) (Regulation F); presumptions rebuttable under 1006.14(b)(3).',
+  mcp_tool_definition: {
+    name: 'validate_regf_call_frequency',
+    description: 'Checks a call log against the Reg F 7-in-7 and quiet-period call-frequency presumptions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputs: { type: 'object', properties: {
+          timezone_offset_minutes: { type: 'number' },
+          calls: { type: 'array', items: { type: 'object', properties: { timestamp: {type:'string'}, debt_id: {type:'string'}, connected: {type:'boolean'} } } },
+        } },
+      },
+    },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function parseTimestamp(raw, tzOffsetMinutes){
+  if (typeof raw !== 'string') return NaN;
+  var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(Z)?$/.exec(raw.trim());
+  if (!m) return NaN;
+  var utcMs = Date.UTC(Number(m[1]), Number(m[2])-1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]||0));
+  if (!Number.isFinite(utcMs)) return NaN;
+  if (m[7]==='Z') return utcMs;
+  return utcMs - tzOffsetMinutes*60000;
+}
+function dayIndex(epochMs, tzOffsetMinutes){ return Math.floor((epochMs + tzOffsetMinutes*60000) / MS_PER_DAY); }
+
+function validate(pp){
+  var inputs = pp.inputs || {};
+  var tzOffsetMinutes = Math.trunc(Number(inputs.timezone_offset_minutes)) || 0;
+  var rawCalls = Array.isArray(inputs.calls) ? inputs.calls : [];
+
+  var calls = rawCalls.map(function(c, idx){
+    var epoch_ms = parseTimestamp(c && c.timestamp, tzOffsetMinutes);
+    return {
+      input_index: idx,
+      debt_id: (c && typeof c.debt_id === 'string') ? c.debt_id : 'UNSPECIFIED',
+      timestamp: c && c.timestamp,
+      connected: !!(c && c.connected),
+      epoch_ms: epoch_ms,
+      day_index: Number.isFinite(epoch_ms) ? dayIndex(epoch_ms, tzOffsetMinutes) : NaN,
+      valid: Number.isFinite(epoch_ms),
+    };
+  });
+
+  var invalid_call_indices = calls.filter(function(c){return !c.valid;}).map(function(c){return c.input_index;});
+  var validCalls = calls.filter(function(c){return c.valid;});
+
+  var byDebt = {};
+  validCalls.forEach(function(c){ (byDebt[c.debt_id] = byDebt[c.debt_id] || []).push(c); });
+
+  var debts = [], compliance_flags = [];
+  Object.keys(byDebt).forEach(function(debt_id){
+    var sorted = byDebt[debt_id].slice().sort(function(a,b){ return a.epoch_ms - b.epoch_ms || a.input_index - b.input_index; });
+
+    var seven_in_seven_trips = [];
+    for (var i=0;i<sorted.length;i++){
+      var day = sorted[i].day_index, windowStart = day - (WINDOW_DAYS-1), count=0;
+      for (var j=0;j<=i;j++){ if (sorted[j].day_index>=windowStart && sorted[j].day_index<=day) count++; }
+      if (count > WINDOW_DAYS) seven_in_seven_trips.push({ input_index: sorted[i].input_index, timestamp: sorted[i].timestamp, calls_in_window: count, window_start_day_offset: windowStart });
+    }
+
+    var quiet_period_violations = [];
+    for (var i2=0;i2<sorted.length;i2++){
+      var priorConnectedDay=null, priorConnectedIndex=null;
+      for (var j2=i2-1;j2>=0;j2--){ if (sorted[j2].connected){ priorConnectedDay=sorted[j2].day_index; priorConnectedIndex=sorted[j2].input_index; break; } }
+      if (priorConnectedDay===null) continue;
+      var daysSince = sorted[i2].day_index - priorConnectedDay;
+      if (daysSince>=1 && daysSince<=WINDOW_DAYS) quiet_period_violations.push({ input_index: sorted[i2].input_index, timestamp: sorted[i2].timestamp, prior_connected_input_index: priorConnectedIndex, days_since_conversation: daysSince });
+    }
+
+    var has_7in7 = seven_in_seven_trips.length>0, has_quiet_period = quiet_period_violations.length>0;
+    if (has_7in7) compliance_flags.push('REGF_7IN7_PRESUMPTION_DEBT_'+debt_id);
+    if (has_quiet_period) compliance_flags.push('REGF_QUIET_PERIOD_PRESUMPTION_DEBT_'+debt_id);
+
+    debts.push({ debt_id: debt_id, calls_checked: sorted.length, seven_in_seven_presumption: has_7in7, seven_in_seven_trips: seven_in_seven_trips, quiet_period_presumption: has_quiet_period, quiet_period_violations: quiet_period_violations });
+  });
+  debts.sort(function(a,b){ return a.debt_id<b.debt_id?-1:a.debt_id>b.debt_id?1:0; });
+  if (invalid_call_indices.length>0) compliance_flags.push('REGF_UNPARSEABLE_TIMESTAMPS');
+
+  var output_payload = {
+    debts_checked: debts.length,
+    debts_with_seven_in_seven_presumption: debts.filter(function(d){return d.seven_in_seven_presumption;}).length,
+    debts_with_quiet_period_presumption: debts.filter(function(d){return d.quiet_period_presumption;}).length,
+    debts: debts,
+    invalid_call_indices: invalid_call_indices,
+    timezone_offset_minutes_applied: tzOffsetMinutes,
+    window_days: WINDOW_DAYS,
+    disambiguation: 'validate_regf_call_frequency checks the declared call log against the 12 CFR 1006.14(b)(2) 7-in-7 and post-conversation quiet-period REBUTTABLE PRESUMPTIONS -- it does not determine that harassment occurred, and a debt collector may rebut either presumption with evidence under 1006.14(b)(3).',
+    regulatory_basis: '12 CFR 1006.14(b)(2)(i) (more than seven calls within seven consecutive days per debt) and 1006.14(b)(2)(ii) (a call within seven days after a telephone conversation on that debt); presumptions are rebuttable per 1006.14(b)(3).',
+  };
+  return { pp: pp, output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+async function runCheck(){
+  var tz = Number(document.getElementById('tzOffset').value) || 0;
+  var calls;
+  try { calls = JSON.parse(document.getElementById('callsJson').value); }
+  catch(e){ alert('Invalid JSON in call log: '+e.message); return; }
+  var pp = { inputs: { timezone_offset_minutes: tz, calls: calls } };
+  var res = validate(pp);
+  _lastResult = res;
+
+  var anyPresumption = res.output_payload.debts_with_seven_in_seven_presumption>0 || res.output_payload.debts_with_quiet_period_presumption>0;
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = anyPresumption ? 'var(--red)' : 'var(--green)';
+  vBox.style.background = anyPresumption ? 'rgba(239,68,68,.08)' : 'rgba(34,197,94,.08)';
+  vBox.style.border = '1px solid ' + (anyPresumption ? 'var(--red)' : 'var(--green)');
+  vBox.textContent = anyPresumption ? (res.output_payload.debts_with_seven_in_seven_presumption + res.output_payload.debts_with_quiet_period_presumption) + ' PRESUMPTION(S) TRIPPED' : 'NO PRESUMPTIONS TRIPPED';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+res.output_payload.debts_checked+'</span><span class="stat-key">Debts checked</span></div>'+
+    '<div class="stat"><span class="stat-val">'+res.output_payload.debts_with_seven_in_seven_presumption+'</span><span class="stat-key">7-in-7 presumptions</span></div>'+
+    '<div class="stat"><span class="stat-val">'+res.output_payload.debts_with_quiet_period_presumption+'</span><span class="stat-key">Quiet-period presumptions</span></div>';
+
+  document.getElementById('debtsDiv').innerHTML = res.output_payload.debts.map(function(d){
+    var badges = (d.seven_in_seven_presumption ? '<span class="badge fail">7-IN-7</span>' : '') + (d.quiet_period_presumption ? '<span class="badge fail">QUIET PERIOD</span>' : '');
+    return '<div class="kv"><span class="kv-k">'+d.debt_id+' ('+d.calls_checked+' calls)</span><span class="kv-v">'+(badges || '<span style="color:var(--green)">&#10003; clear</span>')+'</span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">No valid calls parsed</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(res.pp, res.output_payload).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-402-validate-regf-call-frequency',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-402-validate-regf-call-frequency.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+</script>
+</body>
+</html>
