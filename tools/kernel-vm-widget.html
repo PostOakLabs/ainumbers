@@ -413,13 +413,23 @@ if (typeof TextEncoder === 'undefined') {
     var digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   };
+  // §PPH-1 (PPH1-CODE-1): identical to kernels/_hash.mjs policyParametersHash — a kernel
+  // wired to emit policy_parameters_hash imports this alongside executionHash, and the ESM
+  // strip below removes that import too, so it needs the same host-bridged re-definition.
+  globalThis.policyParametersHash = async function ocgPolicyParametersHash(policy_parameters) {
+    assertIJson(policy_parameters);
+    var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
+    var digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  };
 })();
 `.trim();
 
 /** Strips ESM import/export syntax a kernel.mjs file uses so it can run as a
- * plain QuickJS script. Kernels only ever import { executionHash } from
- * './_hash.mjs' (verified against the full chaingraph/kernels/*.kernel.mjs set) —
- * the prelude re-defines executionHash as the real host-bridged implementation. */
+ * plain QuickJS script. Kernels only ever import { executionHash } (and, since
+ * PPH1-CODE-1, optionally policyParametersHash) from './_hash.mjs' (verified against the
+ * full chaingraph/kernels/*.kernel.mjs set) — the prelude re-defines both as the real
+ * host-bridged implementation. */
 function stripEsmSyntaxForVm(kernelSource) {
   return kernelSource
     .replace(/^import\s+.*$/gm, '')
