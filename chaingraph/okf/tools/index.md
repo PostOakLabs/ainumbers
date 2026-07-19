@@ -345,6 +345,7 @@ timestamp: 2026-07-14
 - [Private Student Loan Disclosure & Rescission Checker](./art-405-check-private-student-loan-disclosures.md) — `check_private_student_loan_disclosures`
 - [Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator](./art-406-cross-venue-margin-estimator.md) — `estimate_cross_venue_margin_capital`
 - [UMR / AANA Readiness Diagnostic](./art-407-umr-aana-readiness-diagnostic.md) — `run_umr_aana_readiness`
+- [Evidence Bundle Tier Labeler](./art-408-evidence-bundle-tier-labeler.md) — `assemble_ocg_evidence_bundle`
 - [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
