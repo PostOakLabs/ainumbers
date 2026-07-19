@@ -338,6 +338,10 @@ import * as art399    from './art-399-lint-x12-claim-records.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
 import * as art400    from './art-400-check-official-statement-completeness.kernel.mjs';
 import * as art401    from './art-401-validate-form5500-schedules.kernel.mjs';
+import * as art402    from './art-402-validate-regf-call-frequency.kernel.mjs';
+import * as art403    from './art-403-check-debt-validation-notice.kernel.mjs';
+import * as art404    from './art-404-check-retail-installment-disclosures.kernel.mjs';
+import * as art405    from './art-405-check-private-student-loan-disclosures.kernel.mjs';
 import * as art406    from './art-406-cross-venue-margin-estimator.kernel.mjs';
 import * as art407    from './art-407-umr-aana-readiness-diagnostic.kernel.mjs';
 import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
@@ -753,6 +757,10 @@ export const KERNELS = {
   'art-40-tempo-agentic-checkout':                            art40,
   'art-400-check-official-statement-completeness':            art400,
   'art-401-validate-form5500-schedules':                      art401,
+  'art-402-validate-regf-call-frequency':                     art402,
+  'art-403-check-debt-validation-notice':                     art403,
+  'art-404-check-retail-installment-disclosures':             art404,
+  'art-405-check-private-student-loan-disclosures':           art405,
   'art-406-cross-venue-margin-estimator':                     art406,
   'art-407-umr-aana-readiness-diagnostic':                    art407,
   'art-41-tempo-validator-readiness':                         art41,
