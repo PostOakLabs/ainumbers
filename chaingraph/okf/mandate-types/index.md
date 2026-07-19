@@ -6,9 +6,9 @@ timestamp: 2026-07-14
 
 # Mandate types
 
-- [agent_guardrail_mandate](./agent_guardrail_mandate.md) (17)
+- [agent_guardrail_mandate](./agent_guardrail_mandate.md) (18)
 - [aml_rule](./aml_rule.md) (2)
-- [analytics_mandate](./analytics_mandate.md) (26)
+- [analytics_mandate](./analytics_mandate.md) (27)
 - [attestation_mandate](./attestation_mandate.md) (9)
 - [capital_assessment](./capital_assessment.md) (6)
 - [collateral_mandate](./collateral_mandate.md) (9)

@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**907 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**909 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -57496,6 +57496,86 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
         "x-ocg-wave": 66
+      }
+    },
+    "/v1/tools/estimate_cross_venue_margin_capital": {
+      "post": {
+        "operationId": "estimate_cross_venue_margin_capital",
+        "summary": "Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator",
+        "description": "Estimates the crypto off-exchange settlement / cross-venue margin picture for a book spread across trading venues (the Copper ClearLoop / FalconX / Ceffu model, per AT-CLEARING-WAVE-SPEC.md CW-1): the net cross-venue margin requirement after a declared netting offset against the sum of each venue's own isolated margin, the capital freed and capital efficiency of MPC-custody off-exchange settlement vs on-exchange isolated margin, the financing cost of running the book at a declared leverage multiple checked against a caller-declared program leverage cap (e.g. ClearLoop Loans up to 4x / FalconX up to 5x), and a plain counterparty/custody-risk framing string. Netting percentages, leverage caps and program names are caller-declared, version-pinned fixtures, never fetched or hard-coded. Distinct from the shipped TradFi treasury-clearing cluster (art-48..51), which addresses the US Treasury cash/repo clearing mandate and CME-FICC Combined Portfolio margining -- this node is the crypto prime-brokerage analogue. This receipt attests our computation over the user's declared positions and venue terms -- it does not verify those positions and is not a margin call, a settlement instruction, or investment advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html\n**Wave:** 67\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "estimate_cross_venue_margin_capital",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 67
+      }
+    },
+    "/v1/tools/run_umr_aana_readiness": {
+      "post": {
+        "operationId": "run_umr_aana_readiness",
+        "summary": "UMR / AANA Readiness Diagnostic",
+        "description": "Determines whether a group's declared AANA (average aggregate notional amount) puts it in scope for the uncleared margin rules (UMR), per AT-CLEARING-WAVE-SPEC.md CW-2, and flags which counterparties are over the regulatory initial-margin threshold with an open documentation or custody gap. Thresholds (AANA >EUR 8bn, IM threshold EUR 50m) are pinned constants echoed in the output as constants_version + vintage, never fetched. This is an eligibility/readiness checker, not a SIMM calculator -- estimated IM per counterparty is always a caller declaration, never derived here from risk-class sensitivities, since SIMM is a licensed ISDA methodology not reproduced by this node. Distinct from the shipped TradFi treasury-clearing cluster (art-48..51), which addresses the US Treasury cash/repo clearing mandate, and from the crypto cross-venue margin estimator (art-406). This receipt attests our computation over the AANA and per-counterparty inputs the caller declared -- it does not audit those inputs and is not a determination that any entity is in or out of UMR scope.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-407-umr-aana-readiness-diagnostic.html\n**Wave:** 67\n**mandate_type:** agent_guardrail_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "agent_guardrail_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-407-umr-aana-readiness-diagnostic.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: agent_guardrail_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "run_umr_aana_readiness",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-407-umr-aana-readiness-diagnostic.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "agent_guardrail_mandate",
+        "x-ocg-wave": 67
       }
     },
     "/v1/tools/generate_zk_compliance_proof": {

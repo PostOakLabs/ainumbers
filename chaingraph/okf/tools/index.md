@@ -333,6 +333,8 @@ timestamp: 2026-07-14
 - [x402 v2 Wire-Format Migration Linter](./art-393-x402-v2-migration-linter.md) — `lint_x402_v2_migration`
 - [x402 Deferred-Scheme Handshake Validator](./art-394-x402-deferred-handshake-validator.md) — `validate_x402_deferred_handshake`
 - [Tempo Agentic Checkout Settlement Mapper](./art-40-tempo-agentic-checkout.md) — `map_tempo_settlement`
+- [Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator](./art-406-cross-venue-margin-estimator.md) — `estimate_cross_venue_margin_capital`
+- [UMR / AANA Readiness Diagnostic](./art-407-umr-aana-readiness-diagnostic.md) — `run_umr_aana_readiness`
 - [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
