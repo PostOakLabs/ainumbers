@@ -23,6 +23,28 @@ const enc = (s) => new TextEncoder().encode(s);
 const VC_CONTEXT_V2 = 'https://www.w3.org/ns/credentials/v2';
 const OCG_VC_CONTEXT = 'https://ainumbers.co/chaingraph/context/vc/v0.4';
 
+// agent-receipts (Obsigna) `AgentReceipt` credential context — OCG Standard §13.11.1.
+// https://github.com/agent-receipts/obsigna, spec/context/v3, verified 2026-07-19.
+const AGENT_RECEIPTS_CONTEXT = 'https://agentreceipts.ai/context/v1';
+
+// OCG tool_id/chain-slug -> agent-receipts dotted action taxonomy (spec/spec/taxonomy/action-types.json,
+// verified 2026-07-19). Every published domain there (filesystem/system/network/communication/document/
+// financial/data) names an agent acting ON a system, not a compliance CALCULATION — none currently fits
+// an OCG node, so this table starts EMPTY by design. Populate an entry only after confirming a real match
+// against that file; never guess (SPEC §13.11.1).
+const AGENT_RECEIPTS_ACTION_TYPE_ALIASES = {};
+
+function agentReceiptsActionType(artifact) {
+  const slug = artifact?.policy_parameters?.chain ?? artifact?.tool_id ?? null;
+  if (slug && AGENT_RECEIPTS_ACTION_TYPE_ALIASES[slug]) return AGENT_RECEIPTS_ACTION_TYPE_ALIASES[slug];
+  return `x-ocg.${slug ?? artifact?.mandate_type ?? 'unknown'}`;
+}
+
+function sha256Prefixed(h) {
+  if (!h) return null;
+  return String(h).startsWith('sha256:') ? String(h) : `sha256:${h}`;
+}
+
 export function buildVc(artifact) {
   const m = metaBlock(artifact);
   const hash = artifact?.execution_hash ?? null;
@@ -32,8 +54,15 @@ export function buildVc(artifact) {
   const validFrom = artifact?.valid_from ?? artifact?.issued_at ?? null;
   const validUntil = artifact?.valid_until ?? null;
 
+  // agent-receipts §13.11.1 extension fields — derived ONLY from the artifact (§13 determinism).
+  const chainDepth = artifact?.chain?.chain_depth ?? 0;
+  const parentHash = artifact?.chain?.parent_hashes?.[0] ?? null;
+  const chainSlug = artifact?.policy_parameters?.chain ?? null;
+  const pph = artifact?.policy_parameters_hash ?? null;
+  const hasMandate = artifact?.policy_parameters?.mandate_hash != null;
+
   const credential = {
-    '@context': [VC_CONTEXT_V2, OCG_VC_CONTEXT],
+    '@context': [VC_CONTEXT_V2, OCG_VC_CONTEXT, AGENT_RECEIPTS_CONTEXT],
     // Stable id derived from the canonical hash (no UUID/random — §13 determinism).
     id: bareHash ? `urn:ocg:artifact:${bareHash}` : 'urn:ocg:artifact:nohash',
     type: ['VerifiableCredential', 'OpenChainGraphCredential'],
@@ -45,6 +74,21 @@ export function buildVc(artifact) {
       ...(artifact?.mandate_type ? { mandate_type: artifact.mandate_type } : {}),
       policy_parameters: artifact?.policy_parameters ?? {},
       output_payload: artifact?.output_payload ?? {},
+      // agent-receipts (Obsigna) consumability — SPEC §13.11.1, PARTIAL mapping (see spec text for
+      // which of their required action/principal fields are NOT populated, and why).
+      action: {
+        type: agentReceiptsActionType(artifact),
+        ...(pph ? { parameters_hash: sha256Prefixed(pph) } : {}),
+      },
+      outcome: {
+        status: (artifact?.compliance_flags?.length ?? 0) > 0 ? 'failure' : 'success',
+      },
+      chain: {
+        sequence: chainDepth + 1,
+        previous_receipt_hash: parentHash ? sha256Prefixed(parentHash) : null,
+        chain_id: chainSlug ? `x-ocg:chain:${chainSlug}` : `x-ocg:tool:${artifact?.tool_id ?? 'unknown'}`,
+      },
+      ...(hasMandate && m.keyid ? { principal: { id: m.keyid } } : {}),
     },
     // Hash anchor — NOT a new execution_hash and NOT a registered VC proof suite.
     // It re-states the canonical hash so verification routes back to the JSON artifact.

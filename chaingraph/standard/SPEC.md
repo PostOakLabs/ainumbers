@@ -355,6 +355,48 @@ node need not declare `vc`. Mapping (envelope → VC): `issued_by`→`issuer`, `
 - Deterministic: every field derives from the artifact only (id = `urn:ocg:artifact:<bare-hash>`; no UUID, no
   wall-clock). The same artifact MUST render byte-identical bytes.
 
+**§13.11.1 agent-receipts (Obsigna) `credentialSubject` extension — NORMATIVE, extended in v0.8.11.** The
+`vc` export ADDITIONALLY carries `credentialSubject` members named to match the published
+[agent-receipts](https://github.com/agent-receipts/obsigna) `AgentReceipt` credential shape (context
+`https://agentreceipts.ai/context/v1`, added to the credential's `@context` array alongside the OCG term
+context), so a verifier written against that project's schema can read the fields it recognizes without a
+translation layer. **This is a PARTIAL, additive mapping, not a claim of full external-schema conformance**
+— agent-receipts' `action` and `principal` objects require member fields (`action.id`, `action.risk_level`,
+`action.timestamp`, `principal.type`) this artifact does not carry and that this profile MUST NOT invent;
+only the members below are populated, exactly as §XMAP-1 already documents PARTIAL coverage for the other
+two external formats.
+- `credentialSubject.action.type`: the OCG `tool_id` (or `policy_parameters.chain` for a composite/chain-run
+  artifact) mapped through a small alias table to agent-receipts' dotted taxonomy
+  (`spec/spec/taxonomy/action-types.json`); an unmapped slug renders `x-ocg.<slug>` instead of a guessed
+  taxonomy entry. As of this writing NO OCG node maps to a taxonomy entry — every published domain
+  (filesystem/system/network/communication/document/financial/data) names an agent acting ON a system, not a
+  compliance CALCULATION, so the alias table starts empty by design and is populated only on a verified
+  match, never a guess.
+- `credentialSubject.action.parameters_hash` (conditional-presence, only when `policy_parameters_hash` is on
+  the artifact): the §PPH-1 `policy_parameters_hash` value, `sha256:`-prefixed to match agent-receipts'
+  `sha256Hash` value form (OCG's own `#/$defs/sha256ref` accepts bare or prefixed; agent-receipts requires
+  prefixed).
+- `credentialSubject.outcome.status`: `"success"` when the artifact's `compliance_flags` is empty, else
+  `"failure"` — the only outcome classification derivable from the artifact alone. agent-receipts also
+  defines `"pending"` and several optional reversal/state-change members; none apply to a completed OCG
+  compute artifact, so they are omitted rather than filled with placeholders.
+- `credentialSubject.chain.{sequence, previous_receipt_hash, chain_id}`: `sequence` = OCG `chain.chain_depth`
+  + 1 (agent-receipts sequences from 1, OCG depths from 0); `previous_receipt_hash` = the first entry of
+  `chain.parent_hashes` (`sha256:`-prefixed), or `null` at depth 0; `chain_id` = `x-ocg:chain:<slug>` for a
+  named composite chain run or `x-ocg:tool:<tool_id>` for a single-node artifact — OCG has no chain-grouping
+  identifier of its own, so this is a deterministic, artifact-derived label, not an adopted agent-receipts
+  value.
+- `credentialSubject.principal` (conditional-presence, only when `policy_parameters.mandate_hash` is present
+  — i.e. the run was §22 mandate-governed): `{ id: <§16 proof signer keyid> }`. The mandate's own
+  `principal.id` is NOT recoverable from the artifact (only the mandate's hash is folded into the receipt,
+  never its content), so this substitutes the artifact's own signer identity as the best available
+  artifact-derived proxy — a documented gap, not an assertion that the signer and the mandate principal are
+  the same party.
+
+Proof-suite delta (`Ed25519Signature2020` vs OCG's `eddsa-jcs-2022`) is documented in §XMAP-1, unchanged by
+this extension; this profile does not emit an agent-receipts-suite `proof` (dual-proof emission stays an
+on-demand rider, default OFF, per §XMAP-1's format notes).
+
 ### §13.12 Selective-disclosure export (SD-JWT, RFC 9901) — NORMATIVE, new in v0.7
 An implementation MAY export an artifact as an SD-JWT whose claims map deterministically from the
 envelope — EXCEPT disclosure salts, which MUST be freshly CSPRNG-generated per export (the one
