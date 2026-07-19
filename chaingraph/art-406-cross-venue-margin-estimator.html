@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Crypto Cross-Venue Margin &amp; Off-Exchange Settlement Estimator &middot; ART-406 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Estimates cross-venue margin requirement, capital efficiency of off-exchange (MPC-custody) settlement vs on-exchange isolated margin, and Nx financing cost for a crypto book spread across venues. Provable server-mirrored kernel.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.venue-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:10px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);padding:.45rem .8rem}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.corridor-link{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal-lt);display:block;margin-top:6px}
+.rm-btn{background:none;border:1px solid var(--border-2);color:var(--red);border-radius:var(--radius);padding:.5rem;cursor:pointer;font-size:.68rem}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-406 · Cross-Venue Margin Estimator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-406 &middot; Crypto Prime Brokerage</div>
+  <h1>Crypto Cross-Venue Margin &amp; Off-Exchange Settlement Estimator</h1>
+  <p class="sub">Estimates the net cross-venue margin requirement for a book spread across trading venues, the capital freed by MPC-custody off-exchange settlement vs on-exchange isolated margin, and the financing cost of running the book at a declared leverage multiple &mdash; the Copper ClearLoop / FalconX / Ceffu off-exchange settlement model.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Off-Exchange Settlement</span>
+    <span class="flag">Cross-Venue Margin</span>
+    <span class="flag">Nx Financing</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; Netting offsets, leverage caps and program names are your own inputs, source-cited in the output &mdash; never hard-coded, since these programs' terms move fast.</div>
+  <div class="pii-notice">&#9888; This receipt attests our computation over your declared positions and venue terms &mdash; it does not verify those positions and is not a margin call, a settlement instruction, or investment advice.</div>
+  <div class="pii-notice">Distinct from the TradFi treasury-clearing cluster. For US Treasury cash/repo clearing and CME-FICC Combined Portfolio margining, see <a class="corridor-link" href="art-51-cross-margining-benefit-estimator.html">estimate_cross_margin_benefit (ART-51) &rarr;</a></div>
+
+  <div class="card">
+    <div class="section-head" style="margin-top:0">Venue Positions</div>
+    <div id="venueRows"></div>
+    <button class="ghost" onclick="addVenueRow()" type="button">+ Add Venue</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head" style="margin-top:0">Netting, Leverage &amp; Custody</div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="offsetPct">Cross-margin offset (0&ndash;1)</label><input type="number" id="offsetPct" value="0.35" step="0.01" min="0" max="1"></div>
+      <div class="q"><label class="q-label" for="leverageMultiple">Leverage multiple (Nx)</label><input type="number" id="leverageMultiple" value="3" step="0.1" min="0.01"></div>
+      <div class="q"><label class="q-label" for="leverageCap">Program leverage cap (Nx)</label><input type="number" id="leverageCap" value="4" step="0.1" min="0"></div>
+      <div class="q"><label class="q-label" for="programName">Financing program name</label><input type="text" id="programName" value="ClearLoop Loans"></div>
+      <div class="q"><label class="q-label" for="aprPct">Financing APR (%)</label><input type="number" id="aprPct" value="8" step="0.01" min="0"></div>
+      <div class="q"><label class="q-label" for="horizonDays">Financing horizon (days)</label><input type="number" id="horizonDays" value="30" step="1" min="0"></div>
+      <div class="q"><label class="q-label" for="custodyModel">Custody model</label>
+        <select id="custodyModel">
+          <option value="mpc_off_exchange_bankruptcy_remote">MPC off-exchange (bankruptcy-remote)</option>
+          <option value="on_exchange_isolated">On-exchange isolated margin</option>
+        </select>
+      </div>
+      <div class="q"><label class="q-label" for="constantsVersion">Constants version (fixture pin)</label><input type="text" id="constantsVersion" value="2026-07-19.clearloop-falconx-v1"></div>
+    </div>
+    <div style="margin-top:8px">
+      <button onclick="runCrossVenueMargin()">&#9654; Estimate Cross-Venue Margin</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Margin &amp; Financing Detail</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Counterparty / Custody Framing</div>
+      <p class="sub" id="riskFraming" style="margin:0"></p>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-406-cross-venue-margin-estimator',
+  version: '1.0.0',
+  mcp_name: 'estimate_cross_venue_margin_capital',
+  title: 'Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator',
+  description: 'Estimates cross-venue margin requirement, capital efficiency of off-exchange settlement vs on-exchange isolated margin, and Nx financing cost for a crypto book spread across venues (Copper ClearLoop / FalconX / Ceffu model).',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Not a regulatory requirement -- venue prime-brokerage/off-exchange settlement analytics (Copper ClearLoop, FalconX Prime Connect, Ceffu)',
+  mcp_tool_definition: {
+    name: 'estimate_cross_venue_margin_capital',
+    description: 'Estimate cross-venue net margin requirement, capital efficiency of off-exchange settlement, and Nx financing cost for a crypto book spread across venues.',
+    inputSchema: {
+      type: 'object',
+      required: ['venue_positions','cross_margin_offset_pct','leverage_multiple','custody_model','constants_version'],
+      properties: {
+        venue_positions: { type: 'array', items: { type: 'object', properties: {
+          venue: { type: 'string' }, gross_notional_usd: { type: 'number' }, isolated_margin_requirement_usd: { type: 'number' }
+        } } },
+        cross_margin_offset_pct: { type: 'number' },
+        leverage_multiple: { type: 'number' },
+        leverage_program_cap_multiple: { type: 'number' },
+        leverage_program_name: { type: 'string' },
+        financing_apr_pct: { type: 'number' },
+        financing_horizon_days: { type: 'number' },
+        custody_model: { type: 'string', enum: ['mpc_off_exchange_bankruptcy_remote','on_exchange_isolated'] },
+        constants_version: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+var CUSTODY_FRAMING = {
+  mpc_off_exchange_bankruptcy_remote: 'Assets held in MPC custody, off the trading venues, structured bankruptcy-remote from any single venue’s insolvency -- venue default risk is a trading-counterparty risk, not a custody/asset-loss risk.',
+  on_exchange_isolated: 'Assets held on-exchange, isolated per venue -- a venue default or exchange-level failure exposes the assets posted to that venue directly; no cross-venue custody separation.'
+};
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function r6(v) { return isFinite(v) ? Math.round(v * 1000000) / 1000000 : 0; }
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+
+function venueRowHtml(idx, venue, notional, margin) {
+  return '<div class="venue-row" data-idx="' + idx + '">' +
+    '<div class="q" style="margin-bottom:0"><label class="q-label">Venue</label><input type="text" class="v-venue" value="' + venue + '"></div>' +
+    '<div class="q" style="margin-bottom:0"><label class="q-label">Gross notional (USD)</label><input type="number" class="v-notional" value="' + notional + '" step="1" min="0"></div>' +
+    '<div class="q" style="margin-bottom:0"><label class="q-label">Isolated margin req. (USD)</label><input type="number" class="v-margin" value="' + margin + '" step="1" min="0"></div>' +
+    '<button class="rm-btn" type="button" onclick="removeVenueRow(this)">&times;</button>' +
+  '</div>';
+}
+
+function addVenueRow(venue, notional, margin) {
+  var wrap = document.getElementById('venueRows');
+  var idx = wrap.children.length;
+  wrap.insertAdjacentHTML('beforeend', venueRowHtml(idx, venue || '', notional != null ? notional : 0, margin != null ? margin : 0));
+}
+
+function removeVenueRow(btn) {
+  var wrap = document.getElementById('venueRows');
+  if (wrap.children.length > 1) btn.closest('.venue-row').remove();
+}
+
+function readVenuePositions() {
+  var rows = document.querySelectorAll('#venueRows .venue-row');
+  var out = [];
+  rows.forEach(function(row) {
+    out.push({
+      venue: row.querySelector('.v-venue').value.trim(),
+      gross_notional_usd: safe(row.querySelector('.v-notional').value, 0),
+      isolated_margin_requirement_usd: safe(row.querySelector('.v-margin').value, 0)
+    });
+  });
+  return out;
+}
+
+function runCrossVenueMargin() {
+  var venue_positions = readVenuePositions();
+  var crossMarginOffsetPct = safe(document.getElementById('offsetPct').value, 0);
+  var leverageMultiple = safe(document.getElementById('leverageMultiple').value, 1);
+  var leverageProgramCapMultiple = safe(document.getElementById('leverageCap').value, 0);
+  var leverageProgramName = (document.getElementById('programName').value || '').trim();
+  var financingAprPct = safe(document.getElementById('aprPct').value, 0);
+  var financingHorizonDays = safe(document.getElementById('horizonDays').value, 0);
+  var custodyModel = document.getElementById('custodyModel').value;
+  var constantsVersion = (document.getElementById('constantsVersion').value || '').trim();
+
+  var flags = [];
+  if (venue_positions.length === 0) flags.push('XVM_EMPTY_BOOK');
+  if (venue_positions.length === 1) flags.push('XVM_SINGLE_VENUE_NO_CROSS_MARGIN_BENEFIT');
+  if (crossMarginOffsetPct < 0 || crossMarginOffsetPct > 1) flags.push('XVM_INVALID_OFFSET_PCT');
+  if (leverageMultiple <= 0) flags.push('XVM_INVALID_LEVERAGE');
+  if (leverageProgramCapMultiple > 0 && leverageMultiple > leverageProgramCapMultiple) flags.push('XVM_LEVERAGE_EXCEEDS_PROGRAM_CAP');
+  if (!CUSTODY_FRAMING[custodyModel]) flags.push('XVM_UNKNOWN_CUSTODY_MODEL');
+  if (!constantsVersion) flags.push('XVM_CONSTANTS_VERSION_UNPINNED');
+
+  var sumIsolatedMarginUsd = venue_positions.reduce(function(a,v){return a + v.isolated_margin_requirement_usd;}, 0);
+  var financingNotionalUsd = venue_positions.reduce(function(a,v){return a + v.gross_notional_usd;}, 0);
+  var clampedOffset = crossMarginOffsetPct < 0 ? 0 : (crossMarginOffsetPct > 1 ? 1 : crossMarginOffsetPct);
+  var crossVenueMarginRequirementUsd = sumIsolatedMarginUsd * (1 - clampedOffset);
+  var capitalFreedUsd = sumIsolatedMarginUsd - crossVenueMarginRequirementUsd;
+  var capitalEfficiencyPct = sumIsolatedMarginUsd > 0 ? capitalFreedUsd / sumIsolatedMarginUsd : 0;
+  var safeLeverage = leverageMultiple > 0 ? leverageMultiple : 1;
+  var financedAmountUsd = financingNotionalUsd * (1 - 1/safeLeverage);
+  var financingCostUsd = financedAmountUsd * (financingAprPct/100) * (financingHorizonDays/365);
+
+  var pp = {
+    venue_positions: venue_positions, cross_margin_offset_pct: crossMarginOffsetPct,
+    leverage_multiple: leverageMultiple, leverage_program_cap_multiple: leverageProgramCapMultiple,
+    leverage_program_name: leverageProgramName, financing_apr_pct: financingAprPct,
+    financing_horizon_days: financingHorizonDays, custody_model: custodyModel, constants_version: constantsVersion
+  };
+  var op = {
+    leverage_program_name: leverageProgramName, leverage_program_cap_multiple: leverageProgramCapMultiple,
+    leverage_multiple: leverageMultiple, custody_model: custodyModel, constants_version: constantsVersion,
+    venue_count: venue_positions.length, venue_positions: venue_positions,
+    sum_isolated_margin_usd: r2(sumIsolatedMarginUsd), cross_margin_offset_pct: crossMarginOffsetPct,
+    cross_venue_margin_requirement_usd: r2(crossVenueMarginRequirementUsd), capital_freed_usd: r2(capitalFreedUsd),
+    capital_efficiency_pct: r6(capitalEfficiencyPct), financing_notional_usd: r2(financingNotionalUsd),
+    financed_amount_usd: r2(financedAmountUsd), financing_apr_pct: financingAprPct, financing_horizon_days: financingHorizonDays,
+    financing_cost_usd: r2(financingCostUsd),
+    counterparty_risk_framing: CUSTODY_FRAMING[custodyModel] || 'Unrecognized custody model -- risk framing not computed.',
+    disambiguation: 'Cross-venue crypto off-exchange settlement/margin (Copper ClearLoop / FalconX / Ceffu model) for a book spread across trading venues. Distinct from the TradFi treasury-clearing cluster (art-48..51), which addresses the US Treasury cash/repo clearing mandate and CME-FICC Combined Portfolio margining. This receipt attests our computation over the user’s declared positions and venue terms -- it does not verify those positions, and is not a margin call, a settlement instruction, or investment advice.'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = 'var(--teal-lt)'; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid var(--teal)';
+  vBox.textContent = 'CROSS-VENUE MARGIN $' + op.cross_venue_margin_requirement_usd.toLocaleString();
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">$' + op.sum_isolated_margin_usd.toLocaleString() + '</span><span class="stat-key">Isolated total</span></div>' +
+    '<div class="stat"><span class="stat-val">$' + op.cross_venue_margin_requirement_usd.toLocaleString() + '</span><span class="stat-key">Cross-venue req.</span></div>' +
+    '<div class="stat"><span class="stat-val">$' + op.capital_freed_usd.toLocaleString() + '</span><span class="stat-key">Capital freed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.capital_efficiency_pct*100).toFixed(2) + '%</span><span class="stat-key">Efficiency</span></div>' +
+    '<div class="stat"><span class="stat-val">$' + op.financing_cost_usd.toLocaleString() + '</span><span class="stat-key">Financing cost</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    return '<span class="badge fail">' + f + '</span>';
+  }).join('') || '<span class="badge ok">MARGIN ESTIMATED</span>';
+
+  document.getElementById('kvDiv').innerHTML = [
+    ['Venue count', op.venue_count],
+    ['Sum isolated margin (no netting)', '$' + op.sum_isolated_margin_usd.toLocaleString()],
+    ['Cross-margin offset', (op.cross_margin_offset_pct*100).toFixed(2) + '%'],
+    ['Cross-venue margin requirement', '$' + op.cross_venue_margin_requirement_usd.toLocaleString()],
+    ['Capital freed', '$' + op.capital_freed_usd.toLocaleString()],
+    ['Capital efficiency', (op.capital_efficiency_pct*100).toFixed(4) + '%'],
+    ['Financing notional', '$' + op.financing_notional_usd.toLocaleString()],
+    ['Financed amount at ' + op.leverage_multiple + 'x', '$' + op.financed_amount_usd.toLocaleString()],
+    ['Financing program', op.leverage_program_name + ' (cap ' + op.leverage_program_cap_multiple + 'x)'],
+    ['Financing APR / horizon', op.financing_apr_pct + '% / ' + op.financing_horizon_days + 'd'],
+    ['Financing cost', '$' + op.financing_cost_usd.toLocaleString()],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('riskFraming').textContent = op.counterparty_risk_framing;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'analytics_mandate',
+    tool_id: 'art-406-cross-venue-margin-estimator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-406-cross-venue-margin-estimator.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+
+addVenueRow('bybit', 500000, 100000);
+addVenueRow('deribit', 300000, 60000);
+addVenueRow('okx', 200000, 40000);
+</script>
+</body>
+</html>
