@@ -7,7 +7,7 @@
 //     endorsement (previousProof) verifies in dependency order, a broken previousProof MUST fail.
 // Node 18+ (WebCrypto Ed25519).  Run:  node kernels/proof-binding.test.mjs
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
-import { sign, verify, addProof, verifyProofs, rawPubkeyToDidKey, didKeyToPublicKey, PROOF_CRYPTOSUITE } from './_proof.mjs';
+import { sign, verify, addProof, verifyProofs, rawPubkeyToDidKey, didKeyToPublicKey, PROOF_CRYPTOSUITE, addMldsaProof, mldsaKeygen, MLDSA_PROOF_CRYPTOSUITE } from './_proof.mjs';
 import { executionHash } from './_hash.mjs';
 
 let fail = 0;
@@ -117,6 +117,60 @@ ok(!(await verify(tampExqField, resolvedResumePub)), '(§22.11) mutated exceptio
 const tampExqSig = structuredClone(signedResume);
 tampExqSig.audit_signature.proof.proofValue = 'z' + 'C'.repeat(86);
 ok(!(await verify(tampExqSig, resolvedResumePub)), '(§22.11) tampered proofValue on a signed exception record fails verify');
+
+// ── §PQC-1 (CW-2) — hybrid ML-DSA dual proof (NORMATIVE OPTIONAL, extends §16; SPEC.md §PQC-1) ──
+// A hybrid signer appends an ML-DSA-65 (FIPS 204) proof alongside the classical eddsa-jcs-2022
+// proof, BOTH over the same §16.1 secured document. Default-off: base/signed above never call
+// addMldsaProof, so everything already asserted (byte-identical execution_hash, unsigned-shape,
+// (b)/(c)/(d) fixtures) already stands as the "zero-PQC artifact stays fully conformant" proof —
+// this block adds the hybrid-specific assertions only.
+const mldsaKeys = mldsaKeygen(new Uint8Array(32).fill(11));
+const mldsaVm = 'urn:ocg:mldsa-key:test-1';
+const resolveHybridKey = (verificationMethod, cryptosuite) =>
+  cryptosuite === MLDSA_PROOF_CRYPTOSUITE ? mldsaKeys.publicKey : didKeyToPublicKey(verificationMethod);
+
+let hybrid = await addProof(base, { verificationMethod: vm, created: CREATED, privateKey: kp.privateKey, id: 'urn:ocg:proof:classical' });
+hybrid = await addMldsaProof(hybrid, { verificationMethod: mldsaVm, created: CREATED, secretKey: mldsaKeys.secretKey, id: 'urn:ocg:proof:pq' });
+ok(Array.isArray(hybrid.audit_signature.proof) && hybrid.audit_signature.proof.length === 2, '(PQC-1) hybrid proof set of 2 lives as an array at audit_signature.proof');
+ok(hybrid.audit_signature.proof[0].cryptosuite === PROOF_CRYPTOSUITE && hybrid.audit_signature.proof[1].cryptosuite === MLDSA_PROOF_CRYPTOSUITE, '(PQC-1) proof set carries eddsa-jcs-2022 + ML-DSA-65, in that order');
+ok(hybrid.execution_hash === base.execution_hash, '(PQC-1) hybrid proof set minted no new execution_hash');
+ok(hybrid.chaingraph_version === '0.4.0', '(PQC-1) hybrid proof set did not bump chaingraph_version');
+ok(await verifyProofs(hybrid, resolveHybridKey), '(PQC-1) hybrid proof set verifies both proofs independently');
+
+// each proof ALSO verifies standalone (each is a full §16.1 secured-document signature, not a
+// combined/aggregated scheme) — drop the other proof and confirm the remaining one still verifies.
+const classicalOnlyView = structuredClone(hybrid);
+classicalOnlyView.audit_signature.proof = [classicalOnlyView.audit_signature.proof[0]];
+ok(await verifyProofs(classicalOnlyView, resolveHybridKey), '(PQC-1) classical proof verifies independently of the ML-DSA proof');
+const pqOnlyView = structuredClone(hybrid);
+pqOnlyView.audit_signature.proof = [pqOnlyView.audit_signature.proof[1]];
+ok(await verifyProofs(pqOnlyView, resolveHybridKey), '(PQC-1) ML-DSA proof verifies independently of the classical proof');
+
+// tampered body fails BOTH proofs, not just one
+const tampHybrid = structuredClone(hybrid);
+tampHybrid.execution_hash = '1'.repeat(64);
+ok(!(await verifyProofs(tampHybrid, resolveHybridKey)), '(PQC-1) tampered body fails the full hybrid set');
+const tampHybridClassicalOnly = structuredClone(tampHybrid);
+tampHybridClassicalOnly.audit_signature.proof = [tampHybridClassicalOnly.audit_signature.proof[0]];
+ok(!(await verifyProofs(tampHybridClassicalOnly, resolveHybridKey)), '(PQC-1) tampered body fails the classical proof alone');
+const tampHybridPqOnly = structuredClone(tampHybrid);
+tampHybridPqOnly.audit_signature.proof = [tampHybridPqOnly.audit_signature.proof[1]];
+ok(!(await verifyProofs(tampHybridPqOnly, resolveHybridKey)), '(PQC-1) tampered body fails the ML-DSA proof alone');
+
+// tampering only the ML-DSA proofValue leaves the classical proof (and hence single-proof
+// eddsa-only conformance) completely unaffected — the two suites are independent, not entangled.
+const tampMldsaOnly = structuredClone(hybrid);
+tampMldsaOnly.audit_signature.proof[1].proofValue = 'z' + 'D'.repeat(100);
+ok(!(await verifyProofs(tampMldsaOnly, resolveHybridKey)), '(PQC-1) tampered ML-DSA proofValue fails the hybrid set');
+const tampMldsaOnlyClassicalView = structuredClone(tampMldsaOnly);
+tampMldsaOnlyClassicalView.audit_signature.proof = [tampMldsaOnlyClassicalView.audit_signature.proof[0]];
+ok(await verifyProofs(tampMldsaOnlyClassicalView, resolveHybridKey), '(PQC-1) classical proof still verifies when only the ML-DSA proofValue is tampered');
+
+// an eddsa-ONLY artifact (this file's `signed` fixture, asserted throughout above) never calls
+// addMldsaProof and stays a single (non-array) proof object — the "zero-PQC artifact is byte-
+// identical and fully conformant" requirement, restated explicitly for this gate:
+ok(!Array.isArray(signed.audit_signature.proof), '(PQC-1) an eddsa-only artifact keeps a single (non-array) proof — no PQC-1 shape leakage');
+ok(signed.audit_signature.proof.cryptosuite === PROOF_CRYPTOSUITE, '(PQC-1) an eddsa-only artifact carries ONLY eddsa-jcs-2022 — no ML-DSA proof present');
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all proof-binding assertions passed');
 process.exit(fail ? 1 : 0);
