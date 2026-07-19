@@ -3,6 +3,43 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.9 — exception classification (§22.11), anchor PQ note (§20), Wasm profile reference (§24), interop annex (§XMAP-1)
+- **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.8 until the
+  next coordinated K landing moves it, the same separation v0.8.7 and v0.8.8 used to avoid a `chaingraph.json`
+  single-writer collision. §23.4 (attestation freshness and consent) already carried the 0.8.9 label from an
+  earlier pass and is narrated in this line.
+- **§22.11 exception classification + counted-resume approval** — OPTIONAL `exception_class`: `business` (no
+  automatic retry; routes to a human queue in a terminal-until-resolved state) vs `application` (retry up to N,
+  then MUST escalate). Adds `exception_detail {type, code, message}`, per-item terminal states
+  `done`/`failed`/`pending_human` with sibling isolation (one failed item MUST NOT abort its batch), and a
+  counted-resume gate `resume_approval {required_events, approver_group, resume_form, timeout}` where a timeout
+  MUST resolve to a §22.8 escalation and NEVER to a silent auto-approve. Every resume message and exception
+  record emitted as an OCG artifact MUST carry a §16 `eddsa-jcs-2022` proof bound to a named human — an unsigned
+  resume is not conformant evidence. The frozen §22.8 escalation envelope is untouched and every field is
+  hash-excluded. The standard defines the formats only; a queue runtime or UI is an implementation.
+- **§20 post-quantum anchor note (informative)** — OpenTimestamps carries no signature primitive (SHA-256 Merkle
+  aggregation committed by Bitcoin proof-of-work), so it is the PQ-resilient anchor in the set; `rfc3161-tst`
+  carries a classical signature and inherits that exposure, mitigated today by §PQC-1. No public PQC RFC 3161
+  TSA exists as of 2026-07-18 — a WATCH item, not a build. Measured against NIST IR 8547.
+- **§24 normative reference to the Wasm Deterministic Profile** — where a compute binding's engine is a Wasm
+  module, it MUST NOT use relaxed-SIMD, MUST NOT declare or import shared memory or threads, and MUST NOT
+  observe non-deterministic NaN bit patterns. This upgrades §24's existing byte-parity claim from measured to
+  profile-guaranteed; §24.1's D1–D7 enumeration is unchanged. Profile-cleanliness of our own shipped guest wasm
+  is a build-time CI assertion, deliberately NOT a §15 row (§15 gates must be reproducible by third parties).
+- **§XMAP-1 annex — external receipt-format mappings (informative)** — AGT / agent-receipts / AGA correspondence
+  anchored on the OPTIONAL, hash-excluded `policy_parameters_hash` alias (JCS-SHA-256 of `policy_parameters`
+  alone, via the one canonical hash path). **Coverage is PARTIAL and labeled as partial**; unmapped members are
+  left blank rather than guessed. The proof-suite delta (`Ed25519Signature2020` vs `eddsa-jcs-2022`) is stated.
+  **The AGA column is a DATED OBSERVATION (2026-07-16), INTEROP-ONLY** — congruence with earlier-shipped OCG
+  features and a pending patent application are both recorded as observation; it is not an endorsement, not a
+  compatibility claim, and no AGA export profile is defined.
+- Fully additive: no envelope/hash/schema change, `chaingraph_version` stays `0.4.0`, every existing
+  `execution_hash` is byte-identical, and every new normative MUST binds to an existing §15 gate — no new gate
+  script and no new §15 row.
+- Attribution: Robocorp work-items (Apache-2.0, patterns only — maintenance mode, no dependency), Windmill
+  suspend/approval (AGPLv3, semantics only, never code or text), UiPath Business/System split (convergent prior
+  art), OpenTimestamps, NIST IR 8547, W3C WebAssembly 3.0 Deterministic Profile (CR, April 2026).
+
 ## 0.8.8 — `seeded-stochastic` determinism class (§24.6.2) + the deferred vouch-hunt record bump
 - **Record bump plus one new section.** The vouch-hunt additive pass (§20.2 witness cosignatures, §21.5
   `claim_strength`, §22.9 AR4SI/EAR failure receipts, §22.10 Biscuit attenuation, §24.6 determinism-class

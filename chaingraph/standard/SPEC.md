@@ -596,6 +596,21 @@ A verifier MUST reject a binding whose `anchored_hash` differs from the artifact
 `execution_hash` (or, under §20.1, whose reconstructed Merkle root differs from `anchored_hash`).
 Multiple bindings MAY coexist (several logs, plus OTS).
 
+**Post-quantum resilience of the anchor path (INFORMATIVE — new in v0.8.9).** The anchor types above do not
+share a post-quantum exposure profile, and the difference is worth stating plainly rather than leaving a
+reader to infer it. An `opentimestamps` binding derives its integrity from SHA-256 Merkle aggregation
+committed via Bitcoin proof-of-work: there is **no signature primitive anywhere in the OTS attestation
+path**, so there is no classically-or-quantum-forgeable signature to break. Forging such an anchor requires
+a SHA-256 second preimage — not a target of Shor's algorithm, and only marginally weakened by Grover at a
+256-bit output — so a store-now-forge-later adversary gains nothing against it. OTS is therefore the
+**PQ-resilient timestamp anchor** in the OCG anchor set today. `rfc3161-tst` anchors (the FreeTSA / JAdES
+path), by contrast, DO carry a classical signature and inherit that scheme's PQ exposure; the mitigation
+available now is the §PQC-1 hybrid proof over the artifact itself, and the eventual fix is a PQC TSA. **No
+public PQC RFC 3161 TSA exists as of this writing (2026-07-18)** — the surveyed offerings are either niche
+or private-cert only — so migrating the TSA path is tracked as a WATCH item, not a build. NIST IR 8547
+(classical signatures deprecated 2030, disallowed 2035) is the timeline this note is measured against.
+This paragraph adds no field, no MUST, and no gate row; it records rationale for an existing anchor set.
+
 ### §20.1 Merkle inclusion — batch anchoring (NORMATIVE, OPTIONAL — new in v0.8)
 A `rfc3161-tst` or `opentimestamps` binding MAY carry an OPTIONAL `merkle_inclusion` member so that ONE
 timestamp covers MANY artifacts: the anchored value is the ROOT of an [RFC 6962](https://www.rfc-editor.org/rfc/rfc9162)
@@ -1060,6 +1075,74 @@ spec version), never the Datalog runtime. UCAN is REJECTED (DID baggage + quadra
 draft-prakash-aip-00 is REJECTED as a dependency (unvetted -00 — the construction is taken from Biscuit
 directly).
 
+### §22.11 Exception classification and counted-resume approval (NORMATIVE, OPTIONAL — new in v0.8.9)
+§22.8 defines WHAT an escalation record is. This section refines HOW a failed item is classified and how a
+human resolution is evidenced, on top of that shipped machinery. It is **purely additive**: the frozen
+§22.8 `escalation_record` / `escalation_closure` envelope is NOT modified, every field below is
+hash-EXCLUDED alongside the rest of §22.8's receipt-level metadata, and a record carrying none of them is
+byte-identical and fully conformant.
+
+**Two-class exception taxonomy.** An escalation or gate-failure record MAY carry an OPTIONAL
+`exception_class` of exactly one of two values:
+
+- **`business`** — the input data is wrong, or a business rule rejected the item. There is **no automatic
+  retry**; the item routes to a human exception queue in a terminal-until-resolved state.
+- **`application`** — the environment failed (transient I/O, an unavailable dependency, a timeout). The item
+  MAY be **retried up to N times**, then MUST escalate.
+
+The record MAY carry a machine-readable descriptor `exception_detail: { type, code, message }`, where `type`
+restates `exception_class`, `code` is a stable machine token, and `message` is human-readable. An
+`application`-class record MAY carry `retry: { attempt, max }`; an item reaching `attempt == max` MUST become
+a §22.8 `escalation_record` rather than silently drop. The distinction is load-bearing precisely because the
+two classes have opposite correct responses: retrying a `business` exception cannot succeed and only hides
+the item, while routing an `application` exception to a human wastes the one resource that cannot scale.
+
+**Per-item terminal states and failure isolation.** Exception state is tracked **per item, never per run**. A
+record MAY carry `item_state` of `done` | `failed` | `pending_human`. One item reaching `failed` or
+`pending_human` MUST NOT abort sibling items in the same batch. A batch run is complete when every item has
+reached a terminal state; the run-level outcome is DERIVED (all `done` → pass; any `failed` /
+`pending_human` → mixed) and is itself hash-excluded.
+
+**Counted-resume approval.** A §22 escalation MAY declare an approval gate
+`resume_approval: { required_events, approver_group, resume_form, timeout }`:
+
+- **`required_events: N`** — the gate stays suspended until **N** distinct approve messages (or one cancel)
+  arrive; only then does the item progress.
+- **`approver_group`** — the named-human group whose members may approve. Each approver's identity is
+  **bound** (§16 proof below), never merely asserted.
+- **`resume_form`** — a JSON Schema the approve payload MUST validate against; a validated payload is
+  exposed to downstream steps as `resume_payload`.
+- **`timeout`** — on expiry with fewer than N events, the gate MUST resolve to a §22.8 escalation. A timeout
+  MUST NEVER resolve to a silent auto-approve.
+
+**Every resume is a signed, named-human artifact.** Each resume/approve message AND each exception record,
+when emitted as an OCG artifact, MUST carry a §16 `eddsa-jcs-2022` whole-artifact proof bound to a **named
+human**, referencing the subject `execution_hash` (or the escalation record hash) and the approver identity.
+An unsigned resume is NOT conformant §22.11 evidence. This is what makes the approval trail portable,
+tamper-evident, and offline-verifiable rather than a claim held inside one vendor's queue. A §22.9 signed
+failure receipt MAY be the evidence that opens a `business`-class exception: §22.9 is the signed verdict,
+§22.11 is the queue disposition and the signed human resolution.
+
+**Scope limit — the standard defines formats, not a queue.** OCG specifies the exception-record and
+resume-artifact FORMATS and their invariants here. It does NOT operate a queue, a runtime, an approver
+directory, or a timer; a reference queue implementation (the Ledger Exceptions tab, for instance) consumes
+these formats and is an implementation, never part of the normative surface. Advisory, non-normative: the
+§22.8 escalation-emit fields SHOULD be expressible in the n8n error-workflow payload shape (execution id,
+failed node, error class, retry count) as a MAPPING, for interop familiarity — this is not a schema change.
+
+Gate (EXISTING, extended — no new gate script): `mandate-binding.test.mjs` (§22.5) gains fixtures — a
+`business`-class record does not retry and reaches `pending_human`; an `application`-class record retries to
+`max` and then escalates; one failed item leaves its siblings running; an approval gate below
+`required_events` stays suspended and on `timeout` escalates. `proof-binding.test.mjs` (§16) gains the
+signed round-trip and tamper-detect over a resume artifact and an exception record, and asserts that a
+record with and without the §22.11 fields hashes identically (the fields are outside hash scope).
+
+Attribution: **Robocorp** work-items (Apache-2.0) — the two-class taxonomy, the `{type, code, message}`
+shape, per-item terminal states, and the isolation boundary, as PATTERNS ONLY (the project is in
+maintenance mode; no dependency). **Windmill** (AGPLv3 core) — the counted-resume
+`suspend {required_events, timeout, resume_form, user_groups}` SEMANTICS ONLY, never code or text.
+**UiPath**'s BusinessRuleException / SystemException split is cited as convergent prior art.
+
 ## §23 Input Attestations (NORMATIVE, OPTIONAL — new in v0.8.3)
 The §4 `execution_hash` proves the artifact's computation over the inputs it was GIVEN; it says nothing
 about whether those inputs were themselves authentic (the import-binding honesty caveat). §23 lets an
@@ -1340,6 +1423,22 @@ reference deployment's Monte Carlo VaR node (`art-371`) carries the `prng_algori
 fields already but continues to declare `estimated`, which is a sound under-claim (§11) — its migration to the
 new class is a kernel-versioning event, not a spec change, and is tracked separately.
 
+**Normative reference — the profile substrate (NORMATIVE — new in v0.8.9).** §24 opens by naming the **W3C WebAssembly 3.0 Deterministic
+Profile** (pinned at Candidate Recommendation, April 2026) as the METHOD this profile is modeled on. This
+paragraph makes it a normative reference for the substrate as well, which strengthens an existing claim
+rather than adding one: where a conforming compute binding's engine is a WebAssembly module, that module
+MUST be executable under the Deterministic Profile — it MUST NOT use relaxed-SIMD instructions, MUST NOT
+declare or import shared memory or threads, and MUST NOT observe non-deterministic NaN bit patterns. A
+module meeting those constraints is bit-reproducible across conformant engines **by the referenced profile's
+construction**, not merely measured-equal across the surfaces we happen to run; the D1–D7 enumeration in
+§24.1 remains the OCG-side statement of the same closure and is unchanged. The reference deployment's
+shipped quickjs-ng guest wasm is the reference module and already meets these constraints; it is asserted
+profile-clean by a build-time CI check over the shipped binary (a tooling assertion on our own engine, NOT a
+§15 conformance-gate row — §15 gates run over OCG artifacts, which third-party implementers reproduce, and a
+check on our vendored binary is not reproducible by them). The **RISC-V zkVM guest freeze clause** (§24.2)
+is the parallel determinism substrate for the proving tier; the two are cited together and neither is
+required of the other. No field, no envelope change, and no new §15 row is added by this paragraph.
+
 ## §25 Private-Input Profile — `ocg-private-input@1` (NORMATIVE, profile-scoped — new in v0.8.5)
 §18.3 already permits a receipt to be used in an input-hiding mode: `policy_parameters` MAY carry a commitment in
 place of cleartext, §4 recompute becomes unavailable to third parties, and the receipt is the sole verification
@@ -1601,8 +1700,81 @@ sidecars (Bao / BLAKE3) are **measured-first**: adopt ONLY if real sidecar sizes
 A `< 1 MB` median means do NOT adopt — a second hash surface fights the one-canonical-hash doctrine. No spec
 commitment and no gate; this is a measurement note only.
 
+## §XMAP-1 Annex — External receipt-format mappings (INFORMATIVE — new in v0.8.9)
+Three externally published agent-receipt formats independently converged on the same cryptographic stack
+this standard uses — RFC 8785 JCS canonicalization, SHA-256, Ed25519, and previous-hash chaining — and each
+names a standalone hash of the call's input parameters. This annex records the correspondence so an
+implementer holding one format can locate the equivalent OCG member without guessing. It is **INFORMATIVE
+throughout**: nothing here is a conformance requirement, no external field name becomes canonical OCG
+vocabulary, and no export profile is defined by this annex.
+
+**The OCG-side anchor for all three is `policy_parameters_hash`** — an OPTIONAL top-level member equal to the
+JCS-SHA-256 of `policy_parameters` alone, computed through the one canonical hash path (never a second
+canonicalization), hash-EXCLUDED from the §4 preimage and therefore additive: a receipt without it is
+byte-identical and fully conformant. OCG already hashes `policy_parameters` INSIDE `execution_hash`; this
+member exposes the same quantity under a name the three formats below can each address.
+
+**Coverage is PARTIAL and labeled as such.** The rows below are the correspondences verified against each
+project's public material as of the observation date; the remaining members of each format are **not yet
+mapped** and are deliberately left blank rather than guessed. A blank is an unmapped field, never an
+asserted absence.
+
+| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA |
+|---|---|---|---|
+| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` |
+| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member |
+| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) |
+| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" |
+| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles |
+| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus |
+
+**Format notes.** *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
+re-verified before any downstream use; its receipt is a 12-field structure of which the rows above are the
+verified subset. *agent-receipts* carries a proof-suite delta worth stating: it uses `Ed25519Signature2020`
+where §16 uses `eddsa-jcs-2022`. Both are Ed25519 over a canonical form, so the key type is shared, but the
+suites are NOT interchangeable and a verifier written for one will not accept the other without an explicit
+mapping; §13.11 is where any OCG→VC projection is defined, not here.
+
+**AGA — INTEROP-ONLY, recorded as a DATED OBSERVATION (2026-07-16).** The AGA column exists so that an
+implementer holding an AGA receipt can find the corresponding OCG member. It is **not an endorsement, not a
+claim of compatibility, and not an assertion about anyone's intellectual property.** Two facts are recorded
+as observation, both dated 2026-07-16: (a) that project's publicly described core mechanism set — JCS
+canonical receipts, SHA-256 argument hashing, Ed25519 over the canonical form, previous-hash chaining,
+Merkle-rooted bundles, and a pinned multi-toolchain conformance corpus — is substantially congruent with
+OCG features publicly shipped earlier; and (b) the project has a pending patent application, so its posture
+is unsettled. Consequences, stated so they are not left to inference: OCG does NOT adopt AGA field names as
+canonical vocabulary anywhere in this standard, and NO export profile targeting AGA is defined while the
+posture is unclear. Its receipt is a 15-field structure of which the rows above are the verified subset, and
+it uses a hash-chaining convention that includes the signature — differing from OCG's, where the §16 proof
+is attached after hashing and is excluded from the preimage. Re-verify this observation against the
+project's current public material before relying on any row of it.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.8 (2026-07-18 — the record `spec_version` bump 0.8.7 → 0.8.8 landed here,
+See `standard/CHANGELOG.md`. **v0.8.9 (2026-07-18 — SPEC-TEXT PASS; the record `spec_version` in
+`chaingraph.json` stays 0.8.8 until the next coordinated K landing bumps it, exactly as the v0.8.7 and
+v0.8.8 text passes were separated from their record bumps):** §22.11 (§EXQ-1: OPTIONAL `exception_class`
+two-class taxonomy — `business` = no retry, routes to a human queue; `application` = retry-to-N then
+escalate — plus `exception_detail {type, code, message}`, per-item terminal states `done`/`failed`/
+`pending_human` with sibling isolation, and a counted-resume approval gate `resume_approval {required_events,
+approver_group, resume_form, timeout}` where every resume message and exception record MUST carry a §16
+named-human proof; advisory n8n error-workflow payload mapping; a queue runtime stays out of the normative
+surface). §20 gains an INFORMATIVE post-quantum note on the anchor path (OTS carries no signature primitive
+and is the PQ-resilient anchor; `rfc3161-tst` inherits classical-signature exposure, mitigated by §PQC-1,
+with no public PQC TSA available as of 2026-07-18 — a WATCH item, not a build). §24 gains a NORMATIVE
+reference paragraph making the W3C WebAssembly 3.0 Deterministic Profile the substrate as well as the
+method: a Wasm-engine compute binding MUST NOT use relaxed-SIMD, shared memory or threads, or observe
+non-deterministic NaN bit patterns, which upgrades §24's byte-parity claim from measured to
+profile-guaranteed without adding a field or a §15 row. §XMAP-1 adds an INFORMATIVE annex of external
+receipt-format mappings (AGT / agent-receipts / AGA) anchored on the OPTIONAL hash-excluded
+`policy_parameters_hash` alias, with PARTIAL coverage labeled as partial and the AGA column recorded as a
+dated INTEROP-ONLY observation with its patent posture noted — never an endorsement, and no AGA export
+profile. Carried in this line from the earlier pass: §23.4 (attestation freshness and consent). All
+additive: no envelope/hash/schema change, `chaingraph_version` stays `0.4.0`, every existing
+`execution_hash` is byte-identical, and every new normative MUST binds to an EXISTING §15 gate (no new gate
+script, no new §15 row). Attribution: Robocorp work-items (Apache-2.0, patterns only), Windmill
+suspend/approval (AGPLv3, semantics only), UiPath Business/System split (convergent prior art),
+OpenTimestamps, NIST IR 8547, W3C WebAssembly 3.0 Deterministic Profile (CR, April 2026).
+**v0.8.8 (2026-07-18 — the record `spec_version` bump 0.8.7 → 0.8.8 landed here,
 at the coordinated K landing it was deferred to, exactly as v0.8.7 folded into the GD-1 landing; the SPEC-text
 additive pass below had landed earlier, so this release carries it plus one genuinely new section, §24.6.2):**
 §24.6.2 (`seeded-stochastic`: a determinism class STRONGER than `estimated`, requiring a declared
