@@ -18,10 +18,26 @@
 // node's `"compute_capability":` line. Existing non-sha256-source entries (e.g. risc0 §18 ImageIDs) are
 // preserved; any stale sha256-source entry is replaced.
 //
+// --- SHARD MODE (CGSHARD, KERNELID-SHARD-1) ---------------------------------------------------------
+// chaingraph.json is itself an ASSEMBLED artifact (scripts/assemble-chaingraph.mjs) built from per-node
+// shard files at chaingraph/graph/nodes/<tool_id>.json — the shard, not the monolith, is a kernel-editing
+// WU's actual disjoint fence file (Standing Order #6). Pass --shard to operate on shard files DIRECTLY
+// instead of chaingraph.json:
+//   --write --shard              stamp every in-scope node that has a shard file, writing ONLY that shard
+//   --write --shard=<tool_id>    stamp just one shard (the common case: a single edited kernel)
+//   --check --shard[=<tool_id>]  same coverage check, read directly off the shard(s)
+// Shard mode never opens chaingraph.json (read OR write) — it discovers/filters nodes from the shard
+// files themselves, so a kernel-identity regen for a sharded node cannot touch the locked monolith. After
+// a batch of shard edits lands, the ORCH's ASSEMBLE+LAND step (scripts/assemble-chaingraph.mjs) folds the
+// updated shards into chaingraph.json as usual — this tool does not change that step.
+// A node with no shard file is out of scope for --shard (skipped, reported) and must still go through
+// plain --write, which is unchanged and remains the assembler-side / full-coverage path.
+//
 // Run:  node chaingraph/kernels/gen-kernel-identity.mjs --write
 //       node chaingraph/kernels/gen-kernel-identity.mjs --check
+//       node chaingraph/kernels/gen-kernel-identity.mjs --write --shard=508-repo-haircut-collateral-calculator
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest } from './_buildid.mjs';
@@ -29,24 +45,160 @@ import { sourceDigest } from './_buildid.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = HERE;
 const CGPATH = resolve(HERE, '..', 'chaingraph.json');
+const NODES_DIR = resolve(HERE, '..', 'graph', 'nodes');
 const VALID_FROM = '2026-07-10';
 
 const mode = process.argv.includes('--write') ? 'write'
   : process.argv.includes('--check') ? 'check' : null;
-if (!mode) { console.error('usage: gen-kernel-identity.mjs --write | --check'); process.exit(2); }
+if (!mode) { console.error('usage: gen-kernel-identity.mjs --write | --check [--shard[=<tool_id>]]'); process.exit(2); }
+
+const shardFlag = process.argv.find((a) => a === '--shard' || a.startsWith('--shard='));
+const shardMode = !!shardFlag;
+const shardOnlyId = shardFlag && shardFlag.includes('=') ? shardFlag.slice('--shard='.length) : null;
+
+// Registered kernel tool_ids = keys of the KERNELS map in index.mjs (text-parse, same as the worker /
+// coverage gates — decoupled from kernel execution). Needed by both modes; independent of
+// chaingraph.json/shards, so computed once up front.
+const idxSrc = readFileSync(resolve(KDIR, 'index.mjs'), 'utf8');
+const kBlock = idxSrc.slice(idxSrc.indexOf('KERNELS = {'));
+const registeredIds = new Set([...kBlock.matchAll(/['"]([a-z0-9][a-z0-9._-]+)['"]\s*:/gi)].map((m) => m[1]));
+
+// Upsert (or leave, reporting) a sha256-source compute_images entry inside a single node's raw JSON text
+// (either a chaingraph.json node block slice, or a whole shard file's text). Shared by the monolith WRITE
+// path below and shardWrite() — same upsert semantics, same field format, on different raw-text spans.
+function upsertComputeImages(blockTxt, tool_id, digest) {
+  const entry = `{"system":"sha256-source","image_id":${JSON.stringify(digest)},"valid_from":"${VALID_FROM}"}`;
+  const ciRe = /\n( *)"compute_images": (\[.*?\]),/s;
+  const m = blockTxt.match(ciRe);
+  if (m) {
+    const indent = m[1];
+    let arr;
+    try { arr = JSON.parse(m[2]); } catch { throw new Error(`bad compute_images JSON in ${tool_id}`); }
+    const kept = arr.filter((i) => i.system !== 'sha256-source');
+    const merged = [JSON.parse(entry), ...kept];
+    const newLine = `\n${indent}"compute_images": [${merged.map((i) => JSON.stringify(i)).join(',')}],`;
+    return { out: blockTxt.slice(0, m.index) + newLine + blockTxt.slice(m.index + m[0].length), kind: 'replaced' };
+  }
+  const ccRe = /\n( *)"compute_capability": "[a-z]+"(,?)/;
+  const cm = blockTxt.match(ccRe);
+  if (!cm) throw new Error(`no compute_capability anchor in ${tool_id}`);
+  const indent = cm[1];
+  const matchStart = cm.index;
+  const matchEnd = matchStart + cm[0].length;
+  if (cm[2] === ',') {
+    return { out: blockTxt.slice(0, matchEnd) + `\n${indent}"compute_images": [${entry}],` + blockTxt.slice(matchEnd), kind: 'inserted' };
+  }
+  return { out: blockTxt.slice(0, matchStart) + `${cm[0]},\n${indent}"compute_images": [${entry}]` + blockTxt.slice(matchEnd), kind: 'inserted' };
+}
+
+// Strip every sha256-source compute_images entry from a single node object, for an apples-to-apples
+// structural compare (shared "beyond compute_images, nothing else moved" safety check).
+function stripSha256Source(n) {
+  if (Array.isArray(n.compute_images)) {
+    n.compute_images = n.compute_images.filter((i) => i.system !== 'sha256-source');
+    if (n.compute_images.length === 0) delete n.compute_images;
+  }
+  return n;
+}
+
+async function runShardMode(mode, onlyId, registered) {
+  const allShardIds = readdirSync(NODES_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5));
+  const targetIds = onlyId ? [onlyId] : allShardIds;
+
+  const inScope = [];
+  const skipped = [];
+  for (const id of targetIds) {
+    if (!allShardIds.includes(id)) {
+      if (onlyId) { console.error(`✗ no shard file for ${id} at ${resolve(NODES_DIR, id + '.json')}`); process.exit(3); }
+      continue;
+    }
+    const shardPath = resolve(NODES_DIR, id + '.json');
+    const raw = readFileSync(shardPath, 'utf8');
+    let n;
+    try { n = JSON.parse(raw); } catch { console.error(`✗ shard ${id}.json does not parse as JSON`); process.exit(3); }
+    const kernelPath = resolve(KDIR, n.tool_id + '.kernel.mjs');
+    if (n.status === 'live' && n.gpu === false && registered.has(n.tool_id) && existsSync(kernelPath)) {
+      inScope.push({ id, shardPath, raw, n, kernelPath });
+    } else {
+      skipped.push(id);
+    }
+  }
+  if (onlyId && inScope.length === 0) {
+    console.error(`✗ ${onlyId}: not in scope for §17 identity (need status:live, gpu:false, kernel registered in index.mjs, and a .kernel.mjs on disk)`);
+    process.exit(3);
+  }
+
+  const want = new Map(); // tool_id -> sha256:digest
+  for (const { n, kernelPath } of inScope) {
+    const src = readFileSync(kernelPath, 'utf8');
+    want.set(n.tool_id, await sourceDigest(src));
+  }
+
+  if (mode === 'check') {
+    const problems = [];
+    for (const { n } of inScope) {
+      const imgs = Array.isArray(n.compute_images) ? n.compute_images : [];
+      const src = imgs.find((i) => i.system === 'sha256-source');
+      if (!src) { problems.push(`${n.tool_id}: missing sha256-source compute_images entry`); continue; }
+      const norm = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
+      if (norm(src.image_id) !== want.get(n.tool_id)) {
+        problems.push(`${n.tool_id}: sha256-source digest ${src.image_id} != recomputed ${want.get(n.tool_id)}`);
+      }
+    }
+    if (problems.length) {
+      console.error(`✗ §17 kernel-identity coverage FAILED (shard mode) — ${problems.length} node(s):`);
+      for (const p of problems.slice(0, 25)) console.error('  • ' + p);
+      if (problems.length > 25) console.error(`  … and ${problems.length - 25} more`);
+      console.error('\nRun: node chaingraph/kernels/gen-kernel-identity.mjs --write --shard  (then commit the shard file(s) — chaingraph.json is untouched)');
+      process.exit(1);
+    }
+    console.log(`✓ §17 kernel-identity coverage clean (shard mode) — all ${inScope.length} in-scope shard(s) carry a current sha256-source compute_images digest. ${skipped.length} shard(s) out of scope, skipped.`);
+    return;
+  }
+
+  // --- WRITE (shard mode) ---
+  let stamped = 0, inserted = 0, replaced = 0;
+  const touched = [];
+  for (const { id, shardPath, raw, n } of inScope) {
+    let upsert;
+    try { upsert = upsertComputeImages(raw, n.tool_id, want.get(n.tool_id)); }
+    catch (e) { console.error(`! ${e.message}`); process.exit(3); }
+
+    // Safety: the shard must still parse and be identical except for the sha256-source entry.
+    let afterObj;
+    try { afterObj = JSON.parse(upsert.out); } catch { console.error(`✗ SAFETY: stamped shard ${id}.json does not parse — aborting, no write.`); process.exit(4); }
+    const beforeStripped = JSON.stringify(stripSha256Source(JSON.parse(JSON.stringify(n))));
+    const afterStripped = JSON.stringify(stripSha256Source(JSON.parse(JSON.stringify(afterObj))));
+    if (beforeStripped !== afterStripped) {
+      console.error(`✗ SAFETY: stamped shard ${id}.json differs beyond the sha256-source compute_images entry — aborting, no write.`);
+      process.exit(4);
+    }
+
+    writeFileSync(shardPath, upsert.out);
+    if (upsert.kind === 'inserted') inserted++; else replaced++;
+    stamped++;
+    touched.push(id);
+  }
+  console.log(`✓ §17 stamped ${stamped} shard(s) directly: ${inserted} inserted, ${replaced} merged into existing compute_images. chaingraph.json untouched. Run ASSEMBLE+LAND to fold into the monolith, then --check to verify.`);
+  if (touched.length) console.log('  shards written: ' + touched.join(', '));
+  if (skipped.length) console.log(`  ${skipped.length} shard(s) out of scope, skipped.`);
+}
+
+if (shardMode) {
+  await runShardMode(mode, shardOnlyId, registeredIds);
+  process.exit(0);
+}
+
+// ============================================================================
+// --- DIRECT MODE (chaingraph.json monolith — assembler-side / full-coverage path, unchanged) --------
+// ============================================================================
 
 const raw = readFileSync(CGPATH, 'utf8');
 const cg = JSON.parse(raw);
 
-// Registered kernel tool_ids = keys of the KERNELS map in index.mjs (text-parse, same as the worker /
-// coverage gates — decoupled from kernel execution).
-const idx = readFileSync(resolve(KDIR, 'index.mjs'), 'utf8');
-const block = idx.slice(idx.indexOf('KERNELS = {'));
-const registered = new Set([...block.matchAll(/['"]([a-z0-9][a-z0-9._-]+)['"]\s*:/gi)].map((m) => m[1]));
-
 // In-scope = gpu:false, status live, kernel registered AND its source file exists on disk.
 const inScope = (cg.nodes ?? []).filter(
-  (n) => n.status === 'live' && n.gpu === false && registered.has(n.tool_id)
+  (n) => n.status === 'live' && n.gpu === false && registeredIds.has(n.tool_id)
     && existsSync(resolve(KDIR, n.tool_id + '.kernel.mjs')),
 );
 
@@ -101,40 +253,11 @@ for (const n of inScope) {
   const end = nextTool < 0 ? raw.length : nextTool;
   const blockTxt = raw.slice(at, end);
 
-  const entry = `{"system":"sha256-source","image_id":${JSON.stringify(want.get(n.tool_id))},"valid_from":"${VALID_FROM}"}`;
-
-  // Existing compute_images line within this node?
-  const ciRe = /\n( *)"compute_images": (\[.*?\]),/s;
-  const m = blockTxt.match(ciRe);
-  if (m) {
-    const indent = m[1];
-    let arr;
-    try { arr = JSON.parse(m[2]); } catch { console.error(`! bad compute_images JSON in ${n.tool_id}`); process.exit(3); }
-    const kept = arr.filter((i) => i.system !== 'sha256-source');
-    const merged = [JSON.parse(entry), ...kept];
-    const newLine = `\n${indent}"compute_images": [${merged.map((i) => JSON.stringify(i)).join(',')}],`;
-    const lineStart = at + m.index;
-    edits.push({ start: lineStart, end: lineStart + m[0].length, replacement: newLine });
-    replaced++;
-  } else {
-    // Insert a new compact compute_images line right after the node's compute_capability line.
-    // compute_capability may be the LAST field (no trailing comma) — then add a comma to it and make
-    // compute_images the new last field (also no trailing comma).
-    const ccRe = /\n( *)"compute_capability": "[a-z]+"(,?)/;
-    const cm = blockTxt.match(ccRe);
-    if (!cm) { console.error(`! no compute_capability anchor in ${n.tool_id}`); process.exit(3); }
-    const indent = cm[1];
-    const matchStart = at + cm.index;
-    const matchEnd = matchStart + cm[0].length;
-    if (cm[2] === ',') {
-      // Has trailing comma → simple insert after it, compute_images keeps a trailing comma.
-      edits.push({ start: matchEnd, end: matchEnd, replacement: `\n${indent}"compute_images": [${entry}],` });
-    } else {
-      // Last field → append a comma to compute_capability and add compute_images with no trailing comma.
-      edits.push({ start: matchStart, end: matchEnd, replacement: `${cm[0]},\n${indent}"compute_images": [${entry}]` });
-    }
-    inserted++;
-  }
+  let upsert;
+  try { upsert = upsertComputeImages(blockTxt, n.tool_id, want.get(n.tool_id)); }
+  catch (e) { console.error(`! ${e.message}`); process.exit(3); }
+  edits.push({ start: at, end, replacement: upsert.out });
+  if (upsert.kind === 'inserted') inserted++; else replaced++;
   stamped++;
 }
 
@@ -148,12 +271,7 @@ const before = JSON.stringify(cg);
 const afterObj = JSON.parse(out);
 // Strip every sha256-source entry from both for an apples-to-apples structural compare.
 const strip = (o) => {
-  for (const nn of (o.nodes ?? [])) {
-    if (Array.isArray(nn.compute_images)) {
-      nn.compute_images = nn.compute_images.filter((i) => i.system !== 'sha256-source');
-      if (nn.compute_images.length === 0) delete nn.compute_images;
-    }
-  }
+  for (const nn of (o.nodes ?? [])) stripSha256Source(nn);
   return o;
 };
 if (JSON.stringify(strip(JSON.parse(before))) !== JSON.stringify(strip(JSON.parse(JSON.stringify(afterObj))))) {
