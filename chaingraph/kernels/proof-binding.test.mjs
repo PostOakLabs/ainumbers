@@ -88,5 +88,35 @@ const tampEndorse = structuredClone(chained);
 tampEndorse.audit_signature.proof[2].proofValue = 'z' + 'B'.repeat(86);
 ok(!(await verifyProofs(tampEndorse, resolveKey)), '(f) tampered endorsement proofValue fails');
 
+// ── §22.11 (EXQ-1) — resume/exception record signing + hash-exclusion ──────────────────────────
+// A resume message or exception record is a §16 signed artifact bound to a named human. The
+// exception_class/exception_detail/item_state/resume_approval fields are hash-EXCLUDED (SPEC.md
+// §22.11) — a record with and without them must hash identically.
+const withoutExq = await buildArtifact(PP, { now: CREATED });
+const withExq = structuredClone(withoutExq);
+withExq.exception_class = 'business';
+withExq.exception_detail = { type: 'business', code: 'bad_input', message: 'business rule rejected item' };
+withExq.item_state = 'pending_human';
+withExq.resume_approval = { required_events: 2, approver_group: 'ops-leads', resume_form: {}, timeout: '2026-08-01T00:00:00Z' };
+ok(withExq.execution_hash === withoutExq.execution_hash, '(§22.11) record with/without exception_class/exception_detail/item_state/resume_approval hashes identically');
+
+const kpResume = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+const vmResume = await rawPubkeyToDidKey(kpResume.publicKey);
+const signedResume = await sign(withExq, { verificationMethod: vmResume, created: CREATED, privateKey: kpResume.privateKey });
+const resolvedResumePub = await didKeyToPublicKey(vmResume);
+ok(await verify(signedResume, resolvedResumePub), '(§22.11) signed exception record — sign -> verify round-trip via named-human did:key');
+ok(signedResume.execution_hash === withoutExq.execution_hash, '(§22.11) signing the exception record did not mint a new execution_hash');
+
+// exception_class is hash-EXCLUDED (execution_hash unaffected), but the §16 proof covers the whole
+// artifact — mutating it post-signature still breaks the SIGNATURE, same as any other tamper case.
+const tampExqField = structuredClone(signedResume);
+tampExqField.exception_class = 'application';
+ok(tampExqField.execution_hash === signedResume.execution_hash, '(§22.11) mutated exception_class leaves execution_hash unchanged (hash-excluded scope)');
+ok(!(await verify(tampExqField, resolvedResumePub)), '(§22.11) mutated exception_class after signing still fails proof verify (whole-artifact tamper-evidence)');
+
+const tampExqSig = structuredClone(signedResume);
+tampExqSig.audit_signature.proof.proofValue = 'z' + 'C'.repeat(86);
+ok(!(await verify(tampExqSig, resolvedResumePub)), '(§22.11) tampered proofValue on a signed exception record fails verify');
+
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all proof-binding assertions passed');
 process.exit(fail ? 1 : 0);
