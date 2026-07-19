@@ -48,6 +48,7 @@ const GATES = [
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Unassembled-shard scan (ASSEMBLE-COVER-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],

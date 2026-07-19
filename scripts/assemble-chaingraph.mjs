@@ -29,7 +29,7 @@
  * this flip — only node/chain ORDER and inter-element whitespace changed.
  */
 
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, readdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -41,6 +41,20 @@ const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
 const META_PATH = resolve(root, 'chaingraph/chaingraph.meta.json')
 
 const CHECK = process.argv.includes('--check')
+
+// ASSEMBLE-COVER-1 advisory: report node shards on disk that order.nodes
+// doesn't include yet — a mid-flight CGSHARD row is EXPECTED here, so this
+// only informs, never fails the assembler.
+function reportUnassembledShards(orderNodes) {
+  const onDisk = readdirSync(NODES_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.slice(0, -'.json'.length))
+  const known = new Set(orderNodes)
+  const extra = onDisk.filter((id) => !known.has(id))
+  if (extra.length > 0) {
+    console.log(`assemble-chaingraph: ${extra.length} node shard(s) on disk not in chaingraph.meta.json order.nodes (expected if mid-flight): ${extra.join(', ')}`)
+  }
+}
 
 const meta = JSON.parse(readFileSync(META_PATH, 'utf8'))
 const { order, raw } = meta
@@ -78,6 +92,7 @@ if (CHECK) {
   const committed = readFileSync(CG_PATH, 'utf8')
   if (assembled === committed) {
     console.log(`OK  chaingraph.json matches assembled output (${order.nodes.length} nodes, ${order.chains.length} chains).`)
+    reportUnassembledShards(order.nodes)
     process.exit(0)
   } else {
     console.error('DRIFT  chaingraph.json does NOT match assembled output from shards.')
@@ -96,4 +111,5 @@ if (CHECK) {
 } else {
   writeFileSync(CG_PATH, assembled, 'utf8')
   console.log(`Wrote ${CG_PATH} (${order.nodes.length} nodes, ${order.chains.length} chains).`)
+  reportUnassembledShards(order.nodes)
 }
