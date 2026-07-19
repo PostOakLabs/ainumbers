@@ -1,0 +1,149 @@
+{
+  "tool_id": "art-399-lint-x12-claim-records",
+  "note": "X12 837/835 envelope + balancing lint (FORMAT-ONLY, FL-2). Vector 1: compliant 837. Vector 2: 835 balance mismatch (arithmetic). Vector 3: 835 interchange control-number mismatch.",
+  "vectors": [
+    {
+      "name": "compliant_837_claims",
+      "description": "837 claim transaction, envelope control numbers continuous, two well-formed claims.",
+      "policy_parameters": {
+        "message_type": "837",
+        "envelope": {
+          "isa13": "000000001",
+          "iea02": "000000001",
+          "gs06": "1",
+          "ge02": "1",
+          "st02": "0001",
+          "se02": "0001"
+        },
+        "claims": [
+          {
+            "claim_id": "CLM-1001",
+            "charge_amount": 250
+          },
+          {
+            "claim_id": "CLM-1002",
+            "charge_amount": 75.5
+          }
+        ]
+      },
+      "output_payload": {
+        "message_type": "837",
+        "compliant": true,
+        "error_count": 0,
+        "warning_count": 0,
+        "claim_count": 2,
+        "total_charge_amount": 325.5,
+        "issues": [],
+        "disambiguation": "lint_x12_claim_records checks X12 837/835 ENVELOPE control-number continuity and, for 835, payment-amount balancing (arithmetic only) -- a FORMAT-ONLY validator over identifiers and amounts, never claim content.",
+        "phi_note": "This schema is structurally PHI-IMPOSSIBLE: it defines only envelope control numbers, claim/payment identifiers, and monetary amounts -- no patient name, DOB, diagnosis, or any clinical field exists in the input or output. See the HIPAA-Security WATCH row for the separate, un-triggered security-rule surface.",
+        "subset_coverage_statement": "This lints X12 837/835 ENVELOPE structure and 835 payment balancing only, from public CMS companion-guide summaries. It does not implement the full licensed X12 implementation guide, and defines no clinical/PHI fields whatsoever.",
+        "table_version": "X12-837-835-ENVELOPE-BALANCE-PUBLIC-SUBSET-V1",
+        "table_source": "CMS X12 837/835 Companion Guide public summaries (cms.gov); ASC X12 005010 envelope structure (public control-number continuity rules: ISA13/IEA02, GS06/GE02, ST02/SE02).",
+        "regulatory_basis": "ASC X12 005010 837/835 transaction sets; CMS companion-guide public summaries; HIPAA Administrative Simplification transaction-standard rule (45 CFR Part 162)."
+      },
+      "golden_hash": "311fb3fc19abece3ed3f0a85e3c123edf27e7b477cca8a19dd57450e7c35db47"
+    },
+    {
+      "name": "835_balance_mismatch",
+      "description": "835 remittance total_paid_amount does not equal sum of claim_payments -- arithmetic balancing failure.",
+      "policy_parameters": {
+        "message_type": "835",
+        "envelope": {
+          "isa13": "000000002",
+          "iea02": "000000002",
+          "gs06": "2",
+          "ge02": "2",
+          "st02": "0002",
+          "se02": "0002"
+        },
+        "remittance": {
+          "total_paid_amount": 300,
+          "claim_payments": [
+            {
+              "claim_id": "CLM-1001",
+              "paid_amount": 200
+            },
+            {
+              "claim_id": "CLM-1002",
+              "paid_amount": 75
+            }
+          ]
+        }
+      },
+      "output_payload": {
+        "message_type": "835",
+        "compliant": false,
+        "error_count": 1,
+        "warning_count": 0,
+        "total_paid_amount": 300,
+        "sum_claim_payments": 275,
+        "claim_payment_count": 2,
+        "balances": false,
+        "issues": [
+          {
+            "code": "REMITTANCE_BALANCE_MISMATCH",
+            "severity": "ERROR",
+            "field": "remittance",
+            "message": "Remittance total_paid_amount (300) does not equal sum of claim_payments (275)."
+          }
+        ],
+        "disambiguation": "lint_x12_claim_records checks X12 837/835 ENVELOPE control-number continuity and, for 835, payment-amount balancing (arithmetic only) -- a FORMAT-ONLY validator over identifiers and amounts, never claim content.",
+        "phi_note": "This schema is structurally PHI-IMPOSSIBLE: it defines only envelope control numbers, claim/payment identifiers, and monetary amounts -- no patient name, DOB, diagnosis, or any clinical field exists in the input or output. See the HIPAA-Security WATCH row for the separate, un-triggered security-rule surface.",
+        "subset_coverage_statement": "This lints X12 837/835 ENVELOPE structure and 835 payment balancing only, from public CMS companion-guide summaries. It does not implement the full licensed X12 implementation guide, and defines no clinical/PHI fields whatsoever.",
+        "table_version": "X12-837-835-ENVELOPE-BALANCE-PUBLIC-SUBSET-V1",
+        "table_source": "CMS X12 837/835 Companion Guide public summaries (cms.gov); ASC X12 005010 envelope structure (public control-number continuity rules: ISA13/IEA02, GS06/GE02, ST02/SE02).",
+        "regulatory_basis": "ASC X12 005010 837/835 transaction sets; CMS companion-guide public summaries; HIPAA Administrative Simplification transaction-standard rule (45 CFR Part 162)."
+      },
+      "golden_hash": "0f109ae9693901a536f9e7d0fe94c92f4b8ba63738d9739a0c7ab2f99a103377"
+    },
+    {
+      "name": "835_control_number_mismatch",
+      "description": "835 balances arithmetically but ISA13/IEA02 interchange control numbers diverge -- structural continuity failure.",
+      "policy_parameters": {
+        "message_type": "835",
+        "envelope": {
+          "isa13": "000000003",
+          "iea02": "000000099",
+          "gs06": "3",
+          "ge02": "3",
+          "st02": "0003",
+          "se02": "0003"
+        },
+        "remittance": {
+          "total_paid_amount": 100,
+          "claim_payments": [
+            {
+              "claim_id": "CLM-2001",
+              "paid_amount": 100
+            }
+          ]
+        }
+      },
+      "output_payload": {
+        "message_type": "835",
+        "compliant": false,
+        "error_count": 1,
+        "warning_count": 0,
+        "total_paid_amount": 100,
+        "sum_claim_payments": 100,
+        "claim_payment_count": 1,
+        "balances": true,
+        "issues": [
+          {
+            "code": "INTERCHANGE_CONTROL_MISMATCH",
+            "severity": "ERROR",
+            "field": "isa13/iea02",
+            "message": "ISA13 (000000003) does not match IEA02 (000000099) -- interchange control-number continuity broken."
+          }
+        ],
+        "disambiguation": "lint_x12_claim_records checks X12 837/835 ENVELOPE control-number continuity and, for 835, payment-amount balancing (arithmetic only) -- a FORMAT-ONLY validator over identifiers and amounts, never claim content.",
+        "phi_note": "This schema is structurally PHI-IMPOSSIBLE: it defines only envelope control numbers, claim/payment identifiers, and monetary amounts -- no patient name, DOB, diagnosis, or any clinical field exists in the input or output. See the HIPAA-Security WATCH row for the separate, un-triggered security-rule surface.",
+        "subset_coverage_statement": "This lints X12 837/835 ENVELOPE structure and 835 payment balancing only, from public CMS companion-guide summaries. It does not implement the full licensed X12 implementation guide, and defines no clinical/PHI fields whatsoever.",
+        "table_version": "X12-837-835-ENVELOPE-BALANCE-PUBLIC-SUBSET-V1",
+        "table_source": "CMS X12 837/835 Companion Guide public summaries (cms.gov); ASC X12 005010 envelope structure (public control-number continuity rules: ISA13/IEA02, GS06/GE02, ST02/SE02).",
+        "regulatory_basis": "ASC X12 005010 837/835 transaction sets; CMS companion-guide public summaries; HIPAA Administrative Simplification transaction-standard rule (45 CFR Part 162)."
+      },
+      "golden_hash": "a3e33ed4bc176bb5d16c3b6a377ceaf11e048ccde3090a92de814a96972b5720"
+    }
+  ]
+}
