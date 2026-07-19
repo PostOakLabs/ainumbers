@@ -331,6 +331,8 @@ import * as art391    from './art-391-compute-canton-traffic-cost.kernel.mjs';
 import * as art392    from './art-392-compute-canton-app-reward-estimate.kernel.mjs';
 import * as art393    from './art-393-x402-v2-migration-linter.kernel.mjs';
 import * as art394    from './art-394-x402-deferred-handshake-validator.kernel.mjs';
+import * as art396    from './art-396-compute-15c3-3-reserve.kernel.mjs';
+import * as art397    from './art-397-lint-trace-cat-reports.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
 import * as art406    from './art-406-cross-venue-margin-estimator.kernel.mjs';
 import * as art407    from './art-407-umr-aana-readiness-diagnostic.kernel.mjs';
@@ -740,6 +742,8 @@ export const KERNELS = {
   'art-392-compute-canton-app-reward-estimate':               art392,
   'art-393-x402-v2-migration-linter':                         art393,
   'art-394-x402-deferred-handshake-validator':                art394,
+  'art-396-compute-15c3-3-reserve':                           art396,
+  'art-397-lint-trace-cat-reports':                           art397,
   'art-40-tempo-agentic-checkout':                            art40,
   'art-406-cross-venue-margin-estimator':                     art406,
   'art-407-umr-aana-readiness-diagnostic':                    art407,

@@ -1,0 +1,292 @@
+{
+  "tool_id": "art-397-lint-trace-cat-reports",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: TRACE report inside the 15-minute window mid trading day, one structurally valid equity CAT event. Vector 2: same execution, report 25 minutes later -- late. Vector 3: Friday-afternoon execution ahead of a declared Monday holiday, deadline correctly skips Sat/Sun/holiday to the following Tuesday's open. Vector 4: two structurally invalid CAT events (missing field, negative quantity, negative strike). Vector 5: zero-input edge (unparseable timestamps, empty calendar -- finite gate, no throw, no NaN).",
+  "vectors": [
+    {
+      "name": "timely_default",
+      "description": "Execution at 14:00 UTC, report at 14:05 UTC -- within the 15-minute FINRA Rule 6730 window. One structurally valid equity CAT NEW_ORDER event.",
+      "policy_parameters": {
+        "execution_timestamp": "2026-07-20T14:00:00.000Z",
+        "report_timestamp": "2026-07-20T14:05:00.000Z",
+        "calendar": {
+          "weekend_days": [
+            0,
+            6
+          ],
+          "holidays": [],
+          "calendar_version": "finra-2026-standard"
+        },
+        "trading_hours": {
+          "start_minutes_utc": 480,
+          "end_minutes_utc": 1110
+        },
+        "report_window_minutes": 15,
+        "cat_events": [
+          {
+            "event_category": "equity",
+            "event_type": "NEW_ORDER",
+            "event_timestamp": "2026-07-20T14:00:00.000Z",
+            "firm_designated_id": "FIRM-1",
+            "order_id": "ORD-1",
+            "symbol": "ABC",
+            "side": "BUY",
+            "quantity": 100
+          }
+        ]
+      },
+      "output_payload": {
+        "trace_result": {
+          "valid_timestamps": true,
+          "execution_timestamp": "2026-07-20T14:00:00.000Z",
+          "report_timestamp": "2026-07-20T14:05:00.000Z",
+          "deadline_utc": "2026-07-20T14:15:00.000Z",
+          "timely": true,
+          "late_by_minutes": 0,
+          "calendar_version": "finra-2026-standard",
+          "report_window_minutes": 15
+        },
+        "cat_events_checked": 1,
+        "cat_events_valid": 1,
+        "cat_violations": [],
+        "rules_version": "trace-6730-cat-lint-2026.1",
+        "regulatory_basis": "FINRA Rule 6730 (TRACE trade-reporting timeliness); CAT NMS Plan equity/option order-event structure (representative field subset, not the full CAT Reporting Technical Specification).",
+        "note": "TRACE deadline computed against the caller-declared trading calendar and hours window -- there is no built-in market calendar. CAT check covers a representative subset of required event fields and is not a full CAT schema conformance check."
+      },
+      "compliance_flags": [
+        "TRACE_REPORT_TIMELY",
+        "CAT_ALL_EVENTS_STRUCTURALLY_VALID"
+      ],
+      "golden_hash": "76d0864b1898b8a94c6647d7bac783cc87ee7ca055712d4b90fa877a34d2f7e7"
+    },
+    {
+      "name": "late_default",
+      "description": "Same execution time, report 25 minutes later -- 10 minutes past the 15-minute deadline. One structurally valid option CAT ORDER_EXECUTION event.",
+      "policy_parameters": {
+        "execution_timestamp": "2026-07-20T14:00:00.000Z",
+        "report_timestamp": "2026-07-20T14:25:00.000Z",
+        "calendar": {
+          "weekend_days": [
+            0,
+            6
+          ],
+          "holidays": [],
+          "calendar_version": "finra-2026-standard"
+        },
+        "trading_hours": {
+          "start_minutes_utc": 480,
+          "end_minutes_utc": 1110
+        },
+        "report_window_minutes": 15,
+        "cat_events": [
+          {
+            "event_category": "option",
+            "event_type": "ORDER_EXECUTION",
+            "event_timestamp": "2026-07-20T14:00:00.000Z",
+            "firm_designated_id": "FIRM-1",
+            "order_id": "ORD-2",
+            "symbol": "XYZ",
+            "side": "SELL",
+            "quantity": 5,
+            "option_type": "CALL",
+            "strike_price": 50,
+            "expiration_date": "2026-08-21"
+          }
+        ]
+      },
+      "output_payload": {
+        "trace_result": {
+          "valid_timestamps": true,
+          "execution_timestamp": "2026-07-20T14:00:00.000Z",
+          "report_timestamp": "2026-07-20T14:25:00.000Z",
+          "deadline_utc": "2026-07-20T14:15:00.000Z",
+          "timely": false,
+          "late_by_minutes": 10,
+          "calendar_version": "finra-2026-standard",
+          "report_window_minutes": 15
+        },
+        "cat_events_checked": 1,
+        "cat_events_valid": 1,
+        "cat_violations": [],
+        "rules_version": "trace-6730-cat-lint-2026.1",
+        "regulatory_basis": "FINRA Rule 6730 (TRACE trade-reporting timeliness); CAT NMS Plan equity/option order-event structure (representative field subset, not the full CAT Reporting Technical Specification).",
+        "note": "TRACE deadline computed against the caller-declared trading calendar and hours window -- there is no built-in market calendar. CAT check covers a representative subset of required event fields and is not a full CAT schema conformance check."
+      },
+      "compliance_flags": [
+        "TRACE_REPORT_LATE",
+        "CAT_ALL_EVENTS_STRUCTURALLY_VALID"
+      ],
+      "golden_hash": "2293f6042a1fb8ff19597ca894e33e7fc97fc0e33dd82fd6ee01e1175170b68c"
+    },
+    {
+      "name": "weekend_holiday_window_edge",
+      "description": "Execution Friday 18:25 UTC, 5 minutes before the 18:30 UTC trading-hours close, with a declared Monday holiday. The 15-minute window would spill past the close, so the deadline correctly rolls to 15 minutes after the next actual trading day's open -- skipping Saturday, Sunday, and the Monday holiday to land on Tuesday.",
+      "policy_parameters": {
+        "execution_timestamp": "2026-07-17T18:25:00.000Z",
+        "report_timestamp": "2026-07-21T08:10:00.000Z",
+        "calendar": {
+          "weekend_days": [
+            0,
+            6
+          ],
+          "holidays": [
+            "2026-07-20"
+          ],
+          "calendar_version": "finra-2026-standard"
+        },
+        "trading_hours": {
+          "start_minutes_utc": 480,
+          "end_minutes_utc": 1110
+        },
+        "report_window_minutes": 15,
+        "cat_events": []
+      },
+      "output_payload": {
+        "trace_result": {
+          "valid_timestamps": true,
+          "execution_timestamp": "2026-07-17T18:25:00.000Z",
+          "report_timestamp": "2026-07-21T08:10:00.000Z",
+          "deadline_utc": "2026-07-21T08:15:00.000Z",
+          "timely": true,
+          "late_by_minutes": 0,
+          "calendar_version": "finra-2026-standard",
+          "report_window_minutes": 15
+        },
+        "cat_events_checked": 0,
+        "cat_events_valid": 0,
+        "cat_violations": [],
+        "rules_version": "trace-6730-cat-lint-2026.1",
+        "regulatory_basis": "FINRA Rule 6730 (TRACE trade-reporting timeliness); CAT NMS Plan equity/option order-event structure (representative field subset, not the full CAT Reporting Technical Specification).",
+        "note": "TRACE deadline computed against the caller-declared trading calendar and hours window -- there is no built-in market calendar. CAT check covers a representative subset of required event fields and is not a full CAT schema conformance check."
+      },
+      "compliance_flags": [
+        "TRACE_REPORT_TIMELY",
+        "CAT_NO_EVENTS_SUPPLIED"
+      ],
+      "golden_hash": "3a99f7133b5530db5d49206d0f12d66e80725e7339a1992bb140ecc5bd743573"
+    },
+    {
+      "name": "cat_structural_violations",
+      "description": "Two CAT events with structural defects: an equity event missing event_timestamp with a negative quantity, and an option event with a negative strike_price.",
+      "policy_parameters": {
+        "execution_timestamp": "2026-07-20T14:00:00.000Z",
+        "report_timestamp": "2026-07-20T14:05:00.000Z",
+        "calendar": {
+          "weekend_days": [
+            0,
+            6
+          ],
+          "holidays": [],
+          "calendar_version": "finra-2026-standard"
+        },
+        "trading_hours": {
+          "start_minutes_utc": 480,
+          "end_minutes_utc": 1110
+        },
+        "report_window_minutes": 15,
+        "cat_events": [
+          {
+            "event_category": "equity",
+            "event_type": "NEW_ORDER",
+            "firm_designated_id": "FIRM-1",
+            "order_id": "ORD-3",
+            "symbol": "ABC",
+            "side": "BUY",
+            "quantity": -5
+          },
+          {
+            "event_category": "option",
+            "event_type": "ORDER_ROUTE",
+            "event_timestamp": "2026-07-20T14:01:00.000Z",
+            "firm_designated_id": "FIRM-1",
+            "order_id": "ORD-4",
+            "symbol": "XYZ",
+            "side": "SELL",
+            "quantity": 2,
+            "option_type": "PUT",
+            "strike_price": -10,
+            "expiration_date": "2026-08-21"
+          }
+        ]
+      },
+      "output_payload": {
+        "trace_result": {
+          "valid_timestamps": true,
+          "execution_timestamp": "2026-07-20T14:00:00.000Z",
+          "report_timestamp": "2026-07-20T14:05:00.000Z",
+          "deadline_utc": "2026-07-20T14:15:00.000Z",
+          "timely": true,
+          "late_by_minutes": 0,
+          "calendar_version": "finra-2026-standard",
+          "report_window_minutes": 15
+        },
+        "cat_events_checked": 2,
+        "cat_events_valid": 0,
+        "cat_violations": [
+          {
+            "index": 0,
+            "event_category": "equity",
+            "structurally_valid": false,
+            "missing_fields": [
+              "event_timestamp"
+            ],
+            "type_errors": [
+              "quantity must be a positive number"
+            ]
+          },
+          {
+            "index": 1,
+            "event_category": "option",
+            "structurally_valid": false,
+            "missing_fields": [],
+            "type_errors": [
+              "strike_price must be a positive number"
+            ]
+          }
+        ],
+        "rules_version": "trace-6730-cat-lint-2026.1",
+        "regulatory_basis": "FINRA Rule 6730 (TRACE trade-reporting timeliness); CAT NMS Plan equity/option order-event structure (representative field subset, not the full CAT Reporting Technical Specification).",
+        "note": "TRACE deadline computed against the caller-declared trading calendar and hours window -- there is no built-in market calendar. CAT check covers a representative subset of required event fields and is not a full CAT schema conformance check."
+      },
+      "compliance_flags": [
+        "TRACE_REPORT_TIMELY",
+        "CAT_STRUCTURAL_VIOLATIONS_FOUND"
+      ],
+      "golden_hash": "f4d07ccc6ec4c305aabe728c420e7c399c9e069787af3953f9680d46df73baac"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "Empty timestamps and calendar. Finite gate: unparseable timestamps resolve to a null deadline/verdict, never NaN or a thrown error.",
+      "policy_parameters": {
+        "execution_timestamp": "",
+        "report_timestamp": "",
+        "calendar": {},
+        "trading_hours": {},
+        "report_window_minutes": 15,
+        "cat_events": []
+      },
+      "output_payload": {
+        "trace_result": {
+          "valid_timestamps": false,
+          "deadline_utc": null,
+          "timely": null,
+          "late_by_minutes": null,
+          "execution_timestamp": null,
+          "report_timestamp": null,
+          "calendar_version": "unspecified",
+          "report_window_minutes": 15
+        },
+        "cat_events_checked": 0,
+        "cat_events_valid": 0,
+        "cat_violations": [],
+        "rules_version": "trace-6730-cat-lint-2026.1",
+        "regulatory_basis": "FINRA Rule 6730 (TRACE trade-reporting timeliness); CAT NMS Plan equity/option order-event structure (representative field subset, not the full CAT Reporting Technical Specification).",
+        "note": "TRACE deadline computed against the caller-declared trading calendar and hours window -- there is no built-in market calendar. CAT check covers a representative subset of required event fields and is not a full CAT schema conformance check."
+      },
+      "compliance_flags": [
+        "TRACE_TIMESTAMPS_UNPARSEABLE",
+        "CAT_NO_EVENTS_SUPPLIED"
+      ],
+      "golden_hash": "43f38146035cb8a77fd70c7603e0221ae09740607c2c937c457a499ccf2f0e41"
+    }
+  ]
+}
