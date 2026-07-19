@@ -97,3 +97,5 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
+
+// KERNELCI-1 test: trivial edit to demonstrate PR-time §17 red
