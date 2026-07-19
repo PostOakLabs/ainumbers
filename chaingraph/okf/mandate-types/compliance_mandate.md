@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-249"]
+tags: ["compliance_mandate", "count-250"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-249 tool(s) in this mandate-type group:
+250 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -254,6 +254,7 @@ timestamp: 2026-07-14
 - [Agent Incident Record Composer](../tools/art-379-agent-incident-record-composer.md)
 - [AI-Tool-Usage Workpaper Record](../tools/art-380-build-ai-workpaper-record.md)
 - [Agent Token Scope Checker](../tools/art-385-agent-token-scope-checker.md)
+- [CBOM Structural Lint & CNSA-2.0 Classifier](../tools/art-386-lint-cbom-structure.md)
 - [CNSA 2.0 Deadline Ladder Calculator](../tools/art-387-pqc-deadline-ladder-calculator.md)
 - [TIP-20 Memo/Commitment Validator](../tools/art-390-tip20-memo-commitment-validator.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)

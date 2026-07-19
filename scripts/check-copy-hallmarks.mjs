@@ -231,7 +231,7 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((n.description || '').match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((c.description || '').match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotone: 0 };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotone: 0, triad: 0, emojiProse: 0, hallmarks: [] };
 
 if (UPDATE) {
   const baseline = {};
