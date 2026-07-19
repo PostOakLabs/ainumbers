@@ -42,6 +42,12 @@ const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 
 const VALID_RECEIPT_FORMATS = new Set(['groth16-bn254', 'stark']);
 
+// §18.6(b): a deferred node's reason must be a real, non-empty, non-placeholder string — not just present.
+const PLACEHOLDER_REASONS = new Set(['todo', 'tbd', 'n/a', 'na', 'placeholder', 'reason', 'deferred', 'pending', 'xxx', 'tk', '...', '-']);
+function isPlaceholderReason(s) {
+  return PLACEHOLDER_REASONS.has(s.trim().toLowerCase());
+}
+
 // ── classifyNode ──────────────────────────────────────────────────────────────────────────────────
 // Returns { state: 'proven' | 'deferred' | 'missing', problems: string[] } where a 'proven' node with a
 // malformed proof is downgraded to 'missing' with the specific defects listed. Works for any live node
@@ -66,7 +72,17 @@ export function classifyNode(node) {
     }
     return problems.length ? { name, state: 'missing', problems } : { name, state: 'proven', problems: [] };
   }
-  if (node.compute_proof_ready === 'deferred') return { name, state: 'deferred', problems: [] };
+  if (node.compute_proof_ready === 'deferred') {
+    const reason = node.deferred_reason;
+    // §18.6(b): deferral is only a valid park state when a stated, non-empty, non-placeholder reason accompanies it.
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      return { name, state: 'missing', problems: ['compute_proof_ready:"deferred" but deferred_reason is missing or empty (§18.6(b))'] };
+    }
+    if (isPlaceholderReason(reason)) {
+      return { name, state: 'missing', problems: [`deferred_reason is a placeholder (${JSON.stringify(reason)}), needs a true, per-node reason (§18.6(b))`] };
+    }
+    return { name, state: 'deferred', problems: [] };
+  }
   return { name, state: 'missing', problems: ['no compute_proof and no compute_proof_ready:"deferred"'] };
 }
 
@@ -148,7 +164,7 @@ if (missing.length) {
   console.error(`✗ §18 coverage FAILED — ${missing.length} gpu:false live node(s) neither carry a valid compute_proof nor are marked compute_proof_ready:"deferred":`);
   for (const r of missing) console.error(`  • ${r.name} — ${r.problems.join('; ')}`);
   console.error('\nFix each: attach a verified audit_signature.compute_proof (see WAVE-V0.6-SECTION18-MANDATE-BUILD-SPEC.md §2),');
-  console.error('or park it with compute_proof_ready:"deferred" (+ a deferral_reason) if its in-guest proving cost is prohibitive (SPEC §18.2/§18.6).');
+  console.error('or park it with compute_proof_ready:"deferred" (+ a deferred_reason) if its in-guest proving cost is prohibitive (SPEC §18.2/§18.6).');
 }
 
 // (1b) conformance-fixture presence: a node claiming conformance_fixtures:true MUST ship a non-empty
