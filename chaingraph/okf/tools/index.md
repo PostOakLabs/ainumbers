@@ -322,6 +322,7 @@ timestamp: 2026-07-14
 - [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md) — `screen_tip20_transfer_batch`
 - [AI-Tool-Usage Workpaper Record](./art-380-build-ai-workpaper-record.md) — `build_ai_workpaper_record`
 - [Agent Token Scope Checker](./art-385-agent-token-scope-checker.md) — `check_agent_token_scope`
+- [CBOM Structural Lint & CNSA-2.0 Classifier](./art-386-lint-cbom-structure.md) — `lint_cbom_structure`
 - [CNSA 2.0 Deadline Ladder Calculator](./art-387-pqc-deadline-ladder-calculator.md) — `compute_pqc_deadline_ladder`
 - [Tempo Fee-AMM Conversion Calculator](./art-388-tempo-fee-amm-converter.md) — `convert_tempo_fee_amm`
 - [TIP-1010 Mainnet Fee & Payment-Lane Capacity Calculator](./art-389-tempo-mainnet-fee-capacity.md) — `compute_tempo_mainnet_fee_capacity`
