@@ -77,6 +77,14 @@ ok(vcobj.type.includes('VerifiableCredential'), 'vc type includes VerifiableCred
 ok(vcobj.credentialSubject.output_payload && 'annual_saving_usd' in vcobj.credentialSubject.output_payload, 'vc credentialSubject carries output_payload');
 ok(vcobj['ocg:hashAnchor'].executionHash === artifact.execution_hash, 'vc hashAnchor re-states the canonical execution_hash');
 ok(vcobj.execution_hash === undefined && vcobj.proof === undefined, 'vc mints NO new execution_hash and NO proof (§13 view-only)');
+// agent-receipts (Obsigna) §13.11.1 extension — partial credentialSubject mapping.
+ok(vcobj['@context'].includes('https://agentreceipts.ai/context/v1'), 'vc @context includes agent-receipts context');
+ok(vcobj.credentialSubject.action.type === `x-ocg.${artifact.tool_id}`, 'vc action.type falls through x-ocg.* (no taxonomy match yet)');
+ok(vcobj.credentialSubject.outcome.status === (artifact.compliance_flags?.length ? 'failure' : 'success'), 'vc outcome.status derived from compliance_flags');
+ok(vcobj.credentialSubject.chain.sequence === (artifact.chain?.chain_depth ?? 0) + 1, 'vc chain.sequence = chain_depth + 1');
+ok(vcobj.credentialSubject.chain.chain_id === `x-ocg:tool:${artifact.tool_id}`, 'vc chain.chain_id falls back to x-ocg:tool: for a single-node artifact');
+ok(vcobj.credentialSubject.principal === undefined, 'vc principal absent (no §22 mandate governed this run)');
+ok(vcobj.credentialSubject.action.id === undefined && vcobj.credentialSubject.action.risk_level === undefined, 'vc action stays a PARTIAL mapping (no invented id/risk_level)');
 // Determinism — same artifact must render byte-identical bytes.
 const vc2 = exportArtifact({ artifact, format: 'vc' });
 ok(vc2.bytes_base64 === vc.bytes_base64, 'vc is deterministic (byte-identical on re-run)');

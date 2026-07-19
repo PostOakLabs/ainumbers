@@ -3,6 +3,23 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.11 — agent-receipts VC consumability (§13.11.1)
+- **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays 0.8.8, same separation as prior
+  text passes.
+- **§13.11.1** extends the `vc` export profile's `credentialSubject` with members named to match the
+  published agent-receipts (Obsigna) `AgentReceipt` credential shape — `action.type` (dotted-taxonomy alias
+  table, `x-ocg.*` fallback; table starts empty, no OCG node currently maps), `action.parameters_hash`
+  (conditional-presence alias of §PPH-1 `policy_parameters_hash`, `sha256:`-prefixed), `outcome.status`
+  (derived from `compliance_flags`), `chain.{sequence, previous_receipt_hash, chain_id}` (derived from the
+  existing `chain` member; `chain_id` is a deterministic OCG-native label, not an adopted external value),
+  and a conditional-presence `principal` (the §16 proof signer keyid, only when a §22 mandate governed the
+  run). Their `@context` (`https://agentreceipts.ai/context/v1`) is added alongside the OCG term context.
+  Explicitly a PARTIAL mapping — `action.id`/`action.risk_level`/`action.timestamp`/`principal.type` are
+  NOT populated (not derivable from the artifact without inventing values). Additive only: no envelope/hash
+  change, `execution_hash` unaffected (the `vc` profile has never entered the preimage), existing `vc`
+  exports without these fields stay fully conformant. No new §15 gate script — extends `export.test.mjs`
+  under the existing §13 export round-trip row.
+
 ## 0.8.10 — policy-parameter digest (§PPH-1)
 - **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.8 until
   the next coordinated K landing moves it, the same separation v0.8.7 through v0.8.9 used.
