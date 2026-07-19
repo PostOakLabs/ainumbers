@@ -542,7 +542,7 @@ MAY additionally declare conformance to the **deterministic-node proof profile**
 `status:"live"` node with `gpu:false` MUST** either (a) carry a `compute_proof` that verifies against its
 published `imageId` (§18.1) — `type:"ZkVmReceipt"`, `receiptFormat` ∈ {`groth16-bn254`,`stark`}, the `imageId`
 present in the node's Graph Index `compute_images`, and the `journal` committed output equal to `output_payload`
-(§18.0) — OR (b) declare `compute_proof_ready:"deferred"` with a stated `deferral_reason`. A node with neither is
+(§18.0) — OR (b) declare `compute_proof_ready:"deferred"` with a stated `deferred_reason`. A node with neither is
 NON-CONFORMANT to the profile. A `gpu:true` node is **OUT OF SCOPE** of this profile: its compute is
 heavy/parallel and its faithful in-guest proving cost is prohibitive (§18.2), so the profile neither requires nor
 forbids a proof on it (a `gpu:true` node MAY still attach one voluntarily). The `gpu` flag is the profile's
