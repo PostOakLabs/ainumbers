@@ -5,30 +5,17 @@
 // prefix-insensitively (§PPH-1.3).
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/kernels/policy-params-hash.test.mjs
-import { cgCanon, assertIJson, canonicalPreimage, executionHash } from './_hash.mjs';
+import { cgCanon, canonicalPreimage, executionHash, policyParametersHash } from './_hash.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
 
 const SHA256REF = /^(sha256:)?[0-9a-f]{64}$/; // #/$defs/sha256ref — prefix OPTIONAL
 
-// §PPH-1.1 reference implementation: SHA-256 over the JCS canonical form of policy_parameters
-// ALONE, through cgCanon — the same canonicalizer §4 uses. Never a second canonicalization.
-//
-// NOTE the JSON.stringify: cgCanon returns a key-SORTED OBJECT, not a string. Encoding its return
-// value directly yields "[object Object]" — a CONSTANT digest (b28c94b2…) for every input, which
-// still passes a determinism check and fails ONLY under a mutation check. That trap fired for real
-// while this gate was being written; the mutation assertions at the bottom are what caught it and
-// they are load-bearing. §PPH-1.1 warns about it in normative text. Do not "simplify" this line.
-//
-// §PPH-1.1a: emits the BARE form, which is what producers SHOULD emit (this is the same call path
-// executionHash() uses, and it returns bare hex — see the "No sha256: prefix" comment in _hash.mjs).
-async function policyParametersHash(policy_parameters) {
-  assertIJson(policy_parameters); // same I-JSON rejection §4 applies — never emit an unstable hash
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// §PPH-1.1 / §PPH-1.1a: policyParametersHash() is now the single exported helper in _hash.mjs
+// (SPEC.md §PPH-1, PPH1-CODE-1) — SHA-256 over the JCS canonical form of policy_parameters ALONE,
+// through cgCanon, the same canonicalizer §4 uses. This gate exercises that shared function
+// directly rather than a local re-implementation, so there is exactly one canon path in the repo.
 
 // §PPH-1.3 verifier: strips the OPTIONAL prefix and compares the 64 hex chars. MUST NOT care
 // whether the stored value carries the prefix.
@@ -101,6 +88,36 @@ ok(!await verifyPPH({ ...withField, policy_parameters_hash: '0'.repeat(64) }),
    'a tampered digest is detected by recomputation from the artifact\'s own policy_parameters');
 ok(!await verifyPPH({ ...withField, policy_parameters: { ...policy_parameters, execution_backend: 'browser' } }),
    'a mutated policy_parameters under a stale digest is detected');
+
+// ---- §PPH-1 real-kernel proof (PPH1-CODE-1) ---------------------------------------------------
+// The exclusion proof above is over synthetic data. This half proves it against ONE real, live
+// kernel's buildArtifact() output (the actual wiring this row ships) plus ONE untouched kernel,
+// covering BOTH cases the done-criteria require: WITH the field, and WITHOUT it.
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const HERE = dirname(fileURLToPath(import.meta.url));
+const fixture = (id) => JSON.parse(readFileSync(resolve(HERE, 'fixtures', `${id}.fixtures.json`), 'utf8'));
+
+// WITH: art-336-compute-ltv-ratios is the reference kernel wired to emit policy_parameters_hash.
+const { buildArtifact: buildWithField } = await import('./art-336-compute-ltv-ratios.kernel.mjs');
+const withVec = fixture('art-336-compute-ltv-ratios').vectors[0];
+const withArtifact = await buildWithField(withVec.policy_parameters, { now: null });
+ok('policy_parameters_hash' in withArtifact, 'art-336 (reference kernel) emits policy_parameters_hash at the artifact top level');
+ok(SHA256REF.test(withArtifact.policy_parameters_hash), 'art-336 policy_parameters_hash matches #/$defs/sha256ref');
+ok(withArtifact.policy_parameters_hash === await policyParametersHash(withVec.policy_parameters),
+   'art-336 policy_parameters_hash equals the shared helper over its own policy_parameters');
+ok(withArtifact.execution_hash === withVec.golden_hash,
+   'art-336 execution_hash is UNCHANGED from its pinned golden — adding the field moved nothing');
+
+// WITHOUT: any other kernel is unaffected — it never imported policyParametersHash and its
+// artifact carries no such member. absence is conformant, not a defect (§PPH-1.2).
+const { buildArtifact: buildWithoutField } = await import('./art-335-compute-dti-ratios.kernel.mjs');
+const withoutVec = fixture('art-335-compute-dti-ratios').vectors[0];
+const withoutArtifact = await buildWithoutField(withoutVec.policy_parameters, { now: null });
+ok(!('policy_parameters_hash' in withoutArtifact), 'art-335 (untouched kernel) omits policy_parameters_hash entirely');
+ok(withoutArtifact.execution_hash === withoutVec.golden_hash,
+   'art-335 execution_hash is unchanged and still matches its pinned golden');
 
 console.log(fail ? `\n${fail} failure(s).` : '\nAll §PPH-1 policy_parameters_hash checks passed.');
 process.exit(fail ? 1 : 0);

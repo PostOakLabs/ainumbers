@@ -1,4 +1,4 @@
-import { executionHash } from './_hash.mjs';
+import { executionHash, policyParametersHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-336-compute-ltv-ratios';
 const TOOL_VERSION = '1.0.0';
@@ -71,9 +71,14 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// OCG Standard §PPH-1 reference emitter (PPH1-CODE-1): this is the ONE kernel wired to emit
+// policy_parameters_hash, demonstrating the shared _hash.mjs helper end to end. Computed from `pp`
+// alone and never passed to executionHash(), so it cannot reach the §4 preimage — execution_hash
+// stays byte-identical to every other kernel's (and to this kernel's own pinned goldens).
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
+  const policy_parameters_hash = await policyParametersHash(pp);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
@@ -82,6 +87,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
     execution_hash: hash,
+    policy_parameters_hash,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,

@@ -46,3 +46,14 @@ export async function executionHash(policy_parameters, output_payload) {
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// OCG Standard §PPH-1 — JCS-SHA-256 of policy_parameters ALONE, via the same cgCanon path
+// executionHash() uses. Bare lowercase hex, no "sha256:" prefix. EXCLUDED from the
+// execution_hash preimage by construction: this function never touches output_payload, and
+// executionHash() never calls this one, so the member cannot reach the §4 preimage either way.
+export async function policyParametersHash(policy_parameters) {
+  assertIJson(policy_parameters);
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
