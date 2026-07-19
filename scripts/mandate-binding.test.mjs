@@ -157,6 +157,94 @@ if (goldenKeys.length > 0) {
   failures++;
 }
 
+// ── §22.11 (EXQ-1) — exception classification + counted-resume approval ────────
+// Pure-function simulation of the NORMATIVE rules (SPEC.md §22.11). No runtime/queue
+// exists in-repo (verify-only doctrine) — these fixtures assert the FORMAT invariants.
+
+function applyException(item, exceptionClass, maxRetries) {
+  // item: { attempt } . Returns updated item with item_state + exception_detail.
+  if (exceptionClass === 'business') {
+    return { ...item, item_state: 'pending_human', exception_detail: { type: 'business', code: 'bad_input', message: 'business rule rejected item' } };
+  }
+  // application: retry until attempt === max, then escalate
+  const attempt = (item.attempt || 0) + 1;
+  if (attempt < maxRetries) {
+    return { ...item, attempt, item_state: 'failed', retry: { attempt, max: maxRetries }, escalated: false };
+  }
+  return { ...item, attempt, item_state: 'pending_human', retry: { attempt, max: maxRetries }, escalated: true };
+}
+
+function runBatch(items) {
+  // Failure isolation: one item's terminal failure state must not mutate siblings.
+  return items.map((it) => (it.willFail ? applyException(it, it.exceptionClass, it.maxRetries || 3) : { ...it, item_state: 'done' }));
+}
+
+function resumeGate({ events, requiredEvents, timedOut }) {
+  if (events >= requiredEvents) return { state: 'resolved' };
+  if (timedOut) return { state: 'escalation_record' }; // never a silent auto-approve
+  return { state: 'suspended' };
+}
+
+// ── Test F: business-class exception — no retry, terminal pending_human ──
+console.log('Test F: §22.11 business-class exception — no retry');
+const bizItem = applyException({ id: 'i1' }, 'business', 3);
+if (bizItem.item_state === 'pending_human' && !('retry' in bizItem)) {
+  console.log('  OK  [F] business-class item reaches pending_human with no retry attempt recorded');
+} else {
+  console.error('FAIL [F] business-class item did not go straight to pending_human, or was retried');
+  failures++;
+}
+
+// ── Test G: application-class exception — retries to max, then escalates ──
+console.log('Test G: §22.11 application-class exception — retry to max then escalate');
+let appItem = { id: 'i2', attempt: 0 };
+for (let n = 0; n < 3; n++) appItem = applyException(appItem, 'application', 3);
+if (appItem.item_state === 'pending_human' && appItem.escalated === true && appItem.retry.attempt === appItem.retry.max) {
+  console.log('  OK  [G] application-class item retries to max then escalates (attempt==max ⇒ escalation_record)');
+} else {
+  console.error('FAIL [G] application-class item did not escalate correctly at attempt==max');
+  failures++;
+}
+
+// ── Test H: one failed item leaves siblings running (per-item, never per-run) ──
+console.log('Test H: §22.11 failure isolation — siblings unaffected');
+const batch = runBatch([
+  { id: 'a', willFail: false },
+  { id: 'b', willFail: true, exceptionClass: 'business' },
+  { id: 'c', willFail: false },
+]);
+const [ia, ib, ic] = batch;
+if (ib.item_state === 'pending_human' && ia.item_state === 'done' && ic.item_state === 'done') {
+  console.log('  OK  [H] one item failed while siblings independently reached done — no batch-level abort');
+} else {
+  console.error('FAIL [H] a failed item affected sibling terminal states');
+  failures++;
+}
+
+// ── Test I: approval gate below required_events stays suspended; timeout escalates ──
+console.log('Test I: §22.11 counted-resume approval gate');
+const belowThreshold = resumeGate({ events: 1, requiredEvents: 2, timedOut: false });
+const metThreshold   = resumeGate({ events: 2, requiredEvents: 2, timedOut: false });
+const timedOutBelow  = resumeGate({ events: 1, requiredEvents: 2, timedOut: true });
+if (belowThreshold.state === 'suspended') {
+  console.log('  OK  [I1] gate below required_events stays suspended');
+} else {
+  console.error('FAIL [I1] gate below required_events did not stay suspended');
+  failures++;
+}
+if (metThreshold.state === 'resolved') {
+  console.log('  OK  [I2] gate resolves once required_events met');
+} else {
+  console.error('FAIL [I2] gate with events==required_events did not resolve');
+  failures++;
+}
+if (timedOutBelow.state === 'escalation_record') {
+  console.log('  OK  [I3] timeout below required_events resolves to a §22.8 escalation, never a silent auto-approve');
+} else {
+  console.error('FAIL [I3] timeout did not escalate — possible silent auto-approve');
+  failures++;
+}
+
 // Final
 if (failures > 0) {
   console.error('\nFAIL: ' + failures + ' test(s) failed.');
