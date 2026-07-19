@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ISO 20022 ↔ On-Chain Correspondence Receipt · T563 · AINumbers.co</title>
+<meta name="description" content="Record the asserted correspondence between an ISO 20022 payment message and its on-chain settlement leg, plus an optional external-rail reference. Asserted by mapping, not proven. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/563-iso20022-onchain-correspondence-receipt">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ISO 20022 On-Chain Correspondence Receipt","url":"https://ainumbers.co/tools/563-iso20022-onchain-correspondence-receipt","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "iso20022-onchain-correspondence-receipt",
+  "version": "1.0.0",
+  "title": "ISO 20022 On-Chain Correspondence Receipt",
+  "description": "Compose a receipt that records the asserted correspondence between an ISO 20022 payment message (pacs.008 / pain.001 / camt.053 / camt.054) and its on-chain settlement leg, with an optional external-rail reference attachment (SWIFT gpi UETR, Fedwire IMAD/OMAD, CHIPS UID). The receipt states a mapping, not a cryptographic proof of equivalence; that boundary is stated on every surface. Client-side. Zero PII.",
+  "category": "dlt-tokenization",
+  "tags": ["iso20022","on-chain settlement","correspondence receipt","asserted mapping","swift gpi","uetr","fedwire","chips","cross-border","reconciliation"],
+  "audience": ["payments","treasury","compliance","engineer"],
+  "mcp_tool_definition": {"name":"compose_iso20022_onchain_correspondence_receipt","description":"Compose a receipt asserting correspondence between an ISO 20022 payment message and an on-chain settlement leg, with an optional external-rail reference attachment. States the correspondence as asserted-by-mapping, not proven.","inputSchema":{"type":"object","properties":{"message_type":{"type":"string"},"tx_hash":{"type":"string"},"mapping_method":{"type":"string"}},"required":["message_type","tx_hash","mapping_method"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/563-iso20022-onchain-correspondence-receipt.html","function_name":"runReceiptComposer","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);--purple:#A78BFA;--purple-dim:rgba(167,139,250,.1);--accent:var(--teal);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:980px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-r{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.nav-r a:hover{color:var(--accent)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.hero h1{font-size:1.8rem;color:var(--white);margin-bottom:.6rem}.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.9rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-teal{border-color:rgba(20,184,166,.4);color:var(--teal-lt);background:var(--teal-dim)}
+.badge.b-gold{border-color:rgba(212,168,71,.4);color:var(--gold);background:var(--gold-dim)}
+.badge.b-warn{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.badge.b-green{border-color:rgba(34,197,94,.4);color:var(--green);background:var(--green-dim)}
+.fence{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:1rem 0}
+.pii{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.2rem 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+.card-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field.full{grid-column:1/-1}
+label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text],textarea{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.55rem .8rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;outline:none;transition:border .2s}
+select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px;font-size:.72rem;line-height:1.5}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;padding:.3rem 0}
+.check-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;margin-top:.18rem}
+.check-row label{font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:none;color:var(--text);margin:0;cursor:pointer;line-height:1.5}
+.opt-block{display:none;border:1px solid var(--border-2);border-radius:var(--radius);padding:.9rem 1rem;margin-top:.8rem;background:var(--bg-3)}
+.opt-block.active{display:block}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;transition:opacity .2s;margin:1.2rem 0}
+.run-btn:hover{opacity:.85}
+.results-panel{display:none;margin-top:1.2rem}.results-panel.visible{display:block}
+.label-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .7rem;border-radius:999px;display:inline-flex;align-items:center;gap:.35rem}
+.label-asserted{color:var(--warn);border:1px solid rgba(245,158,11,.5);background:var(--warn-dim)}
+.record-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:.8rem}
+.record-table th{text-align:left;border-bottom:1px solid var(--border);padding:.4rem .6rem;color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.1em;width:34%}
+.record-table td{border-bottom:1px solid var(--border-2);padding:.4rem .6rem;color:var(--text);vertical-align:top;word-break:break-all}
+.record-table tr:last-child td{border-bottom:none}
+.verify-row{display:flex;align-items:center;gap:.7rem;margin-top:1rem;padding:.7rem .9rem;border-radius:var(--radius);border:1px solid var(--border-2);background:var(--bg-3)}
+.verify-btn{background:var(--bg-4);color:var(--text);border:1px solid var(--border-2);padding:.4rem .9rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase}
+.verify-btn:hover{border-color:var(--teal)}
+.verify-status{font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.v-pass{color:var(--green)}.v-fail{color:var(--red)}.v-idle{color:var(--muted)}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .45rem}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.45;transition:all .2s}
+.btn-export.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}.btn-export.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.35rem .8rem;background:var(--bg-4);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius)}
+.cite-list{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);line-height:1.9;margin-top:.5rem}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2rem;margin-top:3rem}
+.foot-inner{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span style="color:var(--border-2)">/</span><span style="color:var(--text)">T563</span></div>
+  <div class="nav-r"><a href="../guides/dlt-tokenization-hub.html">DLT &amp; Tokenization Hub →</a></div>
+</nav>
+<div class="container">
+<div class="hero">
+  <div class="eyebrow">DLT &amp; Tokenization · T563 · ISO 20022 ↔ On-Chain Correspondence</div>
+  <h1>ISO 20022 ↔ On-Chain <em>Correspondence Receipt</em></h1>
+  <p class="hero-desc">Record the correspondence between an ISO 20022 payment message and its on-chain settlement leg, plus an optional external-rail reference (SWIFT gpi UETR, Fedwire IMAD/OMAD, CHIPS UID). <strong>The receipt says message X is asserted to correspond to settlement Y under mapping M: it is a stated correspondence, not a cryptographic proof of equivalence.</strong> Nothing here observes the payment rail or the chain; every field is what the preparer typed in, bound into a receipt whose own integrity you can re-check with a digest recomputation.</p>
+  <div class="hero-badges">
+    <span class="badge b-warn">Asserted by mapping, not proven</span>
+    <span class="badge b-teal">pacs.008 / pain.001 / camt.053 / camt.054</span>
+    <span class="badge b-gold">SWIFT gpi · Fedwire · CHIPS reference</span>
+    <span class="badge b-green">Zero PII · Client-side</span>
+  </div>
+</div>
+<div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+<div class="fence">⚠ This composer produces a <strong>correspondence receipt</strong>, not a cryptographic proof. It does not verify that the ISO 20022 message and the on-chain transaction are in fact the same economic event; it records that a human or system asserts they correspond, under a stated mapping method, and lets that assertion be tamper-checked later via digest recomputation. Treat it as reconciliation evidence, not settlement finality.</div>
+
+<section class="card">
+  <div class="card-title">ISO 20022 Message Leg</div>
+  <div class="form-grid">
+    <div class="field"><label for="message_type">Message Type</label>
+      <select id="message_type">
+        <option value="pacs.008" selected>pacs.008: FI to FI Customer Credit Transfer</option>
+        <option value="pain.001">pain.001: Customer Credit Transfer Initiation</option>
+        <option value="camt.053">camt.053: Bank to Customer Statement</option>
+        <option value="camt.054">camt.054: Bank to Customer Debit/Credit Notification</option>
+      </select>
+    </div>
+    <div class="field"><label for="msg_id">MsgId</label><input type="text" id="msg_id" placeholder="e.g. MSGID2026071800123"></div>
+    <div class="field"><label for="end_to_end_id">EndToEndId</label><input type="text" id="end_to_end_id" placeholder="e.g. E2E-2026-0718-0001"></div>
+    <div class="field"><label for="uetr">UETR (if present)</label><input type="text" id="uetr" placeholder="e.g. 8-4-4-4-12-char UUID"></div>
+    <div class="field"><label for="iso_amount">Amount</label><input type="text" id="iso_amount" placeholder="e.g. 250000.00"></div>
+    <div class="field"><label for="iso_currency">Currency (ISO 4217)</label><input type="text" id="iso_currency" placeholder="e.g. USD"></div>
+    <div class="field"><label for="debtor_agent_bic">Debtor Agent BIC</label><input type="text" id="debtor_agent_bic" placeholder="e.g. AAAABBCCXXX (synthetic)"></div>
+    <div class="field"><label for="creditor_agent_bic">Creditor Agent BIC</label><input type="text" id="creditor_agent_bic" placeholder="e.g. DDDDEEFFXXX (synthetic)"></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-title">On-Chain Settlement Leg</div>
+  <div class="form-grid">
+    <div class="field"><label for="chain_network">Network</label>
+      <select id="chain_network">
+        <option value="ethereum" selected>Ethereum</option>
+        <option value="base">Base</option>
+        <option value="polygon">Polygon</option>
+        <option value="solana">Solana</option>
+        <option value="private_dlt">Private / permissioned DLT</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label for="tx_hash">Transaction Hash / Signature</label><input type="text" id="tx_hash" placeholder="0x… or base58 signature"></div>
+    <div class="field"><label for="block_ref">Block Number / Slot</label><input type="text" id="block_ref" placeholder="e.g. 20481123"></div>
+    <div class="field"><label for="settlement_asset">Settlement Asset</label><input type="text" id="settlement_asset" placeholder="e.g. USDC, tokenized deposit"></div>
+    <div class="field"><label for="settlement_amount">Settlement Amount</label><input type="text" id="settlement_amount" placeholder="e.g. 250000.00"></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-title">Correspondence Mapping</div>
+  <div class="form-grid">
+    <div class="field"><label for="mapping_method">Mapping Method</label>
+      <select id="mapping_method">
+        <option value="manual_reconciliation" selected>Manual reconciliation</option>
+        <option value="rule_based_matching">Rule-based matching (amount + reference)</option>
+        <option value="narrative_match">Narrative match (amount + date + counterparty)</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label for="mapped_by_role">Mapped By (role)</label>
+      <select id="mapped_by_role">
+        <option value="treasury_ops" selected>Treasury operations</option>
+        <option value="payments_engineer">Payments engineer</option>
+        <option value="reconciliation_analyst">Reconciliation analyst</option>
+        <option value="compliance_reviewer">Compliance reviewer</option>
+      </select>
+    </div>
+  </div>
+  <div class="field full" style="margin-top:.7rem">
+    <label for="mapping_rationale">Mapping rationale: why these two legs are asserted to correspond</label>
+    <textarea id="mapping_rationale" placeholder="e.g. Amount, currency-equivalent value, and settlement date-time window match; EndToEndId embedded in on-chain memo field; confirmed against correspondent advice."></textarea>
+  </div>
+  <div class="field full" style="margin-top:.7rem">
+    <label for="confidence_note">Confidence note and any residual ambiguity</label>
+    <textarea id="confidence_note" placeholder="e.g. High confidence: memo field carries EndToEndId directly. No FX conversion involved."></textarea>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-title">External-Rail Reference Attachment (optional)</div>
+  <div class="check-row">
+    <input type="checkbox" id="attach_rail_ref"><label for="attach_rail_ref">Attach a reference from a separate payment rail (SWIFT gpi, Fedwire, CHIPS) that also corresponds to this event</label>
+  </div>
+  <div class="opt-block" id="railBlock">
+    <div class="form-grid">
+      <div class="field"><label for="rail_reference_type">Reference Type</label>
+        <select id="rail_reference_type">
+          <option value="swift_gpi_uetr" selected>SWIFT gpi UETR</option>
+          <option value="fedwire_imad">Fedwire IMAD</option>
+          <option value="fedwire_omad">Fedwire OMAD</option>
+          <option value="chips_uid">CHIPS UID</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label for="rail_reference_value">Reference Value</label><input type="text" id="rail_reference_value" placeholder="e.g. UETR / IMAD / OMAD / UID"></div>
+      <div class="field full"><label for="rail_reference_digest">Reference Digest (SHA-256 hex, optional, supplied by preparer)</label><input type="text" id="rail_reference_digest" placeholder="64-char hex, if a source document digest is available"></div>
+    </div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--warn);margin-top:.6rem">⚠ Asserted, like the rest of this receipt: this rail reference is not independently verified against the originating network. It is bound as declared.</p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-title">Limitations &amp; Sign-Off</div>
+  <div class="field full">
+    <label for="limitations">Declared limitations</label>
+    <textarea id="limitations" placeholder="e.g. This receipt does not verify chain finality or reversal risk; does not confirm the on-chain address is controlled by the named creditor; FX conversion not independently checked."></textarea>
+  </div>
+  <div class="field full" style="margin-top:.7rem">
+    <label for="reviewer_statement">Reviewer sign-off statement</label>
+    <textarea id="reviewer_statement" placeholder="I have reviewed both legs and the mapping rationale and assert, to the best of my knowledge, that they correspond to the same underlying payment event.">I have reviewed both legs and the mapping rationale and assert, to the best of my knowledge, that they correspond to the same underlying payment event.</textarea>
+  </div>
+</section>
+
+<button class="run-btn" onclick="runReceiptComposer()">▶ Compose Correspondence Receipt</button>
+
+<div class="results-panel" id="resultsPanel">
+  <div class="section-label">ISO 20022 ↔ On-Chain Correspondence Receipt</div>
+  <span class="label-tag label-asserted">⚠ ASSERTED BY MAPPING, NOT PROVEN</span>
+  <table class="record-table" id="recordTable"><tbody id="recordBody"></tbody></table>
+
+  <div class="verify-row">
+    <button class="verify-btn" onclick="verifyRecord()">Verify Record Digest</button>
+    <span class="verify-status v-idle" id="verifyStatus">Not yet verified</span>
+  </div>
+
+  <div class="section-label">What This Receipt Is And Is Not</div>
+  <div class="cite-list">
+    · Records an asserted correspondence between a named ISO 20022 message and a named on-chain transaction, under a declared mapping method.<br>
+    · Does NOT cryptographically prove the two legs settle the same value, that the chain transaction is final, or that any party's identity is verified.<br>
+    · The record digest is a tamper check on this receipt's own content, recomputed client-side: it says the receipt hasn't been altered since composition, nothing about the underlying payment.<br>
+    · Positioning: this fills reconciliation-evidence whitespace alongside live SWIFT on-chain settlement trials, and is not a substitute for those trials' own attestations.
+  </div>
+
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" class="btn-export" onclick="exportAP2()" disabled>{} Export Policy Mandate</button>
+    <button id="mdExportBtn" class="btn-export" onclick="exportMarkdown()" disabled>📄 Export Markdown</button>
+  </div>
+</div>
+
+<div class="mfst-panel" id="mfstSec">
+  <button class="mfst-toggle mfst-btn" onclick="toggleMfst()">
+    <span>MCP Tool Definition &amp; Manifest</span>
+    <span class="mfst-arr" id="mfstArr">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody">
+    <pre class="mfst-code" id="mfstCode"></pre>
+    <button class="copy-btn" style="margin-top:.5rem" onclick="copyMfst()">Copy JSON</button>
+  </div>
+</div>
+</div>
+
+<footer><div class="container">
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0</span>
+    <span><a href="../guides/dlt-tokenization-hub.html">DLT &amp; Tokenization Hub</a></span>
+    <span>🔒 Zero PII · 📡 No server calls</span>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+/* ═══ ISO 20022 ↔ On-Chain Correspondence Receipt — T563
+   Records an ASSERTED correspondence between an ISO 20022 payment message leg
+   and an on-chain settlement leg (with an optional external-rail reference
+   attachment: SWIFT gpi UETR, Fedwire IMAD/OMAD, CHIPS UID). This is a stated
+   mapping, never a cryptographic proof of equivalence — every surface that
+   states the claim says so in the same words: "asserted by mapping, not
+   proven." The receipt's own integrity is checked by recomputing a SHA-256
+   digest over the canonicalized record body, the same tamper-check pattern
+   used elsewhere on the site (e.g. T561) — that check is about this receipt
+   not having been altered since composition, and says nothing about whether
+   the two payment legs actually correspond.
+═══ */
+
+document.getElementById('attach_rail_ref').addEventListener('change', function () {
+  document.getElementById('railBlock').classList.toggle('active', this.checked);
+});
+
+var lastResult = null;
+var lastRecord = null;
+
+function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+
+function canon(v) {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v && typeof v === 'object') {
+    return Object.keys(v).sort().reduce(function (o, k) { o[k] = canon(v[k]); return o; }, {});
+  }
+  return v;
+}
+
+async function sha256Hex(str) {
+  var bytes = new TextEncoder().encode(str);
+  var digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.prototype.map.call(new Uint8Array(digest), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+async function runReceiptComposer() {
+  var isoLeg = {
+    message_type: val('message_type'),
+    msg_id: val('msg_id'),
+    end_to_end_id: val('end_to_end_id'),
+    uetr: val('uetr'),
+    amount: val('iso_amount'),
+    currency: val('iso_currency').toUpperCase(),
+    debtor_agent_bic: val('debtor_agent_bic').toUpperCase(),
+    creditor_agent_bic: val('creditor_agent_bic').toUpperCase(),
+  };
+  var chainLeg = {
+    network: val('chain_network'),
+    tx_hash: val('tx_hash'),
+    block_ref: val('block_ref'),
+    settlement_asset: val('settlement_asset'),
+    settlement_amount: val('settlement_amount'),
+  };
+  var mapping = {
+    method: val('mapping_method'),
+    mapped_by_role: val('mapped_by_role'),
+    rationale: val('mapping_rationale'),
+    confidence_note: val('confidence_note'),
+  };
+
+  var railAttached = document.getElementById('attach_rail_ref').checked;
+  var railRef = null;
+  if (railAttached) {
+    railRef = {
+      reference_type: val('rail_reference_type'),
+      reference_value: val('rail_reference_value'),
+      reference_digest: val('rail_reference_digest').toLowerCase(),
+    };
+  }
+
+  var limitations = val('limitations');
+  var reviewer_statement = val('reviewer_statement') || 'I have reviewed both legs and the mapping rationale and assert, to the best of my knowledge, that they correspond to the same underlying payment event.';
+
+  var record = {
+    schema: 'ainumbers.iso20022-onchain-correspondence-receipt.v1',
+    claim: 'asserted_by_mapping_not_proven',
+    iso20022_leg: isoLeg,
+    onchain_leg: chainLeg,
+    mapping: mapping,
+    external_rail_reference: railRef,
+    limitations: limitations,
+    reviewer_statement: reviewer_statement,
+    composed_at: new Date().toISOString(),
+  };
+
+  var digest = await sha256Hex(JSON.stringify(canon(record)));
+  record.record_digest = digest;
+
+  lastRecord = record;
+  lastResult = {
+    message_type: isoLeg.message_type,
+    end_to_end_id: isoLeg.end_to_end_id,
+    tx_hash: chainLeg.tx_hash,
+    mapping_method: mapping.method,
+    record_digest: digest,
+  };
+  window._lastMandate = null;
+
+  renderRecord(record);
+
+  var panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  document.getElementById('verifyStatus').textContent = 'Not yet verified';
+  document.getElementById('verifyStatus').className = 'verify-status v-idle';
+  ['ap2ExportBtn', 'mdExportBtn'].forEach(function (id) { var b = document.getElementById(id); if (b) { b.disabled = false; b.classList.add('ready'); } });
+}
+
+function renderRecord(record) {
+  var rows = [
+    ['Claim', 'Asserted by mapping — NOT proven'],
+    ['ISO 20022 message type', record.iso20022_leg.message_type],
+    ['MsgId', record.iso20022_leg.msg_id || '—'],
+    ['EndToEndId', record.iso20022_leg.end_to_end_id || '—'],
+    ['UETR', record.iso20022_leg.uetr || '—'],
+    ['Amount / Currency', (record.iso20022_leg.amount || '—') + ' ' + (record.iso20022_leg.currency || '')],
+    ['Debtor / Creditor agent BIC', (record.iso20022_leg.debtor_agent_bic || '—') + ' → ' + (record.iso20022_leg.creditor_agent_bic || '—')],
+    ['On-chain network', record.onchain_leg.network],
+    ['Transaction hash / signature', record.onchain_leg.tx_hash || '—'],
+    ['Block / slot', record.onchain_leg.block_ref || '—'],
+    ['Settlement asset / amount', (record.onchain_leg.settlement_asset || '—') + ' / ' + (record.onchain_leg.settlement_amount || '—')],
+    ['Mapping method', record.mapping.method],
+    ['Mapped by (role)', record.mapping.mapped_by_role],
+    ['Mapping rationale', record.mapping.rationale || '—'],
+    ['Confidence note', record.mapping.confidence_note || '—'],
+  ];
+  if (record.external_rail_reference) {
+    rows.push(['External rail reference (asserted)', record.external_rail_reference.reference_type + ': ' + (record.external_rail_reference.reference_value || '—')]);
+    rows.push(['External rail reference digest (asserted)', record.external_rail_reference.reference_digest || '—']);
+  }
+  rows.push(['Limitations', record.limitations || '—']);
+  rows.push(['Reviewer statement', record.reviewer_statement]);
+  rows.push(['Composed at', record.composed_at]);
+  rows.push(['Record digest (SHA-256)', record.record_digest]);
+
+  var tbody = document.getElementById('recordBody');
+  tbody.innerHTML = '';
+  rows.forEach(function (r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<th>' + r[0] + '</th><td>' + String(r[1]).replace(/</g, '&lt;') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+async function verifyRecord() {
+  var status = document.getElementById('verifyStatus');
+  if (!lastRecord) { status.textContent = 'Compose a receipt first'; status.className = 'verify-status v-idle'; return; }
+  var claimed = lastRecord.record_digest;
+  var body = {};
+  Object.keys(lastRecord).forEach(function (k) { if (k !== 'record_digest') body[k] = lastRecord[k]; });
+  var recomputed = await sha256Hex(JSON.stringify(canon(body)));
+  if (recomputed === claimed) {
+    status.textContent = '✓ Receipt verifies — digest matches (not altered since composition)';
+    status.className = 'verify-status v-pass';
+  } else {
+    status.textContent = '✗ Receipt does NOT verify — digest mismatch';
+    status.className = 'verify-status v-fail';
+  }
+}
+
+function uuid4() { var b = new Uint8Array(16); crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128; var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20); }
+function buildMandate() {
+  var r = lastResult || {}; var rec = lastRecord || {}; var now = new Date().toISOString();
+  var m = {
+    ap2_version: '1.0', mandate_id: uuid4(), issued_at: now, issued_by: 'ainumbers.co',
+    tool_id: 'iso20022-onchain-correspondence-receipt', tool_version: '1.0.0',
+    mandate_type: 'compliance_mandate', jurisdiction: ['ZZ'],
+    regulatory_frameworks: [],
+    payload: rec,
+    summary: 'ISO 20022 on-chain correspondence receipt (ASSERTED BY MAPPING, NOT PROVEN): message_type=' + r.message_type + ', end_to_end_id=' + r.end_to_end_id + ', tx_hash=' + r.tx_hash + ', mapping_method=' + r.mapping_method + ', digest=' + r.record_digest + '.',
+    agent_instructions: [
+      'This receipt asserts a correspondence between an ISO 20022 message and an on-chain transaction — it is not a cryptographic proof of equivalence.',
+      'Verify record_digest by recomputing SHA-256 over the canonicalized record body before relying on it; this only confirms the receipt has not been altered since composition.',
+      'Corroborate the mapping independently (e.g. against correspondent advices, on-chain explorers, SWIFT gpi tracker) if higher assurance is required.',
+    ],
+    valid_from: now.slice(0, 10), last_reviewed: now.slice(0, 10),
+    regulatory_citations: [],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true, cryptographic_equivalence_proven: false, correspondence_basis: 'asserted_by_mapping' },
+  };
+  window._lastMandate = m; window._currentMandate = m; return m;
+}
+window.AIN_BUILD_MANDATE = buildMandate;
+var AP2Schema = { validate: function (m) { var req = ['ap2_version', 'mandate_id', 'issued_at', 'issued_by', 'tool_id', 'tool_version', 'mandate_type', 'payload', 'audit_metadata']; var missing = req.filter(function (f) { return !(f in m); }); if (missing.length) throw new Error('AP2: ' + missing.join(', ')); return true; } };
+function dl(c, n, t) { var url = URL.createObjectURL(new Blob([c], { type: t })); var a = document.createElement('a'); a.href = url; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 800); }
+function ts14() { return new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); }
+function exportAP2() { if (!lastResult) { alert('Compose the receipt first.'); return; } var m = buildMandate(); AP2Schema.validate(m); dl(JSON.stringify(m, null, 2), 'iso20022-onchain-correspondence-receipt_' + ts14() + '.policy.json', 'application/json'); }
+function exportMarkdown() {
+  if (!lastRecord) return;
+  var r = lastRecord;
+  var lines = ['# ISO 20022 ↔ On-Chain Correspondence Receipt — T563', '', '_Composed ' + r.composed_at + '_', '', '**Claim: ASSERTED BY MAPPING — NOT PROVEN.** This receipt records a stated correspondence, not a cryptographic proof of equivalence.', '', '## ISO 20022 Message Leg', '- Message type: ' + r.iso20022_leg.message_type, '- MsgId: ' + (r.iso20022_leg.msg_id || '—'), '- EndToEndId: ' + (r.iso20022_leg.end_to_end_id || '—'), '- UETR: ' + (r.iso20022_leg.uetr || '—'), '- Amount / currency: ' + (r.iso20022_leg.amount || '—') + ' ' + (r.iso20022_leg.currency || ''), '- Debtor → creditor agent BIC: ' + (r.iso20022_leg.debtor_agent_bic || '—') + ' → ' + (r.iso20022_leg.creditor_agent_bic || '—'), '', '## On-Chain Settlement Leg', '- Network: ' + r.onchain_leg.network, '- Tx hash / signature: ' + (r.onchain_leg.tx_hash || '—'), '- Block / slot: ' + (r.onchain_leg.block_ref || '—'), '- Settlement asset / amount: ' + (r.onchain_leg.settlement_asset || '—') + ' / ' + (r.onchain_leg.settlement_amount || '—'), '', '## Correspondence Mapping', '- Method: ' + r.mapping.method, '- Mapped by: ' + r.mapping.mapped_by_role, '- Rationale: ' + (r.mapping.rationale || '—'), '- Confidence note: ' + (r.mapping.confidence_note || '—'), ''];
+  if (r.external_rail_reference) {
+    lines.push('## External-Rail Reference (asserted, not independently verified)', '- Type: ' + r.external_rail_reference.reference_type, '- Value: ' + (r.external_rail_reference.reference_value || '—'), '- Digest: ' + (r.external_rail_reference.reference_digest || '—'), '');
+  }
+  lines.push('## Limitations', r.limitations || '—', '', '## Sign-Off', '- Statement: ' + r.reviewer_statement, '', '## Record Digest', '`' + r.record_digest + '`', '', '_This is an asserted correspondence, not a cryptographic proof. It does not verify chain finality, address control, or FX equivalence._');
+  dl(lines.join('\n'), 'iso20022-onchain-correspondence-receipt_' + ts14() + '.md', 'text/markdown');
+}
+var MANIFEST = {"tool_id":"iso20022-onchain-correspondence-receipt","version":"1.0.0","title":"ISO 20022 On-Chain Correspondence Receipt","description":"Compose a receipt asserting correspondence between an ISO 20022 message and an on-chain settlement leg, with an optional external-rail reference attachment (SWIFT gpi UETR, Fedwire IMAD/OMAD, CHIPS UID). Asserted by mapping, not proven.","category":"dlt-tokenization","mcp_tool_definition":{"name":"compose_iso20022_onchain_correspondence_receipt","description":"Compose a receipt asserting correspondence between an ISO 20022 payment message and an on-chain settlement leg, with an optional external-rail reference attachment. States the correspondence as asserted-by-mapping, not proven.","inputSchema":{"type":"object","properties":{"message_type":{"type":"string"},"tx_hash":{"type":"string"},"mapping_method":{"type":"string"}},"required":["message_type","tx_hash","mapping_method"]}},"execution":{"type":"browser-javascript","entry":"tools/563-iso20022-onchain-correspondence-receipt.html","function_name":"runReceiptComposer","timeout_ms":3000},"ap2_export":true,"prefill":true,"bridge_version":"1.0","intake":true};
+function toggleMfst() { var b = document.getElementById('mfstBody'), a = document.getElementById('mfstArr'); if (b.style.display === 'none' || !b.style.display) { b.style.display = 'block'; if (a) a.textContent = '▲'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); } else { b.style.display = 'none'; if (a) a.textContent = '▼'; } }
+function copyMfst() { var s = JSON.stringify(MANIFEST, null, 2); if (navigator.clipboard) navigator.clipboard.writeText(s); }
+</script>
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runReceiptComposer',intake:true,intakeTarget:null,intakeAnchor:'.pii'};</script>
+<script>(function(){'use strict';var CFG=window.AIN_BRIDGE_CFG||{};function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;var v=fields[id];if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}function anchorEl(){return(CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii')||document.body.firstElementChild;}function notice(msg,kind){var d=document.getElementById('ainBridgeNotice');if(!d){d=document.createElement('div');d.id='ainBridgeNotice';var a=anchorEl();if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));d.textContent=msg;}function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}function intakeApply(text){var o;try{o=JSON.parse(text);}catch(e){notice('⚠ Not a valid Policy Mandate JSON','warn');return 0;}if(!looksLikeMandate(o)){notice('⚠ Not a valid Policy Mandate JSON','warn');return 0;}var n=0;if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);notice('📥 Mandate imported from '+(o.tool_id||'?')+' · '+n+' fields',n>0?'ok':'warn');return n;}function buildIntakeUI(){if(!CFG.intake)return;var a=anchorEl();if(!a||!a.parentNode)return;var z=document.createElement('div');z.id='ainIntakeZone';z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8');var lbl=document.createElement('div');lbl.textContent='📥 Import Policy Mandate';lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');function mkBtn(l){var b=document.createElement('button');b.type='button';b.textContent=l;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}var bFile=mkBtn('Choose file'),bPaste=mkBtn('Paste JSON');var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});bFile.addEventListener('click',function(){fi.click();});var pasteRow=document.createElement('div');pasteRow.style.display='none';var ta=document.createElement('textarea');ta.rows=4;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');var bApply=mkBtn('Apply');bApply.style.marginTop='.4rem';bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});pasteRow.appendChild(ta);pasteRow.appendChild(bApply);bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';});z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});row.appendChild(document.createTextNode('Drop .policy.json, or'));row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);a.parentNode.insertBefore(z,a);}function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0){if(/[#&]run=1/.test(h)&&runTool())notice('⚡ Prefilled and executed ('+n+' fields)','ok');else notice('🔗 Prefilled from link ('+n+' fields)','ok');}}window.AINBridge={version:'1.0',apply:applyFields,run:runTool,intake:intakeApply,getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}};window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}});function boot(){buildIntakeUI();initPrefill();}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();})();</script>
+</body>
+</html>
