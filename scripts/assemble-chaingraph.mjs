@@ -93,9 +93,27 @@ function canon(value) {
   return value
 }
 
+// Diffs one committed/assembled array pair keyed by `keyField`, appending
+// changed keys to `changedIds`. Shared by nodes (keyed tool_id) and chains
+// (keyed name — chains carry no id) so the two never share one map.
+function diffByKey(committedArr, assembledArr, keyField, changedIds) {
+  const cMap = new Map(committedArr.map((x) => [x[keyField], JSON.stringify(canon(x))]))
+  const aMap = new Map(assembledArr.map((x) => [x[keyField], JSON.stringify(canon(x))]))
+  for (const [id, text] of aMap) {
+    if (cMap.get(id) !== text) changedIds.push(id)
+  }
+  for (const id of cMap.keys()) {
+    if (!aMap.has(id)) changedIds.push(id)
+  }
+}
+
 // Returns { verdict: 'HASH-NEUTRAL' | 'HASH-MOVING' | null, changedIds }.
 // verdict is null only on a JSON.parse failure (caller falls back to the
-// plain DRIFT message, no verdict claimed).
+// plain DRIFT message, no verdict claimed). SHARD-DRIFT-CHAINS-1: folds
+// .chains into the same verdict — a chain-only semantic edit (steps,
+// title, domain) is vendored content too and must not read HASH-NEUTRAL.
+// Chains have no `id` field (keyed `name`), so nodes and chains diff via
+// separate maps (diffByKey) rather than one shared map.
 function classifyDrift(committedText, assembledText) {
   let committedObj, assembledObj
   try {
@@ -104,15 +122,9 @@ function classifyDrift(committedText, assembledText) {
   } catch {
     return { verdict: null, changedIds: [] }
   }
-  const cMap = new Map(committedObj.nodes.map((n) => [n.tool_id, JSON.stringify(canon(n))]))
-  const aMap = new Map(assembledObj.nodes.map((n) => [n.tool_id, JSON.stringify(canon(n))]))
   const changedIds = []
-  for (const [id, text] of aMap) {
-    if (cMap.get(id) !== text) changedIds.push(id)
-  }
-  for (const id of cMap.keys()) {
-    if (!aMap.has(id)) changedIds.push(id)
-  }
+  diffByKey(committedObj.nodes, assembledObj.nodes, 'tool_id', changedIds)
+  diffByKey(committedObj.chains, assembledObj.chains, 'name', changedIds)
   return { verdict: changedIds.length === 0 ? 'HASH-NEUTRAL' : 'HASH-MOVING', changedIds }
 }
 
