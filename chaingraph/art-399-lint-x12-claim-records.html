@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>X12 837/835 Healthcare-Claim Records Lint &middot; ART-399 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Lints X12 837/835 envelope control-number continuity and 835 payment-amount balancing. Format-only, structurally PHI-impossible.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-399-lint-x12-claim-records.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--teal)}
+textarea{resize:vertical;min-height:110px}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:180px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.demo-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--border-2);color:var(--body);padding:.4rem .8rem;border-radius:var(--radius);cursor:pointer;margin-right:.5rem}
+.demo-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-399 · X12 837/835 Healthcare-Claim Records Lint</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
+      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-399 &middot; Healthcare Claims &middot; X12 837/835</div>
+  <h1>X12 837/835 Healthcare-Claim Records Lint</h1>
+  <p class="sub">Lints X12 837 (claim) and 835 (remittance) ENVELOPE control-number continuity (ISA13/IEA02, GS06/GE02, ST02/SE02) and, for 835, payment-amount balancing &mdash; the total paid amount ties to the sum of claim-level payments, pure arithmetic. FORMAT-ONLY: this schema is structurally PHI-IMPOSSIBLE.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Format-Only</span>
+    <span class="flag info">PHI-Impossible</span>
+    <span class="flag">Record Integrity Family</span>
+  </div>
+  <div class="pii-notice">&#128274; All linting runs locally in your browser. No data is transmitted. This schema defines only envelope control numbers, claim/payment identifiers, and monetary amounts &mdash; no patient name, DOB, diagnosis, or clinical field exists anywhere in the input or output.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; SUBSET NOTE: X12 837/835 implementation guides are licensed documents. This lint derives its rule set from public CMS companion-guide summaries and the publicly documented envelope/balancing structure only. See the separate HIPAA-Security WATCH row for the un-triggered security-rule surface -- this is an informational cross-reference only.</div>
+
+  <div class="card">
+    <div class="section-head">Transaction envelope</div>
+    <div class="q">
+      <label class="q-label" for="msgType">Message type</label>
+      <select id="msgType" onchange="toggleType()">
+        <option value="837">837 -- Health-care claim</option>
+        <option value="835">835 -- Claim payment / remittance advice</option>
+      </select>
+    </div>
+    <div class="grid2">
+      <div class="q"><label class="q-label" for="isa13">ISA13 (interchange control number)</label><input type="text" id="isa13" value="000000001"></div>
+      <div class="q"><label class="q-label" for="iea02">IEA02 (interchange trailer)</label><input type="text" id="iea02" value="000000001"></div>
+      <div class="q"><label class="q-label" for="gs06">GS06 (group control number)</label><input type="text" id="gs06" value="1"></div>
+      <div class="q"><label class="q-label" for="ge02">GE02 (group trailer)</label><input type="text" id="ge02" value="1"></div>
+      <div class="q"><label class="q-label" for="st02">ST02 (transaction control number)</label><input type="text" id="st02" value="0001"></div>
+      <div class="q"><label class="q-label" for="se02">SE02 (transaction trailer)</label><input type="text" id="se02" value="0001"></div>
+    </div>
+
+    <div id="section837">
+      <div class="section-head">837 claims (JSON array)</div>
+      <div class="q-help">Each entry: <code>{"claim_id": "...", "charge_amount": 0}</code></div>
+      <textarea id="claimsJson">[{"claim_id":"CLM-1001","charge_amount":250.00},{"claim_id":"CLM-1002","charge_amount":75.50}]</textarea>
+    </div>
+    <div id="section835" style="display:none">
+      <div class="section-head">835 remittance</div>
+      <div class="q"><label class="q-label" for="totalPaid">Total paid amount (BPR02)</label><input type="number" id="totalPaid" value="325.50" step="0.01"></div>
+      <div class="q-help">Claim payments (JSON array): <code>{"claim_id": "...", "paid_amount": 0}</code></div>
+      <textarea id="paymentsJson">[{"claim_id":"CLM-1001","paid_amount":250.00},{"claim_id":"CLM-1002","paid_amount":75.50}]</textarea>
+    </div>
+
+    <div style="margin-top:16px">
+      <button onclick="runLint()">&#9654; Lint Transaction</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Issues</div>
+      <div id="issuesDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-399-lint-x12-claim-records',
+  version: '1.0.0',
+  mcp_name: 'lint_x12_claim_records',
+  title: 'X12 837/835 Healthcare-Claim Records Lint',
+  description: 'Lints X12 837/835 envelope control-number continuity and 835 payment-amount balancing (arithmetic only). Format-only, structurally PHI-impossible.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ASC X12 005010 837/835 transaction sets; CMS companion-guide public summaries; HIPAA Administrative Simplification transaction-standard rule (45 CFR Part 162).',
+  mcp_tool_definition: {
+    name: 'lint_x12_claim_records',
+    description: 'Lints X12 837/835 envelope control-number continuity and 835 payment balancing. Never processes claim content.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message_type: { type: 'string', enum: ['837','835'] },
+        envelope: { type: 'object', properties: { isa13:{type:'string'}, iea02:{type:'string'}, gs06:{type:'string'}, ge02:{type:'string'}, st02:{type:'string'}, se02:{type:'string'} } },
+        claims: { type: 'array', items: { type: 'object' } },
+        remittance: { type: 'object' },
+      },
+    },
+  },
+};
+
+var _lastResult = null;
+
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function safeNum(v){ var n = Number(v); return isFinite(n) ? n : null; }
+function safeArr(v){ return Array.isArray(v) ? v : []; }
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function toggleType(){
+  var is835 = document.getElementById('msgType').value==='835';
+  document.getElementById('section837').style.display = is835 ? 'none' : 'block';
+  document.getElementById('section835').style.display = is835 ? 'block' : 'none';
+}
+
+function lintEnvelope(env, issues){
+  var isa13=safeStr(env.isa13), iea02=safeStr(env.iea02), gs06=safeStr(env.gs06), ge02=safeStr(env.ge02), st02=safeStr(env.st02), se02=safeStr(env.se02);
+  if (!isa13 || !iea02) issues.push({code:'INTERCHANGE_CONTROL_NUMBER_MISSING',severity:'ERROR',field:'isa13/iea02',message:'Interchange control number (ISA13) or trailer (IEA02) missing.'});
+  else if (isa13!==iea02) issues.push({code:'INTERCHANGE_CONTROL_MISMATCH',severity:'ERROR',field:'isa13/iea02',message:'ISA13 ('+isa13+') does not match IEA02 ('+iea02+') -- interchange control-number continuity broken.'});
+  if (!gs06 || !ge02) issues.push({code:'GROUP_CONTROL_NUMBER_MISSING',severity:'ERROR',field:'gs06/ge02',message:'Group control number (GS06) or trailer (GE02) missing.'});
+  else if (gs06!==ge02) issues.push({code:'GROUP_CONTROL_MISMATCH',severity:'ERROR',field:'gs06/ge02',message:'GS06 ('+gs06+') does not match GE02 ('+ge02+') -- group control-number continuity broken.'});
+  if (!st02 || !se02) issues.push({code:'TRANSACTION_CONTROL_NUMBER_MISSING',severity:'ERROR',field:'st02/se02',message:'Transaction set control number (ST02) or trailer (SE02) missing.'});
+  else if (st02!==se02) issues.push({code:'TRANSACTION_CONTROL_MISMATCH',severity:'ERROR',field:'st02/se02',message:'ST02 ('+st02+') does not match SE02 ('+se02+') -- transaction control-number continuity broken.'});
+}
+
+async function runLint(){
+  var message_type = document.getElementById('msgType').value;
+  var envelope = { isa13: document.getElementById('isa13').value, iea02: document.getElementById('iea02').value, gs06: document.getElementById('gs06').value, ge02: document.getElementById('ge02').value, st02: document.getElementById('st02').value, se02: document.getElementById('se02').value };
+  var issues = [];
+  lintEnvelope(envelope, issues);
+
+  var pp = { message_type: message_type, envelope: envelope };
+  var type_result = {};
+
+  if (message_type==='837') {
+    var claims;
+    try { claims = safeArr(JSON.parse(document.getElementById('claimsJson').value)); } catch(e) { claims = []; issues.push({code:'CLAIMS_JSON_INVALID',severity:'ERROR',field:'claims',message:'Claims JSON did not parse: '+e.message}); }
+    pp.claims = claims;
+    if (claims.length===0) { issues.push({code:'NO_CLAIMS_PRESENT',severity:'ERROR',field:'claims',message:'837 transaction contains no claim loops.'}); type_result={claim_count:0,total_charge_amount:0}; }
+    else {
+      var total=0;
+      claims.forEach(function(c,i){
+        var claim_id = safeStr(c && c.claim_id), charge = safeNum(c && c.charge_amount);
+        if (!claim_id) issues.push({code:'CLAIM_ID_ABSENT',severity:'ERROR',field:'claims['+i+'].claim_id',message:'Claim '+i+' missing claim_id (CLM01).'});
+        if (charge===null || charge<0) issues.push({code:'CHARGE_AMOUNT_INVALID',severity:'ERROR',field:'claims['+i+'].charge_amount',message:'Claim '+i+' charge_amount (CLM02) absent, non-numeric, or negative.'});
+        else total += charge;
+      });
+      type_result = { claim_count: claims.length, total_charge_amount: +total.toFixed(2) };
+    }
+  } else {
+    var totalPaid = safeNum(document.getElementById('totalPaid').value);
+    var payments;
+    try { payments = safeArr(JSON.parse(document.getElementById('paymentsJson').value)); } catch(e) { payments = []; issues.push({code:'PAYMENTS_JSON_INVALID',severity:'ERROR',field:'claim_payments',message:'Payments JSON did not parse: '+e.message}); }
+    pp.remittance = { total_paid_amount: totalPaid, claim_payments: payments };
+    if (totalPaid===null) issues.push({code:'TOTAL_PAID_AMOUNT_ABSENT',severity:'ERROR',field:'remittance.total_paid_amount',message:'Remittance total paid amount (BPR02) absent or non-numeric.'});
+    if (payments.length===0) issues.push({code:'NO_CLAIM_PAYMENTS_PRESENT',severity:'ERROR',field:'remittance.claim_payments',message:'835 transaction contains no claim-payment (CLP) loops.'});
+    var sum=0;
+    payments.forEach(function(c,i){
+      var claim_id = safeStr(c && c.claim_id), paid = safeNum(c && c.paid_amount);
+      if (!claim_id) issues.push({code:'CLAIM_ID_ABSENT',severity:'ERROR',field:'remittance.claim_payments['+i+'].claim_id',message:'Claim payment '+i+' missing claim_id (CLP01).'});
+      if (paid===null || paid<0) issues.push({code:'PAID_AMOUNT_INVALID',severity:'ERROR',field:'remittance.claim_payments['+i+'].paid_amount',message:'Claim payment '+i+' paid_amount (CLP04) absent, non-numeric, or negative.'});
+      else sum += paid;
+    });
+    sum = +sum.toFixed(2);
+    var balances = null;
+    if (totalPaid!==null && payments.length>0) {
+      balances = Math.abs(totalPaid-sum) <= 0.01;
+      if (!balances) issues.push({code:'REMITTANCE_BALANCE_MISMATCH',severity:'ERROR',field:'remittance',message:'Remittance total_paid_amount ('+totalPaid+') does not equal sum of claim_payments ('+sum+').'});
+    }
+    type_result = { total_paid_amount: totalPaid, sum_claim_payments: sum, claim_payment_count: payments.length, balances: balances };
+  }
+
+  var error_count = issues.filter(function(i){return i.severity==='ERROR';}).length;
+  var warning_count = issues.filter(function(i){return i.severity==='WARNING';}).length;
+  var compliant = error_count===0;
+
+  var op = Object.assign({ message_type: message_type, compliant: compliant, error_count: error_count, warning_count: warning_count }, type_result, {
+    issues: issues,
+    disambiguation: 'lint_x12_claim_records checks X12 837/835 ENVELOPE control-number continuity and, for 835, payment-amount balancing (arithmetic only) -- a FORMAT-ONLY validator over identifiers and amounts, never claim content.',
+    phi_note: 'This schema is structurally PHI-IMPOSSIBLE: it defines only envelope control numbers, claim/payment identifiers, and monetary amounts -- no patient name, DOB, diagnosis, or any clinical field exists in the input or output. See the HIPAA-Security WATCH row for the separate, un-triggered security-rule surface.',
+    subset_coverage_statement: 'This lints X12 837/835 ENVELOPE structure and 835 payment balancing only, from public CMS companion-guide summaries. It does not implement the full licensed X12 implementation guide, and defines no clinical/PHI fields whatsoever.',
+    table_version: 'X12-837-835-ENVELOPE-BALANCE-PUBLIC-SUBSET-V1',
+    table_source: 'CMS X12 837/835 Companion Guide public summaries (cms.gov); ASC X12 005010 envelope structure (public control-number continuity rules: ISA13/IEA02, GS06/GE02, ST02/SE02).',
+    regulatory_basis: 'ASC X12 005010 837/835 transaction sets; CMS companion-guide public summaries; HIPAA Administrative Simplification transaction-standard rule (45 CFR Part 162).',
+  });
+
+  _lastResult = { pp: pp, output_payload: op };
+
+  var vBox = document.getElementById('verdictBox');
+  var color = compliant ? 'var(--green)' : 'var(--red)';
+  vBox.style.color=color; vBox.style.background = compliant ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)'; vBox.style.border='1px solid '+color;
+  vBox.textContent = (compliant?'COMPLIANT':'NON-COMPLIANT') + ' -- ' + message_type + ' transaction';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+error_count+'</span><span class="stat-key">Errors</span></div>'+
+    '<div class="stat"><span class="stat-val">'+warning_count+'</span><span class="stat-key">Warnings</span></div>'+
+    (message_type==='837'
+      ? '<div class="stat"><span class="stat-val">'+(type_result.claim_count||0)+'</span><span class="stat-key">Claims</span></div><div class="stat"><span class="stat-val">'+(type_result.total_charge_amount||0)+'</span><span class="stat-key">Total Charge</span></div>'
+      : '<div class="stat"><span class="stat-val">'+(type_result.balances===true?'Yes':type_result.balances===false?'No':'--')+'</span><span class="stat-key">Balances</span></div><div class="stat"><span class="stat-val">'+(type_result.sum_claim_payments||0)+'</span><span class="stat-key">Sum Payments</span></div>');
+
+  document.getElementById('issuesDiv').innerHTML = issues.length===0
+    ? '<div class="kv"><span class="kv-k" style="color:var(--green)">&#10003; No issues detected</span></div>'
+    : issues.map(function(i){ return '<div class="kv"><span class="kv-k">'+i.field+'</span><span class="kv-v"><span class="badge fail">'+i.code+'</span> '+i.message+'</span></div>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-399-lint-x12-claim-records',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-399-lint-x12-claim-records.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+</script>
+</body>
+</html>

@@ -333,7 +333,11 @@ import * as art393    from './art-393-x402-v2-migration-linter.kernel.mjs';
 import * as art394    from './art-394-x402-deferred-handshake-validator.kernel.mjs';
 import * as art396    from './art-396-compute-15c3-3-reserve.kernel.mjs';
 import * as art397    from './art-397-lint-trace-cat-reports.kernel.mjs';
+import * as art398    from './art-398-lint-metro2-record.kernel.mjs';
+import * as art399    from './art-399-lint-x12-claim-records.kernel.mjs';
 import * as art40     from './art-40-tempo-agentic-checkout.kernel.mjs';
+import * as art400    from './art-400-check-official-statement-completeness.kernel.mjs';
+import * as art401    from './art-401-validate-form5500-schedules.kernel.mjs';
 import * as art406    from './art-406-cross-venue-margin-estimator.kernel.mjs';
 import * as art407    from './art-407-umr-aana-readiness-diagnostic.kernel.mjs';
 import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
@@ -744,7 +748,11 @@ export const KERNELS = {
   'art-394-x402-deferred-handshake-validator':                art394,
   'art-396-compute-15c3-3-reserve':                           art396,
   'art-397-lint-trace-cat-reports':                           art397,
+  'art-398-lint-metro2-record':                               art398,
+  'art-399-lint-x12-claim-records':                           art399,
   'art-40-tempo-agentic-checkout':                            art40,
+  'art-400-check-official-statement-completeness':            art400,
+  'art-401-validate-form5500-schedules':                      art401,
   'art-406-cross-venue-margin-estimator':                     art406,
   'art-407-umr-aana-readiness-diagnostic':                    art407,
   'art-41-tempo-validator-readiness':                         art41,
