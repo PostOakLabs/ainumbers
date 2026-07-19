@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-256"]
+tags: ["compliance_mandate", "count-260"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-256 tool(s) in this mandate-type group:
+260 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -263,6 +263,10 @@ timestamp: 2026-07-14
 - [X12 837/835 Healthcare-Claim Records Lint](../tools/art-399-lint-x12-claim-records.md)
 - [Municipal Official Statement Completeness Checker](../tools/art-400-check-official-statement-completeness.md)
 - [ERISA Form 5500 Schedule Validator](../tools/art-401-validate-form5500-schedules.md)
+- [Reg F Call-Frequency Presumption Validator](../tools/art-402-validate-regf-call-frequency.md)
+- [Debt Validation Notice Completeness Checker](../tools/art-403-check-debt-validation-notice.md)
+- [Retail Installment Contract TILA Disclosure Checker](../tools/art-404-check-retail-installment-disclosures.md)
+- [Private Student Loan Disclosure & Rescission Checker](../tools/art-405-check-private-student-loan-disclosures.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

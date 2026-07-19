@@ -339,6 +339,10 @@ timestamp: 2026-07-14
 - [Tempo Agentic Checkout Settlement Mapper](./art-40-tempo-agentic-checkout.md) — `map_tempo_settlement`
 - [Municipal Official Statement Completeness Checker](./art-400-check-official-statement-completeness.md) — `check_official_statement_completeness`
 - [ERISA Form 5500 Schedule Validator](./art-401-validate-form5500-schedules.md) — `validate_form5500_schedules`
+- [Reg F Call-Frequency Presumption Validator](./art-402-validate-regf-call-frequency.md) — `validate_regf_call_frequency`
+- [Debt Validation Notice Completeness Checker](./art-403-check-debt-validation-notice.md) — `check_debt_validation_notice`
+- [Retail Installment Contract TILA Disclosure Checker](./art-404-check-retail-installment-disclosures.md) — `check_retail_installment_disclosures`
+- [Private Student Loan Disclosure & Rescission Checker](./art-405-check-private-student-loan-disclosures.md) — `check_private_student_loan_disclosures`
 - [Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator](./art-406-cross-venue-margin-estimator.md) — `estimate_cross_venue_margin_capital`
 - [UMR / AANA Readiness Diagnostic](./art-407-umr-aana-readiness-diagnostic.md) — `run_umr_aana_readiness`
 - [Tempo Validator Readiness Scorer](./art-41-tempo-validator-readiness.md) — `score_tempo_validator_readiness`
