@@ -40,6 +40,8 @@ const PROTECTED_PATHS = [
   'CONTRACT.md',
   'chaingraph/standard/SPEC.md',
   'chaingraph/standard/openchain-graph-v0.4.schema.json',
+  '.github/workflows/protected-paths.yml',
+  'scripts/check-protected-paths.mjs',
 ];
 
 function refExists(ref) {
