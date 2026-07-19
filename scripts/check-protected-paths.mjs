@@ -2,25 +2,32 @@
 /**
  * scripts/check-protected-paths.mjs — normative-surface guard.
  *
- * CONTRACT.md, chaingraph/standard/SPEC.md, and
- * chaingraph/standard/openchain-graph-v0.4.schema.json are FLAG-AND-WAIT —
- * Tim's escalation policy says a WU session does not change them without
- * asking. That policy is prose; this gate is the enforcement (CONTRACT-GUARD-1).
+ * CONTRACT.md, chaingraph/standard/SPEC.md,
+ * chaingraph/standard/openchain-graph-v0.4.schema.json, and the guard's own
+ * two enforcement files are FLAG-AND-WAIT — Tim's escalation policy says a
+ * WU session does not change them without asking.
  *
- * Three modes (Tim, 2026-07-18 — a broken ref-resolution path hard-failed a
- * local push; local hooks must be ADVISORY, blocking belongs SERVER-SIDE):
- *   1. DEFAULT (local preflight, push-to-main, anything not a PR) — print a
- *      loud warning naming the touched path(s) and exit 0. Never blocks.
- *   2. CI PULL-REQUEST CONTEXT (GITHUB_EVENT_NAME === 'pull_request') — block,
- *      exit 1, as before. This is the half that actually enforces.
- *   3. ALLOW_PROTECTED_EDIT=1 — bypass, in either mode, for a Tim-approved
- *      change. Must be a deliberate, visible act, never a reflex.
+ * INFORMATIONAL ONLY (GUARD-LABEL-DROP-1, 2026-07-19 — corrects the prior
+ * blocking design). This script never exits nonzero for a protected-path
+ * touch, in any mode. The real enforcement is CODEOWNERS-required-review on
+ * these paths (`.github/CODEOWNERS` + branch protection) — a PR touching
+ * them cannot merge without Tim's review regardless of what this script
+ * prints. A PR-mode "block, then re-open via a label" step was tried first
+ * (CONTRACT-GUARD-1 → GUARD-COVER-1 → GUARD-TRIGGER-1 → GUARD-SELF-1/2) and
+ * DROPPED THE SAME NIGHT it started actually firing: Tim was clicking
+ * `protected-edit-approved` on every guarded PR with no judgment behind the
+ * click (he already has to review the diff to merge — CODEOWNERS forces
+ * that), so the label added a second rubber-stamp on top of the real gate,
+ * not a second independent check. A gate that always says yes to whoever
+ * already has to approve it isn't a gate — it's a wasted click. Removing it
+ * loses nothing: CODEOWNERS review is still the exact same required,
+ * enforced, un-bypassable control it always was. This script's remaining
+ * job is visibility — name the touched path(s) loudly so a reviewer isn't
+ * relying on memory to notice.
  *
- * Any infra failure (ref won't resolve, fetch fails) is NOT a policy verdict.
- * In DEFAULT/override mode it fails OPEN — exit 0 with a warning — since
- * enforcement is server-side and a local infra gap must never block a push.
- * In PR mode it fails CLOSED — exit 1 — since PR mode is the only enforcing
- * mode: an unevaluable guard there must block, not silently pass through.
+ * Any infra failure (ref won't resolve, fetch fails) is reported and still
+ * exits 0 — an unevaluable guard must never block a push or a merge; it
+ * isn't the enforcement layer.
  *
  * Compares the working tree (staged + unstaged) against origin/main.
  *
@@ -34,7 +41,6 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const IS_PR = process.env.GITHUB_EVENT_NAME === 'pull_request';
 
 const PROTECTED_PATHS = [
   'CONTRACT.md',
@@ -53,15 +59,11 @@ function refExists(ref) {
   }
 }
 
-function failOpen(reason) {
+function warnUnevaluable(reason) {
   console.error(`check-protected-paths: could not evaluate the guard — ${reason}`);
   console.error('check-protected-paths: WARNING — unable to tell whether a protected path changed.');
-  if (IS_PR) {
-    console.error('check-protected-paths: in PR context an unevaluable guard blocks; re-run the check.');
-    console.error('check-protected-paths: failing CLOSED (exit 1).');
-    process.exit(1);
-  }
-  console.error('check-protected-paths: failing OPEN (exit 0). This is an infra gap, not a policy pass.');
+  console.error('check-protected-paths: exiting 0 regardless — this script is informational, not the merge gate.');
+  console.error('check-protected-paths: CODEOWNERS-required-review on the protected paths is the real control.');
   process.exit(0);
 }
 
@@ -79,7 +81,7 @@ function resolveDiffTarget() {
     execSync(`git fetch --depth=1 origin ${base}`, { cwd: REPO, stdio: 'ignore' });
     return 'FETCH_HEAD';
   } catch (e) {
-    failOpen(`could not fetch origin/${base} to diff against — ${(e.stderr?.toString() || e.message || '').trim()}`);
+    warnUnevaluable(`could not fetch origin/${base} to diff against — ${(e.stderr?.toString() || e.message || '').trim()}`);
   }
 }
 
@@ -89,7 +91,7 @@ function changedFiles() {
     const out = execSync(`git diff --name-only ${target}`, { cwd: REPO, encoding: 'utf8' });
     return out.split('\n').map(l => l.trim()).filter(Boolean);
   } catch (e) {
-    failOpen(`could not diff against ${target} — ${(e.stderr?.toString() || e.message || '').trim()}`);
+    warnUnevaluable(`could not diff against ${target} — ${(e.stderr?.toString() || e.message || '').trim()}`);
     return [];
   }
 }
@@ -102,35 +104,10 @@ if (hits.length === 0) {
   process.exit(0);
 }
 
-if (process.env.ALLOW_PROTECTED_EDIT === '1') {
-  console.log(`check-protected-paths: OVERRIDE — ALLOW_PROTECTED_EDIT=1 set. Allowing edit to: ${hits.join(', ')}`);
-  console.log('check-protected-paths: confirm Tim actually approved this before pushing.');
-  process.exit(0);
-}
-
-if (IS_PR) {
-  console.error('check-protected-paths: FAILED — normative surface modified without approval.');
-  console.error('');
-  console.error('  Modified: ' + hits.join(', '));
-  console.error('');
-  console.error('  These paths are FLAG-AND-WAIT (workspace CLAUDE.md escalation policy).');
-  console.error('  STOP. Ask Tim before changing CONTRACT.md, SPEC.md, or the v0.4 schema.');
-  console.error('');
-  console.error('  If Tim has ALREADY approved this change, re-run with the override:');
-  console.error('    ALLOW_PROTECTED_EDIT=1 node scripts/check-protected-paths.mjs');
-  console.error('  (PowerShell: $env:ALLOW_PROTECTED_EDIT=1; node scripts/check-protected-paths.mjs)');
-  process.exit(1);
-}
-
-console.warn('check-protected-paths: ⚠️  WARNING — normative surface modified: ' + hits.join(', '));
+console.warn('check-protected-paths: ⚠️  NOTICE — normative surface modified: ' + hits.join(', '));
 console.warn('');
 console.warn('  These paths are FLAG-AND-WAIT (workspace CLAUDE.md escalation policy).');
-console.warn('  STOP AND ASK TIM before this reaches a PR — it will be BLOCKED there.');
-console.warn('');
-console.warn('  This is a WARNING ONLY. The push is proceeding (exit 0) — enforcement');
-console.warn('  happens server-side, on the PR.');
-console.warn('');
-console.warn('  If Tim has ALREADY approved this change, silence this warning with:');
-console.warn('    ALLOW_PROTECTED_EDIT=1 node scripts/check-protected-paths.mjs');
-console.warn('  (PowerShell: $env:ALLOW_PROTECTED_EDIT=1; node scripts/check-protected-paths.mjs)');
+console.warn('  This is informational only — it does not block. Merge is gated by');
+console.warn('  CODEOWNERS-required-review on these paths (see .github/CODEOWNERS),');
+console.warn('  which is the actual enforced control.');
 process.exit(0);

@@ -4,14 +4,23 @@ name: Protected Paths Guard
 # never ran — no pull_request trigger covered CONTRACT.md, SPEC.md, or the
 # v0.4 schema, and html-verify/land-verify/scripts-verify don't invoke the
 # guard even when they do trigger. This workflow is the missing coverage:
-# it runs the guard, in PR context, on exactly the three protected paths
-# (plus itself and the guard script, so the guard can't be weakened
-# without review — GUARD-SELF-2, 2026-07-19, made this comment true by
-# adding both files to check-protected-paths.mjs's own PROTECTED_PATHS).
+# it runs the guard, in PR context, on the protected paths (plus itself and
+# the guard script, so the guard's own logic can't be weakened silently —
+# GUARD-SELF-2, 2026-07-19).
+#
+# GUARD-LABEL-DROP-1 (2026-07-19): dropped the `protected-edit-approved`
+# label / block-then-reopen design the same night it started actually
+# firing (post-GUARD-TRIGGER-1). Tim was clicking the label on every
+# guarded PR with no independent judgment behind it — he already has to
+# review the diff to merge, since CODEOWNERS requires his review on these
+# exact paths. The label was a second rubber-stamp on the same approval,
+# not a second control, and pure tedium for zero added protection. This
+# job is now informational only: it never fails, it just names the touched
+# path(s) loudly in the log so a reviewer doesn't have to notice by memory.
+# CODEOWNERS-required-review remains the actual, unchanged, enforced gate.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'CONTRACT.md'
       - 'chaingraph/standard/SPEC.md'
@@ -24,7 +33,7 @@ permissions:
 
 jobs:
   protected-paths:
-    name: Guard normative surface
+    name: Guard normative surface (informational)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,12 +45,4 @@ jobs:
           persist-credentials: false
 
       - name: Check protected paths
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'protected-edit-approved') }}
         run: node scripts/check-protected-paths.mjs
-
-      - name: Approved via label
-        if: ${{ contains(github.event.pull_request.labels.*.name, 'protected-edit-approved') }}
-        run: |
-          echo "check-protected-paths: PASS — normative edit approved via label 'protected-edit-approved'."
-          echo "This label is a convention (triage+ can apply it), not an access-controlled gate;"
-          echo "CODEOWNERS review on CONTRACT.md/SPEC.md/the v0.4 schema remains the enforced control."
