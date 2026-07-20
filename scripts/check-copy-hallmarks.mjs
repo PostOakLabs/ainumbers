@@ -12,7 +12,7 @@
  *   3. ANTI-AI-TELL copy (Tim 2026-07-11, PERMANENT — memory
  *      `feedback-anti-ai-tell-copy-ban`): italics-for-emphasis in body prose
  *      (<em>/<i> inside h1-h6 is an exempt title-styling design pattern used
- *      site-wide, e.g. "<h1>AP2 Mandate-Chain <em>Validator</em></h1>"),
+ *      REMOVED 2026-07-20 (Tim): italic/bold in headings is now blocking too),
  *      "not just X but" / "isn't just" / "more than just", dramatic-fragment
  *      openers ("The result?"), validation-phrasing ("you're not
  *      alone/imagining"), a filler-vocab denylist (delve, tapestry, testament
@@ -203,17 +203,16 @@ for (const file of htmlFiles(REPO)) {
   const triad = (text.match(TRIAD) || []).length;
 
   const hallmarks = [];
-  // Title-styling <em> inside h1-h6 (e.g. "AP2 Mandate-Chain <em>Validator</em>") is
-  // an established site-wide headline design pattern, not essay-style emphasis —
-  // exempt it. Only body-prose italics (outside headers) are the AI-tell target.
-  const proseOutsideHeaders = prose.replace(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/gi, ' ');
+  // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
+  // 2026-07-20): two-tone/italic/bold headings read as an automatic AI hallmark.
+  // The former h1-h6 title-styling exemption is REMOVED — italics count everywhere.
   // Require actual text content — an empty <em id="x"></em> is a JS injection
   // point (e.g. workbench.html's placeholder targets), not prose emphasis.
-  const italics = (proseOutsideHeaders.match(/<(em|i)\b[^>]*>[^<]+<\/\1>/gi) || []).length;
+  const italics = (prose.match(/<(em|i)\b[^>]*>[^<]+<\/\1>/gi) || []).length;
   if (italics) hallmarks.push(`italics-for-emphasis ×${italics}`);
-  // Bold baseline+ratchet scope: same header exemption as italics, plus
-  // structural UI chrome (th/dt/label/legend) — not prose emphasis.
-  const proseForBold = proseOutsideHeaders.replace(STRUCTURAL_BOLD_EXEMPT, ' ');
+  // Bold baseline+ratchet scope: headings NO LONGER exempt; only structural UI
+  // chrome (th/dt/label/legend/button) stays exempt — that's not prose emphasis.
+  const proseForBold = prose.replace(STRUCTURAL_BOLD_EXEMPT, ' ');
   const bold = (proseForBold.match(BOLD) || []).length;
   for (const [re, label] of NOTJUSTBUT) {
     const m = text.match(re) || [];

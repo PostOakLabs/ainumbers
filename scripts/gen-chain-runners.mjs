@@ -204,7 +204,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem;margin-top:2rem}
 
 <div class="hero"><div class="container">
   <div class="hero-eyebrow">OpenChainGraph · Live Chain Runner · ${stepCount} Steps</div>
-  <h1>Live Runner — <em>${esc(chain.title)}</em></h1>
+  <h1>Live Runner: ${esc(chain.title)}</h1>
   <p class="hero-desc">Executes this ${stepCount}-step chain entirely in your browser. Each step runs in a sandboxed same-origin iframe driven via the AIN Bridge; real tool outputs are collected and anchored under <strong>one composite execution hash</strong> — computed over the actual outputs, not over a static chain description.</p>
   <div class="badges">
     <span class="badge b-teal">${stepCount} Steps · Client-Side</span>

@@ -357,7 +357,7 @@ const PAGES = [];
 // art-324-tvm-npv
 PAGES.push({
   num: '324', slug: 'art-324-tvm-npv', mcpName: 'compute_npv', title: 'Net Present Value (NPV)',
-  h1: 'Net Present Value <em>(NPV)</em>',
+  h1: 'Net Present Value (NPV)',
   heroDesc: 'Discounts a cash flow series at a declared periodic rate. Accepts caller-supplied period offsets, or dated cash flows converted to years under a declared day-count convention (30/360, ACT/360, ACT/365, or a simplified ACT/ACT). Deterministic pow via Taylor-series exp/ln, no engine transcendentals. Foundation primitive for downstream valuation and lease/loan analytics.',
   metaDesc: 'Net present value calculator: discount a cash flow series at a declared periodic rate, periods or dated mode with declared day-count convention. Client-side. Zero PII.',
   runLabel: 'Compute NPV',
@@ -435,7 +435,7 @@ function compute(pp) {
 // art-325-tvm-irr
 PAGES.push({
   num: '325', slug: 'art-325-tvm-irr', mcpName: 'compute_irr', title: 'Internal Rate of Return (IRR)',
-  h1: 'Internal Rate of <em>Return (IRR)</em>',
+  h1: 'Internal Rate of Return (IRR)',
   heroDesc: 'Solves the internal rate of return for an equal-period cash flow series by deterministic bisection over a declared rate bracket with declared tolerance and iteration cap. Never Newton/derivative-based, so no float-drift nondeterminism. Reports whether the bracket contained a sign change and whether the search converged.',
   metaDesc: 'IRR calculator: deterministic bisection root-find over a declared rate bracket for equal-period cash flows. Client-side. Zero PII.',
   runLabel: 'Compute IRR',
@@ -519,7 +519,7 @@ function compute(pp) {
 // art-326-tvm-xirr
 PAGES.push({
   num: '326', slug: 'art-326-tvm-xirr', mcpName: 'compute_xirr', title: 'XIRR (Irregular Dated Cash Flows)',
-  h1: 'XIRR <em>(Irregular Dated Cash Flows)</em>',
+  h1: 'XIRR (Irregular Dated Cash Flows)',
   heroDesc: 'Annualized rate of return for irregular-interval dated cash flows, matching Excel XIRR semantics exactly: fixed actual/365 day count, anchored to the first cash flow date, solved by deterministic bisection over a declared rate bracket. Companion to the IRR primitive for cash flows that do not fall on equal periods.',
   metaDesc: 'XIRR calculator: Excel-matching annualized rate of return for irregular dated cash flows, actual/365 day count, deterministic bisection. Client-side. Zero PII.',
   runLabel: 'Compute XIRR',
@@ -606,7 +606,7 @@ function compute(pp) {
 // art-327-tvm-annuity
 PAGES.push({
   num: '327', slug: 'art-327-tvm-annuity', mcpName: 'compute_annuity', title: 'Annuity PV / FV / Payment Solver',
-  h1: 'Annuity PV / FV / <em>Payment Solver</em>',
+  h1: 'Annuity PV / FV / Payment Solver',
   heroDesc: 'Solves present value, future value, or payment for an ordinary annuity or annuity-due, given the other two plus rate and number of periods, using the standard closed-form annuity factor. Matches Excel PV/FV/PMT semantics including the due=true (beginning-of-period) adjustment.',
   metaDesc: 'Annuity PV/FV/PMT solver matching Excel semantics, ordinary or annuity-due. Client-side. Zero PII.',
   runLabel: 'Solve Annuity',
@@ -688,7 +688,7 @@ function compute(pp) {
 // art-328-tvm-breakeven
 PAGES.push({
   num: '328', slug: 'art-328-tvm-breakeven', mcpName: 'compute_breakeven', title: 'Breakeven / CVP Analysis',
-  h1: 'Breakeven / <em>CVP Analysis</em>',
+  h1: 'Breakeven / CVP Analysis',
   heroDesc: 'Standard cost-volume-profit breakeven analysis: breakeven units and revenue from fixed costs, price per unit, and variable cost per unit, plus contribution margin ratio and an optional margin-of-safety calculation against a supplied current volume.',
   metaDesc: 'Breakeven / cost-volume-profit calculator: breakeven units, revenue, contribution margin, margin of safety. Client-side. Zero PII.',
   runLabel: 'Compute Breakeven',
@@ -775,7 +775,7 @@ function buildSchedule(face, couponRatePct, yearsToMaturity, periodsPerYear) {
 // art-329-tvm-bond-duration
 PAGES.push({
   num: '329', slug: 'art-329-tvm-bond-duration', mcpName: 'compute_bond_duration', title: 'Bond Macaulay / Modified Duration',
-  h1: 'Bond Macaulay / <em>Modified Duration</em>',
+  h1: 'Bond Macaulay / Modified Duration',
   heroDesc: 'Macaulay and modified duration for a standard even-period bullet bond, given face value, coupon rate, yield to maturity, years to maturity, and compounding frequency. Prices the schedule and reports the PV-weighted average time to cash flows in years. Feeds the DV01 and convexity primitives for full fixed-income risk analytics.',
   metaDesc: 'Bond Macaulay and modified duration calculator for a standard bullet bond. Client-side. Zero PII.',
   runLabel: 'Compute Duration',
@@ -839,7 +839,7 @@ function compute(pp) {
 // art-330-tvm-dv01
 PAGES.push({
   num: '330', slug: 'art-330-tvm-dv01', mcpName: 'compute_dv01', title: 'Bond DV01 (Price Value of a Basis Point)',
-  h1: 'Bond DV01 <em>(Price Value of a Basis Point)</em>',
+  h1: 'Bond DV01 (Price Value of a Basis Point)',
   heroDesc: 'DV01 / price value of a basis point for a standard even-period bullet bond, computed by full central-difference reprice at yield plus and minus a declared basis-point shock, not the linear modified-duration approximation. Stays accurate for large coupons or short maturities where the linear approximation drifts. Same bond schedule builder as the duration primitive.',
   metaDesc: 'Bond DV01 (price value of a basis point) calculator via central-difference full reprice. Client-side. Zero PII.',
   runLabel: 'Compute DV01',
@@ -908,7 +908,7 @@ function compute(pp) {
 // art-331-tvm-convexity
 PAGES.push({
   num: '331', slug: 'art-331-tvm-convexity', mcpName: 'compute_convexity', title: 'Bond Convexity',
-  h1: 'Bond <em>Convexity</em>',
+  h1: 'Bond Convexity',
   heroDesc: 'Standard closed-form convexity for a bullet bond, annualized by compounding frequency squared. Second-order complement to modified duration for estimating bond price sensitivity to larger yield moves; optionally reports the convexity price-adjustment term for a declared yield shock. Same bond schedule builder as the duration and DV01 primitives.',
   metaDesc: 'Bond convexity calculator, closed-form, with optional convexity price-adjustment term. Client-side. Zero PII.',
   runLabel: 'Compute Convexity',
