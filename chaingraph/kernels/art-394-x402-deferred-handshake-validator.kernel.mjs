@@ -21,14 +21,31 @@ export const meta = {
 // arithmetic (see art-61 reconcile_x402_batch_settlement, which owns batch/voucher math).
 const REQUIRED_COVERED_COMPONENTS = ['@method', '@target-uri', 'content-digest'];
 
-function isHttpsUrl(s) {
-  if (typeof s !== 'string') return false;
-  try {
-    const u = new URL(s);
-    return u.protocol === 'https:';
-  } catch {
-    return false;
+// Deterministic https-scheme + non-empty-authority check (ASCII; no regex/no /u, no URL state machine) — proven
+// pattern from art-12 (faithful WHATWG URL parsing is infeasible to prove in the zkVM guest; `new URL()` is also
+// absent from bare QuickJS-ng, which diverges from V8's global — "don't parse in the zkVM" is established practice).
+// SCOPE: validates the https scheme + presence of a non-empty authority only, not full WHATWG URL validity.
+function isHttpsUrl(value) {
+  if (typeof value !== 'string') return false;
+  let s = value;
+  let a = 0, b = s.length;
+  while (a < b && s.charCodeAt(a) <= 0x20) a++;
+  while (b > a && s.charCodeAt(b - 1) <= 0x20) b--;
+  s = s.slice(a, b);
+  if (s.length < 8) return false;
+  const c0 = s.charCodeAt(0) | 32, c1 = s.charCodeAt(1) | 32, c2 = s.charCodeAt(2) | 32, c3 = s.charCodeAt(3) | 32, c4 = s.charCodeAt(4) | 32;
+  if (!(c0 === 104 && c1 === 116 && c2 === 116 && c3 === 112 && c4 === 115)) return false; // 'https'
+  if (s.charCodeAt(5) !== 0x3a) return false; // ':'
+  if (s.charCodeAt(6) !== 0x2f || s.charCodeAt(7) !== 0x2f) return false; // '//'
+  let i = 8;
+  for (; i < s.length; i++) { const ch = s.charCodeAt(i); if (ch === 0x2f || ch === 0x5c || ch === 0x3f || ch === 0x23) break; }
+  const authority = s.slice(8, i);
+  if (authority.length === 0) return false;
+  for (let j = 0; j < authority.length; j++) {
+    const ch = authority.charCodeAt(j);
+    if (ch <= 0x20 || ch === 0x7f || ch === 0x3c || ch === 0x3e || ch === 0x5e || ch === 0x7c) return false;
   }
+  return true;
 }
 
 function validateOffer(offer) {
