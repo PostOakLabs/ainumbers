@@ -82,6 +82,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}openchain-graph-spec.html">Spec v0.8.0</a>
         <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
         <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="${cg}aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
         <a href="${cg}ocg-sandbox.html">Sandbox</a>
         <a href="${cg}ocg-chain-builder.html">Chain Builder</a>
         <a href="${cg}ocg-legacy-vs-ocg.html">For Stakeholders</a>
