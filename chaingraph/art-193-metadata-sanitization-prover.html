@@ -34,6 +34,8 @@ h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-fa
 .flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
 .flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
 .pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.prefill-bar{display:none;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:var(--radius);padding:.4rem .75rem;margin:10px 0}
+.prefill-bar.show{display:block}
 .card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
 .section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
@@ -195,6 +197,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div id="fileErr" style="display:none;margin-top:10px"></div>
 
     <div class="section-head" style="margin-top:22px">Manual entry (PDF / DOCX / other)</div>
+    <div id="prefillBar" class="prefill-bar">Findings prefilled from a linked tool.</div>
     <div class="info-box" style="margin-top:0">
       PDF and DOCX are not parsed client-side. Paste findings as a JSON array of <code>{"field","category","action"}</code> objects. Categories: gps, author, device, timestamp, software, comment, other. Actions: removed, redacted, retained.
     </div>
@@ -714,6 +717,7 @@ function cleanPng(bytes, walk) {
 let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
 let _cleanBytes=null, _cleanMime='application/octet-stream', _cleanName='cleaned.bin';
 let _lastRecord=null;
+let _prefillOriginalSha256=null, _prefillSanitizedSha256=null;
 
 function showErr(msg) {
   const e = document.getElementById('fileErr');
@@ -788,9 +792,11 @@ async function runManual() {
     value: '(manual entry; value not recorded)',
     action: ACTIONS.includes(f && f.action) ? f.action : 'retained'
   }));
-  // no byte-level artefact; digests are of the declared findings text (deterministic, no file)
-  const original_sha256 = await sha256HexStr('manual:' + file_type + ':original');
-  const sanitized_sha256 = await sha256HexStr('manual:' + file_type + ':sanitized');
+  // Real digests when a linked tool prefilled them (it hashed the actual bytes); otherwise
+  // no byte-level artefact is available here, so fall back to hashing the declared findings
+  // text (deterministic, no file).
+  const original_sha256 = _prefillOriginalSha256 || await sha256HexStr('manual:' + file_type + ':original');
+  const sanitized_sha256 = _prefillSanitizedSha256 || await sha256HexStr('manual:' + file_type + ':sanitized');
   _cleanBytes = null;
   await renderResults({
     file_type, findingsFull,
@@ -924,6 +930,50 @@ drop.addEventListener('drop', (e) => {
   e.preventDefault(); drop.classList.remove('over');
   if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
+
+// base64url decode of a UTF-8 string, no padding dependence.
+function b64urlDecode(s){
+  let t=String(s).replace(/-/g,'+').replace(/_/g,'/');
+  while(t.length%4)t+='=';
+  const bin=atob(t);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// Prefill bridge: a linked tool (e.g. the Conversion Lab's PDF toolkit strip-metadata mode)
+// can deep-link here with real findings + real digests instead of manual typing. Reads
+// location.hash, base64url-decodes a JSON object { findings, file_type, original_sha256,
+// sanitized_sha256 }, and populates the manual-entry form. Zero network. Malformed input is
+// ignored silently.
+(function prefillFromHash(){
+  try{
+    const hash=location.hash||'';
+    if(!hash.startsWith('#in='))return;
+    const rest=hash.slice(4);
+    const amp=rest.indexOf('&');
+    const b64=amp>=0?rest.slice(0,amp):rest;
+    const json=b64urlDecode(b64);
+    const parsed=JSON.parse(json);
+    if(!parsed||typeof parsed!=='object')return;
+    let filled=false;
+    if(Array.isArray(parsed.findings)){
+      document.getElementById('manualJson').value=JSON.stringify(parsed.findings,null,2);
+      filled=true;
+    }
+    if(typeof parsed.file_type==='string'){
+      const sel=document.getElementById('manualType');
+      if([...sel.options].some(o=>o.value===parsed.file_type)){sel.value=parsed.file_type;filled=true;}
+    }
+    if(typeof parsed.original_sha256==='string'&&/^[0-9a-f]{64}$/i.test(parsed.original_sha256)){
+      _prefillOriginalSha256=parsed.original_sha256.toLowerCase();filled=true;
+    }
+    if(typeof parsed.sanitized_sha256==='string'&&/^[0-9a-f]{64}$/i.test(parsed.sanitized_sha256)){
+      _prefillSanitizedSha256=parsed.sanitized_sha256.toLowerCase();filled=true;
+    }
+    if(filled)document.getElementById('prefillBar').classList.add('show');
+  }catch(e){/* malformed base64 or JSON — ignore, no throw */}
+})();
 </script>
 </body>
 </html>
