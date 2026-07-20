@@ -21,6 +21,10 @@ on:
       - '*.html'
       - '.github/workflows/html-verify.yml'
   pull_request:
+    # ready_for_review added (DRAFTCI-3, 2026-07-20): draft PRs are skipped
+    # below, so a readied draft must trigger a fresh run or it could merge
+    # with no checks. Default types kept explicit alongside it.
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'tools/**.html'
       - 'guides/**.html'
@@ -34,6 +38,12 @@ permissions:
 jobs:
   html-verify:
     name: CSP + copy-hallmarks + dead-link + chrome gates
+    # DRAFTCI-3 (2026-07-20): expected-red shard/kernel PRs open as drafts by
+    # doctrine (they ride ASSEMBLE-LAND). GitHub still runs pull_request
+    # workflows on drafts, so those PRs showed a red X despite the draft
+    # rule — the red carried no information. Skip drafts; the run fires on
+    # ready_for_review and the push-to-main trigger remains the backstop.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
