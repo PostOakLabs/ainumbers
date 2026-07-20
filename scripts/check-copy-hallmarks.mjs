@@ -45,14 +45,14 @@
  * th/dt/label/legend/button (structural UI chrome, not prose — button is
  * already tag-stripped upstream).
  *
- * Advisory (never fails): the HIGH-PRECISION twotone family ("It is not X. It
- * is Y.") is its own named category — TWOTONE_HIGHPRECISION — kept advisory
- * for now but structured as a standalone regex/label so a future sweep
- * (COPYTELL-SWEEP-1) can flip it to blocking/zero-baseline once existing hits
- * are cleared (italics precedent). The rule-of-three adjective/phrase TRIAD
- * heuristic stays advisory PERMANENTLY — it false-positives on legitimate
- * 3-item lists too often for a hard gate, ever. Body-prose emoji counts (see
- * scope decision above) are also advisory-only.
+ * Blocking, zero-tolerance, no baseline (COPYTELL-SWEEP-1, 2026-07-20 —
+ * italics precedent): the HIGH-PRECISION twotone family ("It is not X. It is
+ * Y.") — TWOTONE_HIGHPRECISION. The sweep found and fixed the one pre-existing
+ * hit (chaingraph/openchain-graph-paper.html), so there is no legacy debt to
+ * shield. The rule-of-three adjective/phrase TRIAD heuristic stays advisory
+ * PERMANENTLY — it false-positives on legitimate 3-item lists too often for a
+ * hard gate, ever. Body-prose emoji counts (see scope decision above) are
+ * also advisory-only.
  *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
@@ -79,8 +79,7 @@ const JARGON = [
   [/\bW-[A-F]\b/g, 'W-x badge code'],
   [/\bD0\b/g, 'D0 badge code'],
 ];
-// Advisory only, for now — HIGH-PRECISION twotone family, named as its own
-// category so COPYTELL-SWEEP-1 can flip it to blocking once swept clean.
+// Blocking, zero-tolerance, no baseline (COPYTELL-SWEEP-1) — HIGH-PRECISION twotone family.
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
 const TRIAD = /\b\w+,\s*\w+,\s*(?:and|&)\s*\w+\b/g;
@@ -283,7 +282,8 @@ for (const [rel, f] of Object.entries(findings)) {
   else if (f.bold < bBold) improvements.push(`${rel}: bold ${bBold} -> ${f.bold}`);
   // ANTI-AI-TELL categories: zero-tolerance, no baseline, always fail if present.
   if (f.hallmarks.length) failures.push(`${rel}: ANTI-AI-TELL hit(s): ${f.hallmarks.join('; ')}`);
-  if (f.twotoneHP && !baseline[rel]) advisories.push(`${rel}: ${f.twotoneHP} possible HIGH-PRECISION twotone construction(s) (flip-ready — see COPYTELL-SWEEP-1)`);
+  // HIGH-PRECISION twotone: zero-tolerance, no baseline (COPYTELL-SWEEP-1, italics precedent).
+  if (f.twotoneHP) failures.push(`${rel}: ${f.twotoneHP} HIGH-PRECISION twotone construction(s) ("It is not X. It is Y." family) — rewrite as a direct statement`);
   if (f.triad) advisories.push(`${rel}: ${f.triad} possible rule-of-three triad(s)`);
   if (f.emojiProse) advisories.push(`${rel}: ${f.emojiProse} emoji glyph(s) in body text (advisory — see script header comment)`);
 }
