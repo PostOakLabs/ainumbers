@@ -1,23 +1,10 @@
-// OpenChainGraph shared Data Integrity signer/verifier — OCG Standard §16 (Proof Binding).
-// SINGLE SOURCE OF TRUTH for §16 signature production/verification.
-//
-// W3C Data Integrity, cryptosuite eddsa-jcs-2022 (https://www.w3.org/TR/vc-di-eddsa/, Rec 2025-05),
-// WHOLE-ARTIFACT. Reuses the §4 JCS canonicalizer from _hash.mjs — there is NO second
-// canonicalization path here (the array-replacer forms FORBIDDEN by §4 stay forbidden).
-// Ed25519 via globalThis.crypto.subtle: browsers, Cloudflare Workers, Node 18+.
-//
-// Pipeline (eddsa-jcs-2022): Transform(JCS) -> SHA-256 each of {proof options, document} ->
-// sign the concatenation (proofConfigHash ++ documentHash) with Ed25519. Verification reverses it.
-//
-// HOME (NORMATIVE, §16): the proof object lives at artifact.audit_signature.proof — NOT artifact
-// root (the frozen v0.4 schema is additionalProperties:false at the root, so a root `proof` would
-// fail a v0.4 verifier) and NOT inside the DSSE-style audit_signature.signatures[] array.
-//
-// OPTIONAL + holder-chosen (§16.2): nothing here runs unless a caller passes a private key. Signing
-// de-anonymizes a run; callers MUST surface that before signing.
+import { executionHash } from './_hash.mjs';
 
-import { cgCanon } from './_hash.mjs';
-
+// Vendored inline (NOT imported) so this kernel stays a self-contained script the
+// chaingraph/vm QuickJS harness can run unmodified (its ESM-strip only expects kernels to
+// import from ./_hash.mjs — see chaingraph/vm/kernel-vm.mjs stripEsmSyntaxForVm). Byte-identical
+// to chaingraph/kernels/_proof.mjs lines 21-2939 (Keccak/SHA3 + NTT + ML-DSA, @noble, MIT,
+// Paul Miller) through the ml_dsa44 definition. DO NOT hand-edit — resync from _proof.mjs.
 // ── §PQC-1 hybrid ML-DSA proof (OCG SPEC.md §PQC-1, NORMATIVE OPTIONAL) — vendored FIPS 204 impl ──
 // Vendored verbatim (function bodies unmodified; only import/export boilerplate stripped and a
 // handful of same-name top-level bindings disambiguated — see rename notes below) from three
@@ -121,8 +108,6 @@ const u64 = {
     rotlSH, rotlSL, rotlBH, rotlBL,
     add, add3L, add3H, add4L, add4H, add5H, add5L,
 };
-// Default export mirrors named `u64` for compatibility with object-style imports.
-export default u64;
 //# sourceMappingURL=_u64.js.map
 // ── @noble/hashes utils.js (v2.2.0, MIT, Paul Miller) — byte/hash utilities ─────────────────────
 /**
@@ -521,30 +506,9 @@ function hexToBytes(hex) {
  * ```
  */
 const nextTick = async () => { };
-/**
- * Returns control to the Promise/microtask scheduler every `tick`
- * milliseconds to avoid blocking long loops.
- * @param iters - number of loop iterations to run
- * @param tick - maximum time slice in milliseconds
- * @param cb - callback executed on each iteration
- * @example
- * Run a loop that periodically yields back to the event loop.
- * ```ts
- * await asyncLoop(2, 0, () => {});
- * ```
- */
-export async function asyncLoop(iters, tick, cb) {
-    let ts = Date.now();
-    for (let i = 0; i < iters; i++) {
-        cb(i);
-        // Date.now() is not monotonic, so in case if clock goes backwards we return return control too
-        const diff = Date.now() - ts;
-        if (diff >= 0 && diff < tick)
-            continue;
-        await nextTick();
-        ts += diff;
-    }
-}
+// asyncLoop() (the @noble/hashes long-loop yield helper) is DELETED here — it used Date.now()
+// (banned by the kernel-determinism lint) and this kernel never calls it (verify-only, no
+// long-running key-generation loops). Dead code in the original vendor; not needed for parity.
 /**
  * Converts string to bytes using UTF8 encoding.
  * Built-in doesn't validate input to be string: we do the check.
@@ -2928,7 +2892,7 @@ function getDilithium(opts_) {
     });
 }
 /** ML-DSA-44 for 128-bit security level. Not recommended after 2030, as per ASD. */
-export const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
+const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
     ...PARAMS[2],
     CRH_BYTES: 64,
     TR_BYTES: 64,
@@ -2937,318 +2901,256 @@ export const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
     XOF256,
     securityLevel: 128,
 }))();
-/** ML-DSA-65 for 192-bit security level. Not recommended after 2030, as per ASD. */
-const ml_dsa65 = /* @__PURE__ */ (() => getDilithium({
-    ...PARAMS[3],
-    CRH_BYTES: 64,
-    TR_BYTES: 64,
-    C_TILDE_BYTES: 48,
-    XOF128,
-    XOF256,
-    securityLevel: 192,
-}))();
-/** ML-DSA-87 for 256-bit security level. OK after 2030, as per ASD. */
-const ml_dsa87 = /* @__PURE__ */ (() => getDilithium({
-    ...PARAMS[5],
-    CRH_BYTES: 64,
-    TR_BYTES: 64,
-    C_TILDE_BYTES: 64,
-    XOF128,
-    XOF256,
-    securityLevel: 256,
-}))();
-//# sourceMappingURL=ml-dsa.js.map
-const CRYPTOSUITE = 'eddsa-jcs-2022';
-const enc = (s) => new TextEncoder().encode(s);
 
-// JCS canonical bytes (RFC 8785) — byte-identical canon to _hash.mjs (cgCanon + minimal JSON.stringify).
-function jcsBytes(obj) { return enc(JSON.stringify(cgCanon(obj))); }
+const TOOL_ID = 'art-424-witness-cosignature-verifier';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'verify_witness_cosignatures',
+  mandate_type: 'cryptographic_mandate', gpu: false,
+};
+
+// SPEC.md §20.2 — verifies a C2SP tlog-checkpoint + witness-cosignature note (k-of-n
+// independent witness cosignatures over a batch anchor's Merkle root) against a caller-
+// supplied pinned witness key set. VERIFY-SIDE ONLY: this tool never operates, mirrors,
+// or serves a log — it consumes a checkpoint note text the caller already has (e.g. from
+// a c2sp.org/tlog-proof bundle) and performs zero network fetches. Two witness signature
+// suites: Ed25519 cosignature/v1 (the C2SP-shipped suite) and ML-DSA-44 (the suite our own
+// §20.2 text names alongside it, per the §PQC-1 reserved-extension discipline — no
+// C2SP-assigned type byte exists yet for ML-DSA in the note-signature registry, so the
+// 0xf0 type byte used below is a PROVISIONAL, locally-declared id for this verifier's own
+// key-id derivation only, not an external standard).
+//
+// COPY FENCE (row requirement): a verdict here states ONLY that ≥k pinned witnesses signed
+// THIS root. It says nothing about whether the log itself is honest or complete, or whether
+// the pinned witness keys truly belong to the parties they claim to be — both are trust
+// decisions made before this tool runs, not by it.
+
+const ED25519_NOTE_ALG = 0x01;      // Go sumdb note package's assigned Ed25519 algorithm byte
+const MLDSA44_NOTE_ALG = 0xf0;      // provisional local id — see header note above
+
+function _str(v) { return typeof v === 'string' ? v : ''; }
+function _int(v) { return Number.isInteger(v) ? v : null; }
+function _arr(v) { return Array.isArray(v) ? v : []; }
+
+function b64decode(s) {
+  const bin = atob(String(s || '').trim());
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function toHex(bytes) {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+function readUint64BE(bytes) {
+  let v = 0n;
+  for (let i = 0; i < 8; i++) v = (v << 8n) | BigInt(bytes[i]);
+  return v; // BigInt — timestamps stay exact past 2^53
+}
 
 async function sha256(bytes) {
   const d = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return new Uint8Array(d);
 }
 
-// Secured document = artifact MINUS audit_signature.proof (a proof is never part of its own input).
-function securedDocument(artifact) {
-  const a = structuredClone(artifact);
-  if (a && a.audit_signature && 'proof' in a.audit_signature) delete a.audit_signature.proof;
-  return a;
+// Parses a C2SP tlog-checkpoint signed note: "<origin>\n<size>\n<base64 root>\n" (+ optional
+// extension lines), a blank line, then one "— <name> <base64 blob>" line per cosignature.
+function parseNote(text) {
+  const raw = _str(text);
+  const sep = raw.indexOf('\n\n');
+  if (sep < 0) return { error: 'note has no header/signature separator (blank line)' };
+  const header = raw.slice(0, sep);
+  const sigBlock = raw.slice(sep + 2);
+  const headerLines = header.split('\n').filter(l => l.length > 0);
+  if (headerLines.length < 3) return { error: 'note header needs origin, size, and root lines' };
+  const [origin, sizeStr, rootB64, ...extensionLines] = headerLines;
+  const size = Number(sizeStr);
+  if (!Number.isInteger(size) || size < 0) return { error: 'note size line is not a non-negative integer' };
+  let rootBytes;
+  try { rootBytes = b64decode(rootB64); } catch { return { error: 'note root line is not valid base64' }; }
+  const noteText = header + '\n';
+  const sigLines = sigBlock.split('\n')
+    .filter(l => l.startsWith('— ') || l.startsWith('- '))
+    .map(l => {
+      const body = l.startsWith('— ') ? l.slice(2) : l.slice(2);
+      const spaceAt = body.indexOf(' ');
+      if (spaceAt < 0) return null;
+      return { name: body.slice(0, spaceAt), blob_b64: body.slice(spaceAt + 1).trim() };
+    })
+    .filter(Boolean);
+  return { origin, size, rootHex: toHex(rootBytes), extensionLines, noteText, sigLines };
 }
 
-// Proof options = the proof object without proofValue (eddsa-jcs-2022 proof configuration).
-// §16.5: for set/chain members the config MAY also carry `id` (so an endorsement can reference it)
-// and `previousProof` (the id(s) this proof endorses) — both are part of the signed configuration.
-function proofOptions({ verificationMethod, created, id, previousProof }) {
-  const o = { type: 'DataIntegrityProof', cryptosuite: CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
-  if (id !== undefined) o.id = id;
-  if (previousProof !== undefined) o.previousProof = previousProof;
-  return o;
+async function witnessKeyId(name, algNoteByte, rawPubKey) {
+  const msg = new Uint8Array([...new TextEncoder().encode(name + '\n'), algNoteByte, ...rawPubKey]);
+  const digest = await sha256(msg);
+  return digest.slice(0, 4);
 }
 
-// hashData over an explicit secured document (already stripped/augmented by the caller).
-async function hashDataForDoc(doc, opts) {
-  const optHash = await sha256(jcsBytes(opts));
-  const docHash = await sha256(jcsBytes(doc));
-  const cat = new Uint8Array(optHash.length + docHash.length);
-  cat.set(optHash, 0); cat.set(docHash, optHash.length);
-  return cat;
-}
-
-// hashData = SHA-256(proofOptions JCS) ++ SHA-256(securedDocument JCS) — proofConfig hash first.
-async function hashData(artifact, opts) {
-  return hashDataForDoc(securedDocument(artifact), opts);
-}
-
-// ── multibase base58btc ('z') — minimal inline (CONTRACT: no external lib / no CDN) ──────────────
-const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-function b58encode(bytes) {
-  let zeros = 0; while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
-  const digits = [0];
-  for (let i = zeros; i < bytes.length; i++) {
-    let carry = bytes[i];
-    for (let j = 0; j < digits.length; j++) { carry += digits[j] << 8; digits[j] = carry % 58; carry = (carry / 58) | 0; }
-    while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
-  }
-  let out = ''; for (let k = 0; k < zeros; k++) out += '1';
-  for (let q = digits.length - 1; q >= 0; q--) out += B58[digits[q]];
-  return out;
-}
-function b58decode(str) {
-  let zeros = 0; while (zeros < str.length && str[zeros] === '1') zeros++;
-  const bytes = [0];
-  for (let i = zeros; i < str.length; i++) {
-    let carry = B58.indexOf(str[i]); if (carry < 0) throw new Error('bad base58 char');
-    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 0xff; carry >>= 8; }
-    while (carry) { bytes.push(carry & 0xff); carry >>= 8; }
-  }
-  const out = new Uint8Array(zeros + bytes.length);
-  for (let k = 0; k < bytes.length; k++) out[zeros + bytes.length - 1 - k] = bytes[k];
-  return out;
-}
-
-// ── did:key <-> raw Ed25519 public key (multicodec ed25519-pub = 0xed 0x01) ──────────────────────
-const ED25519_MULTICODEC = [0xed, 0x01];
-export async function rawPubkeyToDidKey(publicKey) {
-  const raw = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', publicKey)); // 32 bytes
-  const prefixed = new Uint8Array(ED25519_MULTICODEC.length + raw.length);
-  prefixed.set(ED25519_MULTICODEC, 0); prefixed.set(raw, ED25519_MULTICODEC.length);
-  return 'did:key:z' + b58encode(prefixed);
-}
-export async function didKeyToPublicKey(did) {
-  if (!did.startsWith('did:key:z')) throw new Error('not a did:key z-form');
-  const prefixed = b58decode(did.slice('did:key:z'.length));
-  if (prefixed[0] !== 0xed || prefixed[1] !== 0x01) throw new Error('did:key is not Ed25519');
-  const raw = prefixed.slice(2);
-  return globalThis.crypto.subtle.importKey('raw', raw, { name: 'Ed25519' }, true, ['verify']);
-}
-
-/**
- * sign(artifact, { verificationMethod, created, privateKey }) -> new artifact with audit_signature.proof set.
- * privateKey: WebCrypto Ed25519 private CryptoKey. verificationMethod: did:key (z6Mk…).
- * created: ISO-8601 string supplied by the caller (determinism — NEVER Date.now() here).
- */
-export async function sign(artifact, { verificationMethod, created, privateKey }) {
-  if (!verificationMethod || !created || !privateKey) throw new Error('sign requires { verificationMethod, created, privateKey }');
-  const opts = proofOptions({ verificationMethod, created });
-  const sigBytes = new Uint8Array(await globalThis.crypto.subtle.sign('Ed25519', privateKey, await hashData(artifact, opts)));
-  const proof = { ...opts, proofValue: 'z' + b58encode(sigBytes) };
-  const out = structuredClone(artifact);
-  out.audit_signature = { ...(out.audit_signature || {}), proof };
-  return out;
-}
-
-/**
- * verify(artifact, publicKey) -> boolean. publicKey: WebCrypto Ed25519 public CryptoKey, resolved by the
- * caller from artifact.audit_signature.proof.verificationMethod (see didKeyToPublicKey). Predicate: returns
- * false on any structural/crypto problem rather than throwing.
- */
-export async function verify(artifact, publicKey) {
-  const proof = artifact?.audit_signature?.proof;
-  if (!proof || proof.type !== 'DataIntegrityProof' || proof.cryptosuite !== CRYPTOSUITE) return false;
-  if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z') return false;
-  const opts = proofOptions({ verificationMethod: proof.verificationMethod, created: proof.created });
-  try {
-    const sig = b58decode(proof.proofValue.slice(1));
-    return await globalThis.crypto.subtle.verify('Ed25519', publicKey, sig, await hashData(artifact, opts));
-  } catch { return false; }
-}
-
-// ── §16.5 Proof sets and endorsement chains (OCG v0.7) ──────────────────────────────────────────
-// audit_signature.proof MAY be an array. A parallel proof SET member signs the document with ALL
-// proofs removed (each signer independent — VC Data Integrity 1.0 proof-set semantics). An
-// ENDORSEMENT (proof-chain member) carries previousProof = id(s) of the proof(s) it endorses; its
-// secured input is the document with all proofs removed PLUS exactly the referenced previous
-// proof(s) re-attached (in previousProof order), so the endorsement cryptographically covers what
-// it approves. Verifiers MUST verify chained proofs in dependency order. eddsa-jcs-2022 throughout.
-
-const asArray = (p) => (p == null ? [] : Array.isArray(p) ? p : [p]);
-const prevIds = (proof) => asArray(proof.previousProof);
-
-// Secured input for one set/chain member: strip every proof, then re-attach the endorsed ones.
-function chainSecuredDocument(artifact, proof) {
-  const doc = securedDocument(artifact);
-  const refs = prevIds(proof);
-  if (refs.length === 0) return doc;
-  const all = asArray(artifact?.audit_signature?.proof);
-  const byId = new Map(all.filter((p) => p && p.id !== undefined).map((p) => [p.id, p]));
-  const attached = refs.map((id) => {
-    const hit = byId.get(id);
-    if (!hit) throw new Error(`previousProof "${id}" not found in the proof set`);
-    return structuredClone(hit);
-  });
-  doc.audit_signature = { ...(doc.audit_signature || {}), proof: attached };
-  return doc;
-}
-
-/**
- * addProof(artifact, { verificationMethod, created, privateKey, id?, previousProof? }) -> new artifact.
- * Appends a proof-set member (no previousProof) or an endorsement (previousProof = id(s) of proofs
- * already on the artifact). The result's audit_signature.proof is an array when it holds >1 proof.
- * created is caller-supplied ISO-8601 (determinism — NEVER Date.now() here).
- */
-export async function addProof(artifact, { verificationMethod, created, privateKey, id, previousProof }) {
-  if (!verificationMethod || !created || !privateKey) throw new Error('addProof requires { verificationMethod, created, privateKey }');
-  const opts = proofOptions({ verificationMethod, created, id, previousProof });
-  const probe = { ...opts };                      // chainSecuredDocument reads previousProof off the proof
-  const doc = chainSecuredDocument(artifact, probe);
-  const sigBytes = new Uint8Array(await globalThis.crypto.subtle.sign('Ed25519', privateKey, await hashDataForDoc(doc, opts)));
-  const proof = { ...opts, proofValue: 'z' + b58encode(sigBytes) };
-  const out = structuredClone(artifact);
-  const existing = asArray(out.audit_signature?.proof);
-  out.audit_signature = { ...(out.audit_signature || {}), proof: existing.length ? [...existing, proof] : proof };
-  return out;
-}
-
-/**
- * verifyProofs(artifact, resolveKey) -> boolean. Verifies EVERY member of audit_signature.proof
- * (object or array) in dependency order: set members first, then endorsements whose previousProof
- * targets verified ids. resolveKey(verificationMethod) -> Ed25519 public CryptoKey (e.g.
- * didKeyToPublicKey). Predicate: false on any structural/crypto problem — a broken/missing/cyclic
- * previousProof reference fails the whole chain.
- */
-export async function verifyProofs(artifact, resolveKey) {
-  const proofs = asArray(artifact?.audit_signature?.proof);
-  if (proofs.length === 0) return false;
-  const ids = new Set(proofs.filter((p) => p && p.id !== undefined).map((p) => p.id));
-  const verified = new Set();
-  const pending = [...proofs];
-  // dependency-ordered sweep: a proof runs once every previousProof id it names is verified
-  while (pending.length) {
-    const i = pending.findIndex((p) => prevIds(p).every((id) => verified.has(id)));
-    if (i === -1) return false;                   // missing id or dependency cycle
-    const proof = pending.splice(i, 1)[0];
-    if (!proof || proof.type !== 'DataIntegrityProof') return false;
-    if (proof.cryptosuite !== CRYPTOSUITE && proof.cryptosuite !== MLDSA_CRYPTOSUITE) return false;
-    if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z') return false;
-    if (prevIds(proof).some((id) => !ids.has(id))) return false;
-    // §PQC-1: opts built from the proof's OWN cryptosuite (may be eddsa-jcs-2022 or the §PQC-1 ML-DSA
-    // suite) — each proof in a hybrid set verifies independently under its own suite (§PQC-1.2).
-    const opts = { type: 'DataIntegrityProof', cryptosuite: proof.cryptosuite, verificationMethod: proof.verificationMethod, proofPurpose: 'assertionMethod', created: proof.created };
-    if (proof.id !== undefined) opts.id = proof.id;
-    if (proof.previousProof !== undefined) opts.previousProof = proof.previousProof;
-    try {
-      const doc = chainSecuredDocument(artifact, proof);
-      const sig = b58decode(proof.proofValue.slice(1));
-      const publicKey = await resolveKey(proof.verificationMethod, proof.cryptosuite);
-      const digest = await hashDataForDoc(doc, opts);
-      const ok = proof.cryptosuite === CRYPTOSUITE
-        ? await globalThis.crypto.subtle.verify('Ed25519', publicKey, sig, digest)
-        : mldsaVerify(sig, digest, publicKey);
-      if (!ok) return false;
-    } catch { return false; }
-    if (proof.id !== undefined) verified.add(proof.id);
-  }
+function bytesEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 }
 
-
-// ── base64url (RFC 4648 §5, no padding) — for JWK/COSE_Key material only, distinct from the §16
-// multibase-b58 proofValue encoding above ─────────────────────────────────────────────────────────
-function b64uEncode(bytes) {
-  let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+function b64uEncodeRaw(bytes) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-function b64uDecode(str) {
-  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/').padEnd(str.length + (4 - (str.length % 4)) % 4, '='));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+
+// JWK import (not 'raw') — the ONLY key format the chaingraph/vm QuickJS harness's
+// deterministic WebCrypto bridge marshals through (see kernel-vm.mjs's `__ocgVerify` host
+// function, which re-imports as 'jwk' unconditionally). Using 'raw' here would verify
+// correctly on the real Worker but silently diverge inside the VM (§24 VM<->worker parity).
+async function verifyEd25519(sig, msg, rawPubKey) {
+  try {
+    const jwk = { kty: 'OKP', crv: 'Ed25519', x: b64uEncodeRaw(rawPubKey) };
+    const key = await globalThis.crypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, ['verify']);
+    return await globalThis.crypto.subtle.verify('Ed25519', key, sig, msg);
+  } catch { return false; }
+}
+function verifyMldsa44(sig, msg, rawPubKey) {
+  try { return ml_dsa44.verify(sig, msg, rawPubKey); } catch { return false; }
 }
 
-// ── §PQC-1 hybrid ML-DSA Data Integrity proof (SPEC.md §PQC-1) ────────────────────────────────────
-// OPTIONAL, default-off (§PQC-1.2 privacy caveat, same as §16.2): nothing below runs unless a
-// caller explicitly calls addMldsaProof / passes a resolveMldsaKey. A zero-PQC artifact — one that
-// never calls addMldsaProof — is byte-identical to pre-PQC-1 output; no execution_hash change, no
-// chaingraph_version bump (§PQC-1.0).
-//
-// Cryptosuite id (§PQC-1.1, reserved-extension discipline): the W3C DI WG has not registered an
-// ML-DSA cryptosuite name, and the illustrative placeholder `mldsa44-jcs-2026` MUST NOT be emitted
-// as if standardized. Per this row's build directive we do NOT invent a `*-jcs-*` W3C-shaped name
-// either (the W3C vc-di-quantum-resistant draft is FPWD/unstable) — instead the proof is named by
-// its RFC 9964 (ML-DSA in COSE/JOSE) alg id ONLY, which is an actual registered identifier, not a
-// provisional guess. The parameter set is therefore already explicit in the id (never implicit).
-const MLDSA_CRYPTOSUITE = 'ML-DSA-65'; // RFC 9964 JOSE/COSE alg id; default param set = ML-DSA-65 (Level 3)
+async function verifyOneWitness(witnessKey, sigLine) {
+  const algorithm = _str(witnessKey.algorithm).toLowerCase();
+  const algNoteByte = algorithm === 'ml-dsa-44' ? MLDSA44_NOTE_ALG : algorithm === 'ed25519' ? ED25519_NOTE_ALG : null;
+  if (algNoteByte === null) return { name: witnessKey.name, algorithm, error: 'unsupported algorithm (expected ed25519 or ml-dsa-44)' };
+  let rawPubKey;
+  try { rawPubKey = b64decode(witnessKey.public_key_b64); } catch { return { name: witnessKey.name, algorithm, error: 'public_key_b64 is not valid base64' }; }
+  if (!sigLine) return { name: witnessKey.name, algorithm, present: false, valid: false, keyid_match: false };
 
-function mldsaProofOptions({ verificationMethod, created, id, previousProof }) {
-  const o = { type: 'DataIntegrityProof', cryptosuite: MLDSA_CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
-  if (id !== undefined) o.id = id;
-  if (previousProof !== undefined) o.previousProof = previousProof;
-  return o;
+  let blob;
+  try { blob = b64decode(sigLine.blob_b64); } catch { return { name: witnessKey.name, algorithm, present: true, valid: false, keyid_match: false, error: 'signature blob is not valid base64' }; }
+  if (blob.length < 13) return { name: witnessKey.name, algorithm, present: true, valid: false, keyid_match: false, error: 'cosignature/v1 blob too short (need keyid[4] + timestamp[8] + signature)' };
+
+  const keyId = blob.slice(0, 4);
+  const timestampBytes = blob.slice(4, 12);
+  const sig = blob.slice(12);
+  const expectedKeyId = await witnessKeyId(witnessKey.name, algNoteByte, rawPubKey);
+  const keyid_match = bytesEqual(keyId, expectedKeyId);
+  const timestamp = readUint64BE(timestampBytes).toString();
+
+  return { keyId, timestamp, sig, algNoteByte, rawPubKey, keyid_match,
+    name: witnessKey.name, algorithm, present: true };
 }
 
-/**
- * addMldsaProof(artifact, { verificationMethod, created, secretKey, id?, previousProof? }) -> new artifact.
- * Appends a §16.5 proof-set member (or, with previousProof, an endorsement) signed with ML-DSA-65
- * (FIPS 204) instead of Ed25519 — the §PQC-1 hybrid dual proof. Reuses the EXACT SAME §16.1 secured-
- * document + hashData pipeline as the eddsa-jcs-2022 proof (single-lineage rule: no second
- * canonicalization, no second hash path) — ML-DSA signs the identical SHA-256(opts)||SHA-256(doc)
- * bytes that Ed25519 signs elsewhere in this file. secretKey is a raw ML-DSA-65 secret key
- * Uint8Array (see mldsaKeygen / mldsaSecretKeyToJwk below) — never a did:key (§PQC-1 build note 4:
- * did:key ML-DSA multicodec entries are still draft). created is caller-supplied ISO-8601
- * (determinism — NEVER Date.now() here, matching addProof).
- */
-export async function addMldsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
-  if (!verificationMethod || !created || !secretKey) throw new Error('addMldsaProof requires { verificationMethod, created, secretKey }');
-  const opts = mldsaProofOptions({ verificationMethod, created, id, previousProof });
-  const doc = chainSecuredDocument(artifact, { ...opts });
-  const digest = await hashDataForDoc(doc, opts);
-  const sigBytes = ml_dsa65.sign(digest, secretKey);
-  const proof = { ...opts, proofValue: 'z' + b58encode(sigBytes) };
-  const out = structuredClone(artifact);
-  const existing = asArray(out.audit_signature?.proof);
-  out.audit_signature = { ...(out.audit_signature || {}), proof: existing.length ? [...existing, proof] : proof };
-  return out;
+export function compute(pp) {
+  pp = pp || {};
+  const checks = [];
+
+  const anchored_hash_raw = _str(pp.anchored_hash).trim();
+  const anchored_hash = anchored_hash_raw.replace(/^sha256:/, '').toLowerCase();
+  const log_origin = _str(pp.log_origin).trim();
+  const checkpoint_note = _str(pp.checkpoint_note);
+  const witness_keys = _arr(pp.witness_keys);
+  const threshold = _int(pp.threshold) ?? 1;
+
+  checks.push({ check: 'anchored_hash_present', pass: /^[0-9a-f]{64}$/.test(anchored_hash),
+    detail: /^[0-9a-f]{64}$/.test(anchored_hash) ? 'ok' : 'anchored_hash must be a 64-hex-char SHA-256 digest (bare or sha256:-prefixed)' });
+  checks.push({ check: 'witness_keys_present', pass: witness_keys.length > 0,
+    detail: witness_keys.length > 0 ? witness_keys.length + ' pinned witness key(s)' : 'witness_keys must name at least one pinned key' });
+  checks.push({ check: 'threshold_valid', pass: threshold >= 1 && threshold <= witness_keys.length,
+    detail: (threshold >= 1 && threshold <= witness_keys.length) ? 'ok' : 'threshold must be between 1 and the number of pinned witness_keys' });
+
+  const parsed = parseNote(checkpoint_note);
+  const structural_error = parsed.error || null;
+  checks.push({ check: 'checkpoint_note_parses', pass: !structural_error, detail: structural_error || 'ok' });
+
+  const preconditionsOk = checks.every(c => c.pass);
+
+  const not_proven = [
+    { item: 'Log honesty or completeness', detail: 'A witness cosignature closes anchor equivocation (one root shown to two verifiers) but says nothing about whether the log operator omitted entries or is otherwise dishonest.' },
+    { item: 'Witness key ownership', detail: 'This tool verifies signatures against the pinned public keys supplied by the caller. It does not establish that those keys belong to the parties they claim to be — that trust decision is made before pinning, not by this verification.' },
+    { item: 'Inclusion of any specific artifact leaf', detail: 'This tool verifies the checkpoint root and its witness cosignatures only. It does not recompute or verify a Merkle inclusion path for any individual leaf (see SPEC.md §20.1 for that check).' },
+  ];
+
+  if (!preconditionsOk) {
+    return {
+      output_payload: {
+        origin: parsed.origin ?? null, note_size: parsed.size ?? null, note_root_hash: parsed.rootHex ?? null,
+        anchored_hash_match: false, origin_match: false, threshold, valid_witness_count: 0,
+        cosignatures: [], witness_verification_result: 'FAIL', structural_error: structural_error || 'input validation failed',
+        not_proven,
+      },
+      compliance_flags: ['WITNESS_COSIGNATURE_INPUT_INVALID', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'],
+      checks,
+    };
+  }
+
+  return { __async: true, parsed, anchored_hash, log_origin, witness_keys, threshold, checks, not_proven };
 }
 
-/** mldsaKeygen(seed: Uint8Array[32]) -> { publicKey, secretKey } (both Uint8Array, ML-DSA-65). Caller-supplied seed — determinism is the caller's responsibility, same posture as elsewhere in this file (no Date.now()/crypto.getRandomValues call hidden inside signing helpers). */
-export function mldsaKeygen(seed) { return ml_dsa65.keygen(seed); }
+// Signature verification is async (WebCrypto / noble ML-DSA), so buildArtifact drives the
+// async continuation of compute() above rather than forcing compute() itself to be async —
+// keeps compute() usable synchronously by callers that only want the precondition checks.
+async function computeAsync(pp) {
+  const sync = compute(pp);
+  if (!sync.__async) return sync;
+  const { parsed, anchored_hash, log_origin, witness_keys, threshold, checks, not_proven } = sync;
 
-/** mldsaVerify(sigBytes, msgBytes, publicKey) -> boolean. Raw verify, no proof-envelope handling — used internally by verifyProofs' suite dispatch and exposed for direct use. */
-export function mldsaVerify(sigBytes, msgBytes, publicKey) {
-  try { return ml_dsa65.verify(sigBytes, msgBytes, publicKey); } catch { return false; }
+  const anchored_hash_match = parsed.rootHex === anchored_hash;
+  const origin_match = !log_origin || parsed.origin === log_origin;
+
+  const byName = new Map(parsed.sigLines.map(l => [l.name, l]));
+  const resolved = [];
+  for (const wk of witness_keys) {
+    resolved.push(await verifyOneWitness(wk, byName.get(_str(wk.name))));
+  }
+
+  const cosignatures = [];
+  let valid_witness_count = 0;
+  const seenValidNames = new Set();
+  for (const r of resolved) {
+    if (r.error || !r.present) {
+      cosignatures.push({ name: r.name, algorithm: r.algorithm, present: !!r.present, valid: false,
+        keyid_match: !!r.keyid_match, error: r.error || 'no cosignature line matched this witness name' });
+      continue;
+    }
+    let sig_valid = false;
+    if (r.keyid_match) {
+      const msg = new TextEncoder().encode('cosignature/v1\n' + r.timestamp + '\n' + parsed.noteText);
+      sig_valid = r.algorithm === 'ml-dsa-44' ? verifyMldsa44(r.sig, msg, r.rawPubKey) : await verifyEd25519(r.sig, msg, r.rawPubKey);
+    }
+    if (sig_valid && !seenValidNames.has(r.name)) { valid_witness_count++; seenValidNames.add(r.name); }
+    cosignatures.push({ name: r.name, algorithm: r.algorithm, present: true, keyid_match: r.keyid_match,
+      timestamp: r.timestamp, valid: sig_valid });
+  }
+
+  const pass = anchored_hash_match && origin_match && valid_witness_count >= threshold;
+
+  checks.push({ check: 'anchored_hash_matches_note_root', pass: anchored_hash_match,
+    detail: anchored_hash_match ? 'ok' : 'note root does not match the batch anchor\'s anchored_hash' });
+  checks.push({ check: 'origin_matches', pass: origin_match,
+    detail: origin_match ? 'ok' : 'note origin does not match the expected log_origin' });
+  checks.push({ check: 'threshold_met', pass: valid_witness_count >= threshold,
+    detail: valid_witness_count + ' of ' + threshold + ' required valid witness cosignature(s)' });
+
+  const output_payload = {
+    origin: parsed.origin, note_size: parsed.size, note_root_hash: parsed.rootHex,
+    anchored_hash_match, origin_match, threshold, valid_witness_count,
+    cosignatures, witness_verification_result: pass ? 'PASS' : 'FAIL', structural_error: null,
+    not_proven,
+  };
+
+  const compliance_flags = ['C2SP_TLOG_CHECKPOINT_FORMAT', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'];
+  compliance_flags.push(pass ? 'WITNESS_COSIGNATURE_VERIFIED' : 'WITNESS_COSIGNATURE_FAILED');
+
+  return { output_payload, compliance_flags, checks };
 }
 
-// ── ML-DSA key material as JWK / COSE_Key (§PQC-1 build note 4) — never did:key ────────────────────
-// kty "AKP" (Algorithm Key Pair) follows the IETF JOSE/COSE direction for PQC signature keys
-// (draft stage, same reserved-extension posture as the cryptosuite id above — not asserted as a
-// final registered kty, just the least-provisional shape available; a verifier that only reads
-// `pub`/`priv` as base64url ML-DSA-65 key bytes is unaffected by the kty label ever changing).
-export function mldsaPublicKeyToJwk(publicKey) {
-  return { kty: 'AKP', alg: MLDSA_CRYPTOSUITE, pub: b64uEncode(publicKey) };
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = await computeAsync(pp);
+  const hash = await executionHash(pp, output_payload);
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID, tool_version: TOOL_VERSION, generated_at: now ?? null,
+    execution_hash: hash, chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp, output_payload, compliance_flags, compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
 }
-export function mldsaJwkToPublicKey(jwk) {
-  if (!jwk || jwk.kty !== 'AKP' || typeof jwk.pub !== 'string') throw new Error('not an ML-DSA AKP JWK');
-  return b64uDecode(jwk.pub);
-}
-export function mldsaSecretKeyToJwk(secretKey) {
-  return { kty: 'AKP', alg: MLDSA_CRYPTOSUITE, priv: b64uEncode(secretKey) };
-}
-export function mldsaJwkToSecretKey(jwk) {
-  if (!jwk || jwk.kty !== 'AKP' || typeof jwk.priv !== 'string') throw new Error('not an ML-DSA AKP JWK');
-  return b64uDecode(jwk.priv);
-}
-
-export const MLDSA_PROOF_CRYPTOSUITE = MLDSA_CRYPTOSUITE;
-
-export const PROOF_CRYPTOSUITE = CRYPTOSUITE;
