@@ -36,13 +36,27 @@
  * icon-system redesign — a CONTRACT-level UI call for Tim to scope as its own
  * WU, not a copy fix folded into this one.
  *
- * Advisory (never fails): "twotone" constructions ("It is not X. It is Y."),
- * rule-of-three adjective/phrase triads, and body-prose emoji counts (see
- * scope decision above) — reported for human review only.
+ * Bold (category 4, Tim 2026-07-20 — memory project-ainumbers-copytell-refined-
+ * pass): visible-text <b>/<strong> counts are BASELINE+RATCHET, same design and
+ * same baseline file as em-dash — snapshotted via --update, no file may exceed
+ * its baselined count, files absent from the baseline must be clean. Same
+ * parser scope (script/style/pre/code/comments excluded) plus exemption for
+ * h1-h6 (title-styling, same precedent as the italics rule) and
+ * th/dt/label/legend/button (structural UI chrome, not prose — button is
+ * already tag-stripped upstream).
+ *
+ * Advisory (never fails): the HIGH-PRECISION twotone family ("It is not X. It
+ * is Y.") is its own named category — TWOTONE_HIGHPRECISION — kept advisory
+ * for now but structured as a standalone regex/label so a future sweep
+ * (COPYTELL-SWEEP-1) can flip it to blocking/zero-baseline once existing hits
+ * are cleared (italics precedent). The rule-of-three adjective/phrase TRIAD
+ * heuristic stays advisory PERMANENTLY — it false-positives on legitimate
+ * 3-item lists too often for a hard gate, ever. Body-prose emoji counts (see
+ * scope decision above) are also advisory-only.
  *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
- *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon baseline
+ *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold baseline
  *
  * Style rule of record: CONTRACT.md §1.4 (reader-facing copy).
  *
@@ -65,10 +79,16 @@ const JARGON = [
   [/\bW-[A-F]\b/g, 'W-x badge code'],
   [/\bD0\b/g, 'D0 badge code'],
 ];
-// Advisory only — rhetorical tic, too fuzzy for a hard gate.
-const TWOTONE = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
-// Advisory only — heuristic, catches legitimate 3-item lists too often for a hard gate.
+// Advisory only, for now — HIGH-PRECISION twotone family, named as its own
+// category so COPYTELL-SWEEP-1 can flip it to blocking once swept clean.
+const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
+// Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
 const TRIAD = /\b\w+,\s*\w+,\s*(?:and|&)\s*\w+\b/g;
+// Structural UI chrome exempt from the bold count (not prose emphasis) —
+// same precedent as the italics rule's h1-h6 exemption, plus tabular/form
+// labels. <button> is already stripped upstream via BUTTON_TAG.
+const STRUCTURAL_BOLD_EXEMPT = /<(th|dt|label|legend)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const BOLD = /<(b|strong)\b[^>]*>[^<]+<\/\1>/gi;
 
 // --- ANTI-AI-TELL BAN (Tim 2026-07-11, PERMANENT — feedback-anti-ai-tell-copy-ban) ---
 // Blocking, zero-tolerance, no baseline. Each entry: [regex, label].
@@ -180,7 +200,7 @@ for (const file of htmlFiles(REPO)) {
     const m = text.match(re) || [];
     if (m.length) jargon.push(`${label} ×${m.length} (${[...new Set(m)].slice(0, 3).join(', ')})`);
   }
-  const twotone = (text.match(TWOTONE) || []).length;
+  const twotoneHP = (text.match(TWOTONE_HIGHPRECISION) || []).length;
   const triad = (text.match(TRIAD) || []).length;
 
   const hallmarks = [];
@@ -192,6 +212,10 @@ for (const file of htmlFiles(REPO)) {
   // point (e.g. workbench.html's placeholder targets), not prose emphasis.
   const italics = (proseOutsideHeaders.match(/<(em|i)\b[^>]*>[^<]+<\/\1>/gi) || []).length;
   if (italics) hallmarks.push(`italics-for-emphasis ×${italics}`);
+  // Bold baseline+ratchet scope: same header exemption as italics, plus
+  // structural UI chrome (th/dt/label/legend) — not prose emphasis.
+  const proseForBold = proseOutsideHeaders.replace(STRUCTURAL_BOLD_EXEMPT, ' ');
+  const bold = (proseForBold.match(BOLD) || []).length;
   for (const [re, label] of NOTJUSTBUT) {
     const m = text.match(re) || [];
     if (m.length) hallmarks.push(`${label} ×${m.length}`);
@@ -220,8 +244,8 @@ for (const file of htmlFiles(REPO)) {
   // an icon-migration WU; re-tighten to blocking once that lands.
   const emojiProse = nonExemptEmoji(text).length;
 
-  if (emdash || jargon.length || twotone || triad || hallmarks.length || emojiProse) {
-    findings[rel] = { emdash, jargon, twotone, triad, hallmarks, emojiProse };
+  if (emdash || jargon.length || twotoneHP || triad || hallmarks.length || emojiProse || bold) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, hallmarks, emojiProse, bold };
   }
 }
 
@@ -231,13 +255,13 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((n.description || '').match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((c.description || '').match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotone: 0, triad: 0, emojiProse: 0, hallmarks: [] };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, emojiProse: 0, hallmarks: [], bold: 0 };
 
 if (UPDATE) {
   const baseline = {};
   for (const [rel, f] of Object.entries(findings)) {
-    const debt = f.emdash + f.jargon.length;
-    if (debt) baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length };
+    const debt = f.emdash + f.jargon.length + f.bold;
+    if (debt) baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold };
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
   console.log(`copy-hallmarks: baseline written for ${Object.keys(baseline).length} file(s).`);
@@ -250,13 +274,16 @@ const improvements = [];
 const advisories = [];
 
 for (const [rel, f] of Object.entries(findings)) {
-  const b = baseline[rel] || { emdash: 0, jargon: 0 };
+  const b = baseline[rel] || { emdash: 0, jargon: 0, bold: 0 };
+  const bBold = b.bold || 0;
   if (f.emdash > b.emdash) failures.push(`${rel}: ${f.emdash} em-dash(es) in visible text (baseline ${b.emdash})`);
   else if (f.emdash < b.emdash) improvements.push(`${rel}: em-dash ${b.emdash} -> ${f.emdash}`);
   if (f.jargon.length > b.jargon) failures.push(`${rel}: build jargon in visible text: ${f.jargon.join('; ')} (baseline ${b.jargon})`);
+  if (f.bold > bBold) failures.push(`${rel}: ${f.bold} bold/strong hit(s) in visible text (baseline ${bBold})`);
+  else if (f.bold < bBold) improvements.push(`${rel}: bold ${bBold} -> ${f.bold}`);
   // ANTI-AI-TELL categories: zero-tolerance, no baseline, always fail if present.
   if (f.hallmarks.length) failures.push(`${rel}: ANTI-AI-TELL hit(s): ${f.hallmarks.join('; ')}`);
-  if (f.twotone && !baseline[rel]) advisories.push(`${rel}: ${f.twotone} possible twotone construction(s)`);
+  if (f.twotoneHP && !baseline[rel]) advisories.push(`${rel}: ${f.twotoneHP} possible HIGH-PRECISION twotone construction(s) (flip-ready — see COPYTELL-SWEEP-1)`);
   if (f.triad) advisories.push(`${rel}: ${f.triad} possible rule-of-three triad(s)`);
   if (f.emojiProse) advisories.push(`${rel}: ${f.emojiProse} emoji glyph(s) in body text (advisory — see script header comment)`);
 }
