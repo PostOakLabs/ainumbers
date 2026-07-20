@@ -51,12 +51,22 @@ function stable(x) {
 const sameShape = (a, b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
 
 const STRICT = process.argv.includes('--strict');
-let fail = 0, warn = 0, checked = 0;
+let fail = 0, warn = 0, checked = 0, skippedPrivateInput = 0;
 const toolIds = Object.keys(KERNELS);
 
 for (const id of toolIds) {
   const kernel = KERNELS[id];
   const fpath = resolve(FIXDIR, `${id}.fixtures.json`);
+
+  // OCG §25 ocg-private-input@1 nodes (PRIV-IN-1-BUILD, 2026-07-20): buildArtifact's first
+  // argument is the caller's PRIVATE WITNESS, never the artifact's own policy_parameters (which
+  // carries only a sha256-salted@1 commitment, §25.2 plaintext-exclusion). Replaying
+  // kernel.buildArtifact(fixture.policy_parameters) cannot succeed for these BY CONSTRUCTION
+  // (SPEC.md §18.3: "recompute becomes unavailable to third parties") — same exemption as
+  // chaingraph/kernels/vm-parity-gate.mjs. Conformance instead runs through
+  // validate_private_inputs (§25.4) against the out-of-band disclosure fixtures
+  // (kernels/fixtures/<tool_id>.disclosure.json, test-only).
+  if (kernel?.meta?.private_input_profile) { skippedPrivateInput++; continue; }
 
   // (a) coverage — warning by default, hard fail under --strict
   if (!existsSync(fpath)) {
@@ -104,7 +114,8 @@ for (const id of toolIds) {
 
 if (fail === 0) {
   const warnMsg = warn ? `  (${warn} kernel(s) without a fixture — not yet contract-verified${STRICT ? '' : '; warning only'})` : '';
-  console.log(`✓ kernel-contract clean — ${checked} vector(s) contract-verified (well-formed, self-consistent → hash_valid, golden-matched).${warnMsg}`);
+  const privMsg = skippedPrivateInput ? `  (${skippedPrivateInput} §25 private-input kernel(s) out of scope — see validate_private_inputs)` : '';
+  console.log(`✓ kernel-contract clean — ${checked} vector(s) contract-verified (well-formed, self-consistent → hash_valid, golden-matched).${warnMsg}${privMsg}`);
   process.exit(0);
 }
 console.error(`\n✗ ${fail} kernel-contract failure(s). A failing kernel returns hash_valid:false on the live Worker — fix the kernel (copy the art-12 shape: async buildArtifact, executionHash from _hash.mjs, {policy_parameters, output_payload, execution_hash}), then golden-parity --update.`);
