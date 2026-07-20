@@ -351,7 +351,12 @@ timestamp: 2026-07-14
 - [Clause Coverage Scorer](./art-410-clause-coverage-scorer.md) — `score_clause_coverage`
 - [AI Addendum Assembler](./art-411-ai-addendum-assembler.md) — `assemble_ai_addendum`
 - [AI Act Procurement Clause Mapper](./art-412-ai-act-procurement-clause-mapper.md) — `map_ai_act_procurement_clauses`
+- [Private-Input Sanctions Screen](./art-413-screen-sanctions-private.md) — `screen_sanctions_private`
+- [Private-Input NAIC RBC Action Level](./art-414-compute-rbc-action-level-private.md) — `compute_rbc_action_level_private`
+- [Private-Input Capital Adequacy Check](./art-415-check-capital-adequacy-private.md) — `check_capital_adequacy_private`
+- [IDV/KYC Verification-Failure Incident Composer](./art-418-idv-verification-failure-incident-composer.md) — `build_idv_verification_incident_record`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
+- [Witness Cosignature Verifier](./art-424-witness-cosignature-verifier.md) — `verify_witness_cosignatures`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`

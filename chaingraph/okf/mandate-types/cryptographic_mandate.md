@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "cryptographic_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"cryptographic_mandate\"."
-tags: ["cryptographic_mandate", "count-10"]
+tags: ["cryptographic_mandate", "count-11"]
 timestamp: 2026-07-14
 ---
 
 # cryptographic_mandate
 
-10 tool(s) in this mandate-type group:
+11 tool(s) in this mandate-type group:
 
 - [Trade Document Provenance & Consistency Verifier](../tools/art-55-trade-document-provenance-verifier.md)
 - [Conversion Receipt Builder](../tools/art-191-conversion-receipt-builder.md)
@@ -18,5 +18,6 @@ timestamp: 2026-07-14
 - [License Election Verifier](../tools/art-200-license-election-verifier.md)
 - [State-Proof Verifier](../tools/art-279-state-proof-verifier.md)
 - [ETR Possession-Chain Receipt Builder](../tools/art-353-etr-possession-chain-builder.md)
+- [Witness Cosignature Verifier](../tools/art-424-witness-cosignature-verifier.md)
 - [Merkle Batch Verifier](../tools/cry-04-merkle-batch-verifier.md)
 - [Agent-Action Audit-Trail Aggregator](../tools/cry-05-agent-action-audit-trail-aggregator.md)

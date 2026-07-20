@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-27"]
+tags: ["analytics_mandate", "count-30"]
 timestamp: 2026-07-14
 ---
 
 # analytics_mandate
 
-27 tool(s) in this mandate-type group:
+30 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -37,3 +37,6 @@ timestamp: 2026-07-14
 - [Canton Synchronizer Traffic-Cost Calculator](../tools/art-391-compute-canton-traffic-cost.md)
 - [Canton App-Reward Estimator (CIP-0104)](../tools/art-392-compute-canton-app-reward-estimate.md)
 - [Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator](../tools/art-406-cross-venue-margin-estimator.md)
+- [Private-Input Sanctions Screen](../tools/art-413-screen-sanctions-private.md)
+- [Private-Input NAIC RBC Action Level](../tools/art-414-compute-rbc-action-level-private.md)
+- [Private-Input Capital Adequacy Check](../tools/art-415-check-capital-adequacy-private.md)

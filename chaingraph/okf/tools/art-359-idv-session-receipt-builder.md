@@ -23,4 +23,4 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** _terminal node_
+**Feeds:** [IDV/KYC Verification-Failure Incident Composer](./art-418-idv-verification-failure-incident-composer.md)
