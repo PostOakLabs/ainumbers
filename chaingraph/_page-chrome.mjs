@@ -149,7 +149,7 @@ ${CSS_MARKER}
 /* Canonical nav — derived from chaingraph-hub.html */
 nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
 .nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
-.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
 .logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
 .logo-ai{color:var(--teal)}
 .logo-co{color:var(--muted);font-size:.8rem}
