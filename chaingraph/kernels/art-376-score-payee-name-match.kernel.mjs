@@ -99,11 +99,26 @@ const DIACRITIC_MAP = {
   'æ':'ae','œ':'oe','ß':'ss',
 };
 
+// Guest-friendly lookup: derived once from DIACRITIC_MAP (still the single
+// source of truth for the table-driven equivalence test), but the hot loop
+// below never does Unicode-string object-property access — that indexing
+// pattern is super-linearly slow inside the QuickJS proving guest
+// (ART376-PROFILE-1). Paired string+array scan via String#indexOf instead.
+const DIACRITIC_KEYS = Object.keys(DIACRITIC_MAP).join('');
+const DIACRITIC_VALS = Object.values(DIACRITIC_MAP);
+
 function stripDiacritics(s) {
   let out = '';
-  for (const ch of s) out += (DIACRITIC_MAP[ch] ?? ch);
+  for (const ch of s) {
+    const idx = DIACRITIC_KEYS.indexOf(ch);
+    out += idx === -1 ? ch : DIACRITIC_VALS[idx];
+  }
   return out;
 }
+
+// Test-only exports (ART376-FIX-1 table-driven equivalence test) — additive,
+// no behavior change; buildArtifact/compute/meta remain the real contract.
+export const __test__ = { DIACRITIC_MAP, stripDiacritics };
 
 function basicClean(s) {
   return stripDiacritics(String(s || '').toLowerCase())
