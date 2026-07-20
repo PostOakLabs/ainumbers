@@ -339,6 +339,23 @@ if (typeof TextEncoder === 'undefined') {
     return Uint8Array.from(bytes);
   };
 }
+if (typeof URL === 'undefined') {
+  // WHATWG URL is absent from this JS-engine-only build. The only in-repo usage (art-394,
+  // isHttpsUrl: \`new URL(s).protocol === 'https:'\`) reads just the scheme, so this polyfill
+  // only needs to extract a leading URI scheme (RFC 3986 §3.1) and expose it as
+  // \`.protocol\` with the trailing colon WHATWG appends. Malformed/unparseable input throws
+  // a TypeError, matching the real URL constructor's fail-closed behavior (§24 "every escape
+  // hatch is closed or named" — no silent degrade to an empty/wrong protocol).
+  globalThis.URL = function ocgURL(input) {
+    var str = String(input);
+    var m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(str);
+    if (!m) {
+      throw new TypeError("Failed to construct 'URL': Invalid URL '" + str + "'");
+    }
+    this.href = str;
+    this.protocol = m[1].toLowerCase() + ':';
+  };
+}
 // ── Deterministic WebCrypto subset (§24.5 @2) ───────────────────────────────
 // ALLOWED (bridged to host WebCrypto, byte-identical to the worker):
 //   crypto.subtle.digest (SHA-256/384), importKey, verify.
