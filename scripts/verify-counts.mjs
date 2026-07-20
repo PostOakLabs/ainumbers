@@ -202,8 +202,8 @@ const ATTR_RULES = [
   { file: 'mcp.html', key: 'mcp.widgets', label: 'hero-badge widget count',
     regex: /(<span class="hero-badge badge-teal">\d+ Tools · )(\d+)( Widgets<\/span>)/,
   },
-  { file: 'mcp.html', key: 'manifests', label: 'i18n en desc catalog count',
-    regex: /(en: \{ eyebrow:'MCP Server'[^}]*?catalog-search tool covers all )(\d+)( tools with one-click)/,
+  { file: 'mcp.html', key: 'manifests', label: 'hero-desc catalog count',
+    regex: /(<p class="hero-desc">[^<]*?catalog-search tool covers all )(\d+)( tools with one-click)/,
   },
 
   // ── JSON machine files ───────────────────────────────────────────────────
