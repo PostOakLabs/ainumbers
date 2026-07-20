@@ -34,7 +34,7 @@ export function buildNav(breadcrumbCurrent) {
     </div>
     <div class="nav-right">
       <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
-      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.0 &#8594;</a>
+      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.8 &#8594;</a>
       <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
       <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
       <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
@@ -79,7 +79,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
         <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
-        <a href="${cg}openchain-graph-spec.html">Spec v0.8.0</a>
+        <a href="${cg}openchain-graph-spec.html">Spec v0.8.8</a>
         <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
         <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
         <a href="${cg}aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
