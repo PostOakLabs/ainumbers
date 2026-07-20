@@ -20,6 +20,10 @@ on:
       - 'chaingraph/graph/chains/**'
       - '.github/workflows/scripts-verify.yml'
   pull_request:
+    # ready_for_review added (DRAFTCI-2, 2026-07-20): draft PRs are skipped
+    # below, so a readied draft must trigger a fresh run or it could merge
+    # with no checks. Default types kept explicit alongside it.
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'scripts/**'
       - 'chaingraph/vm/scripts/**'
@@ -32,6 +36,13 @@ permissions:
 jobs:
   scripts-verify:
     name: Full preflight gate suite
+    # DRAFTCI-2 (2026-07-20): expected-red proof/shard PRs open as drafts by
+    # doctrine (they ride ASSEMBLE-LAND, which regenerates chaingraph.json
+    # before anything merges). GitHub still runs pull_request workflows on
+    # drafts, so those PRs showed a red X despite the draft rule — the red
+    # carried no information. Skip drafts; the run fires on ready_for_review
+    # and the push-to-main trigger remains the backstop.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
