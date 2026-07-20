@@ -350,6 +350,9 @@ import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
 import * as art410    from './art-410-clause-coverage-scorer.kernel.mjs';
 import * as art411    from './art-411-ai-addendum-assembler.kernel.mjs';
 import * as art412    from './art-412-ai-act-procurement-clause-mapper.kernel.mjs';
+import * as art413    from './art-413-screen-sanctions-private.kernel.mjs';
+import * as art414    from './art-414-compute-rbc-action-level-private.kernel.mjs';
+import * as art415    from './art-415-check-capital-adequacy-private.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
 import * as art424    from './art-424-witness-cosignature-verifier.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
@@ -775,6 +778,9 @@ export const KERNELS = {
   'art-410-clause-coverage-scorer':                           art410,
   'art-411-ai-addendum-assembler':                            art411,
   'art-412-ai-act-procurement-clause-mapper':                 art412,
+  'art-413-screen-sanctions-private':                         art413,
+  'art-414-compute-rbc-action-level-private':                 art414,
+  'art-415-check-capital-adequacy-private':                   art415,
   'art-42-arc-fit-diagnostic':                                art42,
   'art-424-witness-cosignature-verifier':                     art424,
   'art-43-arc-cpn-model':                                     art43,

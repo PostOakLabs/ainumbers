@@ -70,7 +70,7 @@ function stable(x) {
 }
 const sameShape = (a, b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
 
-let checked = 0, matched = 0, diverged = 0, hardErrors = 0, knownLimitations = 0, skippedGpu = 0, skippedNoFixture = 0;
+let checked = 0, matched = 0, diverged = 0, hardErrors = 0, knownLimitations = 0, skippedGpu = 0, skippedNoFixture = 0, skippedPrivateInput = 0;
 const divergences = [];
 const limitationsHit = [];
 
@@ -78,6 +78,16 @@ const toolIds = Object.keys(KERNELS);
 for (const id of toolIds) {
   const kernel = KERNELS[id];
   if (kernel?.meta?.gpu === true) { skippedGpu++; continue; } // §24.0: gpu:true nodes out of scope
+  // OCG §25 ocg-private-input@1 nodes (PRIV-IN-1-BUILD, 2026-07-20): buildArtifact's first
+  // argument is the caller's PRIVATE WITNESS (e.g. {parties, salt}), never the artifact's own
+  // policy_parameters (which carries only a sha256-salted@1 commitment, per §25.2 plaintext-
+  // exclusion). Replaying kernel.buildArtifact(fixture.policy_parameters) — this gate's whole
+  // model — therefore cannot succeed for these nodes BY CONSTRUCTION: it is the profile's
+  // defining property (SPEC.md §18.3: "recompute becomes unavailable to third parties"), not a
+  // VM/host-API gap like the historical KNOWN_VM1A_LIMITATIONS entries. Out of scope here, same
+  // as gpu:true; conformance instead runs through validate_private_inputs (§25.4) against the
+  // out-of-band disclosure fixtures (kernels/fixtures/<tool_id>.disclosure.json, test-only).
+  if (kernel?.meta?.private_input_profile) { skippedPrivateInput++; continue; }
 
   const fpath = resolve(FIXDIR, `${id}.fixtures.json`);
   if (!existsSync(fpath)) { skippedNoFixture++; continue; }
@@ -170,14 +180,14 @@ if (reportPath) {
   writeFileSync(reportPath, JSON.stringify({
     generated_by: 'vm-parity-gate.mjs',
     profile: 'ocg-deterministic-compute@1',
-    checked, matched, diverged, hardErrors, knownLimitations, skippedGpu, skippedNoFixture,
+    checked, matched, diverged, hardErrors, knownLimitations, skippedGpu, skippedNoFixture, skippedPrivateInput,
     divergences,
     known_limitations_hit: limitationsHit,
   }, null, 2) + '\n');
   console.log(`report written to ${reportPath}`);
 }
 
-console.log(`\nVM-1a parity: ${matched}/${checked} vector(s) byte-identical to the worker (${diverged} divergence(s), ${hardErrors} hard error(s), ${knownLimitations} known-limitation skip(s), ${skippedGpu} gpu:true skipped, ${skippedNoFixture} no-fixture skipped).`);
+console.log(`\nVM-1a parity: ${matched}/${checked} vector(s) byte-identical to the worker (${diverged} divergence(s), ${hardErrors} hard error(s), ${knownLimitations} known-limitation skip(s), ${skippedGpu} gpu:true skipped, ${skippedNoFixture} no-fixture skipped, ${skippedPrivateInput} private-input (§25) skipped).`);
 
 if (hardErrors > 0) {
   console.error(`\n✗ ${hardErrors} hard error(s) — VM crash or malformed fixture, always CI-blocking. (${knownLimitations} additional vector(s) hit a documented KNOWN_VM1A_LIMITATIONS entry and were not counted as hard errors — see chaingraph/vm/README.md.)`);
