@@ -65,6 +65,20 @@ async function commitPrivateInput(saltHex, inputValue) {
   return 'sha256:' + Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// See art-413's identical note: satisfies gate harnesses expecting a `compute` export without
+// ever recomputing the verdict from policy_parameters alone (SPEC.md §18.3). Defined BEFORE
+// buildArtifact so check-engine-parity.mjs's bundler (which extracts everything textually
+// preceding `export async function buildArtifact`) captures it.
+export function compute(pp) {
+  const p = pp || {};
+  return {
+    above_minimum: null,
+    tier: null,
+    regulatory_minimum_pct: p.regulatory_minimum_pct ?? DEFAULT_REGULATORY_MINIMUM_PCT,
+    note: 'Private-input node: verdict is not recomputable from policy_parameters alone (SPEC.md §18.3). Call buildArtifact with the private witness, or verify the existing artifact via validate_private_inputs.',
+  };
+}
+
 /**
  * buildArtifact — the wire input `raw` is the caller's PRIVATE witness plus public config:
  *   { capital_inputs: {eligible_capital, risk_weighted_assets}, salt, regime?, regulatory_minimum_pct? }
@@ -115,17 +129,5 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
     compliance_flags: verdict.above_minimum ? ['CAPITAL_ABOVE_MINIMUM'] : ['CAPITAL_BELOW_MINIMUM'],
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
-
-// See art-413's identical note: satisfies gate harnesses expecting a `compute` export without
-// ever recomputing the verdict from policy_parameters alone (SPEC.md §18.3).
-export function compute(pp) {
-  const p = pp || {};
-  return {
-    above_minimum: null,
-    tier: null,
-    regulatory_minimum_pct: p.regulatory_minimum_pct ?? DEFAULT_REGULATORY_MINIMUM_PCT,
-    note: 'Private-input node: verdict is not recomputable from policy_parameters alone (SPEC.md §18.3). Call buildArtifact with the private witness, or verify the existing artifact via validate_private_inputs.',
   };
 }

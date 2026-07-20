@@ -75,6 +75,25 @@ async function commitPrivateInput(saltHex, inputValue) {
   return 'sha256:' + Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Deterministic, side-effect-free recompute over an ALREADY-COMMITTED policy_parameters —
+// exists for gate harnesses that expect a `compute` export (empty-input-finite.test.mjs skips
+// kernels lacking one; this satisfies it without ever seeing the plaintext witness). Per SPEC.md
+// §18.3, a private-input node's output is NOT third-party-recomputable from policy_parameters
+// alone — this function only echoes the public shape, it never re-derives the verdict. Defined
+// BEFORE buildArtifact so check-engine-parity.mjs's bundler (which extracts everything textually
+// preceding `export async function buildArtifact` as the QuickJS-runnable region) captures it.
+export function compute(pp) {
+  const p = pp || {};
+  return {
+    screened: false,
+    hit_count: 0,
+    clean: null,
+    coverage: { total_checked: 0 },
+    list_version: p.list_version ?? DEFAULT_LIST_VERSION,
+    note: 'Private-input node: verdict is not recomputable from policy_parameters alone (SPEC.md §18.3). Call buildArtifact with the private witness, or verify the existing artifact via validate_private_inputs.',
+  };
+}
+
 /**
  * buildArtifact — the wire input `raw` is the caller's PRIVATE witness plus public config:
  *   { parties: [{name}], salt, list_version?, matching_config? }
@@ -127,22 +146,5 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
     compliance_flags: verdict.clean ? ['SCREEN_CLEAN'] : ['SCREEN_HAS_HITS'],
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
-
-// Deterministic, side-effect-free recompute over an ALREADY-COMMITTED policy_parameters —
-// exists for gate harnesses that expect a `compute` export (empty-input-finite.test.mjs skips
-// kernels lacking one; this satisfies it without ever seeing the plaintext witness). Per SPEC.md
-// §18.3, a private-input node's output is NOT third-party-recomputable from policy_parameters
-// alone — this function only echoes the public shape, it never re-derives the verdict.
-export function compute(pp) {
-  const p = pp || {};
-  return {
-    screened: false,
-    hit_count: 0,
-    clean: null,
-    coverage: { total_checked: 0 },
-    list_version: p.list_version ?? DEFAULT_LIST_VERSION,
-    note: 'Private-input node: verdict is not recomputable from policy_parameters alone (SPEC.md §18.3). Call buildArtifact with the private witness, or verify the existing artifact via validate_private_inputs.',
   };
 }
