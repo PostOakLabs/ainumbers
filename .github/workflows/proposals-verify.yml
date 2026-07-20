@@ -1,0 +1,125 @@
+name: Proposals Verify
+
+# AGENTPR-1: agents (and humans) open real PRs for new tool/workflow proposals.
+# A PR under this route may add exactly one proposals/<slug>.json file and
+# touch nothing else — this workflow is the mechanical CI gate (schema,
+# slug-collision, copy gates, out-of-dir rejection, receipt fast-track).
+#
+# SECURITY (doctrine item 5): this runs on plain `pull_request`, which is the
+# DEFAULT-SAFE trigger for fork PRs — GitHub does not pass repository secrets
+# to a `pull_request`-triggered run from a fork, and its GITHUB_TOKEN is
+# read-only regardless of the `permissions:` block below (fork-PR runs always
+# get a read-only token; this is enforced by GitHub, not by this file).
+#
+# ONE JOB, NOT TWO: an earlier draft split labeling into a second workflow
+# triggered by `workflow_run` so it could hold write while this job stayed
+# read-only for forks. zizmor flagged that as `dangerous-triggers`
+# ("workflow_run is almost always used insecurely" — it runs with the BASE
+# repo's privileges regardless of what triggered it, the classic "pwn
+# request" shape) and Tim's standing ruling is to fix zizmor findings, not
+# suppress them (memory: zizmor KEEP AS-IS). The label step below only ever
+# gets write on a same-repo PR (GitHub already grants pull_request write
+# there); on a genuine fork PR the `gh pr edit` call gets a 403 and the job
+# logs that a human must apply the label by hand — the mechanical verdict
+# (pass/fail) is unaffected either way, and nothing privileged ever runs in
+# response to fork-controlled input.
+#
+# All `${{ }}` values that reach a shell are passed via `env:` and read as
+# `$VAR`, never interpolated directly into `run:` (zizmor `template-injection`).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'proposals/**'
+      - 'scripts/verify-proposals.mjs'
+      - '.github/workflows/proposals-verify.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    name: Schema + slug-collision + copy gates + out-of-dir
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout base (trusted scripts/ + registry)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: List changed files (API, no fork code executed)
+        id: files
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { data } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const files = data.map((f) => f.filename);
+            core.setOutput('list', files.join(','));
+            return files;
+
+      - name: Fetch proposal file contents (data only, never executed)
+        env:
+          FILE_LIST: ${{ steps.files.outputs.list }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p proposals
+          IFS=',' read -ra FILES <<< "$FILE_LIST"
+          for f in "${FILES[@]}"; do
+            if [[ "$f" == proposals/*.json ]]; then
+              gh api "repos/$REPO/contents/$f?ref=$HEAD_SHA" --jq '.content' | base64 -d > "$f"
+            fi
+          done
+
+      - name: Run gate on the fetched proposal files
+        id: verify
+        env:
+          FILE_LIST: ${{ steps.files.outputs.list }}
+        run: |
+          shopt -s nullglob
+          FILES=(proposals/*.json)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "proposals-verify: no proposals/*.json touched by this PR (path filter matched scripts/workflow instead) — nothing to validate."
+            exit 0
+          fi
+          node scripts/verify-proposals.mjs --changed-files="$FILE_LIST" "${FILES[@]}" | tee /tmp/verify-output.txt
+
+      - name: Apply receipt-verified label (best-effort; same-repo PRs only)
+        if: always()
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! grep -q "RECEIPT_VERIFIED=true" /tmp/verify-output.txt 2>/dev/null; then
+            echo "proposals-verify: no verified sample_artifact — no label to apply."
+            exit 0
+          fi
+          gh label create receipt-verified --repo "$REPO" \
+            --color 0e8a16 \
+            --description "AGENTPR-1: sample_artifact execution_hash recomputed and matched (embed/lib verify lineage)." \
+            2>/dev/null || true
+          if gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label receipt-verified 2>/tmp/label-err.txt; then
+            echo "proposals-verify: applied receipt-verified to PR #$PR_NUMBER."
+          else
+            echo "proposals-verify: sample_artifact verified, but this run's token could not label PR #$PR_NUMBER (expected for a fork PR — GitHub gives fork runs a read-only token by design). A maintainer should apply 'receipt-verified' by hand:"
+            cat /tmp/label-err.txt
+          fi
