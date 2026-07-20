@@ -348,6 +348,8 @@ import * as art408    from './art-408-evidence-bundle-tier-labeler.kernel.mjs';
 import * as art409    from './art-409-dpa-art28-completeness-checker.kernel.mjs';
 import * as art41     from './art-41-tempo-validator-readiness.kernel.mjs';
 import * as art410    from './art-410-clause-coverage-scorer.kernel.mjs';
+import * as art411    from './art-411-ai-addendum-assembler.kernel.mjs';
+import * as art412    from './art-412-ai-act-procurement-clause-mapper.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
@@ -770,6 +772,8 @@ export const KERNELS = {
   'art-409-dpa-art28-completeness-checker':                   art409,
   'art-41-tempo-validator-readiness':                         art41,
   'art-410-clause-coverage-scorer':                           art410,
+  'art-411-ai-addendum-assembler':                            art411,
+  'art-412-ai-act-procurement-clause-mapper':                 art412,
   'art-42-arc-fit-diagnostic':                                art42,
   'art-43-arc-cpn-model':                                     art43,
   'art-44-arc-stablefx-model':                                art44,
