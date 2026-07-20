@@ -353,6 +353,7 @@ import * as art412    from './art-412-ai-act-procurement-clause-mapper.kernel.mj
 import * as art413    from './art-413-screen-sanctions-private.kernel.mjs';
 import * as art414    from './art-414-compute-rbc-action-level-private.kernel.mjs';
 import * as art415    from './art-415-check-capital-adequacy-private.kernel.mjs';
+import * as art418    from './art-418-idv-verification-failure-incident-composer.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
 import * as art424    from './art-424-witness-cosignature-verifier.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
@@ -781,6 +782,7 @@ export const KERNELS = {
   'art-413-screen-sanctions-private':                         art413,
   'art-414-compute-rbc-action-level-private':                 art414,
   'art-415-check-capital-adequacy-private':                   art415,
+  'art-418-idv-verification-failure-incident-composer':       art418,
   'art-42-arc-fit-diagnostic':                                art42,
   'art-424-witness-cosignature-verifier':                     art424,
   'art-43-arc-cpn-model':                                     art43,
