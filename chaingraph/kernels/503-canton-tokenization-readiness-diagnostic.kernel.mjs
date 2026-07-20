@@ -95,3 +95,5 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
+
+// DRAFTCI-3 throwaway probe comment — will be closed, never merged.
