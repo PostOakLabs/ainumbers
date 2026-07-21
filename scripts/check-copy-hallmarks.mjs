@@ -117,6 +117,15 @@ const FILLER_VOCAB = [
   [/\bit['’]?s\s+worth\s+noting\b/gi, "it's worth noting"],
   [/\bin\s+today['’]?s\s+fast-paced\b/gi, "in today's fast-paced"],
 ];
+// Overuse tells: individually legit words, but repeating them across a page reads
+// as an AI hallmark. A file NOT in the baseline may use each at most OVERUSE_CAP
+// times; legacy debt is shielded by the baseline (ratchet — counts only go down
+// via --update), same design as the em-dash gate. "honest/honestly/honesty"
+// added per Tim 2026-07-21 (why-openchain-graph.html used it 5x; once is plenty).
+const OVERUSE_CAP = 1;
+const OVERUSE_VOCAB = [
+  [/\bhonest(?:ly|y)?\b/gi, 'honest'],
+];
 // Emoji ranges (misc symbols, emoticons, transport, supplemental, dingbats).
 // Flags/regional-indicator pairs (U+1F1E6-1F1FF) are excluded outright: this
 // suite uses them as functional country-selector iconography (e.g. the VAT-
@@ -242,8 +251,15 @@ for (const file of htmlFiles(REPO)) {
   // an icon-migration WU; re-tighten to blocking once that lands.
   const emojiProse = nonExemptEmoji(text).length;
 
-  if (emdash || jargon.length || twotoneHP || triad || hallmarks.length || emojiProse || bold) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, hallmarks, emojiProse, bold };
+  // Overuse counts (visible text), reported per label when non-zero.
+  const overuse = {};
+  for (const [re, label] of OVERUSE_VOCAB) {
+    const n = (text.match(re) || []).length;
+    if (n) overuse[label] = n;
+  }
+
+  if (emdash || jargon.length || twotoneHP || triad || hallmarks.length || emojiProse || bold || Object.keys(overuse).length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, hallmarks, emojiProse, bold, overuse };
   }
 }
 
@@ -253,13 +269,19 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((n.description || '').match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((c.description || '').match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, emojiProse: 0, hallmarks: [], bold: 0 };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, emojiProse: 0, hallmarks: [], bold: 0, overuse: {} };
 
 if (UPDATE) {
   const baseline = {};
   for (const [rel, f] of Object.entries(findings)) {
-    const debt = f.emdash + f.jargon.length + f.bold;
-    if (debt) baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold };
+    // Overuse debt: only counts that exceed the cap need shielding.
+    const overDebt = {};
+    for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length;
+    if (debt) {
+      baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold };
+      if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
+    }
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
   console.log(`copy-hallmarks: baseline written for ${Object.keys(baseline).length} file(s).`);
@@ -279,6 +301,13 @@ for (const [rel, f] of Object.entries(findings)) {
   if (f.jargon.length > b.jargon) failures.push(`${rel}: build jargon in visible text: ${f.jargon.join('; ')} (baseline ${b.jargon})`);
   if (f.bold > bBold) failures.push(`${rel}: ${f.bold} bold/strong hit(s) in visible text (baseline ${bBold})`);
   else if (f.bold < bBold) improvements.push(`${rel}: bold ${bBold} -> ${f.bold}`);
+  // Overuse: allowed = baselined count if shielded, else OVERUSE_CAP. Ratchet down.
+  const bOver = b.overuse || {};
+  for (const [k, v] of Object.entries(f.overuse || {})) {
+    const allowed = bOver[k] != null ? bOver[k] : OVERUSE_CAP;
+    if (v > allowed) failures.push(`${rel}: "${k}" ×${v} in visible text — overused (max ${allowed})`);
+    else if (bOver[k] != null && v < bOver[k]) improvements.push(`${rel}: "${k}" ${bOver[k]} -> ${v}`);
+  }
   // ANTI-AI-TELL categories: zero-tolerance, no baseline, always fail if present.
   if (f.hallmarks.length) failures.push(`${rel}: ANTI-AI-TELL hit(s): ${f.hallmarks.join('; ')}`);
   // HIGH-PRECISION twotone: zero-tolerance, no baseline (COPYTELL-SWEEP-1, italics precedent).
