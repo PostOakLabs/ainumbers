@@ -68,6 +68,7 @@ const GATES = [
   ['OKF bundle freshness (chaingraph/okf)', 'node chaingraph/generate-okf.mjs --check'],
   ['Kernel VM page freshness',      'node chaingraph/vm/scripts/gen-kernel-vm-html.mjs --check'],
   ['Kernel VM widget freshness',    'node chaingraph/vm/scripts/gen-kernel-vm-widget.mjs --check'],
+  ['Kernel VM explainer freshness', 'node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs --check'],
   ['OpenAPI freshness',             'node scripts/gen-openapi.mjs --check'],
   ['SSOT schema-validate',         'node chaingraph/standard/schema-validate.mjs'],
   ['SSOT version-consistency',     'node chaingraph/standard/spec-version-consistency.mjs'],
