@@ -49,6 +49,7 @@ const GATES = [
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Unassembled-shard scan (ASSEMBLE-COVER-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
+  ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   ['Tool-node pairing registry',   'node scripts/check-tool-node-pairings.mjs'],
