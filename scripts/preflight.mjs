@@ -98,6 +98,7 @@ const GATES = [
   ['Root-page chrome freshness (INDEX-SIMPLIFY-1)', 'node scripts/gen-root-chrome.mjs --check'],
   ['No copyright-year splash (INDEX-SIMPLIFY-1)', 'node scripts/check-no-copyright-year.mjs'],
   ['CSP consistency (FOOTER-1)',   'node scripts/check-csp-consistency.mjs'],
+  ['Verify-path no-egress (AV-NOEGRESS-1)', 'node scripts/check-verify-no-egress.mjs'],
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
