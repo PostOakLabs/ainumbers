@@ -312,6 +312,8 @@ let total = 0
 for (const rel of [
   'docs/index.html',
   'index.html',
+  'start.html',
+  'chaingraph/openchain-graph-paper.html',
   'sitemap.html',
   'tools.html',
   'mcp.html',
