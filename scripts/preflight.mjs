@@ -104,6 +104,9 @@ const GATES = [
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
   ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
+  ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
+  ['Workbook unit fixtures (WB-1)',     'node chaingraph/workbook/workbook.test.mjs'],
+  ['Workbook determinism fixture (WB-5)', 'node chaingraph/workbook/check-determinism-fixture.mjs'],
 ];
 
 let failed = null;

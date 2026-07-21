@@ -13,6 +13,7 @@
 // same executionHash()/cgCanon() the rest of the suite uses for execution_hash.
 
 import { cgCanon, executionHash } from '../kernels/_hash.mjs';
+import { serializeCsvField as sharedSerializeCsvField } from '../kernels/_csv_injection.mjs';
 
 export class WorkbookError extends Error {
   constructor(code, detail) {
@@ -453,15 +454,9 @@ export function parseCSV(text) {
   return rows;
 }
 
-const CSV_INJECTION_RE = /^[=+\-@\t\r]/;
-export function serializeCSVField(raw) {
-  let s = raw === null || raw === undefined ? '' : String(raw);
-  const dangerous = CSV_INJECTION_RE.test(s);
-  if (dangerous) s = `'${s}`;
-  const mustQuote = dangerous || /[",\r\n]/.test(s);
-  if (mustQuote) s = `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+// CSV-injection prefix rule lives in the shared helper (kernels/_csv_injection.mjs)
+// so the workbook engine and any other CSV-emitting surface share one implementation.
+export const serializeCSVField = sharedSerializeCsvField;
 export function serializeCSV(rows) {
   return rows.map((row) => row.map(serializeCSVField).join(',')).join('\r\n') + '\r\n';
 }
