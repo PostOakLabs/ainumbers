@@ -24,7 +24,7 @@ export const meta = {
 };
 
 const TOOL_ID      = 'art-371-simulate-var-monte-carlo';
-const TOOL_VERSION = '1.1.0';
+const TOOL_VERSION = '1.1.1';
 
 const FP        = 1_000_000n;       // fixed-point scale: 1.0 == 1_000_000n
 const MASK64    = (1n << 64n) - 1n;
@@ -88,7 +88,7 @@ export function compute(pp) {
   const portfolio_value_mm = pp.portfolio_value_mm ?? 100;
   const seed             = Math.trunc(pp.seed ?? (42 + n_assets));
   const prng_algorithm    = 'xoshiro256**';
-  const draw_count        = n_paths * n_assets * 12; // uniform draws consumed
+  const draw_count        = n_paths * (n_assets + 1) * 12; // uniform draws consumed (commonZ + n_assets idioZ draws per path, 12 uniforms each)
 
   const rho_fixed   = BigInt(Math.round(correlation * 1e6));
   const sqrtRho     = fpSqrt(rho_fixed);

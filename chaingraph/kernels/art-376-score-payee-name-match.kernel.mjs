@@ -100,20 +100,32 @@ const DIACRITIC_MAP = {
 };
 
 // Guest-friendly lookup: derived once from DIACRITIC_MAP (still the single
-// source of truth for the table-driven equivalence test), but the hot loop
-// below never does Unicode-string object-property access — that indexing
-// pattern is super-linearly slow inside the QuickJS proving guest
-// (ART376-PROFILE-1). Paired string+array scan via String#indexOf instead.
-const DIACRITIC_KEYS = Object.keys(DIACRITIC_MAP).join('');
-const DIACRITIC_VALS = Object.values(DIACRITIC_MAP);
+// source of truth for the table-driven equivalence test), keyed by numeric
+// char code instead of the Unicode-string char itself. Both the earlier
+// `DIACRITIC_MAP[ch]` object-key form and the `DIACRITIC_KEYS.indexOf(ch)`
+// string-scan form (ART376-FIX-1) were super-linearly slow inside the
+// QuickJS proving guest (ART376-PROFILE-1 / ART376-TRIPLECHECK-REPORT.md) —
+// both forms keep the hot loop iterating with `for..of` over a JS string
+// (a Unicode code-point iterator, not a plain index) and building the
+// result with in-loop `+=` concatenation. This rewrite drops all three:
+// indexed `for` + `charCodeAt` (no string iterator), a numeric-keyed
+// lookup object (no Unicode-string property/indexOf scan — small-integer
+// keys are array-index-backed, not hash-string-backed), and an output
+// array joined once at the end (no incremental concat).
+const DIACRITIC_BY_CODE = {};
+for (const ch of Object.keys(DIACRITIC_MAP)) {
+  DIACRITIC_BY_CODE[ch.charCodeAt(0)] = DIACRITIC_MAP[ch];
+}
 
 function stripDiacritics(s) {
-  let out = '';
-  for (const ch of s) {
-    const idx = DIACRITIC_KEYS.indexOf(ch);
-    out += idx === -1 ? ch : DIACRITIC_VALS[idx];
+  const len = s.length;
+  const parts = new Array(len);
+  for (let i = 0; i < len; i++) {
+    const code = s.charCodeAt(i);
+    const repl = DIACRITIC_BY_CODE[code];
+    parts[i] = repl === undefined ? s[i] : repl;
   }
-  return out;
+  return parts.join('');
 }
 
 // Test-only exports (ART376-FIX-1 table-driven equivalence test) — additive,
