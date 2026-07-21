@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OTel Span Receipt Verifier · T566 · AINumbers.co</title>
+<meta name="description" content="Compose or paste an OTLP/JSON trace, generate a per-span OCG receipt chain (span digest, parent-span receipt digest, semconv snapshot, eddsa-jcs-2022 signature) plus a Merkle-rooted trace receipt, and verify a trace + receipt bundle: recompute digests, walk the parent chain, check the Merkle root, and report exactly which spans are attested vs unattested vs tampered. Zero network export, file export only. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/566-otel-span-receipt-verifier">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OTel Span Receipt Verifier · T566","url":"https://ainumbers.co/tools/566-otel-span-receipt-verifier","description":"Generates a per-span OCG receipt chain over an OTLP/JSON trace (span digest, parent-span receipt digest, semconv snapshot, eddsa-jcs-2022 signature) plus a Merkle-rooted trace receipt, and verifies a trace + receipt bundle, reporting which spans are attested vs unattested vs tampered.","applicationCategory":"DeveloperApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "566-otel-span-receipt-verifier",
+  "version": "1.0.0",
+  "title": "OTel Span Receipt Verifier",
+  "description": "Generates a per-span receipt chain over an OTLP/JSON trace (span digest, parent-span receipt digest, semconv_snapshot, eddsa-jcs-2022 signature over an ephemeral did:key) plus a Merkle-rooted (RFC 6962) trace receipt, then verifies any trace + receipt bundle: recomputes digests, walks the parent-receipt chain, rebuilds the Merkle root, and reports which spans are attested, unattested, or tampered.",
+  "category": "mcp",
+  "tags": ["OTLP", "OpenTelemetry", "gen_ai", "span receipt", "Merkle tree", "RFC 6962", "eddsa-jcs-2022", "did:key", "trace verification"],
+  "audience": ["ai-engineer", "platform-engineer", "observability", "compliance"],
+  "input_schema": {"type":"object","properties":{"trace":{"type":"object","description":"OTLP/JSON trace document (resourceSpans root)"},"bundle":{"type":"object","description":"Span-receipt bundle produced by this tool (span_receipts[] + trace_receipt)"}},"required":["trace"]},
+  "output_schema": {"type":"object","properties":{"span_receipts":{"type":"array"},"trace_receipt":{"type":"object"},"verification_report":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_otel_span_receipt","description":"Recomputes per-span digests and the parent-receipt chain over an OTLP/JSON trace against a span-receipt bundle, rebuilds the RFC 6962 Merkle root, and reports which spans are attested, unattested, or tampered.","inputSchema":{"type":"object","properties":{"trace":{"type":"object"},"bundle":{"type":"object"}},"required":["trace","bundle"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/566-otel-span-receipt-verifier.html","function_name":"verifyBundleUI","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:200px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.sec{background:var(--bg-4);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.finding{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:1rem 1.1rem;margin-bottom:.9rem}
+.finding-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap}
+.finding-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--bright)}
+.finding-status{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid currentColor}
+.st-ok{color:var(--green);background:var(--green-dim)}
+.st-bad{color:var(--red);background:var(--red-dim)}
+.st-warn{color:var(--warn);background:var(--warn-dim)}
+.st-info{color:var(--muted);background:var(--bg-4)}
+.finding-detail{font-size:.76rem;color:var(--body);line-height:1.65;margin-bottom:.5rem}
+.finding-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;background:var(--bg-4);border-radius:4px;padding:.5rem .6rem;margin-top:.4rem;line-height:1.6}
+
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:700px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.receipt-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:420px;overflow-y:auto}
+.verify-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);transition:all .2s;cursor:pointer;border:1px solid;background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.3)}
+.btn-export:hover{background:var(--teal);color:var(--bg)}
+.btn-export.sec{background:var(--bg-4);color:var(--text);border-color:var(--border)}
+.btn-export.sec:hover{border-color:var(--teal);color:var(--teal)}
+.btn-export.warn{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.3)}
+.btn-export.warn:hover{background:var(--warn);color:var(--bg)}
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><a href="../tools/556-otlp-genai-span-composer-linter.html">OTLP Composer/Linter</a><span class="nav-sep">/</span><span>T-566</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T566 &middot; MCP &amp; Agentic Commerce &middot; OpenTelemetry &middot; Receipts &middot; Merkle</div>
+    <h1>OTel Span Receipt Verifier</h1>
+    <p class="hero-desc">Take an OTLP/JSON trace and generate one receipt per span: a canonical span digest, the parent-span's receipt digest (so the receipt chain mirrors the span tree), the pinned gen_ai attribute snapshot in force, and an eddsa-jcs-2022 signature. All span receipts roll up into a single Merkle-rooted trace receipt. Paste any trace + bundle back in to verify it &ndash; recompute every digest, walk the parent chain, rebuild the Merkle root, and see exactly which spans are attested, unattested, or tampered.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">Receipt Per Span</span>
+      <span class="hero-badge badge-gold">RFC 6962 Merkle Root</span>
+      <span class="hero-badge badge-purple">eddsa-jcs-2022</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      A span receipt proves this exact span content, at this position in the span tree, was attested by whoever holds the signing key, at generation time. It does not prove the underlying operation was computationally correct (that is OCG &sect;18, a separate claim), and it does not prove real-world timing accuracy &ndash; it binds to whatever <code>startTimeUnixNano</code>/<code>endTimeUnixNano</code> the trace already carries. The <code>gen_ai</code> attribute namespace has zero tagged upstream releases, so <code>semconv_snapshot</code> is this tool's own dated pin, stamped into every receipt, and expected to drift as the upstream spec moves. Signing keys here are ephemeral (or pasted by you), not anchored to any external identity registry. Zero network export: this page never opens an OTLP or network connection. Everything stays in the browser; use the download buttons to save files.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="sec-label">Step 1 &middot; Load or Paste an OTLP/JSON Trace</div>
+    <div class="panel">
+      <div class="panel-label">resourceSpans &rarr; scopeSpans &rarr; spans &middot; any valid OTLP/JSON trace works</div>
+      <div class="panel-body">
+        <div class="fixture-row">
+          <button class="btn-fixture" onclick="loadSampleTrace()">Load sample trace (invoke_agent + chat + execute_tool)</button>
+        </div>
+        <div class="form-group">
+          <label>OTLP/JSON trace</label>
+          <textarea id="traceInput" placeholder="Paste an OTLP/JSON trace here, or click the sample above." spellcheck="false"></textarea>
+        </div>
+        <button class="run-btn" id="genBtn" onclick="generateBundleUI()">Generate Receipt Bundle &#8594;</button>
+        <div id="genErr" class="errbox"></div>
+      </div>
+    </div>
+
+    <div id="bundleSection" style="display:none">
+      <div class="sec-label">Step 2 &middot; Span Receipts + Trace Receipt</div>
+      <div class="panel">
+        <div class="panel-label">issuer: <span id="issuerLabel"></span> &middot; semconv_snapshot: <span id="snapshotLabel"></span></div>
+        <div class="panel-body">
+          <div id="spanReceiptsList"></div>
+          <div class="finding" style="border-color:rgba(212,168,71,.35)">
+            <div class="finding-head"><span class="finding-title">Trace Receipt (Merkle root over span receipts)</span></div>
+            <div id="traceReceiptBox" class="finding-mono"></div>
+          </div>
+          <div class="verify-row">
+            <button class="btn-export" onclick="downloadBundle()">Download Bundle (.receipts.json)</button>
+            <button class="btn-export sec" onclick="tamperOneSpan()">Demo: Tamper One Span</button>
+            <button class="btn-export warn" onclick="dropOneReceipt()">Demo: Drop One Span Receipt</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-label">Step 3 &middot; Verify a Trace + Receipt Bundle</div>
+    <div class="panel">
+      <div class="panel-label">Recompute digests &middot; walk parent chain &middot; rebuild Merkle root &middot; attested vs unattested vs tampered</div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Receipt bundle (span_receipts[] + trace_receipt) &ndash; auto-filled after Step 2, or paste your own</label>
+          <textarea id="bundleInput" placeholder="Generate a bundle above, or paste one here." spellcheck="false"></textarea>
+        </div>
+        <button class="run-btn" onclick="verifyBundleUI()">Verify Bundle &#8594;</button>
+        <div id="verifyErr" class="errbox"></div>
+      </div>
+    </div>
+
+    <div id="verifySection" style="display:none">
+      <div class="sec-label">Step 4 &middot; Verification Report</div>
+      <div class="panel">
+        <div class="panel-label">Which spans are attested vs unattested vs tampered</div>
+        <div class="panel-body">
+          <div id="verifySummaryGrid" class="summary-grid"></div>
+          <div id="verifyFindingsList"></div>
+        </div>
+      </div>
+
+      <div class="sec-label">Step 5 &middot; OCG Check Receipt (this verification run)</div>
+      <div class="panel">
+        <div class="panel-label">Deterministic execution hash over this verification's inputs and verdict</div>
+        <div class="panel-body">
+          <div id="checkReceiptBox" class="receipt-box"></div>
+          <div class="verify-row">
+            <button class="btn-export" onclick="downloadCheckReceipt()">Download Receipt (JSON)</button>
+            <button class="btn-export sec" onclick="recheckReceipt()">Recompute &amp; Verify Receipt Hash</button>
+          </div>
+          <div id="recheckResult" style="margin-top:1rem"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Verify a bundle above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/556-otlp-genai-span-composer-linter.html">OTLP GenAI Composer/Linter</a>
+      <a href="../guides/agent-observability-hub.html">Agent Observability Guide</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   OCG-PROOF v1 (inline, single-file port of chaingraph/kernels/
+   _proof.mjs + _hash.mjs — byte-identical canon/hash to tools/544).
+   Provides: cgCanon, executionHash, sha256HexOfCanon, did:key
+   helpers, and eddsa-jcs-2022 signDoc/verifyDoc over a root-level
+   proof field. This is the ONLY canonicalization/signing path used
+   below — never a second hand-rolled one.
+══════════════════════════════════════════════════════════════ */
+(function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  function canonicalPreimage(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    return JSON.stringify(cgCanon(obj));
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  var enc=function(s){return new TextEncoder().encode(s);};
+  function jcsBytes(obj){ return enc(JSON.stringify(cgCanon(obj))); }
+  async function sha256(bytes){ var d=await crypto.subtle.digest('SHA-256', bytes); return new Uint8Array(d); }
+  async function sha256HexOfCanon(v){
+    var b=await sha256(jcsBytes(v));
+    return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  }
+  function hexToBytes(hex){
+    var b=new Uint8Array(hex.length/2);
+    for(var i=0;i<b.length;i++) b[i]=parseInt(hex.substr(i*2,2),16);
+    return b;
+  }
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58encode(bytes){
+    var zeros=0; while(zeros<bytes.length && bytes[zeros]===0) zeros++;
+    var digits=[0];
+    for(var i=zeros;i<bytes.length;i++){
+      var carry=bytes[i];
+      for(var j=0;j<digits.length;j++){ carry+=digits[j]<<8; digits[j]=carry%58; carry=(carry/58)|0; }
+      while(carry){ digits.push(carry%58); carry=(carry/58)|0; }
+    }
+    var out=''; for(var k=0;k<zeros;k++) out+='1';
+    for(var q=digits.length-1;q>=0;q--) out+=B58[digits[q]];
+    return out;
+  }
+  function b58decode(str){
+    var zeros=0; while(zeros<str.length && str[zeros]==='1') zeros++;
+    var bytes=[0];
+    for(var i=zeros;i<str.length;i++){
+      var carry=B58.indexOf(str[i]); if(carry<0) throw new Error('bad base58 char');
+      for(var j=0;j<bytes.length;j++){ carry+=bytes[j]*58; bytes[j]=carry&0xff; carry>>=8; }
+      while(carry){ bytes.push(carry&0xff); carry>>=8; }
+    }
+    var out=new Uint8Array(zeros+bytes.length);
+    for(var k=0;k<bytes.length;k++) out[zeros+bytes.length-1-k]=bytes[k];
+    return out;
+  }
+  var ED25519_MULTICODEC=[0xed,0x01];
+  async function rawPubkeyToDidKey(publicKey){
+    var raw=new Uint8Array(await crypto.subtle.exportKey('raw', publicKey));
+    var prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+    prefixed.set(ED25519_MULTICODEC,0); prefixed.set(raw, ED25519_MULTICODEC.length);
+    return 'did:key:z'+b58encode(prefixed);
+  }
+  async function didKeyToPublicKey(did){
+    if(!did || did.indexOf('did:key:z')!==0) throw new Error('not a did:key z-form');
+    var prefixed=b58decode(did.slice('did:key:z'.length));
+    if(prefixed[0]!==0xed || prefixed[1]!==0x01) throw new Error('did:key is not Ed25519');
+    var raw=prefixed.slice(2);
+    return crypto.subtle.importKey('raw', raw, {name:'Ed25519'}, true, ['verify']);
+  }
+  function proofOptions(o){
+    return {type:'DataIntegrityProof', cryptosuite:'eddsa-jcs-2022', verificationMethod:o.verificationMethod, proofPurpose:'assertionMethod', created:o.created};
+  }
+  async function hashData(doc, opts){
+    var optHash=await sha256(jcsBytes(opts));
+    var docHash=await sha256(jcsBytes(doc));
+    var cat=new Uint8Array(optHash.length+docHash.length);
+    cat.set(optHash,0); cat.set(docHash, optHash.length);
+    return cat;
+  }
+  async function signDoc(doc, proofField, o){
+    if(!o.verificationMethod || !o.created || !o.privateKey) throw new Error('signDoc requires verificationMethod, created, privateKey');
+    var opts=proofOptions(o);
+    var secured=JSON.parse(JSON.stringify(doc)); delete secured[proofField];
+    var sigBytes=new Uint8Array(await crypto.subtle.sign('Ed25519', o.privateKey, await hashData(secured, opts)));
+    var proof=Object.assign({}, opts, {proofValue:'z'+b58encode(sigBytes)});
+    var out=JSON.parse(JSON.stringify(doc)); out[proofField]=proof;
+    return out;
+  }
+  async function verifyDoc(doc, proofField, publicKey){
+    var proof=doc[proofField];
+    if(!proof || proof.type!=='DataIntegrityProof' || proof.cryptosuite!=='eddsa-jcs-2022') return false;
+    if(proof.proofPurpose!=='assertionMethod' || typeof proof.proofValue!=='string' || proof.proofValue[0]!=='z') return false;
+    var opts=proofOptions({verificationMethod:proof.verificationMethod, created:proof.created});
+    try{
+      var sig=b58decode(proof.proofValue.slice(1));
+      var secured=JSON.parse(JSON.stringify(doc)); delete secured[proofField];
+      return await crypto.subtle.verify('Ed25519', publicKey, sig, await hashData(secured, opts));
+    }catch(e){ return false; }
+  }
+  window.OCG={cgCanon:cgCanon, executionHash:executionHash, sha256HexOfCanon:sha256HexOfCanon, hexToBytes:hexToBytes,
+    rawPubkeyToDidKey:rawPubkeyToDidKey, didKeyToPublicKey:didKeyToPublicKey, signDoc:signDoc, verifyDoc:verifyDoc, sha256:sha256};
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   RFC 6962 / RFC 9162 Merkle tree — same leafHash/nodeHash/mth
+   shape as chaingraph/kernels/_anchor-testutil.mjs (the c2sp/scitt
+   §20/§20.1 verifiers), ported to WebCrypto Uint8Array so this
+   page never opens a second Merkle implementation.
+══════════════════════════════════════════════════════════════ */
+function concatBytes(a,b){var out=new Uint8Array(a.length+b.length);out.set(a,0);out.set(b,a.length);return out;}
+async function leafHash(data){return await OCG.sha256(concatBytes(new Uint8Array([0x00]),data));}
+async function nodeHash(l,r){return await OCG.sha256(concatBytes(new Uint8Array([0x01]),concatBytes(l,r)));}
+function bytesToHex(b){return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+async function mth(leafHashes){
+  var n=leafHashes.length;
+  if(n===1) return leafHashes[0];
+  var k=1; while(k*2<n) k*=2;
+  return await nodeHash(await mth(leafHashes.slice(0,k)), await mth(leafHashes.slice(k)));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Pinned attribute snapshot — same dated pin as tools/556 (the
+   OTLP composer/linter this rides). Stamped into every span
+   receipt and trace receipt so a reader knows which gen_ai
+   attribute set was in force when the receipt was generated.
+══════════════════════════════════════════════════════════════ */
+const SEMCONV_SNAPSHOT_ID='genai-semconv-snapshot-2026-07-18';
+const CHAINGRAPH_VERSION='0.4.0';
+const TOOL_ID='566-otel-span-receipt-verifier';
+
+/* ══════════════════════════════════════════════════════════════
+   OTLP helpers — flatten resourceSpans/scopeSpans/spans, and a
+   small sample-trace generator (hand-rolled OTLP/JSON, per the
+   same zero-dep constraint as tools/556 — no vendored SDK).
+══════════════════════════════════════════════════════════════ */
+function randHex(nBytes){
+  const b=new Uint8Array(nBytes);crypto.getRandomValues(b);
+  return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function nanoNow(offsetMs){ return (BigInt(Date.now()+(offsetMs||0))*1000000n).toString(); }
+function sv(s){return{stringValue:String(s)};}
+function iv(n){return{intValue:String(Math.trunc(n))};}
+function attr(key,value){return{key,value};}
+
+function flattenSpans(trace){
+  const out=[];
+  (trace.resourceSpans||[]).forEach(rs=>{
+    (rs.scopeSpans||[]).forEach(ss=>{
+      (ss.spans||[]).forEach(sp=>out.push(sp));
+    });
+  });
+  return out;
+}
+
+function loadSampleTrace(){
+  const traceId=randHex(16), agentSpanId=randHex(8), chatSpanId=randHex(8), toolSpanId=randHex(8);
+  const t0=nanoNow(0),t1=nanoNow(40),t2=nanoNow(80),t3=nanoNow(180),t4=nanoNow(30),t5=nanoNow(70);
+  const trace={
+    resourceSpans:[{
+      resource:{attributes:[attr('service.name',sv('ainumbers-agent-runtime')),attr('telemetry.sdk.name',sv('ainumbers-otlp-composer'))]},
+      scopeSpans:[{
+        scope:{name:'ainumbers.otel-span-receipt-verifier',version:'1.0.0'},
+        spans:[
+          {traceId,spanId:agentSpanId,name:'invoke_agent triage-agent',kind:'SPAN_KIND_INTERNAL',startTimeUnixNano:t0,endTimeUnixNano:t3,
+            attributes:[attr('gen_ai.operation.name',sv('invoke_agent')),attr('gen_ai.system',sv('anthropic')),attr('gen_ai.agent.name',sv('triage-agent'))],
+            status:{code:'STATUS_CODE_OK'}},
+          {traceId,spanId:chatSpanId,parentSpanId:agentSpanId,name:'chat claude-sonnet-5',kind:'SPAN_KIND_CLIENT',startTimeUnixNano:t1,endTimeUnixNano:t2,
+            attributes:[attr('gen_ai.operation.name',sv('chat')),attr('gen_ai.system',sv('anthropic')),attr('gen_ai.request.model',sv('claude-sonnet-5')),attr('gen_ai.usage.input_tokens',iv(482)),attr('gen_ai.usage.output_tokens',iv(176))],
+            status:{code:'STATUS_CODE_OK'}},
+          {traceId,spanId:toolSpanId,parentSpanId:agentSpanId,name:'execute_tool lookup_account_balance',kind:'SPAN_KIND_INTERNAL',startTimeUnixNano:t4,endTimeUnixNano:t5,
+            attributes:[attr('gen_ai.operation.name',sv('execute_tool')),attr('gen_ai.system',sv('anthropic')),attr('gen_ai.tool.name',sv('lookup_account_balance')),attr('gen_ai.tool.call.id',sv('call_'+randHex(4)))],
+            status:{code:'STATUS_CODE_OK'}},
+        ],
+      }],
+    }],
+  };
+  document.getElementById('traceInput').value=JSON.stringify(trace,null,2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATE + core bundle generation / verification
+══════════════════════════════════════════════════════════════ */
+var STATE={trace:null, spans:[], spanReceipts:[], traceReceipt:null, publicKey:null, issuerDid:null, verifyReport:null, checkReceipt:null};
+
+function setErr(id,msg){ var el=document.getElementById(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+
+async function generateBundleUI(){
+  setErr('genErr','');
+  var btn=document.getElementById('genBtn'); btn.disabled=true; btn.textContent='Signing...';
+  try{
+    var text=document.getElementById('traceInput').value.trim();
+    if(!text) throw new Error('Paste an OTLP/JSON trace, or click "Load sample trace" above.');
+    var trace=JSON.parse(text);
+    var spans=flattenSpans(trace);
+    if(spans.length===0) throw new Error('No spans found under resourceSpans[].scopeSpans[].spans[].');
+    var traceId=spans[0].traceId;
+
+    var kp=await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+    var issuerDid=await OCG.rawPubkeyToDidKey(kp.publicKey);
+    var generatedAt=new Date().toISOString();
+
+    var receiptsBySpanId={};
+    var spanReceipts=[];
+    for(var i=0;i<spans.length;i++){
+      var sp=spans[i];
+      var spanDigest=await OCG.sha256HexOfCanon(sp);
+      var parentReceiptDigest=null;
+      if(sp.parentSpanId && receiptsBySpanId[sp.parentSpanId]){
+        parentReceiptDigest=await OCG.sha256HexOfCanon(receiptsBySpanId[sp.parentSpanId]);
+      }
+      var draft={
+        chaingraph_version:CHAINGRAPH_VERSION, tool_id:TOOL_ID, generated_at:generatedAt,
+        trace_id:traceId, span_id:sp.spanId, parent_span_id:sp.parentSpanId||null,
+        span_digest:spanDigest, parent_receipt_digest:parentReceiptDigest,
+        semconv_snapshot:SEMCONV_SNAPSHOT_ID,
+      };
+      var signed=await OCG.signDoc(draft, 'proof', {verificationMethod:issuerDid, created:generatedAt, privateKey:kp.privateKey});
+      receiptsBySpanId[sp.spanId]=signed;
+      spanReceipts.push(signed);
+    }
+
+    var leafHashes=[];
+    for(var j=0;j<spanReceipts.length;j++) leafHashes.push(await leafHash(OCG.hexToBytes(await OCG.sha256HexOfCanon(spanReceipts[j]))));
+    var root=await mth(leafHashes);
+    var rootHex=bytesToHex(root);
+
+    var policy_parameters={activity:'otel_trace_receipt', trace_id:traceId, span_count:spanReceipts.length};
+    var output_payload={merkle_root:rootHex, semconv_snapshot:SEMCONV_SNAPSHOT_ID, algorithm:'rfc6962'};
+    var execHash=await OCG.executionHash(policy_parameters, output_payload);
+
+    var traceDraft={
+      chaingraph_version:CHAINGRAPH_VERSION, tool_id:TOOL_ID, generated_at:generatedAt,
+      trace_id:traceId, algorithm:'rfc6962', tree_size:spanReceipts.length,
+      leaves:spanReceipts.map(r=>r.span_id), merkle_root:rootHex,
+      semconv_snapshot:SEMCONV_SNAPSHOT_ID,
+      policy_parameters:policy_parameters, output_payload:output_payload, execution_hash:execHash,
+    };
+    var traceReceipt=await OCG.signDoc(traceDraft, 'proof', {verificationMethod:issuerDid, created:generatedAt, privateKey:kp.privateKey});
+
+    STATE.trace=trace; STATE.spans=spans; STATE.spanReceipts=spanReceipts; STATE.traceReceipt=traceReceipt;
+    STATE.publicKey=kp.publicKey; STATE.issuerDid=issuerDid;
+
+    renderBundle();
+    document.getElementById('bundleInput').value=JSON.stringify({trace:STATE.trace, span_receipts:STATE.spanReceipts, trace_receipt:STATE.traceReceipt, issuer_did:STATE.issuerDid},null,2);
+    document.getElementById('bundleSection').style.display='block';
+  }catch(e){
+    setErr('genErr','Generation failed: '+(e&&e.message?e.message:e));
+  }finally{
+    btn.disabled=false; btn.textContent='Generate Receipt Bundle →';
+  }
+}
+
+function renderBundle(){
+  document.getElementById('issuerLabel').textContent=STATE.issuerDid;
+  document.getElementById('snapshotLabel').textContent=SEMCONV_SNAPSHOT_ID;
+  var list=document.getElementById('spanReceiptsList'); list.innerHTML='';
+  STATE.spanReceipts.forEach(function(r){
+    var div=document.createElement('div'); div.className='finding';
+    div.innerHTML='<div class="finding-head"><span class="finding-title">span_id '+r.span_id+'</span><span class="finding-status st-ok">signed</span></div>'+
+      '<div class="finding-detail">parent_span_id: '+(r.parent_span_id||'&mdash; (root span)')+' &middot; parent_receipt_digest: '+(r.parent_receipt_digest?r.parent_receipt_digest.slice(0,16)+'…':'&mdash;')+'</div>'+
+      '<div class="finding-mono">'+JSON.stringify(r,null,2).replace(/</g,'&lt;')+'</div>';
+    list.appendChild(div);
+  });
+  document.getElementById('traceReceiptBox').textContent=JSON.stringify(STATE.traceReceipt,null,2);
+}
+
+function downloadBundle(){
+  var bundle={trace:STATE.trace, span_receipts:STATE.spanReceipts, trace_receipt:STATE.traceReceipt, issuer_did:STATE.issuerDid};
+  var ts=new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'}));
+  a.download='566-otel-span-receipt-verifier_'+ts+'.receipts.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* Demo mutators — mutate STATE.trace (content) or STATE.spanReceipts (bundle) in
+   place and re-sync the two input boxes, so clicking Verify below shows precisely
+   which span the mismatch belongs to. Neither demo mutates the OTHER structure,
+   which is what makes "tampered" (trace changed, receipt didn't) distinguishable
+   from "unattested" (receipt simply absent). */
+function tamperOneSpan(){
+  if(!STATE.spans.length) return;
+  var sp=STATE.spans[STATE.spans.length-1];
+  sp.attributes=sp.attributes||[];
+  sp.attributes.push(attr('gen_ai.tampered_demo',sv('injected-after-signing')));
+  document.getElementById('traceInput').value=JSON.stringify(STATE.trace,null,2);
+  document.getElementById('bundleInput').value=JSON.stringify({trace:STATE.trace, span_receipts:STATE.spanReceipts, trace_receipt:STATE.traceReceipt, issuer_did:STATE.issuerDid},null,2);
+  alert('Tampered span_id '+sp.spanId+' (appended an attribute after signing). Click "Verify Bundle" below to see it flagged.');
+}
+function dropOneReceipt(){
+  if(STATE.spanReceipts.length<2){ alert('Need at least 2 span receipts to demo an unattested span.'); return; }
+  var dropped=STATE.spanReceipts.pop();
+  document.getElementById('bundleInput').value=JSON.stringify({trace:STATE.trace, span_receipts:STATE.spanReceipts, trace_receipt:STATE.traceReceipt, issuer_did:STATE.issuerDid},null,2);
+  renderBundle();
+  alert('Dropped the receipt for span_id '+dropped.span_id+' from the bundle (trace left unchanged). Click "Verify Bundle" below to see it flagged unattested.');
+}
+
+async function verifyBundleUI(){
+  setErr('verifyErr','');
+  try{
+    var text=document.getElementById('bundleInput').value.trim();
+    if(!text) throw new Error('Generate a bundle above, or paste one here.');
+    var bundle=JSON.parse(text);
+    if(!bundle.trace || !Array.isArray(bundle.span_receipts) || !bundle.trace_receipt) throw new Error('Bundle must have {trace, span_receipts[], trace_receipt}.');
+
+    var spans=flattenSpans(bundle.trace);
+    var spanById={}; spans.forEach(s=>spanById[s.spanId]=s);
+    var receiptsBySpanId={}; bundle.span_receipts.forEach(r=>receiptsBySpanId[r.span_id]=r);
+
+    var issuerDid=bundle.issuer_did || (bundle.span_receipts[0] && bundle.span_receipts[0].proof && bundle.span_receipts[0].proof.verificationMethod);
+    var publicKey=null, keyErr=null;
+    try{ publicKey=issuerDid?await OCG.didKeyToPublicKey(issuerDid):null; }catch(e){ keyErr=e.message; }
+
+    var findings=[]; var counts={attested:0,unattested:0,tampered:0};
+
+    for(var i=0;i<bundle.span_receipts.length;i++){
+      var r=bundle.span_receipts[i];
+      var sp=spanById[r.span_id];
+      if(!sp){
+        findings.push({id:r.span_id,title:'span_id '+r.span_id,status:'bad',label:'TAMPERED',detail:'Receipt references a span_id not present in the trace at all.'});
+        counts.tampered++; continue;
+      }
+      var recomputedDigest=await OCG.sha256HexOfCanon(sp);
+      var digestOk=recomputedDigest===r.span_digest;
+
+      var sigOk=false;
+      if(publicKey){ try{ sigOk=await OCG.verifyDoc(r,'proof',publicKey); }catch(e){ sigOk=false; } }
+
+      var chainOk=true, chainDetail='';
+      if(r.parent_span_id){
+        var parentReceipt=receiptsBySpanId[r.parent_span_id];
+        if(!parentReceipt){ chainOk=false; chainDetail='Parent receipt for '+r.parent_span_id+' is missing from the bundle.'; }
+        else{
+          var recomputedParentDigest=await OCG.sha256HexOfCanon(parentReceipt);
+          chainOk=recomputedParentDigest===r.parent_receipt_digest;
+          if(!chainOk) chainDetail='parent_receipt_digest does not match the recomputed digest of the bundled parent receipt.';
+        }
+      }
+
+      if(digestOk && sigOk && chainOk){
+        findings.push({id:r.span_id,title:'span_id '+r.span_id,status:'ok',label:'ATTESTED',detail:'span_digest, eddsa-jcs-2022 signature, and parent-receipt chain all verify.'});
+        counts.attested++;
+      }else{
+        var detail=[];
+        if(!digestOk) detail.push('span_digest mismatch (trace content changed after signing)');
+        if(!sigOk) detail.push(publicKey?'eddsa-jcs-2022 signature does not verify':'no issuer public key to verify against ('+(keyErr||'missing issuer_did')+')');
+        if(!chainOk) detail.push(chainDetail);
+        findings.push({id:r.span_id,title:'span_id '+r.span_id,status:'bad',label:'TAMPERED',detail:detail.join(' · ')});
+        counts.tampered++;
+      }
+    }
+
+    spans.forEach(function(sp){
+      if(!receiptsBySpanId[sp.spanId]){
+        findings.push({id:sp.spanId,title:'span_id '+sp.spanId,status:'warn',label:'UNATTESTED',detail:'Present in the trace but has no receipt in this bundle — never signed, or its receipt was dropped.'});
+        counts.unattested++;
+      }
+    });
+
+    var leafHashes=[];
+    for(var j=0;j<bundle.span_receipts.length;j++) leafHashes.push(await leafHash(OCG.hexToBytes(await OCG.sha256HexOfCanon(bundle.span_receipts[j]))));
+    var rootOk=false, recomputedRoot='';
+    if(leafHashes.length>0){
+      recomputedRoot=bytesToHex(await mth(leafHashes));
+      rootOk=recomputedRoot===bundle.trace_receipt.merkle_root;
+    }
+    var traceSigOk=false;
+    if(publicKey){ try{ traceSigOk=await OCG.verifyDoc(bundle.trace_receipt,'proof',publicKey); }catch(e){ traceSigOk=false; } }
+    var traceExecOk=false;
+    if(bundle.trace_receipt.policy_parameters && bundle.trace_receipt.output_payload){
+      var recheckHash=await OCG.executionHash(bundle.trace_receipt.policy_parameters, bundle.trace_receipt.output_payload);
+      traceExecOk=recheckHash===bundle.trace_receipt.execution_hash;
+    }
+
+    STATE.verifyReport={findings:findings, counts:counts, merkle:{ok:rootOk, recomputedRoot:recomputedRoot, statedRoot:bundle.trace_receipt.merkle_root},
+      traceReceiptSignatureOk:traceSigOk, traceReceiptExecHashOk:traceExecOk, issuerDid:issuerDid, spanCountInTrace:spans.length, receiptCountInBundle:bundle.span_receipts.length};
+
+    renderVerifyReport();
+    await buildCheckReceipt(bundle);
+    document.getElementById('verifySection').style.display='block';
+    enableAP2Btn();
+  }catch(e){
+    setErr('verifyErr','Verification failed: '+(e&&e.message?e.message:e));
+  }
+}
+
+function renderVerifyReport(){
+  var rep=STATE.verifyReport;
+  var sg=document.getElementById('verifySummaryGrid');
+  sg.innerHTML=
+    '<div class="sg-cell"><div class="sg-lbl">Attested</div><div class="sg-val sg-ok">'+rep.counts.attested+'</div></div>'+
+    '<div class="sg-cell"><div class="sg-lbl">Unattested</div><div class="sg-val sg-warn">'+rep.counts.unattested+'</div></div>'+
+    '<div class="sg-cell"><div class="sg-lbl">Tampered</div><div class="sg-val '+(rep.counts.tampered?'sg-bad':'sg-ok')+'">'+rep.counts.tampered+'</div></div>'+
+    '<div class="sg-cell"><div class="sg-lbl">Merkle Root</div><div class="sg-val '+(rep.merkle.ok?'sg-ok':'sg-bad')+'">'+(rep.merkle.ok?'MATCH':'MISMATCH')+'</div></div>';
+
+  var list=document.getElementById('verifyFindingsList'); list.innerHTML='';
+  var cls={ok:'st-ok',bad:'st-bad',warn:'st-warn'};
+  rep.findings.forEach(function(f){
+    var div=document.createElement('div'); div.className='finding';
+    div.innerHTML='<div class="finding-head"><span class="finding-title">'+f.title+'</span><span class="finding-status '+cls[f.status]+'">'+f.label+'</span></div>'+
+      '<div class="finding-detail">'+f.detail+'</div>';
+    list.appendChild(div);
+  });
+
+  var traceDiv=document.createElement('div'); traceDiv.className='finding';
+  traceDiv.style.borderColor='rgba(212,168,71,.35)';
+  traceDiv.innerHTML='<div class="finding-head"><span class="finding-title">Trace receipt (Merkle root + eddsa signature + execution_hash)</span>'+
+    '<span class="finding-status '+(rep.merkle.ok&&rep.traceReceiptSignatureOk&&rep.traceReceiptExecHashOk?'st-ok':'st-bad')+'">'+((rep.merkle.ok&&rep.traceReceiptSignatureOk&&rep.traceReceiptExecHashOk)?'OK':'MISMATCH')+'</span></div>'+
+    '<div class="finding-detail">Merkle root recomputed from '+rep.receiptCountInBundle+' span receipts: '+(rep.merkle.ok?'matches':'does NOT match')+' the stated root. '+
+    'Trace receipt signature: '+(rep.traceReceiptSignatureOk?'verifies':'does NOT verify')+'. execution_hash recompute: '+(rep.traceReceiptExecHashOk?'matches':'does NOT match')+'. '+
+    'Trace has '+rep.spanCountInTrace+' span(s); bundle carries '+rep.receiptCountInBundle+' receipt(s).</div>'+
+    '<div class="finding-mono">recomputed_root: '+rep.merkle.recomputedRoot+'\nstated_root:     '+rep.merkle.statedRoot+'</div>';
+  list.appendChild(traceDiv);
+}
+
+async function buildCheckReceipt(bundle){
+  var generatedAt=new Date().toISOString();
+  var policy_parameters={activity:'otel_span_receipt_verification', trace_id:bundle.trace_receipt.trace_id, issuer_did:STATE.verifyReport.issuerDid||null};
+  var output_payload={attested:STATE.verifyReport.counts.attested, unattested:STATE.verifyReport.counts.unattested, tampered:STATE.verifyReport.counts.tampered, merkle_root_match:STATE.verifyReport.merkle.ok};
+  var execHash=await OCG.executionHash(policy_parameters, output_payload);
+  STATE.checkReceipt={chaingraph_version:CHAINGRAPH_VERSION, tool_id:TOOL_ID, generated_at:generatedAt, policy_parameters:policy_parameters, output_payload:output_payload, execution_hash:execHash};
+  document.getElementById('checkReceiptBox').textContent=JSON.stringify(STATE.checkReceipt,null,2);
+  document.getElementById('recheckResult').innerHTML='';
+}
+async function recheckReceipt(){
+  if(!STATE.checkReceipt) return;
+  var recheck=await OCG.executionHash(STATE.checkReceipt.policy_parameters, STATE.checkReceipt.output_payload);
+  var ok=recheck===STATE.checkReceipt.execution_hash;
+  document.getElementById('recheckResult').innerHTML='<div class="finding-status '+(ok?'st-ok':'st-bad')+'" style="display:inline-block">'+(ok?'✓ execution_hash recomputed and matches':'✗ execution_hash mismatch')+'</div>';
+}
+function downloadCheckReceipt(){
+  if(!STATE.checkReceipt) return;
+  var ts=new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(STATE.checkReceipt,null,2)],{type:'application/json'}));
+  a.download='566-otel-span-receipt-verifier_'+ts+'.receipt.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"566-otel-span-receipt-verifier","version":"1.0.0","title":"OTel Span Receipt Verifier","description":"Generates a per-span receipt chain over an OTLP/JSON trace (span digest, parent-span receipt digest, semconv_snapshot, eddsa-jcs-2022 signature over an ephemeral did:key) plus a Merkle-rooted (RFC 6962) trace receipt, then verifies any trace + receipt bundle: recomputes digests, walks the parent-receipt chain, rebuilds the Merkle root, and reports which spans are attested, unattested, or tampered.","category":"mcp","tags":["OTLP","OpenTelemetry","gen_ai","span receipt","Merkle tree","RFC 6962","eddsa-jcs-2022","did:key","trace verification"],"audience":["ai-engineer","platform-engineer","observability","compliance"],"input_schema":{"type":"object","properties":{"trace":{"type":"object"},"bundle":{"type":"object"}},"required":["trace"]},"output_schema":{"type":"object","properties":{"span_receipts":{"type":"array"},"trace_receipt":{"type":"object"},"verification_report":{"type":"object"}}},"mcp_tool_definition":{"name":"verify_otel_span_receipt","description":"Recomputes per-span digests and the parent-receipt chain over an OTLP/JSON trace against a span-receipt bundle, rebuilds the RFC 6962 Merkle root, and reports which spans are attested, unattested, or tampered.","inputSchema":{"type":"object","properties":{"trace":{"type":"object"},"bundle":{"type":"object"}},"required":["trace","bundle"]}},"execution":{"type":"browser-javascript","entry":"tools/566-otel-span-receipt-verifier.html","function_name":"verifyBundleUI","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.AIN_BUILD_MANDATE=function(){
+  if(!STATE.verifyReport) return null;
+  var ts=new Date().toISOString();
+  var rep=STATE.verifyReport;
+  return {
+    ap2_version:'1.0',
+    mandate_id:'566-otel-span-receipt-verifier-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'566-otel-span-receipt-verifier', tool_version:MANIFEST.version,
+    mandate_type:'verification_report',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:{verification_report:rep, check_receipt:STATE.checkReceipt},
+    summary:'Trace span receipt verification: '+rep.counts.attested+' attested, '+rep.counts.unattested+' unattested, '+rep.counts.tampered+' tampered ('+ts.slice(0,10)+').',
+    agent_instructions:['Do not trust unattested or tampered spans as proof of correctness.','Re-verify the eddsa-jcs-2022 signatures and Merkle root independently before relying on this report.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10), source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Verify a bundle first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'verifyBundleUI',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,
+  getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{return window.AIN_BUILD_MANDATE();}catch(e){}}return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

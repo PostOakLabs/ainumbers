@@ -1,0 +1,108 @@
+{
+  "tool_id": "otel-span-receipt-verifier",
+  "version": "1.0.0",
+  "title": "OTel Span Receipt Verifier",
+  "description": "Generates a per-span receipt chain over an OTLP/JSON trace (span digest, parent-span receipt digest, semconv_snapshot, eddsa-jcs-2022 signature over an ephemeral did:key) plus a Merkle-rooted (RFC 6962) trace receipt, then verifies any trace + receipt bundle: recomputes digests, walks the parent-receipt chain, rebuilds the Merkle root, and reports which spans are attested, unattested, or tampered. File export only, zero network egress. Zero PII.",
+  "category": "mcp",
+  "tags": [
+    "OTLP",
+    "OpenTelemetry",
+    "gen_ai",
+    "span receipt",
+    "Merkle tree",
+    "RFC 6962",
+    "eddsa-jcs-2022",
+    "did:key",
+    "trace verification",
+    "zero-PII"
+  ],
+  "audience": [
+    "ai-engineer",
+    "platform-engineer",
+    "observability",
+    "compliance"
+  ],
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+      "trace"
+    ],
+    "properties": {
+      "trace": {
+        "type": "object",
+        "description": "OTLP/JSON trace document (resourceSpans root), pasted or composed, never fetched"
+      },
+      "bundle": {
+        "type": "object",
+        "description": "Span-receipt bundle produced by this tool (span_receipts[] + trace_receipt), to verify"
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+      "span_receipts",
+      "trace_receipt"
+    ],
+    "properties": {
+      "span_receipts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "span_id": { "type": "string" },
+            "parent_span_id": { "type": ["string", "null"] },
+            "span_digest": { "type": "string" },
+            "parent_receipt_digest": { "type": ["string", "null"] },
+            "semconv_snapshot": { "type": "string" },
+            "proof": { "type": "object" }
+          }
+        }
+      },
+      "trace_receipt": {
+        "type": "object",
+        "description": "RFC 6962 Merkle root over span_receipts, plus OCG execution_hash and eddsa-jcs-2022 proof"
+      },
+      "verification_report": {
+        "type": "object",
+        "description": "attested/unattested/tampered counts and per-span findings from a verify run"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_otel_span_receipt",
+    "description": "Recomputes per-span digests and the parent-receipt chain over an OTLP/JSON trace against a span-receipt bundle, rebuilds the RFC 6962 Merkle root, and reports which spans are attested, unattested, or tampered.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "trace",
+        "bundle"
+      ],
+      "properties": {
+        "trace": {
+          "type": "object",
+          "description": "OTLP/JSON trace document (resourceSpans root)"
+        },
+        "bundle": {
+          "type": "object",
+          "description": "Span-receipt bundle (span_receipts[] + trace_receipt) to verify against the trace"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/566-otel-span-receipt-verifier.html",
+    "function_name": "verifyBundleUI",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "last_reviewed": "2026-07-21",
+  "pii_transmitted": false,
+  "regulatory_frameworks": [],
+  "prefill": true,
+  "bridge_version": "1.0"
+}
