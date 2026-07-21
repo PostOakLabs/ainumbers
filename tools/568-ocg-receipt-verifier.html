@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OCG Receipt Verifier · T568 · AINumbers.co</title>
+<meta name="description" content="Upload or paste an OCG receipt and its inclusion proof or signed checkpoint, and verify hash, eddsa-jcs-2022 Ed25519 signature, and RFC 6962 Merkle inclusion entirely offline in your browser. Snapshot-batch mode verifies many receipts against one uploaded checkpoint. Zero network calls. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/568-ocg-receipt-verifier.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OCG Receipt Verifier · T568","url":"https://ainumbers.co/tools/568-ocg-receipt-verifier.html","description":"Verifies hash, eddsa-jcs-2022 Ed25519 signature, and RFC 6962 Merkle inclusion of an OCG receipt entirely offline in the browser, including a snapshot-batch mode that checks many receipts against one uploaded checkpoint.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "568-ocg-receipt-verifier",
+  "version": "1.0.0",
+  "title": "OCG Receipt Verifier",
+  "description": "Fully offline, upload-driven verifier for OCG receipts: recomputes the execution_hash, verifies any eddsa-jcs-2022 Ed25519 audit_signature.proof, and checks RFC 6962 Merkle inclusion against an anchor_bindings entry. Snapshot-batch mode verifies many receipts against one uploaded checkpoint note. Zero network calls anywhere in the tool.",
+  "category": "mcp",
+  "tags": ["OCG receipt", "offline verifier", "airgapped", "eddsa-jcs-2022", "Ed25519", "Merkle inclusion", "RFC 6962", "execution_hash", "checkpoint", "zero network"],
+  "audience": ["compliance", "auditor", "engineer", "risk"],
+  "input_schema": {"type":"object","properties":{"receipt":{"type":"object","description":"A single OCG artifact JSON to verify"},"checkpoint_note":{"type":"string","description":"C2SP tlog-checkpoint note text (origin/size/root) for snapshot-batch mode"},"receipts":{"type":"array","description":"Multiple OCG artifacts to verify against one checkpoint"}},"required":[]},
+  "output_schema": {"type":"object","properties":{"verification_report":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_ocg_receipt","description":"Recomputes an OCG receipt's execution_hash, verifies its eddsa-jcs-2022 signature (if present), and verifies RFC 6962 Merkle inclusion against an anchor binding or an uploaded checkpoint.","inputSchema":{"type":"object","properties":{"receipt":{"type":"object"},"checkpoint_note":{"type":"string"},"receipts":{"type":"array"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/568-ocg-receipt-verifier.html","function_name":"verifySingleUI","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:160px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.sec{background:var(--bg-4);color:var(--text);border:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.tabs{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.tab-btn{background:var(--bg-2);border:1px solid var(--border);color:var(--muted);padding:.55rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}
+.tab-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:1.5rem 1.25rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);transition:border-color .2s;cursor:pointer;margin-bottom:1rem}
+.drop-zone.drag{border-color:var(--teal)}
+.drop-zone strong{color:var(--text)}
+
+.finding{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:1rem 1.1rem;margin-bottom:.9rem}
+.finding-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap}
+.finding-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--bright)}
+.finding-status{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid currentColor}
+.st-ok{color:var(--green);background:var(--green-dim)}
+.st-bad{color:var(--red);background:var(--red-dim)}
+.st-warn{color:var(--warn);background:var(--warn-dim)}
+.st-info{color:var(--muted);background:var(--bg-4)}
+.finding-detail{font-size:.76rem;color:var(--body);line-height:1.65;margin-bottom:.5rem}
+.finding-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;background:var(--bg-4);border-radius:4px;padding:.5rem .6rem;margin-top:.4rem;line-height:1.6}
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .6rem;background:var(--bg-4);border-radius:4px}
+.check-pass{color:var(--green)}.check-fail{color:var(--red)}
+.check-name{color:var(--bright);min-width:170px;flex-shrink:0}
+.check-detail{color:var(--body)}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-4);border-left:3px solid var(--warn);border-radius:4px}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-568</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T568 &middot; MCP &amp; Agentic Commerce &middot; Anchor Verification &middot; Airgapped</div>
+    <h1>OCG Receipt Verifier</h1>
+    <p class="hero-desc">Upload or paste an OCG receipt, and this tool recomputes its <code>execution_hash</code>, checks any eddsa-jcs-2022 Ed25519 signature, and verifies RFC 6962 Merkle inclusion against an anchor binding &ndash; entirely in your browser, with zero network calls. Switch to snapshot-batch mode to check many receipts at once against one uploaded checkpoint.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">execution_hash</span>
+      <span class="hero-badge badge-gold">eddsa-jcs-2022</span>
+      <span class="hero-badge badge-purple">RFC 6962 Merkle Inclusion</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      A PASS verdict proves: the pasted receipt's <code>execution_hash</code> recomputes correctly from its <code>policy_parameters</code>/<code>output_payload</code>; every attached eddsa-jcs-2022 <code>audit_signature.proof</code> verifies against the key it names; and any <code>anchor_bindings[].merkle_inclusion</code> path reconstructs the claimed root. It does not prove the timestamp authority or transparency log itself is honest or complete, that the signing key belongs to who it claims, or that the underlying RFC 3161/OpenTimestamps proof bytes are valid &ndash; this tool checks the hash, signature, and Merkle layer only, never the TSA/log's own cryptographic evidence. For that, or for witness-cosignature verification, use the <a href="../chaingraph/art-424-witness-cosignature-verifier.html" style="color:var(--teal)">Witness Cosignature Verifier</a>. Nothing on this page ever opens a network connection &ndash; every check runs against the bytes you paste or upload.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tabSingleBtn" onclick="switchTab('single')">Single Receipt</button>
+      <button class="tab-btn" id="tabBatchBtn" onclick="switchTab('batch')">Snapshot Batch &middot; One Checkpoint</button>
+    </div>
+
+    <div class="tab-panel active" id="tabSingle">
+      <div class="sec-label">Verify One Receipt</div>
+      <div class="panel">
+        <div class="panel-label">Paste or upload a single OCG artifact JSON</div>
+        <div class="panel-body">
+          <div class="fixture-row">
+            <button class="btn-fixture" onclick="loadFixture('golden')">Load golden fixture (real round-trip)</button>
+            <button class="btn-fixture" onclick="loadFixture('tampered')">Load tampered fixture (expect FAIL)</button>
+          </div>
+          <div class="drop-zone" id="dropSingle">Drag one receipt <code>.json</code> here, or click to choose a file</div>
+          <input type="file" id="fileSingleInput" accept="application/json,.json" style="display:none">
+          <div class="form-group">
+            <label>Receipt JSON</label>
+            <textarea id="receiptInput" placeholder="Paste an OCG artifact JSON here, or use a fixture / file above." spellcheck="false"></textarea>
+          </div>
+          <button class="run-btn" onclick="verifySingleUI()">Verify Receipt &#8594;</button>
+          <div id="singleErr" class="errbox"></div>
+        </div>
+      </div>
+      <div id="singleResult"></div>
+    </div>
+
+    <div class="tab-panel" id="tabBatch">
+      <div class="sec-label">Verify Many Receipts Against One Checkpoint</div>
+      <div class="panel">
+        <div class="panel-label">Step 1 &middot; checkpoint note (origin / tree size / root)</div>
+        <div class="panel-body">
+          <div class="fixture-row">
+            <button class="btn-fixture" onclick="loadBatchFixture()">Load fixture checkpoint + 2 receipts</button>
+          </div>
+          <div class="form-group">
+            <label>Checkpoint note text (C2SP tlog-checkpoint: origin, size, base64 root)</label>
+            <textarea id="checkpointInput" style="min-height:100px" placeholder="origin.example.org&#10;42&#10;GkiUhySwSREs/yRnVhq1MHz3a2DdEbY4R0SdrxVcVIU=&#10;" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Step 2 &middot; the receipts to check against that checkpoint's root</div>
+        <div class="panel-body">
+          <div class="drop-zone" id="dropBatch">Drag multiple receipt <code>.json</code> files here, or click to choose files</div>
+          <input type="file" id="fileBatchInput" accept="application/json,.json" multiple style="display:none">
+          <div id="batchCount" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:.75rem"></div>
+          <div class="form-group">
+            <label>&hellip;or paste a JSON array of receipts instead of uploading files</label>
+            <textarea id="batchReceiptsInput" style="min-height:100px" placeholder="[ {receipt one}, {receipt two}, ... ]" spellcheck="false"></textarea>
+          </div>
+          <button class="run-btn" onclick="verifyBatchUI()">Verify Batch &#8594;</button>
+          <div id="batchErr" class="errbox"></div>
+        </div>
+      </div>
+      <div id="batchResult"></div>
+    </div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Verify a receipt above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/art-424-witness-cosignature-verifier.html">Witness Cosignature Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   OCG-CORE v1 (inline, single-file port of chaingraph/kernels/
+   _hash.mjs + the did:key / eddsa-jcs-2022 helpers in _proof.mjs).
+   Byte-identical canon/hash to tools/566, tools/547. This is the
+   ONLY canonicalization/hash path used below.
+══════════════════════════════════════════════════════════════ */
+(function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  function canonicalPreimage(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    return JSON.stringify(cgCanon(obj));
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  function jcsBytes(obj){ return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+  async function sha256(bytes){ var d=await crypto.subtle.digest('SHA-256', bytes); return new Uint8Array(d); }
+  function hexToBytes(hex){
+    hex=String(hex||'');
+    var b=new Uint8Array(hex.length/2);
+    for(var i=0;i<b.length;i++) b[i]=parseInt(hex.substr(i*2,2),16);
+    return b;
+  }
+  function bytesToHex(b){ return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join(''); }
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58encode(bytes){
+    var zeros=0; while(zeros<bytes.length && bytes[zeros]===0) zeros++;
+    var digits=[0];
+    for(var i=zeros;i<bytes.length;i++){
+      var carry=bytes[i];
+      for(var j=0;j<digits.length;j++){ carry+=digits[j]<<8; digits[j]=carry%58; carry=(carry/58)|0; }
+      while(carry){ digits.push(carry%58); carry=(carry/58)|0; }
+    }
+    var out=''; for(var k=0;k<zeros;k++) out+='1';
+    for(var q=digits.length-1;q>=0;q--) out+=B58[digits[q]];
+    return out;
+  }
+  function b58decode(str){
+    var zeros=0; while(zeros<str.length && str[zeros]==='1') zeros++;
+    var bytes=[0];
+    for(var i=zeros;i<str.length;i++){
+      var carry=B58.indexOf(str[i]); if(carry<0) throw new Error('bad base58 char');
+      for(var j=0;j<bytes.length;j++){ carry+=bytes[j]*58; bytes[j]=carry&0xff; carry>>=8; }
+      while(carry){ bytes.push(carry&0xff); carry>>=8; }
+    }
+    var out=new Uint8Array(zeros+bytes.length);
+    for(var k=0;k<bytes.length;k++) out[zeros+bytes.length-1-k]=bytes[k];
+    return out;
+  }
+  var ED25519_MULTICODEC=[0xed,0x01];
+  async function didKeyToPublicKey(did){
+    if(!did || did.indexOf('did:key:z')!==0) throw new Error('not a did:key z-form');
+    var prefixed=b58decode(did.slice('did:key:z'.length));
+    if(prefixed[0]!==0xed || prefixed[1]!==0x01) throw new Error('did:key is not Ed25519');
+    var raw=prefixed.slice(2);
+    return crypto.subtle.importKey('raw', raw, {name:'Ed25519'}, true, ['verify']);
+  }
+  function proofOptions(o){
+    return {type:'DataIntegrityProof', cryptosuite:'eddsa-jcs-2022', verificationMethod:o.verificationMethod, proofPurpose:'assertionMethod', created:o.created};
+  }
+  async function hashData(doc, opts){
+    var optHash=await sha256(jcsBytes(opts));
+    var docHash=await sha256(jcsBytes(doc));
+    var cat=new Uint8Array(optHash.length+docHash.length);
+    cat.set(optHash,0); cat.set(docHash, optHash.length);
+    return cat;
+  }
+  // §16 home: audit_signature.proof (object OR array of proof-set members) — NOT a root-level
+  // `proof` field. Secured document = the whole artifact with audit_signature.proof stripped.
+  function securedArtifact(a){
+    var c=JSON.parse(JSON.stringify(a));
+    if(c && c.audit_signature && ('proof' in c.audit_signature)) delete c.audit_signature.proof;
+    return c;
+  }
+  async function verifyOneProof(secured, proof){
+    if(!proof || proof.type!=='DataIntegrityProof' || proof.cryptosuite!=='eddsa-jcs-2022') return {valid:false, verificationMethod:proof&&proof.verificationMethod, error:'unsupported proof type/cryptosuite — only eddsa-jcs-2022 is verified'};
+    if(proof.proofPurpose!=='assertionMethod' || typeof proof.proofValue!=='string' || proof.proofValue[0]!=='z') return {valid:false, verificationMethod:proof.verificationMethod, error:'malformed proof object'};
+    try{
+      var pub=await didKeyToPublicKey(proof.verificationMethod);
+      var opts=proofOptions(proof);
+      var sig=b58decode(proof.proofValue.slice(1));
+      var ok=await crypto.subtle.verify('Ed25519', pub, sig, await hashData(secured, opts));
+      return {valid:ok, verificationMethod:proof.verificationMethod, error: ok?null:'signature does not verify against the named key'};
+    }catch(e){ return {valid:false, verificationMethod:proof.verificationMethod, error:e.message}; }
+  }
+  async function verifyArtifactProofs(artifact){
+    var raw=artifact && artifact.audit_signature && artifact.audit_signature.proof;
+    var proofs = raw==null ? [] : (Array.isArray(raw)?raw:[raw]);
+    if(proofs.length===0) return {present:false, allValid:true, results:[]};
+    var secured=securedArtifact(artifact);
+    var results=[];
+    for(var i=0;i<proofs.length;i++) results.push(await verifyOneProof(secured, proofs[i]));
+    var allValid=results.every(function(r){return r.valid;});
+    return {present:true, allValid:allValid, results:results};
+  }
+  window.OCG={cgCanon:cgCanon, executionHash:executionHash, sha256:sha256, hexToBytes:hexToBytes, bytesToHex:bytesToHex,
+    didKeyToPublicKey:didKeyToPublicKey, verifyArtifactProofs:verifyArtifactProofs};
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   RFC 6962 / RFC 9162 Merkle inclusion (OCG Standard §20.1) — the
+   SAME leafHash (0x00 prefix) / nodeHash (0x01 prefix) domain-
+   separation and rootFromInclusion audit-path math as
+   chaingraph/kernels/_anchor-testutil.mjs (the shared §20 gate
+   helper), ported to WebCrypto/Uint8Array so this page never opens
+   a second Merkle implementation.
+══════════════════════════════════════════════════════════════ */
+function concatBytes(a,b){var out=new Uint8Array(a.length+b.length);out.set(a,0);out.set(b,a.length);return out;}
+async function leafHash(data){return await OCG.sha256(concatBytes(new Uint8Array([0x00]),data));}
+async function nodeHash(l,r){return await OCG.sha256(concatBytes(new Uint8Array([0x01]),concatBytes(l,r)));}
+// Reconstruct a root from an inclusion path (RFC 9162 §2.1.3.2). Returns Uint8Array or null.
+async function rootFromInclusion(leaf, index, size, path){
+  if(index>=size) return null;
+  var fn=BigInt(index), sn=BigInt(size)-1n;
+  var r=leaf;
+  for(var i=0;i<path.length;i++){
+    var v=path[i];
+    if(sn===0n) return null;
+    if((fn&1n)===1n || fn===sn){
+      r=await nodeHash(v,r);
+      if((fn&1n)===0n){ while(fn!==0n && (fn&1n)===0n){ fn>>=1n; sn>>=1n; } }
+    }else{
+      r=await nodeHash(r,v);
+    }
+    fn>>=1n; sn>>=1n;
+  }
+  return sn===0n ? r : null;
+}
+async function verifyMerkleInclusion(mi, execHashHex){
+  if(!mi || typeof mi!=='object') return {ok:false, reason:'merkle_inclusion must be an object'};
+  if(mi.algorithm!=='rfc6962') return {ok:false, reason:'merkle_inclusion.algorithm must be "rfc6962"'};
+  var leafHex=String(mi.leaf||'').replace(/^sha256:/,'').toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(leafHex)) return {ok:false, reason:'merkle_inclusion.leaf must be a 64-hex digest'};
+  if(leafHex!==String(execHashHex||'').toLowerCase()) return {ok:false, reason:'merkle_inclusion.leaf != recomputed execution_hash'};
+  if(!Number.isInteger(mi.index) || mi.index<0) return {ok:false, reason:'merkle_inclusion.index must be a non-negative integer'};
+  if(!Number.isInteger(mi.tree_size) || mi.tree_size<=0) return {ok:false, reason:'merkle_inclusion.tree_size must be a positive integer'};
+  if(!Array.isArray(mi.path)) return {ok:false, reason:'merkle_inclusion.path must be an array'};
+  try{
+    var L=await leafHash(OCG.hexToBytes(leafHex));
+    var pathBytes=mi.path.map(function(h){ return OCG.hexToBytes(String(h).replace(/^sha256:/,'')); });
+    var root=await rootFromInclusion(L, mi.index, mi.tree_size, pathBytes);
+    if(!root) return {ok:false, reason:'inclusion path does not reconstruct a root (index/size/path inconsistent)'};
+    return {ok:true, rootHex:OCG.bytesToHex(root)};
+  }catch(e){ return {ok:false, reason:'inclusion path malformed: '+e.message}; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Checkpoint-note parser — adapted from WITNESS-VERIFY-1's
+   parseNote (chaingraph/art-424-witness-cosignature-verifier.html)
+   so this tool never writes a second signed-note parser. Extended
+   only to tolerate a checkpoint with NO witness signature lines
+   (no blank-line separator) — this tool reads origin/size/root
+   only; it does not verify witness cosignatures (use the Witness
+   Cosignature Verifier for that).
+══════════════════════════════════════════════════════════════ */
+function b64ToBytes(s){
+  var bin=atob(String(s||'').trim());
+  var out=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+function parseCheckpointNote(text){
+  var raw=String(text||'');
+  var sep=raw.indexOf('\n\n');
+  var header = sep>=0 ? raw.slice(0,sep) : raw.replace(/\n$/,'');
+  var sigBlock = sep>=0 ? raw.slice(sep+2) : '';
+  var headerLines=header.split('\n').filter(function(l){return l.length>0;});
+  if(headerLines.length<3) return {error:'checkpoint note needs origin, size, and root lines'};
+  var origin=headerLines[0], sizeStr=headerLines[1], rootB64=headerLines[2];
+  var size=Number(sizeStr);
+  if(!Number.isInteger(size) || size<0) return {error:'checkpoint size line is not a non-negative integer'};
+  var rootBytes;
+  try{ rootBytes=b64ToBytes(rootB64); }catch(e){ return {error:'checkpoint root line is not valid base64'}; }
+  var sigLines=sigBlock.split('\n')
+    .filter(function(l){ return l.indexOf('— ')===0 || l.indexOf('- ')===0; })
+    .map(function(l){ return l.slice(2).split(' ')[0]; });
+  return {origin:origin, size:size, rootHex:OCG.bytesToHex(rootBytes), witnessLineCount:sigLines.length};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Core verifier — the SAME function runs single-receipt mode and
+   each receipt in snapshot-batch mode (opts.trustedRootHex pins
+   the cross-check to the uploaded checkpoint's root; opts.requireAnchor
+   makes an anchor_bindings entry mandatory, since a batch receipt
+   with no anchor claim can't be checked against a shared checkpoint).
+══════════════════════════════════════════════════════════════ */
+async function verifyReceipt(artifact, opts){
+  opts=opts||{};
+  var checks=[];
+  var pp=artifact && artifact.policy_parameters, op=artifact && artifact.output_payload;
+  var structOk = !!(artifact && typeof artifact==='object' && pp && typeof pp==='object' && op && typeof op==='object' && typeof artifact.execution_hash==='string' && artifact.execution_hash);
+  checks.push({check:'structure', pass:structOk, detail: structOk?'has policy_parameters, output_payload, execution_hash':'missing policy_parameters / output_payload / execution_hash (string)'});
+  if(!structOk){
+    return {verdict:'FAIL', checks:checks, hash_match:false, recomputed_hash:null, signature:{present:false,allValid:true,results:[]}, anchors:[]};
+  }
+
+  var recomputed=await OCG.executionHash(pp, op);
+  var statedHash=String(artifact.execution_hash).replace(/^sha256:/,'').toLowerCase();
+  var hashMatch=recomputed.toLowerCase()===statedHash;
+  checks.push({check:'execution_hash_recompute', pass:hashMatch, detail: hashMatch?'recomputed execution_hash matches the stated value':'recomputed execution_hash does NOT match — payload was altered after signing/anchoring'});
+
+  var sigRes=await OCG.verifyArtifactProofs(artifact);
+  if(sigRes.present){
+    checks.push({check:'audit_signature_proof', pass:sigRes.allValid, detail: sigRes.allValid ? (sigRes.results.length+' eddsa-jcs-2022 signature(s) verify against '+sigRes.results.map(function(r){return r.verificationMethod;}).join(', ')) : ('signature check failed: '+sigRes.results.filter(function(r){return !r.valid;}).map(function(r){return r.error;}).join('; '))});
+  }else{
+    checks.push({check:'audit_signature_proof', pass:true, detail:'no §16 signature attached (OPTIONAL — not a failure by itself)'});
+  }
+
+  var anchorBindings=Array.isArray(artifact.anchor_bindings) ? artifact.anchor_bindings : [];
+  var anchorResults=[];
+  for(var i=0;i<anchorBindings.length;i++){
+    var ab=anchorBindings[i];
+    var anchoredHashHex=String(ab.anchored_hash||'').replace(/^sha256:/,'').toLowerCase();
+    if(ab.merkle_inclusion){
+      var mres=await verifyMerkleInclusion(ab.merkle_inclusion, recomputed);
+      var rootMatch = mres.ok && mres.rootHex.toLowerCase()===anchoredHashHex;
+      var trustedMatch = !opts.trustedRootHex || (mres.ok && mres.rootHex.toLowerCase()===String(opts.trustedRootHex).replace(/^sha256:/,'').toLowerCase());
+      var ok = mres.ok && rootMatch && trustedMatch;
+      var detail = !mres.ok ? ('Merkle inclusion failed: '+mres.reason)
+        : (!rootMatch ? 'reconstructed root does not equal this binding\'s anchored_hash'
+        : (!trustedMatch ? 'reconstructed root does not equal the uploaded checkpoint\'s root'
+        : 'leaf included; reconstructed root matches anchored_hash'+(opts.trustedRootHex?' and the checkpoint root':'')));
+      anchorResults.push({type:ab.type||'unknown', mode:'merkle_inclusion', pass:ok, detail:detail, reconstructed_root: mres.ok?mres.rootHex:null});
+    }else{
+      var directOk=anchoredHashHex!=='' && anchoredHashHex===recomputed.toLowerCase();
+      anchorResults.push({type:ab.type||'unknown', mode:'direct', pass:directOk, detail: directOk?'anchored_hash equals recomputed execution_hash (direct anchor — the underlying TST/OTS/tlog-proof evidence bytes are NOT independently re-verified by this tool)':'anchored_hash does NOT equal recomputed execution_hash'});
+    }
+  }
+  var anchorsOk=anchorResults.every(function(r){return r.pass;});
+  if(anchorBindings.length>0){
+    checks.push({check:'anchor_bindings', pass:anchorsOk, detail: anchorsOk?(anchorBindings.length+' anchor binding(s) verify'):'one or more anchor bindings failed verification'});
+  }else if(opts.requireAnchor){
+    checks.push({check:'anchor_bindings', pass:false, detail:'no anchor_bindings present — snapshot-batch mode requires a merkle_inclusion binding to check against the checkpoint'});
+  }
+
+  var overall = hashMatch && (!sigRes.present || sigRes.allValid) && anchorsOk && (!opts.requireAnchor || anchorBindings.length>0);
+  return {verdict: overall?'PASS':'FAIL', checks:checks, hash_match:hashMatch, recomputed_hash:recomputed, signature:sigRes, anchors:anchorResults};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Fixtures — a REAL round-trip (Ed25519 signed, RFC 6962 Merkle
+   inclusion into a real 4-leaf tree) generated offline via the
+   same _hash.mjs / _proof.mjs / _anchor-testutil.mjs kernels this
+   page mirrors. golden verifies PASS; tampered mutates
+   output_payload after signing so hash + signature both fail.
+══════════════════════════════════════════════════════════════ */
+var FIXTURES = {
+  "golden": {"@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","chaingraph_version":"0.4.0","mandate_type":"compliance_mandate","tool_id":"568-ocg-receipt-verifier-fixture-source","tool_version":"1.0.0","generated_at":"2026-07-21T00:00:00.000Z","execution_hash":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},"policy_parameters":{"activity":"av_verify_1_fixture","jurisdiction":"US","amount_usd":48250,"counterparty":"fixture-counterparty-01"},"output_payload":{"risk_score":0.14,"decision":"approve","rule_set":"av-verify-1-golden-v1"},"compliance_flags":["AV_VERIFY_1_GOLDEN_FIXTURE"],"compute_mode":"browser","anchor_bindings":[{"type":"opentimestamps","anchored_hash":"sha256:cee200515da21290f8b718f2e2ebc84c67d064b0314c0cf6cf42f40a7908e974","log_origin":"av-verify-1-fixture-batch","proof":"AV-VERIFY-1-FIXTURE-OTS-PROOF-PLACEHOLDER","merkle_inclusion":{"leaf":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","index":1,"path":["sha256:76b937f2d58d028736ae6fed649daca596d24645d8ffca2ed247818d2f046a7e","sha256:ab330f2fc3b6cc19814dfb2d0255f0fcc597601fa3a3b369a55044d95025eeb5"],"tree_size":4,"algorithm":"rfc6962"}}],"audit_signature":{"proof":{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z6MktGCknd2KA2Gnsb4BDLCyeya2SWGfqbEATi32TgQk1L29","proofPurpose":"assertionMethod","created":"2026-07-21T00:00:00.000Z","proofValue":"z5JZ3MQDvEHK7ywMHhrhaGn2dFGbNJ2unFgCBp72itPrM7c3eAG3tpZcrw3HA7uB14WjbCGx5UNTRr4s5hyUeJwtD"}}},
+  "tampered": {"@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","chaingraph_version":"0.4.0","mandate_type":"compliance_mandate","tool_id":"568-ocg-receipt-verifier-fixture-source","tool_version":"1.0.0","generated_at":"2026-07-21T00:00:00.000Z","execution_hash":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},"policy_parameters":{"activity":"av_verify_1_fixture","jurisdiction":"US","amount_usd":48250,"counterparty":"fixture-counterparty-01"},"output_payload":{"risk_score":0.14,"decision":"DENY","rule_set":"av-verify-1-golden-v1"},"compliance_flags":["AV_VERIFY_1_GOLDEN_FIXTURE"],"compute_mode":"browser","anchor_bindings":[{"type":"opentimestamps","anchored_hash":"sha256:cee200515da21290f8b718f2e2ebc84c67d064b0314c0cf6cf42f40a7908e974","log_origin":"av-verify-1-fixture-batch","proof":"AV-VERIFY-1-FIXTURE-OTS-PROOF-PLACEHOLDER","merkle_inclusion":{"leaf":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","index":1,"path":["sha256:76b937f2d58d028736ae6fed649daca596d24645d8ffca2ed247818d2f046a7e","sha256:ab330f2fc3b6cc19814dfb2d0255f0fcc597601fa3a3b369a55044d95025eeb5"],"tree_size":4,"algorithm":"rfc6962"}}],"audit_signature":{"proof":{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z6MktGCknd2KA2Gnsb4BDLCyeya2SWGfqbEATi32TgQk1L29","proofPurpose":"assertionMethod","created":"2026-07-21T00:00:00.000Z","proofValue":"z5JZ3MQDvEHK7ywMHhrhaGn2dFGbNJ2unFgCBp72itPrM7c3eAG3tpZcrw3HA7uB14WjbCGx5UNTRr4s5hyUeJwtD"}}}
+};
+var BATCH_FIXTURE = {
+  "checkpoint_note": "av-verify-1-fixture-batch\n4\nzuIAUV2iEpD4txjy4uvITGfQZLAxTAz2z0L0CnkI6XQ=\n",
+  "receipts": [
+    {"@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","chaingraph_version":"0.4.0","mandate_type":"compliance_mandate","tool_id":"568-ocg-receipt-verifier-fixture-source","tool_version":"1.0.0","generated_at":"2026-07-21T00:00:00.000Z","execution_hash":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},"policy_parameters":{"activity":"av_verify_1_fixture","jurisdiction":"US","amount_usd":48250,"counterparty":"fixture-counterparty-01"},"output_payload":{"risk_score":0.14,"decision":"approve","rule_set":"av-verify-1-golden-v1"},"compliance_flags":["AV_VERIFY_1_GOLDEN_FIXTURE"],"compute_mode":"browser","anchor_bindings":[{"type":"opentimestamps","anchored_hash":"sha256:cee200515da21290f8b718f2e2ebc84c67d064b0314c0cf6cf42f40a7908e974","log_origin":"av-verify-1-fixture-batch","proof":"AV-VERIFY-1-FIXTURE-OTS-PROOF-PLACEHOLDER","merkle_inclusion":{"leaf":"eea6041adc4c9457e45de5133cca0a43e81a872219980c2176704aa5a48dc3e2","index":1,"path":["sha256:76b937f2d58d028736ae6fed649daca596d24645d8ffca2ed247818d2f046a7e","sha256:ab330f2fc3b6cc19814dfb2d0255f0fcc597601fa3a3b369a55044d95025eeb5"],"tree_size":4,"algorithm":"rfc6962"}}],"audit_signature":{"proof":{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z6MktGCknd2KA2Gnsb4BDLCyeya2SWGfqbEATi32TgQk1L29","proofPurpose":"assertionMethod","created":"2026-07-21T00:00:00.000Z","proofValue":"z5JZ3MQDvEHK7ywMHhrhaGn2dFGbNJ2unFgCBp72itPrM7c3eAG3tpZcrw3HA7uB14WjbCGx5UNTRr4s5hyUeJwtD"}}},
+    {"@context":"https://ainumbers.co/chaingraph/context/v0.3/context.jsonld","chaingraph_version":"0.4.0","mandate_type":"compliance_mandate","tool_id":"568-ocg-receipt-verifier-fixture-source","tool_version":"1.0.0","generated_at":"2026-07-21T00:00:00.000Z","execution_hash":"137204827827a0d4faa245ac0788909969ba72111e7d83644c5900cd599ecb00","chain":{"parent_hashes":[],"parent_tool_ids":[],"chain_depth":0},"policy_parameters":{"activity":"av_verify_1_fixture","jurisdiction":"EU","amount_usd":91000,"counterparty":"fixture-counterparty-02"},"output_payload":{"risk_score":0.61,"decision":"review","rule_set":"av-verify-1-golden-v1"},"compliance_flags":["AV_VERIFY_1_GOLDEN_FIXTURE"],"compute_mode":"browser","anchor_bindings":[{"type":"opentimestamps","anchored_hash":"sha256:cee200515da21290f8b718f2e2ebc84c67d064b0314c0cf6cf42f40a7908e974","log_origin":"av-verify-1-fixture-batch","proof":"AV-VERIFY-1-FIXTURE-OTS-PROOF-PLACEHOLDER","merkle_inclusion":{"leaf":"137204827827a0d4faa245ac0788909969ba72111e7d83644c5900cd599ecb00","index":2,"path":["sha256:03921cadc8e52e169227c61c3e35637ada04e285fd11d6e08c5d735a0b5cf7c6","sha256:b20cdbe3113a75489c65c9986872ce8224494b37de6ab2c74253397709394a4b"],"tree_size":4,"algorithm":"rfc6962"}}],"audit_signature":{"proof":{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z6MktGCknd2KA2Gnsb4BDLCyeya2SWGfqbEATi32TgQk1L29","proofPurpose":"assertionMethod","created":"2026-07-21T00:00:00.000Z","proofValue":"z5Ffh39C5c6n7XJnMWPfcUH5KP7G2PYZMutnY25LNaW4JXiiQVAty5LgW6yBzZJb6LUmFpN5Cc5UNYy6Vu1NCeF3A"}}}
+  ]
+};
+
+/* ══════════════════════════════════════════════════════════════
+   UI wiring
+══════════════════════════════════════════════════════════════ */
+var STATE={lastReport:null, lastMode:null};
+
+function switchTab(name){
+  document.getElementById('tabSingle').classList.toggle('active', name==='single');
+  document.getElementById('tabBatch').classList.toggle('active', name==='batch');
+  document.getElementById('tabSingleBtn').classList.toggle('active', name==='single');
+  document.getElementById('tabBatchBtn').classList.toggle('active', name==='batch');
+}
+function setErr(id,msg){ var el=document.getElementById(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function loadFixture(which){
+  document.getElementById('receiptInput').value = JSON.stringify(FIXTURES[which], null, 2);
+  setErr('singleErr','');
+}
+function loadBatchFixture(){
+  document.getElementById('checkpointInput').value = BATCH_FIXTURE.checkpoint_note;
+  document.getElementById('batchReceiptsInput').value = JSON.stringify(BATCH_FIXTURE.receipts, null, 2);
+  setErr('batchErr','');
+}
+
+function checkRowHtml(c){
+  return '<div class="check-row"><span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'&#10003;':'&#10007;')+'</span><span class="check-name">'+escHtml(c.check)+'</span><span class="check-detail">'+escHtml(c.detail)+'</span></div>';
+}
+
+async function verifySingleUI(){
+  setErr('singleErr','');
+  var el=document.getElementById('singleResult');
+  var text=document.getElementById('receiptInput').value.trim();
+  if(!text){ setErr('singleErr','Paste a receipt, load a fixture, or upload a file first.'); return; }
+  var artifact;
+  try{ artifact=JSON.parse(text); }catch(e){ setErr('singleErr','Invalid JSON: '+e.message); return; }
+  var report=await verifyReceipt(artifact, {});
+  STATE.lastReport={mode:'single', report:report}; STATE.lastMode='single';
+  el.innerHTML =
+    '<div class="verdict '+(report.verdict==='PASS'?'pass':'fail')+'">'+(report.verdict==='PASS'?'✓ PASS':'✗ FAIL')+' &mdash; execution_hash: '+(report.recomputed_hash?report.recomputed_hash.slice(0,16)+'…':'n/a')+'</div>'+
+    '<div class="check-list">'+report.checks.map(checkRowHtml).join('')+'</div>'+
+    (report.anchors.length ? '<div class="finding-mono">'+report.anchors.map(function(a,i){return 'anchor_bindings['+i+'] ('+a.type+', '+a.mode+'): '+(a.pass?'PASS':'FAIL')+' — '+a.detail;}).join('\n')+'</div>' : '');
+  enableAP2Btn();
+}
+
+async function verifyBatchUI(){
+  setErr('batchErr','');
+  var el=document.getElementById('batchResult');
+  var cpText=document.getElementById('checkpointInput').value.trim();
+  if(!cpText){ setErr('batchErr','Paste or load a checkpoint note first.'); return; }
+  var cp=parseCheckpointNote(cpText);
+  if(cp.error){ setErr('batchErr','Checkpoint note error: '+cp.error); return; }
+
+  var receipts=[];
+  if(STATE.batchFiles && STATE.batchFiles.length){
+    for(var i=0;i<STATE.batchFiles.length;i++){
+      try{ receipts.push({label:STATE.batchFiles[i].name, artifact:JSON.parse(STATE.batchFiles[i].text)}); }
+      catch(e){ setErr('batchErr','File "'+STATE.batchFiles[i].name+'" is not valid JSON: '+e.message); return; }
+    }
+  }else{
+    var pasted=document.getElementById('batchReceiptsInput').value.trim();
+    if(!pasted){ setErr('batchErr','Upload receipt files, or paste a JSON array of receipts.'); return; }
+    var arr;
+    try{ arr=JSON.parse(pasted); }catch(e){ setErr('batchErr','Invalid JSON: '+e.message); return; }
+    if(!Array.isArray(arr)){ setErr('batchErr','Pasted receipts must be a JSON array.'); return; }
+    receipts=arr.map(function(a,i){ return {label:'receipt['+i+']', artifact:a}; });
+  }
+  if(receipts.length===0){ setErr('batchErr','No receipts to verify.'); return; }
+
+  var results=[];
+  for(var j=0;j<receipts.length;j++){
+    var report=await verifyReceipt(receipts[j].artifact, {trustedRootHex:cp.rootHex, requireAnchor:true});
+    results.push({label:receipts[j].label, report:report});
+  }
+  var passCount=results.filter(function(r){return r.report.verdict==='PASS';}).length;
+  STATE.lastReport={mode:'batch', checkpoint:cp, results:results, passCount:passCount, total:results.length};
+  STATE.lastMode='batch';
+
+  el.innerHTML =
+    '<div class="summary-grid">'+
+      '<div class="sg-cell"><div class="sg-lbl">Checkpoint Origin</div><div class="sg-val" style="font-size:.85rem">'+escHtml(cp.origin)+'</div></div>'+
+      '<div class="sg-cell"><div class="sg-lbl">Tree Size</div><div class="sg-val">'+cp.size+'</div></div>'+
+      '<div class="sg-cell"><div class="sg-lbl">Passed</div><div class="sg-val '+(passCount===results.length?'sg-ok':'sg-bad')+'">'+passCount+' / '+results.length+'</div></div>'+
+    '</div>'+
+    (cp.witnessLineCount>0 ? '<div class="exclusion-note">This checkpoint note carries '+cp.witnessLineCount+' witness signature line(s) — this tool reads its origin/size/root only and does NOT verify witness cosignatures. Use the Witness Cosignature Verifier for that check.</div>' : '')+
+    results.map(function(r){
+      return '<div class="finding"><div class="finding-head"><span class="finding-title">'+escHtml(r.label)+'</span><span class="finding-status '+(r.report.verdict==='PASS'?'st-ok':'st-bad')+'">'+r.report.verdict+'</span></div>'+
+        '<div class="check-list">'+r.report.checks.map(checkRowHtml).join('')+'</div></div>';
+    }).join('');
+  enableAP2Btn();
+}
+
+/* ── file upload / drag-drop (single + batch) ─────────────────────────── */
+document.addEventListener('DOMContentLoaded', function(){
+  var z1=document.getElementById('dropSingle'), i1=document.getElementById('fileSingleInput');
+  z1.addEventListener('click', function(){i1.click();});
+  i1.addEventListener('change', function(){ if(i1.files[0]) readSingleFile(i1.files[0]); });
+  z1.addEventListener('dragover', function(e){e.preventDefault();z1.classList.add('drag');});
+  z1.addEventListener('dragleave', function(){z1.classList.remove('drag');});
+  z1.addEventListener('drop', function(e){e.preventDefault();z1.classList.remove('drag'); if(e.dataTransfer.files[0]) readSingleFile(e.dataTransfer.files[0]); });
+
+  var z2=document.getElementById('dropBatch'), i2=document.getElementById('fileBatchInput');
+  z2.addEventListener('click', function(){i2.click();});
+  i2.addEventListener('change', function(){ readBatchFiles(i2.files); });
+  z2.addEventListener('dragover', function(e){e.preventDefault();z2.classList.add('drag');});
+  z2.addEventListener('dragleave', function(){z2.classList.remove('drag');});
+  z2.addEventListener('drop', function(e){e.preventDefault();z2.classList.remove('drag'); readBatchFiles(e.dataTransfer.files); });
+});
+
+function readSingleFile(file){
+  var reader=new FileReader();
+  reader.onload=function(){ document.getElementById('receiptInput').value=reader.result; document.getElementById('dropSingle').innerHTML='Loaded: '+escHtml(file.name); };
+  reader.readAsText(file);
+}
+function readBatchFiles(fileList){
+  var files=Array.from(fileList);
+  STATE.batchFiles=[];
+  var remaining=files.length;
+  if(remaining===0) return;
+  files.forEach(function(f){
+    var reader=new FileReader();
+    reader.onload=function(){
+      STATE.batchFiles.push({name:f.name, text:reader.result});
+      remaining--;
+      if(remaining===0) document.getElementById('batchCount').textContent=STATE.batchFiles.length+' file(s) loaded';
+    };
+    reader.readAsText(f);
+  });
+}
+
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"568-ocg-receipt-verifier","version":"1.0.0","title":"OCG Receipt Verifier","description":"Fully offline, upload-driven verifier for OCG receipts: recomputes the execution_hash, verifies any eddsa-jcs-2022 Ed25519 audit_signature.proof, and checks RFC 6962 Merkle inclusion against an anchor_bindings entry. Snapshot-batch mode verifies many receipts against one uploaded checkpoint note. Zero network calls anywhere in the tool.","category":"mcp","tags":["OCG receipt","offline verifier","airgapped","eddsa-jcs-2022","Ed25519","Merkle inclusion","RFC 6962","execution_hash","checkpoint","zero network"],"audience":["compliance","auditor","engineer","risk"],"input_schema":{"type":"object","properties":{"receipt":{"type":"object"},"checkpoint_note":{"type":"string"},"receipts":{"type":"array"}}},"output_schema":{"type":"object","properties":{"verification_report":{"type":"object"}}},"mcp_tool_definition":{"name":"verify_ocg_receipt","description":"Recomputes an OCG receipt's execution_hash, verifies its eddsa-jcs-2022 signature (if present), and verifies RFC 6962 Merkle inclusion against an anchor binding or an uploaded checkpoint.","inputSchema":{"type":"object","properties":{"receipt":{"type":"object"},"checkpoint_note":{"type":"string"},"receipts":{"type":"array"}}}},"execution":{"type":"browser-javascript","entry":"tools/568-ocg-receipt-verifier.html","function_name":"verifySingleUI","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+function uuid4(){
+  var b=new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+  var h=Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+window.AIN_BUILD_MANDATE=function(){
+  if(!STATE.lastReport) return null;
+  var ts=new Date().toISOString();
+  var summary = STATE.lastMode==='single'
+    ? ('Single-receipt verification: '+STATE.lastReport.report.verdict+' ('+ts.slice(0,10)+').')
+    : ('Snapshot-batch verification: '+STATE.lastReport.passCount+' of '+STATE.lastReport.total+' receipts passed against checkpoint "'+STATE.lastReport.checkpoint.origin+'" ('+ts.slice(0,10)+').');
+  return {
+    ap2_version:'1.0',
+    mandate_id:uuid4(),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'568-ocg-receipt-verifier', tool_version:MANIFEST.version,
+    mandate_type:'verification_report',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:STATE.lastReport,
+    summary:summary,
+    agent_instructions:['Do not treat a PASS verdict as proof the anchoring timestamp authority or transparency log is honest or complete.','Re-verify signatures and Merkle roots independently before relying on this report for a compliance decision.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10), source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Verify a receipt first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'verifySingleUI',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.0',apply:applyFields,run:runTool,
+  getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{return window.AIN_BUILD_MANDATE();}catch(e){}}return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
