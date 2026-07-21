@@ -1,0 +1,281 @@
+/**
+ * chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs
+ *
+ * Generates chaingraph/kernel-vm-explainer.html ("How the Kernel VM Works") from the D1-D7
+ * table parsed live out of SPEC.md §24.1 plus live kernel/vector counts. GENERATED FILE —
+ * never hand-edit chaingraph/kernel-vm-explainer.html directly; edit this generator instead
+ * (VM-EXPLAIN-BUILD-SPEC.md, same doctrine as gen-kernel-vm-html.mjs: two direct-HTML edits
+ * to kernel-vm.html had to be hand-ported back after drifting silently).
+ *
+ * Usage:
+ *   node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs          # write the file
+ *   node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs --check  # freshness gate
+ */
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { CHROME_CSS } from '../../_page-chrome.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..', '..', '..');
+const CHECK = process.argv.includes('--check');
+const OUT = `${ROOT}/chaingraph/kernel-vm-explainer.html`;
+
+// ── D1-D7 banned doors: parsed live from SPEC.md §24.1, never hand-copied (VM-EXPLAIN-BUILD-SPEC.md §5:
+// "cite SPEC.md section numbers for DCP-1 / D1-D7; do not restate the envelope or re-derive the door list
+// from memory"). A one-line plain-English gloss per door is authored here (not spec-sourced).
+const GLOSS = {
+  D1: 'No NaN or Infinity ever leaves compute() silently.',
+  D2: 'Object key order can never change the hash: one canonical sorter does it.',
+  D3: 'No engine-native sin/cos/log/pow; every kernel ships its own portable math.',
+  D4: 'No reading the clock inside a kernel, ever.',
+  D5: 'No dice rolls inside a kernel: Math.random and CSPRNG are both out.',
+  D6: 'No locale-formatted numbers: one pinned formatter, or none at all.',
+  D7: 'Anything environment-sensitive gets a fully specified deterministic stand-in.',
+};
+const specSrc = readFileSync(`${ROOT}/chaingraph/standard/SPEC.md`, 'utf8');
+const doorRe = /^\| (D[1-7]) \| (.*) \| (.*) \| .*\|$/gm;
+const doors = [];
+let m;
+while ((m = doorRe.exec(specSrc))) {
+  const [, id, name, rule] = m;
+  doors.push({ id, name: name.trim(), rule: rule.trim(), gloss: GLOSS[id] });
+}
+if (doors.length !== 7) {
+  throw new Error(`gen-kernel-vm-explainer: expected 7 D1-D7 rows parsed from SPEC.md §24.1, got ${doors.length}. SPEC.md table format may have changed.`);
+}
+
+// ── Live evidence-strip counts: same source vm-parity-gate.mjs checks (kernels/index.mjs +
+// their fixtures), computed here WITHOUT running the VM (cheap I/O only) so the generator stays
+// fast. "count-drift gate applies" (VM-EXPLAIN-BUILD-SPEC.md §4) -- never hardcode these.
+const { KERNELS } = await import(pathToFileURL(`${ROOT}/chaingraph/kernels/index.mjs`));
+const toolIds = Object.keys(KERNELS);
+let kernelCount = 0;
+let vectorCount = 0;
+for (const id of toolIds) {
+  const kernel = KERNELS[id];
+  if (kernel?.meta?.gpu === true) continue;
+  if (kernel?.meta?.private_input_profile) continue;
+  const fpath = `${ROOT}/chaingraph/kernels/fixtures/${id}.fixtures.json`;
+  if (!existsSync(fpath)) continue;
+  kernelCount++;
+  const doc = JSON.parse(readFileSync(fpath, 'utf8'));
+  vectorCount += (doc.vectors ?? []).length;
+}
+
+const DOOR_ROWS = doors.map((d) => `      <tr><td class="door-id">${d.id}</td><td>${d.name}</td><td>${d.gloss}</td></tr>`).join('\n');
+
+const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>How the Kernel VM Works &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Same JS, three runtimes, one hash: how a ChainGraph kernel runs identically in the browser, inside a sandboxed QuickJS-ng WebAssembly VM, and inside a risc0 zkVM guest, and what the ocg-deterministic-compute@2 profile bans to keep them agreeing.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/kernel-vm-explainer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"How the Kernel VM Works","description":"Same source, three runtimes, one hash: the deterministic compute profile behind the Kernel VM and the zkVM guest.","publisher":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+h2{font-size:1.1rem;color:var(--white);margin:0 0 10px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.hook{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--teal-lt);margin:6px 0 18px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:12px 0}
+.cross-link a{color:var(--gold)}
+.cta-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.6rem .85rem;line-height:1.6;margin:12px 0}
+.diagram{display:flex;flex-direction:column;align-items:center;gap:0;margin:20px 0}
+.d-source{background:var(--bg-3);border:1px solid var(--teal);border-radius:var(--radius);padding:10px 18px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);text-align:center}
+.d-branches{display:flex;gap:0;position:relative;margin-top:4px}
+.d-stem{width:1px;height:22px;background:var(--border-2)}
+.d-lanes{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:0}
+.d-lane{width:170px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;text-align:center}
+.d-lane .d-lane-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.d-lane .d-lane-name{font-size:.78rem;color:var(--bright);font-weight:600}
+.d-conv{margin-top:14px;text-align:center}
+.d-hash{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:8px 16px;border-radius:20px;border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.08);color:var(--green);animation:lit 2.4s ease-in-out infinite}
+@keyframes lit{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.0)}50%{box-shadow:0 0 14px 2px rgba(34,197,94,.35)}}
+@media (prefers-reduced-motion:reduce){.d-hash{animation:none}}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:.8rem;vertical-align:top}
+td.door-id{font-family:'JetBrains Mono',monospace;color:var(--teal);font-weight:600;white-space:nowrap}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:150px}
+.stat-val{font-size:1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+ol{margin-left:1.1rem;color:var(--text)}
+ol li{margin-bottom:6px}
+</style>
+<style>
+${CHROME_CSS}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../start.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../start.html">Start</a>
+      <span>&rsaquo;</span>
+      <a href="education-hub.html">Learn OpenChainGraph</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">How the Kernel VM Works</span>
+    </div>
+    <div class="nav-right">
+      <a href="kernel-vm.html" class="nav-pill">Kernel VM &#8594;</a>
+      <a href="zkvm-compute-integrity.html" class="nav-pill">Proving It Ran &#8594;</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+<div class="eyebrow">OpenChainGraph &middot; Kernel VM</div>
+<h1>How the Kernel VM Works</h1>
+<p class="hook">Same JS. Three runtimes. One hash, or the run is rejected.</p>
+<p class="sub"><a href="kernel-vm.html">kernel-vm.html</a> runs a kernel's <code>compute(policy_parameters)</code> twice: once inside a sandboxed QuickJS-ng WebAssembly VM, once natively in your browser tab, and shows whether the two <code>execution_hash</code> values agree. This page explains why that agreement is the whole point, and what a kernel is forbidden from doing to keep it.</p>
+
+<div class="card">
+<div class="section-head">The three runtimes, one source</div>
+<div class="diagram">
+  <div class="d-source">One kernel source: <code>compute(policy_parameters)</code></div>
+  <div class="d-stem"></div>
+  <div class="d-lanes">
+    <div class="d-lane"><div class="d-lane-label">Runtime 1</div><div class="d-lane-name">Browser tab (native)</div></div>
+    <div class="d-lane"><div class="d-lane-label">Runtime 2</div><div class="d-lane-name">QuickJS-ng WebAssembly VM</div></div>
+    <div class="d-lane"><div class="d-lane-label">Runtime 3</div><div class="d-lane-name">risc0 zkVM guest</div></div>
+  </div>
+  <div class="d-conv"><span class="d-hash">execution_hash agrees &#10003;</span></div>
+</div>
+<ol>
+  <li>A kernel is one <code>compute(policy_parameters)</code> function, deterministic by construction.</li>
+  <li>It runs in your browser tab natively (no sandbox), the fast path, what a developer sees first.</li>
+  <li>The identical source runs again inside a hermetic QuickJS-ng WebAssembly VM, sandboxed, zero network, zero fetch. This is what <a href="kernel-vm.html">kernel-vm.html</a> demonstrates live.</li>
+  <li>The identical source proves a third time inside a risc0 zkVM guest, same bytes, same digest, and now a groth16 proof anyone can verify without re-running the code. See <a href="zkvm-compute-integrity.html">Proving It Ran</a> for that runtime's own deep dive.</li>
+  <li>All three emit <code>execution_hash</code> over the same canonical <code>{policy_parameters, output_payload}</code> preimage (RFC 8785/JCS). If any runtime disagrees, that disagreement is the finding, not something the page hides.</li>
+  <li>The deterministic compute profile (below) explains why they agree: it names every door nondeterminism could sneak through and bans all of them at the kernel-authoring level.</li>
+</ol>
+</div>
+
+<div class="cta-link">Want to see it run? Open <a href="kernel-vm.html">kernel-vm.html</a> and pick a kernel from the dropdown. Step 1 runs runtimes 1 and 2 live in this browser, right now, with zero network calls.</div>
+
+<div class="card">
+<div class="section-head">The banned doors: <code>ocg-deterministic-compute@2</code> (SPEC.md &sect;24.1)</div>
+<p class="sub" style="margin-bottom:10px">A conforming kernel MUST NOT let its output depend on any of these seven nondeterminism sources. Names and rules below are quoted verbatim from the normative spec; the gloss is a plain-English one-liner.</p>
+<table>
+<thead><tr><th>Door</th><th>Source (verbatim, SPEC.md &sect;24.1)</th><th>Plain English</th></tr></thead>
+<tbody>
+${DOOR_ROWS}
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<div class="section-head">Evidence</div>
+<div class="stat-row">
+  <div class="stat"><span class="stat-val">${kernelCount}</span><span class="stat-key">gpu:false kernels, VM-verified</span></div>
+  <div class="stat"><span class="stat-val">${vectorCount}</span><span class="stat-key">conformance vectors checked</span></div>
+</div>
+<p class="sub" style="margin-top:10px">Every <code>gpu:false</code>, non-private-input kernel's conformance fixtures run through the browser VM and diff byte-for-byte against the canonical worker hash on every push (<code>chaingraph/kernels/vm-parity-gate.mjs</code>). Both counts above are computed live from the kernel registry and its fixtures at generation time, never hardcoded.</p>
+</div>
+
+<div class="cross-link">Want a different kernel? All ${kernelCount} kernels above are runnable via the catalog and the MCP server. Browse the full catalog on the <a href="chaingraph-hub.html">ChainGraph catalog</a> or call it over MCP at <a href="https://mcp.ainumbers.co/mcp">mcp.ainumbers.co</a>. See also the <a href="boundary-explorer.html">decision boundary explorer</a>, which sweeps a kernel's inputs using the same <code>compute()</code> step, and <a href="zkvm-compute-integrity.html">Proving It Ran</a>, the third-runtime deep dive.</div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="openchain-graph-spec.html">Spec</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Cross-links</div>
+        <a href="kernel-vm.html">Kernel VM</a>
+        <a href="zkvm-compute-integrity.html">Proving It Ran</a>
+        <a href="boundary-explorer.html">Decision Boundary Explorer</a>
+        <a href="chaingraph-hub.html">ChainGraph Catalog</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../start.html">Start</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="../about.html">About</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
+`;
+
+if (CHECK) {
+  let current = null;
+  try { current = readFileSync(OUT, 'utf8'); } catch { /* missing */ }
+  if (current !== html) {
+    console.error(`gen-kernel-vm-explainer --check: ${OUT} is out of sync with the generator.`);
+    console.error('Run `node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs` to regenerate.');
+    process.exit(1);
+  }
+  console.log('gen-kernel-vm-explainer --check: OK (kernel-vm-explainer.html matches generator).');
+} else {
+  writeFileSync(OUT, html);
+  console.log('wrote', html.length, 'chars');
+}
