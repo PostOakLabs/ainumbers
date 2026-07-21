@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>camt.053 Reconciliation Workbench · AINumbers.co</title>
+<meta name="description" content="Import a camt.053 bank statement and a counterpart expectation set, run a deterministic match engine (EndToEndId, then amount/date tolerance), and produce a hash-chained reconciliation receipt with per-disposition exception receipts. Client-side. Zero PII.">
+<meta name="keywords" content="camt.053, reconciliation, ISO 20022, EndToEndId matching, exception disposition, reconciliation receipt, bank statement">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/565-camt053-reconciliation-workbench.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"camt.053 Reconciliation Workbench","url":"https://ainumbers.co/tools/565-camt053-reconciliation-workbench.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "565-camt053-reconciliation-workbench",
+  "version": "1.0.0",
+  "title": "camt.053 Reconciliation Workbench",
+  "description": "Imports a camt.053 statement (strict schema-subset parse) plus a counterpart expectation set (CSV via the hand-rolled workbook core), runs a deterministic EndToEndId-then-tolerance match engine, and produces a hash-chained reconciliation receipt with per-disposition exception receipts.",
+  "category": "cat-21",
+  "tags": ["camt.053", "reconciliation", "ISO 20022", "EndToEndId matching", "exception disposition", "receipt chain"],
+  "audience": ["payments", "compliance", "engineer"],
+  "input_schema": {"type": "object", "properties": {"statement_xml": {"type": "string"}, "expectations_csv": {"type": "string"}, "date_tolerance_days": {"type": "number"}}, "required": ["statement_xml", "expectations_csv"]},
+  "output_schema": {"type": "object", "properties": {"reconciliation_receipt": {"type": "object"}, "disposition_receipts": {"type": "array"}}},
+  "mcp_tool_definition": {"name": "camt053_reconcile", "description": "Matches a camt.053 statement against a counterpart expectation set (EndToEndId exact match, then amount/date tolerance), returning a hash-chained reconciliation receipt and an exceptions list. Prepare/hash/receipt only, not a transmitted settlement.", "inputSchema": {"type": "object", "properties": {"statement_xml": {"type": "string"}, "expectations_csv": {"type": "string"}, "date_tolerance_days": {"type": "number"}}, "required": ["statement_xml", "expectations_csv"]}},
+  "execution": {"type": "browser-javascript", "entry": "tools/565-camt053-reconciliation-workbench.html", "function_name": "runReconciliation", "timeout_ms": 5000},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+textarea{width:100%;min-height:160px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem;resize:vertical}
+select,input[type="number"]{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.35rem .5rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.35rem}
+.field-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin:.5rem 0}
+.tb-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--text);padding:.4rem .8rem;border-radius:var(--radius);transition:all .2s}
+.tb-btn:hover{border-color:var(--teal);color:var(--teal)}
+.btn-primary{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.55rem 1.1rem;border-radius:var(--radius);margin-top:.75rem}
+.btn-primary:hover{background:var(--teal-lt)}
+.status-bar{display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:var(--radius);background:var(--green-dim);border:1px solid rgba(34,197,94,.3);font-size:.72rem;margin-bottom:.75rem}
+.status-bar.invalid{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.status-bar.invalid .status-dot{background:var(--red)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
+@media(max-width:700px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.summary-tile{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .8rem;text-align:center}
+.summary-n{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright)}
+.summary-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+.digest-row{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .7rem;margin-bottom:.5rem}
+.digest-row strong{color:var(--teal)}
+.exception-item{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.7rem .9rem;margin-bottom:.6rem}
+.exception-head{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);margin-bottom:.35rem}
+.exception-detail{font-size:.72rem;color:var(--body);margin-bottom:.5rem}
+.disposition-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.disposition-row input[type="text"]{flex:1;min-width:160px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.64rem;padding:.35rem .5rem}
+.disposition-done{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);margin-top:.4rem;word-break:break-all}
+.clean-ok{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--green);padding:.5rem 0}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--body);white-space:pre-wrap;word-break:break-all;max-height:340px;overflow:auto}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T565</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-21 · T565 · Real-Time Payments Operations &amp; Compliance</div>
+  <h1 class="tool-title">camt.053 Reconciliation Workbench</h1>
+  <p class="hero-desc">Import a camt.053 bank statement (strict schema-subset parse) and a counterpart expectation set (CSV, via the hand-rolled workbook core), then run a deterministic match engine: exact <span style="color:var(--bright)">EndToEndId</span> matching first, then amount and date tolerance. The result is a hash-chained reconciliation receipt, an exceptions list, and per-disposition receipts as you review each exception.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">camt.053</span>
+    <span class="badge badge-gold">Deterministic Matching</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><span style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance:</span> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data: use synthetic or anonymised inputs only. This tool prepares, validates, hashes, and receipts a reconciliation of a camt.053 statement against an expectation set &mdash; it does not generate or transmit a live payment or settlement instruction. Subset validation, not full XSD conformance.</div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title"><span>1 &middot; camt.053 Statement (XML)</span></div>
+      <div class="field-row">
+        <select id="stmtFixture" onchange="loadStmtFixture()">
+          <option value="clean">Fixture &middot; clean (all entries match)</option>
+          <option value="exceptions">Fixture &middot; 2 unmatched entries + 1 unmatched expectation</option>
+        </select>
+      </div>
+      <textarea id="stmtInput" spellcheck="false"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span>2 &middot; Counterpart Expectations (CSV)</span></div>
+      <div class="field-row">
+        <button class="tb-btn" onclick="document.getElementById('csvFile').click()">Import CSV file</button>
+        <input type="file" id="csvFile" style="display:none" accept=".csv,text/csv" onchange="onImportCSVFile(this)">
+      </div>
+      <textarea id="expInput" spellcheck="false" placeholder="EndToEndId,Amount,Currency,Date"></textarea>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><span>3 &middot; Match Rules &amp; Run</span></div>
+    <div class="field-row">
+      <div>
+        <label>Date Tolerance (days)</label>
+        <input type="number" id="dateTolerance" value="2" min="0" max="30" style="width:70px">
+      </div>
+      <div>
+        <label>Amount Tolerance</label>
+        <input type="number" id="amtTolerance" value="0.01" min="0" step="0.01" style="width:80px">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="runReconciliation()">&#9654; Run Reconciliation</button>
+  </div>
+
+  <div id="resultsSection"></div>
+  <div id="exceptionsSection"></div>
+  <div id="bundleSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run a reconciliation above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../guides/realtime-payments-ops-hub.html">Real-Time Payments Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<!-- ═══ chaingraph/kernels/_hash.mjs (verbatim, export stripped) ═══ -->
+<script>
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+</script>
+
+<!-- ═══ chaingraph/workbook/workbook.mjs — strict RFC 4180 CSV subset (verbatim,
+     import/export stripped; only the CSV path is needed here — WORKBOOK-1-BUILD-SPEC.md §WB-1) ═══ -->
+<script>
+function parseCSV(text) {
+  if (typeof text !== 'string') throw new Error('CSV input must be a string');
+  const rows = [];
+  let row = [], field = '', i = 0;
+  const n = text.length;
+  let state = 'FIELD_START';
+  const endField = () => { row.push(field); field = ''; state = 'FIELD_START'; };
+  const endRow = () => { endField(); rows.push(row); row = []; };
+  while (i < n) {
+    const ch = text[i];
+    if (state === 'FIELD_START') {
+      if (ch === '"') { state = 'QUOTED'; i++; continue; }
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      field += ch; state = 'UNQUOTED'; i++; continue;
+    }
+    if (state === 'UNQUOTED') {
+      if (ch === '"') throw new Error(`malformed CSV: unexpected quote inside unquoted field at position ${i}`);
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      field += ch; i++; continue;
+    }
+    if (state === 'QUOTED') {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        state = 'AFTER_QUOTE'; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (state === 'AFTER_QUOTE') {
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      throw new Error(`malformed CSV: unexpected character after closing quote at position ${i}`);
+    }
+  }
+  if (state === 'QUOTED') throw new Error('malformed CSV: unterminated quoted field');
+  if (state !== 'FIELD_START' || field !== '' || row.length) endRow();
+  return rows;
+}
+</script>
+
+<!-- ═══ ISO 20022 camt.053.001.09 schema-subset table + strict-parse helpers
+     (ISO20022-WB-1-BUILD-SPEC.md §IW-1, hand-derived, royalty-free per iso20022.org
+     IPR terms — verbatim from tools/555-iso20022-schema-subset-validator.html;
+     REUSE, do not reimplement the field table or facet checks) ═══ -->
+<script>
+const IBAN_RE = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+const DECIMAL_RE = /^\d+(\.\d{1,5})?$/;
+const ISO4217_SUBSET = ['USD','EUR','GBP','JPY','CHF','CAD','AUD','CNY','INR','SGD','HKD','SEK','NOK','DKK','NZD','MXN','BRL','ZAR','AED','SAR'];
+
+const CAMT053_FIELDS = [
+  {path:'GrpHdr/MsgId', type:'Max35Text', maxLength:35, mandatory:true},
+  {path:'GrpHdr/CreDtTm', type:'ISODateTime', pattern:DATETIME_RE, mandatory:true},
+  {path:'Stmt/Id', type:'Max35Text', maxLength:35, mandatory:true},
+  {path:'Stmt/Acct/Id/IBAN', type:'IBAN2007Identifier', pattern:IBAN_RE, facet:'iban', mandatory:true},
+  {path:'Stmt/Acct/Ccy', type:'ActiveCurrencyCode', facet:'ccy', mandatory:true},
+  {path:'Stmt/Bal/Tp/CdOrPrtry/Cd', type:'BalanceType12Code', pattern:/^(OPBD|CLBD|ITBD|CLAV|OPAV|FWAV|PRCD|INFO)$/, mandatory:true},
+  {path:'Stmt/Bal/Amt', type:'ActiveOrHistoricCurrencyAndAmount', pattern:DECIMAL_RE, facet:'amount', mandatory:true},
+  {path:'Stmt/Bal/CdtDbtInd', type:'CreditDebitCode', pattern:/^(CRDT|DBIT)$/, mandatory:true},
+  {path:'Stmt/Ntry/Amt', type:'ActiveOrHistoricCurrencyAndAmount', pattern:DECIMAL_RE, facet:'amount', mandatory:true},
+  {path:'Stmt/Ntry/CdtDbtInd', type:'CreditDebitCode', pattern:/^(CRDT|DBIT)$/, mandatory:true},
+  {path:'Stmt/Ntry/Sts/Cd', type:'EntryStatus1Code', pattern:/^(BOOK|PDNG|INFO)$/, mandatory:true},
+];
+
+function ibanValid(v){
+  const s = v.replace(/\s+/g,'').toUpperCase();
+  if(!IBAN_RE.test(s)) return false;
+  const rearr = s.slice(4) + s.slice(0,4);
+  const expanded = rearr.replace(/[A-Z]/g, c => (c.charCodeAt(0)-55).toString());
+  let rem = 0;
+  for(let i=0;i<expanded.length;i++){ rem = (rem*10 + parseInt(expanded[i],10)) % 97; }
+  return rem === 1;
+}
+function localName(el){ return el.localName || el.nodeName.split(':').pop(); }
+function queryPath(root, pathStr){
+  const segs = pathStr.split('/').slice();
+  let attrName = null;
+  const last = segs[segs.length-1];
+  if(last.indexOf('@') !== -1){ const parts = last.split('@'); segs[segs.length-1] = parts[0]; attrName = parts[1]; }
+  let nodes = [root];
+  for(const seg of segs){
+    if(!seg) continue;
+    let next = [];
+    for(const n of nodes){ for(const c of Array.from(n.children)){ if(localName(c) === seg) next.push(c); } }
+    nodes = next;
+  }
+  if(attrName) return nodes.map(n => n.getAttribute(attrName)).filter(v => v !== null);
+  return nodes.map(n => n.textContent.trim());
+}
+function validateCamt053Structural(root){
+  const errors = [];
+  CAMT053_FIELDS.forEach(f => {
+    const vals = queryPath(root, f.path);
+    if(f.mandatory && vals.length === 0){ errors.push({path:f.path, rule:'mandatory', msg:'Missing mandatory field'}); return; }
+    vals.forEach(v => {
+      if(f.maxLength && v.length > f.maxLength) errors.push({path:f.path, rule:'maxLength', msg:'Value exceeds maxLength '+f.maxLength});
+      if(f.pattern && !f.pattern.test(v)) errors.push({path:f.path, rule:'pattern', msg:'Value "'+v+'" fails the '+f.type+' facet pattern'});
+      if(f.facet === 'iban' && IBAN_RE.test(v) && !ibanValid(v)) errors.push({path:f.path, rule:'iban-mod97', msg:'IBAN "'+v+'" fails the mod-97 checksum'});
+      if(f.facet === 'ccy' && !ISO4217_SUBSET.includes(v)) errors.push({path:f.path, rule:'iso4217', msg:'Currency code "'+v+'" not in the embedded ISO 4217 subset'});
+    });
+  });
+  return errors;
+}
+</script>
+
+<!-- ═══ IW-3 reconciliation logic: statement parse, expectation parse, deterministic
+     match engine, reconciliation receipt, and hash-chained disposition receipts.
+     No calculation/parsing/hashing logic lives here that the modules above already
+     provide — this section only composes them. ═══ -->
+<script>
+const FIXTURES = {
+  clean: {
+    stmt: '<?xml version="1.0" encoding="UTF-8"?>\n<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.09">\n  <BkToCstmrStmt>\n    <GrpHdr>\n      <MsgId>CAMT-RECON-0001</MsgId>\n      <CreDtTm>2026-07-21T09:00:00Z</CreDtTm>\n    </GrpHdr>\n    <Stmt>\n      <Id>STMT-RECON-0001</Id>\n      <Acct><Id><IBAN>DE89370400440532013000</IBAN></Id><Ccy>EUR</Ccy></Acct>\n      <Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">1000.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-07-20</Dt></Dt></Bal>\n      <Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">1750.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-07-21</Dt></Dt></Bal>\n      <Ntry><Amt Ccy="EUR">500.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-07-21</Dt></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>E2E-A001</EndToEndId></Refs></TxDtls></NtryDtls></Ntry>\n      <Ntry><Amt Ccy="EUR">250.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-07-21</Dt></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>E2E-A002</EndToEndId></Refs></TxDtls></NtryDtls></Ntry>\n    </Stmt>\n  </BkToCstmrStmt>\n</Document>',
+    exp: 'EndToEndId,Amount,Currency,Date\nE2E-A001,500.00,EUR,2026-07-21\nE2E-A002,250.00,EUR,2026-07-21\n',
+  },
+  exceptions: {
+    stmt: '<?xml version="1.0" encoding="UTF-8"?>\n<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.09">\n  <BkToCstmrStmt>\n    <GrpHdr>\n      <MsgId>CAMT-RECON-0002</MsgId>\n      <CreDtTm>2026-07-21T09:00:00Z</CreDtTm>\n    </GrpHdr>\n    <Stmt>\n      <Id>STMT-RECON-0002</Id>\n      <Acct><Id><IBAN>DE89370400440532013000</IBAN></Id><Ccy>EUR</Ccy></Acct>\n      <Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">1000.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-07-20</Dt></Dt></Bal>\n      <Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">1900.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-07-21</Dt></Dt></Bal>\n      <Ntry><Amt Ccy="EUR">500.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-07-21</Dt></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>E2E-B001</EndToEndId></Refs></TxDtls></NtryDtls></Ntry>\n      <Ntry><Amt Ccy="EUR">300.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-07-22</Dt></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>E2E-UNKNOWN-1</EndToEndId></Refs></TxDtls></NtryDtls></Ntry>\n      <Ntry><Amt Ccy="EUR">100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-07-23</Dt></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>E2E-UNKNOWN-2</EndToEndId></Refs></TxDtls></NtryDtls></Ntry>\n    </Stmt>\n  </BkToCstmrStmt>\n</Document>',
+    exp: 'EndToEndId,Amount,Currency,Date\nE2E-B001,500.00,EUR,2026-07-21\nE2E-MISSING,75.00,EUR,2026-07-21\n',
+  },
+};
+
+function loadStmtFixture(){
+  const key = document.getElementById('stmtFixture').value;
+  document.getElementById('stmtInput').value = FIXTURES[key].stmt;
+  document.getElementById('expInput').value = FIXTURES[key].exp;
+}
+
+function onImportCSVFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { document.getElementById('expInput').value = String(reader.result); };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function parseStatement(xml){
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+  if(doc.querySelector('parsererror')) throw new Error('camt.053 XML did not parse: check for a malformed tag or unescaped character.');
+  const root = doc.documentElement;
+  const structuralErrors = validateCamt053Structural(root);
+  if(structuralErrors.length) {
+    const e = new Error('camt.053 failed schema-subset validation: ' + structuralErrors.map(x => x.path+' ('+x.rule+')').join('; '));
+    e.structuralErrors = structuralErrors;
+    throw e;
+  }
+  const msgId = queryPath(root, 'GrpHdr/MsgId')[0];
+  const stmtId = queryPath(root, 'Stmt/Id')[0];
+  const iban = queryPath(root, 'Stmt/Acct/Id/IBAN')[0];
+  const ccy = queryPath(root, 'Stmt/Acct/Ccy')[0];
+
+  let stmtNode = null;
+  Array.from(root.children).forEach(cstmr => { Array.from(cstmr.children).forEach(c => { if(localName(c) === 'Stmt') stmtNode = c; }); });
+  const balEls = Array.from(stmtNode.children).filter(c => localName(c) === 'Bal');
+  const ntryEls = Array.from(stmtNode.children).filter(c => localName(c) === 'Ntry');
+
+  function balInfo(el){
+    const cd = queryPath(el, 'Tp/CdOrPrtry/Cd')[0];
+    const amt = parseFloat(queryPath(el, 'Amt')[0]);
+    const ind = queryPath(el, 'CdtDbtInd')[0];
+    return { cd, signed: ind === 'DBIT' ? -amt : amt };
+  }
+  const balances = balEls.map(balInfo);
+
+  const entries = ntryEls.map((n, idx) => {
+    const amt = parseFloat(queryPath(n, 'Amt')[0]);
+    const ind = queryPath(n, 'CdtDbtInd')[0];
+    const bookgDt = queryPath(n, 'BookgDt/Dt')[0] || null;
+    const e2e = queryPath(n, 'NtryDtls/TxDtls/Refs/EndToEndId')[0] || null;
+    return { index: idx, endToEndId: e2e, amount: ind === 'DBIT' ? -amt : amt, ccy, date: bookgDt };
+  });
+
+  return { msgId, stmtId, iban, ccy, balances, entries };
+}
+
+function parseExpectations(csvText){
+  const rows = parseCSV(csvText).filter(r => r.length && r.some(c => c !== ''));
+  if(!rows.length) throw new Error('Expectations CSV is empty.');
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const idxE2E = header.indexOf('endtoendid'), idxAmt = header.indexOf('amount'), idxCcy = header.indexOf('currency'), idxDate = header.indexOf('date');
+  if(idxE2E === -1 || idxAmt === -1 || idxCcy === -1 || idxDate === -1) throw new Error('Expectations CSV header must be EndToEndId,Amount,Currency,Date');
+  return rows.slice(1).map((r, idx) => ({
+    index: idx,
+    endToEndId: r[idxE2E] || null,
+    amount: parseFloat(r[idxAmt]),
+    ccy: r[idxCcy],
+    date: r[idxDate],
+  }));
+}
+
+function daysBetween(a, b){
+  if(!a || !b) return Infinity;
+  return Math.abs((new Date(a+'T00:00:00Z').getTime() - new Date(b+'T00:00:00Z').getTime()) / 86400000);
+}
+
+// Deterministic match: exact EndToEndId first (statement order), then amount+date
+// tolerance + currency (statement order, first unmatched expectation in CSV order).
+function matchEntries(entries, expectations, amtTol, dateTolDays){
+  const usedExp = new Set();
+  const matches = [];
+  const unmatchedEntries = [];
+
+  entries.forEach(entry => {
+    if(entry.endToEndId){
+      const hit = expectations.find(x => !usedExp.has(x.index) && x.endToEndId === entry.endToEndId);
+      if(hit){ usedExp.add(hit.index); matches.push({ entry, expectation: hit, rule: 'endtoend_exact' }); return; }
+    }
+    unmatchedEntries.push(entry);
+  });
+
+  const stillUnmatched = [];
+  unmatchedEntries.forEach(entry => {
+    const hit = expectations.find(x => !usedExp.has(x.index) && x.ccy === entry.ccy && Math.abs(x.amount - entry.amount) <= amtTol && daysBetween(x.date, entry.date) <= dateTolDays);
+    if(hit){ usedExp.add(hit.index); matches.push({ entry, expectation: hit, rule: 'amount_date_tolerance' }); return; }
+    stillUnmatched.push(entry);
+  });
+
+  const unmatchedExpectations = expectations.filter(x => !usedExp.has(x.index));
+  return { matches, unmatchedEntries: stillUnmatched, unmatchedExpectations };
+}
+
+let lastBundle = null;
+let dispositionReceipts = [];
+
+async function runReconciliation(){
+  const out = document.getElementById('resultsSection');
+  const excOut = document.getElementById('exceptionsSection');
+  const bundleOut = document.getElementById('bundleSection');
+  excOut.innerHTML = ''; bundleOut.innerHTML = ''; dispositionReceipts = []; lastBundle = null;
+  const btn = document.getElementById('ap2ExportBtn');
+  if(btn){ btn.disabled = true; btn.classList.remove('ready'); }
+
+  let statement, expectations;
+  try {
+    statement = parseStatement(document.getElementById('stmtInput').value);
+  } catch(e) {
+    out.innerHTML = '<div class="status-bar invalid"><span class="status-dot"></span><span>'+e.message+'</span></div>';
+    return;
+  }
+  try {
+    expectations = parseExpectations(document.getElementById('expInput').value);
+  } catch(e) {
+    out.innerHTML = '<div class="status-bar invalid"><span class="status-dot"></span><span>'+e.message+'</span></div>';
+    return;
+  }
+
+  const amtTol = parseFloat(document.getElementById('amtTolerance').value) || 0.01;
+  const dateTol = parseFloat(document.getElementById('dateTolerance').value) || 0;
+  const { matches, unmatchedEntries, unmatchedExpectations } = matchEntries(statement.entries, expectations, amtTol, dateTol);
+
+  const exceptions = [
+    ...unmatchedEntries.map(e => ({ type: 'unmatched_statement_entry', key: 'entry-'+e.index, detail: e })),
+    ...unmatchedExpectations.map(e => ({ type: 'unmatched_expectation', key: 'expectation-'+e.index, detail: e })),
+  ];
+
+  const statementDigest = await executionHash({ msgId: statement.msgId, stmtId: statement.stmtId, iban: statement.iban, ccy: statement.ccy }, { balances: statement.balances, entries: statement.entries });
+  const expectationSetDigest = await executionHash({}, { expectations });
+  const matchRuleDeclaration = {
+    primary_rule: 'EndToEndId exact match',
+    secondary_rule: 'amount tolerance ±' + amtTol + ' + date tolerance ±' + dateTol + ' day(s) + currency match',
+    order: 'deterministic — statement-entry order first, expectation CSV order for tie-break',
+  };
+  const exceptionDigests = [];
+  for(const exc of exceptions) exceptionDigests.push(await executionHash({ type: exc.type, key: exc.key }, exc.detail));
+
+  const reconciliationPolicy = { statement_digest: statementDigest, expectation_set_digest: expectationSetDigest, match_rule_declaration: matchRuleDeclaration };
+  const reconciliationPayload = { matched_count: matches.length, unmatched_entry_count: unmatchedEntries.length, unmatched_expectation_count: unmatchedExpectations.length, exception_digests: exceptionDigests };
+  const reconciliationDigest = await executionHash(reconciliationPolicy, reconciliationPayload);
+
+  const reconciliationReceipt = { ...reconciliationPolicy, ...reconciliationPayload, execution_hash: reconciliationDigest, produced_at: new Date().toISOString() };
+
+  out.innerHTML =
+    '<div class="summary-grid">'
+    + '<div class="summary-tile"><div class="summary-n">'+matches.length+'</div><div class="summary-l">Matched</div></div>'
+    + '<div class="summary-tile"><div class="summary-n">'+unmatchedEntries.length+'</div><div class="summary-l">Unmatched Entries</div></div>'
+    + '<div class="summary-tile"><div class="summary-n">'+unmatchedExpectations.length+'</div><div class="summary-l">Unmatched Expectations</div></div>'
+    + '<div class="summary-tile"><div class="summary-n">'+exceptions.length+'</div><div class="summary-l">Exceptions</div></div>'
+    + '</div>'
+    + '<div class="digest-row"><strong>Statement Digest</strong> '+statementDigest+'</div>'
+    + '<div class="digest-row"><strong>Expectation-Set Digest</strong> '+expectationSetDigest+'</div>'
+    + '<div class="digest-row"><strong>Reconciliation Receipt Hash</strong> '+reconciliationDigest+'</div>';
+
+  if(exceptions.length === 0){
+    excOut.innerHTML = '<div class="clean-ok">✓ All statement entries matched an expectation. No dispositions required.</div>';
+  } else {
+    excOut.innerHTML = '<div class="panel"><div class="panel-title"><span>Exceptions &mdash; Review &amp; Disposition</span></div>' +
+      exceptions.map((exc, i) => renderExceptionRow(exc, i)).join('') + '</div>';
+  }
+
+  window._reconState = { statement, expectations, matches, exceptions, reconciliationReceipt, exceptionDigests };
+  refreshBundle();
+}
+
+function renderExceptionRow(exc, i){
+  const d = exc.detail;
+  const label = exc.type === 'unmatched_statement_entry'
+    ? 'Unmatched statement entry &middot; EndToEndId ' + (d.endToEndId || '(none)') + ' &middot; ' + d.amount + ' ' + d.ccy + ' on ' + (d.date || '?')
+    : 'Unmatched expectation &middot; EndToEndId ' + (d.endToEndId || '(none)') + ' &middot; ' + d.amount + ' ' + d.ccy + ' on ' + d.date;
+  return '<div class="exception-item" id="exc-'+i+'">'
+    + '<div class="exception-head">'+exc.type+'</div>'
+    + '<div class="exception-detail">'+label+'</div>'
+    + '<div class="disposition-row">'
+    + '<select id="disp-select-'+i+'"><option value="accept">Accept</option><option value="reject">Reject</option><option value="investigate">Investigate</option></select>'
+    + '<input type="text" id="disp-note-'+i+'" placeholder="Disposition note (optional)">'
+    + '<button class="tb-btn" onclick="recordDisposition('+i+')">Record Disposition</button>'
+    + '</div>'
+    + '<div id="disp-done-'+i+'"></div>'
+    + '</div>';
+}
+
+// Per-disposition receipt — the CHECKRUN-1 step-receipt hash-chain pattern
+// (chaingraph/kernels/_checklist.mjs buildStepReceipt): each disposition chains
+// to the previous one via prev_step_receipt_digest so the review sequence is
+// itself tamper-evident.
+async function buildDispositionReceipt({ reconciliationDigest, exception, stepIndex, disposition, note, prevDigest }){
+  const policy_parameters = { reconciliation_digest: reconciliationDigest, exception_key: exception.key, exception_type: exception.type, step_index: stepIndex, disposition, prev_step_receipt_digest: prevDigest ?? null };
+  const output_payload = { exception_detail: exception.detail, note: note || null };
+  const execution_hash = await executionHash(policy_parameters, output_payload);
+  return { policy_parameters, output_payload, execution_hash, produced_at: new Date().toISOString() };
+}
+
+async function recordDisposition(i){
+  const st = window._reconState;
+  if(!st) return;
+  const exc = st.exceptions[i];
+  const disposition = document.getElementById('disp-select-'+i).value;
+  const note = document.getElementById('disp-note-'+i).value;
+  const prevDigest = dispositionReceipts.length ? dispositionReceipts[dispositionReceipts.length-1].execution_hash : null;
+  const receipt = await buildDispositionReceipt({ reconciliationDigest: st.reconciliationReceipt.execution_hash, exception: exc, stepIndex: dispositionReceipts.length, disposition, note, prevDigest });
+  dispositionReceipts.push(receipt);
+  document.getElementById('disp-done-'+i).innerHTML = '<div class="disposition-done">✓ '+disposition+' recorded &middot; receipt '+receipt.execution_hash.slice(0,16)+'&hellip;</div>';
+  refreshBundle();
+}
+
+async function refreshBundle(){
+  const st = window._reconState;
+  const bundleOut = document.getElementById('bundleSection');
+  if(!st) return;
+  const bundleDigest = await executionHash({ reconciliation_hash: st.reconciliationReceipt.execution_hash }, { disposition_receipts: dispositionReceipts.map(r => r.execution_hash) });
+  lastBundle = { reconciliation_receipt: st.reconciliationReceipt, disposition_receipts: dispositionReceipts, bundle_digest: bundleDigest };
+  bundleOut.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Reconciliation Bundle</span><button class="tb-btn" onclick="verifyChain()">Verify Chain</button></div><div class="out-body" id="bundleBody">'+JSON.stringify(lastBundle, null, 2)+'</div></div>';
+  window._ap2Result = { output: 'Reconciliation: '+st.matches.length+' matched, '+st.exceptions.length+' exception(s), '+dispositionReceipts.length+' disposition(s) recorded. Bundle digest '+bundleDigest.slice(0,16)+'…', inputs: { statement_msg_id: st.statement.msgId, expectation_count: st.expectations.length } };
+  window.enableAP2Btn();
+}
+
+async function verifyChain(){
+  if(!lastBundle) return;
+  let ok = true;
+  let prev = null;
+  for(const r of lastBundle.disposition_receipts){
+    const expectedPrev = r.policy_parameters.prev_step_receipt_digest;
+    const prevOk = prev === null ? expectedPrev === null : expectedPrev === prev;
+    const recomputed = await executionHash(r.policy_parameters, r.output_payload);
+    if(!prevOk || recomputed !== r.execution_hash) { ok = false; break; }
+    prev = r.execution_hash;
+  }
+  const body = document.getElementById('bundleBody');
+  if(body) body.innerHTML = (ok ? '✓ Chain verified: every disposition receipt recomputes to its stored hash and links to its predecessor.\n\n' : '✗ Chain verification FAILED — a receipt does not recompute or the chain link is broken.\n\n') + JSON.stringify(lastBundle, null, 2);
+}
+
+loadStmtFixture();
+</script>
+
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "565-camt053-reconciliation-workbench", "version": "1.0.0", "title": "camt.053 Reconciliation Workbench", "description": "Imports a camt.053 statement (strict schema-subset parse) plus a counterpart expectation set (CSV via the hand-rolled workbook core), runs a deterministic EndToEndId-then-tolerance match engine, and produces a hash-chained reconciliation receipt with per-disposition exception receipts.", "category": "cat-21", "tags": ["camt.053", "reconciliation", "ISO 20022", "EndToEndId matching", "exception disposition", "receipt chain"], "audience": ["payments", "compliance", "engineer"], "input_schema": {"type": "object", "properties": {"statement_xml": {"type": "string"}, "expectations_csv": {"type": "string"}, "date_tolerance_days": {"type": "number"}}, "required": ["statement_xml", "expectations_csv"]}, "output_schema": {"type": "object", "properties": {"reconciliation_receipt": {"type": "object"}, "disposition_receipts": {"type": "array"}}}, "mcp_tool_definition": {"name": "camt053_reconcile", "description": "Matches a camt.053 statement against a counterpart expectation set (EndToEndId exact match, then amount/date tolerance), returning a hash-chained reconciliation receipt and an exceptions list. Prepare/hash/receipt only, not a transmitted settlement.", "inputSchema": {"type": "object", "properties": {"statement_xml": {"type": "string"}, "expectations_csv": {"type": "string"}, "date_tolerance_days": {"type": "number"}}, "required": ["statement_xml", "expectations_csv"]}}, "execution": {"type": "browser-javascript", "entry": "tools/565-camt053-reconciliation-workbench.html", "function_name": "runReconciliation", "timeout_ms": 5000}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3-§4. Retained legacy identifiers (ap2ExportBtn / AP2Schema) — do not rename. */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window.exportAP2=function(){
+  if(!window._ap2Result){alert('Run a reconciliation first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid='565-camt053-reconciliation-workbench';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:'1.0.0',
+    mandate_type:'camt053_reconciliation_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:['ISO 20022'],
+    payload:window._ap2Result,
+    summary:'camt.053 Reconciliation Workbench — reconciliation report '+ts,
+    agent_instructions:['This is a prepare/validate/hash/receipt artifact, not a transmitted settlement instruction. Review the reconciliation and export for your own rails.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
