@@ -139,10 +139,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <span class="flag warn">Zero Network Fetch</span>
   </div>
 
-  <div class="disclaimer">This tool states only that &ge;k of your pinned witness keys signed the note's root. It does NOT establish that the log itself is honest or complete, that the pinned keys belong to the parties they claim to be, or that any specific artifact leaf is included in the tree (see SPEC.md &sect;20.1 for leaf inclusion).</div>
-  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. This tool consumes a checkpoint note text you already have (e.g. from a c2sp.org/tlog-proof bundle) &mdash; it performs zero network fetches and never operates, mirrors, or serves a log.</div>
+  <div class="disclaimer">This tool states only that &ge;k of your pinned witness keys signed the note's root (cosignature mode) or that a proof correctly bridges two checkpoints (consistency mode). It does NOT establish that the log itself is honest or complete, that pinned keys belong to the parties they claim to be, or that any specific artifact leaf is included in the tree (see SPEC.md &sect;20.1 for leaf inclusion).</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. This tool consumes checkpoint note text you already have (e.g. from a c2sp.org/tlog-proof bundle) &mdash; it performs zero network fetches and never operates, mirrors, or serves a log.</div>
 
-  <div class="card">
+  <div class="preset-row" style="margin:12px 0">
+    <button id="modeBtnCosig" onclick="setMode('cosignature')">Witness Cosignature Verify</button>
+    <button id="modeBtnConsistency" class="preset-btn" onclick="setMode('consistency_proof')">Log Consistency Proof Verify</button>
+  </div>
+
+  <div class="card" id="cosigCard">
     <div class="section-head">Batch Anchor + Checkpoint Note</div>
     <div class="preset-row">
       <button class="preset-btn" onclick="loadPreset('pass')">Load Passing Example (2-of-2)</button>
@@ -180,7 +185,45 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
 
     <div style="margin-top:20px">
-      <button onclick="runVerifier()">&#9654; Verify Witness Cosignatures</button>
+      <button onclick="runCosignatureVerifier()">&#9654; Verify Witness Cosignatures</button>
+    </div>
+  </div>
+
+  <div class="card" id="consistencyCard" style="display:none">
+    <div class="section-head">Two Checkpoints + Consistency Proof</div>
+    <div class="q-help">Verifies the log did NOT rewrite history between an older checkpoint you observed and a newer one &mdash; a proper RFC 6962 consistency proof. This is complementary to witness-cosignature verification above (which checks a single checkpoint's signatures), not a replacement for it: pin/verify each checkpoint's own authenticity separately.</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadConsistencyPreset('pass')">Load Passing Example</button>
+      <button class="preset-btn" onclick="loadConsistencyPreset('tampered')">Load Tampered Proof (must FAIL)</button>
+      <button class="preset-btn" onclick="loadConsistencyPreset('origin_mismatch')">Load Origin-Mismatch Example (must FAIL)</button>
+    </div>
+
+    <div class="q">
+      <label class="q-label" for="f_c_log_origin">Expected Log Origin (optional)</label>
+      <div class="q-help">If set, both checkpoints' origin lines must match this exactly (as well as each other).</div>
+      <input type="text" id="f_c_log_origin" placeholder="log.example.org">
+    </div>
+
+    <div class="q">
+      <label class="q-label" for="f_old_checkpoint_note">Old Checkpoint Note <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The earlier signed checkpoint: origin, size, base64 root (cosignature lines, if any, are ignored in this mode).</div>
+      <textarea id="f_old_checkpoint_note" rows="4" placeholder="origin&#10;size&#10;root-b64&#10;"></textarea>
+    </div>
+
+    <div class="q">
+      <label class="q-label" for="f_new_checkpoint_note">New Checkpoint Note <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The later signed checkpoint from the same log.</div>
+      <textarea id="f_new_checkpoint_note" rows="4" placeholder="origin&#10;size&#10;root-b64&#10;"></textarea>
+    </div>
+
+    <div class="q">
+      <label class="q-label" for="f_consistency_proof">Consistency Proof (JSON array of base64 nodes) <span style="color:var(--red)">*</span></label>
+      <div class="q-help">The RFC 6962 &sect;2.1.2 consistency-proof node list, e.g. from a c2sp.org/tlog-proof bundle's consistency endpoint.</div>
+      <textarea id="f_consistency_proof" rows="3" placeholder='["base64node1","base64node2"]'></textarea>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runConsistencyVerifier()">&#9654; Verify Log Consistency</button>
     </div>
   </div>
 
@@ -295,22 +338,26 @@ var MANIFEST = {
   version: '1.0.0',
   mcp_name: 'verify_witness_cosignatures',
   title: 'Witness Cosignature Verifier',
-  description: 'Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md §20.2): origin/root match against a batch anchor\'s declared hash, plus k-of-n Ed25519/ML-DSA-44 witness cosignatures. Verify-side only, zero log operation, zero network fetch.',
+  description: 'Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.md §20.2): origin/root match against a batch anchor\'s declared hash, plus k-of-n Ed25519/ML-DSA-44 witness cosignatures. Also verifies RFC 6962 log consistency proofs between two checkpoints (mode: consistency_proof), catching an equivocating/forking log. Verify-side only, zero log operation, zero network fetch.',
   spec_version: '0.8.8',
   chaingraph_version: '0.4.0',
   export_capability: ['json'],
-  regulation: 'C2SP tlog-checkpoint + witness-cosignature note format (SPEC.md §20.2)',
+  regulation: 'C2SP tlog-checkpoint + witness-cosignature note format (SPEC.md §20.2); RFC 6962 §2.1.2 consistency proof',
   mcp_tool_definition: {
     name: 'verify_witness_cosignatures',
-    description: 'Verifies k-of-n independent witness cosignatures over a batch anchor Merkle root, per SPEC.md §20.2. Supports Ed25519 cosignature/v1 and ML-DSA-44. Offline, verify-side only.',
+    description: 'Verifies k-of-n independent witness cosignatures over a batch anchor Merkle root, per SPEC.md §20.2 (default mode). With mode: "consistency_proof", instead verifies an RFC 6962 consistency proof between two checkpoints from the same log, proving the log did not rewrite history. Supports Ed25519 cosignature/v1 and ML-DSA-44. Offline, verify-side only.',
     inputSchema: {
       type: 'object',
       properties: {
-        anchored_hash: { type: 'string', description: 'The batch anchor\'s declared root, sha256:-prefixed or bare hex.' },
-        log_origin: { type: 'string', description: 'Optional expected log origin; must match the note origin line if set.' },
-        checkpoint_note: { type: 'string', description: 'The C2SP tlog-checkpoint signed note text with cosignature lines.' },
-        witness_keys: { type: 'array', description: 'Pinned witness keys: [{name, algorithm: ed25519|ml-dsa-44, public_key_b64}].' },
-        threshold: { type: 'integer', description: 'Minimum number of distinct valid witness cosignatures required (k).' }
+        mode: { type: 'string', description: 'Verification mode: omit or "cosignature" (default) for witness-cosignature verification; "consistency_proof" for two-checkpoint log consistency verification.' },
+        anchored_hash: { type: 'string', description: '[cosignature mode] The batch anchor\'s declared root, sha256:-prefixed or bare hex.' },
+        log_origin: { type: 'string', description: 'Optional expected log origin; must match the note origin line(s) if set.' },
+        checkpoint_note: { type: 'string', description: '[cosignature mode] The C2SP tlog-checkpoint signed note text with cosignature lines.' },
+        witness_keys: { type: 'array', description: '[cosignature mode] Pinned witness keys: [{name, algorithm: ed25519|ml-dsa-44, public_key_b64}].' },
+        threshold: { type: 'integer', description: '[cosignature mode] Minimum number of distinct valid witness cosignatures required (k).' },
+        old_checkpoint_note: { type: 'string', description: '[consistency_proof mode] The earlier checkpoint note text.' },
+        new_checkpoint_note: { type: 'string', description: '[consistency_proof mode] The later checkpoint note text from the same log.' },
+        consistency_proof: { type: 'array', description: '[consistency_proof mode] RFC 6962 §2.1.2 consistency-proof node list, base64-encoded.' }
       },
       required: ['anchored_hash', 'checkpoint_note', 'witness_keys', 'threshold']
     }
@@ -3451,6 +3498,151 @@ async function computeVerifier(pp) {
   return { output_payload: output_payload, compliance_flags: compliance_flags, checks: checks };
 }
 
+// ── Log consistency-proof verification (SPEC.md §20.2 extension, AV-CONSISTENCY-1) ──
+// Given two checkpoints already observed, verifies the log did NOT rewrite history between
+// them (RFC 6962 §2.1.2 consistency proof) — complementary to the cosignature check above,
+// not a duplicate: this mode never inspects cosignature lines, only the two roots + sizes.
+async function hashChildren(left, right) {
+  var buf = new Uint8Array(1 + left.length + right.length);
+  buf[0] = 0x01;
+  buf.set(left, 1);
+  buf.set(right, 1 + left.length);
+  return sha256(buf);
+}
+
+async function verifyConsistencyProof(proof, snapshot1, snapshot2, root1, root2) {
+  if (snapshot1 === snapshot2) {
+    if (proof.length !== 0) return { ok: false, reason: 'equal-size checkpoints must carry an empty consistency proof' };
+    if (!bytesEqual(root1, root2)) return { ok: false, reason: 'equal-size checkpoints have different roots' };
+    return { ok: true };
+  }
+  if (snapshot1 === 0) {
+    if (proof.length !== 0) return { ok: false, reason: 'a consistency proof from an empty log must be empty' };
+    return { ok: true };
+  }
+  var node = BigInt(snapshot1 - 1);
+  var lastNode = BigInt(snapshot2 - 1);
+  while (node % 2n === 1n) { node /= 2n; lastNode /= 2n; }
+
+  var idx = 0;
+  if (proof.length === 0) return { ok: false, reason: 'consistency proof is empty' };
+  var newHash, oldHash;
+  if (node > 0n) { newHash = proof[idx++]; oldHash = newHash; }
+  else { newHash = root1; oldHash = root1; }
+
+  while (node > 0n) {
+    if (node % 2n === 1n) {
+      if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+      var h1 = proof[idx++];
+      oldHash = await hashChildren(h1, oldHash);
+      newHash = await hashChildren(h1, newHash);
+    } else if (node < lastNode) {
+      if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+      var h2 = proof[idx++];
+      newHash = await hashChildren(newHash, h2);
+    }
+    node /= 2n; lastNode /= 2n;
+  }
+
+  if (!bytesEqual(oldHash, root1)) {
+    return { ok: false, reason: 'proof does not reconstruct the old checkpoint root (the old tree was not a prefix of the new tree)' };
+  }
+
+  while (lastNode > 0n) {
+    if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+    var h3 = proof[idx++];
+    newHash = await hashChildren(newHash, h3);
+    lastNode /= 2n;
+  }
+
+  if (!bytesEqual(newHash, root2)) {
+    return { ok: false, reason: 'proof does not reconstruct the new checkpoint root' };
+  }
+  if (idx !== proof.length) return { ok: false, reason: 'consistency proof has unused trailing elements' };
+  return { ok: true };
+}
+
+var CONSISTENCY_NOT_PROVEN = [
+  { item: 'Log honesty before the old checkpoint', detail: 'A consistency proof shows the new tree is an append-only extension of the old tree. It says nothing about whether entries older than the old checkpoint were ever honestly logged.' },
+  { item: 'Authenticity of either checkpoint', detail: "This mode assumes both checkpoint notes are ones you already trust (e.g. each independently verified via its own witness cosignatures — see this tool's cosignature mode). It does not re-verify signatures over either checkpoint here." },
+  { item: 'Inclusion of any specific artifact leaf', detail: 'This mode verifies only that the new tree extends the old tree without rewriting it. It does not verify a Merkle inclusion path for any individual leaf (see SPEC.md §20.1 for that check).' },
+];
+
+async function computeConsistencyVerifier(pp) {
+  var checks = [];
+  var old_note = _str(pp.old_checkpoint_note);
+  var new_note = _str(pp.new_checkpoint_note);
+  var log_origin = _str(pp.log_origin).trim();
+  var consistency_proof = _arr(pp.consistency_proof);
+
+  var oldParsed = parseNote(old_note);
+  var newParsed = parseNote(new_note);
+  checks.push({ check: 'old_checkpoint_parses', pass: !oldParsed.error, detail: oldParsed.error || 'ok' });
+  checks.push({ check: 'new_checkpoint_parses', pass: !newParsed.error, detail: newParsed.error || 'ok' });
+
+  var proofBytes = [];
+  var proofDecodeError = null;
+  for (var i = 0; i < consistency_proof.length; i++) {
+    try { proofBytes.push(b64decode(consistency_proof[i])); } catch (e) { proofDecodeError = 'consistency_proof contains a non-base64 entry'; break; }
+  }
+  checks.push({ check: 'consistency_proof_decodes', pass: !proofDecodeError, detail: proofDecodeError || (proofBytes.length + ' proof node(s)') });
+
+  var structural_error = oldParsed.error || newParsed.error || proofDecodeError || null;
+  var preconditionsOk = checks.every(function (c) { return c.pass; });
+
+  if (!preconditionsOk) {
+    return {
+      output_payload: {
+        mode: 'consistency_proof',
+        old_origin: oldParsed.origin ?? null, old_size: oldParsed.size ?? null, old_root_hash: oldParsed.rootHex ?? null,
+        new_origin: newParsed.origin ?? null, new_size: newParsed.size ?? null, new_root_hash: newParsed.rootHex ?? null,
+        origin_match: false, size_order_valid: false, consistency_verified: false, consistency_failure_reason: null,
+        consistency_proof_result: 'FAIL', structural_error: structural_error || 'input validation failed',
+        not_proven: CONSISTENCY_NOT_PROVEN,
+      },
+      compliance_flags: ['LOG_CONSISTENCY_INPUT_INVALID', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'],
+      checks: checks,
+    };
+  }
+
+  var origin_match = oldParsed.origin === newParsed.origin && (!log_origin || oldParsed.origin === log_origin);
+  var size_order_valid = newParsed.size >= oldParsed.size;
+
+  var consistency_verified = false, consistency_failure_reason = null;
+  if (size_order_valid) {
+    var oldRootBytes = hexToBytes(oldParsed.rootHex);
+    var newRootBytes = hexToBytes(newParsed.rootHex);
+    var result = await verifyConsistencyProof(proofBytes, oldParsed.size, newParsed.size, oldRootBytes, newRootBytes);
+    consistency_verified = result.ok;
+    consistency_failure_reason = result.ok ? null : result.reason;
+  } else {
+    consistency_failure_reason = 'new checkpoint size must be >= old checkpoint size';
+  }
+
+  var pass = origin_match && size_order_valid && consistency_verified;
+
+  checks.push({ check: 'origin_matches', pass: origin_match,
+    detail: origin_match ? 'ok' : 'old and new checkpoint origins differ (or do not match the expected log_origin)' });
+  checks.push({ check: 'size_order_valid', pass: size_order_valid,
+    detail: size_order_valid ? 'ok' : 'new checkpoint size must be >= old checkpoint size' });
+  checks.push({ check: 'consistency_proof_verified', pass: consistency_verified,
+    detail: consistency_verified ? 'ok' : (consistency_failure_reason || 'consistency proof failed') });
+
+  var output_payload = {
+    mode: 'consistency_proof',
+    old_origin: oldParsed.origin, old_size: oldParsed.size, old_root_hash: oldParsed.rootHex,
+    new_origin: newParsed.origin, new_size: newParsed.size, new_root_hash: newParsed.rootHex,
+    origin_match: origin_match, size_order_valid: size_order_valid, consistency_verified: consistency_verified, consistency_failure_reason: consistency_failure_reason,
+    consistency_proof_result: pass ? 'PASS' : 'FAIL', structural_error: null,
+    not_proven: CONSISTENCY_NOT_PROVEN,
+  };
+
+  var compliance_flags = ['C2SP_TLOG_CONSISTENCY_PROOF', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'];
+  compliance_flags.push(pass ? 'LOG_CONSISTENCY_VERIFIED' : 'LOG_CONSISTENCY_FAILED');
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags, checks: checks };
+}
+
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);var o={};var ks=Object.keys(v).sort();for(var i=0;i<ks.length;i++)o[ks[i]]=cgCanon(v[ks[i]]);return o;}
 async function sha256hex(str){var buf=new TextEncoder().encode(str);var dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
 async function cgHash(pp,op){return sha256hex(JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op})));}
@@ -3464,6 +3656,89 @@ function loadPreset(key) {
   document.getElementById('f_checkpoint_note').value = p.checkpoint_note || '';
   document.getElementById('f_witness_keys').value = JSON.stringify(p.witness_keys || [], null, 2);
   document.getElementById('f_threshold').value = p.threshold || 1;
+}
+
+var CONSISTENCY_PRESETS = {
+  "pass": {
+    "log_origin": "av-consistency-1-fixture-log.example.org",
+    "old_checkpoint_note": "av-consistency-1-fixture-log.example.org\n4\ngcGy/aFjRew13+5Bs233Z8+iEmMA0HUhHOUBzjRg8As=\n\n",
+    "new_checkpoint_note": "av-consistency-1-fixture-log.example.org\n7\nRcbcJicEobonZ30ajy1fSGjEaTkEQwvBXpw2DGsEa7k=\n\n",
+    "consistency_proof": ["6OU+KwJvBIgr+d4lALtazwgcGiUOC9M7A5qmrloRcZI="]
+  },
+  "tampered": {
+    "log_origin": "av-consistency-1-fixture-log.example.org",
+    "old_checkpoint_note": "av-consistency-1-fixture-log.example.org\n4\ngcGy/aFjRew13+5Bs233Z8+iEmMA0HUhHOUBzjRg8As=\n\n",
+    "new_checkpoint_note": "av-consistency-1-fixture-log.example.org\n7\nRcbcJicEobonZ30ajy1fSGjEaTkEQwvBXpw2DGsEa7k=\n\n",
+    "consistency_proof": ["F+U+KwJvBIgr+d4lALtazwgcGiUOC9M7A5qmrloRcZI="]
+  },
+  "origin_mismatch": {
+    "log_origin": "a-different-origin.example.org",
+    "old_checkpoint_note": "av-consistency-1-fixture-log.example.org\n4\ngcGy/aFjRew13+5Bs233Z8+iEmMA0HUhHOUBzjRg8As=\n\n",
+    "new_checkpoint_note": "av-consistency-1-fixture-log.example.org\n7\nRcbcJicEobonZ30ajy1fSGjEaTkEQwvBXpw2DGsEa7k=\n\n",
+    "consistency_proof": ["6OU+KwJvBIgr+d4lALtazwgcGiUOC9M7A5qmrloRcZI="]
+  }
+};
+
+function loadConsistencyPreset(key) {
+  var p = CONSISTENCY_PRESETS[key]; if (!p) return;
+  document.getElementById('f_c_log_origin').value = p.log_origin || '';
+  document.getElementById('f_old_checkpoint_note').value = p.old_checkpoint_note || '';
+  document.getElementById('f_new_checkpoint_note').value = p.new_checkpoint_note || '';
+  document.getElementById('f_consistency_proof').value = JSON.stringify(p.consistency_proof || [], null, 2);
+}
+
+function setMode(mode) {
+  var isCosig = mode !== 'consistency_proof';
+  document.getElementById('cosigCard').style.display = isCosig ? '' : 'none';
+  document.getElementById('consistencyCard').style.display = isCosig ? 'none' : '';
+  document.getElementById('modeBtnCosig').className = isCosig ? '' : 'preset-btn';
+  document.getElementById('modeBtnConsistency').className = isCosig ? 'preset-btn' : '';
+  document.getElementById('resultsPanel').classList.remove('show');
+}
+
+function collectConsistencyFields() {
+  var consistency_proof = [];
+  try { consistency_proof = JSON.parse(document.getElementById('f_consistency_proof').value || '[]'); } catch (e) { consistency_proof = []; }
+  return {
+    mode: 'consistency_proof',
+    log_origin: document.getElementById('f_c_log_origin').value.trim(),
+    old_checkpoint_note: document.getElementById('f_old_checkpoint_note').value,
+    new_checkpoint_note: document.getElementById('f_new_checkpoint_note').value,
+    consistency_proof: consistency_proof,
+  };
+}
+
+async function runConsistencyVerifier() {
+  var pp = collectConsistencyFields();
+  var res = await computeConsistencyVerifier(pp);
+  var op = res.output_payload, flags = res.compliance_flags;
+  _lastPP = pp; _lastOP = op; _lastFlags = flags;
+
+  var banner = document.getElementById('resultBanner');
+  var isPass = op.consistency_proof_result === 'PASS';
+  banner.innerHTML = '<div class="result-banner ' + (isPass ? 'pass' : 'fail') + '">' +
+    (isPass ? '✓ PASS' : '✗ FAIL') + ' — log consistency between size ' + (op.old_size ?? '?') + ' and size ' + (op.new_size ?? '?') + '</div>';
+
+  var cd = document.getElementById('checksDiv'); cd.innerHTML='';
+  for (var i = 0; i < res.checks.length; i++) {
+    var c = res.checks[i];
+    var row = document.createElement('div'); row.className='check-row';
+    row.innerHTML='<span class="'+(c.pass?'check-pass':'check-warn')+'">'+(c.pass?'&#10003;':'&#9651;')+'</span><span class="check-name">'+c.check+'</span><span class="check-detail">'+c.detail+'</span>';
+    cd.appendChild(row);
+  }
+
+  var cosigDiv = document.getElementById('cosigDiv'); cosigDiv.innerHTML='';
+
+  var hash = await cgHash(pp, op);
+  document.getElementById('hashBox').textContent = hash;
+
+  var fr = document.getElementById('flagRow'); fr.innerHTML='';
+  for (var fi = 0; fi < flags.length; fi++) {
+    var b=document.createElement('span'); b.className='badge '+(isPass?'ok':'fail'); b.textContent=flags[fi]; fr.appendChild(b);
+  }
+
+  document.getElementById('artifactPre').style.display='none';
+  document.getElementById('resultsPanel').classList.add('show');
 }
 
 function collectFields() {
@@ -3480,7 +3755,7 @@ function collectFields() {
 
 var _lastPP=null, _lastOP=null, _lastFlags=null;
 
-async function runVerifier() {
+async function runCosignatureVerifier() {
   var pp = collectFields();
   var res = await computeVerifier(pp);
   var op = res.output_payload, flags = res.compliance_flags;

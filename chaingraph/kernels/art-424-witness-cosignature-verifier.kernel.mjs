@@ -3038,7 +3038,166 @@ async function verifyOneWitness(witnessKey, sigLine) {
     name: witnessKey.name, algorithm, present: true };
 }
 
-export function compute(pp) {
+// ── Log consistency-proof verification (SPEC.md §20.2 extension, AV-CONSISTENCY-1) ──
+// Given two checkpoints a caller already observed (old + new, e.g. fetched at different
+// times from the same log), verifies the log did NOT rewrite history between them — a
+// proper RFC 6962 §2.1.2 consistency proof, not a re-check of either checkpoint's own
+// witness cosignatures or single-entry inclusion (that is WITNESS-VERIFY-1's / SPEC.md
+// §20.1's job; this mode is the complementary "did the log fork/equivocate" check).
+// Hash scheme matches RFC 6962: leaf hash = SHA-256(0x00 || data) (unused here — this
+// mode never sees leaf data, only checkpoint roots), interior node hash =
+// SHA-256(0x01 || left || right). Algorithm below is the standard iterative consistency-
+// proof verifier (RFC 6962bis reference form, as shipped by Certificate Transparency
+// implementations e.g. Trillian's LogVerifier.VerifyConsistencyProof) — hand-rolled here,
+// not imported, per the site repo's zero-dependency rule.
+async function hashChildren(left, right) {
+  const buf = new Uint8Array(1 + left.length + right.length);
+  buf[0] = 0x01;
+  buf.set(left, 1);
+  buf.set(right, 1 + left.length);
+  return sha256(buf);
+}
+
+async function verifyConsistencyProof(proof, snapshot1, snapshot2, root1, root2) {
+  if (snapshot1 === snapshot2) {
+    if (proof.length !== 0) return { ok: false, reason: 'equal-size checkpoints must carry an empty consistency proof' };
+    if (!bytesEqual(root1, root2)) return { ok: false, reason: 'equal-size checkpoints have different roots' };
+    return { ok: true };
+  }
+  if (snapshot1 === 0) {
+    if (proof.length !== 0) return { ok: false, reason: 'a consistency proof from an empty log must be empty' };
+    return { ok: true };
+  }
+  let node = BigInt(snapshot1 - 1);
+  let lastNode = BigInt(snapshot2 - 1);
+  while (node % 2n === 1n) { node /= 2n; lastNode /= 2n; }
+
+  let idx = 0;
+  if (proof.length === 0) return { ok: false, reason: 'consistency proof is empty' };
+  let newHash, oldHash;
+  if (node > 0n) { newHash = proof[idx++]; oldHash = newHash; }
+  else { newHash = root1; oldHash = root1; }
+
+  while (node > 0n) {
+    if (node % 2n === 1n) {
+      if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+      const h = proof[idx++];
+      oldHash = await hashChildren(h, oldHash);
+      newHash = await hashChildren(h, newHash);
+    } else if (node < lastNode) {
+      if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+      const h = proof[idx++];
+      newHash = await hashChildren(newHash, h);
+    }
+    node /= 2n; lastNode /= 2n;
+  }
+
+  if (!bytesEqual(oldHash, root1)) {
+    return { ok: false, reason: 'proof does not reconstruct the old checkpoint root (the old tree was not a prefix of the new tree)' };
+  }
+
+  while (lastNode > 0n) {
+    if (idx >= proof.length) return { ok: false, reason: 'consistency proof is too short' };
+    const h = proof[idx++];
+    newHash = await hashChildren(newHash, h);
+    lastNode /= 2n;
+  }
+
+  if (!bytesEqual(newHash, root2)) {
+    return { ok: false, reason: 'proof does not reconstruct the new checkpoint root' };
+  }
+  if (idx !== proof.length) return { ok: false, reason: 'consistency proof has unused trailing elements' };
+  return { ok: true };
+}
+
+const CONSISTENCY_NOT_PROVEN = [
+  { item: 'Log honesty before the old checkpoint', detail: 'A consistency proof shows the new tree is an append-only extension of the old tree. It says nothing about whether entries older than the old checkpoint were ever honestly logged.' },
+  { item: 'Authenticity of either checkpoint', detail: 'This mode assumes both checkpoint notes are ones you already trust (e.g. each independently verified via its own witness cosignatures — see this tool\'s cosignature mode). It does not re-verify signatures over either checkpoint here.' },
+  { item: 'Inclusion of any specific artifact leaf', detail: 'This mode verifies only that the new tree extends the old tree without rewriting it. It does not verify a Merkle inclusion path for any individual leaf (see SPEC.md §20.1 for that check).' },
+];
+
+function computeConsistency(pp) {
+  const checks = [];
+  const old_note = _str(pp.old_checkpoint_note);
+  const new_note = _str(pp.new_checkpoint_note);
+  const log_origin = _str(pp.log_origin).trim();
+  const consistency_proof = _arr(pp.consistency_proof);
+
+  const oldParsed = parseNote(old_note);
+  const newParsed = parseNote(new_note);
+  checks.push({ check: 'old_checkpoint_parses', pass: !oldParsed.error, detail: oldParsed.error || 'ok' });
+  checks.push({ check: 'new_checkpoint_parses', pass: !newParsed.error, detail: newParsed.error || 'ok' });
+
+  let proofBytes = [];
+  let proofDecodeError = null;
+  for (const p of consistency_proof) {
+    try { proofBytes.push(b64decode(p)); } catch { proofDecodeError = 'consistency_proof contains a non-base64 entry'; break; }
+  }
+  checks.push({ check: 'consistency_proof_decodes', pass: !proofDecodeError, detail: proofDecodeError || (proofBytes.length + ' proof node(s)') });
+
+  const structural_error = oldParsed.error || newParsed.error || proofDecodeError || null;
+  const preconditionsOk = checks.every(c => c.pass);
+
+  if (!preconditionsOk) {
+    return {
+      output_payload: {
+        mode: 'consistency_proof',
+        old_origin: oldParsed.origin ?? null, old_size: oldParsed.size ?? null, old_root_hash: oldParsed.rootHex ?? null,
+        new_origin: newParsed.origin ?? null, new_size: newParsed.size ?? null, new_root_hash: newParsed.rootHex ?? null,
+        origin_match: false, size_order_valid: false, consistency_verified: false, consistency_failure_reason: null,
+        consistency_proof_result: 'FAIL', structural_error: structural_error || 'input validation failed',
+        not_proven: CONSISTENCY_NOT_PROVEN,
+      },
+      compliance_flags: ['LOG_CONSISTENCY_INPUT_INVALID', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'],
+      checks,
+    };
+  }
+
+  return { __async: true, mode: 'consistency_proof', oldParsed, newParsed, proofBytes, log_origin, checks };
+}
+
+async function computeConsistencyAsync(sync) {
+  const { oldParsed, newParsed, proofBytes, log_origin, checks } = sync;
+
+  const origin_match = oldParsed.origin === newParsed.origin && (!log_origin || oldParsed.origin === log_origin);
+  const size_order_valid = newParsed.size >= oldParsed.size;
+
+  let consistency_verified = false, consistency_failure_reason = null;
+  if (size_order_valid) {
+    const oldRootBytes = hexToBytes(oldParsed.rootHex);
+    const newRootBytes = hexToBytes(newParsed.rootHex);
+    const result = await verifyConsistencyProof(proofBytes, oldParsed.size, newParsed.size, oldRootBytes, newRootBytes);
+    consistency_verified = result.ok;
+    consistency_failure_reason = result.ok ? null : result.reason;
+  } else {
+    consistency_failure_reason = 'new checkpoint size must be >= old checkpoint size';
+  }
+
+  const pass = origin_match && size_order_valid && consistency_verified;
+
+  checks.push({ check: 'origin_matches', pass: origin_match,
+    detail: origin_match ? 'ok' : 'old and new checkpoint origins differ (or do not match the expected log_origin)' });
+  checks.push({ check: 'size_order_valid', pass: size_order_valid,
+    detail: size_order_valid ? 'ok' : 'new checkpoint size must be >= old checkpoint size' });
+  checks.push({ check: 'consistency_proof_verified', pass: consistency_verified,
+    detail: consistency_verified ? 'ok' : (consistency_failure_reason || 'consistency proof failed') });
+
+  const output_payload = {
+    mode: 'consistency_proof',
+    old_origin: oldParsed.origin, old_size: oldParsed.size, old_root_hash: oldParsed.rootHex,
+    new_origin: newParsed.origin, new_size: newParsed.size, new_root_hash: newParsed.rootHex,
+    origin_match, size_order_valid, consistency_verified, consistency_failure_reason,
+    consistency_proof_result: pass ? 'PASS' : 'FAIL', structural_error: null,
+    not_proven: CONSISTENCY_NOT_PROVEN,
+  };
+
+  const compliance_flags = ['C2SP_TLOG_CONSISTENCY_PROOF', 'ZERO_LOG_OPERATION_VERIFY_SIDE_ONLY'];
+  compliance_flags.push(pass ? 'LOG_CONSISTENCY_VERIFIED' : 'LOG_CONSISTENCY_FAILED');
+
+  return { output_payload, compliance_flags, checks };
+}
+
+function computeCosignature(pp) {
   pp = pp || {};
   const checks = [];
 
@@ -3081,7 +3240,15 @@ export function compute(pp) {
     };
   }
 
-  return { __async: true, parsed, anchored_hash, log_origin, witness_keys, threshold, checks, not_proven };
+  return { __async: true, mode: 'cosignature', parsed, anchored_hash, log_origin, witness_keys, threshold, checks, not_proven };
+}
+
+// Two verification modes share this tool: default 'cosignature' (SPEC.md §20.2 witness
+// cosignatures) and 'consistency_proof' (AV-CONSISTENCY-1, above). compute() dispatches on
+// pp.mode and stays synchronous for callers that only want the precondition checks.
+export function compute(pp) {
+  pp = pp || {};
+  return _str(pp.mode) === 'consistency_proof' ? computeConsistency(pp) : computeCosignature(pp);
 }
 
 // Signature verification is async (WebCrypto / noble ML-DSA), so buildArtifact drives the
@@ -3090,6 +3257,7 @@ export function compute(pp) {
 async function computeAsync(pp) {
   const sync = compute(pp);
   if (!sync.__async) return sync;
+  if (sync.mode === 'consistency_proof') return computeConsistencyAsync(sync);
   const { parsed, anchored_hash, log_origin, witness_keys, threshold, checks, not_proven } = sync;
 
   const anchored_hash_match = parsed.rootHex === anchored_hash;
