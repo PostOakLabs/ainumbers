@@ -98,6 +98,14 @@ const NOTJUSTBUT = [
 ];
 const DRAMATIC_FRAGMENT = /\bThe (?:result|catch|takeaway|verdict|kicker|bottom line)\?/gi;
 const VALIDATION_PHRASING = /\byou['’]?re\s+not\s+(?:alone|imagining\s+(?:it|things))\b/gi;
+// The comma-pivot two-tone cliché: "It's not X, it's Y" (and this/that/there +
+// "it's/it is/it's about/they're" on the far side). Sibling to
+// TWOTONE_HIGHPRECISION (the period-separated "It is not X. It is Y." form).
+// Anchored on a leading pronoun (it's/this is/that's/there's) so factual
+// sentences that merely start with a noun ("the field is not required, it is
+// optional") don't trip it. Zero-tolerance, no baseline — same as the other
+// two-tone tell. Added per Tim 2026-07-21.
+const TWOTONE_COMMA = /\b(?:it['’]?s|it is|this is|that['’]?s|there['’]?s)\s+not\s+[^,.!?]{1,70},\s+(?:it['’]?s\s+about|it['’]?s|it is|they['’]?re)\b/gi;
 const FILLER_VOCAB = [
   [/\bdelv(?:e|es|ed|ing)\b/gi, 'delve'],
   [/\btapestr(?:y|ies)\b/gi, 'tapestry'],
@@ -229,6 +237,8 @@ for (const file of htmlFiles(REPO)) {
   }
   const dramatic = (text.match(DRAMATIC_FRAGMENT) || []).length;
   if (dramatic) hallmarks.push(`dramatic-fragment ×${dramatic}`);
+  const twotoneComma = (text.match(TWOTONE_COMMA) || []).length;
+  if (twotoneComma) hallmarks.push(`"it's not X, it's Y" pivot ×${twotoneComma}`);
   const validation = (text.match(VALIDATION_PHRASING) || []).length;
   if (validation) hallmarks.push(`validation-phrasing ×${validation}`);
   for (const [re, label] of FILLER_VOCAB) {
@@ -327,7 +337,7 @@ if (improvements.length) {
 }
 if (failures.length) {
   console.error(`\ncopy-hallmarks: ${failures.length} FAILURE(s) — AI-writing hallmarks in reader-facing copy:\n  ` + failures.join('\n  '));
-  console.error(`\nFix the copy (see CONTRACT.md §1.4 + memory feedback-anti-ai-tell-copy-ban). Em-dashes/jargon: baseline burns down with --update. ANTI-AI-TELL hits (italics-emphasis, "not just X but", dramatic fragments, validation-phrasing, filler-vocab, emoji-in-headers/prose): zero-tolerance, no baseline — rewrite the copy.`);
+  console.error(`\nFix the copy (see CONTRACT.md §1.4 + memory feedback-anti-ai-tell-copy-ban). Em-dashes/jargon: baseline burns down with --update. ANTI-AI-TELL hits (italics-emphasis, "not just X but", "it's not X, it's Y" pivot, dramatic fragments, validation-phrasing, filler-vocab, emoji-in-headers/prose): zero-tolerance, no baseline — rewrite the copy.`);
   process.exit(1);
 }
 console.log(`copy-hallmarks: OK (${Object.keys(baseline).length} baselined file(s) within budget, 0 ANTI-AI-TELL hits).`);
