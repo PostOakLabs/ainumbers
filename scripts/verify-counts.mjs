@@ -317,6 +317,7 @@ for (const rel of [
   'mcp.html',
   'chaingraph/chaingraph-hub.html',
   'chaingraph/zkvm-compute-integrity.html',
+  'chaingraph/why-openchain-graph.html',
 ]) {
   total += checkHtmlSentinels(rel)
 }
