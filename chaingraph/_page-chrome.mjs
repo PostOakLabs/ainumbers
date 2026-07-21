@@ -33,11 +33,8 @@ export function buildNav(breadcrumbCurrent) {
       <span style="color:var(--gold)">${breadcrumbCurrent}</span>
     </div>
     <div class="nav-right">
-      <a href="chaingraph.json" class="nav-pill" target="_blank">chaingraph.json</a>
-      <a href="openchain-graph-spec.html" class="nav-pill">Spec v0.8.8 &#8594;</a>
-      <a href="openchain-graph-paper.html" class="nav-pill">White Paper &#8594;</a>
-      <a href="ain-bridge-explainer.html" class="nav-pill">AIN Bridge &#8594;</a>
-      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server &#8599;</a>
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
     </div>
   </div>
 </nav>`;
@@ -207,8 +204,10 @@ export const NAV_REQUIRED_TOKENS = [
   'All Tools',
   'OpenChainGraph Suite',
   'class="nav-right"',
+  'class="nav-pill"',
+  'chaingraph-hub.html',
   'class="nav-cta"',
-  'mcp.ainumbers.co/mcp',
+  '../start.html',
 ];
 
 /**
