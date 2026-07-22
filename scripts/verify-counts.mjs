@@ -313,6 +313,7 @@ for (const rel of [
   'docs/index.html',
   'index.html',
   'start.html',
+  'about.html',
   'chaingraph/openchain-graph-paper.html',
   'sitemap.html',
   'tools.html',
