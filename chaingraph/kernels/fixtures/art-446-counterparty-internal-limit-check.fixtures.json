@@ -1,0 +1,184 @@
+{
+  "tool_id": "art-446-counterparty-internal-limit-check",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: two counterparties well within their internal limit lines. Vector 2: a counterparty above its caller-set warning threshold but not yet over the limit. Vector 3: a counterparty whose current exposure exceeds its approved limit -- breach. Vector 4: zero-input edge (finite gate, utilization returns null not Infinity/NaN when the limit is zero, empty counterparty list = no breach/warning).",
+  "vectors": [
+    {
+      "name": "seeded_default_within_limit",
+      "description": "Counterparty A: $400M exposure against a $1000M settlement limit (40% utilization, 90% warning threshold) -- within limit. Counterparty B: $300M exposure against a $1500M aggregate limit (20% utilization) -- within limit.",
+      "policy_parameters": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-A",
+            "counterparty_name": "Counterparty A",
+            "limit_type": "settlement",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 400,
+            "warning_threshold_pct": 90
+          },
+          {
+            "counterparty_id": "cp-B",
+            "counterparty_name": "Counterparty B",
+            "limit_type": "aggregate",
+            "approved_limit_musd": 1500,
+            "current_exposure_musd": 300,
+            "warning_threshold_pct": 90
+          }
+        ]
+      },
+      "output_payload": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-A",
+            "counterparty_name": "Counterparty A",
+            "limit_type": "settlement",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 400,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 40,
+            "headroom_musd": 600,
+            "status": "WITHIN_LIMIT"
+          },
+          {
+            "counterparty_id": "cp-B",
+            "counterparty_name": "Counterparty B",
+            "limit_type": "aggregate",
+            "approved_limit_musd": 1500,
+            "current_exposure_musd": 300,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 20,
+            "headroom_musd": 1200,
+            "status": "WITHIN_LIMIT"
+          }
+        ],
+        "breach_list": [],
+        "warning_list": [],
+        "regulatory_basis": "Internal (board- or risk-committee-approved) counterparty credit-limit governance -- not a regulatory threshold. Distinct from the Basel III / Regulation YY 25%/15%-of-Tier-1 large-exposures limit (see art-425).",
+        "note": "Deterministic point comparison of caller-supplied current exposure against the caller-supplied approved internal limit line for a single reporting date. Not a real-time exposure monitor."
+      },
+      "compliance_flags": [
+        "ALL_WITHIN_LIMIT"
+      ],
+      "golden_hash": "360e4ddd88a9ed0a4983b2527a5e60529a3f98f38370bcfd9e9fc35749780ca5"
+    },
+    {
+      "name": "warning_threshold_triggered",
+      "description": "Counterparty C: $940M exposure against a $1000M pre-settlement limit -- 94% utilization, above the 90% warning threshold but not yet over the limit.",
+      "policy_parameters": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-C",
+            "counterparty_name": "Counterparty C",
+            "limit_type": "pre_settlement",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 940,
+            "warning_threshold_pct": 90
+          }
+        ]
+      },
+      "output_payload": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-C",
+            "counterparty_name": "Counterparty C",
+            "limit_type": "pre_settlement",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 940,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 94,
+            "headroom_musd": 60,
+            "status": "WARNING"
+          }
+        ],
+        "breach_list": [],
+        "warning_list": [
+          {
+            "counterparty_id": "cp-C",
+            "counterparty_name": "Counterparty C",
+            "limit_type": "pre_settlement",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 940,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 94,
+            "headroom_musd": 60,
+            "status": "WARNING"
+          }
+        ],
+        "regulatory_basis": "Internal (board- or risk-committee-approved) counterparty credit-limit governance -- not a regulatory threshold. Distinct from the Basel III / Regulation YY 25%/15%-of-Tier-1 large-exposures limit (see art-425).",
+        "note": "Deterministic point comparison of caller-supplied current exposure against the caller-supplied approved internal limit line for a single reporting date. Not a real-time exposure monitor."
+      },
+      "compliance_flags": [
+        "WARNING_THRESHOLD_TRIGGERED"
+      ],
+      "golden_hash": "820bae361a4259a5aef4addc472f19cc7c6b9f8cc22553eb81494ddec6c026d3"
+    },
+    {
+      "name": "limit_breach",
+      "description": "Counterparty D: $1200M exposure against a $1000M aggregate limit -- exceeds the approved line, breach.",
+      "policy_parameters": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-D",
+            "counterparty_name": "Counterparty D",
+            "limit_type": "aggregate",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 1200,
+            "warning_threshold_pct": 90
+          }
+        ]
+      },
+      "output_payload": {
+        "counterparties": [
+          {
+            "counterparty_id": "cp-D",
+            "counterparty_name": "Counterparty D",
+            "limit_type": "aggregate",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 1200,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 120,
+            "headroom_musd": -200,
+            "status": "BREACH"
+          }
+        ],
+        "breach_list": [
+          {
+            "counterparty_id": "cp-D",
+            "counterparty_name": "Counterparty D",
+            "limit_type": "aggregate",
+            "approved_limit_musd": 1000,
+            "current_exposure_musd": 1200,
+            "warning_threshold_pct": 90,
+            "utilization_pct": 120,
+            "headroom_musd": -200,
+            "status": "BREACH"
+          }
+        ],
+        "warning_list": [],
+        "regulatory_basis": "Internal (board- or risk-committee-approved) counterparty credit-limit governance -- not a regulatory threshold. Distinct from the Basel III / Regulation YY 25%/15%-of-Tier-1 large-exposures limit (see art-425).",
+        "note": "Deterministic point comparison of caller-supplied current exposure against the caller-supplied approved internal limit line for a single reporting date. Not a real-time exposure monitor."
+      },
+      "compliance_flags": [
+        "LIMIT_BREACH_DETECTED"
+      ],
+      "golden_hash": "b65b97c50e9cf799bbda196e57100968effbeaad3c1552cf872c3a2c933ea6a6"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No counterparties supplied. Finite gate: an empty list yields no breach/warning and no NaN/Infinity paths.",
+      "policy_parameters": {
+        "counterparties": []
+      },
+      "output_payload": {
+        "counterparties": [],
+        "breach_list": [],
+        "warning_list": [],
+        "regulatory_basis": "Internal (board- or risk-committee-approved) counterparty credit-limit governance -- not a regulatory threshold. Distinct from the Basel III / Regulation YY 25%/15%-of-Tier-1 large-exposures limit (see art-425).",
+        "note": "Deterministic point comparison of caller-supplied current exposure against the caller-supplied approved internal limit line for a single reporting date. Not a real-time exposure monitor."
+      },
+      "compliance_flags": [
+        "ALL_WITHIN_LIMIT"
+      ],
+      "golden_hash": "f5a1d49e09563494d28124fd20d340cc03e23e8d8ff7e1d65c485224a86844e5"
+    }
+  ]
+}
