@@ -86,6 +86,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}ocg-integration-guide.html">Integration Guide</a>
         <a href="${cg}ocg-guide-export.html">Export Profiles</a>
         <a href="${cg}ocg-industries.html">Industry Concepts</a>
+        <a href="${root}helm.html">Helm (Phase 1)</a>
         <a href="${root}convert.html">Conversion Suite</a>
         <a href="${root}guides/agreement-standards-directory.html">Agreement Standards</a>
       </div>
