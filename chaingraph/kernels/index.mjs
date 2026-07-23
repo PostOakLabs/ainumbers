@@ -380,8 +380,8 @@ import * as art446    from './art-446-counterparty-internal-limit-check.kernel.m
 import * as art447    from './art-447-securitization-risk-retention-check.kernel.mjs';
 import * as art448    from './art-448-ifrs17-loss-component-tracker.kernel.mjs';
 import * as art449    from './art-449-solvency2-scr-module-aggregator.kernel.mjs';
-import * as art452    from './art-452-build-ai-training-data-lineage-record.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
+import * as art452    from './art-452-build-ai-training-data-lineage-record.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
@@ -832,8 +832,8 @@ export const KERNELS = {
   'art-447-securitization-risk-retention-check':              art447,
   'art-448-ifrs17-loss-component-tracker':                    art448,
   'art-449-solvency2-scr-module-aggregator':                  art449,
-  'art-452-build-ai-training-data-lineage-record':             art452,
   'art-45-arc-xreserve-linter':                               art45,
+  'art-452-build-ai-training-data-lineage-record':            art452,
   'art-46-arc-paymaster-model':                               art46,
   'art-47-arc-cctp-transfer':                                 art47,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
