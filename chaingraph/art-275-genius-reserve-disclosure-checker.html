@@ -193,8 +193,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div id="assetRows"></div>
     <button type="button" class="preset-btn" onclick="addAssetRow()">+ Add asset line</button>
 
-    <div class="section-head" style="margin-top:18px">Certification &amp; Examiner</div>
-    <div class="check-row"><input type="checkbox" id="ceo_cfo_certification_present"><label for="ceo_cfo_certification_present">CEO/CFO certification present</label></div>
+    <div class="section-head" style="margin-top:18px">Certification (dual_control(2)) &amp; Examiner</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>CEO Identity ID (pseudonymous, not a real name)</label>
+        <input type="text" id="ceo_identity_id" placeholder="e.g. did:key:z6Mk...ceo01"></div>
+      <div class="q"><label><span class="dim">Field</span>CFO Identity ID (pseudonymous, not a real name)</label>
+        <input type="text" id="cfo_identity_id" placeholder="e.g. did:key:z6Mk...cfo01"></div>
+    </div>
     <div class="check-row"><input type="checkbox" id="registered_examiner_named"><label for="registered_examiner_named">Registered public accounting firm examiner named</label></div>
     <div class="q"><label><span class="dim">Field</span>Examiner Name</label>
       <input type="text" id="examiner_name" placeholder="e.g. Grant Thornton LLP"></div>
@@ -293,7 +298,7 @@ const MANIFEST = {
   spec_version: '0.5.0',
   compute_capability: "server",
   export_capability: ["pdf","xlsx"],
-  description: "Lints an extracted monthly reserve disclosure against GENIUS Act S.394 §4: composition eligibility, tenor, custody, CEO/CFO certification, examiner, MoM diff, on-chain supply cross-check.",
+  description: "Lints an extracted monthly reserve disclosure against GENIUS Act S.394 §4: composition eligibility, tenor, custody, dual_control(2) CEO/CFO certification, examiner, MoM diff, on-chain supply cross-check.",
   chain: "genius-reserve-disclosure",
   url: "https://ainumbers.co/chaingraph/art-275-genius-reserve-disclosure-checker.html"
 };
@@ -345,7 +350,8 @@ const PRESETS = {
       { type: 'tbill', usd: 700000, maturity: 60, custodian: 'BNY Mellon' },
       { type: 'demand_deposit', usd: 300000, custodian: 'JPMorgan Chase' }
     ],
-    ceo_cfo_certification_present: true, registered_examiner_named: true, examiner_name: 'Grant Thornton LLP',
+    ceo_identity_id: 'did:key:z6Mk-demo-ceo01', cfo_identity_id: 'did:key:z6Mk-demo-cfo01',
+    registered_examiner_named: true, examiner_name: 'Grant Thornton LLP',
     onchain_supply_check: 1000000, prior_report_month: '', prior_outstanding_tokens: '', prior_reserve_usd: ''
   },
   fail: {
@@ -354,7 +360,8 @@ const PRESETS = {
       { type: 'tbill', usd: 900000, maturity: 60, custodian: 'BNY Mellon' },
       { type: 'crypto_asset', usd: 100000, custodian: 'Coinbase Custody' }
     ],
-    ceo_cfo_certification_present: true, registered_examiner_named: false, examiner_name: '',
+    ceo_identity_id: 'did:key:z6Mk-demo-ceo01', cfo_identity_id: 'did:key:z6Mk-demo-cfo01',
+    registered_examiner_named: false, examiner_name: '',
     onchain_supply_check: 1600000, prior_report_month: '2027-02', prior_outstanding_tokens: 1000000, prior_reserve_usd: 1000000
   }
 };
@@ -369,7 +376,8 @@ function loadPreset(p) {
   setVal('outstanding_tokens_reported', pr.outstanding_tokens_reported);
   setVal('token_price', pr.token_price);
   setVal('issuer_type', pr.issuer_type);
-  setChecked('ceo_cfo_certification_present', pr.ceo_cfo_certification_present);
+  setVal('ceo_identity_id', pr.ceo_identity_id);
+  setVal('cfo_identity_id', pr.cfo_identity_id);
   setChecked('registered_examiner_named', pr.registered_examiner_named);
   setVal('examiner_name', pr.examiner_name);
   setVal('onchain_supply_check', pr.onchain_supply_check);
@@ -401,7 +409,10 @@ function getPP() {
     token_price: Number(document.getElementById('token_price').value || 1),
     issuer_type: document.getElementById('issuer_type').value,
     assets,
-    ceo_cfo_certification_present: document.getElementById('ceo_cfo_certification_present').checked,
+    certifying_officers: [
+      ...(document.getElementById('ceo_identity_id').value ? [{ role: 'CEO', identity_id: document.getElementById('ceo_identity_id').value }] : []),
+      ...(document.getElementById('cfo_identity_id').value ? [{ role: 'CFO', identity_id: document.getElementById('cfo_identity_id').value }] : []),
+    ],
     registered_examiner_named: document.getElementById('registered_examiner_named').checked,
     examiner_name: document.getElementById('examiner_name').value || null,
   };
@@ -456,7 +467,10 @@ function compute(pp) {
   const price = Number(pp.token_price ?? 1);
   const issuerType = pp.issuer_type ?? 'nonbank_state';
   const assets = pp.assets ?? [];
-  const certPresent = pp.ceo_cfo_certification_present === true;
+  const certifyingOfficers = pp.certifying_officers ?? [];
+  const ceoCert = certifyingOfficers.find(o => o && o.role === 'CEO' && o.identity_id) ?? null;
+  const cfoCert = certifyingOfficers.find(o => o && o.role === 'CFO' && o.identity_id) ?? null;
+  const dualControlSatisfied = !!ceoCert && !!cfoCert && ceoCert.identity_id !== cfoCert.identity_id;
   const examinerNamed = pp.registered_examiner_named === true;
   const examinerName = pp.examiner_name ?? null;
   const onchainSupply = pp.onchain_supply_check ?? null;
@@ -519,7 +533,13 @@ function compute(pp) {
   assetResults.filter(a => a.has_fail).forEach(a => {
     a.issues.forEach(issue => failingDimensions.push({ dim: 'Asset issue: ' + a.def.label, detail: issue, ref: 'GENIUS Act S.394 §4(a)' }));
   });
-  if (!certPresent) failingDimensions.push({ dim: 'CEO/CFO certification', detail: 'Monthly report is missing the required CEO/CFO certification.', ref: 'GENIUS Act S.394 §4' });
+  if (!dualControlSatisfied) {
+    const parts = [];
+    if (!ceoCert) parts.push('CEO certification missing.');
+    if (!cfoCert) parts.push('CFO certification missing.');
+    if (ceoCert && cfoCert && ceoCert.identity_id === cfoCert.identity_id) parts.push('CEO and CFO certifications must come from two distinct identities.');
+    failingDimensions.push({ dim: 'CEO/CFO certification', detail: ('Monthly report requires a dual_control(2) CEO/CFO certification. ' + parts.join(' ')).trim(), ref: 'GENIUS Act S.394 §4; FDIC NPR 2026-04-10; OCG SPEC.md §27.3 dual_control(2)' });
+  }
   if (!examinerNamed) failingDimensions.push({ dim: 'Registered accounting-firm examiner', detail: 'No registered public accounting firm named as examiner for this report.', ref: 'GENIUS Act S.394 §4' });
   if (!custodyDisclosed && assets.length > 0) failingDimensions.push({ dim: 'Custody location disclosure', detail: 'One or more reserve assets are missing a disclosed custodian/location.', ref: 'GENIUS Act S.394 §4' });
   if (onchain_supply_check.provided && onchain_supply_check.match === false) {
@@ -527,7 +547,7 @@ function compute(pp) {
   }
 
   let determination;
-  const hardFail = coverageRatio < 1 || prohibitedTotal > 0 || !certPresent || (onchain_supply_check.provided && onchain_supply_check.match === false);
+  const hardFail = coverageRatio < 1 || prohibitedTotal > 0 || !dualControlSatisfied || (onchain_supply_check.provided && onchain_supply_check.match === false);
   const softWarn = conditionalTotal > 0 || !examinerNamed || !custodyDisclosed || (mom_diff && mom_diff.large_swing_flag);
   if (hardFail) determination = 'FAIL'; else if (softWarn) determination = 'WARN'; else determination = 'PASS';
 
@@ -535,7 +555,7 @@ function compute(pp) {
   if (determination === 'FAIL') compliance_flags.push('GENIUS_MONTHLY_DISCLOSURE_FAIL');
   if (coverageRatio < 1) compliance_flags.push('RESERVE_DEFICIENCY');
   if (prohibitedTotal > 0) compliance_flags.push('PROHIBITED_ASSETS_PRESENT');
-  if (!certPresent) compliance_flags.push('CERTIFICATION_MISSING');
+  if (!dualControlSatisfied) compliance_flags.push('DUAL_CONTROL_UNSATISFIED');
   if (!examinerNamed) compliance_flags.push('EXAMINER_MISSING');
   if (!custodyDisclosed && assets.length > 0) compliance_flags.push('CUSTODY_DISCLOSURE_INCOMPLETE');
   if (onchain_supply_check.provided && onchain_supply_check.match === false) compliance_flags.push('ONCHAIN_SUPPLY_MISMATCH');
@@ -549,7 +569,8 @@ function compute(pp) {
     reserve_shortfall_usd: parseFloat(Math.max(0, totalLiab - totalReserve).toFixed(2)),
     prohibited_assets_usd: prohibitedTotal, conditional_assets_usd: conditionalTotal,
     custody_locations: custodyLocations, custody_disclosed: custodyDisclosed,
-    ceo_cfo_certification_present: certPresent, registered_examiner_named: examinerNamed, examiner_name: examinerName,
+    ceo_certified: !!ceoCert, cfo_certified: !!cfoCert, dual_control_satisfied: dualControlSatisfied, gate_policy: 'dual_control(2)',
+    registered_examiner_named: examinerNamed, examiner_name: examinerName,
     asset_results: assetResults.map(a => ({ type: a.type, usd: a.usd, pct: a.pct, custodian: a.custodian, eligibility: a.def.eligibility, has_fail: a.has_fail, issues: a.issues })),
     failing_dimensions: failingDimensions, mom_diff, onchain_supply_check,
     applicable_deadline: '2027-01-18',
@@ -621,7 +642,7 @@ async function run() {
   }).join('') || '<tr><td colspan="5" class="muted">No assets entered</td></tr>';
 
   document.getElementById('custodySect').innerHTML = 'Custody disclosed: <span class="badge ' + (output_payload.custody_disclosed ? 'ok' : 'err') + '">' + (output_payload.custody_disclosed ? 'yes' : 'no') + '</span>, locations: ' + (output_payload.custody_locations.join(', ') || 'none');
-  document.getElementById('certSect').innerHTML = 'CEO/CFO certification: <span class="badge ' + (output_payload.ceo_cfo_certification_present ? 'ok' : 'err') + '">' + (output_payload.ceo_cfo_certification_present ? 'present' : 'missing') + '</span> &nbsp; Examiner: <span class="badge ' + (output_payload.registered_examiner_named ? 'ok' : 'err') + '">' + (output_payload.registered_examiner_named ? (output_payload.examiner_name || 'named') : 'missing') + '</span>';
+  document.getElementById('certSect').innerHTML = 'CEO/CFO dual_control(2): <span class="badge ' + (output_payload.dual_control_satisfied ? 'ok' : 'err') + '">' + (output_payload.dual_control_satisfied ? 'satisfied' : 'unsatisfied') + '</span> (CEO ' + (output_payload.ceo_certified ? '✓' : '✗') + ' / CFO ' + (output_payload.cfo_certified ? '✓' : '✗') + ') &nbsp; Examiner: <span class="badge ' + (output_payload.registered_examiner_named ? 'ok' : 'err') + '">' + (output_payload.registered_examiner_named ? (output_payload.examiner_name || 'named') : 'missing') + '</span>';
 
   if (output_payload.mom_diff) {
     document.getElementById('momSect').style.display = 'block';
