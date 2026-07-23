@@ -1,0 +1,204 @@
+{
+  "tool_id": "art-442-nmd-behavioral-repricing-mapper",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: two segments (core + volatile), both allocations valid, hand-computed. Vector 2: single segment with an allocation schedule that sums to 1.5, exercising the NMD_ALLOCATION_SCHEDULE_INVALID flag. Vector 3: zero segments -- finite gate, no NaN.",
+  "vectors": [
+    {
+      "name": "mixed_core_and_volatile_segments",
+      "description": "checking_core ($1,000,000, beta 0.2, allocated across y1_y3..y10_plus) plus savings_volatile ($500,000, beta 0.6, allocated 50/50 across on_1m/m1_y1). Hand-computed net_repricing_gap and weighted_avg_beta 0.33.",
+      "policy_parameters": {
+        "nmd_segments": [
+          {
+            "name": "checking_core",
+            "balance": 1000000,
+            "beta": 0.2,
+            "allocation": {
+              "on_1m": 0,
+              "m1_y1": 0,
+              "y1_y3": 0.1,
+              "y3_y5": 0.2,
+              "y5_y10": 0.3,
+              "y10_plus": 0.4
+            }
+          },
+          {
+            "name": "savings_volatile",
+            "balance": 500000,
+            "beta": 0.6,
+            "allocation": {
+              "on_1m": 0.5,
+              "m1_y1": 0.5,
+              "y1_y3": 0,
+              "y3_y5": 0,
+              "y5_y10": 0,
+              "y10_plus": 0
+            }
+          }
+        ]
+      },
+      "output_payload": {
+        "net_repricing_gap": {
+          "on_1m": -150000,
+          "m1_y1": -150000,
+          "y1_y3": -20000,
+          "y3_y5": -40000,
+          "y5_y10": -60000,
+          "y10_plus": -80000
+        },
+        "segment_results": [
+          {
+            "name": "checking_core",
+            "balance": 1000000,
+            "beta": 0.2,
+            "allocation_sum": 1,
+            "sums_to_one": true,
+            "rate_sensitive_balance": 200000,
+            "bucket_gaps": {
+              "on_1m": 0,
+              "m1_y1": 0,
+              "y1_y3": -20000,
+              "y3_y5": -40000,
+              "y5_y10": -60000,
+              "y10_plus": -80000
+            }
+          },
+          {
+            "name": "savings_volatile",
+            "balance": 500000,
+            "beta": 0.6,
+            "allocation_sum": 1,
+            "sums_to_one": true,
+            "rate_sensitive_balance": 300000,
+            "bucket_gaps": {
+              "on_1m": -150000,
+              "m1_y1": -150000,
+              "y1_y3": 0,
+              "y3_y5": 0,
+              "y5_y10": 0,
+              "y10_plus": 0
+            }
+          }
+        ],
+        "total_balance": 1500000,
+        "total_rate_sensitive_balance": 500000,
+        "weighted_avg_beta": 0.33,
+        "total_net_repricing_gap": -500000,
+        "buckets_used": [
+          "on_1m",
+          "m1_y1",
+          "y1_y3",
+          "y3_y5",
+          "y5_y10",
+          "y10_plus"
+        ],
+        "convention": "OCC 2010-1 NMD core/volatile behavioral repricing mapper (caller-declared allocation)"
+      },
+      "compliance_flags": [
+        "NMD_REPRICING_MAPPED"
+      ],
+      "golden_hash": "d758f12b511af6ba38d0fa14d7f1b4b73fd6423d405e3d4aa6ee67344f538d94"
+    },
+    {
+      "name": "misallocated_schedule_flag",
+      "description": "Single segment whose allocation fractions sum to 1.5 (caller error) -- sums_to_one flips false and NMD_ALLOCATION_SCHEDULE_INVALID fires, but the math still runs finite (no clamp/reject of the schedule itself, just the flag).",
+      "policy_parameters": {
+        "nmd_segments": [
+          {
+            "name": "x",
+            "balance": 100,
+            "beta": 1,
+            "allocation": {
+              "on_1m": 0.5,
+              "m1_y1": 0.5,
+              "y1_y3": 0.5,
+              "y3_y5": 0,
+              "y5_y10": 0,
+              "y10_plus": 0
+            }
+          }
+        ]
+      },
+      "output_payload": {
+        "net_repricing_gap": {
+          "on_1m": -50,
+          "m1_y1": -50,
+          "y1_y3": -50,
+          "y3_y5": 0,
+          "y5_y10": 0,
+          "y10_plus": 0
+        },
+        "segment_results": [
+          {
+            "name": "x",
+            "balance": 100,
+            "beta": 1,
+            "allocation_sum": 1.5,
+            "sums_to_one": false,
+            "rate_sensitive_balance": 100,
+            "bucket_gaps": {
+              "on_1m": -50,
+              "m1_y1": -50,
+              "y1_y3": -50,
+              "y3_y5": 0,
+              "y5_y10": 0,
+              "y10_plus": 0
+            }
+          }
+        ],
+        "total_balance": 100,
+        "total_rate_sensitive_balance": 100,
+        "weighted_avg_beta": 1,
+        "total_net_repricing_gap": -150,
+        "buckets_used": [
+          "on_1m",
+          "m1_y1",
+          "y1_y3",
+          "y3_y5",
+          "y5_y10",
+          "y10_plus"
+        ],
+        "convention": "OCC 2010-1 NMD core/volatile behavioral repricing mapper (caller-declared allocation)"
+      },
+      "compliance_flags": [
+        "NMD_REPRICING_MAPPED",
+        "NMD_ALLOCATION_SCHEDULE_INVALID"
+      ],
+      "golden_hash": "420d8f303c14ca790f93e03db80e5c32771fdea6b83b0dbf9b3eb775cc79cda1"
+    },
+    {
+      "name": "zero_segments_edge",
+      "description": "No NMD segments declared -- every bucket resolves to 0, not NaN (finite gate), and NMD_NO_SEGMENTS_DECLARED fires.",
+      "policy_parameters": {
+        "nmd_segments": []
+      },
+      "output_payload": {
+        "net_repricing_gap": {
+          "on_1m": 0,
+          "m1_y1": 0,
+          "y1_y3": 0,
+          "y3_y5": 0,
+          "y5_y10": 0,
+          "y10_plus": 0
+        },
+        "segment_results": [],
+        "total_balance": 0,
+        "total_rate_sensitive_balance": 0,
+        "weighted_avg_beta": 0,
+        "total_net_repricing_gap": 0,
+        "buckets_used": [
+          "on_1m",
+          "m1_y1",
+          "y1_y3",
+          "y3_y5",
+          "y5_y10",
+          "y10_plus"
+        ],
+        "convention": "OCC 2010-1 NMD core/volatile behavioral repricing mapper (caller-declared allocation)"
+      },
+      "compliance_flags": [
+        "NMD_REPRICING_MAPPED",
+        "NMD_NO_SEGMENTS_DECLARED"
+      ],
+      "golden_hash": "7c16c98cfd06b0ad39002ecfdeb183526537241cfeb4dbb00e0555aada6baa65"
+    }
+  ]
+}

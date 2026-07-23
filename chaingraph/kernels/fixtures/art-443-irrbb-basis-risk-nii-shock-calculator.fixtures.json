@@ -1,0 +1,149 @@
+{
+  "tool_id": "art-443-irrbb-basis-risk-nii-shock-calculator",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: three indices (prime/sofr/cd_portfolio) with distinct betas vs a 100bp reference shock, hand-computed basis-risk delta-NII and materiality flag. Vector 2: single index with beta 1.0 -- basis_risk_delta_nii resolves to exactly 0 and BASIS_RISK_MATERIAL does not fire. Vector 3: zero indices declared -- finite gate, basis_risk_pct_of_parallel is null (parallel_delta_nii is 0), not NaN.",
+  "vectors": [
+    {
+      "name": "three_index_basis_risk",
+      "description": "Prime (beta 1.0, $2M asset), SOFR (beta 0.9, $500k asset), CD portfolio (beta 0.5, $1M liability) under a +100bp reference shock, 12-month horizon. Hand-computed: parallel_delta_nii $15,000 vs actual $19,500 -> basis_risk_delta_nii $4,500 (30% of parallel) -- BASIS_RISK_MATERIAL fires against the 10% default threshold.",
+      "policy_parameters": {
+        "index_exposures": [
+          {
+            "index_name": "prime",
+            "asset_balance": 2000000,
+            "liability_balance": 0,
+            "beta_vs_reference": 1
+          },
+          {
+            "index_name": "sofr",
+            "asset_balance": 500000,
+            "liability_balance": 0,
+            "beta_vs_reference": 0.9
+          },
+          {
+            "index_name": "cd_portfolio",
+            "asset_balance": 0,
+            "liability_balance": 1000000,
+            "beta_vs_reference": 0.5
+          }
+        ],
+        "reference_shock_bps": 100,
+        "horizon_months": 12
+      },
+      "output_payload": {
+        "index_results": [
+          {
+            "index_name": "prime",
+            "asset_balance": 2000000,
+            "liability_balance": 0,
+            "beta_vs_reference": 1,
+            "net_exposure": 2000000,
+            "index_shock_bps": 100,
+            "nii_contribution": 20000
+          },
+          {
+            "index_name": "sofr",
+            "asset_balance": 500000,
+            "liability_balance": 0,
+            "beta_vs_reference": 0.9,
+            "net_exposure": 500000,
+            "index_shock_bps": 90,
+            "nii_contribution": 4500
+          },
+          {
+            "index_name": "cd_portfolio",
+            "asset_balance": 0,
+            "liability_balance": 1000000,
+            "beta_vs_reference": 0.5,
+            "net_exposure": -1000000,
+            "index_shock_bps": 50,
+            "nii_contribution": -5000
+          }
+        ],
+        "reference_shock_bps": 100,
+        "horizon_months": 12,
+        "total_net_exposure": 1500000,
+        "total_nii_contribution": 19500,
+        "parallel_delta_nii": 15000,
+        "basis_risk_delta_nii": 4500,
+        "basis_risk_pct_of_parallel": 0.3,
+        "material_threshold_pct": 0.1,
+        "is_material": true,
+        "convention": "Comptroller's Handbook IRR basis-risk delta-NII (per-index beta vs single reference shock)"
+      },
+      "compliance_flags": [
+        "BASIS_RISK_NII_CALCULATED",
+        "BASIS_RISK_MATERIAL"
+      ],
+      "golden_hash": "9754ac72bb41b781c475afa6e86b6570499b8f7b7b4779795e32e8bdbefcc03e"
+    },
+    {
+      "name": "single_index_beta_one_no_basis_risk",
+      "description": "One index at beta 1.0 -- by construction identical to a parallel shock, so basis_risk_delta_nii is exactly 0 and BASIS_RISK_MATERIAL never fires.",
+      "policy_parameters": {
+        "index_exposures": [
+          {
+            "index_name": "prime",
+            "asset_balance": 1000000,
+            "liability_balance": 400000,
+            "beta_vs_reference": 1
+          }
+        ],
+        "reference_shock_bps": 200,
+        "horizon_months": 12
+      },
+      "output_payload": {
+        "index_results": [
+          {
+            "index_name": "prime",
+            "asset_balance": 1000000,
+            "liability_balance": 400000,
+            "beta_vs_reference": 1,
+            "net_exposure": 600000,
+            "index_shock_bps": 200,
+            "nii_contribution": 12000
+          }
+        ],
+        "reference_shock_bps": 200,
+        "horizon_months": 12,
+        "total_net_exposure": 600000,
+        "total_nii_contribution": 12000,
+        "parallel_delta_nii": 12000,
+        "basis_risk_delta_nii": 0,
+        "basis_risk_pct_of_parallel": 0,
+        "material_threshold_pct": 0.1,
+        "is_material": false,
+        "convention": "Comptroller's Handbook IRR basis-risk delta-NII (per-index beta vs single reference shock)"
+      },
+      "compliance_flags": [
+        "BASIS_RISK_NII_CALCULATED"
+      ],
+      "golden_hash": "75ee18429752083c972cc92784b383edde5a8a4fe635240aaf949c3c696d670a"
+    },
+    {
+      "name": "zero_indices_edge",
+      "description": "No indices declared -- every sum resolves to 0, and basis_risk_pct_of_parallel is null (division guarded because parallel_delta_nii is 0), never NaN.",
+      "policy_parameters": {
+        "index_exposures": [],
+        "reference_shock_bps": 100
+      },
+      "output_payload": {
+        "index_results": [],
+        "reference_shock_bps": 100,
+        "horizon_months": 12,
+        "total_net_exposure": 0,
+        "total_nii_contribution": 0,
+        "parallel_delta_nii": 0,
+        "basis_risk_delta_nii": 0,
+        "basis_risk_pct_of_parallel": null,
+        "material_threshold_pct": 0.1,
+        "is_material": false,
+        "convention": "Comptroller's Handbook IRR basis-risk delta-NII (per-index beta vs single reference shock)"
+      },
+      "compliance_flags": [
+        "BASIS_RISK_NII_CALCULATED",
+        "BASIS_RISK_NO_INDICES_DECLARED"
+      ],
+      "golden_hash": "1527d14c73c82266455d52094dce4a48ce9cdd081c1d16e046097c81afb1542d"
+    }
+  ]
+}
