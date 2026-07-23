@@ -363,6 +363,7 @@ timestamp: 2026-07-14
 - [Cyber Incident Notification Clock](./art-428-cyber-incident-clock.md) — `compute_cyber_incident_notification_clock`
 - [VaR Backtesting Traffic-Light Zone Calculator](./art-429-var-backtest-traffic-light.md) — `compute_var_backtest_traffic_light`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
+- [FDIC Deposit-Insurance Assessment Rate Calculator](./art-431-fdic-assessment-rate-calculator.md) — `compute_fdic_assessment_rate`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
