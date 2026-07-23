@@ -371,6 +371,8 @@ import * as art436    from './art-436-bhc-schedule-hcr-capital.kernel.mjs';
 import * as art437    from './art-437-fr2052a-inflow-outflow-classifier.kernel.mjs';
 import * as art438    from './art-438-eval-attestation-receipt-composer.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
+import * as art442    from './art-442-nmd-behavioral-repricing-mapper.kernel.mjs';
+import * as art443    from './art-443-irrbb-basis-risk-nii-shock-calculator.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
@@ -813,6 +815,8 @@ export const KERNELS = {
   'art-437-fr2052a-inflow-outflow-classifier':                art437,
   'art-438-eval-attestation-receipt-composer':                art438,
   'art-44-arc-stablefx-model':                                art44,
+  'art-442-nmd-behavioral-repricing-mapper':                  art442,
+  'art-443-irrbb-basis-risk-nii-shock-calculator':            art443,
   'art-45-arc-xreserve-linter':                               art45,
   'art-46-arc-paymaster-model':                               art46,
   'art-47-arc-cctp-transfer':                                 art47,
