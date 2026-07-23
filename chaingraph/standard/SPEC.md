@@ -1685,6 +1685,74 @@ separator) ships as `ocg-private-input@<n>`, never an in-place edit, so a privat
 `@1` re-verifies bit-for-bit forever. Like §18, the profile **defaults OFF**: a node MUST surface to consumers
 that it withholds an input (§18.3), and MUST NOT auto-apply commitment mode.
 
+## §26 Control Plane Profile — `ocg-control-plane@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.9-draft)
+
+### §26.1 Purpose and scope
+
+This profile defines the artifact vocabulary for **connected, operated workflows**: executions that involve external data retrieval, durable local state, scheduling, human review, or agent delegation — operated by the artifact producer on infrastructure the producer controls (e.g. the AINumbers Helm Local Hub). It is a superset layered beside a conformant OCG artifact: a control-plane deployment produces ordinary OCG artifacts for its deterministic compute steps and additionally emits the objects defined here. A verifier ignorant of this profile remains fully correct for the core artifact.
+
+Nothing in this profile makes AINumbers an operator of any log, registry, or authority. All durable journals defined here are producer-local; their integrity claims derive from (a) internal hash-chaining and (b) anchoring to **external** authorities per §20.
+
+### §26.2 Envelope (NORMATIVE)
+
+Every signed object in this profile is an **in-toto Statement v1** (`_type: "https://in-toto.io/Statement/v1"`) carried in a **DSSE envelope**.
+
+- `subject[]` — digests of the bound artifacts (e.g. `manifest_digest`, `execution_hash`), `sha256` hex.
+- `predicateType` — `https://ainumbers.co/helm/attestation/v1#<kind>` where `<kind>` is one of the object kinds in §26.4.
+- Signatures: producers MUST sign with Ed25519 and SHOULD additionally sign with ML-DSA-44. Algorithm identifiers MUST be the RFC 9964 JOSE registrations. Verifiers MUST accept an envelope as verified when at least one signature from a trusted key verifies; conformance reports MUST state which families verified.
+- Payload JSON is JCS-canonicalized before signing.
+
+### §26.3 Workflow manifest binding
+
+A control-plane execution MUST record `workflow_manifest_digest`: the SHA-256 of the JCS-canonical workflow manifest (the machine-readable graph of trigger, connectors, compute nodes, gates, and actions, including per-node kernel ids/digests and connector contract digests, environment overlays by reference only — never secret values). Every object in §26.4 that pertains to a run MUST carry `run_id` and `workflow_manifest_digest`.
+
+### §26.4 Object kinds (NORMATIVE shapes; JSON Schemas are the SSOT in the Helm repo, mirrored by fixture)
+
+| `#<kind>` | Purpose | Required members (beyond `run_id`, `workflow_manifest_digest`, timestamps) |
+|---|---|---|
+| `connector_attestation` | An authorized connector retrieved/received a payload | `connector_id`, `connector_version`, `contract_digest`, `operation`, `scope[]`, `endpoint_host`, `payload_digest`, `classification` |
+| `execution_state` | A signed lifecycle transition | `state` (enum §26.5), `prev_state`, `journal_seq` |
+| `policy_decision` † | Policy pack evaluation outcome | `policy_bundle_digest`, `decision`, `reason_codes[]`, `effective_inputs_digest` |
+| `review_task` † | Exception routed to a human role | `role`, `reason`, `evidence_refs[]` |
+| `review_decision` † | Accountable human outcome | `reviewer_id`, `authority`, `decision`, `rationale` |
+| `override` † | Bounded authorized exception | `authority`, `reason`, `scope`, `expiry`, `superseded_ref` |
+| `agent_delegation` † | Machine principal grant (mirrors RFC 8693 exchange-chain shape: `sub`/`act` chain) | `principal`, `delegation_chain[]`, `allowed_tools[]`, `limits`, `prohibitions[]` |
+| `external_action_intent` † | Proposed side effect (pre-execution) | `action`, `target_host`, `request_digest`, `idempotency_key` |
+| `external_action_receipt` † | Side effect acknowledged | `idempotency_key`, `request_digest`, `response_digest`, `external_ref` |
+| `disclosure_receipt` † | Evidence/data released | `recipient`, `purpose`, `released_digests[]`, `redaction_profile` |
+
+† = reserved in `@1`: schema is normative, production is OPTIONAL (Helm Phase 2+). A `@1` verifier MUST parse and verify any of these it encounters.
+
+### §26.5 Journal and checkpoints
+
+The producer-local journal is append-only. Each entry carries: `journal_seq` (monotonic), `stream_id`, `entry_digest`, running hash `rh_n = SHA-256(rh_{n-1} ‖ stream_id ‖ journal_seq ‖ entry_digest)` (per-stream; `rh_0 = SHA-256(stream_id)`), and the **record-keeping fields**: `period_start`, `period_end`, `reference_db_version`, `triggering_input_digest`, `humans_involved[]` (each `{id_ref, role}`; MAY be empty, MUST be present). These fields are named to satisfy EU AI Act Art. 12(2)/(3) logging minima directly.
+
+Run lifecycle states (`execution_state.state`): `draft` `validated` `queued` `running` `awaiting_data` `awaiting_review` `approved` `rejected` `overridden` `executing_action` `submitted` `acknowledged` `completed` `failed` `cancelled`.
+
+**Checkpoints** are signed (§26.2) summaries emitted periodically and at run completion: `{checkpoint_seq, per-stream {stream_id, journal_seq, rh}, journal_root_digest, anchors[]}`. Each `anchors[]` member is `{type, ...}` with `type` ∈ `rfc3161` | `opentimestamps` | `scitt-receipt` (reserved; SCITT is not yet an RFC — producers MUST NOT emit it under `@1`). Checkpoints SHOULD be anchored per §20 to at least one external authority. Unknown `anchors[].type` values MUST be reported as unrecognized, not as failures.
+
+### §26.6 Trust labels (NORMATIVE vocabulary)
+
+Verification surfaces and evidence bundles MUST classify every claim with exactly one of:
+
+- `hash_verified` — artifact unchanged relative to stated preimage.
+- `kernel_verified` — recorded deterministic kernel/version reproduced the recorded result from recorded inputs (per §24 where applicable, including §18 compute proofs where present).
+- `connector_asserted` — an authorized connector reported a payload/response at a time; **no claim about payload truth**.
+- `human_attested` — an identified authority reviewed/approved/overrode a defined evidence package.
+- `external_ack_captured` — an external service returned the stated reference/receipt.
+
+Surfaces MUST NOT collapse these into an undifferentiated "verified" indicator and MUST NOT present any label as establishing source-data truth or regulatory acceptance.
+
+### §26.7 Evidence bundles
+
+An evidence bundle is a self-contained, offline-verifiable archive: bundle manifest (§26.2-signed) listing every included object by digest and trust label, the objects themselves, checkpoints covering their journal entries, and anchor proofs. Default exports MUST apply the redaction profile: no secret values, no raw credential material, no unredacted payloads classified above the export's disclosure level. A conformant verifier evaluates a bundle with **zero network access**; anchor freshness checks are OPTIONAL and clearly separated.
+
+### §26.8 Conformance
+
+A producer conforms to `ocg-control-plane@1` iff: (1) all emitted profile objects validate against the published schemas; (2) all envelopes verify per §26.2; (3) running hashes and checkpoints verify for every exported journal segment; (4) the gate suite's control-plane fixtures pass, **including tampered negative fixtures** (an envelope, a journal segment, and a bundle each proven to fail verification when altered). A verifier conforms iff it correctly accepts the golden fixtures, rejects all tampered fixtures, and reports trust labels per §26.6.
+
+This profile is entirely additive: core §4 preimage members and `chaingraph_version` `0.4.0` are UNTOUCHED, and no existing `execution_hash` changes. A verifier correct for v0.8.12 validates every existing artifact unchanged and MAY ignore §26 entirely.
+
 ## §HASHRES-1 Ledger hash-resolution contract (NORMATIVE, addressing-scoped — additive, lands as v0.8.7 at the coordinated record bump)
 Defines how a §4 `execution_hash` (and any §16/§18-secured artifact addressed by it) is **dereferenced** at
 `ledger.ainumbers.co/<execution_hash>`. This is an addressing contract over content the standard already

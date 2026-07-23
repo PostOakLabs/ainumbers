@@ -3,6 +3,31 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.9-draft — Control Plane Profile (§26)
+- **SPEC-TEXT PASS, draft label per estate convention — not a record bump.** `spec_version` of record
+  stays 0.8.8; the draft label mirrors `SPEC-S26-CONTROL-PLANE-PROFILE-DRAFT.md`'s own header rather than
+  claiming a coordinated 0.8.x text-pass number, since this section stages ahead of Helm Phase 1 landing.
+- **§26** adds an OPTIONAL, NORMATIVE `ocg-control-plane@1` profile for connected, operated workflows
+  (external data retrieval, durable local state, scheduling, human review, agent delegation) run by the
+  artifact producer on its own infrastructure (the AINumbers Helm Local Hub). Defines: the in-toto
+  Statement v1 / DSSE envelope with Ed25519 + SHOULD ML-DSA-44 dual-sign (§26.2); `workflow_manifest_digest`
+  binding (§26.3); ten object kinds — `connector_attestation` and `execution_state` REQUIRED-producible,
+  the other eight (`policy_decision`, `review_task`, `review_decision`, `override`, `agent_delegation`,
+  `external_action_intent`, `external_action_receipt`, `disclosure_receipt`) reserved-schema/OPTIONAL-
+  production for Phase 2+ but MUST-parse for a `@1` verifier (§26.4); an append-only per-stream
+  hash-chained journal carrying the EU AI Act Art. 12(2)/(3) record-keeping fields plus signed periodic/
+  final checkpoints anchorable per §20 (§26.5); a closed five-value trust-label vocabulary that MUST NOT
+  collapse into an undifferentiated "verified" indicator (§26.6); a zero-network-access offline-verifiable
+  evidence-bundle export with mandatory redaction (§26.7); and conformance requiring golden AND tampered
+  negative fixtures to both round-trip correctly (§26.8). Purely additive: layered beside, never inside,
+  a core artifact — §4 preimage members and `chaingraph_version` `"0.4.0"` UNTOUCHED, no existing
+  `execution_hash` changes, a verifier ignorant of the profile stays fully correct. JSON Schemas are SSOT
+  in the Helm repo (`ainumbers-helm`), mirrored here by fixture — no schema file lands in this repo as part
+  of this pass. §26 was the gap §27 (Human Accountability) deliberately left open.
+  Attribution: in-toto (Statement v1 + DSSE), RFC 9964 (JOSE PQC algorithm identifiers), RFC 8693
+  (delegation exchange-chain shape, referenced not implemented), RFC 6920 / EU AI Act Art. 12 (naming +
+  record-keeping minima) — patterns only, no code or text copied.
+
 ## 0.8.12 — Human Accountability (§27)
 - **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays 0.8.8, same separation as prior
   text passes.
