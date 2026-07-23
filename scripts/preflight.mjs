@@ -53,6 +53,8 @@ const GATES = [
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   ['Tool-node pairing registry',   'node scripts/check-tool-node-pairings.mjs'],
+  ['Topic cross-link registry (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/check-topic-links.mjs'],
+  ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
