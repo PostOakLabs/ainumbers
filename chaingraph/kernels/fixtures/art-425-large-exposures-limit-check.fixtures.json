@@ -1,0 +1,312 @@
+{
+  "tool_id": "art-425-large-exposures-limit-check",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: standalone + connected-group counterparties, all compliant. Vector 2: standalone non-GSIB counterparty breaches the general 25% limit. Vector 3: a GSIB-to-GSIB connected group where NEITHER member alone crosses 15%, but the connected-group rollup pushes the combined exposure over the 15% limit -- demonstrates the rollup is load-bearing. Vector 4: zero-input edge (finite gate, ratio returns null not Infinity/NaN, no counterparties = no breach).",
+  "vectors": [
+    {
+      "name": "seeded_default_compliant",
+      "description": "Tier 1 capital $10000M. Standalone non-GSIB counterparty A: $2000M gross less $400M eligible CRM = $1600M net (16% of Tier 1). Connected group grp1 (non-GSIB members B+C): $1000M + ($800M less $300M CRM = $500M) = $1500M net (15% of Tier 1). Both well under the 25% general limit.",
+      "policy_parameters": {
+        "tier1_capital_musd": 10000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-A",
+            "counterparty_name": "Standalone Corp A",
+            "connected_group_id": null,
+            "is_gsib": false,
+            "exposures": [
+              {
+                "label": "Term loan",
+                "gross_exposure_musd": 2000,
+                "crm_eligible": true,
+                "crm_value_musd": 400
+              }
+            ]
+          },
+          {
+            "counterparty_id": "cp-B",
+            "counterparty_name": "Group B Sub 1",
+            "connected_group_id": "grp1",
+            "is_gsib": false,
+            "exposures": [
+              {
+                "label": "Revolving credit",
+                "gross_exposure_musd": 1000,
+                "crm_eligible": false,
+                "crm_value_musd": 0
+              }
+            ]
+          },
+          {
+            "counterparty_id": "cp-C",
+            "counterparty_name": "Group B Sub 2",
+            "connected_group_id": "grp1",
+            "is_gsib": false,
+            "exposures": [
+              {
+                "label": "Bond holding",
+                "gross_exposure_musd": 800,
+                "crm_eligible": true,
+                "crm_value_musd": 300
+              }
+            ]
+          }
+        ]
+      },
+      "output_payload": {
+        "tier1_capital_musd": 10000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-A",
+            "counterparty_name": "Standalone Corp A",
+            "connected_group_id": null,
+            "is_gsib": false,
+            "net_exposure_total_musd": 1600
+          },
+          {
+            "counterparty_id": "cp-B",
+            "counterparty_name": "Group B Sub 1",
+            "connected_group_id": "grp1",
+            "is_gsib": false,
+            "net_exposure_total_musd": 1000
+          },
+          {
+            "counterparty_id": "cp-C",
+            "counterparty_name": "Group B Sub 2",
+            "connected_group_id": "grp1",
+            "is_gsib": false,
+            "net_exposure_total_musd": 500
+          }
+        ],
+        "groups": [
+          {
+            "group_id": null,
+            "is_connected_group": false,
+            "member_counterparty_ids": [
+              "cp-A"
+            ],
+            "gsib_to_gsib": false,
+            "applicable_limit_pct": 25,
+            "applicable_limit_musd": 2500,
+            "net_exposure_total_musd": 1600,
+            "exposure_pct_of_tier1": 16,
+            "breached": false
+          },
+          {
+            "group_id": "grp1",
+            "is_connected_group": true,
+            "member_counterparty_ids": [
+              "cp-B",
+              "cp-C"
+            ],
+            "gsib_to_gsib": false,
+            "applicable_limit_pct": 25,
+            "applicable_limit_musd": 2500,
+            "net_exposure_total_musd": 1500,
+            "exposure_pct_of_tier1": 15,
+            "breached": false
+          }
+        ],
+        "breach_list": [],
+        "regulatory_basis": "Basel III large exposures framework (BCBS 283); U.S. single-counterparty credit limits (Regulation YY, 12 CFR 252 Subpart H): 25% of Tier 1 capital general limit, 15% for GSIB-to-GSIB exposures.",
+        "note": "Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date."
+      },
+      "compliance_flags": [
+        "ALL_EXPOSURES_WITHIN_LIMIT"
+      ],
+      "golden_hash": "d2cb9c4ad1afba45d5788b3c405e8829ba660cba2ead0562465c6360352bb48e"
+    },
+    {
+      "name": "general_limit_breach",
+      "description": "Tier 1 capital $5000M. Standalone non-GSIB counterparty D has $1600M net exposure with no CRM -- 32% of Tier 1, above the 25% general limit.",
+      "policy_parameters": {
+        "tier1_capital_musd": 5000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-D",
+            "counterparty_name": "Standalone Corp D",
+            "connected_group_id": null,
+            "is_gsib": false,
+            "exposures": [
+              {
+                "label": "Syndicated loan",
+                "gross_exposure_musd": 1600,
+                "crm_eligible": false,
+                "crm_value_musd": 0
+              }
+            ]
+          }
+        ]
+      },
+      "output_payload": {
+        "tier1_capital_musd": 5000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-D",
+            "counterparty_name": "Standalone Corp D",
+            "connected_group_id": null,
+            "is_gsib": false,
+            "net_exposure_total_musd": 1600
+          }
+        ],
+        "groups": [
+          {
+            "group_id": null,
+            "is_connected_group": false,
+            "member_counterparty_ids": [
+              "cp-D"
+            ],
+            "gsib_to_gsib": false,
+            "applicable_limit_pct": 25,
+            "applicable_limit_musd": 1250,
+            "net_exposure_total_musd": 1600,
+            "exposure_pct_of_tier1": 32,
+            "breached": true
+          }
+        ],
+        "breach_list": [
+          {
+            "group_id": null,
+            "is_connected_group": false,
+            "member_counterparty_ids": [
+              "cp-D"
+            ],
+            "gsib_to_gsib": false,
+            "applicable_limit_pct": 25,
+            "applicable_limit_musd": 1250,
+            "net_exposure_total_musd": 1600,
+            "exposure_pct_of_tier1": 32,
+            "breached": true
+          }
+        ],
+        "regulatory_basis": "Basel III large exposures framework (BCBS 283); U.S. single-counterparty credit limits (Regulation YY, 12 CFR 252 Subpart H): 25% of Tier 1 capital general limit, 15% for GSIB-to-GSIB exposures.",
+        "note": "Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date."
+      },
+      "compliance_flags": [
+        "LARGE_EXPOSURE_LIMIT_BREACHED"
+      ],
+      "golden_hash": "ca1e3f1efc35b79779a53b510ae02a9f922a0b392172b3757fabf35183004046"
+    },
+    {
+      "name": "gsib_connected_group_rollup_breach",
+      "description": "Tier 1 capital $8000M, caller is a GSIB. Connected group grp-gsib has two GSIB members: G1 nets $700M (8.75% of Tier 1 alone) and G2 nets $600M (7.5% alone) -- each individually well under the 15% GSIB-to-GSIB limit, but the connected-group rollup combines them to $1300M (16.25%), breaching the 15% limit. Demonstrates the rollup is load-bearing, not per-counterparty-only.",
+      "policy_parameters": {
+        "tier1_capital_musd": 8000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-G1",
+            "counterparty_name": "GSIB Group Member 1",
+            "connected_group_id": "grp-gsib",
+            "is_gsib": true,
+            "exposures": [
+              {
+                "label": "Derivatives exposure",
+                "gross_exposure_musd": 700,
+                "crm_eligible": false,
+                "crm_value_musd": 0
+              }
+            ]
+          },
+          {
+            "counterparty_id": "cp-G2",
+            "counterparty_name": "GSIB Group Member 2",
+            "connected_group_id": "grp-gsib",
+            "is_gsib": true,
+            "exposures": [
+              {
+                "label": "Repo exposure",
+                "gross_exposure_musd": 600,
+                "crm_eligible": false,
+                "crm_value_musd": 0
+              }
+            ]
+          }
+        ]
+      },
+      "output_payload": {
+        "tier1_capital_musd": 8000,
+        "caller_is_gsib": true,
+        "counterparties": [
+          {
+            "counterparty_id": "cp-G1",
+            "counterparty_name": "GSIB Group Member 1",
+            "connected_group_id": "grp-gsib",
+            "is_gsib": true,
+            "net_exposure_total_musd": 700
+          },
+          {
+            "counterparty_id": "cp-G2",
+            "counterparty_name": "GSIB Group Member 2",
+            "connected_group_id": "grp-gsib",
+            "is_gsib": true,
+            "net_exposure_total_musd": 600
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "grp-gsib",
+            "is_connected_group": true,
+            "member_counterparty_ids": [
+              "cp-G1",
+              "cp-G2"
+            ],
+            "gsib_to_gsib": true,
+            "applicable_limit_pct": 15,
+            "applicable_limit_musd": 1200,
+            "net_exposure_total_musd": 1300,
+            "exposure_pct_of_tier1": 16.25,
+            "breached": true
+          }
+        ],
+        "breach_list": [
+          {
+            "group_id": "grp-gsib",
+            "is_connected_group": true,
+            "member_counterparty_ids": [
+              "cp-G1",
+              "cp-G2"
+            ],
+            "gsib_to_gsib": true,
+            "applicable_limit_pct": 15,
+            "applicable_limit_musd": 1200,
+            "net_exposure_total_musd": 1300,
+            "exposure_pct_of_tier1": 16.25,
+            "breached": true
+          }
+        ],
+        "regulatory_basis": "Basel III large exposures framework (BCBS 283); U.S. single-counterparty credit limits (Regulation YY, 12 CFR 252 Subpart H): 25% of Tier 1 capital general limit, 15% for GSIB-to-GSIB exposures.",
+        "note": "Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date."
+      },
+      "compliance_flags": [
+        "LARGE_EXPOSURE_LIMIT_BREACHED"
+      ],
+      "golden_hash": "987e5352a19b82ee061950f447936cf9d2abedc01bdaa45df322f9fbe7a93aac"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No counterparties supplied and zero Tier 1 capital. Finite gate: exposure percentage resolves to null (not Infinity/NaN) rather than an unbounded pass; empty group set means an empty breach list.",
+      "policy_parameters": {
+        "tier1_capital_musd": 0,
+        "caller_is_gsib": false,
+        "counterparties": []
+      },
+      "output_payload": {
+        "tier1_capital_musd": 0,
+        "caller_is_gsib": false,
+        "counterparties": [],
+        "groups": [],
+        "breach_list": [],
+        "regulatory_basis": "Basel III large exposures framework (BCBS 283); U.S. single-counterparty credit limits (Regulation YY, 12 CFR 252 Subpart H): 25% of Tier 1 capital general limit, 15% for GSIB-to-GSIB exposures.",
+        "note": "Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date."
+      },
+      "compliance_flags": [
+        "ALL_EXPOSURES_WITHIN_LIMIT"
+      ],
+      "golden_hash": "e88d19ed168b3e27eb1b87c48e35f8265322a7498ec827ae76e3bf01de6b1b0e"
+    }
+  ]
+}
