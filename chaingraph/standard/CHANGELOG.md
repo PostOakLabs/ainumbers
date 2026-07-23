@@ -3,6 +3,29 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## 0.8.12 — Human Accountability (§27)
+- **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays 0.8.8, same separation as prior
+  text passes.
+- **§27** adds an OPTIONAL, NORMATIVE Human Accountability layer: a closed set of roles (§27.1
+  preparer/reviewer/approver/attestor/submitter + optional model_owner/compliance_officer/read-only
+  examiner); SCITT-style approval records (§27.2) that are NEW artifacts ABOUT a sealed artifact,
+  referencing its `execution_hash` via `subject_hash` and carrying their own §16 named-human proof;
+  in-toto integer `dual_control(N)` thresholds counted over DISTINCT identities (§27.3); a closed
+  gate-policy vocabulary wired to §21.4 as a precondition annotation that never changes the `_gateval.mjs`
+  routing math (§27.4); time-boxed `emergency_override` = §22.10 attenuation + mandatory evidence bundle,
+  reverting the gate policy on expiry (§27.5); an evidence-bundle profile exportable via §13.12 SD-JWT
+  selective disclosure (§27.6); a four-way separation of calculation / recommendation / judgment /
+  sign-off (§27.7); and an agent-parity clause requiring an explicit §22 human-role mandate before an
+  agent may satisfy a review/dual-control gate (§27.8). Purely additive: attached after hashing and
+  EXCLUDED from every `execution_hash` preimage, `$defs/artifact.required` + `chaingraph_version`
+  `"0.4.0"` UNCHANGED, absence conformant and meaningless. Schema adds `$defs/humanAccountabilityRecord`,
+  `haEvidenceBundle`, `haGatePolicy`, `haRole`, `haApprovalThreshold`; `human_accountability_record` joins
+  the recommended (non-enforced) `mandate_type` taxonomy. One new §15 gate row
+  (`validate-ha-records.test.mjs`) proves shape, additivity, threshold distinctness, override expiry, and
+  the signed-named-human requirement. §26 is reserved for the control-plane profile; §27 leaves the gap.
+  Attribution: C2PA/CAWG (identity split), in-toto (threshold), IETF SCITT (statement-about-statement),
+  ZCAP-LD (cited anti-pattern) — patterns only, no code or text copied.
+
 ## 0.8.11 — agent-receipts VC consumability (§13.11.1)
 - **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays 0.8.8, same separation as prior
   text passes.

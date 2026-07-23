@@ -1862,6 +1862,139 @@ it uses a hash-chaining convention that includes the signature — differing fro
 is attached after hashing and is excluded from the preimage. Re-verify this observation against the
 project's current public material before relying on any row of it.
 
+## §27 Human Accountability (NORMATIVE, OPTIONAL — new in v0.8.12)
+The §4 hash proves *what computed*; §16/§18 prove *that it computed correctly*; §22 proves *who was
+authorized to run it*. None of them records **which named human took responsibility for the result** —
+the preparer/reviewer/approver act that a bank examiner, an auditor, or a court actually asks for. §27
+adds that layer as a first-class, signed, machine-checkable artifact type WITHOUT touching any existing
+hash, envelope, or gate. It follows the standards-precedent verdict directly: the C2PA→CAWG identity split
+(assertions about content are SEPARATE from the content), in-toto's integer `threshold` for dual control,
+SCITT's *statements about statements* (a receipt about a receipt), and the ZCAP over-abstraction failure
+(so §27 defines banking-concrete record types, NOT a generic workflow-authorization calculus). §27 is the
+"human" half of the estate loop that §22 mandates automate: §22 is authority granted once and enforced
+deterministically; §27 is the individual accountable act evidenced per result. **§26 is reserved for the
+control-plane profile (`SPEC-S26-CONTROL-PLANE-PROFILE-DRAFT`); §27 deliberately leaves the gap.**
+
+**§27.0 Additivity and scope (NORMATIVE — the defining constraint).** Every construct below is **attached
+after hashing and EXCLUDED from every existing `execution_hash` preimage**, exactly as §20 `anchor_bindings`,
+§23 `input_attestations`, and §25 `private_inputs` are. An **approval record is a NEW artifact ABOUT an
+existing sealed artifact** (SCITT-style), never a mutation of it: minting, revising, or discarding approval
+records leaves the subject artifact's `execution_hash` byte-identical, `$defs/artifact.required` UNTOUCHED,
+and `chaingraph_version` at `"0.4.0"`. A verifier correct for v0.8.11 validates every existing artifact
+unchanged and MAY ignore §27 entirely. Scope is **banking-concrete record types only** — preparer/reviewer/
+approver/submitter over a reporting artifact — and §27 defines **no generic workflow-engine, no delegation
+calculus, no policy DSL** (the ZCAP lesson). It is a FORMAT for evidencing human acts, never a runtime, a
+queue, an approver directory, or a timer (those are implementations that consume §27, per §22.11's scope
+limit).
+
+**§27.1 Roles (NORMATIVE).** §27 defines a closed set of accountability roles: `preparer` (assembles the
+reporting artifact), `reviewer` (checks it), `approver`/`attestor` (accepts responsibility — the
+legally-effective sign-off), `submitter` (transmits it), and the OPTIONAL `model_owner` (owns a model whose
+output fed the artifact), `compliance_officer`, and `examiner` (READ-ONLY — an examiner role binding grants
+inspection, never approval authority). A **role binding** is a signed record that ties one §9 identity
+(`did:key` or LEI) to one role for one subject; the binding's §16 `eddsa-jcs-2022` proof MUST verify against
+that identity. Roles are the vocabulary the gate policy (§27.4) and thresholds (§27.3) count over. An
+identity MAY hold more than one role, but §27.3 distinctness is by identity, so one human cannot satisfy a
+dual-control threshold alone by wearing two role hats.
+
+**§27.2 Approval records (NORMATIVE — SCITT-style statements about statements).** An **approval record** is
+a conformant OCG artifact whose `mandate_type` is the accepted envelope value `"human_accountability_record"`
+and whose `output_payload` matches `$defs/humanAccountabilityRecord`. Its authority payload carries:
+`record_type` (`role_binding` | `approval` | `rejection` | `override` | `annotation`), `role` (§27.1),
+`subject_hash` (the `sha256:`-prefixed `execution_hash` of the artifact being acted upon — the SCITT
+reference), the acting `identity: { id }` (§9), a `decision` where applicable, a `reason_code`, and a
+`timestamp`. The approval record is **itself a first-class artifact**: it has its own §4 `execution_hash`
+over its own `{policy_parameters, output_payload}`, JCS-canonical via the one `_hash.mjs` `cgCanon`, and it
+MUST carry a §16 whole-artifact proof bound to the named human (an unsigned approval record is NOT
+conformant §27 evidence — exactly the §22.11 rule for resume artifacts). Because the record only *references*
+`subject_hash` and never contains the subject's preimage, it has **zero impact on the subject's hash or
+canonicalization**: the accountability trail is portable, tamper-evident, and offline-verifiable rather than
+a row locked inside one vendor's queue.
+
+**§27.3 Dual control and thresholds (NORMATIVE — in-toto integer threshold).** A gate MAY require **N
+distinct role-bound identities** to have signed approval records over the SAME `subject_hash` before it is
+satisfied. This is the in-toto `threshold` construction: an integer `threshold: N` on the required
+`role`, satisfied when **≥ N distinct identities** (counted by `identity.id`, NEVER by key — a single human
+rotating keys, or signing twice, counts once) have each emitted an `approval` record naming that role and
+that subject. `dual_control(2)` is the N=2 case (the FDIC GENIUS CEO/CFO certification is its first
+production use). A threshold gate over fewer than N distinct approvers is UNSATISFIED and MUST NOT auto-pass.
+
+**§27.4 Gate-policy vocabulary (NORMATIVE — wired to §21.4).** §27 defines a closed gate-policy enum, the
+`$defs/haGatePolicy` value applied to a §21.4 decision gate as an OPTIONAL precondition: `auto_pass` (no
+human act required), `review_required` (≥1 `approval` from a `reviewer`), `dual_control(N)` (§27.3 threshold
+N), `escalate` (route to the §22.3 reserved escalation target), `hold` (suspend pending a human act),
+`reject` (terminal human rejection), `emergency_override` (§27.5). A gate carrying a policy is satisfied ONLY
+when the named approval record(s) exist at the stated threshold over the gate's subject; **absent the
+required record(s), the gate does NOT fall through to its §21.4 `default`** — the human precondition is a
+hard predicate evaluated before the routing rules, and an unmet precondition holds the step. This composes
+with §21.4 without changing its evaluator: the policy is a precondition ANNOTATION consumed by the
+accountability layer, the §21.4 `_gateval.mjs` routing math is untouched, and a chain with no HA policy
+evaluates byte-identically to today.
+
+**§27.5 Override and waiver (NORMATIVE — time-boxed §22.10 attenuation + mandatory evidence).** An
+`emergency_override` is NOT an unconditional bypass. It is a **time-boxed §22.10 attenuated mandate** paired
+with a **mandatory evidence bundle** carrying, at minimum: a `reason_code`, an explicit `scope` (which
+gate/subject the override covers — narrowing only, never widening, per §22.10 and §SIDECAR.2), an `expiry`
+(ISO 8601), the authorizing `identity` (§9), and an **immutable link to the overridden artifact's
+`subject_hash`**. The override is itself a signed `record_type:"override"` approval record. **On `expiry` the
+override lapses and the underlying gate policy REVERTS** — an expired override MUST be treated as absent, so
+the gate returns to `review_required`/`dual_control(N)`/`hold` as originally specified. A timeout MUST NEVER
+resolve to a silent permanent auto-pass (the §22.11 counted-resume timeout rule, applied to overrides).
+
+**§27.6 Evidence bundle (NORMATIVE — §13.12 SD-JWT export profile).** The **evidence bundle** is a profile
+object, `$defs/haEvidenceBundle`, that aggregates the accountability trail for one subject: `input_hashes`
+(lineage), `kernel_version` (§12/§17 build identity), `policy_version`, `subject_hash` (the §4 execution
+artifact), `verification_result` (the §16/§18/§20 verdict), `exception_rationale`, `annotations`, the
+`reviewers[]`/`approvers[]` (identities + their signed approval-record hashes), `timestamps` (with OPTIONAL
+§20 anchor bindings), and a `submission_receipt` slot (populated only after a real transmission, never
+fabricated). The bundle is **exportable via §13**, and specifically via **§13.12 SD-JWT selective disclosure**
+so an examiner receives exactly the fields their remit requires and no others: the approver identities and
+the verdict are always-disclosed, while selectively-disclosable input values follow §13.12's rule
+(disclosure salts are the sole permitted nondeterminism and never touch any `execution_hash`). A redacted
+bundle is NOT re-executable (§13.12's stated limitation) — it evidences the human trail, not a recomputation.
+
+**§27.7 Separation of concerns (NORMATIVE — four distinct artifact types).** §27 keeps four things that are
+routinely conflated **structurally separate**, each its own artifact type: (a) **calculation/validation** (a
+§4/§18 compute result — what the numbers are); (b) **recommendation** (a machine or model suggestion — what
+*could* be decided); (c) **human judgment** (a `reviewer`/`annotation` record — a person's assessment); and
+(d) **legally-effective sign-off** (an `approver`/`attestor` `approval` record — a person accepting
+responsibility). An `approval` record is **evidence OF a human act, NOT a claim of regulator acceptance**:
+§27 produces the accountable-signature artifact a filing requires, and explicitly does NOT assert that the
+artifact is regulator-submittable or that the computation is a substitute for the human's judgment (the §0
+"no filing claims" and §18.3 "evidence, not a claim of unsupervised automation" doctrine, made concrete for
+the sign-off layer).
+
+**§27.8 Agent-parity clause (NORMATIVE).** An agent MAY **create review tasks** and MAY **submit approval
+records** — but ONLY under a §22 mandate whose `scope` explicitly grants the corresponding §27.1 role to that
+agent's identity. An agent **MUST NOT satisfy a `review_required` or `dual_control(N)` gate absent an
+explicit human-role mandate**: the default posture is that these gates require a NAMED HUMAN, and an
+agent-signed approval record counts toward a threshold only when a human principal has, in a signed mandate,
+delegated that exact role to the agent within a validity window. Counted-resume (§22.11) is the mechanism for
+human approval events and is REFERENCED here, not duplicated — a §27 `dual_control(N)` threshold and a
+§22.11 `resume_approval.required_events: N` are the same integer-threshold discipline viewed from the
+accountability side. This closes the obvious failure mode: an autonomous agent MUST NOT quietly become both
+preparer and approver of its own output.
+
+**§27.9 Conformance (profile-scoped).** An implementation MAY declare human-accountability support for a node
+or chain. The declaration asserts §27.0–§27.8 hold for that surface's approval records and evidence bundles.
+Conformance is machine-checked by `validate-ha-records.test.mjs` (§15): the approval-record shape
+(`$defs/humanAccountabilityRecord`, closed `record_type`/`role`/gate-policy enums, `subject_hash` a valid
+`sha256ref`); the **additivity invariant** (an approval record's presence leaves the subject artifact's
+`execution_hash` byte-identical, and a subject with zero HA records is byte-identical to a plain v0.8.11
+artifact); **threshold distinctness** (N identical-identity signatures satisfy `dual_control(N)` only for
+N=1; two distinct identities satisfy N=2; a repeated identity does NOT); **override expiry** (an expired
+override reverts the gate policy, never a silent permanent pass); and the **signed-named-human** requirement
+(an unsigned approval record is rejected, layered on the §16 `proof-binding.test.mjs` round-trip). Like §18
+and §25, the layer **defaults OFF**: a node MUST NOT synthesize accountability records, and absence of §27
+records is fully conformant and carries no meaning. Backward compatible and purely additive: no existing
+artifact, hash, gate, or golden vector moves.
+
+**Attribution.** The identity-split shape follows **C2PA / CAWG** (assertions about content, separated from
+content; design pattern only). The integer `threshold` follows **in-toto** (the ITE-5 threshold construction;
+concept only). The statement-about-statement framing follows **IETF SCITT** (a receipt about a receipt).
+**ZCAP-LD** is cited as the anti-pattern the scope discipline (§27.0) deliberately avoids. No text or code
+is copied from any of them.
+
 ## §14 Changelog
 See `standard/CHANGELOG.md`. **v0.8.9 (2026-07-18 — SPEC-TEXT PASS; the record `spec_version` in
 `chaingraph.json` stays 0.8.8 until the next coordinated K landing bumps it, exactly as the v0.8.7 and
@@ -2031,6 +2164,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
+| §27 human-accountability records: `$defs/humanAccountabilityRecord` shape (closed `record_type`/`role`/`haGatePolicy` enums, `subject_hash` a valid `sha256ref`); ADDITIVITY — an approval record referencing a subject leaves that subject's `execution_hash` byte-identical and a subject with zero HA records is byte-identical to a plain v0.8.11 artifact (`$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED); THRESHOLD DISTINCTNESS — `dual_control(N)` counts DISTINCT `identity.id`, so a repeated identity satisfies only N=1 and two distinct identities satisfy N=2; OVERRIDE EXPIRY — an expired `emergency_override` reverts the gate policy, never a silent permanent pass; SIGNED-NAMED-HUMAN — an unsigned approval record is rejected (§16 pairing check stays with `proof-binding.test.mjs`); defaults OFF, absence conformant | `validate-ha-records.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
