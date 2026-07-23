@@ -366,6 +366,9 @@ import * as art431    from './art-431-fdic-assessment-rate-calculator.kernel.mjs
 import * as art432    from './art-432-call-report-rc-balance-sheet.kernel.mjs';
 import * as art433    from './art-433-call-report-rcr-capital.kernel.mjs';
 import * as art434    from './art-434-call-report-edit-check-gate.kernel.mjs';
+import * as art435    from './art-435-bhc-schedule-hc-balance-sheet.kernel.mjs';
+import * as art436    from './art-436-bhc-schedule-hcr-capital.kernel.mjs';
+import * as art437    from './art-437-fr2052a-inflow-outflow-classifier.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
@@ -804,6 +807,9 @@ export const KERNELS = {
   'art-432-call-report-rc-balance-sheet':                     art432,
   'art-433-call-report-rcr-capital':                          art433,
   'art-434-call-report-edit-check-gate':                      art434,
+  'art-435-bhc-schedule-hc-balance-sheet':                    art435,
+  'art-436-bhc-schedule-hcr-capital':                         art436,
+  'art-437-fr2052a-inflow-outflow-classifier':                art437,
   'art-44-arc-stablefx-model':                                art44,
   'art-45-arc-xreserve-linter':                               art45,
   'art-46-arc-paymaster-model':                               art46,

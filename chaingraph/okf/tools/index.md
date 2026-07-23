@@ -364,6 +364,12 @@ timestamp: 2026-07-14
 - [VaR Backtesting Traffic-Light Zone Calculator](./art-429-var-backtest-traffic-light.md) — `compute_var_backtest_traffic_light`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
 - [FDIC Deposit-Insurance Assessment Rate Calculator](./art-431-fdic-assessment-rate-calculator.md) — `compute_fdic_assessment_rate`
+- [Call Report Schedule RC (Balance Sheet) Mapper](./art-432-call-report-rc-balance-sheet.md) — `map_call_report_schedule_rc`
+- [Call Report Schedule RC-R (Regulatory Capital) Mapper](./art-433-call-report-rcr-capital.md) — `map_call_report_schedule_rcr`
+- [Call Report Published Edit-Check Gate](./art-434-call-report-edit-check-gate.md) — `run_call_report_edit_checks`
+- [FR Y-9C Schedule HC (Consolidated Balance Sheet) Mapper](./art-435-bhc-schedule-hc-balance-sheet.md) — `map_bhc_schedule_hc`
+- [FR Y-9C Schedule HC-R (Regulatory Capital) Calculator](./art-436-bhc-schedule-hcr-capital.md) — `map_bhc_schedule_hcr`
+- [FR 2052a Inflow/Outflow Bucket Classifier](./art-437-fr2052a-inflow-outflow-classifier.md) — `compute_fr2052a_inflow_outflow_classification`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`

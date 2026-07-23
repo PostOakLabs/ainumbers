@@ -28,6 +28,7 @@ timestamp: 2026-07-14
 - [payment_policy](./payment_policy.md) (2)
 - [prompt_template](./prompt_template.md) (1)
 - [readiness_diagnostic](./readiness_diagnostic.md) (1)
+- [regulatory_reporting](./regulatory_reporting.md) (6)
 - [risk_control](./risk_control.md) (5)
 - [risk_parameter](./risk_parameter.md) (6)
 - [routing_policy](./routing_policy.md) (2)
