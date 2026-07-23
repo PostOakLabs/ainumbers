@@ -370,6 +370,7 @@ import * as art435    from './art-435-bhc-schedule-hc-balance-sheet.kernel.mjs';
 import * as art436    from './art-436-bhc-schedule-hcr-capital.kernel.mjs';
 import * as art437    from './art-437-fr2052a-inflow-outflow-classifier.kernel.mjs';
 import * as art438    from './art-438-eval-attestation-receipt-composer.kernel.mjs';
+import * as art439    from './art-439-y14-capital-worksheet-rollforward.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
@@ -812,6 +813,7 @@ export const KERNELS = {
   'art-436-bhc-schedule-hcr-capital':                         art436,
   'art-437-fr2052a-inflow-outflow-classifier':                art437,
   'art-438-eval-attestation-receipt-composer':                art438,
+  'art-439-y14-capital-worksheet-rollforward':                art439,
   'art-44-arc-stablefx-model':                                art44,
   'art-45-arc-xreserve-linter':                               art45,
   'art-46-arc-paymaster-model':                               art46,
