@@ -70,7 +70,7 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
   <div class="hero">
     <div class="eyebrow">T471 · Treasury & Capital · AINumbers.co</div>
     <h1>Leverage Ratio Calculator</h1>
-    <p>Basel III leverage ratio per BCBS 270 (January 2014) as revised by BCBS 360 (December 2017). Leverage Ratio = Tier 1 Capital ÷ Total Exposure Measure ≥ 3% (G-SIBs: ≥ 3% + leverage ratio buffer of up to 50% of G-SIB surcharge). Total Exposure Measure = on-balance sheet + derivative exposure (SA-CCR or CEM) + SFT exposure + off-balance sheet items. Feeds Pillar 3 KM1 template (T472).</p>
+    <p>Basel III leverage ratio per BCBS 270 (January 2014) as revised by BCBS 360 (December 2017), plus the US eSLR final rule (Fed/OCC/FDIC, effective 2026-04-01). Leverage Ratio = Tier 1 Capital ÷ Total Exposure Measure ≥ 3% (G-SIBs: ≥ 3% + leverage buffer of 50% of G-SIB Method 1 surcharge, capped at 1% for US insured depository institution subsidiaries). Total Exposure Measure = on-balance sheet + derivative exposure (SA-CCR or CEM) + SFT exposure + off-balance sheet items. Feeds Pillar 3 KM1 template (T472).</p>
     <div class="hero-badges">
       <span class="badge b-teal">Basel III LR · BCBS 270 / BCBS 360</span>
       <span class="badge">LR ≥ 3% (G-SIB buffer additional)</span>
@@ -99,6 +99,15 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
         </select>
         <span class="hint">G-SIB leverage buffer = 50% of G-SIB surcharge (BCBS 360 §12). Not yet effective in all jurisdictions: verify.</span>
       </div>
+      <div class="field">
+        <label>Entity type (US eSLR, effective 2026-04-01)</label>
+        <select id="entity_type">
+          <option value="intl">International / BCBS 360 generic (buffer = 50% of surcharge, uncapped)</option>
+          <option value="bhc">US eSLR: G-SIB holding company (buffer = 50% of Method 1 surcharge, uncapped)</option>
+          <option value="depository">US eSLR: insured depository institution subsidiary (buffer capped at 1%; total no more than 4%)</option>
+        </select>
+        <span class="hint">Federal Reserve/OCC/FDIC final rule (published 2025-12-01, effective 2026-04-01, adoptable as early as 2026-01-01) recalibrates the eSLR buffer from a flat 2% add-on (holding company) / flat 6% total (depository subsidiary) to 50% of the G-SIB's Method 1 surcharge, capped at 1% for depository institution subsidiaries.</span>
+      </div>
     </div>
   </section>
 
@@ -121,7 +130,7 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
     <h2>Leverage Ratio Result</h2>
     <div class="ratio-banner" id="ratio-banner"></div>
     <div class="stats-row" id="stats-row"></div>
-    <p class="cite">Sources: BCBS 270 (Jan 2014); BCBS 360 (Dec 2017: final leverage ratio framework). ⚠ Verify against applicable jurisdiction rules: CRR3 Art.429 (EU); PRA LR rules; Fed supplementary leverage ratio (SLR). G-SIB leverage buffer not yet effective in all jurisdictions.</p>
+    <p class="cite">Sources: BCBS 270 (Jan 2014); BCBS 360 (Dec 2017: final leverage ratio framework); US eSLR final rule (Fed/OCC/FDIC, published 2025-12-01, effective 2026-04-01). ⚠ Verify against applicable jurisdiction rules: CRR3 Art.429 (EU); PRA LR rules; Fed supplementary leverage ratio (SLR). G-SIB leverage buffer not yet effective in all jurisdictions.</p>
     <div class="export-row">
       <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
       <button class="exp-btn" onclick="exportMarkdown()">📄 Export Markdown</button>
@@ -150,7 +159,7 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
 </section>
 <footer>
   <div class="foot">
-    <span>T471 · Leverage Ratio Calculator · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span>T471 · Leverage Ratio Calculator · v1.1 · CC BY 4.0 · Post Oak Labs</span>
     <span><a href="470-nsfr-calculator.html">← T470 NSFR</a> · <a href="472-pillar-3-disclosure-builder.html">T472 Pillar 3 →</a> · <a href="../chaingraph/chains/bank-capital-liquidity.html">Composer</a></span>
   </div>
 </footer>
@@ -173,12 +182,14 @@ function fmtM(n){return(n<0?'-':'')+Math.abs(n).toLocaleString('en-US',{minimumF
 function runLeverageRatio(){
   var cet1=gn('cet1'), at1=gn('at1'), tier1=cet1+at1;
   var gsib=parseFloat(gv('gsib_bucket'))||0;
-  var lr_buffer_pct = gsib > 0 ? gsib * 0.5 : 0; // 50% of surcharge
+  var entity_type=gv('entity_type')||'intl';
+  var lr_buffer_pct = gsib > 0 ? gsib * 0.5 : 0; // 50% of Method 1 surcharge (BCBS 360 §12 / US eSLR final rule eff. 2026-04-01)
+  if (entity_type === 'depository') lr_buffer_pct = Math.min(lr_buffer_pct, 1.0); // eSLR depository-subsidiary cap, final rule §0.2
   var min_lr = 3.0 + lr_buffer_pct; // minimum LR%
   var obs=gn('obs_exp'), deriv=gn('deriv_exp'), sft=gn('sft_exp'), offbs=gn('offbs_exp'), other=gn('other_exp');
   var total_exp=obs+deriv+sft+offbs+other;
   var lr=total_exp>0?tier1/total_exp*100:Infinity;
-  _lastResult={tier1,cet1,at1,gsib,lr_buffer_pct,min_lr,obs,deriv,sft,offbs,other,total_exp,lr};
+  _lastResult={tier1,cet1,at1,gsib,entity_type,lr_buffer_pct,min_lr,obs,deriv,sft,offbs,other,total_exp,lr};
   renderResults(_lastResult);
 }
 
@@ -188,7 +199,7 @@ function renderResults(r){
   var pct=r.lr===Infinity?'∞':r.lr.toFixed(2)+'%';
   document.getElementById('ratio-banner').innerHTML=
     '<div class="ratio-val" style="color:'+col+'">'+pct+'</div>'+
-    '<div class="ratio-label">Leverage Ratio — minimum '+r.min_lr.toFixed(1)+'% required (BCBS 360'+(r.gsib>0?', incl. G-SIB buffer':'')+' )</div>'+
+    '<div class="ratio-label">Leverage Ratio: minimum '+r.min_lr.toFixed(1)+'% required ('+(r.entity_type==='intl'?'BCBS 360':'US eSLR, eff. 2026-04-01')+(r.gsib>0?', incl. G-SIB buffer':'')+' )</div>'+
     '<div style="font-size:.75rem;margin-top:.35rem;color:'+col+'">'+(pass?'✓ Compliant':'✗ Deficient — Tier 1 shortfall vs exposure')+'</div>';
   document.getElementById('stats-row').innerHTML=
     '<div class="stat"><div class="stat-label">Tier 1 Capital</div><div class="stat-val">'+fmtM(r.tier1)+'</div></div>'+
@@ -204,11 +215,11 @@ function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15
 
 function buildMandateObj(r){
   var now=new Date().toISOString();var pass=r.lr>=r.min_lr;
-  return{ap2_version:'1.0',mandate_id:uuid(),issued_at:now,issued_by:'ainumbers.co',tool_id:'471-leverage-ratio-calculator',tool_version:'1.0.0',mandate_type:'risk_parameter',jurisdiction:['BIS','Global'],
-    regulatory_frameworks:['Basel III leverage ratio — BCBS 270 (January 2014)','Basel III final leverage ratio framework — BCBS 360 (December 2017)','CRR3 Art.429 (EU)','PRA Leverage Ratio (UK)','Fed Supplementary Leverage Ratio (US G-SIBs)','AINumbers.co Unified Build Contract v1.1'],
-    payload:{tier1_m:r.tier1,cet1_m:r.cet1,at1_m:r.at1,total_exposure_m:r.total_exp,leverage_ratio_pct:r.lr===Infinity?null:r.lr,min_lr_pct:r.min_lr,gsib_surcharge_pct:r.gsib,lr_buffer_pct:r.lr_buffer_pct,compliant:pass,obs_m:r.obs,deriv_m:r.deriv,sft_m:r.sft,offbs_m:r.offbs,other_m:r.other},
-    summary:'Leverage ratio: '+(r.lr===Infinity?'∞':r.lr.toFixed(2))+'% ('+(pass?'compliant':'deficient')+', minimum '+r.min_lr.toFixed(1)+'%). Tier 1: '+fmtM(r.tier1)+'. Total exposure: '+fmtM(r.total_exp)+'.',
-    agent_instructions:['Leverage ratio minimum ≥ 3% per BCBS 360.','G-SIB leverage buffer = 50% of applicable G-SIB surcharge (verify effective date in jurisdiction).','On-BS exposures include all assets at accounting value, no netting.','Derivative exposure uses SA-CCR RC + PFE add-on (BCBS 279) or CEM in some jurisdictions.','SFT exposures: gross SFT assets net of eligible cash payables/receivables netting + CCR add-on.','Output feeds Pillar 3 KM1 template in T472.'],
+  return{ap2_version:'1.0',mandate_id:uuid(),issued_at:now,issued_by:'ainumbers.co',tool_id:'471-leverage-ratio-calculator',tool_version:'1.1.0',mandate_type:'risk_parameter',jurisdiction:['BIS','Global','US'],
+    regulatory_frameworks:['Basel III leverage ratio — BCBS 270 (January 2014)','Basel III final leverage ratio framework — BCBS 360 (December 2017)','CRR3 Art.429 (EU)','PRA Leverage Ratio (UK)','US eSLR final rule — Federal Reserve/OCC/FDIC (published 2025-12-01, effective 2026-04-01)','AINumbers.co Unified Build Contract v1.1'],
+    payload:{tier1_m:r.tier1,cet1_m:r.cet1,at1_m:r.at1,total_exposure_m:r.total_exp,leverage_ratio_pct:r.lr===Infinity?null:r.lr,min_lr_pct:r.min_lr,gsib_surcharge_pct:r.gsib,entity_type:r.entity_type,lr_buffer_pct:r.lr_buffer_pct,compliant:pass,obs_m:r.obs,deriv_m:r.deriv,sft_m:r.sft,offbs_m:r.offbs,other_m:r.other},
+    summary:'Leverage ratio: '+(r.lr===Infinity?'∞':r.lr.toFixed(2))+'% ('+(pass?'compliant':'deficient')+', minimum '+r.min_lr.toFixed(1)+'%).'+(r.entity_type!=='intl'?' Entity type: '+r.entity_type+'.':'')+' Tier 1: '+fmtM(r.tier1)+'. Total exposure: '+fmtM(r.total_exp)+'.',
+    agent_instructions:['Leverage ratio minimum ≥ 3% per BCBS 360.','G-SIB leverage buffer = 50% of applicable G-SIB surcharge (verify effective date in jurisdiction).','US eSLR final rule (eff. 2026-04-01): buffer = 50% of Method 1 surcharge, capped at 1% for insured depository institution subsidiaries (total ≤ 4%); holding-company buffer uncapped.','On-BS exposures include all assets at accounting value, no netting.','Derivative exposure uses SA-CCR RC + PFE add-on (BCBS 279) or CEM in some jurisdictions.','SFT exposures: gross SFT assets net of eligible cash payables/receivables netting + CCR add-on.','Output feeds Pillar 3 KM1 template in T472.'],
     valid_from:now.slice(0,10),valid_until:new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
 }
@@ -235,7 +246,7 @@ function download(name,content,mime){var blob=new Blob([content],{type:mime});va
 (function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
 </script>
 <script>
-var MANIFEST = {"tool_id":"471-leverage-ratio-calculator","version":"1.0.0","title":"Leverage Ratio Calculator","description":"Basel III leverage ratio per BCBS 270 (January 2014) as revised by BCBS 360 (December 2017). Leverage Ratio = Tier 1 Capital ÷ Total Exposure Measure ≥ 3% (G-SIB leverage buffer up to 1.75% additional). Covers on-balance-sheet, derivative (SA-CCR), SFT, and off-balance-sheet exposures. Feeds Pillar 3 KM1 (T472). Tier 1 Policy Mandate JSON + Markdown. Client-side. Zero PII.","category":"treasury-strategy","tags":["leverage-ratio","tier-1","bcbs-270","bcbs-360","basel-iii","pillar-3","km1","g-sib","capital","regulatory"],"audience":["risk","treasury","compliance","capital"],"mcp_tool_definition":{"name":"leverage_ratio_calculator","description":"Calculate the Basel III leverage ratio per BCBS 360. LR = Tier 1 / Total Exposure Measure ≥ 3% (G-SIB leverage buffer additional per §12). Total exposure = on-BS + derivative (SA-CCR RC+PFE) + SFT + OBS (CCF-adjusted). Outputs ratio, minimum threshold, compliant flag. Feeds Pillar 3 KM1 row h (T472). Verify against CRR3/EU, PRA, or Fed SLR as applicable. Synthetic data only."},"execution":{"type":"browser-javascript","entry":"tools/471-leverage-ratio-calculator.html","function_name":"runLeverageRatio","timeout_ms":5000},"ap2_export":true,"prefill":true,"bridge_version":"1.0"};
+var MANIFEST = {"tool_id":"471-leverage-ratio-calculator","version":"1.1.0","title":"Leverage Ratio Calculator","description":"Basel III leverage ratio per BCBS 270 (January 2014) as revised by BCBS 360 (December 2017), plus the US eSLR final rule (Fed/OCC/FDIC, effective 2026-04-01). Leverage Ratio = Tier 1 Capital ÷ Total Exposure Measure ≥ 3% (G-SIB leverage buffer = 50% of Method 1 surcharge, capped at 1% for US insured depository institution subsidiaries). Covers on-balance-sheet, derivative (SA-CCR), SFT, and off-balance-sheet exposures. Feeds Pillar 3 KM1 (T472). Tier 1 Policy Mandate JSON + Markdown. Client-side. Zero PII.","category":"treasury-strategy","tags":["leverage-ratio","tier-1","bcbs-270","bcbs-360","basel-iii","pillar-3","km1","g-sib","eslr","capital","regulatory"],"audience":["risk","treasury","compliance","capital"],"mcp_tool_definition":{"name":"leverage_ratio_calculator","description":"Calculate the Basel III leverage ratio per BCBS 360 and the US eSLR final rule (eff. 2026-04-01). LR = Tier 1 / Total Exposure Measure ≥ 3% (G-SIB leverage buffer = 50% of Method 1 surcharge per §12; capped at 1% for US insured depository institution subsidiaries). Total exposure = on-BS + derivative (SA-CCR RC+PFE) + SFT + OBS (CCF-adjusted). Outputs ratio, minimum threshold, compliant flag. Feeds Pillar 3 KM1 row h (T472). Verify against CRR3/EU, PRA, or Fed SLR as applicable. Synthetic data only."},"execution":{"type":"browser-javascript","entry":"tools/471-leverage-ratio-calculator.html","function_name":"runLeverageRatio","timeout_ms":5000},"ap2_export":true,"prefill":true,"bridge_version":"1.0"};
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 function copyMfst(){if(navigator.clipboard)navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
 function scrollMfst(){var el=document.getElementById('mfstSec');if(el)el.scrollIntoView({behavior:'smooth'});}
