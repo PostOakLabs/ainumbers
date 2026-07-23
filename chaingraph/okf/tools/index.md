@@ -370,6 +370,7 @@ timestamp: 2026-07-14
 - [FR Y-9C Schedule HC (Consolidated Balance Sheet) Mapper](./art-435-bhc-schedule-hc-balance-sheet.md) — `map_bhc_schedule_hc`
 - [FR Y-9C Schedule HC-R (Regulatory Capital) Calculator](./art-436-bhc-schedule-hcr-capital.md) — `map_bhc_schedule_hcr`
 - [FR 2052a Inflow/Outflow Bucket Classifier](./art-437-fr2052a-inflow-outflow-classifier.md) — `compute_fr2052a_inflow_outflow_classification`
+- [Eval Attestation Receipt Composer](./art-438-eval-attestation-receipt-composer.md) — `compose_eval_attestation_receipt`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
