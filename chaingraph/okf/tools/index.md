@@ -371,7 +371,16 @@ timestamp: 2026-07-14
 - [FR Y-9C Schedule HC-R (Regulatory Capital) Calculator](./art-436-bhc-schedule-hcr-capital.md) — `map_bhc_schedule_hcr`
 - [FR 2052a Inflow/Outflow Bucket Classifier](./art-437-fr2052a-inflow-outflow-classifier.md) — `compute_fr2052a_inflow_outflow_classification`
 - [Eval Attestation Receipt Composer](./art-438-eval-attestation-receipt-composer.md) — `compose_eval_attestation_receipt`
+- [FR Y-14 Capital Worksheet Roll-Forward & Cross-Check](./art-439-y14-capital-worksheet-rollforward.md) — `rollforward_y14_capital_worksheet`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
+- [NMD Behavioral Repricing Mapper](./art-442-nmd-behavioral-repricing-mapper.md) — `map_nmd_behavioral_repricing`
+- [IRRBB Basis-Risk NII Shock Calculator](./art-443-irrbb-basis-risk-nii-shock-calculator.md) — `calculate_basis_risk_nii_shock`
+- [Collateral Haircut Engine (Basel CRE22)](./art-444-collateral-haircut-engine.md) — `compute_basel_haircut_adjusted_exposure`
+- [Credit Concentration Top-N / Sector Checker](./art-445-credit-concentration-topn-sector.md) — `check_credit_concentration_topn_sector`
+- [Counterparty Internal Limit Check](./art-446-counterparty-internal-limit-check.md) — `compute_counterparty_limit_check`
+- [Securitization Risk Retention Check](./art-447-securitization-risk-retention-check.md) — `check_securitization_risk_retention`
+- [IFRS 17 Loss Component Roll-Forward Tracker](./art-448-ifrs17-loss-component-tracker.md) — `track_ifrs17_loss_component_rollforward`
+- [Solvency II SCR Standard-Formula Module Aggregator](./art-449-solvency2-scr-module-aggregator.md) — `aggregate_solvency2_scr_modules`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
 - [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`

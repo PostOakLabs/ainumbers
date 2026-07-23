@@ -374,9 +374,9 @@ import * as art439    from './art-439-y14-capital-worksheet-rollforward.kernel.m
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art442    from './art-442-nmd-behavioral-repricing-mapper.kernel.mjs';
 import * as art443    from './art-443-irrbb-basis-risk-nii-shock-calculator.kernel.mjs';
-import * as art446    from './art-446-counterparty-internal-limit-check.kernel.mjs';
 import * as art444    from './art-444-collateral-haircut-engine.kernel.mjs';
 import * as art445    from './art-445-credit-concentration-topn-sector.kernel.mjs';
+import * as art446    from './art-446-counterparty-internal-limit-check.kernel.mjs';
 import * as art447    from './art-447-securitization-risk-retention-check.kernel.mjs';
 import * as art448    from './art-448-ifrs17-loss-component-tracker.kernel.mjs';
 import * as art449    from './art-449-solvency2-scr-module-aggregator.kernel.mjs';
@@ -825,9 +825,9 @@ export const KERNELS = {
   'art-44-arc-stablefx-model':                                art44,
   'art-442-nmd-behavioral-repricing-mapper':                  art442,
   'art-443-irrbb-basis-risk-nii-shock-calculator':            art443,
-  'art-446-counterparty-internal-limit-check':                art446,
   'art-444-collateral-haircut-engine':                        art444,
   'art-445-credit-concentration-topn-sector':                 art445,
+  'art-446-counterparty-internal-limit-check':                art446,
   'art-447-securitization-risk-retention-check':              art447,
   'art-448-ifrs17-loss-component-tracker':                    art448,
   'art-449-solvency2-scr-module-aggregator':                  art449,

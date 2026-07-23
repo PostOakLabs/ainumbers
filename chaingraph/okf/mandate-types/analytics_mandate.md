@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-30"]
+tags: ["analytics_mandate", "count-33"]
 timestamp: 2026-07-14
 ---
 
 # analytics_mandate
 
-30 tool(s) in this mandate-type group:
+33 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -40,3 +40,6 @@ timestamp: 2026-07-14
 - [Private-Input Sanctions Screen](../tools/art-413-screen-sanctions-private.md)
 - [Private-Input NAIC RBC Action Level](../tools/art-414-compute-rbc-action-level-private.md)
 - [Private-Input Capital Adequacy Check](../tools/art-415-check-capital-adequacy-private.md)
+- [NMD Behavioral Repricing Mapper](../tools/art-442-nmd-behavioral-repricing-mapper.md)
+- [IRRBB Basis-Risk NII Shock Calculator](../tools/art-443-irrbb-basis-risk-nii-shock-calculator.md)
+- [Credit Concentration Top-N / Sector Checker](../tools/art-445-credit-concentration-topn-sector.md)

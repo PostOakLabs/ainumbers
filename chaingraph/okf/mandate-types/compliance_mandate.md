@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-268"]
+tags: ["compliance_mandate", "count-272"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-268 tool(s) in this mandate-type group:
+272 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -275,6 +275,10 @@ timestamp: 2026-07-14
 - [Large Exposures Limit Check](../tools/art-425-large-exposures-limit-check.md)
 - [Discount Window Borrowing-Capacity Calculator](../tools/art-427-discount-window-capacity.md)
 - [FDIC Deposit-Insurance Assessment Rate Calculator](../tools/art-431-fdic-assessment-rate-calculator.md)
+- [Counterparty Internal Limit Check](../tools/art-446-counterparty-internal-limit-check.md)
+- [Securitization Risk Retention Check](../tools/art-447-securitization-risk-retention-check.md)
+- [IFRS 17 Loss Component Roll-Forward Tracker](../tools/art-448-ifrs17-loss-component-tracker.md)
+- [Solvency II SCR Standard-Formula Module Aggregator](../tools/art-449-solvency2-scr-module-aggregator.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
