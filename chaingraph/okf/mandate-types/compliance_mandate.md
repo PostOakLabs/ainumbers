@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-267"]
+tags: ["compliance_mandate", "count-268"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-267 tool(s) in this mandate-type group:
+268 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -274,6 +274,7 @@ timestamp: 2026-07-14
 - [IDV/KYC Verification-Failure Incident Composer](../tools/art-418-idv-verification-failure-incident-composer.md)
 - [Large Exposures Limit Check](../tools/art-425-large-exposures-limit-check.md)
 - [Discount Window Borrowing-Capacity Calculator](../tools/art-427-discount-window-capacity.md)
+- [FDIC Deposit-Insurance Assessment Rate Calculator](../tools/art-431-fdic-assessment-rate-calculator.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
