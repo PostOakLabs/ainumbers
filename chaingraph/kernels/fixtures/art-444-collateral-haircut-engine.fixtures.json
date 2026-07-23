@@ -1,0 +1,132 @@
+{
+  "tool_id": "art-444-collateral-haircut-engine",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: seeded default multi-item collateral (sovereign+corporate+FX-mismatched equity) against a cash exposure, fully collateralized, no overrides. Vector 2: one clean override (with reason_code), one unmatched asset_class falling back to a conservative 100% haircut, one override MISSING a reason_code (deficient flag fires), non-cash exposure asset_class, net exposure ends up positive. Vector 3: zero-input edge (finite gate, empty table/items, all totals zero, vacuously compliant).",
+  "vectors": [
+    {
+      "name": "seeded_default_compliant",
+      "description": "Two-tier sovereign+corporate collateral plus an FX-mismatched equity slice against a cash exposure at the standard 10-day holding period; net exposure fully collateralized.",
+      "policy_parameters": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 10,
+        "fx_haircut_pct": 8,
+        "min_haircut_floor_pct": 0,
+        "haircut_table": [
+          { "asset_class": "sovereign_aaa_aa", "maturity_bucket": "0-1y", "haircut_pct": 0.5 },
+          { "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "haircut_pct": 2 },
+          { "asset_class": "sovereign_aaa_aa", "maturity_bucket": ">5y", "haircut_pct": 4 },
+          { "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "haircut_pct": 4 },
+          { "asset_class": "corporate_bbb", "maturity_bucket": "1-5y", "haircut_pct": 6 },
+          { "asset_class": "equity_main_index", "maturity_bucket": null, "haircut_pct": 15 }
+        ],
+        "exposure": { "amount": 100000000, "currency": "USD", "asset_class": "cash" },
+        "collateral_items": [
+          { "item_id": "c0", "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "market_value": 60000000, "currency": "USD" },
+          { "item_id": "c1", "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "market_value": 30000000, "currency": "USD" },
+          { "item_id": "c2", "asset_class": "equity_main_index", "maturity_bucket": null, "market_value": 20000000, "currency": "EUR" }
+        ]
+      },
+      "output_payload": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 10,
+        "time_scale_factor": 1,
+        "exposure_amount": 100000000,
+        "exposure_currency": "USD",
+        "exposure_asset_class": "cash",
+        "exposure_haircut_scaled_pct": 0,
+        "exposure_adjusted": 100000000,
+        "item_count": 3,
+        "override_count": 0,
+        "override_missing_reason_count": 0,
+        "unclassified_count": 0,
+        "collateral_items": [
+          { "item_id": "c0", "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "market_value": 60000000, "currency": "USD", "table_haircut_pct": 2, "haircut_pct": 2, "haircut_scaled_pct": 2, "fx_haircut_scaled_pct": 0, "combined_haircut_pct": 2, "adjusted_value": 58800000, "currency_mismatch": false, "unclassified": false, "override_applied": false, "override_reason_code": null },
+          { "item_id": "c1", "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "market_value": 30000000, "currency": "USD", "table_haircut_pct": 4, "haircut_pct": 4, "haircut_scaled_pct": 4, "fx_haircut_scaled_pct": 0, "combined_haircut_pct": 4, "adjusted_value": 28800000, "currency_mismatch": false, "unclassified": false, "override_applied": false, "override_reason_code": null },
+          { "item_id": "c2", "asset_class": "equity_main_index", "maturity_bucket": null, "market_value": 20000000, "currency": "EUR", "table_haircut_pct": 15, "haircut_pct": 15, "haircut_scaled_pct": 15, "fx_haircut_scaled_pct": 8, "combined_haircut_pct": 23, "adjusted_value": 15400000, "currency_mismatch": true, "unclassified": false, "override_applied": false, "override_reason_code": null }
+        ],
+        "collateral_adjusted_total": 103000000,
+        "net_exposure": 0,
+        "note": "Basel CRE22 comprehensive-approach standardized supervisory haircuts (versioned table = policy input), scaled to the supplied holding period via the square-root-of-time rule. An overridden item haircut without a reason_code is flagged and is the item-level basis for a separate signed §27 human_accountability_record (this kernel does not mint that record). An unmatched asset_class/maturity_bucket defaults to a conservative 100% haircut, flagged, never silently valued. No allocation/optimization across collateral items -- deterministic per-item haircut application and summation only. Evidence artifact only -- not a capital-return filing, never regulator-submittable."
+      },
+      "compliance_flags": ["CRE22_HAIRCUT_APPLIED"],
+      "golden_hash": "27c54929ce09a1d7f7c19c43faa064aac2e1bb2b587cbecb334672cf17fa525c"
+    },
+    {
+      "name": "override_missing_reason_and_unclassified",
+      "description": "A clean haircut_override_pct (with reason_code) on the sovereign item, an unmatched exotic asset_class collateral item (falls back to 100% haircut), and a corporate item overridden WITHOUT a reason_code -- deficient flag fires. Non-cash exposure asset_class carries its own table haircut. Net exposure ends up positive (undercollateralized).",
+      "policy_parameters": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 10,
+        "fx_haircut_pct": 8,
+        "min_haircut_floor_pct": 0,
+        "haircut_table": [
+          { "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "haircut_pct": 2 },
+          { "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "haircut_pct": 4 },
+          { "asset_class": "corporate_bbb", "maturity_bucket": "1-5y", "haircut_pct": 6 }
+        ],
+        "exposure": { "amount": 50000000, "currency": "USD", "asset_class": "corporate_bbb", "maturity_bucket": "1-5y" },
+        "collateral_items": [
+          { "item_id": "c0", "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "market_value": 40000000, "currency": "USD", "haircut_override_pct": 1, "override_reason_code": "INTERNAL_MODEL_ADJ" },
+          { "item_id": "c1", "asset_class": "exotic_structured_note", "maturity_bucket": "1-5y", "market_value": 10000000, "currency": "USD" },
+          { "item_id": "c2", "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "market_value": 5000000, "currency": "USD", "haircut_override_pct": 3 }
+        ]
+      },
+      "output_payload": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 10,
+        "time_scale_factor": 1,
+        "exposure_amount": 50000000,
+        "exposure_currency": "USD",
+        "exposure_asset_class": "corporate_bbb",
+        "exposure_haircut_scaled_pct": 6,
+        "exposure_adjusted": 53000000,
+        "item_count": 3,
+        "override_count": 2,
+        "override_missing_reason_count": 1,
+        "unclassified_count": 1,
+        "collateral_items": [
+          { "item_id": "c0", "asset_class": "sovereign_aaa_aa", "maturity_bucket": "1-5y", "market_value": 40000000, "currency": "USD", "table_haircut_pct": 2, "haircut_pct": 1, "haircut_scaled_pct": 1, "fx_haircut_scaled_pct": 0, "combined_haircut_pct": 1, "adjusted_value": 39600000, "currency_mismatch": false, "unclassified": false, "override_applied": true, "override_reason_code": "INTERNAL_MODEL_ADJ" },
+          { "item_id": "c1", "asset_class": "exotic_structured_note", "maturity_bucket": "1-5y", "market_value": 10000000, "currency": "USD", "table_haircut_pct": 100, "haircut_pct": 100, "haircut_scaled_pct": 100, "fx_haircut_scaled_pct": 0, "combined_haircut_pct": 100, "adjusted_value": 0, "currency_mismatch": false, "unclassified": true, "override_applied": false, "override_reason_code": null },
+          { "item_id": "c2", "asset_class": "corporate_aaa_a", "maturity_bucket": "1-5y", "market_value": 5000000, "currency": "USD", "table_haircut_pct": 4, "haircut_pct": 3, "haircut_scaled_pct": 3, "fx_haircut_scaled_pct": 0, "combined_haircut_pct": 3, "adjusted_value": 4850000, "currency_mismatch": false, "unclassified": false, "override_applied": true, "override_reason_code": null }
+        ],
+        "collateral_adjusted_total": 44450000,
+        "net_exposure": 8550000,
+        "note": "Basel CRE22 comprehensive-approach standardized supervisory haircuts (versioned table = policy input), scaled to the supplied holding period via the square-root-of-time rule. An overridden item haircut without a reason_code is flagged and is the item-level basis for a separate signed §27 human_accountability_record (this kernel does not mint that record). An unmatched asset_class/maturity_bucket defaults to a conservative 100% haircut, flagged, never silently valued. No allocation/optimization across collateral items -- deterministic per-item haircut application and summation only. Evidence artifact only -- not a capital-return filing, never regulator-submittable."
+      },
+      "compliance_flags": ["CRE22_OVERRIDE_MISSING_REASON_CODE", "CRE22_UNCLASSIFIED_ASSET_CLASS", "CRE22_NET_EXPOSURE_UNCOLLATERALIZED"],
+      "golden_hash": "66d5ae3f2bf56021cdb0ef7bb1aedab562656f596e26b3ea033e770a943cf291"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No haircut table, no collateral items, zero exposure, unset holding period (defaults to 10). Finite gate: all totals resolve to zero, vacuously compliant.",
+      "policy_parameters": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 0,
+        "fx_haircut_pct": 8,
+        "min_haircut_floor_pct": 0,
+        "haircut_table": [],
+        "exposure": { "amount": 0, "currency": "USD", "asset_class": "cash" },
+        "collateral_items": []
+      },
+      "output_payload": {
+        "haircut_table_version": "2026-07-01",
+        "holding_period_days": 0,
+        "time_scale_factor": 1,
+        "exposure_amount": 0,
+        "exposure_currency": "USD",
+        "exposure_asset_class": "cash",
+        "exposure_haircut_scaled_pct": 0,
+        "exposure_adjusted": 0,
+        "item_count": 0,
+        "override_count": 0,
+        "override_missing_reason_count": 0,
+        "unclassified_count": 0,
+        "collateral_items": [],
+        "collateral_adjusted_total": 0,
+        "net_exposure": 0,
+        "note": "Basel CRE22 comprehensive-approach standardized supervisory haircuts (versioned table = policy input), scaled to the supplied holding period via the square-root-of-time rule. An overridden item haircut without a reason_code is flagged and is the item-level basis for a separate signed §27 human_accountability_record (this kernel does not mint that record). An unmatched asset_class/maturity_bucket defaults to a conservative 100% haircut, flagged, never silently valued. No allocation/optimization across collateral items -- deterministic per-item haircut application and summation only. Evidence artifact only -- not a capital-return filing, never regulator-submittable."
+      },
+      "compliance_flags": ["CRE22_HAIRCUT_APPLIED"],
+      "golden_hash": "c7d371e79b930de5df803e5ecde4d82ec7b7b5a3b75be303a20f87b5b2e62154"
+    }
+  ]
+}
