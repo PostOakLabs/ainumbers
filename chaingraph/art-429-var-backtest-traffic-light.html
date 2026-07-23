@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>VaR Backtesting Traffic-Light Zone Calculator &middot; ART-429 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Count Basel VaR backtesting exceptions over a rolling 250-trading-day window and look up the green/yellow/red traffic-light zone and capital multiplier. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-429-var-backtest-traffic-light.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],input[type="date"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:180px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:8px}
+th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+td{padding:.4rem .55rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+tr:hover td{background:var(--bg-3)}
+.row-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;border:1px solid var(--border-2);color:var(--body);padding:.3rem .6rem;border-radius:var(--radius);cursor:pointer;margin-left:8px}
+.row-btn:hover{border-color:var(--red);color:var(--red)}
+.demo-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--border-2);color:var(--body);padding:.4rem .8rem;border-radius:var(--radius);cursor:pointer;margin-right:.5rem}
+.demo-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-429 · VaR Backtesting Traffic-Light Zone Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-429 &middot; Basel Market Risk &middot; Capital</div>
+  <h1>VaR Backtesting Traffic-Light Zone Calculator</h1>
+  <p class="sub">Count Basel VaR backtesting exceptions &mdash; days where the actual P&amp;L loss exceeded the model's 1-day Value-at-Risk estimate &mdash; over a rolling window of up to 250 trading days, then look up the green, yellow, or red traffic-light zone and the corresponding capital multiplier. Exception-count plus zone plus multiplier lookup only: this tool does not compute VaR itself, and does not apply the multiplier to a capital charge.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag">Basel 1996 Amendment, Part V</span>
+    <span class="flag info">BCBS d457 (2019) Retained</span>
+    <span class="flag">250-Day Window</span>
+    <span class="flag warn">Not Regulatory Advice</span>
+  </div>
+  <div class="pii-notice">&#128274; All computation runs locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Daily P&amp;L vs VaR Observations</div>
+    <div class="q-help">One row per trading day: actual P&amp;L for the day and that day's 1-day VaR estimate (positive number). An exception is recorded when P&amp;L is a loss larger than the VaR estimate. Only the most recent 250 rows are used.</div>
+    <div id="obsRows"></div>
+    <button class="demo-btn" onclick="addObsRow()">+ Add Day</button>
+    <button class="demo-btn" onclick="loadDemo()">Load Demo Series</button>
+
+    <div style="margin-top:20px">
+      <button onclick="runBacktest()">&#9654; Compute Traffic-Light Zone</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Exceptions</div>
+      <table>
+        <thead><tr><th>#</th><th>Date</th><th>P&amp;L</th><th>VaR Estimate</th></tr></thead>
+        <tbody id="exceptionsBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:14px">Totals</div>
+      <div id="totalsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-429-var-backtest-traffic-light',
+  version: '1.0.0',
+  mcp_name: 'compute_var_backtest_traffic_light',
+  title: 'VaR Backtesting Traffic-Light Zone Calculator',
+  description: 'Counts Basel VaR backtesting exceptions over a rolling up-to-250-trading-day window, looks up the green/yellow/red traffic-light zone and capital multiplier. Exception-count plus zone plus multiplier lookup only.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Basel Committee 1996 Amendment to the Capital Accord to Incorporate Market Risks, Part V; retained under BCBS d457 (Jan 2019)',
+  mcp_tool_definition: {
+    name: 'compute_var_backtest_traffic_light',
+    description: 'Basel VaR backtesting traffic-light calculator: counts exceptions (actual daily P&L loss exceeding the 1-day VaR estimate) over the most recent <=250 trading days, returns exception_count, zone (GREEN/YELLOW/RED), and the corresponding capital multiplier. Does NOT compute VaR and does NOT apply the multiplier to a capital charge.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        observations: {
+          type: 'array',
+          description: 'Daily P&L vs VaR observations, oldest first. Only the most recent 250 entries are used.',
+          items: {
+            type: 'object',
+            properties: {
+              date: { type: 'string', description: 'ISO date of the trading day (informational only).' },
+              pnl: { type: 'number', description: 'Actual daily P&L (negative = loss).' },
+              var_estimate: { type: 'number', description: "That day's 1-day VaR estimate (positive number)." },
+            },
+            required: ['pnl', 'var_estimate'],
+          },
+        },
+      },
+      required: ['observations'],
+    },
+  },
+};
+
+var WINDOW_DAYS_STANDARD = 250;
+var MULTIPLIER_TABLE = [3.00, 3.00, 3.00, 3.00, 3.00, 3.40, 3.50, 3.65, 3.75, 3.85];
+var RED_MULTIPLIER = 4.00;
+var YELLOW_MIN = 5;
+var RED_MIN = 10;
+var CONSTANTS_VERSION = 'BASEL-VAR-BACKTEST-TRAFFIC-LIGHT-2026-07-23-V1';
+var SOURCE = 'Basel Committee on Banking Supervision, Amendment to the Capital Accord to Incorporate Market Risks (Jan 1996), Part V, "The Basel Committee\'s backtesting framework" -- 250 trading-day rolling window comparing actual daily P&L against the 99% 1-day VaR estimate; green (0-4 exceptions, multiplier 3.00), yellow (5-9 exceptions, stepped multiplier 3.40-3.85), red (10+ exceptions, multiplier 4.00 floor). Retained under BCBS d457 "Minimum capital requirements for market risk" (Jan 2019) internal-models-approach backtesting provisions.';
+
+var _lastResult = null;
+var _rowSeq = 0;
+
+function g(v){ var n = Number(v); return Number.isFinite(n) ? n : 0; }
+
+function zoneFor(count){ return count >= RED_MIN ? 'RED' : count >= YELLOW_MIN ? 'YELLOW' : 'GREEN'; }
+function multiplierFor(count){ return count >= RED_MIN ? RED_MULTIPLIER : MULTIPLIER_TABLE[count]; }
+
+function addObsRow(date, pnl, varEst){
+  _rowSeq++;
+  var id = 'obs' + _rowSeq;
+  var div = document.createElement('div');
+  div.className = 'q';
+  div.id = id;
+  div.innerHTML =
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="date" style="flex:1.4" class="obs-date" value="' + (date || '') + '">' +
+    '<input type="number" style="flex:1" class="obs-pnl" placeholder="P&amp;L" value="' + (pnl != null ? pnl : 0) + '" step="1000">' +
+    '<input type="number" style="flex:1" class="obs-var" placeholder="VaR estimate" value="' + (varEst != null ? varEst : 100000) + '" min="0" step="1000">' +
+    '<button class="row-btn" onclick="document.getElementById(\'' + id + '\').remove()">&#10005;</button>' +
+    '</div>';
+  document.getElementById('obsRows').appendChild(div);
+}
+
+function loadDemo(){
+  document.getElementById('obsRows').innerHTML = '';
+  _rowSeq = 0;
+  var demo = [
+    ['2026-01-05', 20000, 100000], ['2026-01-06', -150000, 100000], ['2026-01-07', 15000, 100000],
+    ['2026-01-08', 30000, 100000], ['2026-01-09', -20000, 100000], ['2026-01-12', 10000, 100000],
+    ['2026-01-13', -180000, 100000], ['2026-01-14', 5000, 100000], ['2026-01-15', 25000, 100000],
+    ['2026-01-16', -160000, 100000],
+  ];
+  demo.forEach(function(r){ addObsRow(r[0], r[1], r[2]); });
+}
+
+function readObservations(){
+  var rows = document.getElementById('obsRows').children;
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    out.push({
+      date: rows[i].querySelector('.obs-date').value,
+      pnl: g(rows[i].querySelector('.obs-pnl').value),
+      var_estimate: g(rows[i].querySelector('.obs-var').value),
+    });
+  }
+  return out;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var all = Array.isArray(pp.observations) ? pp.observations : [];
+  var truncated = all.length > WINDOW_DAYS_STANDARD;
+  var observations = truncated ? all.slice(-WINDOW_DAYS_STANDARD) : all;
+  var window_days = observations.length;
+
+  var exception_indices = [];
+  for (var i = 0; i < observations.length; i++) {
+    var obs = observations[i] || {};
+    var pnl = g(obs.pnl);
+    var var_estimate = Math.abs(g(obs.var_estimate));
+    if (pnl < -var_estimate) exception_indices.push(i);
+  }
+
+  var exception_count = exception_indices.length;
+  var zone = zoneFor(exception_count);
+  var multiplier = multiplierFor(exception_count);
+  var full_window = window_days === WINDOW_DAYS_STANDARD;
+
+  var output_payload = {
+    window_days: window_days,
+    full_window: full_window,
+    truncated_to_250: truncated,
+    exception_count: exception_count,
+    exception_indices: exception_indices,
+    zone: zone,
+    multiplier: multiplier,
+    rule_status: 'final',
+    constants_version: CONSTANTS_VERSION,
+    source: SOURCE,
+    disambiguation: 'compute_var_backtest_traffic_light performs ONLY the Basel traffic-light exception count + zone + multiplier lookup over a supplied <=250-trading-day P&L/VaR series. It does NOT compute VaR itself, does NOT apply the multiplier to a capital charge (RWA/capital math is left to the bank\'s market-risk capital engine), and is not a hypothetical-vs-actual P&L attribution tool.',
+  };
+  return { output_payload: output_payload, observations_used: observations };
+}
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){
+  return sha256Hex({policy_parameters: pp, output_payload: op});
+}
+
+function fmt(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
+
+async function runBacktest(){
+  var pp = { observations: readObservations() };
+  var result = compute(pp);
+  var op = result.output_payload;
+  _lastResult = { pp: pp, output_payload: op };
+
+  var vBox = document.getElementById('verdictBox');
+  var vColor = op.zone === 'GREEN' ? 'var(--green)' : op.zone === 'YELLOW' ? 'var(--warn)' : 'var(--red)';
+  var vBg = op.zone === 'GREEN' ? 'rgba(34,197,94,.08)' : op.zone === 'YELLOW' ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.color = vColor; vBox.style.background = vBg; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = op.zone + ' ZONE — multiplier ' + op.multiplier.toFixed(2);
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.window_days + '</span><span class="stat-key">Window Days</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.exception_count + '</span><span class="stat-key">Exceptions</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + vColor + '">' + op.zone + '</span><span class="stat-key">Zone</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + vColor + '">' + op.multiplier.toFixed(2) + '</span><span class="stat-key">Multiplier</span></div>';
+
+  document.getElementById('exceptionsBody').innerHTML = op.exception_indices.map(function(idx){
+    var o = result.observations_used[idx];
+    return '<tr><td>' + (idx+1) + '</td><td>' + (o.date || '—') + '</td><td>' + fmt(o.pnl) + '</td><td>' + fmt(Math.abs(g(o.var_estimate))) + '</td></tr>';
+  }).join('') || '<tr><td colspan="4">No exceptions.</td></tr>';
+
+  document.getElementById('totalsDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">full_window (250 days)</span><span class="kv-v">' + op.full_window + '</span></div>' +
+    '<div class="kv"><span class="kv-k">truncated_to_250</span><span class="kv-v">' + op.truncated_to_250 + '</span></div>' +
+    '<div class="kv"><span class="kv-k">rule_status</span><span class="kv-v">' + op.rule_status + '</span></div>' +
+    '<div class="kv"><span class="kv-k">constants_version</span><span class="kv-v">' + op.constants_version + '</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'capital_assessment',tool_id:'art-429-var-backtest-traffic-light',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-429-var-backtest-traffic-light.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+loadDemo();
+</script>
+</body>
+</html>
