@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Solvency II SCR Standard-Formula Module Aggregator · ART-449 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Aggregate Solvency II standard-formula risk-module SCR charges (market, default, life, health, non-life) via the Annex IV correlation matrix into Basic SCR, then total SCR.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-449-solvency2-scr-module-aggregator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.gold{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:2px}
+input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem .75rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;transition:border-color .2s}
+input[type=number]:focus{outline:none;border-color:var(--teal)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-449 · Solvency II SCR Standard-Formula Module Aggregator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-449 · Insurance, Actuarial &amp; Prudential</div>
+  <h1>Solvency II SCR Standard-Formula Module Aggregator</h1>
+  <p class="sub">Aggregate the five Solvency II standard-formula risk-module capital charges (market, counterparty default, life, health, non-life underwriting) into Basic SCR via the Delegated Regulation (EU) 2015/35 Annex IV correlation matrix, then add the operational risk charge and subtract the loss-absorbing adjustment to reach total SCR. Feeds the SCR ratio calculator (art-180), which takes SCR as a given input. Not the US NAIC RBC action-level ladder. Zero network.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Solvency II Annex IV</span>
+    <span class="flag gold">Basic SCR</span>
+    <span class="flag info">Insurance</span>
+    <span class="flag">Zero PII</span>
+    <span class="flag purple">W3C VC §13.11</span>
+  </div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope</div>
+    Feeds <a href="art-180-solvency2-scr-ratio-calculator.html">art-180 (SCR ratio calculator)</a>, which takes total SCR as a given input. This node derives that SCR from the five standard-formula sub-module charges via the Annex IV correlation matrix: BSCR = sqrt(sum of squares + cross-correlation terms), then SCR = BSCR + operational risk charge - loss-absorbing adjustment (floored at zero). Distinct from the US NAIC RBC action-level ladder: different jurisdiction, different regime.
+  </div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('diversified')">Diversified Book</button>
+      <button class="preset-btn" onclick="loadPreset('lac')">LAC Exceeds Charges</button>
+      <button class="preset-btn" onclick="loadPreset('concentrated')">Single-Module Concentration</button>
+    </div>
+
+    <div class="section-head">Risk Module SCR Charges</div>
+
+    <div class="grid2">
+      <div class="form-group">
+        <label class="form-label" for="market">market</label>
+        <input type="number" id="market" value="0" step="any">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="default">default</label>
+        <input type="number" id="default" value="0" step="any">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="life">life</label>
+        <input type="number" id="life" value="0" step="any">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="health">health</label>
+        <input type="number" id="health" value="0" step="any">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="nonlife">nonlife</label>
+        <input type="number" id="nonlife" value="0" step="any">
+      </div>
+    </div>
+
+    <div class="section-head">Operational Risk &amp; Loss-Absorbing Adjustment</div>
+    <div class="grid2">
+      <div class="form-group">
+        <label class="form-label" for="scr_operational">scr_operational</label>
+        <input type="number" id="scr_operational" value="0" step="any">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="loss_absorbing_adjustment">loss_absorbing_adjustment</label>
+        <input type="number" id="loss_absorbing_adjustment" value="0" step="any">
+        <div class="form-hint">Deferred tax / technical provisions adjustment.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <button onclick="runValidator()">Aggregate Basic SCR</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Aggregation Results</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictBox"></div>
+      <div id="breakdownBox"></div>
+      <div id="flagsBox"></div>
+      <div id="hashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  tool_id: 'art-449-solvency2-scr-module-aggregator',
+  version: '1.0.0',
+  mcp_name: 'aggregate_solvency2_scr_modules',
+  title: 'Solvency II SCR Standard-Formula Module Aggregator',
+  description: 'Aggregate Solvency II standard-formula risk-module SCR charges (market, default, life, health, non-life) via the Annex IV correlation matrix into Basic SCR, add the operational risk charge, subtract the loss-absorbing adjustment, floor at zero, to produce total SCR.',
+  spec_version: '0.5.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Solvency II Dir. 2009/138/EC + Del. Reg. (EU) 2015/35 Annex IV',
+  mcp_tool_definition: {
+    name: 'aggregate_solvency2_scr_modules',
+    description: 'Aggregate Solvency II standard-formula sub-module SCR charges via the Annex IV correlation matrix into Basic SCR = sqrt(sum(SCR_i^2) + sum_ij(2*corr_ij*SCR_i*SCR_j)); total SCR = max(BSCR + scr_operational - loss_absorbing_adjustment, 0).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        modules: {
+          type: 'object',
+          properties: {
+            market: { type: 'number' }, default: { type: 'number' }, life: { type: 'number' },
+            health: { type: 'number' }, nonlife: { type: 'number' }
+          }
+        },
+        operational: {
+          type: 'object',
+          properties: { scr_operational: { type: 'number' }, loss_absorbing_adjustment: { type: 'number' } }
+        }
+      }
+    }
+  }
+};
+
+const CORR = {
+  market:  { default: 0.25, life: 0.25, health: 0.25, nonlife: 0.25 },
+  default: { life: 0.25, health: 0.25, nonlife: 0.5 },
+  life:    { health: 0.25, nonlife: 0 },
+  health:  { nonlife: 0 },
+};
+const MODULES = ['market', 'default', 'life', 'health', 'nonlife'];
+
+let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null, pp_last={};
+
+function compute(pp) {
+  const modules = (pp && pp.modules) ? pp.modules : {};
+  const operational = (pp && pp.operational) ? pp.operational : {};
+  const g = (v) => Number.isFinite(Number(v)) ? Math.max(Number(v), 0) : 0;
+  const scr = {}; MODULES.forEach((m) => { scr[m] = g(modules[m]); });
+
+  let sumSquares = 0;
+  for (const m of MODULES) sumSquares += scr[m] * scr[m];
+
+  let sumCross = 0;
+  for (const [a, row] of Object.entries(CORR)) {
+    for (const [b, corr] of Object.entries(row)) {
+      sumCross += 2 * corr * scr[a] * scr[b];
+    }
+  }
+
+  const bscr = Math.sqrt(Math.max(sumSquares + sumCross, 0));
+
+  const g2 = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const scr_operational = Math.max(g2(operational.scr_operational), 0);
+  const loss_absorbing_adjustment = Math.max(g2(operational.loss_absorbing_adjustment), 0);
+
+  const scr_total = Math.max(bscr + scr_operational - loss_absorbing_adjustment, 0);
+  const adjustment_exceeds_bscr_plus_op = loss_absorbing_adjustment > bscr + scr_operational;
+
+  const compliance_flags = [];
+  compliance_flags.push('SII_BSCR_AGGREGATED');
+  compliance_flags.push('SII_SCR_TOTAL_COMPUTED');
+  if (adjustment_exceeds_bscr_plus_op) compliance_flags.push('SII_LAC_ADJUSTMENT_EXCESS');
+
+  return {
+    output_payload: {
+      bscr: Math.round(bscr * 100) / 100,
+      scr_operational,
+      loss_absorbing_adjustment,
+      scr_total: Math.round(scr_total * 100) / 100,
+      market_scr: scr.market, default_scr: scr.default, life_scr: scr.life,
+      health_scr: scr.health, nonlife_scr: scr.nonlife,
+      adjustment_exceeds_bscr_plus_op,
+    },
+    compliance_flags,
+  };
+}
+
+async function cgHash(pp, op) {
+  const obj = cgCanon({ policy_parameters: pp, output_payload: op });
+  const buf = new TextEncoder().encode(JSON.stringify(obj));
+  const dig = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function cgCanon(v) {
+  if (v===null||typeof v!=='object') return v;
+  if (Array.isArray(v)) return v.map(cgCanon);
+  const o={}; for (const k of Object.keys(v).sort()) o[k]=cgCanon(v[k]); return o;
+}
+
+function getParams() {
+  return {
+    modules: {
+      market:  Number(document.getElementById('market').value)||0,
+      default: Number(document.getElementById('default').value)||0,
+      life:    Number(document.getElementById('life').value)||0,
+      health:  Number(document.getElementById('health').value)||0,
+      nonlife: Number(document.getElementById('nonlife').value)||0,
+    },
+    operational: {
+      scr_operational: Number(document.getElementById('scr_operational').value)||0,
+      loss_absorbing_adjustment: Number(document.getElementById('loss_absorbing_adjustment').value)||0,
+    }
+  };
+}
+
+function loadPreset(key) {
+  const P = {
+    diversified:   { market:500, default:200, life:300, health:100, nonlife:400, scr_operational:50, loss_absorbing_adjustment:30 },
+    lac:           { market:100, default:0, life:0, health:0, nonlife:0, scr_operational:10, loss_absorbing_adjustment:200 },
+    concentrated:  { market:1000, default:0, life:0, health:0, nonlife:0, scr_operational:0, loss_absorbing_adjustment:0 },
+  };
+  const p=P[key]; if(!p) return;
+  document.getElementById('market').value=p.market;
+  document.getElementById('default').value=p.default;
+  document.getElementById('life').value=p.life;
+  document.getElementById('health').value=p.health;
+  document.getElementById('nonlife').value=p.nonlife;
+  document.getElementById('scr_operational').value=p.scr_operational;
+  document.getElementById('loss_absorbing_adjustment').value=p.loss_absorbing_adjustment;
+}
+
+const fmt = (n) => Number.isFinite(n) ? n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+
+async function runValidator() {
+  pp_last = getParams();
+  const pp = pp_last;
+  const { output_payload: op, compliance_flags } = compute(pp);
+  const rawHash = await cgHash(pp, op);
+
+  const artifact = {
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0', spec_version:'0.5.0', compute_mode:'browser',
+    mandate_type:'compliance_mandate', tool_id:MANIFEST.tool_id, tool_version:MANIFEST.version,
+    generated_at: new Date().toISOString(), execution_hash:'sha256:'+rawHash,
+    chain:{ parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters:pp, output_payload:op, compliance_flags,
+    audit_signature:{ payloadType:'application/vnd.openchain.graph+json;version=0.4', payload:'', signatures:[] }
+  };
+
+  _lastArtifact=artifact; _lastPP=pp; _lastOP=op; _lastFlags=compliance_flags;
+  renderResults(op, compliance_flags, rawHash);
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function renderResults(op, flags, rawHash) {
+  document.getElementById('heroRow').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-val" style="font-size:1.4rem;color:var(--teal-lt)">${fmt(op.bscr)}</div>
+      <div class="hero-lbl">Basic SCR</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="font-size:1.4rem;color:var(--white)">${fmt(op.scr_total)}</div>
+      <div class="hero-lbl">Total SCR</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-val" style="color:${op.adjustment_exceeds_bscr_plus_op?'var(--warn)':'var(--green)'}">${op.adjustment_exceeds_bscr_plus_op?'CAPPED':'OK'}</div>
+      <div class="hero-lbl">LAC Adjustment</div>
+    </div>
+  `;
+
+  let vHtml = op.adjustment_exceeds_bscr_plus_op
+    ? `<div class="verdict warn">⚠ Loss-absorbing adjustment (${fmt(op.loss_absorbing_adjustment)}) exceeds BSCR + operational charge — total SCR floored at zero.</div>`
+    : `<div class="verdict pass">✓ Basic SCR aggregated across ${MODULES.length} modules — total SCR ${fmt(op.scr_total)}.</div>`;
+  document.getElementById('verdictBox').innerHTML = vHtml;
+
+  document.getElementById('breakdownBox').innerHTML = `
+    <div class="form-label" style="margin-top:12px;margin-bottom:6px">Module breakdown</div>
+    <table style="font-family:'JetBrains Mono',monospace;font-size:.68rem;border-collapse:collapse;width:100%;max-width:460px">
+      ${[
+        ['Market', op.market_scr], ['Default', op.default_scr], ['Life', op.life_scr],
+        ['Health', op.health_scr], ['Non-life', op.nonlife_scr],
+        ['= Basic SCR (correlated)', op.bscr],
+        ['+ Operational risk', op.scr_operational],
+        ['− Loss-absorbing adj.', op.loss_absorbing_adjustment],
+        ['= Total SCR', op.scr_total],
+      ].map(([l,v],i)=>`<tr style="${i>=5?'border-top:1px solid var(--border)':''}"><td style="padding:3px 8px 3px 0;color:var(--muted)">${l}</td><td style="padding:3px 0;color:var(--bright);text-align:right">${fmt(v)}</td></tr>`).join('')}
+    </table>`;
+
+  const fHtml = flags.map(k=>`<span class="badge ok">${k}</span>`).join('');
+  document.getElementById('flagsBox').innerHTML = `<div style="margin:12px 0"><div class="form-label" style="margin-bottom:6px">Compliance flags:</div>${fHtml}</div>`;
+  document.getElementById('hashBox').innerHTML = `<div class="form-label" style="margin-top:10px">Execution hash (SHA-256)</div><div class="hash">sha256:${rawHash}</div>`;
+  const pre = document.getElementById('artifactPre');
+  pre.textContent = JSON.stringify(_lastArtifact, null, 2); pre.style.display='block';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  dl(JSON.stringify({schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastArtifact.execution_hash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},null,2),'art-449-scr-aggregator-policy-mandate.json','application/json');
+}
+function exportArtifact(){ if(_lastArtifact) dl(JSON.stringify(_lastArtifact,null,2),'art-449-scr-aggregator-artifact.json','application/json'); }
+function exportVC(){
+  if(!_lastArtifact) return;
+  const vc={'@context':['https://www.w3.org/ns/credentials/v2','https://ainumbers.co/chaingraph/context/v0.3/context.jsonld'],type:['VerifiableCredential','OpenChainGraphMandateCredential'],issuer:'https://ainumbers.co',validFrom:_lastArtifact.generated_at,credentialSubject:{id:'https://ainumbers.co/chaingraph/'+MANIFEST.tool_id,..._lastArtifact}};
+  dl(JSON.stringify(vc,null,2),'art-449-scr-aggregator-vc.json','application/json');
+}
+function dl(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else{b.style.display='none';}}
+</script>
+</body>
+</html>
