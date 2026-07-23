@@ -78,7 +78,9 @@ function analyzeAssets(assets, issuerType) {
  *   token_price?:                number,   // USD par value, default 1.00
  *   issuer_type?:                'bank' | 'nonbank_federal' | 'nonbank_state',
  *   assets?:                     Array<{ type, usd, maturity?, custodian? }>,
- *   ceo_cfo_certification_present?: boolean,
+ *   certifying_officers?:        Array<{ role: 'CEO'|'CFO', identity_id: string }>,
+ *                                // OCG SPEC.md §27.3 dual_control(2): satisfied only when a
+ *                                // 'CEO' entry and a 'CFO' entry are present with DISTINCT identity_id.
  *   registered_examiner_named?:  boolean,
  *   examiner_name?:              string,
  *   onchain_supply_check?:       number|null,  // user-pasted on-chain supply figure
@@ -95,7 +97,10 @@ export function compute(pp) {
   const price         = Number(pp.token_price ?? 1);
   const issuerType     = pp.issuer_type ?? 'nonbank_state';
   const assets         = pp.assets ?? [];
-  const certPresent    = pp.ceo_cfo_certification_present === true;
+  const certifyingOfficers = pp.certifying_officers ?? [];
+  const ceoCert        = certifyingOfficers.find(o => o?.role === 'CEO' && o?.identity_id) ?? null;
+  const cfoCert        = certifyingOfficers.find(o => o?.role === 'CFO' && o?.identity_id) ?? null;
+  const dualControlSatisfied = !!ceoCert && !!cfoCert && ceoCert.identity_id !== cfoCert.identity_id;
   const examinerNamed  = pp.registered_examiner_named === true;
   const examinerName   = pp.examiner_name ?? null;
   const onchainSupply  = pp.onchain_supply_check ?? null;
@@ -179,8 +184,16 @@ export function compute(pp) {
       failingDimensions.push({ dim: `Asset issue — ${a.def.label}`, detail: issue, ref: 'GENIUS Act S.394 §4(a)' });
     }
   }
-  if (!certPresent) {
-    failingDimensions.push({ dim: 'CEO/CFO certification', detail: 'Monthly report is missing the required CEO/CFO certification.', ref: 'GENIUS Act S.394 §4' });
+  if (!dualControlSatisfied) {
+    const parts = [];
+    if (!ceoCert) parts.push('CEO certification missing.');
+    if (!cfoCert) parts.push('CFO certification missing.');
+    if (ceoCert && cfoCert && ceoCert.identity_id === cfoCert.identity_id) parts.push('CEO and CFO certifications must come from two distinct identities.');
+    failingDimensions.push({
+      dim: 'CEO/CFO certification',
+      detail: `Monthly report requires a dual_control(2) CEO/CFO certification. ${parts.join(' ')}`.trim(),
+      ref: 'GENIUS Act S.394 §4; FDIC NPR 2026-04-10; OCG SPEC.md §27.3 dual_control(2)',
+    });
   }
   if (!examinerNamed) {
     failingDimensions.push({ dim: 'Registered accounting-firm examiner', detail: 'No registered public accounting firm named as examiner for this report.', ref: 'GENIUS Act S.394 §4' });
@@ -198,7 +211,7 @@ export function compute(pp) {
 
   // Determination
   let determination;
-  const hardFail = coverageRatio < 1 || prohibitedTotal > 0 || !certPresent || (onchain_supply_check.provided && onchain_supply_check.match === false);
+  const hardFail = coverageRatio < 1 || prohibitedTotal > 0 || !dualControlSatisfied || (onchain_supply_check.provided && onchain_supply_check.match === false);
   const softWarn = conditionalTotal > 0 || !examinerNamed || !custodyDisclosed || (mom_diff && mom_diff.large_swing_flag);
   if (hardFail) determination = 'FAIL';
   else if (softWarn) determination = 'WARN';
@@ -208,7 +221,7 @@ export function compute(pp) {
   if (determination === 'FAIL') compliance_flags.push('GENIUS_MONTHLY_DISCLOSURE_FAIL');
   if (coverageRatio < 1) compliance_flags.push('RESERVE_DEFICIENCY');
   if (prohibitedTotal > 0) compliance_flags.push('PROHIBITED_ASSETS_PRESENT');
-  if (!certPresent) compliance_flags.push('CERTIFICATION_MISSING');
+  if (!dualControlSatisfied) compliance_flags.push('DUAL_CONTROL_UNSATISFIED');
   if (!examinerNamed) compliance_flags.push('EXAMINER_MISSING');
   if (!custodyDisclosed && assets.length > 0) compliance_flags.push('CUSTODY_DISCLOSURE_INCOMPLETE');
   if (onchain_supply_check.provided && onchain_supply_check.match === false) compliance_flags.push('ONCHAIN_SUPPLY_MISMATCH');
@@ -226,7 +239,10 @@ export function compute(pp) {
     conditional_assets_usd: conditionalTotal,
     custody_locations: custodyLocations,
     custody_disclosed: custodyDisclosed,
-    ceo_cfo_certification_present: certPresent,
+    ceo_certified: !!ceoCert,
+    cfo_certified: !!cfoCert,
+    dual_control_satisfied: dualControlSatisfied,
+    gate_policy: 'dual_control(2)',
     registered_examiner_named: examinerNamed,
     examiner_name: examinerName,
     asset_results: assetResults.map(a => ({ type: a.type, usd: a.usd, pct: a.pct, custodian: a.custodian, eligibility: a.def.eligibility, has_fail: a.has_fail, issues: a.issues })),
