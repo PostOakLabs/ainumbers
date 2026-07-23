@@ -144,7 +144,7 @@ timestamp: 2026-07-14
 - [Rights Record Builder](./art-206-rights-record-builder.md) — `build_rights_record`
 - [Attribution String Generator](./art-207-attribution-string-generator.md) — `generate_attribution_string`
 - [Royalty Split Validator](./art-208-royalty-split-validator.md) — `validate_royalty_split`
-- [NFT Metadata Validator](./art-209-nft-metadata-validator.md) — `validate_nft_metadata`
+- [NFT Metadata Validator](./art-209-nft-metadata-validator.md) — `validate_nft_metadata_art209`
 - [Agent-Traffic Acceptance Policy Builder](./art-21-agent-traffic-acceptance-policy-builder.md) — `build_agent_traffic_policy`
 - [IPFS CID Computer](./art-210-ipfs-cid-computer.md) — `compute_ipfs_cid`
 - [Prediction Market Analyzer](./art-211-prediction-market-analyzer.md) — `analyze_prediction_market`
