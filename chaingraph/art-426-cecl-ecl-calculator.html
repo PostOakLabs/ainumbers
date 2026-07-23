@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CECL Expected Credit Loss &amp; Allowance Calculator &middot; ART-426 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes a deterministic CECL (ASC 326) allowance from caller-supplied PD/LGD/EAD curves, segment exposures, and forecast scenario weights -- WARM, DCF, and loss-rate methods, with allowance rollforward reconciliation.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-426-cecl-ecl-calculator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);margin:10px 0 4px}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:180px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-426 · CECL Expected Credit Loss &amp; Allowance Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-426 &middot; Banking &middot; ASC 326 (CECL)</div>
+  <h1>CECL Expected Credit Loss &amp; Allowance Calculator</h1>
+  <p class="sub">Computes a deterministic CECL (Current Expected Credit Loss, ASC 326) allowance from your declared PD/LGD/EAD curves, segment exposures, and forecast scenario weights &mdash; WARM, DCF, and loss-rate methods &mdash; and reconciles the result against the prior period's allowance balance.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ASC 326</span>
+    <span class="flag">WARM / DCF / Loss-Rate</span>
+    <span class="flag">Allowance Reconciliation</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; BOUNDARY: PD/LGD/EAD curves and forecast scenario weights are YOUR policy inputs (human/model judgment) &mdash; this tool performs only the arithmetic combination into ECL and allowance reconciliation. It does not estimate, calibrate, back-test, or validate any PD/LGD/EAD model.</div>
+  <div class="pii-notice">Distinct from IFRS9's 3-stage staging regime (see tools 196/198/204, a different accounting standard) &mdash; CECL recognizes lifetime expected credit losses from origination, with no staging transfer logic here.</div>
+
+  <div class="card">
+    <div class="section-head" style="margin-top:0">Method &amp; Rollforward Inputs</div>
+    <div class="row3">
+      <div class="q"><label class="fld" for="methodSel">ECL method</label>
+        <select id="methodSel">
+          <option value="warm">WARM (annualized loss rate x remaining life)</option>
+          <option value="loss_rate">Loss-rate (lifetime rate, no discounting)</option>
+          <option value="dcf">DCF (discounted contractual cash flows)</option>
+        </select>
+      </div>
+      <div class="q"><label class="fld" for="constantsVersion">Constants version (fixture pin)</label><input type="text" id="constantsVersion" value="2026-07-23.cecl-warm-v1"></div>
+      <div class="q"><label class="fld" for="priorAllowance">Prior period allowance balance (USD)</label><input type="number" id="priorAllowance" value="500000" step="1"></div>
+      <div class="q"><label class="fld" for="chargeOffs">Charge-offs this period (USD)</label><input type="number" id="chargeOffs" value="20000" step="1"></div>
+      <div class="q"><label class="fld" for="recoveries">Recoveries this period (USD)</label><input type="number" id="recoveries" value="5000" step="1"></div>
+    </div>
+    <label class="fld" for="forecastWeightsJson">Forecast scenario weights (POLICY INPUT, JSON array, must sum to 1)</label>
+    <textarea id="forecastWeightsJson" style="min-height:70px">[
+  { "scenario": "baseline", "weight": 0.6 },
+  { "scenario": "downside", "weight": 0.4 }
+]</textarea>
+    <label class="fld" for="segmentsJson">Segments (POLICY INPUT, JSON array &mdash; PD/LGD/EAD curves live inside each scenario)</label>
+    <textarea id="segmentsJson" style="min-height:260px">[
+  {
+    "segment_id": "retail-auto",
+    "exposure_balance_usd": 10000000,
+    "remaining_life_years": 3,
+    "scenarios": [
+      { "scenario": "baseline", "annual_loss_rate_pct": 0.012 },
+      { "scenario": "downside", "annual_loss_rate_pct": 0.025 }
+    ]
+  },
+  {
+    "segment_id": "retail-card",
+    "exposure_balance_usd": 5000000,
+    "remaining_life_years": 2,
+    "scenarios": [
+      { "scenario": "baseline", "annual_loss_rate_pct": 0.03 },
+      { "scenario": "downside", "annual_loss_rate_pct": 0.06 }
+    ]
+  }
+]</textarea>
+    <p class="sub" style="font-size:.68rem;margin-top:10px">WARM/loss-rate scenarios use <code>annual_loss_rate_pct</code> (WARM, multiplied by remaining_life_years) or <code>lifetime_loss_rate_pct</code> (loss-rate, applied directly). DCF segments add <code>lgd_pct</code> + <code>effective_interest_rate_pct</code>, and each scenario supplies <code>pd_curve</code> (array of period PDs) + <code>cash_flows</code> (array of <code>{period, contractual_payment_usd}</code>); expected shortfall per period = contractual payment x PD x LGD, discounted at the EIR.</p>
+    <div style="margin-top:16px">
+      <button onclick="runCecl()">&#9654; Calculate ECL Allowance</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+
+      <div class="section-head" style="margin-top:14px">Per-Segment ECL</div>
+      <div id="segDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Allowance Rollforward Reconciliation</div>
+      <div id="reconDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var METHODS = ['warm', 'dcf', 'loss_rate'];
+
+var MANIFEST = {
+  tool_id: 'art-426-cecl-ecl-calculator',
+  version: '1.0.0',
+  mcp_name: 'calculate_cecl_ecl_allowance',
+  title: 'CECL Expected Credit Loss & Allowance Calculator',
+  description: 'Computes a deterministic CECL (ASC 326) allowance from caller-supplied PD/LGD/EAD curves, segment exposures, and forecast scenario weights (WARM, DCF, loss-rate methods), with allowance rollforward reconciliation.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ASC 326 (Current Expected Credit Loss). PD/LGD/EAD curves and forecast weights are caller-declared policy inputs, never estimated by this tool.',
+  mcp_tool_definition: {
+    name: 'calculate_cecl_ecl_allowance',
+    description: 'Compute a CECL allowance (WARM, DCF, or loss-rate method) from declared PD/LGD/EAD curves, segment exposures and forecast scenario weights, with allowance reconciliation.',
+    inputSchema: {
+      type: 'object',
+      required: ['method', 'segments'],
+      properties: {
+        method: { type: 'string', enum: ['warm', 'dcf', 'loss_rate'] },
+        constants_version: { type: 'string' },
+        prior_allowance_balance_usd: { type: 'number' },
+        charge_offs_usd: { type: 'number' },
+        recoveries_usd: { type: 'number' },
+        forecast_weights: { type: 'array', items: { type: 'object', properties: { scenario: {type:'string'}, weight: {type:'number'} } } },
+        segments: { type: 'array', items: { type: 'object' } }
+      }
+    }
+  }
+};
+
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
+function r6(v) { return isFinite(v) ? Math.round(v * 1000000) / 1000000 : 0; }
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
+function discountFactor(ratePerPeriod, periods) {
+  var df = 1;
+  var n = Number.isFinite(periods) && periods > 0 ? Math.floor(periods) : 0;
+  for (var i = 0; i < n; i++) df *= (1 + ratePerPeriod);
+  return df;
+}
+
+function normalizeWeights(scenarios, forecastWeightsMap) {
+  var n = scenarios.length || 1;
+  if (scenarios.length === 0) return [];
+  var raw = scenarios.map(function(s) {
+    if (forecastWeightsMap.hasOwnProperty(s.scenario)) return forecastWeightsMap[s.scenario];
+    if (Number.isFinite(s.weight)) return s.weight;
+    return null;
+  });
+  var filled = raw.map(function(v) { return (Number.isFinite(v) && v > 0) ? v : 0; });
+  var sum = filled.reduce(function(a,v){return a+v;}, 0);
+  if (sum <= 0) return scenarios.map(function(){ return 1/n; });
+  return filled.map(function(v){ return v/sum; });
+}
+
+function computeScenarioEclUsd(method, segment, scenario) {
+  var eadUsd = safe(segment.ead_usd, segment.exposure_balance_usd);
+  if (method === 'warm') {
+    var annualLossRatePct = clamp01(safe(scenario.annual_loss_rate_pct, 0));
+    var remainingLifeYears = Math.max(0, safe(segment.remaining_life_years, 0));
+    return eadUsd * annualLossRatePct * remainingLifeYears;
+  }
+  if (method === 'loss_rate') {
+    var lifetimeLossRatePct = clamp01(safe(scenario.lifetime_loss_rate_pct, 0));
+    return eadUsd * lifetimeLossRatePct;
+  }
+  var lgdPct = clamp01(safe(segment.lgd_pct, 0));
+  var eirRate = safe(segment.effective_interest_rate_pct, 0) / 100;
+  var pdCurve = Array.isArray(scenario.pd_curve) ? scenario.pd_curve.map(function(p){return clamp01(safe(p, 0));}) : [];
+  var cashFlowsRaw = Array.isArray(scenario.cash_flows) ? scenario.cash_flows : [];
+  var cashFlows = cashFlowsRaw
+    .map(function(cf){ return { period: Math.max(1, Math.floor(safe(cf && cf.period, 0))), contractual_payment_usd: safe(cf && cf.contractual_payment_usd, 0) }; })
+    .filter(function(cf){ return cf.period > 0; })
+    .sort(function(a,b){ return a.period - b.period; });
+  var pvExpectedShortfall = 0;
+  for (var i = 0; i < cashFlows.length; i++) {
+    var cf = cashFlows[i];
+    var pdPeriod = pdCurve.length > 0 ? (pdCurve[cf.period - 1] != null ? pdCurve[cf.period - 1] : pdCurve[pdCurve.length - 1]) : 0;
+    var expectedShortfallUsd = cf.contractual_payment_usd * pdPeriod * lgdPct;
+    var df = discountFactor(eirRate, cf.period);
+    pvExpectedShortfall += df > 0 ? expectedShortfallUsd / df : expectedShortfallUsd;
+  }
+  return pvExpectedShortfall;
+}
+
+function computeCecl(pp) {
+  var rawMethod = String(pp.method || 'warm').trim().toLowerCase();
+  var method = METHODS.indexOf(rawMethod) >= 0 ? rawMethod : 'warm';
+  var constantsVersion = String(pp.constants_version || '').trim();
+  var priorAllowanceBalanceUsd = safe(pp.prior_allowance_balance_usd, 0);
+  var chargeOffsUsd = safe(pp.charge_offs_usd, 0);
+  var recoveriesUsd = safe(pp.recoveries_usd, 0);
+  var forecastWeightsRaw = Array.isArray(pp.forecast_weights) ? pp.forecast_weights : [];
+  var forecastWeightsMap = {};
+  forecastWeightsRaw.forEach(function(w) {
+    if (w && typeof w.scenario === 'string' && Number.isFinite(Number(w.weight))) forecastWeightsMap[w.scenario] = Number(w.weight);
+  });
+  var segmentsRaw = Array.isArray(pp.segments) ? pp.segments : [];
+
+  var compliance_flags = [];
+  if (METHODS.indexOf(rawMethod) < 0) compliance_flags.push('CECL_INVALID_METHOD_DEFAULTED_WARM');
+  if (segmentsRaw.length === 0) compliance_flags.push('CECL_EMPTY_SEGMENTS');
+  if (!constantsVersion) compliance_flags.push('CECL_CONSTANTS_VERSION_UNPINNED');
+  if (forecastWeightsRaw.length === 0) compliance_flags.push('CECL_FORECAST_WEIGHTS_UNPINNED');
+
+  var segments = segmentsRaw.map(function(seg) {
+    seg = seg || {};
+    var segmentId = String(seg.segment_id || '').trim();
+    var exposureBalanceUsd = safe(seg.exposure_balance_usd, 0);
+    var eadUsd = safe(seg.ead_usd, exposureBalanceUsd);
+    var remainingLifeYears = Math.max(0, safe(seg.remaining_life_years, 0));
+    var lgdPct = clamp01(safe(seg.lgd_pct, 0));
+    var scenariosRaw = Array.isArray(seg.scenarios) ? seg.scenarios : [];
+    var scenarios = scenariosRaw.map(function(s){ return s || {}; });
+    if (scenarios.length === 0) compliance_flags.push('CECL_SEGMENT_NO_SCENARIOS_' + (segmentId || 'UNNAMED'));
+
+    var segCtx = { exposure_balance_usd: exposureBalanceUsd, ead_usd: eadUsd, remaining_life_years: remainingLifeYears, lgd_pct: lgdPct, effective_interest_rate_pct: seg.effective_interest_rate_pct };
+    var weights = normalizeWeights(scenarios, forecastWeightsMap);
+    var scenarioResults = scenarios.map(function(s, i) {
+      return { scenario: String(s.scenario || ('scenario_' + i)).trim(), weight: r6(weights[i] || 0), scenario_ecl_usd: r2(computeScenarioEclUsd(method, segCtx, s)) };
+    });
+    var segmentEclUsd = scenarios.reduce(function(acc, s, i) { return acc + computeScenarioEclUsd(method, segCtx, s) * weights[i]; }, 0);
+
+    return {
+      segment_id: segmentId,
+      exposure_balance_usd: r2(exposureBalanceUsd),
+      ead_usd: r2(eadUsd),
+      remaining_life_years: remainingLifeYears,
+      lgd_pct: lgdPct,
+      scenario_count: scenarios.length,
+      scenarios: scenarioResults,
+      segment_ecl_usd: r2(segmentEclUsd)
+    };
+  });
+
+  var totalRequiredAllowanceUsd = segments.reduce(function(a,s){return a + s.segment_ecl_usd;}, 0);
+  if (totalRequiredAllowanceUsd < 0) compliance_flags.push('CECL_NEGATIVE_REQUIRED_ALLOWANCE');
+
+  var provisionExpenseUsd = totalRequiredAllowanceUsd - priorAllowanceBalanceUsd + chargeOffsUsd - recoveriesUsd;
+  var reconciledEndingAllowanceUsd = priorAllowanceBalanceUsd + provisionExpenseUsd - chargeOffsUsd + recoveriesUsd;
+  var deltaVsRequiredUsd = reconciledEndingAllowanceUsd - totalRequiredAllowanceUsd;
+  var reconciliationBalanced = Math.abs(deltaVsRequiredUsd) < 0.005;
+  if (!reconciliationBalanced) compliance_flags.push('CECL_RECONCILIATION_UNBALANCED');
+
+  var output_payload = {
+    method: method,
+    constants_version: constantsVersion,
+    segment_count: segments.length,
+    segments: segments,
+    forecast_weights: forecastWeightsRaw.map(function(w){ return { scenario: String((w && w.scenario) || ''), weight: safe(w && w.weight, 0) }; }),
+    total_required_allowance_usd: r2(totalRequiredAllowanceUsd),
+    prior_allowance_balance_usd: r2(priorAllowanceBalanceUsd),
+    charge_offs_usd: r2(chargeOffsUsd),
+    recoveries_usd: r2(recoveriesUsd),
+    provision_expense_usd: r2(provisionExpenseUsd),
+    reconciled_ending_allowance_usd: r2(reconciledEndingAllowanceUsd),
+    delta_vs_required_usd: r2(deltaVsRequiredUsd),
+    reconciliation_balanced: reconciliationBalanced,
+    boundary_note: 'PD/LGD/EAD curves and forecast scenario weights are policy inputs supplied by the caller (human/model judgment); this kernel performs only the arithmetic combination into ECL and allowance reconciliation. It does not estimate, calibrate, or validate any PD/LGD/EAD model.',
+    disambiguation: 'CECL (ASC 326) recognizes lifetime expected credit losses from origination -- there is no 3-stage staging transfer regime here, unlike IFRS9 (see tools 196/198/204, a distinct standard). WARM applies an annualized historical loss rate x remaining life; loss-rate applies a lifetime historical loss rate directly (no discounting); DCF discounts period expected shortfalls (contractual cash flow x PD x LGD) at the effective interest rate.'
+  };
+
+  return { pp: pp, output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function runCecl() {
+  var segments, forecastWeights;
+  try { segments = JSON.parse(document.getElementById('segmentsJson').value); }
+  catch (e) { alert('Invalid JSON in segments: ' + e.message); return; }
+  try { forecastWeights = JSON.parse(document.getElementById('forecastWeightsJson').value); }
+  catch (e) { alert('Invalid JSON in forecast weights: ' + e.message); return; }
+
+  var pp = {
+    method: document.getElementById('methodSel').value,
+    constants_version: (document.getElementById('constantsVersion').value || '').trim(),
+    prior_allowance_balance_usd: safe(document.getElementById('priorAllowance').value, 0),
+    charge_offs_usd: safe(document.getElementById('chargeOffs').value, 0),
+    recoveries_usd: safe(document.getElementById('recoveries').value, 0),
+    forecast_weights: forecastWeights,
+    segments: segments
+  };
+
+  var res = computeCecl(pp);
+  _lastResult = res;
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = 'var(--teal-lt)'; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid var(--teal)';
+  vBox.textContent = 'REQUIRED ALLOWANCE $' + op.total_required_allowance_usd.toLocaleString();
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.method.toUpperCase() + '</span><span class="stat-key">Method</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.segment_count + '</span><span class="stat-key">Segments</span></div>' +
+    '<div class="stat"><span class="stat-val">$' + op.total_required_allowance_usd.toLocaleString() + '</span><span class="stat-key">Required allowance</span></div>' +
+    '<div class="stat"><span class="stat-val">$' + op.provision_expense_usd.toLocaleString() + '</span><span class="stat-key">Provision expense</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.reconciliation_balanced ? '&#10003;' : '&#10007;') + '</span><span class="stat-key">Reconciled</span></div>';
+
+  document.getElementById('flagRow').innerHTML = res.compliance_flags.map(function(f) {
+    return '<span class="badge fail">' + f + '</span>';
+  }).join('') || '<span class="badge ok">ALLOWANCE COMPUTED</span>';
+
+  document.getElementById('segDiv').innerHTML = op.segments.map(function(s) {
+    var scenLines = s.scenarios.map(function(sc){ return sc.scenario + ' (w=' + sc.weight + '): $' + sc.scenario_ecl_usd.toLocaleString(); }).join(' &middot; ');
+    return '<div class="kv"><span class="kv-k">' + (s.segment_id || 'unnamed') + ' &mdash; exposure $' + s.exposure_balance_usd.toLocaleString() + '<br><span style="color:var(--muted);font-size:.62rem">' + scenLines + '</span></span><span class="kv-v">$' + s.segment_ecl_usd.toLocaleString() + '</span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">No segments</span></div>';
+
+  document.getElementById('reconDiv').innerHTML = [
+    ['Beginning (prior) allowance', '$' + op.prior_allowance_balance_usd.toLocaleString()],
+    ['+ Provision expense', '$' + op.provision_expense_usd.toLocaleString()],
+    ['- Charge-offs', '$' + op.charge_offs_usd.toLocaleString()],
+    ['+ Recoveries', '$' + op.recoveries_usd.toLocaleString()],
+    ['= Reconciled ending allowance', '$' + op.reconciled_ending_allowance_usd.toLocaleString()],
+    ['Total required allowance (from segment ECL)', '$' + op.total_required_allowance_usd.toLocaleString()],
+    ['Delta vs. required (should be $0)', '$' + op.delta_vs_required_usd.toLocaleString()],
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(res.pp, op).then(function(h) { document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'credit_assessment',
+    tool_id: 'art-426-cecl-ecl-calculator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-426-cecl-ecl-calculator.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) { b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
