@@ -356,6 +356,7 @@ import * as art415    from './art-415-check-capital-adequacy-private.kernel.mjs'
 import * as art418    from './art-418-idv-verification-failure-incident-composer.kernel.mjs';
 import * as art42     from './art-42-arc-fit-diagnostic.kernel.mjs';
 import * as art424    from './art-424-witness-cosignature-verifier.kernel.mjs';
+import * as art428    from './art-428-cyber-incident-clock.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
@@ -785,6 +786,7 @@ export const KERNELS = {
   'art-418-idv-verification-failure-incident-composer':       art418,
   'art-42-arc-fit-diagnostic':                                art42,
   'art-424-witness-cosignature-verifier':                     art424,
+  'art-428-cyber-incident-clock':                             art428,
   'art-43-arc-cpn-model':                                     art43,
   'art-44-arc-stablefx-model':                                art44,
   'art-45-arc-xreserve-linter':                               art45,
