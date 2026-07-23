@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "GENIUS Act Monthly Reserve Disclosure Checker"
-description: "Lints an extracted monthly reserve disclosure against GENIUS Act S.394 §4: composition-category eligibility, tenor, custody locations, CEO/CFO certification, registered-examiner presence, month-over-month diff, and an on-chain supply cross-check against a pasted figure. Successor to the pre-issuance precheck_reserve_attestation (art-06): that tool is the pre-issuance readiness gate, this is the recurring post-issuance monthly filing check. Never claims cryptographic verification of the source PDF."
+description: "Lints an extracted monthly reserve disclosure against GENIUS Act S.394 §4: composition-category eligibility, tenor, custody locations, a dual_control(2) CEO/CFO certification gate (distinct CEO and CFO identities required, per FDIC NPR 2026-04-10 and OCG SPEC.md §27.3), registered-examiner presence, month-over-month diff, and an on-chain supply cross-check against a pasted figure. Successor to the pre-issuance precheck_reserve_attestation (art-06): that tool is the pre-issuance readiness gate, this is the recurring post-issuance monthly filing check. Never claims cryptographic verification of the source PDF."
 resource: https://ainumbers.co/chaingraph/art-275-genius-reserve-disclosure-checker.html
 tags: ["compliance_mandate", "wave-48", "mcp:check_genius_reserve_disclosure"]
 timestamp: 2026-07-14
