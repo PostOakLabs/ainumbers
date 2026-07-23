@@ -363,6 +363,9 @@ import * as art428    from './art-428-cyber-incident-clock.kernel.mjs';
 import * as art429    from './art-429-var-backtest-traffic-light.kernel.mjs';
 import * as art43     from './art-43-arc-cpn-model.kernel.mjs';
 import * as art431    from './art-431-fdic-assessment-rate-calculator.kernel.mjs';
+import * as art432    from './art-432-call-report-rc-balance-sheet.kernel.mjs';
+import * as art433    from './art-433-call-report-rcr-capital.kernel.mjs';
+import * as art434    from './art-434-call-report-edit-check-gate.kernel.mjs';
 import * as art44     from './art-44-arc-stablefx-model.kernel.mjs';
 import * as art45     from './art-45-arc-xreserve-linter.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
@@ -798,6 +801,9 @@ export const KERNELS = {
   'art-429-var-backtest-traffic-light':                       art429,
   'art-43-arc-cpn-model':                                     art43,
   'art-431-fdic-assessment-rate-calculator':                  art431,
+  'art-432-call-report-rc-balance-sheet':                     art432,
+  'art-433-call-report-rcr-capital':                          art433,
+  'art-434-call-report-edit-check-gate':                      art434,
   'art-44-arc-stablefx-model':                                art44,
   'art-45-arc-xreserve-linter':                               art45,
   'art-46-arc-paymaster-model':                               art46,
