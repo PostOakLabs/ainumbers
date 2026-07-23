@@ -357,6 +357,11 @@ timestamp: 2026-07-14
 - [IDV/KYC Verification-Failure Incident Composer](./art-418-idv-verification-failure-incident-composer.md) — `build_idv_verification_incident_record`
 - [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md) — `run_arc_fit_diagnostic`
 - [Witness Cosignature Verifier](./art-424-witness-cosignature-verifier.md) — `verify_witness_cosignatures`
+- [Large Exposures Limit Check](./art-425-large-exposures-limit-check.md) — `compute_large_exposures_limit`
+- [CECL Expected Credit Loss & Allowance Calculator](./art-426-cecl-ecl-calculator.md) — `calculate_cecl_ecl_allowance`
+- [Discount Window Borrowing-Capacity Calculator](./art-427-discount-window-capacity.md) — `compute_discount_window_capacity`
+- [Cyber Incident Notification Clock](./art-428-cyber-incident-clock.md) — `compute_cyber_incident_notification_clock`
+- [VaR Backtesting Traffic-Light Zone Calculator](./art-429-var-backtest-traffic-light.md) — `compute_var_backtest_traffic_light`
 - [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md) — `model_arc_cpn_economics`
 - [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md) — `model_arc_stablefx_rfq`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`

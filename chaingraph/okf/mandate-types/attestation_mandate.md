@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "attestation_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"attestation_mandate\"."
-tags: ["attestation_mandate", "count-10"]
+tags: ["attestation_mandate", "count-11"]
 timestamp: 2026-07-14
 ---
 
 # attestation_mandate
 
-10 tool(s) in this mandate-type group:
+11 tool(s) in this mandate-type group:
 
 - [On-Chain Cash-Leg Finality Checker](../tools/506-onchain-cash-leg-finality-checker.md)
 - [GENIUS Act Reserve Attestation Pre-Check](../tools/art-06-genius-act-reserve-attestation.md)
@@ -20,3 +20,4 @@ timestamp: 2026-07-14
 - [Test NAV-Error Materiality](../tools/art-374-test-nav-error-materiality.md)
 - [Compute Fund Expense Ratios](../tools/art-375-compute-fund-expense-ratios.md)
 - [Evidence Bundle Tier Labeler](../tools/art-408-evidence-bundle-tier-labeler.md)
+- [Cyber Incident Notification Clock](../tools/art-428-cyber-incident-clock.md)

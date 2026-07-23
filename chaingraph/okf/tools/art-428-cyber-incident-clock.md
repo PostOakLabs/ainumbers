@@ -1,0 +1,26 @@
+---
+type: DecisionTool
+title: "Cyber Incident Notification Clock"
+description: "Starts three parallel regulatory notification-deadline clocks from one hash-anchored cyber-incident determination timestamp: the 36-hour interagency banking-regulator rule (12 CFR 53/225/304), the 4-business-day SEC Form 8-K Item 1.05 notification (weekends-only business-day arithmetic; no federal holiday calendar is applied, a documented scope limit), and the 72-hour NYDFS 23 NYCRR 500.17(a) notice. Each obligation carries its own decision-tree attestation slot (applicable, deadline, completion state, a §22.11-shaped optional exception for an at-risk or missed deadline) and a stable obligation_id ready to be cited by a future Human-Accountability (BANK-SPEC-HA-1) approval record, without embedding a mutable reference inside its own hashed output. A pending SEC Item 1.05 rescission petition (flagged Apr 2026) is carried as an annotation only; it does not alter the computed deadline. Complementary to tools/incident-response-runbook-builder.html. This tool computes deadlines and attestation slots only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice."
+resource: https://ainumbers.co/chaingraph/art-428-cyber-incident-clock.html
+tags: ["attestation_mandate", "wave-70", "mcp:compute_cyber_incident_notification_clock"]
+timestamp: 2026-07-14
+---
+
+# Cyber Incident Notification Clock
+
+> Exports a decision via MCP `compute_cyber_incident_notification_clock` — mandate type `attestation_mandate`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/art-428-cyber-incident-clock.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** _none (root node)_
+
+**Feeds:** _terminal node_
