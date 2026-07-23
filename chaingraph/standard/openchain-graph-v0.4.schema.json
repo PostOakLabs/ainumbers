@@ -218,6 +218,75 @@
         "anchor": { "$ref": "#/$defs/anchorBinding", "description": "OPTIONAL §20 anchor over the mandate hash (§22.2)." }
       }
     },
+    "haGatePolicy": {
+      "description": "OCG Standard §27.4 (v0.8.12) — the closed human-accountability gate-policy vocabulary applied to a §21.4 decision gate as an OPTIONAL precondition. auto_pass = no human act; review_required = ≥1 reviewer approval; dual_control = §27.3 N-distinct-identity threshold (see haApprovalThreshold.threshold); escalate = route to the §22.3 reserved target; hold = suspend pending a human act; reject = terminal human rejection; emergency_override = §27.5 time-boxed override. Additive: the enum is consumed by the accountability layer as a precondition ANNOTATION; the §21.4 _gateval.mjs routing math is UNCHANGED.",
+      "enum": ["auto_pass", "review_required", "dual_control", "escalate", "hold", "reject", "emergency_override"]
+    },
+    "haApprovalThreshold": {
+      "type": "object",
+      "description": "OCG Standard §27.3 (v0.8.12) — an in-toto-style integer dual-control threshold: a gate is satisfied when ≥ threshold DISTINCT role-bound identities (counted by identity.id, NEVER by key) have each signed an `approval` record naming `role` over the same subject_hash. dual_control(2) is the N=2 case.",
+      "additionalProperties": false,
+      "required": ["role", "threshold"],
+      "properties": {
+        "role": { "$ref": "#/$defs/haRole" },
+        "threshold": { "type": "integer", "minimum": 1, "description": "Number of DISTINCT approver identities required. A repeated identity counts once." }
+      }
+    },
+    "haRole": {
+      "description": "OCG Standard §27.1 (v0.8.12) — the closed set of human-accountability roles. approver is the legally-effective sign-off (attestor is its alias); examiner is READ-ONLY (grants inspection, never approval authority). A role binding ties one §9 identity to one role for one subject and MUST carry a §16 proof verifiable against that identity.",
+      "enum": ["preparer", "reviewer", "approver", "attestor", "submitter", "model_owner", "compliance_officer", "examiner"]
+    },
+    "humanAccountabilityRecord": {
+      "type": "object",
+      "description": "OCG Standard §27.2 (v0.8.12) — the output_payload of a Human Accountability record artifact (mandate_type:\"human_accountability_record\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant approval record is an $defs/artifact whose mandate_type is \"human_accountability_record\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 whole-artifact proof bound to the named human (§27.2 — an unsigned approval record is NOT conformant §27 evidence). It is a SCITT-style STATEMENT ABOUT A STATEMENT: it only REFERENCES the subject via subject_hash and never contains the subject's preimage, so it has ZERO impact on the subject artifact's execution_hash or canonicalization (§27.0 additivity). Shape only is validated here; additivity, threshold distinctness (§27.3), override expiry (§27.5), and the signed-named-human requirement are enforced by validate-ha-records.test.mjs (with the §16 pairing check in proof-binding.test.mjs).",
+      "additionalProperties": false,
+      "required": ["record_type", "role", "subject_hash", "identity"],
+      "properties": {
+        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation"], "description": "§27.2 — the kind of accountable act this record evidences." },
+        "role": { "$ref": "#/$defs/haRole" },
+        "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The execution_hash of the artifact being acted upon — the SCITT reference (§27.2). The record never contains the subject's preimage." },
+        "identity": {
+          "type": "object",
+          "required": ["id"],
+          "description": "The acting party (§9). id is a did:key or LEI; the §16 signature MUST verify against it. Threshold distinctness (§27.3) counts this id, never the signing key.",
+          "properties": { "id": { "type": "string", "minLength": 1 } }
+        },
+        "decision": { "type": "string", "description": "OPTIONAL decision label where applicable (e.g. approve/reject). The record_type is the authoritative act." },
+        "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 gate policy this record satisfies or overrides." },
+        "reason_code": { "type": "string", "description": "OPTIONAL machine-stable rationale token (REQUIRED by §27.5 for an override)." },
+        "override": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "OCG Standard §27.5 — REQUIRED when record_type is \"override\": a time-boxed §22.10 attenuation. On expiry the override lapses and the underlying gate policy REVERTS (never a silent permanent auto-pass). scope narrows only, never widens (§22.10 / §SIDECAR.2).",
+          "required": ["scope", "expiry", "subject_hash"],
+          "properties": {
+            "scope": { "type": "string", "description": "Which gate/subject the override covers (narrowing only)." },
+            "expiry": { "type": "string", "format": "date-time", "description": "ISO 8601 instant after which the override is treated as absent." },
+            "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "Immutable link to the overridden artifact's execution_hash." }
+          }
+        },
+        "timestamp": { "type": "string", "description": "ISO 8601 instant of the human act." }
+      }
+    },
+    "haEvidenceBundle": {
+      "type": "object",
+      "description": "OCG Standard §27.6 (v0.8.12) — the accountability trail aggregated for one subject, exportable via §13 (and specifically §13.12 SD-JWT selective disclosure: approver identities + verdict always-disclosed, input values selectively disclosable, disclosure salts the sole permitted nondeterminism, never touching any execution_hash). A redacted bundle is NOT re-executable (§13.12 limitation) — it evidences the human trail, not a recomputation. submission_receipt is populated ONLY after a real transmission, never fabricated.",
+      "additionalProperties": false,
+      "required": ["subject_hash"],
+      "properties": {
+        "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The §4 execution artifact this bundle documents." },
+        "input_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" }, "description": "Input lineage." },
+        "kernel_version": { "type": "string", "description": "§12/§17 build identity of the kernel that produced the subject." },
+        "policy_version": { "type": "string" },
+        "verification_result": { "type": "string", "description": "The §16/§18/§20 verdict." },
+        "exception_rationale": { "type": "string" },
+        "annotations": { "type": "array", "items": { "type": "string" } },
+        "reviewers": { "type": "array", "items": { "type": "string" }, "description": "Reviewer identities paired with their signed approval-record hashes." },
+        "approvers": { "type": "array", "items": { "type": "string" }, "description": "Approver identities paired with their signed approval-record hashes." },
+        "timestamps": { "type": "array", "items": { "type": "string" }, "description": "Act timestamps, with OPTIONAL §20 anchor bindings." },
+        "submission_receipt": { "type": "string", "description": "Populated only after a real transmission." }
+      }
+    },
     "artifact": {
       "type": "object",
       "description": "A v0.4 OpenChainGraph artifact. execution_hash = SHA-256(JCS({policy_parameters, output_payload})); the hash preimage is exactly those two members and nothing else.",
@@ -254,7 +323,7 @@
         },
         "mandate_type": {
           "type": "string",
-          "description": "§4 taxonomy (recommended) — prompt_template, payment_mandate, payment_policy, compliance_mandate, liquidity_mandate, capital_assessment, risk_control, settlement_mandate, infrastructure_mandate, credit_assessment, treasury_mandate, account_mandate, model_governance, attestation_mandate, cryptographic_mandate, aml_rule, risk_parameter. NOT a hard enum: live nodes also use agent_guardrail_mandate / scheme_rule (the enum is not CI-enforced)."
+          "description": "§4 taxonomy (recommended) — prompt_template, payment_mandate, payment_policy, compliance_mandate, liquidity_mandate, capital_assessment, risk_control, settlement_mandate, infrastructure_mandate, credit_assessment, treasury_mandate, account_mandate, model_governance, attestation_mandate, cryptographic_mandate, aml_rule, risk_parameter, human_accountability_record (§27). NOT a hard enum: live nodes also use agent_guardrail_mandate / scheme_rule (the enum is not CI-enforced)."
         },
         "tool_id": { "type": "string", "minLength": 1 },
         "tool_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },

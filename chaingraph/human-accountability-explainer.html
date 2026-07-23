@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human Accountability in OpenChainGraph, Explainer</title>
+<meta name="description" content="How OpenChainGraph §27 records which named human took responsibility for a result: closed accountability roles, SCITT-style approval records over a subject execution_hash, in-toto dual-control thresholds counted by distinct identity, a §21.4-wired gate-policy vocabulary, time-boxed §22.10 overrides, and a §13.12 SD-JWT evidence bundle. Client-side, zero-egress.">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.8">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/human-accountability-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --border:#1E2F4A; --border-2:#263855; --muted:#3A5270;
+  --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.1); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12); --red:#EF4444;
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{font-size:1rem;color:var(--body);max-width:720px;line-height:1.9}
+.sec{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.sec h2{font-size:clamp(1.3rem,2.5vw,1.8rem);color:var(--white);margin-bottom:.5rem}
+.sec .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem}
+.sec p{color:var(--body);max-width:740px;margin-bottom:1rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.card h3{font-size:1.05rem;color:var(--bright);margin-bottom:.4rem}
+.card p{font-size:.86rem;color:var(--body);margin:0}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .5rem;border-radius:12px;margin-bottom:.5rem}
+.pill.teal{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.pill.gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.trail{list-style:none;margin:1.4rem 0;padding:0;counter-reset:step}
+.trail li{position:relative;padding:.9rem 1rem .9rem 3rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px}
+.trail li::before{counter-increment:step;content:counter(step);position:absolute;left:.9rem;top:.9rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--teal-dim);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.7rem;display:flex;align-items:center;justify-content:center;border:1px solid rgba(20,184,166,.3)}
+.trail li .lead{color:var(--bright)}
+.trail li span{color:var(--body);font-size:.88rem}
+pre{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;overflow-x:auto;margin:1.2rem 0}
+pre code{color:var(--text);background:none;padding:0;font-size:.8rem;line-height:1.6}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+footer{padding:2.4rem 0;color:var(--muted);font-size:.8rem}
+footer a{color:var(--body)}
+@media(max-width:680px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav><div class="nav-in"><span class="brand"><span class="oc">OCG</span> Human Accountability</span><a class="nav-spec" href="openchain-graph-spec.html#s27">Spec &sect;27</a></div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph Standard &middot; &sect;27</div>
+  <h1>Who took responsibility for the number?</h1>
+  <p>An OpenChainGraph receipt already proves what was computed (the &sect;4 hash), that it was computed correctly (&sect;16 and &sect;18 proofs), and who was authorized to run it (&sect;22 mandates). None of that records the act a bank examiner, an auditor, or a court actually asks for: which named human reviewed the result and signed off on it. Section 27 adds that layer as a signed, machine-checkable artifact type, without moving a single existing hash.</p>
+</div></header>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">&sect;27.1 Roles</div>
+  <h2>Four acts, kept separate</h2>
+  <p>A reporting artifact passes through a closed set of accountability roles. Each role binding ties one identity (a <code>did:key</code> or an LEI) to one role for one subject, and is itself signed.</p>
+  <div class="grid">
+    <div class="card"><h3>Preparer</h3><p>Assembles the reporting artifact from the underlying calculation.</p></div>
+    <div class="card"><h3>Reviewer</h3><p>Checks it and records a human judgment. Satisfies a <code>review_required</code> gate.</p></div>
+    <div class="card"><h3>Approver / Attestor</h3><p>Accepts responsibility. This is the legally-effective sign-off, and the only role that can satisfy dual control.</p></div>
+    <div class="card"><h3>Submitter</h3><p>Transmits it. The optional model_owner, compliance_officer, and read-only examiner round out the set.</p></div>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">&sect;27.2 Approval records</div>
+  <h2>A statement about a statement</h2>
+  <p>An approval record is a new artifact about an existing sealed one. It carries the subject artifact's <code>execution_hash</code> as a reference, never a copy of the subject's inputs, so it can be added, revised, or discarded and the subject's hash stays byte-identical. This is the SCITT pattern: a receipt about a receipt. Every approval record carries its own &sect;16 signature bound to the named human, so an unsigned record is not accepted as evidence.</p>
+  <pre><code>{
+  "record_type": "approval",
+  "role": "approver",
+  "subject_hash": "sha256:9f2c...",   // the sealed report being signed off
+  "identity": { "id": "did:key:zCFO" },
+  "reason_code": "REVIEWED_OK",
+  "timestamp": "2026-07-23T14:00:00Z"
+  // + its own execution_hash and a §16 eddsa-jcs-2022 proof
+}</code></pre>
+  <div class="note">Because the record only references the subject, the accountability trail is portable and offline-verifiable, rather than a row locked inside one vendor's workflow queue.</div>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">&sect;27.3 Dual control</div>
+  <h2>Two people, counted by identity</h2>
+  <p>A gate can require <code>dual_control(N)</code>: it is satisfied only when N distinct identities have each signed an approval record over the same subject. Distinctness is by identity, never by key, so one person who rotates keys or signs twice still counts once. This is exactly the check the FDIC GENIUS rule needs for its CEO and CFO certification.</p>
+  <div class="grid">
+    <div class="card"><span class="pill teal">Satisfies N=2</span><p>Two records: <code>did:key:zCEO</code> and <code>did:key:zCFO</code>. Two distinct identities, threshold met.</p></div>
+    <div class="card"><span class="pill gold">Only satisfies N=1</span><p>Two records both from <code>did:key:zCEO</code>. One human cannot self-approve past dual control.</p></div>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">&sect;27.4 and &sect;27.5</div>
+  <h2>Gate policy, and the override that expires</h2>
+  <p>A &sect;21.4 decision gate can carry a policy from a closed vocabulary: <code>auto_pass</code>, <code>review_required</code>, <code>dual_control</code>, <code>escalate</code>, <code>hold</code>, <code>reject</code>, or <code>emergency_override</code>. The policy is a precondition checked before the routing rules, so an unmet requirement holds the step rather than falling through to the gate default. The routing math itself is untouched.</p>
+  <p>An emergency override is never an unconditional bypass. It is a time-boxed attenuation plus a mandatory evidence bundle (reason, scope, expiry, authorizing identity, and a link to the overridden hash). When the expiry passes, the override lapses and the gate reverts to its underlying policy. A timeout can never resolve to a silent permanent pass.</p>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">&sect;27.6 Evidence bundle</div>
+  <h2>What the examiner receives</h2>
+  <p>The evidence bundle aggregates the whole trail for one subject: input lineage, kernel and policy versions, the verification verdict, annotations, the reviewer and approver identities with their signed record hashes, timestamps, and a submission-receipt slot filled only after a real transmission. It exports through &sect;13.12 SD-JWT selective disclosure, so an examiner gets exactly the fields their remit requires. Approver identities and the verdict are always disclosed; input values can be selectively withheld. A redacted bundle is not re-executable; it evidences the human trail, not a recomputation.</p>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="kicker">Worked trail</div>
+  <h2>A large-exposure report, start to sign-off</h2>
+  <ol class="trail">
+    <li><span class="lead">Compute.</span> <span>A kernel computes the exposure ratio and seals a &sect;4 receipt. This is calculation, not a decision.</span></li>
+    <li><span class="lead">Prepare.</span> <span>The preparer assembles the reporting artifact and signs a <code>role_binding</code>.</span></li>
+    <li><span class="lead">Review.</span> <span>The reviewer signs an <code>approval</code> record. A <code>review_required</code> gate is now satisfied.</span></li>
+    <li><span class="lead">Dual control.</span> <span>CEO and CFO each sign an <code>approval</code> over the same subject_hash. <code>dual_control(2)</code> clears because the two identities are distinct.</span></li>
+    <li><span class="lead">Bundle and disclose.</span> <span>An evidence bundle is exported as an SD-JWT for the examiner, revealing the approvers and the verdict while withholding the raw inputs.</span></li>
+  </ol>
+  <div class="note">Every step above is additive. None of the roles, records, or the bundle changes the sealed report's <code>execution_hash</code>. A verifier that predates &sect;27 validates the report unchanged and can ignore the accountability layer entirely.</div>
+</div></section>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+  <footer>
+    OpenChainGraph is an open standard by <a href="https://ainumbers.co">Post Oak Labs</a>, CC BY 4.0.
+    Read the normative text at <a href="openchain-graph-spec.html#s27">Spec &sect;27</a>, or the full <a href="openchain-graph-spec.html">standard</a>.
+    Attribution: the identity split follows C2PA and CAWG, the integer threshold follows in-toto, and the statement-about-statement framing follows IETF SCITT. Patterns only.
+  </footer>
+</div>
+</body>
+</html>
