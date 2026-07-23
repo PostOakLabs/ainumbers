@@ -20,7 +20,7 @@ timestamp: 2026-07-14
 - [derivatives_margin_health](./derivatives_margin_health.md) (2)
 - [disclosure_template](./disclosure_template.md) (1)
 - [event_market_pnl](./event_market_pnl.md) (2)
-- [governance_mandate](./governance_mandate.md) (1)
+- [governance_mandate](./governance_mandate.md) (2)
 - [infrastructure_mandate](./infrastructure_mandate.md) (6)
 - [liquidity_mandate](./liquidity_mandate.md) (2)
 - [model_governance](./model_governance.md) (10)
