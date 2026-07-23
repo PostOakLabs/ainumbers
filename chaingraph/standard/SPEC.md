@@ -410,6 +410,59 @@ NORMATIVE limitation (MUST be stated by presenting UIs): a redacted export is NO
 does NOT permit `execution_hash` recomputation; its verification yields (a) issuer-signature integrity
 and (b) hash-binding of each disclosed claim. The full envelope remains the artifact of record.
 
+### §13.13 xBRL-JSON export profile `ocg-xbrl-json@1` — NORMATIVE, new in v0.8.12
+A regulatory-reporting export profile that renders a verified artifact as **[xBRL-JSON](https://www.xbrl.org/Specification/xbrl-json/REC-2021-10-13/xbrl-json-REC-2021-10-13.html)**
+(OIM 1.0, REC 2021-10-13) — the JSON serialization of the XBRL Open Information Model. Like every §13
+profile it is a **view, not a fact**: generated after `execution_hash`, excluded from the hash
+preimage, mints no new hash, and MUST NOT bump `chaingraph_version`.
+
+1. **Canonical form.** The document MUST set `xbrl:canonicalValues: true` (OIM's own
+   canonical-lexical-value mode — every fact value serialized per its datatype's canonical lexical
+   representation, e.g. no trailing-zero drift, ISO 8601 durations/instants in canonical form) AND
+   apply **JCS (RFC 8785)** key ordering on top, since the xBRL-JSON spec itself leaves member order
+   undefined. The two together make the document byte-identical for byte-identical inputs — the
+   profile's own determinism guarantee, independent of and additional to OIM's. `execution_hash` is
+   embedded in the document's metadata block (alongside `tool_id`, `chaingraph_version`,
+   `compute_mode`), per the §13 umbrella metadata rule — never inside a `fact`.
+2. **Taxonomy metadata is INPUT, not derived.** Concept QNames, dimensions, units, and decimals for a
+   given regime are supplied to the exporter as taxonomy metadata (the same never-fabricate discipline
+   as §13.8 XBRL/EBA COREP: a concept is emitted only when it maps to a published taxonomy element, or
+   an explicit `ocg-ext:*` element where no regulator taxonomy exists yet). DTS discovery, XDT
+   dimensional validation, and formula-linkbase execution are **explicitly OUT OF SCOPE** for this
+   profile — it emits a structurally valid OIM document; a conformant OIM processor performs full
+   taxonomy-aware validation downstream.
+3. **Normative caveat (MUST be surfaced by any presenting UI): this profile is NOT a submittable wire
+   format for any regime named below.** FFIEC Call Report submission is XBRL 2.1 XML; EBA submission
+   is xBRL-CSV (mandatory from its own reference date, 2026-03); SEC/ESEF submission is iXBRL. This
+   profile's output is a **canonical interchange form** — conversion to a regime's wire format is
+   lossless via a certified OIM processor (e.g. [Arelle](https://arelle.org/), Apache-2.0). An
+   implementation MUST NOT label `ocg-xbrl-json@1` output "submittable" or "regulator-accepted."
+4. **Validation is EXTERNAL, by pointer.** This spec does not vendor an OIM/XBRL validator (mirrors
+   §18.1's stark-verifier delegation and §13's general "generated view" posture). The normative pointer
+   is: validate or convert with a certified OIM processor. §15's fixture gate checks the
+   structural/determinism properties this repo CAN check standalone; full DTS/XDT/formula conformance
+   is Arelle's (or an equivalent processor's) job, exercised against the committed Annex 1 fixture.
+5. **Annex 1 — FFIEC Call Report mapping.** Concept namespace = the FFIEC Call Report (FFIEC 031/041)
+   published taxonomy; item alignment keys off **MDRM** (Micro Data Reference Manual) item codes,
+   which are public-domain regulatory identifiers, not fabricated concepts — e.g. `RCON2170` (Total
+   assets), `RCON3210` (Total equity capital). Required dimensions/units follow the taxonomy's own
+   `xbrli:context`/`xbrli:unit` equivalents restated in OIM's `dimensions`/`decimals` members. Annex
+   slots are reserved for a future EBA DPM 2.0 (xBRL-CSV) mapping and other regimes; an unpopulated
+   slot returns a clear "pending" error exactly as §13.8's COREP maps do, rather than emit an invented
+   concept.
+6. **§15 fixtures (this profile's conformance surface until its exporter lands):** round-trip
+   determinism (`fixtures/xbrl-json/sample.oim.json` re-canonicalized twice MUST be byte-identical),
+   `canonicalValues` conformance (every fact value is a canonical-lexical string, no raw numbers/
+   booleans in `facts[].value`), and the Annex 1 sample instance
+   (`fixtures/xbrl-json/annex1-ffiec-callreport.sample.json`) structurally loadable — real MDRM
+   concept names, required OIM members present, no placeholder/null concept slipped into a fact.
+
+Fence: this profile ships as SPEC.md text + schema (`export_capability` pattern gains
+`xbrl-json(:[a-z0-9:-]+)?`) + the two committed fixtures above + their gate. The exporter
+implementation (`exporters/xbrl-json.mjs`, worker wiring, MCP `export_artifact` format arm) is a
+separate, later work unit — this WU's normative surface stands on its own per fixture-only
+conformance, the same pattern the §PPH-1 shape gate used before its runtime landed.
+
 ## §16 Proof Binding (NORMATIVE — new in v0.5)
 A node or chain page **MAY** bind authenticity to a verified artifact by attaching a **W3C Data Integrity
 proof** ([Data Integrity EdDSA Cryptosuites v1.0](https://www.w3.org/TR/vc-di-eddsa/), Rec 2025-05) at
@@ -2142,6 +2195,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
 | §20 anchor binding: per-type proof verification (`rfc3161-tst` real TST vs pinned TSA root incl. messageImprint/CMS/chain/EKU/genTime, `opentimestamps` completed proof vs pinned Bitcoin block header, `c2sp-tlog-proof-v1` vs pinned test log key + cosigners + Merkle inclusion, `scitt-receipt-rfc9942` COSE receipt), `anchored_hash` == recomputed `execution_hash`, tampered proof / mismatched hash MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
+| §13.13 xBRL-JSON export profile `ocg-xbrl-json@1`: fixture round-trip determinism (re-canonicalize twice ⇒ byte-identical), `canonicalValues` conformance (every fact value canonical-lexical string, no raw number/boolean), Annex 1 FFIEC Call Report sample structurally valid (real MDRM concept names, no placeholder/null concept), never labeled submittable | `xbrl-json-fixtures.test.mjs` | validate |
 | §16.5 proof sets/chains: parallel proof set verifies, endorsement `previousProof` chain verifies in dependency order, broken `previousProof` MUST fail | `proof-binding.test.mjs` | validate |
 | §1 `supersedes` shape: array of `sha256:`-prefixed execution_hashes | `schema-validate.mjs` | validate |
 | §PPH-1 `policy_parameters_hash`: JCS-SHA-256 over `policy_parameters` alone through the one canonical `cgCanon` path, key-order independent and **mutation-sensitive** (catches the `cgCanon`-returns-an-object constant-digest trap), unmoved by an `output_payload` change; hash-EXCLUDED — the member demonstrably changes the artifact's canonical form yet the §4 preimage and `execution_hash` stay byte-identical (both halves asserted, either alone is vacuous), reinforced by `executionHash()`'s arity; `#/$defs/sha256ref` value form with **prefix-insensitive** verification (bare and `sha256:`-prefixed both accepted); absence conformant; tampered and stale digests detected | `policy-params-hash.test.mjs` (unit) + `schema-validate.mjs` (shape, exercised by `fixtures/policy-params-hash.fixture.json`) | validate |
