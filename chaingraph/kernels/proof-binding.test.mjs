@@ -65,6 +65,17 @@ ok(await verify(signedBare, await didKeyToPublicKey(vm)), '(g) sign -> verify ro
 const tampBare = structuredClone(signedBare); tampBare.role = 'attacker';
 ok(!(await verify(tampBare, await didKeyToPublicKey(vm))), '(g) tamper still fails on no-pre-existing-audit_signature path');
 
+// (h) REGRESSION: an artifact carrying an EMPTY audit_signature:{} pre-sign must also round-trip.
+// 'absent' and '{}' are indistinguishable at verify time (both strip to {}), so securedDocument
+// normalizes an empty audit_signature to absent at BOTH sign and verify — else this path diverges
+// from (g) and one of the two cannot verify. (This is the case the §23 vc-2.0 input-attestation
+// fixture exercises: it signs a credential with an explicit empty audit_signature:{}.)
+const emptyWrap = { record_type: 'approval', role: 'approver', subject_hash: 'sha256:abc', audit_signature: {} };
+const signedEmpty = await sign(emptyWrap, { verificationMethod: vm, created: CREATED, privateKey: kp.privateKey });
+ok(await verify(signedEmpty, await didKeyToPublicKey(vm)), '(h) sign -> verify round-trips with an empty audit_signature:{} pre-sign');
+const tampEmpty = structuredClone(signedEmpty); tampEmpty.role = 'attacker';
+ok(!(await verify(tampEmpty, await didKeyToPublicKey(vm))), '(h) tamper still fails on empty-audit_signature path');
+
 // ── (f) §16.5 proof sets + endorsement chains (countersignature fixture, OCG v0.7) ──────────────
 const kpA = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
 const kpB = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
