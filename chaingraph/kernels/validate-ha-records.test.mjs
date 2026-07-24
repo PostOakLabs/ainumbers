@@ -3,25 +3,29 @@
 // §27 adds a signed, machine-checkable HUMAN-ACCOUNTABILITY layer: SCITT-style approval records
 // (artifacts ABOUT a sealed artifact), in-toto dual-control thresholds, a §21.4-wired gate-policy
 // vocabulary, time-boxed §22.10 overrides, and a §13.12-exportable evidence bundle. This gate proves
-// the FOUR §27 invariants the schema alone cannot express (schema-validate.mjs covers the record shape
+// the SIX §27 invariants the schema alone cannot express (schema-validate.mjs covers the record shape
 // against $defs/humanAccountabilityRecord; the §16 signature round-trip stays with proof-binding.test.mjs):
 //
-//   (1) SHAPE          — the approval-record fixture matches the LIVE schema $defs: closed record_type,
-//                        haRole, and haGatePolicy enums, required keys present, subject_hash a valid
-//                        sha256ref. Tied to the schema file so a schema drift breaks this gate.
-//   (2) ADDITIVITY     — §27.0: an approval record is attached AFTER hashing. Attaching a
-//                        human_accountability_records[] array to a subject leaves the subject's §4
-//                        execution_hash BYTE-IDENTICAL (the preimage is exactly {policy_parameters,
-//                        output_payload}), and a subject with zero HA records hashes identically to a
-//                        plain artifact.
-//   (3) THRESHOLD      — §27.3: dual_control(N) counts DISTINCT identity.id, never keys. Two distinct
-//                        approvers satisfy N=2; the SAME identity twice satisfies only N=1. A repeated
-//                        identity that satisfied N=2 would let one human self-approve — the failure the
-//                        distinctness rule exists to stop.
-//   (4) OVERRIDE       — §27.5: an EXPIRED emergency_override reverts to the underlying gate policy; it
-//                        MUST NOT resolve to a silent permanent auto-pass. An active override applies.
-//   (5) SIGNED-HUMAN   — §27.2: an unsigned approval record is NOT conformant evidence and is rejected;
-//                        a record carrying a §16 eddsa-jcs-2022 proof bound to its identity is accepted.
+//   (1) SHAPE             — the approval-record fixture matches the LIVE schema $defs: closed record_type,
+//                           haRole, and haGatePolicy enums, required keys present, subject_hash a valid
+//                           sha256ref. Tied to the schema file so a schema drift breaks this gate.
+//   (2) ADDITIVITY        — §27.0: an approval record is attached AFTER hashing. Attaching a
+//                           human_accountability_records[] array to a subject leaves the subject's §4
+//                           execution_hash BYTE-IDENTICAL (the preimage is exactly {policy_parameters,
+//                           output_payload}), and a subject with zero HA records hashes identically to a
+//                           plain artifact.
+//   (3) THRESHOLD         — §27.3: dual_control(N) counts DISTINCT identity.id, never keys. Two distinct
+//                           approvers satisfy N=2; the SAME identity twice satisfies only N=1. A repeated
+//                           identity that satisfied N=2 would let one human self-approve — the failure the
+//                           distinctness rule exists to stop.
+//   (4) OVERRIDE           — §27.5: an EXPIRED emergency_override reverts to the underlying gate policy; it
+//                           MUST NOT resolve to a silent permanent auto-pass. An active override applies.
+//   (5) SIGNED-HUMAN       — §27.2: an unsigned approval record is NOT conformant evidence and is rejected;
+//                           a record carrying a §16 eddsa-jcs-2022 proof bound to its identity is accepted.
+//   (6) GATE-PRECONDITION  — `_hagate.mjs`'s `evaluateHaGate` (the HA-RETRO-1 runtime consumer): absent
+//                           records ⇒ HOLD (never a fall-through default), a satisfied dual_control/
+//                           review_required threshold ⇒ satisfied, an active override ⇒ override_active,
+//                           and an EXPIRED override reverts to hold under the underlying policy.
 //
 // Zero-dependency. Wired into scripts/preflight.mjs.
 //   node chaingraph/kernels/validate-ha-records.test.mjs
@@ -30,6 +34,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { executionHash } from './_hash.mjs';
+import { evaluateHaGate } from './_hagate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = resolve(HERE, 'fixtures', 'ha-records.fixtures.json');
@@ -142,6 +147,56 @@ function isConformantEvidence(record) {
   const unsignedRejected = !isConformantEvidence(fx.unsigned_record);
   if (signedOk && unsignedRejected) ok(`signed-named-human: a §16-bound record is accepted; an unsigned record is REJECTED (§27.2)`);
   else bad(`signed-named-human: broken — signed accepted:${signedOk} (want true), unsigned rejected:${unsignedRejected} (want true)`);
+}
+
+// ── (6) GATE-PRECONDITION — `_hagate.mjs` evaluateHaGate (HA-RETRO-1 runtime consumer) ────────────
+{
+  const gp = fx.gate_precondition;
+  const t = fx.threshold_records;
+
+  // HOLD: dual_control(2) with zero records over an unrelated subject_hash ⇒ hold, never a fall-through.
+  const holdResult = evaluateHaGate({
+    gatePolicy: 'dual_control', threshold: 2, role: gp.role, subjectHash: gp.hold_subject_hash,
+    records: [], nowISO: fx.override_now,
+  });
+
+  // SATISFIED: dual_control(2) with the two distinct-identity approval records from THRESHOLD ⇒ satisfied.
+  const satisfiedResult = evaluateHaGate({
+    gatePolicy: 'dual_control', threshold: 2, role: t.role, subjectHash: t.subject_hash,
+    records: t.n2_distinct, nowISO: fx.override_now,
+  });
+
+  // Same records but N=2 requirement NOT met by the repeated-identity set ⇒ still hold.
+  const repeatedHoldResult = evaluateHaGate({
+    gatePolicy: 'dual_control', threshold: 2, role: t.role, subjectHash: t.subject_hash,
+    records: t.n2_repeated_identity, nowISO: fx.override_now,
+  });
+
+  // OVERRIDE ACTIVE: an unexpired §22.10 override record over the subject ⇒ override_active, bypassing
+  // the underlying (unsatisfied) policy.
+  const overrideResult = evaluateHaGate({
+    gatePolicy: 'review_required', threshold: 1, role: gp.override_role, subjectHash: gp.override_subject_hash,
+    records: [fx.override_active], nowISO: fx.override_now,
+  });
+
+  // EXPIRED OVERRIDE: the same override record past its expiry reverts to the underlying policy with
+  // no qualifying approval present ⇒ hold (never a silent permanent auto-pass).
+  const expiredResult = evaluateHaGate({
+    gatePolicy: 'review_required', threshold: 1, role: gp.override_role, subjectHash: gp.override_subject_hash,
+    records: [fx.override_expired], nowISO: fx.override_now,
+  });
+
+  const wantHold = holdResult.status === 'hold' && !holdResult.satisfied;
+  const wantSatisfied = satisfiedResult.status === 'satisfied' && satisfiedResult.satisfied && satisfiedResult.matched_identities.length === 2;
+  const wantRepeatedHold = repeatedHoldResult.status === 'hold' && !repeatedHoldResult.satisfied;
+  const wantOverride = overrideResult.status === 'override_active' && overrideResult.satisfied && overrideResult.policy_applied === 'emergency_override';
+  const wantExpiredHold = expiredResult.status === 'hold' && expiredResult.policy_applied === 'review_required';
+
+  if (wantHold && wantSatisfied && wantRepeatedHold && wantOverride && wantExpiredHold) {
+    ok(`gate-precondition: absent records ⇒ hold; distinct-N2 approvals ⇒ satisfied; repeated identity ⇒ still hold; active override ⇒ override_active; EXPIRED override reverts to "review_required" ⇒ hold (§27.4/§27.5, _hagate.mjs)`);
+  } else {
+    bad(`gate-precondition broken — hold:${JSON.stringify(holdResult)} satisfied:${JSON.stringify(satisfiedResult)} repeatedHold:${JSON.stringify(repeatedHoldResult)} override:${JSON.stringify(overrideResult)} expired:${JSON.stringify(expiredResult)}`);
+  }
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }

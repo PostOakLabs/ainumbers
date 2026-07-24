@@ -174,7 +174,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="card">
     <div class="card-label">Artifact JSON</div>
-    <textarea id="artifactInput" placeholder='Paste your OpenChainGraph artifact JSON here — or click "Paste example" to load a sample.'></textarea>
+    <textarea id="artifactInput" placeholder='Paste your OpenChainGraph artifact JSON here, or click "Paste example" to load a sample.'></textarea>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="runVerify()">Verify</button>
       <button class="btn btn-ghost" onclick="pasteExample()">Paste example</button>
@@ -209,6 +209,69 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
           <div class="hash-lbl">Computed (this browser)</div>
           <div class="hash-val" id="computedHash"></div>
         </div>
+      </div>
+    </div>
+
+    <div class="card" id="haCard">
+      <div class="card-label">Human accountability (SPEC §27)</div>
+      <p class="hero-sub" style="margin-bottom:14px;">Sign an approval/rejection/override record for this artifact, evaluate whether its <code>haGatePolicy</code> precondition is currently satisfied, and assemble a §27.6 evidence bundle. Everything below runs client-side, and no data leaves your browser.</p>
+
+      <div class="card-label" style="margin-top:4px;">1. Approval record</div>
+      <div class="btn-row" style="margin-top:0; margin-bottom:10px; gap:14px; align-items:flex-end;">
+        <label style="font-size:.62rem;color:var(--muted);">record_type
+          <select id="haRecordType" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;">
+            <option value="approval">approval</option>
+            <option value="rejection">rejection</option>
+            <option value="override">override</option>
+            <option value="annotation">annotation</option>
+            <option value="role_binding">role_binding</option>
+          </select>
+        </label>
+        <label style="font-size:.62rem;color:var(--muted);">role
+          <input id="haRole" value="approver" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;width:140px;">
+        </label>
+        <label style="font-size:.62rem;color:var(--muted);">identity.id (did:key)
+          <input id="haIdentity" placeholder="click Generate keypair" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;width:260px;">
+        </label>
+        <label style="font-size:.62rem;color:var(--muted);">reason_code
+          <input id="haReasonCode" placeholder="REVIEWED_OK" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;width:160px;">
+        </label>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="haGenerateKeypair()">Generate keypair</button>
+        <button class="btn btn-primary" onclick="haSignRecord()">Sign record</button>
+      </div>
+      <textarea id="haRecordOut" readonly placeholder="Signed record JSON appears here after Verify (above) and Sign record." style="margin-top:10px;min-height:110px;"></textarea>
+
+      <div class="card-label" style="margin-top:20px;">2. Gate-precondition evaluator (§27.4–§27.5)</div>
+      <div class="btn-row" style="margin-top:0; margin-bottom:10px; gap:14px; align-items:flex-end;">
+        <label style="font-size:.62rem;color:var(--muted);">haGatePolicy
+          <select id="haGatePolicy" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;">
+            <option value="auto_pass">auto_pass</option>
+            <option value="review_required">review_required</option>
+            <option value="dual_control" selected>dual_control</option>
+            <option value="escalate">escalate</option>
+            <option value="hold">hold</option>
+            <option value="reject">reject</option>
+          </select>
+        </label>
+        <label style="font-size:.62rem;color:var(--muted);">threshold N
+          <input id="haThreshold" type="number" value="2" min="1" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;width:80px;">
+        </label>
+      </div>
+      <textarea id="haRecordsInput" placeholder='Paste a JSON array of human_accountability_records[] to evaluate against (each with record_type, role, subject_hash, identity.id, and, for signed evidence, audit_signature.proof).' style="min-height:110px;"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="haEvaluateGate()">Evaluate gate</button>
+      </div>
+      <div id="haGateResult" style="display:none;margin-top:10px;" class="hash-block">
+        <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="haGateStatus"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Reason</div><div class="hash-val" id="haGateReason" style="color:var(--text);"></div></div>
+      </div>
+
+      <div class="card-label" style="margin-top:20px;">3. Evidence-bundle export (§27.6, Tier 1 JSON)</div>
+      <p class="hero-sub" style="margin-bottom:10px;">Assembles a <code>haEvidenceBundle</code> from the artifact above and the records pasted into step 2. A §13.12 SD-JWT selective-disclosure export of this same bundle is available via <code>chaingraph/kernels/_haevidence.mjs</code> (worker/embed tooling); this page ships the mandatory Tier 1 JSON export.</p>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="haExportBundle()">Export evidence bundle JSON</button>
       </div>
     </div>
   </div>
@@ -469,6 +532,184 @@ function pasteExample() {
   hideError();
   hideResult();
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit.
+   ───────────────────────────────────────────────────────────────── */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+
+/* ─────────────────────────────────────────────────────────────────
+   OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit.
+   Byte-identical to kernels/_proof.inline.min.js. Exposes globals:
+   __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey.
+   ───────────────────────────────────────────────────────────────── */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+
+/* ─────────────────────────────────────────────────────────────────
+   §27 HUMAN ACCOUNTABILITY — gate-precondition evaluator, byte-identical in
+   spirit to chaingraph/kernels/_hagate.mjs (ported inline: this page has no
+   module loader). Sits beside the OCG-PROOF v1 signer above; does NOT touch
+   execution_hash or chaingraph_version (§27.0 additivity).
+   ───────────────────────────────────────────────────────────────── */
+let __haKeypair = null; // { privateKey, publicKey, did }
+
+function __haIsConformant(record) {
+  const proof = record && record.audit_signature && record.audit_signature.proof;
+  if (!proof) return false;
+  const vm = proof.verificationMethod || '';
+  return proof.cryptosuite === 'eddsa-jcs-2022' && typeof vm === 'string' && vm.indexOf((record.identity && record.identity.id) || ' ') === 0;
+}
+function __haDistinctApprovers(records, role, subjectHash) {
+  const s = new Set();
+  (records || []).forEach((r) => {
+    if (r.record_type === 'approval' && r.role === role && r.subject_hash === subjectHash && __haIsConformant(r) && r.identity && r.identity.id) s.add(r.identity.id);
+  });
+  return s;
+}
+function __haHasRejection(records, role, subjectHash) {
+  return (records || []).some((r) => r.record_type === 'rejection' && r.role === role && r.subject_hash === subjectHash && __haIsConformant(r));
+}
+function __haOverrideActive(record, nowISO) {
+  if (!record || record.record_type !== 'override' || !record.override || !record.override.expiry) return false;
+  return Date.parse(nowISO) < Date.parse(record.override.expiry);
+}
+function __haFindActiveOverride(records, subjectHash, nowISO) {
+  return (records || []).find((r) => r.record_type === 'override' && r.subject_hash === subjectHash && __haOverrideActive(r, nowISO) && __haIsConformant(r)) || null;
+}
+function __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO }) {
+  if (__haHasRejection(records, role, subjectHash)) {
+    return { status: 'rejected', policy_applied: gatePolicy, satisfied: false, reason: '§27.2 rejection record present for this role+subject' };
+  }
+  const activeOverride = __haFindActiveOverride(records, subjectHash, nowISO);
+  if (activeOverride) {
+    return { status: 'override_active', policy_applied: 'emergency_override', satisfied: true, reason: `§27.5 active override (expires ${activeOverride.override.expiry})` };
+  }
+  if (gatePolicy === 'auto_pass') return { status: 'satisfied', policy_applied: gatePolicy, satisfied: true, reason: 'auto_pass requires no human record' };
+  if (gatePolicy === 'reject') return { status: 'rejected', policy_applied: gatePolicy, satisfied: false, reason: 'gate policy is unconditional reject' };
+  if (gatePolicy === 'escalate') return { status: 'escalate', policy_applied: gatePolicy, satisfied: false, reason: 'gate policy routes to the exception path (§22.8.1)' };
+  const n = Number.isFinite(threshold) ? threshold : (gatePolicy === 'dual_control' ? 2 : 1);
+  const distinct = __haDistinctApprovers(records, role, subjectHash);
+  const satisfied = distinct.size >= n;
+  return {
+    status: satisfied ? 'satisfied' : 'hold', policy_applied: gatePolicy, satisfied,
+    reason: satisfied ? `${distinct.size} distinct "${role}" approval(s) ≥ N=${n}` : `only ${distinct.size} distinct "${role}" approval(s) — need N=${n}; absent records ⇒ HOLD, never a fall-through default`,
+  };
+}
+
+function __haCurrentArtifact() {
+  const raw = document.getElementById('artifactInput').value.trim();
+  if (!raw) throw new Error('Paste and Verify an artifact above first — the record needs its subject_hash.');
+  return JSON.parse(raw);
+}
+
+async function haGenerateKeypair() {
+  try {
+    const kp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    const did = await window.__ocgDidKeyFromPub(kp.publicKey);
+    __haKeypair = { privateKey: kp.privateKey, publicKey: kp.publicKey, did };
+    document.getElementById('haIdentity').value = did;
+    showError(`Generated a fresh Ed25519 keypair — identity.id set to ${did}. The private key stays in this browser tab's memory only.`);
+  } catch (e) { showError('Keypair generation failed: ' + e.message); }
+}
+
+async function haSignRecord() {
+  try {
+    if (!__haKeypair) { showError('Click "Generate keypair" first — a record must be signed by a real key.'); return; }
+    const artifact = __haCurrentArtifact();
+    const subjectHash = 'sha256:' + await executionHash(artifact.policy_parameters, artifact.output_payload);
+    const record_type = document.getElementById('haRecordType').value;
+    const role = document.getElementById('haRole').value.trim() || 'approver';
+    const reason_code = document.getElementById('haReasonCode').value.trim();
+    const identity_id = document.getElementById('haIdentity').value.trim() || __haKeypair.did;
+    let record = {
+      record_type, role, subject_hash: subjectHash,
+      identity: { id: identity_id },
+      timestamp: new Date().toISOString(),
+    };
+    if (reason_code) record.reason_code = reason_code;
+    if (record_type === 'approval') record.decision = 'approve';
+    if (record_type === 'rejection') record.decision = 'reject';
+    if (record_type === 'override') {
+      record.gate_policy = 'emergency_override';
+      record.override = { scope: `gate:${artifact.tool_id || 'artifact'}`, expiry: new Date(Date.now() + 24 * 3600 * 1000).toISOString(), subject_hash: subjectHash };
+      if (!reason_code) record.reason_code = 'MANUAL_OVERRIDE';
+    }
+    const signed = await window.__ocgSign(record, { verificationMethod: `${identity_id}#key-1`, created: record.timestamp, privateKey: __haKeypair.privateKey });
+    document.getElementById('haRecordOut').value = JSON.stringify(signed, null, 2);
+    hideError();
+  } catch (e) { showError('Sign record failed: ' + e.message); }
+}
+
+function haEvaluateGate() {
+  try {
+    const artifact = __haCurrentArtifact();
+    const gatePolicy = document.getElementById('haGatePolicy').value;
+    const threshold = parseInt(document.getElementById('haThreshold').value, 10);
+    const role = document.getElementById('haRole').value.trim() || 'approver';
+    const recordsRaw = document.getElementById('haRecordsInput').value.trim();
+    const records = recordsRaw ? JSON.parse(recordsRaw) : [];
+    executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
+      const subjectHash = 'sha256:' + hex;
+      const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+      document.getElementById('haGateResult').style.display = 'block';
+      const statusEl = document.getElementById('haGateStatus');
+      statusEl.textContent = result.status.toUpperCase();
+      statusEl.className = 'hash-val' + (result.satisfied ? '' : (result.status === 'rejected' ? ' mismatch' : ''));
+      document.getElementById('haGateReason').textContent = result.reason;
+      hideError();
+    });
+  } catch (e) { showError('Gate evaluation failed: ' + e.message); }
+}
+
+function haExportBundle() {
+  try {
+    const artifact = __haCurrentArtifact();
+    const recordsRaw = document.getElementById('haRecordsInput').value.trim();
+    const records = recordsRaw ? JSON.parse(recordsRaw) : [];
+    executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
+      const subjectHash = 'sha256:' + hex;
+      const forSubject = records.filter((r) => r.subject_hash === subjectHash);
+      const reviewers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role === 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
+      const approvers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role !== 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
+      const annotations = forSubject.filter((r) => r.record_type === 'annotation').map((r) => r.reason_code || r.decision).filter(Boolean);
+      const timestamps = forSubject.map((r) => r.timestamp).filter(Boolean);
+      const overrideRec = forSubject.find((r) => r.record_type === 'override');
+      const bundle = { subject_hash: subjectHash };
+      if (reviewers.length) bundle.reviewers = reviewers;
+      if (approvers.length) bundle.approvers = approvers;
+      if (annotations.length) bundle.annotations = annotations;
+      if (timestamps.length) bundle.timestamps = timestamps;
+      if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
+      if (artifact.tool_version) bundle.kernel_version = artifact.tool_version;
+      if (artifact.chaingraph_version) bundle.policy_version = artifact.chaingraph_version;
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ha-evidence-bundle-${subjectHash.slice(7, 15)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      hideError();
+    });
+  } catch (e) { showError('Evidence bundle export failed: ' + e.message); }
+}
+
 
 /* ─────────────────────────────────────────────────────────────────
    MANIFEST
