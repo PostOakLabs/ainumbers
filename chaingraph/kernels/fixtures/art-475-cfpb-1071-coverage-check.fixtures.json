@@ -1,0 +1,225 @@
+{
+  "tool_id": "art-475-cfpb-1071-coverage-check",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: both look-back years clear the 1,000 threshold, all SBLAR records complete against the caller's required-field schema. Vector 2: second look-back year misses the threshold -- not covered, no records supplied. Vector 3: covered institution with one complete and one incomplete SBLAR record -- demonstrates per-record field-presence validation and the mixed-batch summary. Vector 4: zero-input edge (no originations, no required fields, no records -- not covered, no SBLAR flag emitted since the record set is empty).",
+  "vectors": [
+    {
+      "name": "seeded_default_covered_valid_sblar",
+      "description": "Originated 1,500 (year 1) and 1,200 (year 2) covered small-business loans -- both clear the 1,000 threshold, so the institution is covered. Two SBLAR records, each complete against the 3-field required schema.",
+      "policy_parameters": {
+        "originations_year1_count": 1500,
+        "originations_year2_count": 1200,
+        "required_sblar_fields": [
+          "uli",
+          "application_date",
+          "action_taken"
+        ],
+        "sblar_records": [
+          {
+            "record_id": "rec-1",
+            "fields": {
+              "uli": "X123",
+              "application_date": "2028-02-01",
+              "action_taken": "originated"
+            }
+          },
+          {
+            "record_id": "rec-2",
+            "fields": {
+              "uli": "X124",
+              "application_date": "2028-02-03",
+              "action_taken": "denied"
+            }
+          }
+        ]
+      },
+      "output_payload": {
+        "threshold": 1000,
+        "originations_year1_count": 1500,
+        "originations_year2_count": 1200,
+        "covered": true,
+        "compliance_dates": {
+          "data_collection_start": "2028-01-01",
+          "first_sblar_due": "2029-06-01"
+        },
+        "required_sblar_fields": [
+          "uli",
+          "application_date",
+          "action_taken"
+        ],
+        "sblar_records": [
+          {
+            "record_id": "rec-1",
+            "required_fields_count": 3,
+            "present_fields_count": 3,
+            "missing_fields": [],
+            "valid": true
+          },
+          {
+            "record_id": "rec-2",
+            "required_fields_count": 3,
+            "present_fields_count": 3,
+            "missing_fields": [],
+            "valid": true
+          }
+        ],
+        "sblar_summary": {
+          "total_records": 2,
+          "valid_records": 2,
+          "invalid_records": 0
+        },
+        "regulatory_basis": "CFPB Section 1071 small business lending rule, Regulation B subpart B, revised final rule published 2026-05-01: covered-institution threshold of 1,000 small-business-lending originations in each of the two preceding calendar years.",
+        "note": "Coverage determination compares caller-supplied origination counts to the fixed 1,000-per-year threshold. SBLAR field validation checks presence only, against a caller-supplied required-field schema -- this kernel makes no claim about which fields the current rule requires. Not a filing or submission."
+      },
+      "compliance_flags": [
+        "COVERED_INSTITUTION",
+        "ALL_SBLAR_RECORDS_VALID"
+      ],
+      "golden_hash": "b866d99d52bc568369f03a0177e80f4fdf20c4d29800dd0f11a227cb976e4d14"
+    },
+    {
+      "name": "not_covered_threshold_miss",
+      "description": "Year 1 clears the threshold at 1,500 originations but year 2 falls to 800 -- below 1,000. Coverage requires BOTH years to clear the threshold, so the institution is not covered. No SBLAR records supplied.",
+      "policy_parameters": {
+        "originations_year1_count": 1500,
+        "originations_year2_count": 800,
+        "required_sblar_fields": [],
+        "sblar_records": []
+      },
+      "output_payload": {
+        "threshold": 1000,
+        "originations_year1_count": 1500,
+        "originations_year2_count": 800,
+        "covered": false,
+        "compliance_dates": {
+          "data_collection_start": "2028-01-01",
+          "first_sblar_due": "2029-06-01"
+        },
+        "required_sblar_fields": [],
+        "sblar_records": [],
+        "sblar_summary": {
+          "total_records": 0,
+          "valid_records": 0,
+          "invalid_records": 0
+        },
+        "regulatory_basis": "CFPB Section 1071 small business lending rule, Regulation B subpart B, revised final rule published 2026-05-01: covered-institution threshold of 1,000 small-business-lending originations in each of the two preceding calendar years.",
+        "note": "Coverage determination compares caller-supplied origination counts to the fixed 1,000-per-year threshold. SBLAR field validation checks presence only, against a caller-supplied required-field schema -- this kernel makes no claim about which fields the current rule requires. Not a filing or submission."
+      },
+      "compliance_flags": [
+        "NOT_COVERED_INSTITUTION"
+      ],
+      "golden_hash": "cd55e10ec39d64792764236855d1ebcbf8fcba4cea6294303227e1f3e4bb498c"
+    },
+    {
+      "name": "covered_with_invalid_sblar_record",
+      "description": "Covered institution (2,000 / 1,100 originations) submits two SBLAR records against a 4-field required schema: rec-A is complete, rec-B is missing loan_amount -- demonstrates per-record field-presence validation and a mixed-batch summary.",
+      "policy_parameters": {
+        "originations_year1_count": 2000,
+        "originations_year2_count": 1100,
+        "required_sblar_fields": [
+          "uli",
+          "application_date",
+          "action_taken",
+          "loan_amount"
+        ],
+        "sblar_records": [
+          {
+            "record_id": "rec-A",
+            "fields": {
+              "uli": "A1",
+              "application_date": "2028-03-01",
+              "action_taken": "originated",
+              "loan_amount": 50000
+            }
+          },
+          {
+            "record_id": "rec-B",
+            "fields": {
+              "uli": "B1",
+              "application_date": "2028-03-02",
+              "action_taken": "originated"
+            }
+          }
+        ]
+      },
+      "output_payload": {
+        "threshold": 1000,
+        "originations_year1_count": 2000,
+        "originations_year2_count": 1100,
+        "covered": true,
+        "compliance_dates": {
+          "data_collection_start": "2028-01-01",
+          "first_sblar_due": "2029-06-01"
+        },
+        "required_sblar_fields": [
+          "uli",
+          "application_date",
+          "action_taken",
+          "loan_amount"
+        ],
+        "sblar_records": [
+          {
+            "record_id": "rec-A",
+            "required_fields_count": 4,
+            "present_fields_count": 4,
+            "missing_fields": [],
+            "valid": true
+          },
+          {
+            "record_id": "rec-B",
+            "required_fields_count": 4,
+            "present_fields_count": 3,
+            "missing_fields": [
+              "loan_amount"
+            ],
+            "valid": false
+          }
+        ],
+        "sblar_summary": {
+          "total_records": 2,
+          "valid_records": 1,
+          "invalid_records": 1
+        },
+        "regulatory_basis": "CFPB Section 1071 small business lending rule, Regulation B subpart B, revised final rule published 2026-05-01: covered-institution threshold of 1,000 small-business-lending originations in each of the two preceding calendar years.",
+        "note": "Coverage determination compares caller-supplied origination counts to the fixed 1,000-per-year threshold. SBLAR field validation checks presence only, against a caller-supplied required-field schema -- this kernel makes no claim about which fields the current rule requires. Not a filing or submission."
+      },
+      "compliance_flags": [
+        "COVERED_INSTITUTION",
+        "SBLAR_RECORDS_INVALID"
+      ],
+      "golden_hash": "4c5352c4e2511a21fd59b76b23be4b4f33ae07a05baa3a150f394cd5a7cb813b"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No originations in either year, no required fields, no SBLAR records. Not covered; empty record set means no SBLAR validity flag is emitted at all.",
+      "policy_parameters": {
+        "originations_year1_count": 0,
+        "originations_year2_count": 0,
+        "required_sblar_fields": [],
+        "sblar_records": []
+      },
+      "output_payload": {
+        "threshold": 1000,
+        "originations_year1_count": 0,
+        "originations_year2_count": 0,
+        "covered": false,
+        "compliance_dates": {
+          "data_collection_start": "2028-01-01",
+          "first_sblar_due": "2029-06-01"
+        },
+        "required_sblar_fields": [],
+        "sblar_records": [],
+        "sblar_summary": {
+          "total_records": 0,
+          "valid_records": 0,
+          "invalid_records": 0
+        },
+        "regulatory_basis": "CFPB Section 1071 small business lending rule, Regulation B subpart B, revised final rule published 2026-05-01: covered-institution threshold of 1,000 small-business-lending originations in each of the two preceding calendar years.",
+        "note": "Coverage determination compares caller-supplied origination counts to the fixed 1,000-per-year threshold. SBLAR field validation checks presence only, against a caller-supplied required-field schema -- this kernel makes no claim about which fields the current rule requires. Not a filing or submission."
+      },
+      "compliance_flags": [
+        "NOT_COVERED_INSTITUTION"
+      ],
+      "golden_hash": "376bacaba138c04fec3499ef3399238c9dbf419af74e90ea2f7f98270fc3e90b"
+    }
+  ]
+}
