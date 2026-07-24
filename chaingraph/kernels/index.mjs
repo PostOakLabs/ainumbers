@@ -386,6 +386,9 @@ import * as art451    from './art-451-model-outcome-analysis.kernel.mjs';
 import * as art452    from './art-452-build-ai-training-data-lineage-record.kernel.mjs';
 import * as art453    from './art-453-model-validation-status.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
+import * as art462    from './art-462-je-ruleset-screen.kernel.mjs';
+import * as art463    from './art-463-recalc-suite.kernel.mjs';
+import * as art464    from './art-464-confirmation-matcher.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
@@ -841,6 +844,9 @@ export const KERNELS = {
   'art-452-build-ai-training-data-lineage-record':            art452,
   'art-453-model-validation-status':                          art453,
   'art-46-arc-paymaster-model':                               art46,
+  'art-462-je-ruleset-screen':                                art462,
+  'art-463-recalc-suite':                                     art463,
+  'art-464-confirmation-matcher':                             art464,
   'art-47-arc-cctp-transfer':                                 art47,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
   'art-49-clearing-access-model-selector':                    art49,
