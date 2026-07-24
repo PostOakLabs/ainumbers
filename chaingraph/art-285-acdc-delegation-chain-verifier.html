@@ -217,6 +217,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
     <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
       <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+      <button id="anchorEvBtn" onclick="downloadIdentityAnchorEvidence()" title="A passing verify exported as SPEC §27.1 identity-anchor evidence, for attaching to an attestor role_binding record on the OCG Verify page" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ Identity-Anchor Evidence (§27.1)</button>
     </div>
   </div>
 
@@ -431,6 +432,29 @@ function exportCSV() {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// §27.1: a passing delegation-chain verify IS the identity-anchor evidence for an attestor
+// role_binding — evidence link only, no new binding logic. Paste this JSON into the OCG Verify
+// page's role_binding flow.
+function downloadIdentityAnchorEvidence() {
+  if (!_lastArtifact || !_lastOP) return;
+  const pp = _lastPP || {};
+  const evidence = { identity_anchor_evidence: {
+    type: 'acdc_delegation_chain_verify',
+    subject_hash: 'sha256:' + _lastArtifact.execution_hash,
+    aid: pp.expected_root_aid || null,
+    chain_depth: _lastOP.chain_depth,
+    overall_valid: _lastOP.valid,
+    checked_at: _lastArtifact.generated_at,
+    source_tool: MANIFEST.tool_id,
+    tool_version: MANIFEST.tool_version,
+  } };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = MANIFEST.tool_id + '_identity-anchor-evidence_' + ts + '.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 

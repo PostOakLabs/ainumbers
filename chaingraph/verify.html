@@ -219,7 +219,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="card-label" style="margin-top:4px;">1. Approval record</div>
       <div class="btn-row" style="margin-top:0; margin-bottom:10px; gap:14px; align-items:flex-end;">
         <label style="font-size:.62rem;color:var(--muted);">record_type
-          <select id="haRecordType" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;">
+          <select id="haRecordType" onchange="haToggleAnchorRow()" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;">
             <option value="approval">approval</option>
             <option value="rejection">rejection</option>
             <option value="override">override</option>
@@ -235,6 +235,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         </label>
         <label style="font-size:.62rem;color:var(--muted);">reason_code
           <input id="haReasonCode" placeholder="REVIEWED_OK" style="display:block;margin-top:4px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;width:160px;">
+        </label>
+      </div>
+      <div id="haAnchorRow" style="display:none;margin-bottom:10px;">
+        <label style="font-size:.62rem;color:var(--muted);">identity_anchor_evidence (optional, §27.1: paste the JSON exported by the <a href="../tools/553-vlei-acdc-said-structural-checker.html" style="color:var(--teal)">vLEI SAID checker</a> or the <a href="art-285-acdc-delegation-chain-verifier.html" style="color:var(--teal)">ACDC delegation-chain verifier</a>)
+          <textarea id="haAnchorEvidence" placeholder='{"identity_anchor_evidence":{"type":"vlei_acdc_said_structural_check","subject_hash":"sha256:...","lei":"...", ...}}' style="display:block;margin-top:4px;min-height:70px;width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;"></textarea>
         </label>
       </div>
       <div class="btn-row">
@@ -269,9 +274,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
 
       <div class="card-label" style="margin-top:20px;">3. Evidence-bundle export (§27.6, Tier 1 JSON)</div>
-      <p class="hero-sub" style="margin-bottom:10px;">Assembles a <code>haEvidenceBundle</code> from the artifact above and the records pasted into step 2. A §13.12 SD-JWT selective-disclosure export of this same bundle is available via <code>chaingraph/kernels/_haevidence.mjs</code> (worker/embed tooling); this page ships the mandatory Tier 1 JSON export.</p>
+      <p class="hero-sub" style="margin-bottom:10px;">Assembles a <code>haEvidenceBundle</code> from the artifact above and the records pasted into step 2. This page ships the mandatory Tier 1 JSON export; the <a href="../tools/545-sdjwt-disclosure-workbench.html" style="color:var(--teal)">SD-JWT Disclosure Workbench</a>'s Evidence Bundle tab reuses the same shipped §13.12 exporter to issue this bundle as a selective-disclosure JWT.</p>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="haExportBundle()">Export evidence bundle JSON</button>
+        <button class="btn btn-ghost" onclick="haOpenInSdJwtWorkbench()">Open in SD-JWT Workbench →</button>
       </div>
     </div>
   </div>
@@ -651,10 +657,27 @@ async function haSignRecord() {
       record.override = { scope: `gate:${artifact.tool_id || 'artifact'}`, expiry: new Date(Date.now() + 24 * 3600 * 1000).toISOString(), subject_hash: subjectHash };
       if (!reason_code) record.reason_code = 'MANUAL_OVERRIDE';
     }
+    if (record_type === 'role_binding') {
+      // §27.1 evidence link only — attaches a passing vLEI/ACDC identity check as evidence FOR
+      // this binding; the check's own subject_hash/execution_hash stays untouched and this record's
+      // execution_hash still hashes only {policy_parameters, output_payload} via the one _hash.mjs path.
+      const anchorRaw = document.getElementById('haAnchorEvidence').value.trim();
+      if (anchorRaw) {
+        let anchor;
+        try { anchor = JSON.parse(anchorRaw); } catch (e) { throw new Error('identity_anchor_evidence is not valid JSON: ' + e.message); }
+        if (!anchor || !anchor.identity_anchor_evidence) throw new Error('Pasted JSON is missing the top-level "identity_anchor_evidence" key.');
+        record.identity_anchor_evidence = anchor.identity_anchor_evidence;
+      }
+    }
     const signed = await window.__ocgSign(record, { verificationMethod: `${identity_id}#key-1`, created: record.timestamp, privateKey: __haKeypair.privateKey });
     document.getElementById('haRecordOut').value = JSON.stringify(signed, null, 2);
     hideError();
   } catch (e) { showError('Sign record failed: ' + e.message); }
+}
+
+function haToggleAnchorRow() {
+  const show = document.getElementById('haRecordType').value === 'role_binding';
+  document.getElementById('haAnchorRow').style.display = show ? 'block' : 'none';
 }
 
 function haEvaluateGate() {
@@ -678,36 +701,55 @@ function haEvaluateGate() {
   } catch (e) { showError('Gate evaluation failed: ' + e.message); }
 }
 
+function __haBuildBundle() {
+  const artifact = __haCurrentArtifact();
+  const recordsRaw = document.getElementById('haRecordsInput').value.trim();
+  const records = recordsRaw ? JSON.parse(recordsRaw) : [];
+  return executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
+    const subjectHash = 'sha256:' + hex;
+    const forSubject = records.filter((r) => r.subject_hash === subjectHash);
+    const reviewers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role === 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
+    const approvers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role !== 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
+    const annotations = forSubject.filter((r) => r.record_type === 'annotation').map((r) => r.reason_code || r.decision).filter(Boolean);
+    const timestamps = forSubject.map((r) => r.timestamp).filter(Boolean);
+    const overrideRec = forSubject.find((r) => r.record_type === 'override');
+    const bundle = { subject_hash: subjectHash };
+    if (reviewers.length) bundle.reviewers = reviewers;
+    if (approvers.length) bundle.approvers = approvers;
+    if (annotations.length) bundle.annotations = annotations;
+    if (timestamps.length) bundle.timestamps = timestamps;
+    if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
+    if (artifact.tool_version) bundle.kernel_version = artifact.tool_version;
+    if (artifact.chaingraph_version) bundle.policy_version = artifact.chaingraph_version;
+    return bundle;
+  });
+}
+
 function haExportBundle() {
   try {
-    const artifact = __haCurrentArtifact();
-    const recordsRaw = document.getElementById('haRecordsInput').value.trim();
-    const records = recordsRaw ? JSON.parse(recordsRaw) : [];
-    executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
-      const subjectHash = 'sha256:' + hex;
-      const forSubject = records.filter((r) => r.subject_hash === subjectHash);
-      const reviewers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role === 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
-      const approvers = [...new Set(forSubject.filter((r) => r.record_type === 'approval' && r.role !== 'reviewer').map((r) => r.identity && r.identity.id).filter(Boolean))];
-      const annotations = forSubject.filter((r) => r.record_type === 'annotation').map((r) => r.reason_code || r.decision).filter(Boolean);
-      const timestamps = forSubject.map((r) => r.timestamp).filter(Boolean);
-      const overrideRec = forSubject.find((r) => r.record_type === 'override');
-      const bundle = { subject_hash: subjectHash };
-      if (reviewers.length) bundle.reviewers = reviewers;
-      if (approvers.length) bundle.approvers = approvers;
-      if (annotations.length) bundle.annotations = annotations;
-      if (timestamps.length) bundle.timestamps = timestamps;
-      if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
-      if (artifact.tool_version) bundle.kernel_version = artifact.tool_version;
-      if (artifact.chaingraph_version) bundle.policy_version = artifact.chaingraph_version;
+    __haBuildBundle().then((bundle) => {
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `ha-evidence-bundle-${subjectHash.slice(7, 15)}.json`;
+      a.download = `ha-evidence-bundle-${bundle.subject_hash.slice(7, 15)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
       hideError();
     });
   } catch (e) { showError('Evidence bundle export failed: ' + e.message); }
+}
+
+function haOpenInSdJwtWorkbench() {
+  try {
+    __haBuildBundle().then((bundle) => {
+      const fields = { evBundleInput: JSON.stringify(bundle, null, 2) };
+      // base64url (RFC 4648 §5), matching the AIN_BRIDGE `#in=` prefill contract every tool decodes.
+      const b64u = btoa(unescape(encodeURIComponent(JSON.stringify(fields)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const url = '../tools/545-sdjwt-disclosure-workbench.html#in=' + b64u + '&run=1';
+      window.open(url, '_blank', 'noopener');
+      hideError();
+    });
+  } catch (e) { showError('Open in SD-JWT Workbench failed: ' + e.message); }
 }
 
 
