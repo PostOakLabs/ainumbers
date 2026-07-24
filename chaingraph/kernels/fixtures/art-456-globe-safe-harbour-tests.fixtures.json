@@ -1,0 +1,218 @@
+{
+  "tool_id": "art-456-globe-safe-harbour-tests",
+  "note": "golden_hash computed via executionHash(policy_parameters, output_payload) from chaingraph/kernels/_hash.mjs; re-verify with golden-parity.test.mjs --update if the kernel changes. Vector 1: de minimis test passes alone. Vector 2: de minimis fails, simplified ETR passes. Vector 3: all three tests fail -- safe_harbour_met false. Vector 4: non-positive profit auto-passes the simplified ETR test (SIMPLIFIED_ETR_AUTO_PASS_NONPOSITIVE_PROFIT flag).",
+  "vectors": [
+    {
+      "name": "passes_de_minimis_only",
+      "description": "Revenue EUR 8,000,000 < EUR 10m threshold AND profit before tax EUR 500,000 < EUR 1m threshold -- de minimis passes. Simplified ETR (2%) and routine profits both fail. Overall safe_harbour_met true via de_minimis.",
+      "policy_parameters": {
+        "revenue_eur": 8000000,
+        "profit_before_tax_eur": 500000,
+        "simplified_covered_taxes": 10000,
+        "fiscal_year": 2024,
+        "sbie_amount": 0
+      },
+      "output_payload": {
+        "fiscal_year": 2024,
+        "tests": [
+          {
+            "test_id": "de_minimis",
+            "pass": true,
+            "reasoning": "Revenue EUR 8000000 < threshold EUR 10000000 AND profit before tax EUR 500000 < threshold EUR 1000000.",
+            "inputs": {
+              "revenue_eur": 8000000,
+              "profit_before_tax_eur": 500000,
+              "de_minimis_revenue_threshold_eur": 10000000,
+              "de_minimis_profit_threshold_eur": 1000000
+            }
+          },
+          {
+            "test_id": "simplified_etr",
+            "pass": false,
+            "reasoning": "Simplified ETR 2.00% < applicable transition rate 15.00% (FY2024).",
+            "inputs": {
+              "simplified_covered_taxes": 10000,
+              "profit_before_tax_eur": 500000,
+              "fiscal_year": 2024,
+              "applicable_rate": 0.15,
+              "simplified_etr_value": 0.02,
+              "nonpositive_profit": false
+            }
+          },
+          {
+            "test_id": "routine_profits",
+            "pass": false,
+            "reasoning": "Profit before tax EUR 500000 > SBIE amount EUR 0.",
+            "inputs": {
+              "profit_before_tax_eur": 500000,
+              "sbie_amount": 0
+            }
+          }
+        ],
+        "safe_harbour_met": true,
+        "deemed_zero_topup": true,
+        "passing_test_ids": ["de_minimis"]
+      },
+      "golden_hash": "b5a6145556f5cb2976de9b2fb872b8508474e5dc468781f25095d79f21cb6a64"
+    },
+    {
+      "name": "fails_de_minimis_passes_simplified_etr",
+      "description": "Revenue EUR 50m and profit EUR 5m both exceed de minimis thresholds -- fails. Simplified covered taxes EUR 900,000 / profit EUR 5m = 18% ETR >= 15% FY2024 transition rate -- simplified_etr passes. Routine profits fails (SBIE 0). Overall safe_harbour_met true.",
+      "policy_parameters": {
+        "revenue_eur": 50000000,
+        "profit_before_tax_eur": 5000000,
+        "simplified_covered_taxes": 900000,
+        "fiscal_year": 2024,
+        "sbie_amount": 0
+      },
+      "output_payload": {
+        "fiscal_year": 2024,
+        "tests": [
+          {
+            "test_id": "de_minimis",
+            "pass": false,
+            "reasoning": "Fails: revenue EUR 50000000 >= threshold EUR 10000000; profit before tax EUR 5000000 >= threshold EUR 1000000.",
+            "inputs": {
+              "revenue_eur": 50000000,
+              "profit_before_tax_eur": 5000000,
+              "de_minimis_revenue_threshold_eur": 10000000,
+              "de_minimis_profit_threshold_eur": 1000000
+            }
+          },
+          {
+            "test_id": "simplified_etr",
+            "pass": true,
+            "reasoning": "Simplified ETR 18.00% >= applicable transition rate 15.00% (FY2024).",
+            "inputs": {
+              "simplified_covered_taxes": 900000,
+              "profit_before_tax_eur": 5000000,
+              "fiscal_year": 2024,
+              "applicable_rate": 0.15,
+              "simplified_etr_value": 0.18,
+              "nonpositive_profit": false
+            }
+          },
+          {
+            "test_id": "routine_profits",
+            "pass": false,
+            "reasoning": "Profit before tax EUR 5000000 > SBIE amount EUR 0.",
+            "inputs": {
+              "profit_before_tax_eur": 5000000,
+              "sbie_amount": 0
+            }
+          }
+        ],
+        "safe_harbour_met": true,
+        "deemed_zero_topup": true,
+        "passing_test_ids": ["simplified_etr"]
+      },
+      "golden_hash": "81983f78e08ca1f6cf8ec2013d381eff2c4a9a19a53c59e5e392ba8669fb419b"
+    },
+    {
+      "name": "fails_all_three_tests",
+      "description": "Revenue EUR 50m and profit EUR 5m fail de minimis. Simplified covered taxes EUR 200,000 / profit EUR 5m = 4% ETR < 15% -- fails. Profit EUR 5m > SBIE EUR 1m -- routine profits fails. Overall safe_harbour_met false, deemed_zero_topup false -- jurisdiction does not qualify for the safe harbour.",
+      "policy_parameters": {
+        "revenue_eur": 50000000,
+        "profit_before_tax_eur": 5000000,
+        "simplified_covered_taxes": 200000,
+        "fiscal_year": 2024,
+        "sbie_amount": 1000000
+      },
+      "output_payload": {
+        "fiscal_year": 2024,
+        "tests": [
+          {
+            "test_id": "de_minimis",
+            "pass": false,
+            "reasoning": "Fails: revenue EUR 50000000 >= threshold EUR 10000000; profit before tax EUR 5000000 >= threshold EUR 1000000.",
+            "inputs": {
+              "revenue_eur": 50000000,
+              "profit_before_tax_eur": 5000000,
+              "de_minimis_revenue_threshold_eur": 10000000,
+              "de_minimis_profit_threshold_eur": 1000000
+            }
+          },
+          {
+            "test_id": "simplified_etr",
+            "pass": false,
+            "reasoning": "Simplified ETR 4.00% < applicable transition rate 15.00% (FY2024).",
+            "inputs": {
+              "simplified_covered_taxes": 200000,
+              "profit_before_tax_eur": 5000000,
+              "fiscal_year": 2024,
+              "applicable_rate": 0.15,
+              "simplified_etr_value": 0.04,
+              "nonpositive_profit": false
+            }
+          },
+          {
+            "test_id": "routine_profits",
+            "pass": false,
+            "reasoning": "Profit before tax EUR 5000000 > SBIE amount EUR 1000000.",
+            "inputs": {
+              "profit_before_tax_eur": 5000000,
+              "sbie_amount": 1000000
+            }
+          }
+        ],
+        "safe_harbour_met": false,
+        "deemed_zero_topup": false,
+        "passing_test_ids": []
+      },
+      "golden_hash": "235c7a17018f38dc6f7e7555e9afc354eb3f1a4c84d03ece2cafa88b3912d9ef"
+    },
+    {
+      "name": "nonpositive_profit_auto_pass_simplified_etr",
+      "description": "Profit before tax EUR -100,000 is non-positive -- simplified_etr auto-passes (SIMPLIFIED_ETR_AUTO_PASS_NONPOSITIVE_PROFIT flag) since ETR is undefined per OECD guidance. De minimis and routine profits both fail (revenue exceeds threshold; SBIE amount EUR -500,000 is below the loss). Overall safe_harbour_met true via simplified_etr's auto-pass alone.",
+      "policy_parameters": {
+        "revenue_eur": 50000000,
+        "profit_before_tax_eur": -100000,
+        "simplified_covered_taxes": 0,
+        "fiscal_year": 2025,
+        "sbie_amount": -500000
+      },
+      "output_payload": {
+        "fiscal_year": 2025,
+        "tests": [
+          {
+            "test_id": "de_minimis",
+            "pass": false,
+            "reasoning": "Fails: revenue EUR 50000000 >= threshold EUR 10000000; profit before tax EUR -100000 < threshold EUR 1000000.",
+            "inputs": {
+              "revenue_eur": 50000000,
+              "profit_before_tax_eur": -100000,
+              "de_minimis_revenue_threshold_eur": 10000000,
+              "de_minimis_profit_threshold_eur": 1000000
+            }
+          },
+          {
+            "test_id": "simplified_etr",
+            "pass": true,
+            "reasoning": "Profit before tax EUR -100000 is non-positive; simplified ETR is undefined per OECD guidance -- test auto-passes.",
+            "inputs": {
+              "simplified_covered_taxes": 0,
+              "profit_before_tax_eur": -100000,
+              "fiscal_year": 2025,
+              "applicable_rate": 0.16,
+              "simplified_etr_value": null,
+              "nonpositive_profit": true
+            }
+          },
+          {
+            "test_id": "routine_profits",
+            "pass": false,
+            "reasoning": "Profit before tax EUR -100000 > SBIE amount EUR -500000.",
+            "inputs": {
+              "profit_before_tax_eur": -100000,
+              "sbie_amount": -500000
+            }
+          }
+        ],
+        "safe_harbour_met": true,
+        "deemed_zero_topup": true,
+        "passing_test_ids": ["simplified_etr"]
+      },
+      "golden_hash": "7b44b5ea51aecc99de470b3d817e8542c7059f160d5b833f50f25c954a008311"
+    }
+  ]
+}
