@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OECD Country-by-Country Report Builder · ART-472 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Build an OECD BEPS Action 13 CbCR XML schema skeleton from a declared jurisdiction data table, with internal consistency checks and EU/Australian public-CbCR export modes. Never a submission. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-472-cbcr-builder.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OECD Country-by-Country Report Builder","applicationCategory":"FinanceApplication","description":"Build an OECD BEPS Action 13 CbCR XML schema skeleton with internal consistency checks and EU/Australian public-CbCR export modes. Never a submission. Zero network.","url":"https://ainumbers.co/chaingraph/art-472-cbcr-builder.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:100px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.gap-list{margin:10px 0;display:flex;flex-wrap:wrap;gap:6px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);display:block;margin-bottom:4px}
+.form-label span{color:var(--muted);margin-left:4px}
+input[type=text],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.45rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:150px;resize:vertical}
+input[type=text]:focus,select:focus,textarea:focus{border-color:var(--teal)}
+select option{background:var(--bg-3);color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-472 · CbCR Builder</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-472 · public country-by-country reporting</div>
+  <h1>OECD Country-by-Country Report Builder</h1>
+  <p class="sub">Builds an OECD BEPS Action 13 CbCR XML schema skeleton from a declared jurisdiction data table (Table 1) and constituent-entity list (Table 2) against a version-pinned schema version. Runs internal consistency checks (revenue-component sums, employee/asset non-negativity, entity-jurisdiction referential integrity) and flags a profit-with-zero-employees anomaly pattern. Also produces EU Directive (EU) 2021/2101 and Australian public-CbCR field-subset export modes. Never a submission -- not accepted by any national gateway. Zero network.</p>
+  <div style="margin-bottom:6px"><span class="flag warn">CbCR</span><span class="flag info">BEPS Action 13</span><span class="flag purple">EU / AU Public</span><span class="flag">Zero PII</span></div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box"><div class="ib-title">Scope</div>Build node of the cbcr-annual-publish chain. Comparable-set selection and transfer-pricing judgment are out of scope -- see <a href="art-473-interquartile-benchmark.html">art-473 interquartile-benchmark</a> for arm's-length range arithmetic. NEVER a filed submission.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('consistent')">Consistent (private filing)</button>
+      <button class="preset-btn" onclick="loadPreset('orphan')">Orphan entity (EU public)</button>
+    </div>
+
+    <div class="section-head">Report</div>
+    <div class="form-group">
+      <label class="form-label" for="schema_version">schema_version <span>(version-pinned Action 13 XML schema)</span></label>
+      <input type="text" id="schema_version" value="oecd-cbcr-xml-3.0-2026-07-01">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="export_mode">export_mode</label>
+      <select id="export_mode"><option value="private_filing">private_filing</option><option value="eu_public">eu_public</option><option value="au_public">au_public</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="reporting_entity_name">reporting_entity_name</label>
+      <input type="text" id="reporting_entity_name" value="Synthetic Global Holdings Ltd">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="reporting_entity_tin">reporting_entity_tin</label>
+      <input type="text" id="reporting_entity_tin" value="SYN-TIN-000001">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="table1">table1_jurisdictions <span>(JSON array)</span></label>
+      <textarea id="table1"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="table2">table2_entities <span>(JSON array)</span></label>
+      <textarea id="table2" style="min-height:80px"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="rounding_tolerance">rounding_tolerance</label>
+      <input type="text" id="rounding_tolerance" value="1">
+    </div>
+
+    <button class="run-btn" style="margin-top:16px" onclick="run()">Build CbCR Artifact</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-472-cbcr-builder",
+  "version": "1.0.0",
+  "title": "OECD Country-by-Country Report Builder",
+  "mcp_tool_definition": {
+    "name": "build_cbcr_report",
+    "description": "Build an OECD BEPS Action 13 CbCR XML schema skeleton from a declared jurisdiction data table with internal consistency checks and EU/Australian public-CbCR export modes. Never a submission -- not accepted by any national CbCR gateway. Zero network, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "schema_version": {"type": "string"}, "export_mode": {"type": "string", "enum": ["private_filing", "eu_public", "au_public"]},
+        "reporting_entity_name": {"type": "string"}, "reporting_entity_tin": {"type": "string"},
+        "table1_jurisdictions": {"type": "array"}, "table2_entities": {"type": "array"}, "rounding_tolerance": {"type": "number"}
+      }
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+function num(v) { const x = Number(v); return Number.isFinite(x) ? x : null; }
+function s(v) { return String(v == null ? '' : v).trim(); }
+
+function compute(pp) {
+  pp = pp || {};
+  const schema_version = s(pp.schema_version) || null;
+  const export_mode = ['private_filing', 'eu_public', 'au_public'].includes(pp.export_mode) ? pp.export_mode : 'private_filing';
+  const table1 = Array.isArray(pp.table1_jurisdictions) ? pp.table1_jurisdictions : [];
+  const table2 = Array.isArray(pp.table2_entities) ? pp.table2_entities : [];
+  const rounding_tolerance = Math.max(0, num(pp.rounding_tolerance) ?? 1);
+  const jurisdiction_ids = new Set(table1.map((j) => s(j && j.jurisdiction_code)).filter(Boolean));
+
+  const checks = [];
+  const jurisdictions_out = [];
+
+  table1.forEach((j, idx) => {
+    j = j || {};
+    const jurisdiction_code = s(j.jurisdiction_code);
+    const related_party_revenue = num(j.related_party_revenue) ?? 0;
+    const unrelated_party_revenue = num(j.unrelated_party_revenue) ?? 0;
+    const total_revenue_reported = num(j.total_revenue);
+    const total_revenue_computed = related_party_revenue + unrelated_party_revenue;
+    const revenue_sum_ok = total_revenue_reported === null ? false : Math.abs(total_revenue_reported - total_revenue_computed) <= rounding_tolerance;
+    checks.push({ id: 'EDIT-REV-' + (idx + 1), jurisdiction_code: jurisdiction_code || null, description: 'Related-party revenue plus unrelated-party revenue equals total revenue, within rounding tolerance.', passed: revenue_sum_ok, severity: 'fatal' });
+    const employees = num(j.number_of_employees);
+    const employees_ok = employees === null ? false : employees >= 0;
+    checks.push({ id: 'EDIT-EMP-' + (idx + 1), jurisdiction_code: jurisdiction_code || null, description: 'Number of employees is non-negative.', passed: employees_ok, severity: 'fatal' });
+    const tangible_assets = num(j.tangible_assets);
+    const assets_ok = tangible_assets === null ? false : tangible_assets >= 0;
+    checks.push({ id: 'EDIT-AST-' + (idx + 1), jurisdiction_code: jurisdiction_code || null, description: 'Tangible assets other than cash/cash-equivalents is non-negative.', passed: assets_ok, severity: 'fatal' });
+    jurisdictions_out.push({ jurisdiction_code: jurisdiction_code || null, total_revenue: total_revenue_reported, profit_before_tax: num(j.profit_before_tax), income_tax_paid: num(j.income_tax_paid), income_tax_accrued: num(j.income_tax_accrued), stated_capital: num(j.stated_capital), accumulated_earnings: num(j.accumulated_earnings), number_of_employees: employees, tangible_assets });
+  });
+
+  const orphan_entities = [];
+  table2.forEach((e) => {
+    e = e || {};
+    const entity_jurisdiction = s(e.jurisdiction_code);
+    const entity_name = s(e.entity_name) || null;
+    const referential_ok = jurisdiction_ids.size === 0 ? false : jurisdiction_ids.has(entity_jurisdiction);
+    checks.push({ id: 'EDIT-REF-' + (entity_name || entity_jurisdiction || (table2.indexOf(e) + 1)), jurisdiction_code: entity_jurisdiction || null, description: 'Constituent entity (Table 2) jurisdiction exists in the Table 1 jurisdiction list.', passed: referential_ok, severity: 'fatal' });
+    if (!referential_ok) orphan_entities.push({ entity_name, jurisdiction_code: entity_jurisdiction || null });
+  });
+
+  const fatal_failure_count = checks.filter((c) => c.severity === 'fatal' && !c.passed).length;
+  const all_fatal_passed = table1.length > 0 && fatal_failure_count === 0;
+  const gate_status = table1.length === 0 ? 'review_required' : (all_fatal_passed ? 'auto_pass' : 'review_required');
+
+  const anomaly_flags = [];
+  jurisdictions_out.forEach((j) => { if ((j.profit_before_tax ?? 0) > 0 && (j.number_of_employees ?? 0) === 0) anomaly_flags.push({ jurisdiction_code: j.jurisdiction_code, pattern: 'profit_with_zero_employees' }); });
+
+  const EU_PUBLIC_FIELDS = ['jurisdiction_code', 'total_revenue', 'profit_before_tax', 'income_tax_paid', 'income_tax_accrued', 'number_of_employees'];
+  const AU_PUBLIC_FIELDS = ['jurisdiction_code', 'total_revenue', 'profit_before_tax', 'income_tax_paid', 'stated_capital', 'accumulated_earnings', 'number_of_employees', 'tangible_assets'];
+  function projectFields(rows, fields) { return rows.map((r) => fields.reduce((o, f) => (o[f] = r[f] === undefined ? null : r[f], o), {})); }
+  const export_jurisdictions = export_mode === 'eu_public' ? projectFields(jurisdictions_out, EU_PUBLIC_FIELDS) : export_mode === 'au_public' ? projectFields(jurisdictions_out, AU_PUBLIC_FIELDS) : jurisdictions_out;
+
+  const xml_schema_skeleton = { schema_version, root_element: 'CBC_OECD', reporting_entity: { entity_name: s(pp.reporting_entity_name) || null, tin: s(pp.reporting_entity_tin) || null }, table1_jurisdiction_count: table1.length, table2_entity_count: table2.length };
+
+  return { output_payload: { schema_version, export_mode, xml_schema_skeleton, jurisdictions: export_jurisdictions, orphan_entities, checks, fatal_failure_count, all_fatal_passed, gate_status, anomaly_flags, not_submittable: 'This artifact proves internal consistency and schema-shape against the declared schema_version. It is NEVER a filed submission and is not accepted by any national CbCR gateway -- each jurisdiction gateway (IRS/HMRC/ATO/etc.) runs its own additional validation.' }, compliance_flags: ['CBCR_REPORT_BUILT', all_fatal_passed ? 'CBCR_CONSISTENCY_VERIFIED' : 'CBCR_CONSISTENCY_ISSUES_FOUND'] };
+}
+
+function parseArr(id) { try { const v = JSON.parse(document.getElementById(id).value || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+
+function getParams() {
+  return {
+    schema_version: document.getElementById('schema_version').value.trim(),
+    export_mode: document.getElementById('export_mode').value,
+    reporting_entity_name: document.getElementById('reporting_entity_name').value.trim(),
+    reporting_entity_tin: document.getElementById('reporting_entity_tin').value.trim(),
+    table1_jurisdictions: parseArr('table1'),
+    table2_entities: parseArr('table2'),
+    rounding_tolerance: num(document.getElementById('rounding_tolerance').value) ?? 1,
+  };
+}
+
+async function cgHash(pp, op) { const obj = cgCanon({ policy_parameters: pp, output_payload: op }); const buf = new TextEncoder().encode(JSON.stringify(obj)); const dig = await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(dig)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+function cgCanon(v) { if (v === null || typeof v !== 'object') return v; if (Array.isArray(v)) return v.map(cgCanon); const o = {}; for (const k of Object.keys(v).sort()) o[k] = cgCanon(v[k]); return o; }
+
+let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastHash = null, _lastFlags = null;
+
+async function run() {
+  const pp = getParams();
+  const { output_payload, compliance_flags } = compute(pp);
+  const rawHash = await cgHash(pp, output_payload);
+  const execHash = 'sha256:' + rawHash;
+  const artifact = { '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld', chaingraph_version: '0.4.0', spec_version: '0.8.8', compute_mode: 'browser', mandate_type: 'compliance_mandate', tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version, generated_at: new Date().toISOString(), execution_hash: execHash, chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 }, policy_parameters: pp, output_payload, compliance_flags, audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] } };
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload; _lastHash = execHash; _lastFlags = compliance_flags;
+  renderResults(output_payload, compliance_flags, execHash, artifact);
+  document.getElementById('ap2ExportBtn').disabled = false;
+}
+
+function renderResults(op, flags, execHash, artifact) {
+  const color = op.gate_status === 'auto_pass' ? 'var(--green)' : 'var(--warn)';
+  document.getElementById('heroRow').innerHTML =
+    '<div class="hero-stat"><div class="hero-val" style="color:' + color + ';font-size:.85rem;padding-top:6px">' + op.gate_status.toUpperCase() + '</div><div class="hero-lbl">Gate Status</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt);font-size:1.4rem">' + op.jurisdictions.length + '</div><div class="hero-lbl">Jurisdictions</div></div>' +
+    '<div class="hero-stat"><div class="hero-val" style="color:' + (op.fatal_failure_count > 0 ? 'var(--red)' : 'var(--green)') + ';font-size:1.4rem">' + op.fatal_failure_count + '</div><div class="hero-lbl">Fatal Failures</div></div>';
+  document.getElementById('verdictDiv').innerHTML =
+    '<div class="verdict ' + (op.all_fatal_passed ? 'pass' : 'fail') + '">' +
+    (op.all_fatal_passed ? '✓ All consistency checks passed. ' : '✗ ' + op.fatal_failure_count + ' fatal check(s) failed, including ' + op.orphan_entities.length + ' orphan entit(y/ies). ') +
+    op.not_submittable +
+    '</div><div class="gap-list">' + op.checks.map(c => '<span class="badge ' + (c.passed ? 'ok' : 'err') + '">' + c.id + '</span>').join('') +
+    (op.anomaly_flags.length ? '<div style="margin-top:8px" class="muted-txt">Anomaly flags: ' + op.anomaly_flags.map(a => a.jurisdiction_code + ':' + a.pattern).join(', ') + '</div>' : '') +
+    '</div>';
+  document.getElementById('execHash').textContent = execHash;
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2() { if (!_lastArtifact) return; const ap2 = { schema: 'ainumbers-policy-mandate-v1.0', tool_id: MANIFEST.tool_id, version: MANIFEST.version, mandate_type: 'compliance_mandate', generated_at: _lastArtifact.generated_at, execution_hash: _lastHash, policy_parameters: _lastPP, output_payload: _lastOP, compliance_flags: _lastFlags }; dl(JSON.stringify(ap2, null, 2), 'art-472-cbcr-builder-policy-mandate.json', 'application/json'); }
+function exportArtifact() { if (!_lastArtifact) return; dl(JSON.stringify(_lastArtifact, null, 2), 'art-472-cbcr-builder-artifact.json', 'application/json'); }
+function dl(c, f, m) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: m })); a.download = f; a.click(); }
+function toggleMfst() { const b = document.getElementById('mfstBody'), c = document.getElementById('mfstCode'); if (b.style.display === 'none' || !b.style.display) { if (!c.textContent) c.textContent = JSON.stringify(MANIFEST, null, 2); b.style.display = 'block'; } else b.style.display = 'none'; }
+
+const PRESETS = {
+  consistent: { export_mode: 'private_filing', table1: JSON.stringify([
+    { jurisdiction_code: 'IE', related_party_revenue: 400, unrelated_party_revenue: 600, total_revenue: 1000, profit_before_tax: 200, income_tax_paid: 25, income_tax_accrued: 30, stated_capital: 500, accumulated_earnings: 1200, number_of_employees: 50, tangible_assets: 2000 },
+    { jurisdiction_code: 'DE', related_party_revenue: 100, unrelated_party_revenue: 900, total_revenue: 1000, profit_before_tax: 80, income_tax_paid: 20, income_tax_accrued: 22, stated_capital: 300, accumulated_earnings: 700, number_of_employees: 120, tangible_assets: 1500 },
+  ], null, 2), table2: JSON.stringify([
+    { entity_name: 'Synthetic Ireland Ltd', jurisdiction_code: 'IE' },
+    { entity_name: 'Synthetic Germany GmbH', jurisdiction_code: 'DE' },
+  ], null, 2) },
+  orphan: { export_mode: 'eu_public', table1: JSON.stringify([
+    { jurisdiction_code: 'KY', related_party_revenue: 50, unrelated_party_revenue: 50, total_revenue: 500, profit_before_tax: 300, income_tax_paid: 0, income_tax_accrued: 0, stated_capital: 100, accumulated_earnings: 900, number_of_employees: 0, tangible_assets: 10 },
+  ], null, 2), table2: JSON.stringify([
+    { entity_name: 'Synthetic Cayman IP Holdco', jurisdiction_code: 'BS' },
+  ], null, 2) },
+};
+function loadPreset(n) {
+  const d = PRESETS[n]; if (!d) return;
+  document.getElementById('export_mode').value = d.export_mode;
+  document.getElementById('table1').value = d.table1;
+  document.getElementById('table2').value = d.table2;
+}
+loadPreset('consistent');
+</script>
+<script>
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+function __ocgGetArt(){var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}return null;}
+async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
+async function verifySignature(){var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}var pr=art&&art.audit_signature&&art.audit_signature.proof;if(!pr){alert('✗ no §16 proof on this artifact');return;}try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}}
+(function(){var el=document.getElementById('ap2ExportBtn');if(!el)return;var obs=new MutationObserver(function(){var sab=document.getElementById('signArtifactBtn');if(sab){sab.disabled=false;}obs.disconnect();});obs.observe(el,{attributes:true,attributeFilter:['disabled']});})();
+</script>
+</body>
+</html>
