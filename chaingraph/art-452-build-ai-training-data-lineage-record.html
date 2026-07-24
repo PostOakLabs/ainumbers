@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AI Training-Data Lineage Record &middot; ART-452 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Composes a hash-chained ML training-data lineage record: dataset identity, source datasets, collection/governance method, and an optional reference to an existing OCG receipt for the training-run compute. Maps to EU AI Act Art 10 / Annex IV 2(d) data-governance technical documentation.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-452-build-ai-training-data-lineage-record.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:52px}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:right;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-452 · AI Training-Data Lineage Record</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-452 &middot; Banking / AI Data Governance</div>
+  <h1>AI Training-Data Lineage Record</h1>
+  <p class="sub">Composes a hash-chained ML training-data lineage record &mdash; dataset identity, upstream source datasets, a declared collection/governance method, and an OPTIONAL reference to an existing OCG receipt for the training-run compute (tool identity, execution hash, kernel digest &mdash; never re-embedded).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Data Governance</span>
+    <span class="flag">EU AI Act Art 10 / Annex IV 2(d)</span>
+    <span class="flag">SR 11-7 Data Lineage</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; dataset_id and source_dataset_ids are STRUCTURAL catalog identifiers only. This kernel never ingests, stores, or echoes dataset contents. It documents dataset lineage and governance metadata &mdash; it does NOT validate dataset quality, bias, or representativeness.</div>
+  <div class="pii-notice">Not <code>build_ai_decision_log_record</code> (art-236, per-inference decision chain) and not <code>build_ai_workpaper_record</code> (art-380, audit workpaper over a receipt). All three may reference the same underlying receipt hash without re-embedding it.</div>
+
+  <div class="card">
+    <div class="section-head">Dataset Identity</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="datasetId">Dataset ID</label><input type="text" id="datasetId" value="ds-credit-decisioning-2026q2"></div>
+      <div class="q"><label class="q-label" for="datasetVersion">Dataset version</label><input type="text" id="datasetVersion" value="1.0.0"></div>
+      <div class="q"><label class="q-label" for="collectionMethod">Collection method</label>
+        <select id="collectionMethod">
+          <option value="internal_transaction_records" selected>internal_transaction_records</option>
+          <option value="third_party_licensed">third_party_licensed</option>
+          <option value="public_dataset">public_dataset</option>
+          <option value="synthetic_generated">synthetic_generated</option>
+          <option value="human_labeled">human_labeled</option>
+          <option value="model_generated">model_generated</option>
+        </select>
+      </div>
+      <div class="q"><label class="q-label" for="retentionMonths">Retention (months, min 6)</label><input type="number" id="retentionMonths" value="12"></div>
+    </div>
+    <div class="q"><label class="q-label" for="sourceDatasetIds">Source dataset IDs (comma-separated, max 32)</label><input type="text" id="sourceDatasetIds" value="ds-core-banking-txn-log-2024-2026"></div>
+    <div class="q"><label class="q-label" for="governanceNotes">Governance notes (optional)</label><textarea id="governanceNotes">Sourced from internal core-banking transaction extracts, deduplicated and de-identified prior to model training per firm data-governance policy.</textarea></div>
+
+    <div class="section-head" style="margin-top:14px">Referenced Training-Run Receipt (optional)</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="receiptToolId">Receipt tool_id</label><input type="text" id="receiptToolId" value=""></div>
+      <div class="q"><label class="q-label" for="receiptToolVersion">Receipt tool_version</label><input type="text" id="receiptToolVersion" value=""></div>
+      <div class="q"><label class="q-label" for="receiptExecHash">Receipt execution_hash (64-char hex)</label><input type="text" id="receiptExecHash" value=""></div>
+      <div class="q"><label class="q-label" for="receiptKernelDigest">Receipt kernel_digest (sha256:...)</label><input type="text" id="receiptKernelDigest" value=""></div>
+    </div>
+
+    <div class="section-head" style="margin-top:14px">Chain + Operator</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="prevHash">Previous lineage execution_hash (optional, chains a prior record)</label><input type="text" id="prevHash" value=""></div>
+      <div class="q"><label class="q-label" for="operatorId">Operator ID (optional)</label><input type="text" id="operatorId" value="mrm-data-governance-team"></div>
+    </div>
+
+    <div style="margin-top:8px">
+      <button onclick="runLineageRecord()">&#9654; Build Lineage Record</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Lineage Record Detail</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-452-build-ai-training-data-lineage-record',
+  version: '1.0.0',
+  mcp_name: 'build_ai_training_data_lineage_record',
+  title: 'AI Training-Data Lineage Record',
+  description: 'Composes a hash-chained ML training-data lineage record: dataset identity, source datasets, collection/governance method, and an optional reference to an existing OCG receipt for the training-run compute. Documents lineage only, not dataset quality.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'EU AI Act (Reg. 2024/1689) Art 10 (data and data governance), Annex IV 2(d) (technical documentation: data provenance, collection, labelling, cleaning); SR 11-7 model risk management data-lineage practice (US domestic analog)',
+  mcp_tool_definition: {
+    name: 'build_ai_training_data_lineage_record',
+    description: 'Compose a hash-chained ML training-data lineage record: dataset_id, dataset_version, source_dataset_ids, collection_method, and an optional reference to an existing OCG receipt (tool identity, execution hash, kernel digest) for the training-run compute.',
+    inputSchema: {
+      type: 'object',
+      required: ['dataset_id','dataset_version','collection_method'],
+      properties: {
+        dataset_id: { type: 'string' }, dataset_version: { type: 'string' },
+        source_dataset_ids: { type: 'array', items: { type: 'string' } },
+        collection_method: { type: 'string', enum: ['internal_transaction_records','third_party_licensed','public_dataset','synthetic_generated','human_labeled','model_generated'] },
+        governance_notes: { type: 'string' },
+        referenced_receipt_tool_id: { type: 'string' }, referenced_receipt_tool_version: { type: 'string' },
+        referenced_receipt_execution_hash: { type: 'string' }, referenced_receipt_kernel_digest: { type: 'string' },
+        sha256_prev_lineage_hash: { type: 'string' }, retention_months: { type: 'number' },
+        operator_id: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+var HEX64 = /^[0-9a-f]{64}$/;
+var SHA256_PREFIXED = /^sha256:[0-9a-f]{64}$/;
+var VALID_COLLECTION_METHODS = ['internal_transaction_records','third_party_licensed','public_dataset','synthetic_generated','human_labeled','model_generated'];
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return hex;
+}
+
+function str(v) { return typeof v === 'string' ? v : ''; }
+function bounded(s, max) { var t = str(s).trim(); return t.length <= max ? t : t.slice(0, max) + '[TRUNCATED]'; }
+function boundedList(v, maxItems, maxLen) {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, maxItems).map(function(s){ return bounded(s, maxLen); }).filter(function(s){ return s.length > 0; });
+}
+
+function computeLineageRecord(pp) {
+  var checks = [];
+
+  var datasetId = bounded(pp.dataset_id, 128);
+  var datasetVersion = bounded(pp.dataset_version, 64);
+  var sourceDatasetIds = boundedList(pp.source_dataset_ids, 32, 128);
+  var collectionMethod = str(pp.collection_method).trim();
+  var governanceNotes = bounded(pp.governance_notes, 512);
+  var receiptToolId = bounded(pp.referenced_receipt_tool_id, 128);
+  var receiptToolVersion = bounded(pp.referenced_receipt_tool_version, 64);
+  var receiptExecHash = str(pp.referenced_receipt_execution_hash).trim().toLowerCase();
+  var receiptKernelDigest = str(pp.referenced_receipt_kernel_digest).trim().toLowerCase();
+  var prevLineageHash = str(pp.sha256_prev_lineage_hash).trim().toLowerCase();
+  var retentionMonths = Math.max(6, Math.round(Number(pp.retention_months) || 6));
+  var operatorId = bounded(pp.operator_id, 128);
+
+  var datasetIdPresent = datasetId.length > 0;
+  checks.push({ check: 'dataset_id_present', pass: datasetIdPresent, detail: datasetIdPresent ? datasetId : 'dataset_id is required' });
+
+  var datasetVersionPresent = datasetVersion.length > 0;
+  checks.push({ check: 'dataset_version_present', pass: datasetVersionPresent, detail: datasetVersionPresent ? datasetVersion : 'dataset_version is required' });
+
+  var collectionMethodValid = VALID_COLLECTION_METHODS.indexOf(collectionMethod) !== -1;
+  checks.push({ check: 'collection_method_valid', pass: collectionMethodValid, detail: collectionMethodValid ? collectionMethod : 'collection_method must be one of: ' + VALID_COLLECTION_METHODS.join(', ') });
+
+  var receiptFieldsGiven = [receiptToolId, receiptExecHash, receiptKernelDigest].filter(function(v){return v.length>0;}).length;
+  var receiptFieldsNone = receiptFieldsGiven === 0;
+  var receiptFieldsAll = receiptFieldsGiven === 3 && receiptToolVersion.length > 0;
+  var execHashValid = receiptExecHash === '' || HEX64.test(receiptExecHash);
+  var kernelDigestValid = receiptKernelDigest === '' || SHA256_PREFIXED.test(receiptKernelDigest);
+  var receiptRefValid = receiptFieldsNone || (receiptFieldsAll && execHashValid && kernelDigestValid);
+  checks.push({ check: 'referenced_receipt_valid_if_present', pass: receiptRefValid, detail: receiptRefValid ? (receiptFieldsAll ? 'ok' : 'not referenced') : 'referenced_receipt_tool_id, _tool_version, a valid 64-char hex execution_hash, and a valid sha256:-prefixed kernel_digest must ALL be present together or ALL be absent' });
+
+  var prevHashOk = prevLineageHash === '' || HEX64.test(prevLineageHash);
+  checks.push({ check: 'prev_lineage_hash_valid_if_present', pass: prevHashOk, detail: prevHashOk ? 'ok' : 'sha256_prev_lineage_hash, if provided, must be a 64-char lowercase hex SHA-256' });
+
+  var allValid = checks.every(function(c){ return c.pass; });
+  var chainPosition = prevLineageHash ? 'chained' : 'first';
+
+  var op = {
+    record_status: allValid ? 'COMPLETE' : 'INCOMPLETE',
+    dataset_id: allValid ? datasetId : null,
+    dataset_version: allValid ? datasetVersion : null,
+    source_dataset_ids: allValid ? sourceDatasetIds : null,
+    collection_method: allValid ? collectionMethod : null,
+    governance_notes: allValid ? (governanceNotes || null) : null,
+    referenced_receipt: allValid && receiptFieldsAll ? { tool_id: receiptToolId, tool_version: receiptToolVersion, execution_hash: receiptExecHash, kernel_digest: receiptKernelDigest } : null,
+    sha256_prev_lineage_hash: allValid && prevLineageHash ? prevLineageHash : null,
+    chain_position: allValid ? chainPosition : null,
+    retention_months: allValid ? retentionMonths : null,
+    operator_id: allValid ? (operatorId || null) : null,
+    checks: checks,
+    zero_pii_notice: 'dataset_id and source_dataset_ids are STRUCTURAL catalog identifiers only. This kernel never ingests, stores, or echoes dataset contents -- zero PII by construction.',
+    scope_note: 'Documents dataset lineage and governance metadata for a training run. Does NOT validate dataset quality, bias, or representativeness -- those remain a firm judgment call outside this kernel\'s deterministic boundary.',
+    regulatory_basis: 'EU AI Act (Reg. 2024/1689) Art 10 (data and data governance), Annex IV 2(d) (technical documentation: data provenance, collection, labelling, cleaning); SR 11-7 model risk management data-lineage practice (US domestic analog)',
+    table_version: 'EU-AIA-ART10-2024-1689-R1'
+  };
+
+  var flags = ['ML_LINEAGE_RECORD_BOUND', 'ZERO_PII'];
+  if (!allValid) flags.push('LINEAGE_INPUTS_INVALID');
+  if (prevLineageHash) flags.push('LINEAGE_CHAIN_REFERENCED');
+  if (receiptFieldsAll) flags.push('TRAINING_RECEIPT_REFERENCED');
+
+  return { pp: {
+    dataset_id: datasetId, dataset_version: datasetVersion, source_dataset_ids: sourceDatasetIds,
+    collection_method: collectionMethod, governance_notes: governanceNotes,
+    referenced_receipt_tool_id: receiptToolId, referenced_receipt_tool_version: receiptToolVersion,
+    referenced_receipt_execution_hash: receiptExecHash, referenced_receipt_kernel_digest: receiptKernelDigest,
+    sha256_prev_lineage_hash: prevLineageHash, retention_months: retentionMonths, operator_id: operatorId
+  }, output_payload: op, compliance_flags: flags, valid: allValid };
+}
+
+function runLineageRecord() {
+  var pp = {
+    dataset_id: document.getElementById('datasetId').value,
+    dataset_version: document.getElementById('datasetVersion').value,
+    source_dataset_ids: document.getElementById('sourceDatasetIds').value.split(',').map(function(s){return s.trim();}).filter(Boolean),
+    collection_method: document.getElementById('collectionMethod').value,
+    governance_notes: document.getElementById('governanceNotes').value,
+    referenced_receipt_tool_id: document.getElementById('receiptToolId').value,
+    referenced_receipt_tool_version: document.getElementById('receiptToolVersion').value,
+    referenced_receipt_execution_hash: document.getElementById('receiptExecHash').value,
+    referenced_receipt_kernel_digest: document.getElementById('receiptKernelDigest').value,
+    sha256_prev_lineage_hash: document.getElementById('prevHash').value,
+    retention_months: document.getElementById('retentionMonths').value,
+    operator_id: document.getElementById('operatorId').value
+  };
+
+  var result = computeLineageRecord(pp);
+  _lastResult = result;
+  var op = result.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  if (result.valid) {
+    vBox.style.color = 'var(--teal-lt)'; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid var(--teal)';
+    vBox.textContent = 'LINEAGE RECORD BUILT — ' + op.dataset_id;
+  } else {
+    vBox.style.color = 'var(--red)'; vBox.style.background = 'rgba(239,68,68,.08)'; vBox.style.border = '1px solid var(--red)';
+    vBox.textContent = 'INPUTS INVALID — see checks below';
+  }
+
+  document.getElementById('flagRow').innerHTML = op.checks.filter(function(c){return !c.pass;}).map(function(c) {
+    return '<span class="badge fail">' + c.check.toUpperCase() + '</span>';
+  }).join('') || '<span class="badge ok">ALL CHECKS PASS</span>';
+
+  var rows = [];
+  if (result.valid) {
+    rows.push(['Dataset', op.dataset_id + ' @ ' + op.dataset_version]);
+    rows.push(['Source datasets', (op.source_dataset_ids || []).join(', ') || '(none declared)']);
+    rows.push(['Collection method', op.collection_method]);
+    if (op.governance_notes) rows.push(['Governance notes', op.governance_notes]);
+    if (op.referenced_receipt) {
+      rows.push(['Referenced receipt', op.referenced_receipt.tool_id + ' @ ' + op.referenced_receipt.tool_version]);
+      rows.push(['Receipt execution_hash', op.referenced_receipt.execution_hash]);
+      rows.push(['Receipt kernel_digest', op.referenced_receipt.kernel_digest]);
+    }
+    rows.push(['Chain position', op.chain_position]);
+    if (op.sha256_prev_lineage_hash) rows.push(['Chained to prior lineage record', op.sha256_prev_lineage_hash]);
+    rows.push(['Retention (months)', op.retention_months]);
+    if (op.operator_id) rows.push(['Operator', op.operator_id]);
+  } else {
+    op.checks.filter(function(c){return !c.pass;}).forEach(function(c){ rows.push([c.check, c.detail]); });
+  }
+  document.getElementById('kvDiv').innerHTML = rows.map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(result.pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-452-build-ai-training-data-lineage-record',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-452-build-ai-training-data-lineage-record.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
