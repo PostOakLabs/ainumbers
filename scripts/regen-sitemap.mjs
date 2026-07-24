@@ -82,6 +82,7 @@ function main() {
   const disclosureFiles = listHtml(resolve(REPO, 'disclosures')).sort();
   const docsFiles = listHtml(resolve(REPO, 'docs')).sort();
   const ledgerFiles = listHtml(resolve(REPO, 'ledger')).sort();
+  const trustFiles = listHtml(resolve(REPO, 'trust')).sort();
 
   const excludeSet = new Set(MANIFEST.recursiveExcludeSubdirs || []);
   let chaingraphFiles = [];
@@ -135,11 +136,15 @@ function main() {
   for (const f of attestationsFiles) lines.push(urlEntry(f, lm(f), 'yearly', '0.3'));
   lines.push('');
 
+  lines.push('  <!-- Trust -->');
+  for (const f of trustFiles) lines.push(urlEntry(`trust/${f}`, lm(`trust/${f}`), 'monthly', '0.5'));
+  lines.push('');
+
   lines.push('</urlset>');
   const output = lines.join('\n') + '\n';
 
   const total = MANIFEST.rootPages.length + guideFiles.length + toolFiles.length +
-    chaingraphFiles.length + disclosureFiles.length + docsFiles.length + ledgerFiles.length + attestationsFiles.length;
+    chaingraphFiles.length + disclosureFiles.length + docsFiles.length + ledgerFiles.length + attestationsFiles.length + trustFiles.length;
 
   if (CHECK) {
     const current = existsSync(SITEMAP_PATH) ? readFileSync(SITEMAP_PATH, 'utf8') : '';
@@ -152,7 +157,7 @@ function main() {
   }
 
   writeFileSync(SITEMAP_PATH, output, 'utf8');
-  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${docsFiles.length} docs, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${total} total).`);
+  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${docsFiles.length} docs, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${trustFiles.length} trust, ${total} total).`);
 }
 
 main();
