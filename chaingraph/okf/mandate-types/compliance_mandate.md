@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-276"]
+tags: ["compliance_mandate", "count-277"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-276 tool(s) in this mandate-type group:
+277 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -283,6 +283,7 @@ timestamp: 2026-07-14
 - [DORA Register of Information (RoI) Builder & Cross-Validator](../tools/art-466-dora-roi-builder.md)
 - [OECD Country-by-Country Report Builder](../tools/art-472-cbcr-builder.md)
 - [Transfer-Pricing Interquartile Range Benchmark](../tools/art-473-interquartile-benchmark.md)
+- [MT700 LC Field Validator](../tools/art-474-validate-mt700-lc-fields.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
