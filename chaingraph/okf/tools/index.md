@@ -389,13 +389,16 @@ timestamp: 2026-07-14
 - [GloBE Jurisdictional ETR Calculator](./art-454-globe-jurisdictional-etr.md) — `compute_globe_jurisdictional_etr`
 - [GloBE SBIE & Top-up Tax Calculator](./art-455-globe-sbie-topup.md) — `compute_globe_sbie_topup`
 - [GloBE Transitional Safe Harbour Test Evaluator](./art-456-globe-safe-harbour-tests.md) — `evaluate_globe_safe_harbour_tests`
+- [GloBE Information Return (GIR) Composer](./art-457-globe-gir-composer.md) — `compose_globe_gir`
 - [Attribute Sampling Plan Generator](./art-458-attribute-sampling-plan.md) — `plan_attribute_sample`
 - [Segregation-of-Duties Matrix Checker](./art-459-sod-matrix-check.md) — `check_sod_matrix`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
 - [IPE Integrity Verifier](./art-460-ipe-integrity-verifier.md) — `verify_ipe_integrity`
+- [Control-Test Evidence Composer](./art-461-control-test-evidence-composer.md) — `compose_control_test_evidence`
 - [Journal-Entry Ruleset Screen](./art-462-je-ruleset-screen.md) — `screen_je_ruleset`
 - [Audit Recalculation Suite](./art-463-recalc-suite.md) — `run_audit_recalc_suite`
 - [Bank/AR Confirmation Matcher](./art-464-confirmation-matcher.md) — `match_confirmations`
+- [Workpaper Bundle Composer](./art-465-workpaper-bundle-composer.md) — `compose_workpaper_bundle`
 - [DORA Register of Information (RoI) Builder & Cross-Validator](./art-466-dora-roi-builder.md) — `build_dora_roi_register`
 - [DORA ICT Incident Classifier & Reporting Clock](./art-467-dora-incident-classifier.md) — `classify_dora_ict_incident_and_clock_deadlines`
 - [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`
