@@ -385,7 +385,10 @@ import * as art450    from './art-450-model-inventory-entry.kernel.mjs';
 import * as art451    from './art-451-model-outcome-analysis.kernel.mjs';
 import * as art452    from './art-452-build-ai-training-data-lineage-record.kernel.mjs';
 import * as art453    from './art-453-model-validation-status.kernel.mjs';
+import * as art458    from './art-458-attribute-sampling-plan.kernel.mjs';
+import * as art459    from './art-459-sod-matrix-check.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
+import * as art460    from './art-460-ipe-integrity-verifier.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
@@ -840,7 +843,10 @@ export const KERNELS = {
   'art-451-model-outcome-analysis':                           art451,
   'art-452-build-ai-training-data-lineage-record':            art452,
   'art-453-model-validation-status':                          art453,
+  'art-458-attribute-sampling-plan':                          art458,
+  'art-459-sod-matrix-check':                                 art459,
   'art-46-arc-paymaster-model':                               art46,
+  'art-460-ipe-integrity-verifier':                           art460,
   'art-47-arc-cctp-transfer':                                 art47,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
   'art-49-clearing-access-model-selector':                    art49,
