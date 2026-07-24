@@ -392,6 +392,9 @@ import * as art458    from './art-458-attribute-sampling-plan.kernel.mjs';
 import * as art459    from './art-459-sod-matrix-check.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
 import * as art460    from './art-460-ipe-integrity-verifier.kernel.mjs';
+import * as art462    from './art-462-je-ruleset-screen.kernel.mjs';
+import * as art463    from './art-463-recalc-suite.kernel.mjs';
+import * as art464    from './art-464-confirmation-matcher.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
@@ -853,6 +856,9 @@ export const KERNELS = {
   'art-459-sod-matrix-check':                                 art459,
   'art-46-arc-paymaster-model':                               art46,
   'art-460-ipe-integrity-verifier':                           art460,
+  'art-462-je-ruleset-screen':                                art462,
+  'art-463-recalc-suite':                                     art463,
+  'art-464-confirmation-matcher':                             art464,
   'art-47-arc-cctp-transfer':                                 art47,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
   'art-49-clearing-access-model-selector':                    art49,

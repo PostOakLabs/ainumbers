@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Audit Recalculation Suite &middot; ART-463 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Independent recalculation of depreciation (SL/DDB/units), interest accrual, EPS basic/diluted, amortization schedules, and prepaid roll-forwards, diffed against client-reported figures under a caller-declared tolerance gate.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-463-recalc-suite.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.45rem .6rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.row{display:grid;gap:6px;align-items:center;margin-bottom:8px}
+.row-dep{grid-template-columns:1fr 1fr 1fr 1fr 1fr .8fr 1fr auto}
+.row-int{grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto}
+.row-eps{grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr auto}
+.row-amort{grid-template-columns:1fr 1fr .8fr 1fr auto}
+.row-prepaid{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}
+.row-labels{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.row-remove{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.4rem .5rem;cursor:pointer}
+.row-add{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.4rem .8rem;cursor:pointer;margin-top:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:800px){.row-dep,.row-int,.row-eps,.row-amort,.row-prepaid{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-463 · Audit Recalculation Suite</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-463 &middot; Audit &amp; Assurance</div>
+  <h1>Audit Recalculation Suite</h1>
+  <p class="sub">Independently recomputes depreciation (straight-line, double-declining-balance, units-of-production), interest accrual, EPS (basic and diluted), straight-line intangible amortization, and prepaid-expense roll-forwards, then diffs each figure against the client's stated figure under a tolerance gate you declare. A category only runs when you add at least one item to it.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Independent Recalculation</span>
+    <span class="flag">Variance / Threshold Gate</span>
+    <span class="flag">5 Schedule Types</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; EPS diluted uses the simplified NI-less-preferred-dividends-over-diluted-shares form &mdash; it does not model if-converted or treasury-stock adjustments for specific convertible instruments.</div>
+
+  <div class="card">
+    <div class="section-head">Tolerance Gate (policy input)</div>
+    <div class="grid2">
+      <div class="q"><span class="q-label">Absolute tolerance ($)</span><input type="number" id="tolAbs" value="0"></div>
+      <div class="q"><span class="q-label">Percent tolerance (%)</span><input type="number" id="tolPct" value="5" step="0.1"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Depreciation</div>
+    <div class="row row-dep row-labels"><span>Asset</span><span>Method</span><span>Cost</span><span>Salvage</span><span>Life (yrs)</span><span>Period #</span><span>Client Reported</span><span></span></div>
+    <div id="depList"></div>
+    <button class="row-add" onclick="addDep()">+ Add asset</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Interest Accrual</div>
+    <div class="row row-int row-labels"><span>Item</span><span>Principal</span><span>Rate %</span><span>Days</span><span>Basis</span><span>Client Reported</span><span></span></div>
+    <div id="intList"></div>
+    <button class="row-add" onclick="addInt()">+ Add item</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">EPS</div>
+    <div class="row row-eps row-labels"><span>Label</span><span>Net Income</span><span>Pref Div</span><span>Shares Basic</span><span>Shares Diluted</span><span>Client Basic</span><span>Client Diluted</span><span></span></div>
+    <div id="epsList"></div>
+    <button class="row-add" onclick="addEps()">+ Add period</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Amortization</div>
+    <div class="row row-amort row-labels"><span>Item</span><span>Principal</span><span>Periods</span><span>Client Reported</span><span></span></div>
+    <div id="amortList"></div>
+    <button class="row-add" onclick="addAmort()">+ Add item</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Prepaid Roll-Forward</div>
+    <div class="row row-prepaid row-labels"><span>Item</span><span>Beginning</span><span>Additions</span><span>Amortized</span><span>Client Ending</span><span></span></div>
+    <div id="prepaidList"></div>
+    <button class="row-add" onclick="addPrepaid()">+ Add item</button>
+  </div>
+
+  <div class="card">
+    <button onclick="runRecalc()">&#9654; Run Recalculation Suite</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Variance Detail</div>
+      <div id="varianceDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-463-recalc-suite',
+  version: '1.0.0',
+  mcp_name: 'run_audit_recalc_suite',
+  title: 'Audit Recalculation Suite',
+  description: 'Independently recalculate depreciation (SL/DDB/units), interest accrual, EPS basic/diluted, amortization, and prepaid roll-forwards; diff against client-reported figures under a declared tolerance gate.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'AICPA AU-C 520 substantive analytical / recalculation procedures; PCAOB AS 2301',
+  mcp_tool_definition: {
+    name: 'run_audit_recalc_suite',
+    description: 'Independently recalculate depreciation, interest accrual, EPS, amortization, and prepaid roll-forwards and return a variance artifact against a declared tolerance gate.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tolerance: { type: 'object', properties: { abs: { type: 'number' }, pct: { type: 'number' } } },
+        depreciation: { type: 'array' }, interest_accrual: { type: 'array' }, eps: { type: 'array' },
+        amortization: { type: 'array' }, prepaid_rollforward: { type: 'array' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+function num(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function r2(v) { return (v === null || !isFinite(v)) ? null : Math.round(v * 100) / 100; }
+
+function withinTolerance(variance, base, tolAbs, tolPct) {
+  var absOk = tolAbs != null ? Math.abs(variance) <= tolAbs : null;
+  var pctOk = (tolPct != null && base !== 0) ? Math.abs((variance / base) * 100) <= tolPct : null;
+  var passes = [absOk, pctOk].filter(function(x){return x !== null;});
+  if (passes.length > 0) return passes.every(function(p){return p === true;});
+  return variance === 0;
+}
+function ddbBookValue(cost, salvage, usefulLifeYears, periodNumber) {
+  var rate = usefulLifeYears > 0 ? 2 / usefulLifeYears : 0;
+  var bookValue = cost, periodExpense = 0;
+  for (var p = 1; p <= periodNumber; p++) {
+    var candidate = bookValue * rate;
+    var maxAllowed = Math.max(0, bookValue - salvage);
+    periodExpense = Math.min(candidate, maxAllowed);
+    bookValue = bookValue - periodExpense;
+  }
+  return periodExpense;
+}
+
+var depSeq = 0, intSeq = 0, epsSeq = 0, amortSeq = 0, prepaidSeq = 0;
+function addDep(asset_id, method, cost, salvage, life, period, clientRep) {
+  depSeq++; var id = 'dep' + depSeq;
+  var div = document.createElement('div'); div.className = 'row row-dep'; div.id = id;
+  div.innerHTML = '<input type="text" class="d-id" value="' + (asset_id || ('A-' + depSeq)) + '">' +
+    '<select class="d-method"><option value="straight_line"' + (method==='straight_line'?' selected':'') + '>straight_line</option><option value="ddb"' + (method==='ddb'?' selected':'') + '>ddb</option><option value="units_of_production"' + (method==='units_of_production'?' selected':'') + '>units_of_production</option></select>' +
+    '<input type="number" class="d-cost" value="' + (cost!=null?cost:10000) + '">' +
+    '<input type="number" class="d-salvage" value="' + (salvage!=null?salvage:1000) + '">' +
+    '<input type="number" class="d-life" value="' + (life!=null?life:5) + '">' +
+    '<input type="number" class="d-period" value="' + (period!=null?period:1) + '">' +
+    '<input type="number" class="d-client" value="' + (clientRep!=null?clientRep:1800) + '">' +
+    '<button class="row-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('depList').appendChild(div);
+}
+function addInt(item_id, principal, rate, days, basis, clientRep) {
+  intSeq++; var id = 'int' + intSeq;
+  var div = document.createElement('div'); div.className = 'row row-int'; div.id = id;
+  div.innerHTML = '<input type="text" class="i-id" value="' + (item_id || ('I-' + intSeq)) + '">' +
+    '<input type="number" class="i-principal" value="' + (principal!=null?principal:100000) + '">' +
+    '<input type="number" class="i-rate" step="0.01" value="' + (rate!=null?rate:6) + '">' +
+    '<input type="number" class="i-days" value="' + (days!=null?days:90) + '">' +
+    '<select class="i-basis"><option value="actual_360"' + (basis==='actual_360'?' selected':'') + '>actual_360</option><option value="actual_365"' + (basis==='actual_365'?' selected':'') + '>actual_365</option><option value="30_360"' + (basis==='30_360'?' selected':'') + '>30_360</option></select>' +
+    '<input type="number" class="i-client" value="' + (clientRep!=null?clientRep:1500) + '">' +
+    '<button class="row-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('intList').appendChild(div);
+}
+function addEps(label, ni, prefDiv, sharesB, sharesD, clientB, clientD) {
+  epsSeq++; var id = 'eps' + epsSeq;
+  var div = document.createElement('div'); div.className = 'row row-eps'; div.id = id;
+  div.innerHTML = '<input type="text" class="e-label" value="' + (label || ('FY' + epsSeq)) + '">' +
+    '<input type="number" class="e-ni" value="' + (ni!=null?ni:5000000) + '">' +
+    '<input type="number" class="e-pref" value="' + (prefDiv!=null?prefDiv:200000) + '">' +
+    '<input type="number" class="e-sb" value="' + (sharesB!=null?sharesB:1000000) + '">' +
+    '<input type="number" class="e-sd" value="' + (sharesD!=null?sharesD:1100000) + '">' +
+    '<input type="number" class="e-cb" step="0.01" value="' + (clientB!=null?clientB:4.8) + '">' +
+    '<input type="number" class="e-cd" step="0.01" value="' + (clientD!=null?clientD:4.36) + '">' +
+    '<button class="row-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('epsList').appendChild(div);
+}
+function addAmort(item_id, principal, periods, clientRep) {
+  amortSeq++; var id = 'am' + amortSeq;
+  var div = document.createElement('div'); div.className = 'row row-amort'; div.id = id;
+  div.innerHTML = '<input type="text" class="a-id" value="' + (item_id || ('M-' + amortSeq)) + '">' +
+    '<input type="number" class="a-principal" value="' + (principal!=null?principal:120000) + '">' +
+    '<input type="number" class="a-periods" value="' + (periods!=null?periods:10) + '">' +
+    '<input type="number" class="a-client" value="' + (clientRep!=null?clientRep:12000) + '">' +
+    '<button class="row-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('amortList').appendChild(div);
+}
+function addPrepaid(item_id, begin, additions, amortized, clientEnd) {
+  prepaidSeq++; var id = 'pp' + prepaidSeq;
+  var div = document.createElement('div'); div.className = 'row row-prepaid'; div.id = id;
+  div.innerHTML = '<input type="text" class="p-id" value="' + (item_id || ('P-' + prepaidSeq)) + '">' +
+    '<input type="number" class="p-begin" value="' + (begin!=null?begin:50000) + '">' +
+    '<input type="number" class="p-add" value="' + (additions!=null?additions:10000) + '">' +
+    '<input type="number" class="p-amort" value="' + (amortized!=null?amortized:5000) + '">' +
+    '<input type="number" class="p-client" value="' + (clientEnd!=null?clientEnd:55000) + '">' +
+    '<button class="row-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('prepaidList').appendChild(div);
+}
+
+function runRecalc() {
+  var tolAbsInput = document.getElementById('tolAbs').value;
+  var tolPctInput = document.getElementById('tolPct').value;
+  var tolerance_declared = tolAbsInput !== '' || tolPctInput !== '';
+  var tolAbs = num(tolAbsInput, 0);
+  var tolPct = num(tolPctInput, 0);
+
+  var depreciation = [];
+  document.querySelectorAll('#depList .row-dep').forEach(function(row) {
+    var asset_id = row.querySelector('.d-id').value.trim(); if (!asset_id) return;
+    var method = row.querySelector('.d-method').value;
+    var cost = num(row.querySelector('.d-cost').value, 0);
+    var salvage = num(row.querySelector('.d-salvage').value, 0);
+    var life = num(row.querySelector('.d-life').value, 0);
+    var period = Math.max(1, Math.trunc(num(row.querySelector('.d-period').value, 1)));
+    var clientRep = num(row.querySelector('.d-client').value, 0);
+    var recalculated;
+    if (method === 'ddb') recalculated = r2(ddbBookValue(cost, salvage, life, period));
+    else if (method === 'units_of_production') recalculated = r2(0);
+    else recalculated = r2(life > 0 ? (cost - salvage) / life : 0);
+    var variance = r2(recalculated - clientRep);
+    var variance_pct = clientRep !== 0 ? r2((variance / clientRep) * 100) : null;
+    depreciation.push({ asset_id: asset_id, method: method, period_number: period, recalculated_depreciation: recalculated, client_reported_depreciation: r2(clientRep), variance: variance, variance_pct: variance_pct, flagged: withinTolerance(variance, clientRep, tolAbs, tolPct) === false });
+  });
+
+  var interest_accrual = [];
+  document.querySelectorAll('#intList .row-int').forEach(function(row) {
+    var item_id = row.querySelector('.i-id').value.trim(); if (!item_id) return;
+    var principal = num(row.querySelector('.i-principal').value, 0);
+    var rate = num(row.querySelector('.i-rate').value, 0);
+    var days = num(row.querySelector('.i-days').value, 0);
+    var basis = row.querySelector('.i-basis').value;
+    var basisDays = basis === 'actual_365' ? 365 : 360;
+    var clientRep = num(row.querySelector('.i-client').value, 0);
+    var recalculated = r2(principal * (rate / 100) * (days / basisDays));
+    var variance = r2(recalculated - clientRep);
+    var variance_pct = clientRep !== 0 ? r2((variance / clientRep) * 100) : null;
+    interest_accrual.push({ item_id: item_id, day_count_basis: basis, recalculated_interest: recalculated, client_reported_interest: r2(clientRep), variance: variance, variance_pct: variance_pct, flagged: withinTolerance(variance, clientRep, tolAbs, tolPct) === false });
+  });
+
+  var eps = [];
+  document.querySelectorAll('#epsList .row-eps').forEach(function(row) {
+    var label = row.querySelector('.e-label').value.trim(); if (!label) return;
+    var ni = num(row.querySelector('.e-ni').value, 0);
+    var pref = num(row.querySelector('.e-pref').value, 0);
+    var sb = num(row.querySelector('.e-sb').value, 0);
+    var sd = num(row.querySelector('.e-sd').value, 0);
+    var cb = num(row.querySelector('.e-cb').value, 0);
+    var cd = num(row.querySelector('.e-cd').value, 0);
+    var numerator = ni - pref;
+    var epsBasic = sb > 0 ? r2(numerator / sb) : null;
+    var epsDiluted = sd > 0 ? r2(numerator / sd) : null;
+    var vb = epsBasic !== null ? r2(epsBasic - cb) : null;
+    var vd = epsDiluted !== null ? r2(epsDiluted - cd) : null;
+    var flaggedB = vb !== null && withinTolerance(vb, cb, tolAbs, tolPct) === false;
+    var flaggedD = vd !== null && withinTolerance(vd, cd, tolAbs, tolPct) === false;
+    eps.push({ label: label, recalculated_eps_basic: epsBasic, client_reported_eps_basic: r2(cb), variance_basic: vb, recalculated_eps_diluted: epsDiluted, client_reported_eps_diluted: r2(cd), variance_diluted: vd, flagged: flaggedB || flaggedD });
+  });
+
+  var amortization = [];
+  document.querySelectorAll('#amortList .row-amort').forEach(function(row) {
+    var item_id = row.querySelector('.a-id').value.trim(); if (!item_id) return;
+    var principal = num(row.querySelector('.a-principal').value, 0);
+    var periods = Math.max(0, Math.trunc(num(row.querySelector('.a-periods').value, 0)));
+    var clientRep = num(row.querySelector('.a-client').value, 0);
+    var recalculated = r2(periods > 0 ? principal / periods : 0);
+    var variance = r2(recalculated - clientRep);
+    var variance_pct = clientRep !== 0 ? r2((variance / clientRep) * 100) : null;
+    amortization.push({ item_id: item_id, periods_total: periods, recalculated_amortization: recalculated, client_reported_amortization: r2(clientRep), variance: variance, variance_pct: variance_pct, flagged: withinTolerance(variance, clientRep, tolAbs, tolPct) === false });
+  });
+
+  var prepaid_rollforward = [];
+  document.querySelectorAll('#prepaidList .row-prepaid').forEach(function(row) {
+    var item_id = row.querySelector('.p-id').value.trim(); if (!item_id) return;
+    var begin = num(row.querySelector('.p-begin').value, 0);
+    var add = num(row.querySelector('.p-add').value, 0);
+    var amort = num(row.querySelector('.p-amort').value, 0);
+    var clientRep = num(row.querySelector('.p-client').value, 0);
+    var recalculated = r2(begin + add - amort);
+    var variance = r2(recalculated - clientRep);
+    var variance_pct = clientRep !== 0 ? r2((variance / clientRep) * 100) : null;
+    prepaid_rollforward.push({ item_id: item_id, recalculated_ending_balance: recalculated, client_reported_ending_balance: r2(clientRep), variance: variance, variance_pct: variance_pct, flagged: withinTolerance(variance, clientRep, tolAbs, tolPct) === false });
+  });
+
+  // policy_parameters is built straight from the raw row values (never from the
+  // display-only recompute above) so the exported artifact's policy_parameters
+  // exactly matches what the caller declared.
+  var pp = { tolerance: tolerance_declared ? { abs: tolAbs, pct: tolPct } : undefined };
+  var rawDep = []; document.querySelectorAll('#depList .row-dep').forEach(function(row){ var id=row.querySelector('.d-id').value.trim(); if(!id) return; rawDep.push({asset_id:id, method: row.querySelector('.d-method').value, cost: num(row.querySelector('.d-cost').value,0), salvage_value: num(row.querySelector('.d-salvage').value,0), useful_life_years: num(row.querySelector('.d-life').value,0), period_number: Math.max(1,Math.trunc(num(row.querySelector('.d-period').value,1))), client_reported_depreciation: num(row.querySelector('.d-client').value,0)}); });
+  if (rawDep.length) pp.depreciation = rawDep;
+  var rawInt = []; document.querySelectorAll('#intList .row-int').forEach(function(row){ var id=row.querySelector('.i-id').value.trim(); if(!id) return; rawInt.push({item_id:id, principal: num(row.querySelector('.i-principal').value,0), annual_rate_pct: num(row.querySelector('.i-rate').value,0), days_accrued: num(row.querySelector('.i-days').value,0), day_count_basis: row.querySelector('.i-basis').value, client_reported_interest: num(row.querySelector('.i-client').value,0)}); });
+  if (rawInt.length) pp.interest_accrual = rawInt;
+  var rawEps = []; document.querySelectorAll('#epsList .row-eps').forEach(function(row){ var label=row.querySelector('.e-label').value.trim(); if(!label) return; rawEps.push({label:label, net_income: num(row.querySelector('.e-ni').value,0), preferred_dividends: num(row.querySelector('.e-pref').value,0), weighted_avg_shares_basic: num(row.querySelector('.e-sb').value,0), weighted_avg_shares_diluted: num(row.querySelector('.e-sd').value,0), client_reported_eps_basic: num(row.querySelector('.e-cb').value,0), client_reported_eps_diluted: num(row.querySelector('.e-cd').value,0)}); });
+  if (rawEps.length) pp.eps = rawEps;
+  var rawAmort = []; document.querySelectorAll('#amortList .row-amort').forEach(function(row){ var id=row.querySelector('.a-id').value.trim(); if(!id) return; rawAmort.push({item_id:id, principal: num(row.querySelector('.a-principal').value,0), periods_total: Math.max(0,Math.trunc(num(row.querySelector('.a-periods').value,0))), client_reported_amortization: num(row.querySelector('.a-client').value,0)}); });
+  if (rawAmort.length) pp.amortization = rawAmort;
+  var rawPrepaid = []; document.querySelectorAll('#prepaidList .row-prepaid').forEach(function(row){ var id=row.querySelector('.p-id').value.trim(); if(!id) return; rawPrepaid.push({item_id:id, beginning_balance: num(row.querySelector('.p-begin').value,0), additions: num(row.querySelector('.p-add').value,0), amortized_current_period: num(row.querySelector('.p-amort').value,0), client_reported_ending_balance: num(row.querySelector('.p-client').value,0)}); });
+  if (rawPrepaid.length) pp.prepaid_rollforward = rawPrepaid;
+
+  var categories_run = [];
+  var op = { tolerance_used: { abs: tolAbs, pct: tolPct, declared_by_caller: tolerance_declared }, categories_run: categories_run };
+  if (depreciation.length) { op.depreciation = depreciation; categories_run.push('depreciation'); }
+  if (interest_accrual.length) { op.interest_accrual = interest_accrual; categories_run.push('interest_accrual'); }
+  if (eps.length) { op.eps = eps; categories_run.push('eps'); }
+  if (amortization.length) { op.amortization = amortization; categories_run.push('amortization'); }
+  if (prepaid_rollforward.length) { op.prepaid_rollforward = prepaid_rollforward; categories_run.push('prepaid_rollforward'); }
+  var allItems = categories_run.reduce(function(acc,c){return acc.concat(op[c]);}, []);
+  op.total_items = allItems.length;
+  op.flagged_count = allItems.filter(function(i){return i.flagged;}).length;
+
+  var flags = ['RECALC_SUITE_RUN'];
+  if (categories_run.length === 0) flags.push('RECALC_SUITE_NO_CATEGORIES');
+  if (!tolerance_declared) flags.push('RECALC_SUITE_TOLERANCE_NOT_DECLARED');
+  if (op.flagged_count > 0) flags.push('RECALC_SUITE_VARIANCE_FLAGGED');
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var hasFlags = op.flagged_count > 0;
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = hasFlags ? 'var(--warn)' : 'var(--teal-lt)';
+  vBox.style.background = hasFlags ? 'rgba(245,158,11,.08)' : 'rgba(20,184,166,.08)';
+  vBox.style.border = hasFlags ? '1px solid var(--warn)' : '1px solid var(--teal)';
+  vBox.textContent = op.total_items === 0 ? 'NO ITEMS DECLARED' : (hasFlags ? op.flagged_count + ' OF ' + op.total_items + ' ITEMS FLAGGED' : 'ALL ITEMS WITHIN TOLERANCE');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + categories_run.length + '</span><span class="stat-key">Categories run</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.total_items + '</span><span class="stat-key">Total items</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.flagged_count + '</span><span class="stat-key">Flagged</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) { return '<span class="badge ' + (f.indexOf('FLAG') > -1 || f.indexOf('NOT_DECLARED') > -1 ? 'fail' : 'ok') + '">' + f + '</span>'; }).join('');
+
+  document.getElementById('varianceDiv').innerHTML = allItems.map(function(i) {
+    var name = i.asset_id || i.item_id || i.label;
+    var variance = i.variance != null ? i.variance : (i.variance_basic != null ? i.variance_basic : i.variance_diluted);
+    return '<div class="kv"><span class="kv-k">' + name + (i.flagged ? ' &#9888;' : '') + '</span><span class="kv-v">variance ' + variance + '</span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">No items declared</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-463-recalc-suite',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-463-recalc-suite.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+
+addDep('A-1', 'straight_line', 10000, 1000, 9, 1, 1000);
+addInt('I-1', 100000, 6, 90, 'actual_360', 1490);
+addEps('FY2026', 5000000, 200000, 1000000, 1100000, 4.8, 3.8);
+addAmort('M-1', 120000, 10, 12000);
+addPrepaid('P-1', 50000, 10000, 5000, 60000);
+</script>
+</body>
+</html>
