@@ -125,6 +125,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}about.html">About</a>
         <a href="${root}suggest.html">Suggest</a>
         <a href="${root}contact.html">Contact</a>
+        <a href="${root}security.html">Security</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>
