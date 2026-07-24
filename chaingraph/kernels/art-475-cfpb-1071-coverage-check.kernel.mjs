@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-431-cfpb-1071-coverage-check';
+const TOOL_ID = 'art-475-cfpb-1071-coverage-check';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
