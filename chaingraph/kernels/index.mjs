@@ -395,6 +395,8 @@ import * as art460    from './art-460-ipe-integrity-verifier.kernel.mjs';
 import * as art462    from './art-462-je-ruleset-screen.kernel.mjs';
 import * as art463    from './art-463-recalc-suite.kernel.mjs';
 import * as art464    from './art-464-confirmation-matcher.kernel.mjs';
+import * as art466    from './art-466-dora-roi-builder.kernel.mjs';
+import * as art467    from './art-467-dora-incident-classifier.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
 import * as art472    from './art-472-cbcr-builder.kernel.mjs';
 import * as art473    from './art-473-interquartile-benchmark.kernel.mjs';
@@ -861,6 +863,8 @@ export const KERNELS = {
   'art-462-je-ruleset-screen':                                art462,
   'art-463-recalc-suite':                                     art463,
   'art-464-confirmation-matcher':                             art464,
+  'art-466-dora-roi-builder':                                 art466,
+  'art-467-dora-incident-classifier':                         art467,
   'art-47-arc-cctp-transfer':                                 art47,
   'art-472-cbcr-builder':                                     art472,
   'art-473-interquartile-benchmark':                          art473,

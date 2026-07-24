@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>DORA ICT Incident Classifier & Reporting Clock · ART-467 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Classifies a DORA ICT-related incident as major/non-major against the published RTS (EU 2024/1772) numeric criteria, then starts the 4-hour/72-hour/1-month Art. 19 reporting clock. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="DORA ICT Incident Classifier & Reporting Clock · ART-467 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="DORA Art. 18 major-incident classification (clients affected, duration, geographic spread, data losses, economic impact, critical services, reputational impact) plus the Art. 19 reporting clock. OpenChainGraph artifact with execution_hash. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"DORA ICT Incident Classifier & Reporting Clock · ART-467 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Classifies an ICT-related incident as major or non-major under DORA Art. 18 against the published RTS (EU 2024/1772) numeric criteria, then starts the Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-month final report) once classified major. Client-side, deterministic, zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-467 · Assurance Waves program (DORA-ROI-BUILD-SPEC.md §1, DORA-K-1). Inline compute() stays byte-identical to kernels/art-467-dora-incident-classifier.kernel.mjs. -->
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{max-width:660px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 8px 8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .hint{font-size:.68rem;color:var(--muted);margin-top:3px}
+select,input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--body);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:6px}
+.results{display:none}.results.show{display:block}
+table{width:100%;border-collapse:collapse;font-size:.78rem;margin:10px 0}
+th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.deadline{color:var(--teal-lt);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.15rem .5rem;border-radius:20px;letter-spacing:.03em}
+.pill.pass{background:rgba(34,197,94,.12);color:var(--green)}
+.pill.fail{background:var(--bg3);color:var(--muted)}
+.pill.major{background:rgba(239,68,68,.12);color:var(--red)}
+.pill.nonmajor{background:rgba(34,197,94,.12);color:var(--green)}
+.memo{background:var(--bg3);border-left:3px solid var(--teal);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;color:var(--bright);margin:8px 0}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin-top:10px;max-height:320px}
+.muted{color:var(--muted);font-size:.72rem}
+.limits{font-size:.74rem;color:var(--body);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin:10px 0}
+.limits b{color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-467 · DORA Incident Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">ART-467 · DORA ICT Incident Classification</div>
+  <h1>DORA ICT Incident Classifier &amp; Reporting Clock</h1>
+  <p class="sub">Classifies an ICT-related incident as major or non-major under DORA (EU) 2022/2554 Art. 18, applying the published RTS (EU 2024/1772) numeric criteria across seven severity dimensions, then starts the Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report) once classified major. Emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
+  <div class="flag">Classification clock, not a filing system</div>
+  <div class="flag">Not legal advice</div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0">🔒 All inputs are processed locally in your browser. No data is transmitted. Use synthetic or anonymised inputs only, do not enter real personal or confidential data.</div>
+
+  <div class="limits">
+    Scope limits, read before use: the numeric thresholds pinned here (10% clients affected, 24h duration, 2 member states, EUR 100,000 economic impact) are MODERATE-confidence citations of the 2024 RTS/ITS headline figures, not a certified reproduction of the full regulation text, which combines several per-criterion nuances this tool does not model (e.g. absolute-count limbs, entity-type-specific relative thresholds). Verify against the final consolidated RTS/ITS text at legal review before relying on this verdict for an actual filing. A DORA incident classifier already ships as <a href="art-09-dora-incident-classifier.html">ART-09</a> (earlier draft-RTS citation, no reporting-clock link); this tool cites the final 2024 RTS/ITS package and follows the <a href="art-428-cyber-incident-clock.html">ART-428</a> notification-clock pattern instead; the overlap between the two is a known open question, not hidden.
+  </div>
+
+  <div class="card"><div class="grid" id="form">
+    <div class="q"><label>Incident ID (optional)</label><input type="text" id="incident_id" placeholder="INC-2026-0200"></div>
+    <div class="q"><label>Classification timestamp (UTC)</label><input type="datetime-local" id="classification_at" value="2026-07-20T09:00"><div class="hint">When the incident was classified. Reporting clocks start here if MAJOR.</div></div>
+    <div class="q"><label>Clients affected (%)</label><input type="number" id="clients_affected_pct" value="2" min="0" max="100" step="0.1"></div>
+    <div class="q"><label>Duration (minutes)</label><input type="number" id="duration_minutes" value="30" min="0"></div>
+    <div class="q"><label>Geographical spread (EU member states)</label><input type="number" id="geographical_spread_countries_count" value="1" min="0"></div>
+    <div class="q"><label>Data losses (confidentiality/integrity/availability impact)?</label><select id="data_losses"><option value="false" selected>No</option><option value="true">Yes</option></select></div>
+    <div class="q"><label>Economic impact (EUR)</label><input type="number" id="economic_impact_amount" value="5000" min="0"></div>
+    <div class="q"><label>Critical/important function affected?</label><select id="critical_services_affected"><option value="false" selected>No</option><option value="true">Yes</option></select></div>
+    <div class="q"><label>Reputational impact reported?</label><select id="reputational_impact"><option value="false" selected>No</option><option value="true">Yes</option></select></div>
+  </div><button onclick="run()">Classify incident →</button></div>
+
+  <div class="card results" id="results">
+    <div class="memo" id="memo"></div>
+    <table id="critTable"><thead><tr><th>Criterion</th><th>Met</th><th>Value</th></tr></thead><tbody></tbody></table>
+    <table id="clockTable" style="display:none"><thead><tr><th>Report</th><th>Deadline (UTC)</th></tr></thead><tbody></tbody></table>
+    <div class="muted" style="margin-top:12px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash"></div>
+    <pre id="artifact"></pre>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Follows the <a href="art-428-cyber-incident-clock.html">ART-428 Cyber Incident Notification Clock</a> deadline-clock pattern for the EU DORA regime. Distinct from <a href="art-466-dora-roi-builder.html">ART-466 DORA RoI Builder</a>, which validates the standing Register of Information dataset rather than classifying a single incident. See also the existing <a href="art-09-dora-incident-classifier.html">ART-09 DORA Incident Classifier</a> (earlier draft-RTS citation, standalone, no notification-clock link).</p>
+  </div>
+</div>
+
+<script type="application/json" id="manifest">
+{"tool_id":"art-467-dora-incident-classifier","mcp_name":"classify_dora_ict_incident_and_clock_deadlines","mandate_type":"attestation_mandate","chaingraph_version":"0.4.0",
+"spec_version":"0.8.8",
+"inputSchema":{"type":"object","properties":{"incident_id":{"type":"string"},"classification_at":{"type":"string","format":"date-time"},"clients_affected_pct":{"type":"number"},"duration_minutes":{"type":"number"},"geographical_spread_countries_count":{"type":"number"},"data_losses":{"type":"boolean"},"economic_impact_amount":{"type":"number"},"critical_services_affected":{"type":"boolean"},"reputational_impact":{"type":"boolean"}}}}
+</script>
+
+<script>
+const HOUR_MS=3600*1000;
+const TABLE_VERSION='DORA-RTS-2024-1772-CLASSIFICATION+ITS-2025-302-TIMELINES-2026-07';
+const TABLE_SOURCE='DORA (EU) 2022/2554 Art. 18 (classification criteria) + Art. 19 (reporting obligations/timelines); Commission Delegated Regulation (EU) 2024/1772 (RTS on classification criteria for major ICT-related incidents and significant cyber threats); Commission Implementing Regulation (EU) 2025/302 (ITS on standard forms/templates and timelines for major-incident reports). Numeric thresholds pinned at MODERATE confidence -- verify against final consolidated RTS/ITS text at legal review before relying on this verdict for an actual filing.';
+const THRESHOLDS={clients_affected_pct_min:10,duration_minutes_min:24*60,geographical_spread_countries_min:2,economic_impact_eur_min:100000};
+function parseIsoOrNull(s){if(s==null||s==='')return null;const t=Date.parse(s);return Number.isFinite(t)?t:null;}
+function isoOrNull(ms){return ms==null?null:new Date(ms).toISOString();}
+function addCalendarMonthUtc(ms){const d=new Date(ms);const y=d.getUTCFullYear();const m=d.getUTCMonth();const day=d.getUTCDate();const targetMonthLastDay=new Date(Date.UTC(y,m+2,0)).getUTCDate();const clampedDay=Math.min(day,targetMonthLastDay);return Date.UTC(y,m+1,clampedDay,d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds(),d.getUTCMilliseconds());}
+function numOrZero(v){const n=Number(v);return Number.isFinite(n)?n:0;}
+function compute(pp){
+  pp=pp||{};
+  const incident_id=typeof pp.incident_id==='string'?pp.incident_id:'';
+  const classification_at=pp.classification_at;
+  const clients_affected_pct=numOrZero(pp.clients_affected_pct), duration_minutes=numOrZero(pp.duration_minutes), geographical_spread_countries_count=numOrZero(pp.geographical_spread_countries_count), data_losses=pp.data_losses===true, economic_impact_amount=numOrZero(pp.economic_impact_amount), critical_services_affected=pp.critical_services_affected===true, reputational_impact=pp.reputational_impact===true;
+  const classMs=parseIsoOrNull(classification_at);
+  const criteria=[
+    {criterion_id:'clients_affected',article:'DORA Art. 18(1)(a); RTS (EU) 2024/1772 clients-affected threshold',met:clients_affected_pct>=THRESHOLDS.clients_affected_pct_min,value:clients_affected_pct+'% (threshold >='+THRESHOLDS.clients_affected_pct_min+'%)'},
+    {criterion_id:'duration',article:'DORA Art. 18(1)(b); RTS (EU) 2024/1772 duration threshold',met:duration_minutes>=THRESHOLDS.duration_minutes_min,value:duration_minutes+' min (threshold >='+THRESHOLDS.duration_minutes_min+' min)'},
+    {criterion_id:'geographical_spread',article:'DORA Art. 18(1)(c); RTS (EU) 2024/1772 geographical-spread threshold',met:geographical_spread_countries_count>=THRESHOLDS.geographical_spread_countries_min,value:geographical_spread_countries_count+' member state(s) (threshold >='+THRESHOLDS.geographical_spread_countries_min+')'},
+    {criterion_id:'data_losses',article:'DORA Art. 18(1)(d); RTS (EU) 2024/1772 data-losses criterion (confidentiality/integrity/availability impact)',met:data_losses,value:data_losses?'Data loss reported':'No data loss reported'},
+    {criterion_id:'economic_impact',article:'DORA Art. 18(1)(e); RTS (EU) 2024/1772 economic-impact threshold',met:economic_impact_amount>=THRESHOLDS.economic_impact_eur_min,value:'EUR '+economic_impact_amount+' (threshold >=EUR '+THRESHOLDS.economic_impact_eur_min+')'},
+    {criterion_id:'critical_services_affected',article:'DORA Art. 18(1)(f); RTS (EU) 2024/1772 criticality-of-services criterion',met:critical_services_affected,value:critical_services_affected?'Critical/important function affected':'No critical/important function affected'},
+    {criterion_id:'reputational_impact',article:'DORA Art. 18(1)(g); RTS (EU) 2024/1772 reputational-impact criterion',met:reputational_impact,value:reputational_impact?'Reputational impact reported':'No reputational impact reported'},
+  ];
+  const gatewayMet=criteria.find(c=>c.criterion_id==='clients_affected').met||criteria.find(c=>c.criterion_id==='critical_services_affected').met;
+  const metCount=criteria.filter(c=>c.met).length;
+  const otherMetCount=metCount-(gatewayMet?1:0);
+  const dataLossIndependentTrigger=data_losses;
+  const major=dataLossIndependentTrigger||(gatewayMet&&otherMetCount>=1)||metCount>=2;
+  const verdict=major?'MAJOR':'NON_MAJOR';
+  const qualifying_criteria=criteria.filter(c=>c.met).map(c=>c.criterion_id);
+  let reporting_clock=null;
+  if(major&&classMs!=null){
+    const initialMs=classMs+4*HOUR_MS, intermediateMs=classMs+72*HOUR_MS, finalMs=addCalendarMonthUtc(classMs);
+    reporting_clock={classification_at:isoOrNull(classMs),initial_notification_deadline:isoOrNull(initialMs),intermediate_report_deadline:isoOrNull(intermediateMs),final_report_deadline:isoOrNull(finalMs),note:'Initial notification 4h, intermediate report 72h, final report 1 calendar month -- all clocked from classification_at (see scope-limit note above).'};
+  }
+  const compliance_flags=[];
+  compliance_flags.push(major?'DORA_MAJOR_INCIDENT':'DORA_NON_MAJOR_INCIDENT');
+  if(major)compliance_flags.push('DORA_REPORTING_OBLIGATION_TRIGGERED');
+  if(classMs==null&&major)compliance_flags.push('CLASSIFICATION_TIMESTAMP_MISSING_OR_UNPARSEABLE');
+  if(data_losses)compliance_flags.push('DATA_LOSSES_REPORTED');
+  const output_payload={incident_id:String(incident_id||''),verdict,major_incident:major,qualifying_criteria,criteria_detail:criteria,reporting_clock,table_version:TABLE_VERSION,table_source:TABLE_SOURCE,note:'Deterministic DORA (Art. 18) major-incident classification over caller-declared severity dimensions, plus a DORA Art. 19 reporting-clock (initial/intermediate/final) once classified major. See art-428-cyber-incident-clock.kernel.mjs for the analogous US notification-clock pattern. This kernel classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice. Criticality of the affected function/provider (critical_services_affected) is a caller-supplied input, not computed or judged here.'};
+  return{output_payload,compliance_flags};
+}
+const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
+async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+function localToIso(id){const el=document.getElementById(id);if(!el||!el.value)return null;return new Date(el.value+':00Z').toISOString();}
+async function run(){
+  const pp={
+    incident_id:document.getElementById('incident_id').value||'',
+    classification_at:localToIso('classification_at'),
+    clients_affected_pct:Number(document.getElementById('clients_affected_pct').value)||0,
+    duration_minutes:Number(document.getElementById('duration_minutes').value)||0,
+    geographical_spread_countries_count:Number(document.getElementById('geographical_spread_countries_count').value)||0,
+    data_losses:document.getElementById('data_losses').value==='true',
+    economic_impact_amount:Number(document.getElementById('economic_impact_amount').value)||0,
+    critical_services_affected:document.getElementById('critical_services_affected').value==='true',
+    reputational_impact:document.getElementById('reputational_impact').value==='true',
+  };
+  const {output_payload:op,compliance_flags}=compute(pp);
+  const hash=await execHash(pp,op);
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-467-dora-incident-classifier',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('results').classList.add('show');
+  document.getElementById('memo').innerHTML='Verdict: <span class="pill '+(op.major_incident?'major':'nonmajor')+'">'+op.verdict+'</span> &mdash; '+op.qualifying_criteria.length+' of 7 criteria met.';
+  document.querySelector('#critTable tbody').innerHTML=op.criteria_detail.map(c=>'<tr><td>'+c.criterion_id.replace(/_/g,' ')+'<div class="muted">'+c.article+'</div></td><td><span class="pill '+(c.met?'pass':'fail')+'">'+(c.met?'Met':'Not met')+'</span></td><td>'+c.value+'</td></tr>').join('');
+  const clockTable=document.getElementById('clockTable');
+  if(op.reporting_clock){
+    clockTable.style.display='';
+    document.querySelector('#clockTable tbody').innerHTML=
+      '<tr><td>Initial notification (4h)</td><td class="deadline">'+op.reporting_clock.initial_notification_deadline+'</td></tr>'+
+      '<tr><td>Intermediate report (72h)</td><td class="deadline">'+op.reporting_clock.intermediate_report_deadline+'</td></tr>'+
+      '<tr><td>Final report (1 month)</td><td class="deadline">'+op.reporting_clock.final_report_deadline+'</td></tr>';
+  } else {
+    clockTable.style.display='none';
+  }
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-artifact) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('artifact');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    try{var v=JSON.parse(el.textContent);if(v&&v.chaingraph_version){
+      var sab=document.getElementById('signArtifactBtn');
+      if(sab){sab.disabled=false;}
+      obs.disconnect();
+    }}catch(e){}
+  });
+  obs.observe(el,{childList:true});
+})();
+</script>
+</body>
+</html>

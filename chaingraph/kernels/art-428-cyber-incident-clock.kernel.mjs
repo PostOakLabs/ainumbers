@@ -40,6 +40,12 @@
  * notification clock once a determination is made; the runbook builder shapes the surrounding
  * incident-response process). See art-379 / art-418 for adjacent incident-record composers.
  *
+ * FORWARD POINTER (added 2026-07-24, DORA-K-1, doc-only -- no change to compute()/buildArtifact()
+ * below, so this kernel's execution_hash and fixture goldens are unaffected): see
+ * art-467-dora-incident-classifier.kernel.mjs for the analogous EU DORA (Art. 18/19) incident
+ * classification + reporting-clock pattern, which explicitly follows this kernel's deadline-clock
+ * shape for the EU regime.
+ *
  * Spec: BANKING-OCG-BUILD-SPEC.md §3.5.
  */
 import { executionHash } from './_hash.mjs';
