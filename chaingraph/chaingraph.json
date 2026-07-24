@@ -27912,16 +27912,73 @@
   "description": "Computes a jurisdiction's OECD Pillar Two (GloBE) effective tax rate from caller-declared constituent-entity financial data: sums entity-level GloBE income/loss to a jurisdictional net (Art 3.1), sums entity-level adjusted covered taxes (Art 4), and divides to get the ETR. If the jurisdictional net is a GloBE loss, no ETR is computed and the jurisdiction is flagged rather than divided by a non-positive base. Top-up tax percentage = max(0, minimum_rate - ETR); minimum_rate defaults to the Art 5.1 15% rate but is taken as a versioned policy-parameter input, not hardcoded. Election flags (de minimis, stock-based comp, aggregate deferred-tax adjustment) are caller-declared policy parameters -- this kernel echoes which elections were declared, it does not decide them; election judgment and DTA characterization stay with the filer. First node in the GloBE annual cycle, feeding the substance-based income exclusion / top-up node (art-455) and, downstream, the safe-harbour tests (art-456) and GIR composer (art-457). Pure arithmetic aggregation only. NaN-safe. Zero network, zero PII.",
   "input_schema_ref": "chaingraph/art-454-globe-jurisdictional-etr.html#manifest",
   "consumes": [],
-  "feeds": ["art-455-globe-sbie-topup"],
+  "feeds": [
+    "art-455-globe-sbie-topup"
+  ],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:b6c161f165c164256e1d59d3de2d7b967aa272e972f8ad8d17648dbb1066ab78","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:b6c161f165c164256e1d59d3de2d7b967aa272e972f8ad8d17648dbb1066ab78",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Kernel is source-published and deterministic (§17 sha256-source digest pending publication in a later K-lane pass); no §18 zkVM guest built for this node yet -- proof generation deferred, not skipped."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "HnfXdHBO6+bHG1eQv6fOrgMdenO6mIaIva5YmtU0mMsFj1HkZ1nYuNgVnoo8RbKUIS5ert7ansI37KjSGlX+5yH6CbbCu77EnN4qj7jduJUpm+oshVfs9pJ2VbKmCyiXG5XY0VQtfnOSIBVkXLLhQgXezXC9nOWGuwEK3I1sR3UsytqpC6R7AZt6zicjCpFNo9DW7/2ulCetzosy2Kq0ChcPc41/IJbZVvKfZ+NplJMkR6QnN9zhZ8UOAo9ROvoGG6bXFaXv7yiRQDR5QbEME7a51IXwAgXPNQgWfd6OfBMeeW0w9oRhGdMLLfQNAMEw/4rHISRgPhv3U8+R7orHrA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:b6c161f165c164256e1d59d3de2d7b967aa272e972f8ad8d17648dbb1066ab78",
+      "output": {
+        "adjusted_covered_taxes": 100000,
+        "declared_elections": {
+          "aggregate_deferred_tax_adjustment": false,
+          "de_minimis_election": false,
+          "stock_based_comp_election": false
+        },
+        "entities": [
+          {
+            "covered_taxes": 60000,
+            "entity_name": "Ruritania OpCo 1",
+            "net_income_or_loss": 600000
+          },
+          {
+            "covered_taxes": 30000,
+            "entity_name": "Ruritania OpCo 2",
+            "net_income_or_loss": 300000
+          },
+          {
+            "covered_taxes": 10000,
+            "entity_name": "Ruritania HoldCo",
+            "net_income_or_loss": 100000
+          }
+        ],
+        "entity_count": 3,
+        "etr": 0.1,
+        "jurisdiction_name": "Ruritania",
+        "jurisdictional_globe_income": 1000000,
+        "minimum_rate": 0.15,
+        "net_globe_income_or_loss": 1000000,
+        "no_etr_computed": false,
+        "top_up_tax_amount": 50000,
+        "top_up_tax_percentage": 0.05
+      }
+    }
+  }
 },
     {
   "tool_id": "art-455-globe-sbie-topup",
@@ -27934,17 +27991,56 @@
   "url": "https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html",
   "description": "Computes the OECD Pillar Two substance-based income exclusion (SBIE) for a jurisdiction from a caller-declared payroll-cost figure, tangible-asset carrying value, and a versioned transition-year rate table (payroll % + tangible-asset % looked up by target year, table supplied whole as a policy input -- not hardcoded). Derives excess profit (jurisdictional GloBE income less SBIE, floored at zero), the resulting top-up tax from a caller-supplied top-up-tax percentage, and the final jurisdictional top-up after a QDMTT-paid offset, flagging any QDMTT over-collection informationally. Consumes art-454's jurisdictional GloBE income + top-up-tax-percentage output shape directly and does not recompute an ETR itself, so it also runs standalone. Election choices and GloBE-income adjustments are human judgment and stay upstream. NaN-safe. Zero network, zero PII.",
   "input_schema_ref": "chaingraph/art-455-globe-sbie-topup.html#manifest",
-  "consumes": ["art-454-globe-jurisdictional-etr"],
+  "consumes": [
+    "art-454-globe-jurisdictional-etr"
+  ],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:f883e9af5be1a09cf3f90e6d98b8452905bbef712f381adef50876f7ee4a44ab","valid_from":"2026-07-10"}],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New GloBE SBIE/top-up kernel shipped fixture-first; §18 zkVM guest proof to follow in a later proving wave.",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:f883e9af5be1a09cf3f90e6d98b8452905bbef712f381adef50876f7ee4a44ab",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
+  "compute_proof_ready": "ready",
   "export_capability": [
     "json"
-  ]
+  ],
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "I+OyxMy25t1tO96JlDEmuK5ow77gMr2L/i1u1uvU3isd2+oXQZULXJN+FK44OP11ZN9KG9yktZlZxwAdFm+YRBJ6GbVopLPq/H3SuxC0/XWKiJPRB+SR4fvm3koVXjrULTAsKhx6oUREj6KIIlJGZlvPVoqmsWJg7lvJVEwtXIACi6rmKT8yc5hDOpKDSgI689yWW/cUDiKg9pFFIgg6tgtEqt9MR+Fx9EFL4r6mnwvnjfiHdprcq9Y5qUyN3g76B/5C2u5GUDuOQhFO/LElywCf3FUQvnkOI2rNMeA/U34XYcBUkDfqtfd8uRP2hOifIpGdbDwZkHDw5jshU9vJmA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:f883e9af5be1a09cf3f90e6d98b8452905bbef712f381adef50876f7ee4a44ab",
+      "output": {
+        "excess_profit": 2560000,
+        "globe_income": 5000000,
+        "jurisdictional_top_up": 56800,
+        "payroll_component": 960000,
+        "payroll_rate": 0.096,
+        "qdmtt_over_collection": false,
+        "qdmtt_paid": 20000,
+        "rate_row_found": true,
+        "sbie": 2440000,
+        "tangible_asset_component": 1480000,
+        "tangible_asset_rate": 0.074,
+        "target_year": 2025,
+        "top_up_tax": 76800,
+        "top_up_tax_percentage": 0.03
+      }
+    }
+  }
 },
     {
   "tool_id": "art-456-globe-safe-harbour-tests",
@@ -27962,12 +28058,76 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:9dd9ae74b1d4edde67ba59bd862dc96cd7a0623011b3e59070bf5fd6ccbf3669","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:9dd9ae74b1d4edde67ba59bd862dc96cd7a0623011b3e59070bf5fd6ccbf3669",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New kernel awaiting §18 zkVM guest build and prove-first pass; ships arithmetic-only with compute_mode:server and no compute_proof yet."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "EdF2eiM9mQNtU2jTOEz1PIkom07ATuML3N+6vjY9qjUp3iTKAnDwKfmYRQ4FnzzKavwj1sm/oKCfRJJJnhR0lwpQSQx8ORSklEdAVf7wwPJUDVECGPwlGU1OY1/6ffgIFA5P0iGzLqBblwctv7ypy169DulXhmmb5W6/4IxKot8eyuOn4s3L2ZCBXZE+VhGw2c6IbrGVQnzsO97pjxamFANjAAxbCxvpJokDmAvHXVmqpqnufeCa0bKJ1tcB/UJtJaW+7ycyQPG4ohcOYde8jAK0VjSKm5Gw4bjOfDpXz38dd6u2fD/YJGbLuGIub8Uv1lnIkmLsLXLa4udl6PomkA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:9dd9ae74b1d4edde67ba59bd862dc96cd7a0623011b3e59070bf5fd6ccbf3669",
+      "output": {
+        "deemed_zero_topup": true,
+        "fiscal_year": 2024,
+        "passing_test_ids": [
+          "de_minimis"
+        ],
+        "safe_harbour_met": true,
+        "tests": [
+          {
+            "inputs": {
+              "de_minimis_profit_threshold_eur": 1000000,
+              "de_minimis_revenue_threshold_eur": 10000000,
+              "profit_before_tax_eur": 500000,
+              "revenue_eur": 8000000
+            },
+            "pass": true,
+            "reasoning": "Revenue EUR 8000000 < threshold EUR 10000000 AND profit before tax EUR 500000 < threshold EUR 1000000.",
+            "test_id": "de_minimis"
+          },
+          {
+            "inputs": {
+              "applicable_rate": 0.15,
+              "fiscal_year": 2024,
+              "nonpositive_profit": false,
+              "profit_before_tax_eur": 500000,
+              "simplified_covered_taxes": 10000,
+              "simplified_etr_value": 0.02
+            },
+            "pass": false,
+            "reasoning": "Simplified ETR 2.00% < applicable transition rate 15.00% (FY2024).",
+            "test_id": "simplified_etr"
+          },
+          {
+            "inputs": {
+              "profit_before_tax_eur": 500000,
+              "sbie_amount": 0
+            },
+            "pass": false,
+            "reasoning": "Profit before tax EUR 500000 > SBIE amount EUR 0.",
+            "test_id": "routine_profits"
+          }
+        ]
+      }
+    }
+  }
 },
     {
   "tool_id": "art-457-globe-gir-composer",
@@ -27985,12 +28145,73 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:61563ff21326052fe8cd8c86671ef2bcce3ffd879f7ea28ae2f4fc8c333513a2","valid_from":"2026-07-24"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:61563ff21326052fe8cd8c86671ef2bcce3ffd879f7ea28ae2f4fc8c333513a2",
+      "valid_from": "2026-07-24"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New kernel awaiting §18 zkVM guest build and prove-first pass; ships arithmetic-only with compute_mode:server and no compute_proof yet."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "DB6S/4EkbOh1uYhqGAy8b0TF3GtbKbShK75vUzcLzRIFvx5ZyvxM+MuZng+vtW64Oj9QVj6dFOPbY8w3RQX9QhXrfx4mv8UHfqj+jValPcT57PdSAtEp1W3mclFxZZocEY0H9rHW0UKPXTWfFMePYE8XBg9G2RECRt5HMP7YGNYDB4D7/PKzNVbtml+GbHUfG1Dc0+dLwhOLvGrzs3U/dh3vZ1En0IhVwjm2th6JwV4GZMUCPneUIZ4ajPAGO0XNGD43WHGHF9v7PM7ZAmjqbEA66sdWhZFpdEa7HVQB4QctTCD3M4V5LDSLQJgRgTVMNEQT3IYjLIV/E2pwHJYbGw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:61563ff21326052fe8cd8c86671ef2bcce3ffd879f7ea28ae2f4fc8c333513a2",
+      "output": {
+        "fiscal_year": 2024,
+        "gir_schema_version": "OECD-GIR-2023-07",
+        "gir_xml_summary": {
+          "fiscal_year": 2024,
+          "jurisdiction_count": 1,
+          "mne_group_name": "Acme Global Group",
+          "root_element": "GIR",
+          "schema_version": "OECD-GIR-2023-07"
+        },
+        "jurisdiction_rows": [
+          {
+            "allocation_sum_ok": true,
+            "composed_topup_tax": 900000,
+            "constituent_entities": [
+              {
+                "allocated_topup_tax": 540000,
+                "allocation_share": 0.6,
+                "entity_name": "Acme DE Holdco"
+              },
+              {
+                "allocated_topup_tax": 360000,
+                "allocation_share": 0.4,
+                "entity_name": "Acme DE OpCo"
+              }
+            ],
+            "deemed_zero_topup": false,
+            "jurisdiction_code": "DE",
+            "jurisdictional_etr": 0.12,
+            "raw_topup_tax": 900000,
+            "safe_harbour_status": "not_evaluated",
+            "sbie_amount": 500000
+          }
+        ],
+        "jurisdictions_not_evaluated": 1,
+        "jurisdictions_with_deemed_zero": 0,
+        "mne_group_name": "Acme Global Group",
+        "submittable": false,
+        "total_topup_tax": 900000
+      }
+    }
+  }
 },
     {
   "tool_id": "art-458-attribute-sampling-plan",
@@ -28008,12 +28229,106 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:5bcd64e2925ab483c805160229d7a37241e311140192cd080b09be6d358fec1b","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:5bcd64e2925ab483c805160229d7a37241e311140192cd080b09be6d358fec1b",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "GK+iF/j3eHW2aetnccpdudOu9jzybQy4s6++2ObX244FhGNtQQESRqNofhYDUrdLCBs+P/1Age89Lw5I8EJ+KhVoiRMv9sR8GvXJVqw/ToQfXkDmwRVur/mWaLYWGykBHlEtSukssDmJq3EYnn8BnWsPN6kU1XXNLyRebTtzCUkuRv3J5eaETEsiQP5Tw9cSJlcWKukOucMt9w+RqDMP9ydbOkfodiqAR2nkpQ/V/+eDyrDC5NxLEM+FAZKWFs4+D7Xz0xd97Gkg8UXJEAf9kL2k1+Bv5sAGsRo1W9q3kOoaUEFlGtO/V7qveXouvZwkhXwws4HEPdkUzUnevCGYqA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:5bcd64e2925ab483c805160229d7a37241e311140192cd080b09be6d358fec1b",
+      "output": {
+        "confidence_level": 95,
+        "expansion_factor": 1,
+        "expected_deviation_rate": 0,
+        "interval": 16,
+        "method": "poisson_attribute_sampling",
+        "population_hash": "abc123",
+        "population_size": 1000,
+        "sample_size": 59,
+        "selected_indices": [
+          0,
+          16,
+          32,
+          48,
+          64,
+          80,
+          96,
+          112,
+          128,
+          144,
+          160,
+          176,
+          192,
+          208,
+          224,
+          240,
+          256,
+          272,
+          288,
+          304,
+          320,
+          336,
+          352,
+          368,
+          384,
+          400,
+          416,
+          432,
+          448,
+          464,
+          480,
+          496,
+          512,
+          528,
+          544,
+          560,
+          576,
+          592,
+          608,
+          624,
+          640,
+          656,
+          672,
+          688,
+          704,
+          720,
+          736,
+          752,
+          768,
+          784,
+          800,
+          816,
+          832,
+          848,
+          864,
+          880,
+          896,
+          912,
+          928
+        ],
+        "start_offset": 0,
+        "tolerable_deviation_rate": 5
+      }
+    }
+  }
 },
     {
   "tool_id": "art-459-sod-matrix-check",
@@ -28031,12 +28346,42 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:991bda6ad22de1f56d310c7cfbe98b6a7a9e4fdace9805007b0cc161d05cd7cd","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:991bda6ad22de1f56d310c7cfbe98b6a7a9e4fdace9805007b0cc161d05cd7cd",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "I15hOcNgbTqu47fDCpP6JdKV5kx27cnjQN8sfLtmUcwTC7spr4h7JlV2Ka113cQxt8mJCv62BxD0GXNseo2njSwDKUw6FwLworpTHK4iyynMEwP/HZOYkr9mJOjBkKUQGuEDSAfBG3g5c5muTm4H5K219laBM/cyv7KACaT5N3Ig4+UGCaeFZVK0Ewq36YvTHrwi8/T6kil9vEoQ35wZggmzxrZE7CH7wQbXOcbHG56g6KdJW4RX5s7erLQaGN4IKouBcYKp5FZZUrc7uCcyt4fV5cOZxaLkgq9VUzlV0ccWLI1BO0oSH732VlnAkXZWWoZiAnShhNJ6kBp9LouVJg==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:991bda6ad22de1f56d310c7cfbe98b6a7a9e4fdace9805007b0cc161d05cd7cd",
+      "output": {
+        "clean": true,
+        "conflict_count": 0,
+        "conflict_rules_evaluated": 1,
+        "conflicts": [],
+        "ruleset_version": "sod-ruleset-v1",
+        "users_evaluated": 2,
+        "users_with_conflicts": 0
+      }
+    }
+  }
 },
     {
   "tool_id": "art-460-ipe-integrity-verifier",
@@ -28054,12 +28399,48 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:3739111ed80b1fdde1f68667060608703b547770fc185678540d7e16fa4023c6","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:3739111ed80b1fdde1f68667060608703b547770fc185678540d7e16fa4023c6",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "JYMP72e40Jwd8KKV5yh1wkwGmUJBxHzt65Z38JfFTcsc3InMD8Wim2VJIf6YSipaU91aoQThVgEtB+gcOXiuJATAliX+luVoQwMDfuE/NemPBopLZIkWiyK/sWE1JUn/B8MLD/Eaw2okDusAL4xokQzLBftn2jh4zmfvOg9q2cILwaou7tTmHTAciGC0WJ8bRI8LRLz5EKvRBsC3I6fSQygZa4GKbS68POGoMIt7Hi+Upo+V3hL6hgeNnfXjl1U+BqHylNkj1RfTulBNfCfyqD7VS1XvblNIy1QcwuoO2TMXhmNFylRTxl43ho/9+Z3tBJtO0s8AY7OiWdEBC//bHw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:3739111ed80b1fdde1f68667060608703b547770fc185678540d7e16fa4023c6",
+      "output": {
+        "control_total_delta": 0,
+        "discrepancies": [],
+        "hash_match": true,
+        "integrity_status": "confirmed",
+        "report_control_total": 500000,
+        "report_hash": "sha256:aaa111",
+        "report_row_count": 1000,
+        "row_count_match": true,
+        "source_control_total": 500000,
+        "source_extract_hash": "sha256:aaa111",
+        "source_row_count": 1000,
+        "tolerance": 0.01,
+        "total_within_tolerance": true
+      }
+    }
+  }
 },
     {
   "tool_id": "art-461-control-test-evidence-composer",
@@ -28077,12 +28458,55 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:ab7d9c5cf26d42cb2205025bca9f91353454bea181602f0dd0508aa55c4e94e4","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:ab7d9c5cf26d42cb2205025bca9f91353454bea181602f0dd0508aa55c4e94e4",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New ICFR-K-2 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-461 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "DqGUoX4qntnf1R+kst8rE5kTavGqpgGNDb9QnrFBCU0CeQQvH4XxbtbQ4uv9l93rVr6CNvdbs0I79uI83rCGbirJgnTX6ZEo4qkk+OWDmkaiFMkASwFFtWj5GNYGv1x9Fce5d3cqHFTlrn9whL1yoP9YllYtAk32W1MPYn68OdQIokNCnj3VxseR+eakEdJghvZQx97RBUr9gcNFm+eWlQlHqEYeTbRCTq0P/Np5gNbJGDHJ72R4TYJUCYh2DlELGg1UF8h+L+U/l27/DDZSjRl2j8ZPgczPPpFwxG85x7gNY+JVbC+F5nBsStObCNROiCRDsWK99+WL46uJit0SlQ==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:ab7d9c5cf26d42cb2205025bca9f91353454bea181602f0dd0508aa55c4e94e4",
+      "output": {
+        "control_id": "CTRL-AP-014",
+        "coverage_complete": true,
+        "deficiency": null,
+        "exception_count": 0,
+        "exception_rate": 0,
+        "extra_results": [],
+        "fail_count": 0,
+        "gate_status": "review_required",
+        "missing_results": [],
+        "not_a_severity_judgment": "This artifact reconciles declared sample coverage and exception count against a tolerable-deviation threshold. Deficiency severity (control / significant / material weakness) and its reason_code are a human reviewer approval record (SPEC.md §27.2), never computed here.",
+        "pass_count": 4,
+        "population_hash": "sha256:pop-aaa111",
+        "reporting_period": "2026-Q2",
+        "sample_size": 4,
+        "test_conclusion": "operating_effectively",
+        "tested_count": 4,
+        "tester_id": "tester-jsmith",
+        "tester_role": "preparer",
+        "tolerable_exception_count": 0,
+        "within_tolerance": true
+      }
+    }
+  }
 },
     {
   "tool_id": "art-462-je-ruleset-screen",
@@ -28100,12 +28524,151 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:5f9f5a9b7c90cd52f8391fad3645938706315d2271784f07a1fb5a831b588599","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:5f9f5a9b7c90cd52f8391fad3645938706315d2271784f07a1fb5a831b588599",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "C30cFXz7E39uTrbuoBOQd/Qkd58W4BU7DMDWABcbXe4SPWPgZr5QwzSGH04kWOPMLQvMfJOBvCdXLNZO4zGVUQVi4cL7XfqMich4Q00d4YupFs8m5lcdthSz8cDwwP8EArMR46jsRdBlUBR504ZYd+9lMbOJzFnkhTv3xvsm2agL7AU7HTsrPX0B68Cmw4bJbr6/M6hkKdenKawccTO5Ng5mwDwlraqoNxdHemGC4Y4XPqzYSxG9hGOKuAuFQdXPFYrPeC3VQxpqdCgRVxyoQrtNaXUvg40ddvBEaY34WxIUr6ZNxKOUE5fYPdc239uQzbl4YX6dcLTeiEdDgzaalA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:5f9f5a9b7c90cd52f8391fad3645938706315d2271784f07a1fb5a831b588599",
+      "output": {
+        "active_rules": [
+          "weekend_holiday",
+          "round_number",
+          "suspense_manual",
+          "post_close",
+          "unusual_user_account"
+        ],
+        "extract_population_hash": "sha256:abc123",
+        "flagged_count": 4,
+        "flagged_entries": [
+          {
+            "account_id": "1000-CASH",
+            "amount": 5000,
+            "entry_id": "JE-1",
+            "highest_severity": "medium",
+            "posting_date": "2026-01-10",
+            "rules_tripped": [
+              {
+                "detail": "weekend_day",
+                "rule_id": "weekend_holiday",
+                "severity": "low"
+              },
+              {
+                "detail": "multiple_of_1000",
+                "rule_id": "round_number",
+                "severity": "medium"
+              }
+            ],
+            "user_id": "u1"
+          },
+          {
+            "account_id": "9999-SUSPENSE",
+            "amount": 1234.56,
+            "entry_id": "JE-2",
+            "highest_severity": "high",
+            "posting_date": "2026-01-11",
+            "rules_tripped": [
+              {
+                "detail": "weekend_day",
+                "rule_id": "weekend_holiday",
+                "severity": "low"
+              },
+              {
+                "detail": "suspense_account",
+                "rule_id": "suspense_manual",
+                "severity": "high"
+              },
+              {
+                "detail": "pair_not_in_authorized_list",
+                "rule_id": "unusual_user_account",
+                "severity": "medium"
+              }
+            ],
+            "user_id": "u2"
+          },
+          {
+            "account_id": "3000-EXP",
+            "amount": 750,
+            "entry_id": "JE-3",
+            "highest_severity": "high",
+            "posting_date": "2026-02-03",
+            "rules_tripped": [
+              {
+                "detail": "posted_after_period_close",
+                "rule_id": "post_close",
+                "severity": "high"
+              },
+              {
+                "detail": "pair_not_in_authorized_list",
+                "rule_id": "unusual_user_account",
+                "severity": "medium"
+              }
+            ],
+            "user_id": "u1"
+          },
+          {
+            "account_id": "4000-REV",
+            "amount": 420,
+            "entry_id": "JE-4",
+            "highest_severity": "medium",
+            "posting_date": "2026-01-12",
+            "rules_tripped": [
+              {
+                "detail": "pair_not_in_authorized_list",
+                "rule_id": "unusual_user_account",
+                "severity": "medium"
+              }
+            ],
+            "user_id": "u3"
+          }
+        ],
+        "missing_policy_inputs": [],
+        "rule_params_used": {
+          "authorized_user_account_pairs_count": 2,
+          "holiday_dates": [
+            "2026-01-01"
+          ],
+          "post_close_date": "2026-01-31",
+          "round_number_increment": 1000,
+          "suspense_accounts": [
+            "9999-SUSPENSE"
+          ],
+          "weekend_days": [
+            0,
+            6
+          ]
+        },
+        "rule_trip_counts": {
+          "post_close": 1,
+          "round_number": 1,
+          "suspense_manual": 1,
+          "unusual_user_account": 3,
+          "weekend_holiday": 2
+        },
+        "ruleset_version": "2026.1",
+        "total_entries": 5
+      }
+    }
+  }
 },
     {
   "tool_id": "art-463-recalc-suite",
@@ -28123,12 +28686,105 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:d913e4c1ab2a8875f2d19463184c19f2de2051342302d321d03e1c790841c02a","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:d913e4c1ab2a8875f2d19463184c19f2de2051342302d321d03e1c790841c02a",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "A5M3kuXSYxcAxK8JtMG46Ph6Wdvk/Ox/o4eVRNyTFD4CqQPj2Hw72dPqpMyIYcA5vCR2WfhO2SK/4QlEvfIfGhg8FChXJOPiHgktYKiUPz+5r94z0B8whJGvcS2i1KiTKs0DbbVpwxSH/RXhy9259X2nMmz6bLGGS90d66GmeHYPJwQPMbfQQDIT1xXnV6c/cbzcB+j5ggtebr+gVPclkgXEq+WAdSk3g3AgOwoFhm3usKt9MJxC7b1oQpa3FkaCFRtxQHPm6IgDxOXFdIif5Nn4uZvwcUvq2uGU/RqFKaMX34ddVMuKGbE0r/epDc/o7/MOw3POEOYToirDopFoKg==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:d913e4c1ab2a8875f2d19463184c19f2de2051342302d321d03e1c790841c02a",
+      "output": {
+        "amortization": [
+          {
+            "client_reported_amortization": 12000,
+            "flagged": false,
+            "item_id": "M-1",
+            "periods_total": 10,
+            "recalculated_amortization": 12000,
+            "variance": 0,
+            "variance_pct": 0
+          }
+        ],
+        "categories_run": [
+          "depreciation",
+          "interest_accrual",
+          "eps",
+          "amortization",
+          "prepaid_rollforward"
+        ],
+        "depreciation": [
+          {
+            "asset_id": "A-1",
+            "client_reported_depreciation": 1000,
+            "flagged": false,
+            "method": "straight_line",
+            "period_number": 1,
+            "recalculated_depreciation": 1000,
+            "variance": 0,
+            "variance_pct": 0
+          }
+        ],
+        "eps": [
+          {
+            "client_reported_eps_basic": 4.8,
+            "client_reported_eps_diluted": 3.8,
+            "flagged": true,
+            "label": "FY2026",
+            "recalculated_eps_basic": 4.8,
+            "recalculated_eps_diluted": 4.36,
+            "variance_basic": 0,
+            "variance_diluted": 0.56
+          }
+        ],
+        "flagged_count": 3,
+        "interest_accrual": [
+          {
+            "client_reported_interest": 1490,
+            "day_count_basis": "actual_360",
+            "flagged": true,
+            "item_id": "I-1",
+            "recalculated_interest": 1500,
+            "variance": 10,
+            "variance_pct": 0.67
+          }
+        ],
+        "prepaid_rollforward": [
+          {
+            "client_reported_ending_balance": 60000,
+            "flagged": true,
+            "item_id": "P-1",
+            "recalculated_ending_balance": 55000,
+            "variance": -5000,
+            "variance_pct": -8.33
+          }
+        ],
+        "tolerance_used": {
+          "abs": 0,
+          "declared_by_caller": true,
+          "pct": 5
+        },
+        "total_items": 5
+      }
+    }
+  }
 },
     {
   "tool_id": "art-464-confirmation-matcher",
@@ -28146,12 +28802,97 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:54918b9e1a32a89b38be7118d7fa3e6c5af4fc8dc91a023545a4fdbddb0bec76","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:54918b9e1a32a89b38be7118d7fa3e6c5af4fc8dc91a023545a4fdbddb0bec76",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "KgodNxCGkCvA7iVj+Ukt9h8VgQ63E5EN6tIhZht41JQo/mcKEJJ+wG3kUcauJFKDlJuKDESY7Nj1ZSx/yNnkfShaE1VSCOS6Na9ESKm0f7YyPrw4qd54kJ46Sg25r5l8GCSoVQhhxjcxnSieddtPxQNKJRvs6yY0n427GwRDm1IPizZ4j5MS5wZ5g0CbBE0Ugnbbyv/uwTNGx/iu5pMB0Sy3XQO583L7RgtiRHc+qBofxxiSQMzAjBJBXM4yxutTGpKKg5UYEvEN2vS59opS31znUw+LFUb73PibG/5UaTcUSzH3TS/jd6TNWQTQ1jfI+Lzo5BAysa3sPbCXS2yF1g==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:54918b9e1a32a89b38be7118d7fa3e6c5af4fc8dc91a023545a4fdbddb0bec76",
+      "output": {
+        "duplicate_confirmation_keys": [],
+        "duplicate_ledger_keys": [],
+        "exact_count": 1,
+        "matched": [
+          {
+            "confirmation_id": "C-1",
+            "confirmed_balance": 100000,
+            "counterparty_id": "cp-A",
+            "ledger_balance": 100000,
+            "match_type": "EXACT_MATCH",
+            "type": "bank",
+            "variance": 0
+          }
+        ],
+        "matched_count": 1,
+        "tolerance_count": 0,
+        "tolerance_used": {
+          "abs": 0,
+          "declared_by_caller": true,
+          "pct": 2
+        },
+        "total_confirmations": 4,
+        "total_ledger_balances": 4,
+        "unmatched": [
+          {
+            "confirmation_id": "C-2",
+            "confirmed_balance": 50100,
+            "counterparty_id": "cp-B",
+            "ledger_balance": 50000,
+            "reason": "MISMATCH",
+            "type": "bank",
+            "variance": 100
+          },
+          {
+            "confirmation_id": "C-3",
+            "confirmed_balance": 20000,
+            "counterparty_id": "cp-C",
+            "ledger_balance": 15000,
+            "reason": "MISMATCH",
+            "type": "ar",
+            "variance": 5000
+          },
+          {
+            "confirmation_id": "C-4",
+            "confirmed_balance": 7500,
+            "counterparty_id": "cp-D",
+            "ledger_balance": null,
+            "reason": "NO_LEDGER_BALANCE",
+            "type": "ar",
+            "variance": null
+          },
+          {
+            "confirmation_id": null,
+            "confirmed_balance": null,
+            "counterparty_id": "cp-E",
+            "ledger_balance": 9000,
+            "reason": "NO_CONFIRMATION",
+            "type": "ar",
+            "variance": null
+          }
+        ],
+        "unmatched_count": 4
+      }
+    }
+  }
 },
     {
   "tool_id": "art-465-workpaper-bundle-composer",
@@ -28173,12 +28914,82 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:60abc4f1aab3d73fb82fee1c60cd97697dfbb0b5df878b0afb3b1e879cc682ce","valid_from":"2026-07-24"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:60abc4f1aab3d73fb82fee1c60cd97697dfbb0b5df878b0afb3b1e879cc682ce",
+      "valid_from": "2026-07-24"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per ARCB-K-2 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "GSVmJae3xtRlSy6whdsOoVrWSoyyYucIP7+3l0bJEsobhjv4N2HAUQ5eo1IQdbOrVfFWB0mTISX7x/hkrA2/BB2G4IgHo3PJk1eU8uf/QxYrW8o3nHm3K67q8/61x/ndBKx0CFUrc9ZDzNgyuCUvzT7A//1cc9CxKdazVKOiRnAKF7w3Gro2wSqzHNtuKD8z2h9PckDFBh91ssSk22Mk/TALPJ2sZtOe6ksCQTnbDEuvW36zjJijbtijJwzWQhE2KrwwLZGwcZObXYwb5xducqzB1+aQtwxCDs6M+S5kLz8MUCYSEQzxw48vhTwm1Axq5js6F1IwINJHg83pyaxAdQ==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:60abc4f1aab3d73fb82fee1c60cd97697dfbb0b5df878b0afb3b1e879cc682ce",
+      "output": {
+        "disposed_exception_count": 1,
+        "exception_count": 1,
+        "exceptions": [
+          {
+            "disposed_by_role": "engagement_reviewer",
+            "disposition": "ACCEPTED_IMMATERIAL",
+            "item_id": "EXC-1",
+            "reason_code": "TOLERANCE_EXCEEDED"
+          }
+        ],
+        "kernel_artifact_count": 3,
+        "kernel_artifacts": [
+          {
+            "execution_hash": "1111aaaa",
+            "tool_id": "art-462-je-ruleset-screen"
+          },
+          {
+            "execution_hash": "2222bbbb",
+            "tool_id": "art-463-recalc-suite"
+          },
+          {
+            "execution_hash": "3333cccc",
+            "tool_id": "art-464-confirmation-matcher"
+          }
+        ],
+        "malformed_kernel_artifacts": [],
+        "population_hash": "sha256:aaaa1111bbbb2222",
+        "procedure_id": "PROC-AR-CONFIRM-2026Q2",
+        "roles": {
+          "partner": {
+            "declared": true,
+            "gate_status": "review_required",
+            "role": "engagement_partner",
+            "statement": "Released the area for reporting."
+          },
+          "preparer": {
+            "declared": true,
+            "role": "staff_auditor",
+            "statement": "Prepared the substantive procedure workpapers for this area."
+          },
+          "reviewer": {
+            "declared": true,
+            "role": "engagement_reviewer",
+            "statement": "Reviewed the prepared workpapers and disposed all noted exceptions."
+          }
+        },
+        "undisposed_exceptions": []
+      }
+    }
+  }
 },
     {
   "tool_id": "art-466-dora-roi-builder",
@@ -28203,13 +29014,162 @@
       "system": "sha256-source",
       "image_id": "sha256:4f605ce91ebec16f4f7e409b383f1f5f273b5f3e0551894aed9765e2b7681d80",
       "valid_from": "2026-07-24"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
     }
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New gpu:false kernel added in DORA-K-1 (2026-07-24); §18 zkVM compute_proof generation runs in the post-assembly proving pass, not in this kernel-only build wave.",
+  "compute_proof_ready": "ready",
   "export_capability": [
     "json"
-  ]
+  ],
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "HS2QCqcxMnhlmUa/Dj5pwJqdVNNO7BHYdVbcAR5ZG94bLdxt7ThrufHM21TMlUNcRr5I3rXYf3k6guUWkysErSsi2HsUMU2e8xiLhBc0LQPUIQfgGZS+gNaw51gjLGANEDC8FYB8IHYYEsfPBnNyqyXRHgENHt2PMIvoNiqMxE0FiwAr8/3e1bgYoA9z68O9NzrYgfXjTM/+arKClY0VrBGwv/YXu1utkCAdcrki9W74GKkkiOTqg+Ru7uJ5oybqA0U9kNzFt+XUDiW++qUJphcDgJKzG5CjwDqCnOxe8Akvh/owtxfcFv4mI/e3dNtf1g5Xc8rpLbQ7LYJpy5C5mA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:4f605ce91ebec16f4f7e409b383f1f5f273b5f3e0551894aed9765e2b7681d80",
+      "output": {
+        "contracts": [
+          {
+            "contract_id": "ctr-1",
+            "contract_reference": "CTR-2026-001",
+            "end_date": null,
+            "function_id": "fn-1",
+            "governing_law": "Ireland",
+            "provider_id": "prov-1",
+            "start_date": "2024-01-01"
+          }
+        ],
+        "entity": {
+          "entity_lei": "529900T8BM49AURSDO55",
+          "entity_name": "Test Bank NV"
+        },
+        "functions": [
+          {
+            "critical": true,
+            "function_id": "fn-1",
+            "function_type": "ict_services",
+            "name": "Core banking hosting",
+            "provider_id": "prov-1"
+          }
+        ],
+        "note": "Form-shaped internal representation of the DORA Register of Information core template relationships (entity / ICT third-party providers / functions / contractual arrangements), OIM-report-model-shaped. This kernel does NOT emit xBRL-CSV (the RoI's official submission format); it validates LEI format, referential integrity across templates, and mandatory-field completeness only. Criticality designation of functions/providers is a caller-supplied input, not computed here, and is not an approval or sign-off record.",
+        "providers": [
+          {
+            "country": "IE",
+            "lei": "529900T8BM49AURSDO55",
+            "name": "CloudCo Ireland Ltd",
+            "provider_id": "prov-1",
+            "service_type": "cloud_iaas"
+          }
+        ],
+        "validation_report": {
+          "compliance_flags": [],
+          "findings": [
+            {
+              "check": "mandatory_fields",
+              "message": "Entity mandatory fields present.",
+              "record_id": "entity",
+              "record_type": "entity",
+              "status": "pass"
+            },
+            {
+              "check": "lei_validity",
+              "message": "Entity LEI passes ISO 17442 format + mod-97 check.",
+              "record_id": "entity",
+              "record_type": "entity",
+              "status": "pass"
+            },
+            {
+              "check": "mandatory_fields",
+              "message": "Provider mandatory fields present.",
+              "record_id": "prov-1",
+              "record_type": "provider",
+              "status": "pass"
+            },
+            {
+              "check": "lei_validity",
+              "message": "Provider prov-1 LEI passes ISO 17442 format + mod-97 check.",
+              "record_id": "prov-1",
+              "record_type": "provider",
+              "status": "pass"
+            },
+            {
+              "check": "mandatory_fields",
+              "message": "Function mandatory fields present.",
+              "record_id": "fn-1",
+              "record_type": "function",
+              "status": "pass"
+            },
+            {
+              "check": "referential_integrity",
+              "message": "Function fn-1 provider_id resolves.",
+              "record_id": "fn-1",
+              "record_type": "function",
+              "status": "pass"
+            },
+            {
+              "check": "mandatory_fields",
+              "message": "Contract mandatory fields present.",
+              "record_id": "ctr-1",
+              "record_type": "contract",
+              "status": "pass"
+            },
+            {
+              "check": "referential_integrity",
+              "message": "Contract ctr-1 function_id resolves.",
+              "record_id": "ctr-1",
+              "record_type": "contract",
+              "status": "pass"
+            },
+            {
+              "check": "referential_integrity",
+              "message": "Contract ctr-1 provider_id resolves.",
+              "record_id": "ctr-1",
+              "record_type": "contract",
+              "status": "pass"
+            },
+            {
+              "check": "referential_integrity",
+              "message": "Contract ctr-1 provider_id agrees with function fn-1's provider.",
+              "record_id": "ctr-1",
+              "record_type": "contract",
+              "status": "pass"
+            }
+          ],
+          "summary": {
+            "checks": {
+              "lei_validity": {
+                "fail": 0,
+                "pass": 2
+              },
+              "mandatory_fields": {
+                "fail": 0,
+                "pass": 4
+              },
+              "referential_integrity": {
+                "fail": 0,
+                "pass": 4
+              }
+            },
+            "contract_count": 1,
+            "entity_count": 1,
+            "function_count": 1,
+            "overall_pass": true,
+            "provider_count": 1
+          },
+          "table_source": "DORA (EU) 2022/2554 Art. 28/30 (Register of Information); ESAs final RTS/ITS on standard templates for the register of information (JC 2023 85); ISO 17442:2020 + ISO 7064:2003 Mod 97-10 for LEI check-digit validation.",
+          "table_version": "DORA-ROI-TEMPLATES-STRUCTURAL-2026"
+        }
+      }
+    }
+  }
 },
     {
   "tool_id": "art-467-dora-incident-classifier",
@@ -28234,13 +29194,82 @@
       "system": "sha256-source",
       "image_id": "sha256:2f4fe65161e59aee68e9609258e251c1a571a671f2167a00a2d0dc1c514ac4a7",
       "valid_from": "2026-07-24"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
     }
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New gpu:false kernel added in DORA-K-1 (2026-07-24); §18 zkVM compute_proof generation runs in the post-assembly proving pass, not in this kernel-only build wave.",
+  "compute_proof_ready": "ready",
   "export_capability": [
     "json"
-  ]
+  ],
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "L9gTFTrDTsiZ9UwLpdHCrVbxwgHSD7bQrDxZDjc0Dbod/JZrMw1NBxh0iksyVA9fSRtuRRW9vPjdoOMOvIErPBjXJKi+QSDlyxME15TjJ+e5N7zQbLylb4yz00pHfXWTGY3oGlQrE07WaRxP3aScD5gu/zD8ES32Q/9KnLgjCikQPxdMI4b6A+NLoIoppgdzDu61mqlsi6YgJqDgu78F+ykUL8lbzaM4om12N2Pb0gxn5iJVFyHrkvO4A3wbvTW5J/SuJB3Lsamube6mYX4cXGs3R7Ry8Z6vXCzrghI7LeQMEs46Sb4KEKHb+Ln7OeChF26s3tse62EKrGNfE2xSQw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:2f4fe65161e59aee68e9609258e251c1a571a671f2167a00a2d0dc1c514ac4a7",
+      "output": {
+        "criteria_detail": [
+          {
+            "article": "DORA Art. 18(1)(a); RTS (EU) 2024/1772 clients-affected threshold",
+            "criterion_id": "clients_affected",
+            "met": false,
+            "value": "2% (threshold >=10%)"
+          },
+          {
+            "article": "DORA Art. 18(1)(b); RTS (EU) 2024/1772 duration threshold",
+            "criterion_id": "duration",
+            "met": false,
+            "value": "30 min (threshold >=1440 min)"
+          },
+          {
+            "article": "DORA Art. 18(1)(c); RTS (EU) 2024/1772 geographical-spread threshold",
+            "criterion_id": "geographical_spread",
+            "met": false,
+            "value": "1 member state(s) (threshold >=2)"
+          },
+          {
+            "article": "DORA Art. 18(1)(d); RTS (EU) 2024/1772 data-losses criterion (confidentiality/integrity/availability impact)",
+            "criterion_id": "data_losses",
+            "met": false,
+            "value": "No data loss reported"
+          },
+          {
+            "article": "DORA Art. 18(1)(e); RTS (EU) 2024/1772 economic-impact threshold",
+            "criterion_id": "economic_impact",
+            "met": false,
+            "value": "EUR 5000 (threshold >=EUR 100000)"
+          },
+          {
+            "article": "DORA Art. 18(1)(f); RTS (EU) 2024/1772 criticality-of-services criterion",
+            "criterion_id": "critical_services_affected",
+            "met": false,
+            "value": "No critical/important function affected"
+          },
+          {
+            "article": "DORA Art. 18(1)(g); RTS (EU) 2024/1772 reputational-impact criterion",
+            "criterion_id": "reputational_impact",
+            "met": false,
+            "value": "No reputational impact reported"
+          }
+        ],
+        "incident_id": "INC-2026-0100",
+        "major_incident": false,
+        "note": "Deterministic DORA (Art. 18) major-incident classification over caller-declared severity dimensions, plus a DORA Art. 19 reporting-clock (initial/intermediate/final) once classified major. See art-428-cyber-incident-clock.kernel.mjs for the analogous US notification-clock pattern. This kernel classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice. Criticality of the affected function/provider (critical_services_affected) is a caller-supplied input, not computed or judged here.",
+        "qualifying_criteria": [],
+        "reporting_clock": null,
+        "table_source": "DORA (EU) 2022/2554 Art. 18 (classification criteria) + Art. 19 (reporting obligations/timelines); Commission Delegated Regulation (EU) 2024/1772 (RTS on classification criteria for major ICT-related incidents and significant cyber threats); Commission Implementing Regulation (EU) 2025/302 (ITS on standard forms/templates and timelines for major-incident reports). Numeric thresholds pinned at MODERATE confidence -- verify against final consolidated RTS/ITS text at legal review before relying on this verdict for an actual filing.",
+        "table_version": "DORA-RTS-2024-1772-CLASSIFICATION+ITS-2025-302-TIMELINES-2026-07",
+        "verdict": "NON_MAJOR"
+      }
+    }
+  }
 },
     {
   "tool_id": "art-472-cbcr-builder",
@@ -28260,12 +29289,135 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:62a04a2495b254beb4938ec0bf7c60631fd7d37bdcb79e12677091656b0cb8ce","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:62a04a2495b254beb4938ec0bf7c60631fd7d37bdcb79e12677091656b0cb8ce",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per CBCR-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "EPNfcIzJGz7y4f7UFVxOwYuE3oDL/tiEuEV0XWZSbQgF6KLmLc7qmHYUFlF7GCKBVODGxPJwD19cGpsNEh1gjyCOeBduv5XxwgG/u3hOOXoTt8TI0vsdHPvD1auycfNPBfEMB4S8PgzfwN7hOZwUsZvH1HCgixggwUU44VZDxHUdWuR44EMnO9Q582YhkXHnIHoavlzYjHnLz+HvdqNAzCmP5wP+sy3N1kXf1Z4PYli9f+2qVCqJkaVm3XtGS+PsKlVnIFOrkv163HUjIFyJYjQM++JwfjJdn0T2EwTr574XmNC5pA0fHGkHFmwJma6GLB1fPtrNtQadF7KUMZ3uUA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:62a04a2495b254beb4938ec0bf7c60631fd7d37bdcb79e12677091656b0cb8ce",
+      "output": {
+        "all_fatal_passed": true,
+        "anomaly_flags": [],
+        "checks": [
+          {
+            "description": "Related-party revenue plus unrelated-party revenue equals total revenue, within rounding tolerance.",
+            "id": "EDIT-REV-1",
+            "jurisdiction_code": "IE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Number of employees is non-negative.",
+            "id": "EDIT-EMP-1",
+            "jurisdiction_code": "IE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Tangible assets other than cash/cash-equivalents is non-negative.",
+            "id": "EDIT-AST-1",
+            "jurisdiction_code": "IE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Related-party revenue plus unrelated-party revenue equals total revenue, within rounding tolerance.",
+            "id": "EDIT-REV-2",
+            "jurisdiction_code": "DE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Number of employees is non-negative.",
+            "id": "EDIT-EMP-2",
+            "jurisdiction_code": "DE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Tangible assets other than cash/cash-equivalents is non-negative.",
+            "id": "EDIT-AST-2",
+            "jurisdiction_code": "DE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Constituent entity (Table 2) jurisdiction exists in the Table 1 jurisdiction list.",
+            "id": "EDIT-REF-Synthetic Ireland Ltd",
+            "jurisdiction_code": "IE",
+            "passed": true,
+            "severity": "fatal"
+          },
+          {
+            "description": "Constituent entity (Table 2) jurisdiction exists in the Table 1 jurisdiction list.",
+            "id": "EDIT-REF-Synthetic Germany GmbH",
+            "jurisdiction_code": "DE",
+            "passed": true,
+            "severity": "fatal"
+          }
+        ],
+        "export_mode": "private_filing",
+        "fatal_failure_count": 0,
+        "gate_status": "auto_pass",
+        "jurisdictions": [
+          {
+            "accumulated_earnings": 1200,
+            "income_tax_accrued": 30,
+            "income_tax_paid": 25,
+            "jurisdiction_code": "IE",
+            "number_of_employees": 50,
+            "profit_before_tax": 200,
+            "stated_capital": 500,
+            "tangible_assets": 2000,
+            "total_revenue": 1000
+          },
+          {
+            "accumulated_earnings": 700,
+            "income_tax_accrued": 22,
+            "income_tax_paid": 20,
+            "jurisdiction_code": "DE",
+            "number_of_employees": 120,
+            "profit_before_tax": 80,
+            "stated_capital": 300,
+            "tangible_assets": 1500,
+            "total_revenue": 1000
+          }
+        ],
+        "not_submittable": "This artifact proves internal consistency and schema-shape against the declared schema_version. It is NEVER a filed submission and is not accepted by any national CbCR gateway -- each jurisdiction gateway (IRS/HMRC/ATO/etc.) runs its own additional validation.",
+        "orphan_entities": [],
+        "schema_version": "oecd-cbcr-xml-3.0-2026-07-01",
+        "xml_schema_skeleton": {
+          "reporting_entity": {
+            "entity_name": "Synthetic Global Holdings Ltd",
+            "tin": "SYN-TIN-000001"
+          },
+          "root_element": "CBC_OECD",
+          "schema_version": "oecd-cbcr-xml-3.0-2026-07-01",
+          "table1_jurisdiction_count": 2,
+          "table2_entity_count": 2
+        }
+      }
+    }
+  }
 },
     {
   "tool_id": "art-473-interquartile-benchmark",
@@ -28285,12 +29437,58 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:cb1ba5cdbe3498d0233716df24c81eefbc4b95386d57e76991a0c0c005b48f49","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:cb1ba5cdbe3498d0233716df24c81eefbc4b95386d57e76991a0c0c005b48f49",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-07-24"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Ship-first per CBCR-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+  "compute_proof_ready": "ready",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "Dewdzj0e1zQR2ObXXZ5Cu+O8JQ4zYkpvSfGNKgQTuWMo6KDgUgUHPVeZSlU1HC4vz6kwyMCA0jLTU7km9rdzTAAUSdOzRHXIdh+p/UltbIx8NLdHSR+U+1grEfXoUfNUH5YxXJ2y1ziQuzNAPjE4V0Az2Zi2nNi+1k7cdnLUWrMWVaQFCGzIBDKmwy98J4PVMgwrdBzcmlv/YJETLhA44wNvFCPsQFZrdUHjVOpbmQCH6RdWFrrGRDmZgPzt1LdqAUAmkwk8ecycp1/drJMUwG2aJ60fIGPhEplQNwTDKfoGxBL5/JbWE/sc7KFLVlxjDAfCJfCrpGTyWod3isnX8w==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:cb1ba5cdbe3498d0233716df24c81eefbc4b95386d57e76991a0c0c005b48f49",
+      "output": {
+        "comparable_count": 7,
+        "iqr": 0.020000000000000004,
+        "median": 0.04,
+        "missing_inputs": [],
+        "not_a_comparable_selector": "Arithmetic only. Comparable-set selection, functional/DEMPE analysis, and PLI choice are caller judgment and are never performed or validated by this kernel.",
+        "q1": 0.03,
+        "q3": 0.05,
+        "range_verdict": "within_range",
+        "ratio_suite": {
+          "berry_ratio": 1.6,
+          "tnmm_net_cost_plus_margin": 0.1111111111111111,
+          "tnmm_operating_margin": 0.1
+        },
+        "sorted_comparable_ratios": [
+          0.02,
+          0.03,
+          0.035,
+          0.04,
+          0.045,
+          0.05,
+          0.06
+        ],
+        "tested_party_ratio": 0.038
+      }
+    }
+  }
 },
     {
       "tool_id": "cry-01-zk-compliance-proof-generator",
