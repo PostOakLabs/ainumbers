@@ -382,6 +382,10 @@ timestamp: 2026-07-14
 - [IFRS 17 Loss Component Roll-Forward Tracker](./art-448-ifrs17-loss-component-tracker.md) — `track_ifrs17_loss_component_rollforward`
 - [Solvency II SCR Standard-Formula Module Aggregator](./art-449-solvency2-scr-module-aggregator.md) — `aggregate_solvency2_scr_modules`
 - [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md) — `lint_arc_xreserve_config`
+- [Model Inventory Entry Builder](./art-450-model-inventory-entry.md) — `build_model_inventory_entry`
+- [Model Outcome-Analysis Comparison](./art-451-model-outcome-analysis.md) — `compare_model_outcome_analysis`
+- [AI Training-Data Lineage Record](./art-452-build-ai-training-data-lineage-record.md) — `build_ai_training_data_lineage_record`
+- [Model Validation Status Assessor](./art-453-model-validation-status.md) — `assess_model_validation_status`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
 - [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
