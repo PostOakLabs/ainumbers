@@ -3,7 +3,7 @@ type: Index
 title: "AINumbers OpenChainGraph Suite"
 description: "Client-side, zero-egress, Policy-Mandate-emitting decision tools with verifiable execution hashes — connective tissue for the agentic-finance stack."
 resource: https://ainumbers.co/chaingraph/chaingraph-hub.html
-tags: ["openchaingraph", "okf", "spec-0.8.8"]
+tags: ["openchaingraph", "okf", "spec-0.8.12"]
 timestamp: 2026-07-14
 ---
 
