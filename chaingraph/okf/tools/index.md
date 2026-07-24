@@ -405,6 +405,7 @@ timestamp: 2026-07-14
 - [OECD Country-by-Country Report Builder](./art-472-cbcr-builder.md) — `build_cbcr_report`
 - [Transfer-Pricing Interquartile Range Benchmark](./art-473-interquartile-benchmark.md) — `benchmark_tp_interquartile_range`
 - [MT700 LC Field Validator](./art-474-validate-mt700-lc-fields.md) — `validate_mt700_lc_fields`
+- [CFPB 1071 Coverage Check & SBLAR Record Validator](./art-475-cfpb-1071-coverage-check.md) — `compute_cfpb_1071_coverage`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
 - [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`
