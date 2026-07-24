@@ -387,6 +387,8 @@ import * as art452    from './art-452-build-ai-training-data-lineage-record.kern
 import * as art453    from './art-453-model-validation-status.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
+import * as art472    from './art-472-cbcr-builder.kernel.mjs';
+import * as art473    from './art-473-interquartile-benchmark.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
@@ -842,6 +844,8 @@ export const KERNELS = {
   'art-453-model-validation-status':                          art453,
   'art-46-arc-paymaster-model':                               art46,
   'art-47-arc-cctp-transfer':                                 art47,
+  'art-472-cbcr-builder':                                     art472,
+  'art-473-interquartile-benchmark':                          art473,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
   'art-49-clearing-access-model-selector':                    art49,
   'art-50-ficc-margin-netting-estimator':                     art50,
