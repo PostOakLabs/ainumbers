@@ -119,10 +119,10 @@ footer{border-top:1px solid var(--border);padding:2rem 0}
     <div class="doc-meta">
       Applies to: AINumbers Helm (browser app + helmd engine)<br>
       Purpose: a complete, reviewable inventory for network-security teams, egress firewalls, and proxy allowlists, not a marketing summary<br>
-      Last reviewed: 2026-07-23
+      Last reviewed: 2026-07-24
     </div>
 
-    <p>Helm's default posture is zero egress. Nothing on this page happens unless a user takes the specific action that triggers it, and every request below is either same-origin, a user-initiated OAuth flow, or a single-purpose call to a named external host. There is no telemetry, no analytics beacon, and no background polling of any kind.</p>
+    <p>Helm's default posture is zero egress. Almost every request below is either same-origin, a user-initiated OAuth flow, or a single-purpose call to a named external host. The one exception is a passive, default-on version-check poll, itemized in full in §2. There is no telemetry, no analytics beacon, no crash reporting, and no request anywhere on this page ever carries document content, file contents, or account data.</p>
 
     <h2>1. Hosted origins Helm itself talks to</h2>
     <table>
@@ -135,10 +135,11 @@ footer{border-top:1px solid var(--border);padding:2rem 0}
     </table>
 
     <h2>2. helmd engine (optional, local daemon)</h2>
-    <p>When installed, helmd listens on <code>127.0.0.1</code> only. It never binds a non-loopback interface. All requests between the browser UI and helmd are same-machine loopback traffic, not internet egress:</p>
+    <p>When installed, helmd listens on <code>127.0.0.1</code> only. It never binds a non-loopback interface. Most requests between the browser UI and helmd are same-machine loopback traffic, not internet egress. The one exception is the version-check row below, which helmd relays outward on the UI's behalf:</p>
     <ul>
       <li>Endpoint: <code>http://127.0.0.1:&lt;port&gt;/*</code> (REST + Server-Sent Events). Trigger: any UI action once paired. Auth: every call carries the single-use pairing bearer token; every request is checked for exact <code>Host</code> and <code>Origin</code> match (rebind and CSRF defense).</li>
       <li>Endpoint: <code>http://127.0.0.1:&lt;port&gt;/version</code>. Trigger: handoff/detection probe, only on explicit user click, never on page load. Payload: capability/version JSON, no user data.</li>
+      <li>Version-check poll, on by default: the UI calls its own daemon at loopback <code>GET /version-check</code> once on boot and then every hour (<code>ui/app.mjs</code>, <code>checkSkew()</code> plus an hourly <code>setInterval</code>). helmd then makes one real outbound request, <code>GET https://ainumbers.co/helm/version.json</code>: a bare GET, no request body, no identifiers, no telemetry. The response is a static version-notice JSON used only to show a passive "an update exists" banner; nothing is downloaded or applied automatically. Like any HTTP request, it necessarily reveals the caller's IP address and User-Agent to the server it's sent to. Running <code>helmd doctor</code> triggers the same call once, separately. To disable it, set <code>"versionCheckUrl": ""</code> in <code>~/.helm/config.json</code> (any falsy value works); helmd then reports the check as <code>disabled</code> and makes no outbound call at all. This is normal update-check behavior, the same category of request VS Code, npm, Homebrew, and Docker Desktop all make by default; it is not telemetry and carries no data about the user or their work.</li>
     </ul>
 
     <h2>3. OAuth connector flows (only the connectors a user explicitly connects)</h2>
@@ -164,8 +165,8 @@ footer{border-top:1px solid var(--border);padding:2rem 0}
 
     <h2>5. What Helm never does</h2>
     <ul>
-      <li>No background polling, heartbeat, or "phone home" of any kind. helmd makes zero unsolicited outbound calls.</li>
-      <li>No analytics, telemetry, or crash-reporting beacon in either the browser app or helmd.</li>
+      <li>helmd makes exactly one kind of unsolicited outbound call: the version-check poll in §2, on by default and fully documented above, including how to turn it off. Outside of that one endpoint, there is no other background polling, heartbeat, or "phone home."</li>
+      <li>No analytics, telemetry, or crash-reporting beacon in either the browser app or helmd. The version-check request carries no user data, session data, or identifiers of any kind, only a bare GET.</li>
       <li>No egress to any host not itemized above or explicitly allowlisted by a connector manifest the user installed.</li>
       <li>No cross-origin fetch is attempted automatically: the handoff/detection probe from <code>ainumbers.co</code> to <code>127.0.0.1</code> only ever fires after an explicit click, is wrapped by the browser's own Local Network Access permission prompt, and a denial simply keeps the session in browser-only mode. Nothing is retried silently.</li>
     </ul>
