@@ -25858,18 +25858,7 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [
-    {
-      "system": "sha256-source",
-      "image_id": "sha256:d4f785fe961f2b21635d4c79e97fc6843c9db6d688d81be0b6a7223d1f63ac95",
-      "valid_from": "2026-07-23"
-    },
-    {
-      "system": "risc0",
-      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
-      "valid_from": "2026-07-23"
-    }
-  ],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:6bbd5af5d5a8f8a001a6b5e62fde257a5a22943d218e038ce6c4ae78bb142c8e","valid_from":"2026-07-10"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-07-23"}],
   "compute_proof_ready": "ready",
   "export_capability": [
     "json"
@@ -27910,6 +27899,325 @@
       }
     }
   }
+},
+    {
+  "tool_id": "art-454-globe-jurisdictional-etr",
+  "tool_version": "1.0.0",
+  "display_name": "GloBE Jurisdictional ETR Calculator",
+  "mcp_name": "compute_globe_jurisdictional_etr",
+  "mandate_type": "compliance_control",
+  "wave": 32,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html",
+  "description": "Computes a jurisdiction's OECD Pillar Two (GloBE) effective tax rate from caller-declared constituent-entity financial data: sums entity-level GloBE income/loss to a jurisdictional net (Art 3.1), sums entity-level adjusted covered taxes (Art 4), and divides to get the ETR. If the jurisdictional net is a GloBE loss, no ETR is computed and the jurisdiction is flagged rather than divided by a non-positive base. Top-up tax percentage = max(0, minimum_rate - ETR); minimum_rate defaults to the Art 5.1 15% rate but is taken as a versioned policy-parameter input, not hardcoded. Election flags (de minimis, stock-based comp, aggregate deferred-tax adjustment) are caller-declared policy parameters -- this kernel echoes which elections were declared, it does not decide them; election judgment and DTA characterization stay with the filer. First node in the GloBE annual cycle, feeding the substance-based income exclusion / top-up node (art-455) and, downstream, the safe-harbour tests (art-456) and GIR composer (art-457). Pure arithmetic aggregation only. NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-454-globe-jurisdictional-etr.html#manifest",
+  "consumes": [],
+  "feeds": ["art-455-globe-sbie-topup"],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:b6c161f165c164256e1d59d3de2d7b967aa272e972f8ad8d17648dbb1066ab78","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Kernel is source-published and deterministic (§17 sha256-source digest pending publication in a later K-lane pass); no §18 zkVM guest built for this node yet -- proof generation deferred, not skipped."
+},
+    {
+  "tool_id": "art-455-globe-sbie-topup",
+  "tool_version": "1.0.0",
+  "display_name": "GloBE SBIE & Top-up Tax Calculator",
+  "mcp_name": "compute_globe_sbie_topup",
+  "mandate_type": "compliance_control",
+  "wave": 76,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html",
+  "description": "Computes the OECD Pillar Two substance-based income exclusion (SBIE) for a jurisdiction from a caller-declared payroll-cost figure, tangible-asset carrying value, and a versioned transition-year rate table (payroll % + tangible-asset % looked up by target year, table supplied whole as a policy input -- not hardcoded). Derives excess profit (jurisdictional GloBE income less SBIE, floored at zero), the resulting top-up tax from a caller-supplied top-up-tax percentage, and the final jurisdictional top-up after a QDMTT-paid offset, flagging any QDMTT over-collection informationally. Consumes art-454's jurisdictional GloBE income + top-up-tax-percentage output shape directly and does not recompute an ETR itself, so it also runs standalone. Election choices and GloBE-income adjustments are human judgment and stay upstream. NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-455-globe-sbie-topup.html#manifest",
+  "consumes": ["art-454-globe-jurisdictional-etr"],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:f883e9af5be1a09cf3f90e6d98b8452905bbef712f381adef50876f7ee4a44ab","valid_from":"2026-07-10"}],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New GloBE SBIE/top-up kernel shipped fixture-first; §18 zkVM guest proof to follow in a later proving wave.",
+  "export_capability": [
+    "json"
+  ]
+},
+    {
+  "tool_id": "art-456-globe-safe-harbour-tests",
+  "tool_version": "1.0.0",
+  "display_name": "GloBE Transitional Safe Harbour Test Evaluator",
+  "mcp_name": "evaluate_globe_safe_harbour_tests",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-456-globe-safe-harbour-tests.html",
+  "description": "Evaluates a jurisdiction against the OECD Pillar Two Transitional CbCR Safe Harbour (Dec 2022 Agreed Administrative Guidance): the de minimis test (CbCR revenue < EUR 10m AND profit before tax < EUR 1m, both versioned thresholds), the simplified ETR test (simplified covered taxes / profit before tax >= the fiscal-year transition rate -- 15% for 2023/2024, 16% for 2025, 17% for 2026, versioned rate table; auto-passes when profit before tax is non-positive since ETR is undefined), and the routine profits test (profit before tax <= the caller-supplied substance-based income exclusion amount). Safe harbour is met if ANY ONE of the three tests passes, in which case the jurisdiction's top-up tax is deemed zero. Returns each test as an independently gated pass/fail verdict with its own reasoning, plus the overall safe_harbour_met / deemed_zero_topup flags. Pure arithmetic threshold comparisons only -- elections, DTA characterization, and the SBIE amount itself are HUMAN JUDGMENT and enter only as policy_parameters; SBIE is not recomputed here (that is art-455's job). NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-456-globe-safe-harbour-tests.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:9dd9ae74b1d4edde67ba59bd862dc96cd7a0623011b3e59070bf5fd6ccbf3669","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New kernel awaiting §18 zkVM guest build and prove-first pass; ships arithmetic-only with compute_mode:server and no compute_proof yet."
+},
+    {
+  "tool_id": "art-458-attribute-sampling-plan",
+  "tool_version": "1.0.0",
+  "display_name": "Attribute Sampling Plan Generator",
+  "mcp_name": "plan_attribute_sample",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-458-attribute-sampling-plan.html",
+  "description": "Computes a SOX 404 / ICFR attribute-sampling plan from confidence level, tolerable deviation rate, and expected deviation rate (all policy inputs) using the standard zero-EDR Poisson attribute-sampling formula with an expansion factor for nonzero EDR. Item selection is deterministic interval sampling over the caller-declared population hash -- no randomness, so any auditor can replay the exact same sample from the same declared inputs. If the tolerable deviation rate is at or below the expected deviation rate the plan is statistically indefensible, so the kernel reframes to a full-population census rather than shipping a bad plan. First node in the ICFR control-test evidence chain (feeds art-461 control-test-evidence-composer). NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-458-attribute-sampling-plan.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:5bcd64e2925ab483c805160229d7a37241e311140192cd080b09be6d358fec1b","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+},
+    {
+  "tool_id": "art-459-sod-matrix-check",
+  "tool_version": "1.0.0",
+  "display_name": "Segregation-of-Duties Matrix Checker",
+  "mcp_name": "check_sod_matrix",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-459-sod-matrix-check.html",
+  "description": "Evaluates a caller-declared role-assignment set against a caller-declared SoD conflict ruleset for SOX 404 / ICFR access controls. For every user, checks all pairs of assigned roles against the ruleset and returns any conflicts found, the count of affected users, and a clean/not-clean verdict. The ruleset is a versioned policy input, never derived by the kernel. Deterministic pairwise set evaluation only. Zero network, zero PII -- user_id and role names are caller-supplied opaque strings.",
+  "input_schema_ref": "chaingraph/art-459-sod-matrix-check.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:991bda6ad22de1f56d310c7cfbe98b6a7a9e4fdace9805007b0cc161d05cd7cd","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+},
+    {
+  "tool_id": "art-460-ipe-integrity-verifier",
+  "tool_version": "1.0.0",
+  "display_name": "IPE Integrity Verifier",
+  "mcp_name": "verify_ipe_integrity",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html",
+  "description": "Verifies Information-Produced-by-Entity (IPE) completeness and accuracy for SOX 404 / ICFR control testing -- is this report extract what the source system actually produced. Reconciles a caller-declared source-extract hash, row count, and control total against the same facts for the report built from it, within a caller-set rounding tolerance. All facts are policy inputs; the kernel never re-derives the extract, only reconciles the declared parameters into a confirmed/exception verdict with a discrepancy list. Deterministic equality and tolerance checks only. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-460-ipe-integrity-verifier.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:3739111ed80b1fdde1f68667060608703b547770fc185678540d7e16fa4023c6","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New ICFR-K-1 kernel shipped shard-only (SO#6, ASSEMBLE-LAND lane); GPU zkVM proving for art-458..460 is queued for the async G-lane nightly proving run, not this D-disjoint kernel WU."
+},
+    {
+  "tool_id": "art-462-je-ruleset-screen",
+  "tool_version": "1.0.0",
+  "display_name": "Journal-Entry Ruleset Screen",
+  "mcp_name": "screen_je_ruleset",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html",
+  "description": "Runs a caller-declared, versioned journal-entry testing ruleset over a caller-declared JE extract and flags each entry that trips one or more rules: weekend/holiday postings, round-number entries, suspense/manual-account postings, post-close entries, and unusual user/account pairings. Every firm-specific convention (which rules are active, what counts as a round number, the weekend day set, the holiday calendar, the suspense-account list, the period-close date, the authorized user/account pairing list) is a caller-declared policy input, never a silent default; the ruleset_version string is echoed verbatim in the output so the artifact records exactly which policy vintage produced the flags. Optionally binds to a caller-declared extract_population_hash for audit-trail linkage to a hashed JE population (soft coupling only, e.g. to an art-460-style extract-integrity record if that node has landed). First of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-462-je-ruleset-screen.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:5f9f5a9b7c90cd52f8391fad3645938706315d2271784f07a1fb5a831b588599","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+},
+    {
+  "tool_id": "art-463-recalc-suite",
+  "tool_version": "1.0.0",
+  "display_name": "Audit Recalculation Suite",
+  "mcp_name": "run_audit_recalc_suite",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-463-recalc-suite.html",
+  "description": "Independently recalculates five caller-supplied audit schedule types (straight-line/double-declining-balance/units-of-production depreciation, interest accrual, EPS basic and diluted, straight-line intangible amortization, and prepaid-expense roll-forwards) and diffs each recalculated figure against the client's stated figure. A category only runs when the caller supplies items for it. The variance threshold gate (tolerance_abs, tolerance_pct) is a caller-declared policy input with an explicit, echoed default of 0/0 (flag any nonzero variance) when the caller declares neither -- there is no silent, unrecorded tolerance. EPS diluted uses the simplified NI-less-preferred-dividends-over-diluted-shares form; it does not model if-converted or treasury-stock adjustments for specific convertible instruments, a judgment-heavy extension out of this kernel's deterministic-recalc scope. Second of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe; a zero-denominator ratio resolves to null, never NaN/Infinity. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-463-recalc-suite.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:d913e4c1ab2a8875f2d19463184c19f2de2051342302d321d03e1c790841c02a","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+},
+    {
+  "tool_id": "art-464-confirmation-matcher",
+  "tool_version": "1.0.0",
+  "display_name": "Bank/AR Confirmation Matcher",
+  "mcp_name": "match_confirmations",
+  "mandate_type": "compliance_control",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html",
+  "description": "Joins caller-supplied bank and accounts-receivable confirmation responses against caller-supplied ledger balances on (counterparty_id, type), and classifies each pair EXACT_MATCH, TOLERANCE_MATCH, or MISMATCH, plus confirmations with no corresponding ledger balance and ledger balances with no corresponding confirmation. The match tolerance (tolerance_abs, tolerance_pct) is a caller-declared policy input; the explicit, echoed default is 0/0 (exact match required) when the caller declares neither -- there is no silent, unrecorded tolerance. A duplicate (counterparty_id, type) key on either side is reported as a data-quality flag rather than silently overwritten -- only the first occurrence on each side is joined. Third of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe. Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-464-confirmation-matcher.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:54918b9e1a32a89b38be7118d7fa3e6c5af4fc8dc91a023545a4fdbddb0bec76","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Ship-first per ARCB-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+},
+    {
+  "tool_id": "art-466-dora-roi-builder",
+  "tool_version": "1.0.0",
+  "display_name": "DORA Register of Information (RoI) Builder & Cross-Validator",
+  "mcp_name": "build_dora_roi_register",
+  "mandate_type": "compliance_mandate",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-466-dora-roi-builder.html",
+  "description": "Constructs and cross-validates the core Register of Information (RoI) template relationships required under DORA (EU 2022/2554) Art. 28/30: entity + ICT third-party providers + functions + contractual arrangements. Validates ISO 17442 LEI format + mod-97 check-digit on the entity and every provider, referential integrity (every function's provider_id, every contract's function_id and provider_id, and function-to-contract provider consistency), and mandatory-field completeness per record type, emitting a form-shaped JSON dataset plus a validation report with per-record findings and compliance_flags. Distinct from the RoI's official xBRL-CSV submission format, which this kernel does NOT emit (a later WU handles ESA-format conversion). Distinct from art-467-dora-incident-classifier (this validates the standing RoI dataset; that classifies a single ICT incident's reporting obligations). Criticality of functions/providers is a caller-declared flag, not judged here.",
+  "input_schema_ref": "chaingraph/art-466-dora-roi-builder.html#manifest",
+  "deadline": "2027-01-31",
+  "deadline_note": "DORA RoI annual submission cycle, Q1 (2nd cycle completed Q1 2026; next cycle Q1 2027).",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:4f605ce91ebec16f4f7e409b383f1f5f273b5f3e0551894aed9765e2b7681d80",
+      "valid_from": "2026-07-24"
+    }
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false kernel added in DORA-K-1 (2026-07-24); §18 zkVM compute_proof generation runs in the post-assembly proving pass, not in this kernel-only build wave.",
+  "export_capability": [
+    "json"
+  ]
+},
+    {
+  "tool_id": "art-467-dora-incident-classifier",
+  "tool_version": "1.0.0",
+  "display_name": "DORA ICT Incident Classifier & Reporting Clock",
+  "mcp_name": "classify_dora_ict_incident_and_clock_deadlines",
+  "mandate_type": "attestation_mandate",
+  "wave": 74,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html",
+  "description": "Classifies an ICT-related incident as major or non-major under DORA (EU 2022/2554) Art. 18, applying the published RTS (EU 2024/1772) numeric criteria (clients affected %, duration, geographical spread, data losses, economic impact, critical-services impact, reputational impact), then starts the DORA Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report, all from classification) once classified major. Follows the art-428-cyber-incident-clock deadline-clock pattern for the EU DORA regime; see that node for the analogous US banking/SEC/NYDFS clock. Not a duplicate of the existing art-09-dora-incident-classifier (earlier draft-RTS citation, no notification-clock link, infrastructure_mandate) -- art-467 cites the final 2024 RTS/ITS package and is built to the attestation-clock pattern; the overlap between the two is flagged for review, not hidden. This node classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.",
+  "input_schema_ref": "chaingraph/art-467-dora-incident-classifier.html#manifest",
+  "deadline": null,
+  "deadline_note": "DORA (EU) 2022/2554 in force January 2025; incident-classification/reporting obligations are ongoing, not a one-time deadline.",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:2f4fe65161e59aee68e9609258e251c1a571a671f2167a00a2d0dc1c514ac4a7",
+      "valid_from": "2026-07-24"
+    }
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false kernel added in DORA-K-1 (2026-07-24); §18 zkVM compute_proof generation runs in the post-assembly proving pass, not in this kernel-only build wave.",
+  "export_capability": [
+    "json"
+  ]
+},
+    {
+  "tool_id": "art-472-cbcr-builder",
+  "tool_version": "1.0.0",
+  "display_name": "OECD Country-by-Country Report Builder",
+  "mcp_name": "build_cbcr_report",
+  "mandate_type": "compliance_mandate",
+  "wave": 75,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-472-cbcr-builder.html",
+  "description": "Builds an OECD BEPS Action 13 Country-by-Country Report XML schema skeleton from a caller-declared Table 1 (jurisdiction revenue/profit/tax/employee/asset data) and Table 2 (constituent-entity list) against a caller-declared, version-pinned Action 13 XML schema version. Runs internal consistency checks -- per-jurisdiction revenue-component sums, employee/asset non-negativity, entity-jurisdiction referential integrity between Table 1 and Table 2 -- and surfaces a profit-with-zero-employees anomaly flag for the downstream §27 review gate. Also produces EU Directive (EU) 2021/2101 and Australian public-CbCR field-subset export modes. NEVER a submission -- not accepted by any national CbCR gateway; each jurisdiction's own portal runs its own additional validation. Comparable-set selection and transfer-pricing judgment stay out of scope (see art-473-interquartile-benchmark for arm's-length range arithmetic). Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-472-cbcr-builder.html#manifest",
+  "consumes": [],
+  "feeds": [
+    "art-473-interquartile-benchmark"
+  ],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:62a04a2495b254beb4938ec0bf7c60631fd7d37bdcb79e12677091656b0cb8ce","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Ship-first per CBCR-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
+},
+    {
+  "tool_id": "art-473-interquartile-benchmark",
+  "tool_version": "1.0.0",
+  "display_name": "Transfer-Pricing Interquartile Range Benchmark",
+  "mcp_name": "benchmark_tp_interquartile_range",
+  "mandate_type": "compliance_mandate",
+  "wave": 75,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html",
+  "description": "OECD Transfer Pricing Guidelines Ch. III §3.57 interquartile-range arithmetic over a caller-declared array of already-selected comparable financial ratios: linear-interpolation quartiles (Q1/median/Q3), IQR, and a tested-party ratio-vs-range verdict (below/within/above range). Also computes the TNMM net-cost-plus and operating-margin ratios and the Berry ratio directly from caller-declared financial data. Comparable-set SELECTION and functional/DEMPE analysis are entirely caller judgment -- this kernel performs no comparability analysis and never opines on which PLI applies; it is pure downstream arithmetic on an already-selected set. Cross-links art-456 GloBE safe-harbour (consumes the same underlying entity financial data for a different regime). Zero network, zero PII.",
+  "input_schema_ref": "chaingraph/art-473-interquartile-benchmark.html#manifest",
+  "consumes": [
+    "art-472-cbcr-builder"
+  ],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:cb1ba5cdbe3498d0233716df24c81eefbc4b95386d57e76991a0c0c005b48f49","valid_from":"2026-07-10"}],
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "Ship-first per CBCR-K-1 row; §18 proving batched with the next ASSEMBLE-LAND."
 },
     {
       "tool_id": "cry-01-zk-compliance-proof-generator",

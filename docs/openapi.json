@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**961 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**974 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -59987,6 +59987,526 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
         "x-ocg-wave": 73
+      }
+    },
+    "/v1/tools/compute_globe_jurisdictional_etr": {
+      "post": {
+        "operationId": "compute_globe_jurisdictional_etr",
+        "summary": "GloBE Jurisdictional ETR Calculator",
+        "description": "Computes a jurisdiction's OECD Pillar Two (GloBE) effective tax rate from caller-declared constituent-entity financial data: sums entity-level GloBE income/loss to a jurisdictional net (Art 3.1), sums entity-level adjusted covered taxes (Art 4), and divides to get the ETR. If the jurisdictional net is a GloBE loss, no ETR is computed and the jurisdiction is flagged rather than divided by a non-positive base. Top-up tax percentage = max(0, minimum_rate - ETR); minimum_rate defaults to the Art 5.1 15% rate but is taken as a versioned policy-parameter input, not hardcoded. Election flags (de minimis, stock-based comp, aggregate deferred-tax adjustment) are caller-declared policy parameters -- this kernel echoes which elections were declared, it does not decide them; election judgment and DTA characterization stay with the filer. First node in the GloBE annual cycle, feeding the substance-based income exclusion / top-up node (art-455) and, downstream, the safe-harbour tests (art-456) and GIR composer (art-457). Pure arithmetic aggregation only. NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html\n**Wave:** 32\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_globe_jurisdictional_etr",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 32
+      }
+    },
+    "/v1/tools/compute_globe_sbie_topup": {
+      "post": {
+        "operationId": "compute_globe_sbie_topup",
+        "summary": "GloBE SBIE & Top-up Tax Calculator",
+        "description": "Computes the OECD Pillar Two substance-based income exclusion (SBIE) for a jurisdiction from a caller-declared payroll-cost figure, tangible-asset carrying value, and a versioned transition-year rate table (payroll % + tangible-asset % looked up by target year, table supplied whole as a policy input -- not hardcoded). Derives excess profit (jurisdictional GloBE income less SBIE, floored at zero), the resulting top-up tax from a caller-supplied top-up-tax percentage, and the final jurisdictional top-up after a QDMTT-paid offset, flagging any QDMTT over-collection informationally. Consumes art-454's jurisdictional GloBE income + top-up-tax-percentage output shape directly and does not recompute an ETR itself, so it also runs standalone. Election choices and GloBE-income adjustments are human judgment and stay upstream. NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html\n**Wave:** 76\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_globe_sbie_topup",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 76
+      }
+    },
+    "/v1/tools/evaluate_globe_safe_harbour_tests": {
+      "post": {
+        "operationId": "evaluate_globe_safe_harbour_tests",
+        "summary": "GloBE Transitional Safe Harbour Test Evaluator",
+        "description": "Evaluates a jurisdiction against the OECD Pillar Two Transitional CbCR Safe Harbour (Dec 2022 Agreed Administrative Guidance): the de minimis test (CbCR revenue < EUR 10m AND profit before tax < EUR 1m, both versioned thresholds), the simplified ETR test (simplified covered taxes / profit before tax >= the fiscal-year transition rate -- 15% for 2023/2024, 16% for 2025, 17% for 2026, versioned rate table; auto-passes when profit before tax is non-positive since ETR is undefined), and the routine profits test (profit before tax <= the caller-supplied substance-based income exclusion amount). Safe harbour is met if ANY ONE of the three tests passes, in which case the jurisdiction's top-up tax is deemed zero. Returns each test as an independently gated pass/fail verdict with its own reasoning, plus the overall safe_harbour_met / deemed_zero_topup flags. Pure arithmetic threshold comparisons only -- elections, DTA characterization, and the SBIE amount itself are HUMAN JUDGMENT and enter only as policy_parameters; SBIE is not recomputed here (that is art-455's job). NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-456-globe-safe-harbour-tests.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-456-globe-safe-harbour-tests.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "evaluate_globe_safe_harbour_tests",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-456-globe-safe-harbour-tests.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/plan_attribute_sample": {
+      "post": {
+        "operationId": "plan_attribute_sample",
+        "summary": "Attribute Sampling Plan Generator",
+        "description": "Computes a SOX 404 / ICFR attribute-sampling plan from confidence level, tolerable deviation rate, and expected deviation rate (all policy inputs) using the standard zero-EDR Poisson attribute-sampling formula with an expansion factor for nonzero EDR. Item selection is deterministic interval sampling over the caller-declared population hash -- no randomness, so any auditor can replay the exact same sample from the same declared inputs. If the tolerable deviation rate is at or below the expected deviation rate the plan is statistically indefensible, so the kernel reframes to a full-population census rather than shipping a bad plan. First node in the ICFR control-test evidence chain (feeds art-461 control-test-evidence-composer). NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-458-attribute-sampling-plan.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-458-attribute-sampling-plan.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "plan_attribute_sample",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-458-attribute-sampling-plan.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/check_sod_matrix": {
+      "post": {
+        "operationId": "check_sod_matrix",
+        "summary": "Segregation-of-Duties Matrix Checker",
+        "description": "Evaluates a caller-declared role-assignment set against a caller-declared SoD conflict ruleset for SOX 404 / ICFR access controls. For every user, checks all pairs of assigned roles against the ruleset and returns any conflicts found, the count of affected users, and a clean/not-clean verdict. The ruleset is a versioned policy input, never derived by the kernel. Deterministic pairwise set evaluation only. Zero network, zero PII -- user_id and role names are caller-supplied opaque strings.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-459-sod-matrix-check.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-459-sod-matrix-check.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_sod_matrix",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-459-sod-matrix-check.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/verify_ipe_integrity": {
+      "post": {
+        "operationId": "verify_ipe_integrity",
+        "summary": "IPE Integrity Verifier",
+        "description": "Verifies Information-Produced-by-Entity (IPE) completeness and accuracy for SOX 404 / ICFR control testing -- is this report extract what the source system actually produced. Reconciles a caller-declared source-extract hash, row count, and control total against the same facts for the report built from it, within a caller-set rounding tolerance. All facts are policy inputs; the kernel never re-derives the extract, only reconciles the declared parameters into a confirmed/exception verdict with a discrepancy list. Deterministic equality and tolerance checks only. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_ipe_integrity",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/screen_je_ruleset": {
+      "post": {
+        "operationId": "screen_je_ruleset",
+        "summary": "Journal-Entry Ruleset Screen",
+        "description": "Runs a caller-declared, versioned journal-entry testing ruleset over a caller-declared JE extract and flags each entry that trips one or more rules: weekend/holiday postings, round-number entries, suspense/manual-account postings, post-close entries, and unusual user/account pairings. Every firm-specific convention (which rules are active, what counts as a round number, the weekend day set, the holiday calendar, the suspense-account list, the period-close date, the authorized user/account pairing list) is a caller-declared policy input, never a silent default; the ruleset_version string is echoed verbatim in the output so the artifact records exactly which policy vintage produced the flags. Optionally binds to a caller-declared extract_population_hash for audit-trail linkage to a hashed JE population (soft coupling only, e.g. to an art-460-style extract-integrity record if that node has landed). First of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "screen_je_ruleset",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/run_audit_recalc_suite": {
+      "post": {
+        "operationId": "run_audit_recalc_suite",
+        "summary": "Audit Recalculation Suite",
+        "description": "Independently recalculates five caller-supplied audit schedule types (straight-line/double-declining-balance/units-of-production depreciation, interest accrual, EPS basic and diluted, straight-line intangible amortization, and prepaid-expense roll-forwards) and diffs each recalculated figure against the client's stated figure. A category only runs when the caller supplies items for it. The variance threshold gate (tolerance_abs, tolerance_pct) is a caller-declared policy input with an explicit, echoed default of 0/0 (flag any nonzero variance) when the caller declares neither -- there is no silent, unrecorded tolerance. EPS diluted uses the simplified NI-less-preferred-dividends-over-diluted-shares form; it does not model if-converted or treasury-stock adjustments for specific convertible instruments, a judgment-heavy extension out of this kernel's deterministic-recalc scope. Second of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe; a zero-denominator ratio resolves to null, never NaN/Infinity. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-463-recalc-suite.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-463-recalc-suite.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "run_audit_recalc_suite",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-463-recalc-suite.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/match_confirmations": {
+      "post": {
+        "operationId": "match_confirmations",
+        "summary": "Bank/AR Confirmation Matcher",
+        "description": "Joins caller-supplied bank and accounts-receivable confirmation responses against caller-supplied ledger balances on (counterparty_id, type), and classifies each pair EXACT_MATCH, TOLERANCE_MATCH, or MISMATCH, plus confirmations with no corresponding ledger balance and ledger balances with no corresponding confirmation. The match tolerance (tolerance_abs, tolerance_pct) is a caller-declared policy input; the explicit, echoed default is 0/0 (exact match required) when the caller declares neither -- there is no silent, unrecorded tolerance. A duplicate (counterparty_id, type) key on either side is reported as a data-quality flag rather than silently overwritten -- only the first occurrence on each side is joined. Third of three ARCB-K-1 substantive audit-recalculation kernels. NaN-safe. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html\n**Wave:** 74\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "match_confirmations",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/build_dora_roi_register": {
+      "post": {
+        "operationId": "build_dora_roi_register",
+        "summary": "DORA Register of Information (RoI) Builder & Cross-Validator",
+        "description": "Constructs and cross-validates the core Register of Information (RoI) template relationships required under DORA (EU 2022/2554) Art. 28/30: entity + ICT third-party providers + functions + contractual arrangements. Validates ISO 17442 LEI format + mod-97 check-digit on the entity and every provider, referential integrity (every function's provider_id, every contract's function_id and provider_id, and function-to-contract provider consistency), and mandatory-field completeness per record type, emitting a form-shaped JSON dataset plus a validation report with per-record findings and compliance_flags. Distinct from the RoI's official xBRL-CSV submission format, which this kernel does NOT emit (a later WU handles ESA-format conversion). Distinct from art-467-dora-incident-classifier (this validates the standing RoI dataset; that classifies a single ICT incident's reporting obligations). Criticality of functions/providers is a caller-declared flag, not judged here.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-466-dora-roi-builder.html\n**Wave:** 74\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-466-dora-roi-builder.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "build_dora_roi_register",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-466-dora-roi-builder.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/classify_dora_ict_incident_and_clock_deadlines": {
+      "post": {
+        "operationId": "classify_dora_ict_incident_and_clock_deadlines",
+        "summary": "DORA ICT Incident Classifier & Reporting Clock",
+        "description": "Classifies an ICT-related incident as major or non-major under DORA (EU 2022/2554) Art. 18, applying the published RTS (EU 2024/1772) numeric criteria (clients affected %, duration, geographical spread, data losses, economic impact, critical-services impact, reputational impact), then starts the DORA Art. 19 reporting clock (4-hour initial notification, 72-hour intermediate report, 1-calendar-month final report, all from classification) once classified major. Follows the art-428-cyber-incident-clock deadline-clock pattern for the EU DORA regime; see that node for the analogous US banking/SEC/NYDFS clock. Not a duplicate of the existing art-09-dora-incident-classifier (earlier draft-RTS citation, no notification-clock link, infrastructure_mandate) -- art-467 cites the final 2024 RTS/ITS package and is built to the attestation-clock pattern; the overlap between the two is flagged for review, not hidden. This node classifies and computes deadlines only; it does not itself transmit, file, or submit any regulatory notification, and it is not legal advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html\n**Wave:** 74\n**mandate_type:** attestation_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "attestation_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: attestation_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_dora_ict_incident_and_clock_deadlines",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "attestation_mandate",
+        "x-ocg-wave": 74
+      }
+    },
+    "/v1/tools/build_cbcr_report": {
+      "post": {
+        "operationId": "build_cbcr_report",
+        "summary": "OECD Country-by-Country Report Builder",
+        "description": "Builds an OECD BEPS Action 13 Country-by-Country Report XML schema skeleton from a caller-declared Table 1 (jurisdiction revenue/profit/tax/employee/asset data) and Table 2 (constituent-entity list) against a caller-declared, version-pinned Action 13 XML schema version. Runs internal consistency checks -- per-jurisdiction revenue-component sums, employee/asset non-negativity, entity-jurisdiction referential integrity between Table 1 and Table 2 -- and surfaces a profit-with-zero-employees anomaly flag for the downstream §27 review gate. Also produces EU Directive (EU) 2021/2101 and Australian public-CbCR field-subset export modes. NEVER a submission -- not accepted by any national CbCR gateway; each jurisdiction's own portal runs its own additional validation. Comparable-set selection and transfer-pricing judgment stay out of scope (see art-473-interquartile-benchmark for arm's-length range arithmetic). Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-472-cbcr-builder.html\n**Wave:** 75\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-472-cbcr-builder.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "build_cbcr_report",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-472-cbcr-builder.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 75
+      }
+    },
+    "/v1/tools/benchmark_tp_interquartile_range": {
+      "post": {
+        "operationId": "benchmark_tp_interquartile_range",
+        "summary": "Transfer-Pricing Interquartile Range Benchmark",
+        "description": "OECD Transfer Pricing Guidelines Ch. III §3.57 interquartile-range arithmetic over a caller-declared array of already-selected comparable financial ratios: linear-interpolation quartiles (Q1/median/Q3), IQR, and a tested-party ratio-vs-range verdict (below/within/above range). Also computes the TNMM net-cost-plus and operating-margin ratios and the Berry ratio directly from caller-declared financial data. Comparable-set SELECTION and functional/DEMPE analysis are entirely caller judgment -- this kernel performs no comparability analysis and never opines on which PLI applies; it is pure downstream arithmetic on an already-selected set. Cross-links art-456 GloBE safe-harbour (consumes the same underlying entity financial data for a different regime). Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html\n**Wave:** 75\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "benchmark_tp_interquartile_range",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 75
       }
     },
     "/v1/tools/generate_zk_compliance_proof": {

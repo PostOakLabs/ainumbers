@@ -386,8 +386,21 @@ timestamp: 2026-07-14
 - [Model Outcome-Analysis Comparison](./art-451-model-outcome-analysis.md) — `compare_model_outcome_analysis`
 - [AI Training-Data Lineage Record](./art-452-build-ai-training-data-lineage-record.md) — `build_ai_training_data_lineage_record`
 - [Model Validation Status Assessor](./art-453-model-validation-status.md) — `assess_model_validation_status`
+- [GloBE Jurisdictional ETR Calculator](./art-454-globe-jurisdictional-etr.md) — `compute_globe_jurisdictional_etr`
+- [GloBE SBIE & Top-up Tax Calculator](./art-455-globe-sbie-topup.md) — `compute_globe_sbie_topup`
+- [GloBE Transitional Safe Harbour Test Evaluator](./art-456-globe-safe-harbour-tests.md) — `evaluate_globe_safe_harbour_tests`
+- [Attribute Sampling Plan Generator](./art-458-attribute-sampling-plan.md) — `plan_attribute_sample`
+- [Segregation-of-Duties Matrix Checker](./art-459-sod-matrix-check.md) — `check_sod_matrix`
 - [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md) — `model_arc_paymaster_economics`
+- [IPE Integrity Verifier](./art-460-ipe-integrity-verifier.md) — `verify_ipe_integrity`
+- [Journal-Entry Ruleset Screen](./art-462-je-ruleset-screen.md) — `screen_je_ruleset`
+- [Audit Recalculation Suite](./art-463-recalc-suite.md) — `run_audit_recalc_suite`
+- [Bank/AR Confirmation Matcher](./art-464-confirmation-matcher.md) — `match_confirmations`
+- [DORA Register of Information (RoI) Builder & Cross-Validator](./art-466-dora-roi-builder.md) — `build_dora_roi_register`
+- [DORA ICT Incident Classifier & Reporting Clock](./art-467-dora-incident-classifier.md) — `classify_dora_ict_incident_and_clock_deadlines`
 - [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`
+- [OECD Country-by-Country Report Builder](./art-472-cbcr-builder.md) — `build_cbcr_report`
+- [Transfer-Pricing Interquartile Range Benchmark](./art-473-interquartile-benchmark.md) — `benchmark_tp_interquartile_range`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
 - [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`

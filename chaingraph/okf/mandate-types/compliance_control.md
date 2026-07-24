@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-11"]
+tags: ["compliance_control", "count-20"]
 timestamp: 2026-07-14
 ---
 
 # compliance_control
 
-11 tool(s) in this mandate-type group:
+20 tool(s) in this mandate-type group:
 
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -21,3 +21,12 @@ timestamp: 2026-07-14
 - [Model Inventory Entry Builder](../tools/art-450-model-inventory-entry.md)
 - [Model Outcome-Analysis Comparison](../tools/art-451-model-outcome-analysis.md)
 - [Model Validation Status Assessor](../tools/art-453-model-validation-status.md)
+- [GloBE Jurisdictional ETR Calculator](../tools/art-454-globe-jurisdictional-etr.md)
+- [GloBE SBIE & Top-up Tax Calculator](../tools/art-455-globe-sbie-topup.md)
+- [GloBE Transitional Safe Harbour Test Evaluator](../tools/art-456-globe-safe-harbour-tests.md)
+- [Attribute Sampling Plan Generator](../tools/art-458-attribute-sampling-plan.md)
+- [Segregation-of-Duties Matrix Checker](../tools/art-459-sod-matrix-check.md)
+- [IPE Integrity Verifier](../tools/art-460-ipe-integrity-verifier.md)
+- [Journal-Entry Ruleset Screen](../tools/art-462-je-ruleset-screen.md)
+- [Audit Recalculation Suite](../tools/art-463-recalc-suite.md)
+- [Bank/AR Confirmation Matcher](../tools/art-464-confirmation-matcher.md)
