@@ -580,6 +580,36 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 </div>
 
+<!-- Org-hosted deployment -->
+<div class="section" id="deploy-your-own">
+  <div class="container">
+    <div class="sec-label">Run it inside your own perimeter</div>
+    <h2 class="sec-heading">Deploy your own org instance</h2>
+    <div class="prose">
+      <p>The public server at <code>mcp.ainumbers.co/mcp</code> is free, unauthenticated, and open to anyone. If your organization would rather keep MCP traffic inside its own Cloudflare account, network egress rules, and audit logs, fork the server repo and run it yourself. The fork is free; nothing about self-hosting is gated or metered.</p>
+      <p>The <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener noreferrer">ainumbers-mcp-apps</a> repo boots straight from the tool data and kernels already committed to it &ndash; no build step required at deploy time. Fork it, click Deploy to Cloudflare on the README, and wrangler stands up the Worker on your account:</p>
+      <p><a href="https://deploy.workers.cloudflare.com/?url=https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener noreferrer"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" style="height:32px"></a></p>
+      <p>Two lines in <code>wrangler.jsonc</code> need to change before that first deploy succeeds on a fresh account, and the README spells out exactly why:</p>
+      <ul>
+        <li>Worker name and routes: the committed config points <code>routes</code> at <code>mcp.ainumbers.co</code>, a zone the fork owner does not control. Rename the worker and either delete the <code>routes</code> block (ship on the free <code>workers.dev</code> subdomain) or point it at a zone already in your own Cloudflare account.</li>
+        <li>Queues and Workflows are optional: the event queue and the renewal-watch Workflow feed an internal analytics loop and are both guarded in code (<code>if (env.EVENTS_QUEUE)</code> / <code>if (env.RENEWAL_WATCH_WORKFLOW)</code>), so the MCP handshake and every tool call work with them absent. Queues require a Workers Paid plan; drop the <code>queues</code> and <code>workflows</code> blocks entirely to stay on the free tier.</li>
+      </ul>
+      <p>Everything else in the config, including the <code>ASSETS</code> binding that serves the committed tool data, works unmodified on a fresh account.</p>
+      <p>The public server fronts <code>/mcp</code> with a Cloudflare WAF rule: 50 requests per 10 seconds per IP, action Block. Copy that recipe onto your zone (Security &rarr; WAF &rarr; Rate limiting rules) once your fork is live; it is the same rule this estate runs on itself.</p>
+      <p>The upstream repo vendors new tool kernels and MCP fixes on an ongoing basis. Watch the repo's Releases feed and pull upstream on a cadence that fits your change-control process; nothing about the fork auto-updates for you.</p>
+      <p>Your internal server still anchors to external, public timestamp authorities for its execution proofs &ndash; that is the point. Running the MCP endpoint inside your perimeter does not change where the cryptographic anchor lives, so the receipts your fork issues stay verifiable against the same public record as ours.</p>
+      <p>If Helm is part of your stack, point its org config at your internal endpoint instead of the public one (<code>?config=</code> on the Helm app) so every workstation in the org resolves to your fork automatically.</p>
+    </div>
+    <div class="pol-callout">
+      <div class="pol-callout-icon">🛡️</div>
+      <div class="pol-callout-body">
+        <div class="pol-callout-label">Get your deployment certified</div>
+        <p class="pol-callout-text">A self-hosted fork can be attested OpenChainGraph-conformant: the same SPEC.md &sect;15 and &sect;26 gate suites that validate the public server run against your endpoint instead. See the <a href="chaingraph/badge-program.html" style="color:var(--teal-lt)">conformance badge program</a> for scope and criteria.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Terms -->
 <div class="section" id="terms">
   <div class="container">
