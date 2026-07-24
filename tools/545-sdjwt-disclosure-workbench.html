@@ -144,6 +144,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   <div class="hero-badges">
     <span class="badge badge-teal">SD-JWT · RFC 9901</span>
     <span class="badge badge-gold">KB-JWT holder binding</span>
+    <span class="badge badge-gold">§27.6 Evidence Bundle</span>
     <span class="badge badge-green">Zero PII</span>
     <span class="badge badge-muted">Client-Side</span>
   </div>
@@ -157,6 +158,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   <div class="mode-tabs">
     <button class="mode-tab active" id="tabIssue" onclick="switchMode('issue')">Issue</button>
     <button class="mode-tab" id="tabPresent" onclick="switchMode('present')">Present</button>
+    <button class="mode-tab" id="tabEvidence" onclick="switchMode('evidence')">Evidence Bundle</button>
   </div>
 
   <!-- ISSUE MODE -->
@@ -237,6 +239,39 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
           <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('presReceiptCode')">Copy</button></div>
         </div>
         <div class="out-body"><div id="presReceiptVerdict"></div><div class="code-block" id="presReceiptCode"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVIDENCE BUNDLE MODE -->
+  <div class="mode-panel" id="modeEvidence">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">SPEC &sect;27.6 Evidence Bundle &rarr; SD-JWT</span></div>
+      <p style="font-size:.72rem;color:var(--muted);line-height:1.7;margin-bottom:.9rem">Paste a <code>haEvidenceBundle</code> JSON, exported from the &sect;27.6 step of the <a href="../chaingraph/verify.html" style="color:var(--teal)">OCG Verify</a> page, and issue it as a Selective Disclosure JWT using the same engine as the Issue tab. Always-disclosed: <code>subject_hash</code>, <code>verification_result</code>, <code>kernel_version</code>, <code>policy_version</code>, <code>timestamps</code>, <code>submission_receipt</code>. Selectively disclosable: <code>reviewers</code>, <code>approvers</code>, <code>annotations</code>, <code>exception_rationale</code>, <code>input_hashes</code>, matching <code>chaingraph/kernels/_haevidence.mjs</code>.</p>
+      <div class="field" style="margin-bottom:.85rem"><label>haEvidenceBundle JSON</label><textarea id="evBundleInput" rows="6" placeholder='{"subject_hash":"sha256:...","reviewers":["did:key:..."],"verification_result":"pass"}'></textarea></div>
+      <div class="field" style="margin-bottom:.85rem"><label>Issuer id (did:key or any identifier)</label><input type="text" id="evIssuer" value="" placeholder="auto-generated from signing key"></div>
+      <div class="adv-toggle"><label><input type="checkbox" id="evAdvToggle" onchange="toggleEvAdvanced()"> Advanced: paste your own Ed25519 issuer key (JWK)</label></div>
+      <div id="evAdvPanel" style="display:none;margin-top:.5rem">
+        <div class="field"><label>Ed25519 private key, JWK</label><textarea id="evAdvJwk" rows="3"></textarea></div>
+      </div>
+      <div class="btn-row"><button class="run-btn" id="evIssueBtn" onclick="evIssueUI()">&#9654; Issue Evidence SD-JWT</button></div>
+    </div>
+
+    <div class="results-panel" id="evidenceResults">
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Issued Evidence SD-JWT</span>
+          <div style="display:flex;gap:.5rem"><button class="copy-btn" onclick="copyBlock('evSdJwtCode')">Copy</button></div>
+        </div>
+        <div class="out-body"><div class="code-block" id="evSdJwtCode"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Always-disclosed payload / disclosures</span></div>
+        <div class="out-body">
+          <div id="evAlwaysRows"></div>
+          <div style="margin-top:.6rem;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Selectively disclosable</div>
+          <div id="evDiscRows"></div>
+          <div style="margin-top:.75rem;font-size:.62rem;color:var(--muted)">Sent to the Present tab. Switch there to build a redacted presentation for a specific examiner.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -471,8 +506,10 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 function switchMode(mode){
   document.getElementById('tabIssue').classList.toggle('active', mode==='issue');
   document.getElementById('tabPresent').classList.toggle('active', mode==='present');
+  document.getElementById('tabEvidence').classList.toggle('active', mode==='evidence');
   document.getElementById('modeIssue').classList.toggle('active', mode==='issue');
   document.getElementById('modePresent').classList.toggle('active', mode==='present');
+  document.getElementById('modeEvidence').classList.toggle('active', mode==='evidence');
 }
 function addIssClaimRow(key, value, selective){
   var tb=document.getElementById('issClaimsBody');
@@ -495,9 +532,14 @@ function getIssClaims(){
 }
 function toggleIssAdvanced(){ document.getElementById('issAdvPanel').style.display=document.getElementById('issAdvToggle').checked?'block':'none'; }
 function togglePresAdvanced(){ document.getElementById('presAdvPanel').style.display=document.getElementById('presAdvToggle').checked?'block':'none'; }
+function toggleEvAdvanced(){ document.getElementById('evAdvPanel').style.display=document.getElementById('evAdvToggle').checked?'block':'none'; }
 
 var ISS_STATE={};
 var PRES_STATE={};
+var EV_STATE={};
+/* §27.6 haEvidenceBundle field split — mirrors chaingraph/kernels/_haevidence.mjs verbatim. */
+var HA_ALWAYS_KEYS=['subject_hash','verification_result','kernel_version','policy_version','timestamps','submission_receipt'];
+var HA_SELECTIVE_KEYS=['reviewers','approvers','annotations','exception_rationale','input_hashes'];
 
 async function loadKey(advToggleId, advJwkId){
   if(document.getElementById(advToggleId).checked){
@@ -542,6 +584,46 @@ async function issueSdJwtUI(){
     alert('Issuance failed: '+(e && e.message ? e.message : e));
   }finally{
     btn.disabled=false; btn.textContent='▶ Issue SD-JWT';
+  }
+}
+
+async function evIssueUI(){
+  var btn=document.getElementById('evIssueBtn'); btn.disabled=true; btn.textContent='Signing...';
+  try{
+    var raw=document.getElementById('evBundleInput').value.trim();
+    if(!raw) throw new Error('Paste a haEvidenceBundle JSON first.');
+    var bundle=JSON.parse(raw);
+    if(!bundle.subject_hash) throw new Error('Bundle is missing required subject_hash.');
+    var claims={}; var selective=[];
+    HA_ALWAYS_KEYS.concat(HA_SELECTIVE_KEYS).forEach(function(k){
+      if(bundle[k]===undefined) return;
+      claims[k]=bundle[k];
+      if(HA_SELECTIVE_KEYS.indexOf(k)!==-1) selective.push(k);
+    });
+    if(Object.keys(claims).length===0) throw new Error('Bundle has no recognized §27.6 fields (subject_hash plus at least one other field expected).');
+    var keys=await loadKey('evAdvToggle','evAdvJwk');
+    var issuerDid=document.getElementById('evIssuer').value.trim() || await SDJWT.rawPubkeyToDidKey(keys.publicKey);
+    var result=await SDJWT.issueSdJwt(claims, selective, {verificationMethod:issuerDid, subject:bundle.subject_hash, privateKey:keys.privateKey});
+
+    EV_STATE={sd_jwt:result.sd_jwt, publicKey:keys.publicKey, issuerDid:issuerDid, bundle:bundle};
+
+    document.getElementById('evSdJwtCode').textContent=result.sd_jwt;
+    var always=Object.assign({}, result.payload); delete always._sd; delete always._sd_alg;
+    document.getElementById('evAlwaysRows').innerHTML=Object.keys(always).map(function(k){
+      var v=always[k]; return '<div class="always-row"><span class="dkey">'+k+'</span><span>'+(v&&typeof v==='object'?JSON.stringify(v):String(v))+'</span></div>';
+    }).join('');
+    document.getElementById('evDiscRows').innerHTML=result.disclosures.map(function(d){
+      var v=d.value; return '<div class="disclosure-row"><span class="dkey">'+d.key+'</span><span class="dval">'+(v&&typeof v==='object'?JSON.stringify(v):String(v))+' &middot; digest '+d.digest.slice(0,16)+'&hellip;</span></div>';
+    }).join('') || '<div style="color:var(--muted);font-size:.68rem">No selectively disclosable §27.6 fields present in this bundle.</div>';
+
+    document.getElementById('evidenceResults').classList.add('show');
+    document.getElementById('presInput').value=result.sd_jwt;
+    document.getElementById('presIssuerDid').value=issuerDid;
+    enableAP2Btn();
+  }catch(e){
+    alert('Evidence issuance failed: '+(e && e.message ? e.message : e));
+  }finally{
+    btn.disabled=false; btn.textContent='▶ Issue Evidence SD-JWT';
   }
 }
 
@@ -650,6 +732,7 @@ window.AIN_BUILD_MANDATE=function(){
   var ts=new Date().toISOString();
   var payload=null, summary=null;
   if(PRES_STATE.receipt){ payload={presentation_receipt:PRES_STATE.receipt}; summary='SD-JWT presentation built at '+ts.slice(0,10); }
+  else if(EV_STATE.sd_jwt){ payload={evidence_sd_jwt:EV_STATE.sd_jwt, subject_hash:EV_STATE.bundle.subject_hash, issuer:EV_STATE.issuerDid}; summary='§27.6 evidence bundle issued as SD-JWT for subject '+EV_STATE.bundle.subject_hash+' at '+ts.slice(0,10); }
   else if(ISS_STATE.sd_jwt){ payload={sd_jwt:ISS_STATE.sd_jwt, issuer:ISS_STATE.issuerDid}; summary='SD-JWT issued for issuer '+ISS_STATE.issuerDid+' at '+ts.slice(0,10); }
   else return null;
   return {
@@ -705,6 +788,7 @@ function initPrefill(){
   var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
   var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
   applyFields(fields);
+  if(fields && fields.evBundleInput){ switchMode('evidence'); if(/[#&]run=1/.test(h)) evIssueUI(); return; }
   if(/[#&]run=1/.test(h))runTool();
 }
 window.AINBridge={version:'1.0',apply:applyFields,run:runTool,

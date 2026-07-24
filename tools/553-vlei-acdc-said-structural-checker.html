@@ -199,6 +199,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
           <div class="verify-row">
             <button class="btn-export" onclick="downloadReceipt()">Download Receipt (JSON)</button>
             <button class="btn-export sec" onclick="verifyReceipt()">Recompute &amp; Verify Receipt Hash</button>
+            <button class="btn-export sec" onclick="downloadIdentityAnchorEvidence()" title="A passing check exported as SPEC §27.1 identity-anchor evidence, for attaching to an attestor role_binding record on the OCG Verify page">Export Identity-Anchor Evidence (§27.1)</button>
           </div>
           <div id="verifyResult" style="margin-top:1rem"></div>
         </div>
@@ -666,6 +667,29 @@ function downloadReceipt(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`vlei-acdc-said-check-receipt_${Date.now()}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+// §27.1: a passing structural check IS the identity-anchor evidence for an attestor role_binding —
+// evidence link only, no new binding logic. Paste this JSON into the OCG Verify page's role_binding flow.
+function downloadIdentityAnchorEvidence(){
+  if(!CURRENT||!CURRENT.receipt)return;
+  const cred=CURRENT.cred||{};
+  const evidence={identity_anchor_evidence:{
+    type:'vlei_acdc_said_structural_check',
+    subject_hash:'sha256:'+CURRENT.receipt.execution_hash,
+    lei:(cred.a&&cred.a.LEI)||null,
+    aid:cred.i||null,
+    overall_valid:CURRENT.overallValid,
+    checked_at:CURRENT.receipt.generated_at,
+    source_tool:'vlei-acdc-said-structural-checker',
+    tool_version:'1.0.0',
+  }};
+  const json=JSON.stringify(evidence,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`vlei-identity-anchor-evidence_${Date.now()}.json`;
   a.click();URL.revokeObjectURL(a.href);
 }
 
