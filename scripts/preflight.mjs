@@ -118,6 +118,12 @@ const GATES = [
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
   ['Workbook unit fixtures (WB-1)',     'node chaingraph/workbook/workbook.test.mjs'],
   ['Workbook determinism fixture (WB-5)', 'node chaingraph/workbook/check-determinism-fixture.mjs'],
+  ['Proposals schema/slug/copy (AGENTPR-1)', 'node scripts/verify-proposals.mjs'],
+  // Node leg of cross-engine parity: catches a kernel edit that makes the Node
+  // parity-manifest generation itself crash/error. The cross-engine byte diff
+  // (Bun + QuickJS legs) genuinely needs those runtimes and stays CI-only.
+  ['Engine-parity node-leg (crash guard)', 'node scripts/check-engine-parity.mjs'],
+  ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
 ];
 
 let failed = null;
