@@ -385,6 +385,9 @@ import * as art450    from './art-450-model-inventory-entry.kernel.mjs';
 import * as art451    from './art-451-model-outcome-analysis.kernel.mjs';
 import * as art452    from './art-452-build-ai-training-data-lineage-record.kernel.mjs';
 import * as art453    from './art-453-model-validation-status.kernel.mjs';
+import * as art454    from './art-454-globe-jurisdictional-etr.kernel.mjs';
+import * as art455    from './art-455-globe-sbie-topup.kernel.mjs';
+import * as art456    from './art-456-globe-safe-harbour-tests.kernel.mjs';
 import * as art458    from './art-458-attribute-sampling-plan.kernel.mjs';
 import * as art459    from './art-459-sod-matrix-check.kernel.mjs';
 import * as art46     from './art-46-arc-paymaster-model.kernel.mjs';
@@ -843,6 +846,9 @@ export const KERNELS = {
   'art-451-model-outcome-analysis':                           art451,
   'art-452-build-ai-training-data-lineage-record':            art452,
   'art-453-model-validation-status':                          art453,
+  'art-454-globe-jurisdictional-etr':                         art454,
+  'art-455-globe-sbie-topup':                                 art455,
+  'art-456-globe-safe-harbour-tests':                         art456,
   'art-458-attribute-sampling-plan':                          art458,
   'art-459-sod-matrix-check':                                 art459,
   'art-46-arc-paymaster-model':                               art46,
