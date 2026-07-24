@@ -2972,7 +2972,15 @@ async function sha256(bytes) {
 // Secured document = artifact MINUS audit_signature.proof (a proof is never part of its own input).
 function securedDocument(artifact) {
   const a = structuredClone(artifact);
-  if (a && a.audit_signature && 'proof' in a.audit_signature) delete a.audit_signature.proof;
+  if (a && a.audit_signature) {
+    if ('proof' in a.audit_signature) delete a.audit_signature.proof;
+    // An empty audit_signature — a bare {} supplied pre-sign, or a proof-only wrapper left empty
+    // after stripping .proof — normalizes to absent at BOTH sign and verify, so 'no audit_signature',
+    // '{}', and 'proof-only' all canonicalize identically. Without this, an artifact signed with no
+    // (or an empty) audit_signature yields a different JCS document hash at verify → verify always
+    // fails; and 'absent' vs '{}' are indistinguishable verify-side, so both must normalize. §16.
+    if (Object.keys(a.audit_signature).length === 0) delete a.audit_signature;
+  }
   return a;
 }
 
