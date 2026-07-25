@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>OIM Fact-Table Viewer: Round-Trip Check for ocg-xbrl-json Exports · AINumbers.co</title>
+<meta name="description" content="Paste or drop an ocg-xbrl-json@1 export to see its facts, dimensions, and units as a table, check canonicalValues + JCS conformance, and verify the embedded execution_hash metadata against the original artifact. A round-trip check, not a conformance authority.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/oim-viewer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"OIM Fact-Table Viewer","url":"https://ainumbers.co/oim-viewer.html","description":"Round-trip viewer for ocg-xbrl-json exports: facts/dimensions/units table, canonicalValues + JCS conformance, execution_hash metadata verify.","isPartOf":{"@id":"https://ainumbers.co/#org"}}</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.014) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.014) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.info-box a{color:var(--teal-lt)}.info-box a:hover{text-decoration:underline}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem;margin-bottom:1.25rem}
+.section-head{font-size:.9rem;color:var(--bright);margin-bottom:.6rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);font-family:'DM Serif Display',serif}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:block;margin-bottom:.4rem}
+textarea{width:100%;min-height:170px;background:#06101e;border:1px solid var(--border-2);border-radius:var(--radius);padding:12px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);line-height:1.5;resize:vertical}
+textarea:focus{outline:none;border-color:var(--teal)}
+.drop{border:1px dashed var(--border-2);border-radius:var(--radius);padding:.6rem .85rem;margin:.5rem 0;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);background:var(--bg-3);cursor:pointer;transition:border-color .2s;display:block}
+.drop:hover,.drop.over{border-color:var(--teal);color:var(--teal-lt)}
+.drop input[type=file]{display:none}
+.drop-val{color:var(--green);word-break:break-all;margin-top:4px}
+button.act{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;font-weight:600;margin-top:.4rem}
+button.act:hover{opacity:.9}
+button.act:disabled{opacity:.4;cursor:not-allowed}
+.results-panel{display:none}.results-panel.show{display:block}
+.verdict{border-radius:var(--radius);padding:.65rem .9rem;margin:.4rem 0;font-size:.8rem;font-family:'JetBrains Mono',monospace}
+.verdict.pass{background:var(--green-dim);border:1px solid rgba(34,197,94,.25);color:var(--green)}
+.verdict.fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);color:var(--gold)}
+.check-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-family:'JetBrains Mono',monospace;font-size:.66rem;border-bottom:1px solid var(--border)}
+.check-row:last-child{border-bottom:none}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.56rem;padding:.14rem .42rem;border-radius:10px;display:inline-block;white-space:nowrap;flex-shrink:0}
+.badge.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.err{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.skip{background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)}
+.check-detail{color:var(--muted);margin-left:auto;text-align:right}
+table.facts{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.66rem;margin-top:.6rem}
+table.facts th,table.facts td{border-bottom:1px solid var(--border);padding:.4rem .55rem;text-align:left;vertical-align:top}
+table.facts th{color:var(--muted);font-weight:400;text-transform:uppercase;font-size:.56rem;letter-spacing:.06em}
+table.facts td{color:var(--text)}
+table.facts td.fact-id{color:var(--gold)}
+table.facts td.fact-concept{color:var(--teal-lt)}
+table.facts td.fact-value{color:var(--bright)}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;margin:.3rem 0;background:#06101e;border:1px solid var(--border);border-radius:4px;padding:.4rem .6rem}
+.scroll-x{overflow-x:auto}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="start.html">Start</a><span class="nav-sep">/</span><span>OIM Fact-Table Viewer</span></div>
+  <div class="nav-right"><a href="verification-desk.html" class="nav-cta">Verification Desk &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Round-Trip Check</div>
+  <h1>OIM Fact-Table Viewer</h1>
+  <p class="hero-desc">Paste or drop an <code>ocg-xbrl-json@1</code> export (OCG SPEC.md §13.13) to see its facts, dimensions, and units as a table, check <code>canonicalValues</code> + JCS conformance, and verify the <code>execution_hash</code> metadata against the original artifact. Built for the CbCR, Pillar Two, and Call Report personas re-checking an export before it leaves their hands.</p>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. Nothing is uploaded, cached, or stored. Reload the page and every field is gone. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box">
+    <div class="ib-title">Scope: read before relying on this</div>
+    This is a round-trip check against our own export, not an XBRL conformance authority. It confirms the export is internally well-formed (canonical JSON, JCS key order) and that its cited <code>execution_hash</code> matches the artifact it claims to come from. It does not perform DTS discovery, XDT dimensional validation, or formula-linkbase execution, and it is not a submittable wire format for any regime (FFIEC submission is XBRL 2.1 XML; EBA is xBRL-CSV; SEC/ESEF is iXBRL; see SPEC.md §13.13.3). For full taxonomy-aware OIM/XBRL conformance, use a certified processor such as <a href="https://arelle.org/" target="_blank" rel="noopener">Arelle</a> (Apache-2.0). The <code>execution_hash</code> check below verifies a binding, not a re-execution of the underlying kernel; see <a href="chaingraph/standard/SPEC.md#§17.2" target="_blank" rel="noopener">SPEC.md §17.2</a>: an advisory published claim, not a cryptographic proof of execution.
+  </div>
+
+  <div class="card">
+    <div class="section-head">1 · ocg-xbrl-json export</div>
+    <p class="form-label">Paste the export JSON, or drop a <code>.json</code> file. Read locally, never transmitted.</p>
+    <textarea id="exportInput" placeholder='{ "documentInfo": { "documentType": "https://xbrl.org/2021/xbrl-json", "features": { "xbrl:canonicalValues": true }, "ocg:metadata": { "execution_hash": "sha256:...", "tool_id": "...", "chaingraph_version": "0.4.0" } }, "facts": { "f1": { "dimensions": { "concept": "...", "entity": "...", "period": "..." }, "value": "..." } } }'></textarea>
+    <label class="drop" id="dropExport">
+      <div>Drop or choose an ocg-xbrl-json .json file (local only)</div>
+      <div class="drop-val" id="dropExportVal"></div>
+      <input type="file" id="fileExport" accept=".json,application/json">
+    </label>
+
+    <div class="section-head" style="margin-top:1rem">2 · Original artifact (optional)</div>
+    <p class="form-label">Paste the source OCG §4 artifact this export was generated from (the one with <code>policy_parameters</code> / <code>output_payload</code> / <code>execution_hash</code>) to verify the export's cited hash actually matches it. Leave empty to check the export's hash metadata for well-formedness only, a weaker, format-only check.</p>
+    <textarea id="artifactInput" placeholder='{ "execution_hash": "sha256:...", "policy_parameters": {...}, "output_payload": {...} }'></textarea>
+    <label class="drop" id="dropArtifact">
+      <div>Drop or choose the source artifact .json file (local only)</div>
+      <div class="drop-val" id="dropArtifactVal"></div>
+      <input type="file" id="fileArtifact" accept=".json,application/json">
+    </label>
+
+    <button class="act" onclick="runViewer()">Check export</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="card">
+      <div class="section-head">Facts, dimensions, units</div>
+      <div class="scroll-x"><table class="facts" id="factsTable"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">canonicalValues + JCS conformance</div>
+      <div id="canonVerdict"></div>
+      <div id="canonChecks"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">execution_hash metadata verify</div>
+      <div id="hashVerdict"></div>
+      <div id="hashChecks"></div>
+    </div>
+
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="start.html">Start</a>
+      <a href="chaingraph/verify.html">Verify (§4 artifact)</a>
+      <a href="verification-desk.html">Verification Desk</a>
+      <a href="chaingraph/standard/SPEC.md" target="_blank" rel="noopener">SPEC.md</a>
+      <a href="https://arelle.org/" target="_blank" rel="noopener">Arelle &#8599;</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Zero PII &middot; Client-side only</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// Vendored, byte-identical to chaingraph/kernels/_hash.mjs cgCanon/assertIJson/executionHash —
+// this page has no build step, so the source of truth is copied here rather than imported.
+// Keep in sync; do not hand-roll a second canonicalization (CONTRACT.md execution_hash rule).
+function assertIJson(v){
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('non-finite number is not valid I-JSON');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('integer exceeds 2^53, not safe I-JSON');
+  } else if (Array.isArray(v)) { v.forEach(assertIJson); }
+  else if (v && typeof v === 'object') { for (const k of Object.keys(v)) assertIJson(v[k]); }
+}
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon)
+    : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o,k)=>(o[k]=cgCanon(v[k]),o),{})
+    : v;
+}
+async function executionHashHex(pp, op){
+  const obj = { policy_parameters: pp, output_payload: op };
+  assertIJson(obj);
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const dig = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+const HEX64 = /^[0-9a-f]{64}$/;
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function tryParse(text){
+  if (!text || !text.trim()) return { ok:false, doc:null, raw:'' };
+  try { return { ok:true, doc: JSON.parse(text), raw: text.trim() }; }
+  catch (e) { return { ok:false, doc:null, raw:text.trim(), error: e.message }; }
+}
+
+function renderFacts(doc){
+  const facts = (doc && doc.facts) || {};
+  const ids = Object.keys(facts);
+  const rows = ids.map((id) => {
+    const f = facts[id] || {};
+    const d = f.dimensions || {};
+    return '<tr>' +
+      '<td class="fact-id">' + esc(id) + '</td>' +
+      '<td class="fact-concept">' + esc(d.concept || '') + '</td>' +
+      '<td>' + esc(d.entity || '') + '</td>' +
+      '<td>' + esc(d.period || '') + '</td>' +
+      '<td>' + esc(d.unit || '') + '</td>' +
+      '<td>' + esc(f.decimals != null ? f.decimals : '') + '</td>' +
+      '<td class="fact-value">' + esc(f.value != null ? String(f.value) : '') + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('factsTable').innerHTML =
+    '<thead><tr><th>Fact ID</th><th>Concept</th><th>Entity</th><th>Period</th><th>Unit</th><th>Decimals</th><th>Value</th></tr></thead>' +
+    '<tbody>' + (rows || '<tr><td colspan="7" style="color:var(--muted)">No facts found.</td></tr>') + '</tbody>';
+}
+
+function checkRow(label, pass, detail, skip){
+  const badge = skip ? '<span class="badge skip">SKIP</span>' : '<span class="badge ' + (pass?'ok':'err') + '">' + (pass?'PASS':'FAIL') + '</span>';
+  return '<div class="check-row">' + badge + '<span style="color:' + (skip?'var(--muted)':pass?'var(--bright)':'var(--red)') + '">' + esc(label) + '</span><span class="check-detail">' + esc(detail||'') + '</span></div>';
+}
+
+async function runViewer(){
+  const expParsed = tryParse(document.getElementById('exportInput').value);
+  const resultsPanel = document.getElementById('resultsPanel');
+
+  if (!expParsed.ok) {
+    document.getElementById('factsTable').innerHTML = '';
+    document.getElementById('canonVerdict').innerHTML = '<div class="verdict fail">Export is not valid JSON' + (expParsed.error ? ': ' + esc(expParsed.error) : '') + '.</div>';
+    document.getElementById('canonChecks').innerHTML = '';
+    document.getElementById('hashVerdict').innerHTML = '';
+    document.getElementById('hashChecks').innerHTML = '';
+    resultsPanel.classList.add('show');
+    return;
+  }
+  const doc = expParsed.doc;
+
+  renderFacts(doc);
+
+  // --- canonicalValues + JCS conformance ---
+  const canonChecks = [];
+  const canonFlag = !!(doc.documentInfo && doc.documentInfo.features && doc.documentInfo.features['xbrl:canonicalValues'] === true);
+  canonChecks.push(['documentInfo.features["xbrl:canonicalValues"] === true', canonFlag]);
+
+  const facts = (doc.facts || {});
+  const factIds = Object.keys(facts);
+  const hasFacts = factIds.length > 0;
+  canonChecks.push(['has at least one fact', hasFacts]);
+
+  let allValuesString = true, allConceptsPresent = true;
+  for (const id of factIds) {
+    const f = facts[id] || {};
+    if (typeof f.value !== 'string') allValuesString = false;
+    if (!f.dimensions || typeof f.dimensions.concept !== 'string' || !f.dimensions.concept) allConceptsPresent = false;
+  }
+  canonChecks.push(['every fact value is a canonical-lexical string (no raw number/boolean)', allValuesString]);
+  canonChecks.push(['every fact has a non-empty dimensions.concept', allConceptsPresent]);
+
+  let jcsOrdered = false, jcsDetail = '';
+  try {
+    const canonOnce = JSON.stringify(cgCanon(doc));
+    const rawCompact = JSON.stringify(doc);
+    jcsOrdered = canonOnce === rawCompact;
+    jcsDetail = jcsOrdered ? 'key order matches JCS (RFC 8785)' : 'key order is NOT canonical — re-canonicalizing changes byte layout';
+  } catch (e) { jcsDetail = 'could not canonicalize: ' + e.message; }
+  canonChecks.push(['export JSON key order is already JCS-canonical', jcsOrdered, jcsDetail]);
+
+  const canonAllPass = canonFlag && hasFacts && allValuesString && allConceptsPresent && jcsOrdered;
+  document.getElementById('canonVerdict').innerHTML = canonAllPass
+    ? '<div class="verdict pass">canonicalValues + JCS conformance: PASS.</div>'
+    : '<div class="verdict fail">canonicalValues + JCS conformance: FAIL — see checks below.</div>';
+  document.getElementById('canonChecks').innerHTML = canonChecks.map(c => checkRow(c[0], c[1], c[2])).join('');
+
+  // --- execution_hash metadata verify ---
+  const meta = (doc.documentInfo && doc.documentInfo['ocg:metadata']) || {};
+  const rawHash = typeof meta.execution_hash === 'string' ? meta.execution_hash : '';
+  const hashChecks = [];
+  const hasHash = !!rawHash;
+  hashChecks.push(['ocg:metadata.execution_hash present', hasHash]);
+  const shaPrefixed = rawHash.startsWith('sha256:');
+  hashChecks.push(['execution_hash is sha256:-prefixed', hasHash && shaPrefixed]);
+  const hexPart = shaPrefixed ? rawHash.slice(7) : '';
+  const hexValid = HEX64.test(hexPart);
+  hashChecks.push(['hash is 64 hex characters', hasHash && shaPrefixed && hexValid]);
+  hashChecks.push(['ocg:metadata.tool_id present', typeof meta.tool_id === 'string' && !!meta.tool_id]);
+  hashChecks.push(['ocg:metadata.chaingraph_version present', typeof meta.chaingraph_version === 'string' && !!meta.chaingraph_version]);
+
+  const artParsed = tryParse(document.getElementById('artifactInput').value);
+  let bindingVerdict, bindingCls;
+  if (!artParsed.ok || !artParsed.raw) {
+    bindingVerdict = 'Format-only check: no source artifact provided, so this only confirms the hash metadata is well-formed — it does NOT confirm the hash actually matches the artifact it claims to come from.';
+    bindingCls = 'warn';
+  } else {
+    const art = artParsed.doc;
+    try {
+      const recomputed = await executionHashHex(art.policy_parameters, art.output_payload);
+      const artHash = typeof art.execution_hash === 'string' ? art.execution_hash.replace(/^sha256:/, '').toLowerCase() : '';
+      const matchesArtifact = hexValid && recomputed === artHash;
+      const matchesExport = hexValid && recomputed === hexPart.toLowerCase();
+      hashChecks.push(['recomputed hash matches artifact.execution_hash', matchesArtifact, 'recomputed ' + recomputed]);
+      hashChecks.push(['export\'s cited hash matches the recomputed artifact hash', matchesExport]);
+      if (matchesArtifact && matchesExport) {
+        bindingVerdict = 'Binding verified: the export\'s cited execution_hash matches a hash independently recomputed from the artifact\'s policy_parameters/output_payload. This confirms the export corresponds to that artifact — it does NOT re-execute the kernel or prove the computation itself (SPEC.md §17.2).';
+        bindingCls = 'pass';
+      } else {
+        bindingVerdict = 'Binding mismatch: the export\'s cited hash does not match a hash recomputed from the provided artifact. Either the export is stale, the wrong artifact was pasted, or the export or artifact was altered.';
+        bindingCls = 'fail';
+      }
+    } catch (e) {
+      bindingVerdict = 'Could not recompute a hash from the pasted artifact: ' + e.message + '. Confirm it is a well-formed OCG §4 artifact with policy_parameters and output_payload.';
+      bindingCls = 'fail';
+    }
+  }
+
+  document.getElementById('hashVerdict').innerHTML = '<div class="verdict ' + bindingCls + '">' + esc(bindingVerdict) + '</div>' +
+    (hasHash ? '<div class="hash">' + esc(rawHash) + '</div>' : '');
+  document.getElementById('hashChecks').innerHTML = hashChecks.map(c => checkRow(c[0], c[1], c[2])).join('');
+
+  resultsPanel.classList.add('show');
+}
+
+function wireDropZone(drop, handle){
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault(); drop.classList.remove('over');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    handle(file);
+  });
+}
+function wireFile(inputId, dropId, valId, targetId){
+  const input = document.getElementById(inputId);
+  const drop = document.getElementById(dropId);
+  const val = document.getElementById(valId);
+  const target = document.getElementById(targetId);
+  const handle = (file) => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { target.value = String(r.result || ''); val.textContent = file.name; };
+    r.onerror = () => { val.textContent = 'could not read file'; };
+    r.readAsText(file);
+  };
+  input.addEventListener('change', () => handle(input.files && input.files[0]));
+  wireDropZone(drop, handle);
+}
+
+wireFile('fileExport','dropExport','dropExportVal','exportInput');
+wireFile('fileArtifact','dropArtifact','dropArtifactVal','artifactInput');
+</script>
+</body>
+</html>
