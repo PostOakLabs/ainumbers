@@ -220,6 +220,20 @@ let __ceremonyKeypair = null; // { privateKey, publicKey, did, generatedAt }
 
 function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
+/* WYSIWYS guard (SECFIX-STARTINFRA-1 item 3): __ocgCanon's reduce assigns via o[k]=... on a plain-prototype
+   accumulator, so a JSON-legal own "__proto__" key hits the setter instead of creating an own key and its
+   content silently vanishes from the signed bytes while staying visible on screen. __ocgCanon itself is
+   byte-identical shared code (DO NOT hand-edit) — fail closed here instead of patching the canonicalizer. */
+function __findDangerousKey(v,path){
+  path=path||'input';
+  if(Array.isArray(v)){ for(var i=0;i<v.length;i++){ var r=__findDangerousKey(v[i],path+'['+i+']'); if(r)return r; } return null; }
+  if(v&&typeof v==='object'){
+    if(Object.prototype.hasOwnProperty.call(v,'__proto__')) return path+'.__proto__';
+    for(var k in v){ if(Object.prototype.hasOwnProperty.call(v,k)){ var r=__findDangerousKey(v[k],path+'.'+k); if(r)return r; } }
+  }
+  return null;
+}
+
 async function ceremonyGenerateKeypair(){
   var status=document.getElementById('genStatus');
   try{
@@ -261,6 +275,8 @@ async function ceremonySignRecord(){
     var artifact;
     try{ artifact=JSON.parse(raw); }catch(e){ status.textContent='Subject artifact is not valid JSON: '+e.message; return; }
     if(!artifact || !artifact.policy_parameters || !artifact.output_payload){ status.textContent='Subject artifact needs policy_parameters and output_payload to compute a subject_hash.'; return; }
+    var __badKeyA=__findDangerousKey(artifact);
+    if(__badKeyA){ status.textContent='Rejected: subject artifact contains a "__proto__" key at '+__badKeyA+'. That key\'s content would silently vanish from the signed bytes while still showing on screen — paste artifact JSON without a "__proto__" key.'; return; }
     var subjectHash='sha256:'+await executionHash(artifact.policy_parameters,artifact.output_payload);
     var identityId=document.getElementById('ceremonyIdentity').value.trim()||__ceremonyKeypair.did;
     var role=document.getElementById('ceremonyRole').value.trim()||'approver';
@@ -275,6 +291,8 @@ async function ceremonySignRecord(){
       var anchor;
       try{ anchor=JSON.parse(anchorRaw); }catch(e){ status.textContent='identity_anchor_evidence is not valid JSON: '+e.message; return; }
       if(!anchor || !anchor.identity_anchor_evidence){ status.textContent='Pasted JSON is missing the top-level "identity_anchor_evidence" key.'; return; }
+      var __badKeyB=__findDangerousKey(anchor.identity_anchor_evidence);
+      if(__badKeyB){ status.textContent='Rejected: identity_anchor_evidence contains a "__proto__" key at '+__badKeyB+'. That key\'s content would silently vanish from the signed bytes while still showing on screen — paste anchor JSON without a "__proto__" key.'; return; }
       record.identity_anchor_evidence=anchor.identity_anchor_evidence;
     }
     var signed=await __ocgSign(record,{verificationMethod:identityId+'#key-1',created:record.timestamp,privateKey:__ceremonyKeypair.privateKey});

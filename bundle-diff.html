@@ -223,15 +223,18 @@ function diffTable(rows){ // rows: [{path,kind,from,to}] kind: 'added'|'removed'
 }
 
 // ── generic path-keyed field walk (used for hash + version extraction) ──
-function __biWalk(obj,matcher,prefix,out){
+var __BI_MAX_DEPTH=200; // named cap — a hostile bundle from the counterparty must not crash the tab (SECFIX-STARTINFRA-1 item 4)
+function __biWalk(obj,matcher,prefix,out,depth){
+  depth=depth||0;
+  if(depth>__BI_MAX_DEPTH) throw new Error('Bundle nesting exceeds '+__BI_MAX_DEPTH+' levels at "'+prefix+'" — refusing to walk further.');
   if(obj===null||obj===undefined)return;
-  if(Array.isArray(obj)){ obj.forEach(function(v,i){ __biWalk(v,matcher,prefix+'['+i+']',out); }); return; }
+  if(Array.isArray(obj)){ obj.forEach(function(v,i){ __biWalk(v,matcher,prefix+'['+i+']',out,depth+1); }); return; }
   if(typeof obj!=='object')return;
   Object.keys(obj).forEach(function(k){
     var v=obj[k];
     var path=prefix?prefix+'.'+k:k;
     if(matcher(k)&&(typeof v==='string'||typeof v==='number')&&String(v).length){ out[path]=String(v); }
-    if(v&&typeof v==='object'){ __biWalk(v,matcher,path,out); }
+    if(v&&typeof v==='object'){ __biWalk(v,matcher,path,out,depth+1); }
   });
 }
 function __biExtractHashes(root){ var out={}; __biWalk(root,function(k){ return /(_hash|_digest)$/i.test(k)||/^(hash|digest)$/i.test(k); },'',out); return out; }
@@ -420,7 +423,9 @@ async function runDiff(a,b){
     return;
   }
   var meta='<div class="detail-line" style="color:var(--muted)">Bundle A classified as: <strong>'+escHtml(kindA)+'</strong> &nbsp;&middot;&nbsp; Bundle B classified as: <strong>'+escHtml(kindB)+'</strong>'+(kindA!==kindB?' &mdash; different input kinds; the four sections below still compare whatever each side actually carries.':'')+'</div>';
-  var sections=[sectionHashes(a,b),sectionVersions(a,b),sectionHa(a,b),sectionVerdict(a,b)];
+  var sections;
+  try{ sections=[sectionHashes(a,b),sectionVersions(a,b),sectionHa(a,b),sectionVerdict(a,b)]; }
+  catch(e){ out.innerHTML='<div class="sec-card"><div class="sec-body"><div class="detail-line" style="color:var(--red)">Could not compare: '+escHtml(e.message)+'</div></div></div>'; return; }
   out.innerHTML=meta+sections.join('');
   document.getElementById('printBtn').style.display='inline-block';
 }
