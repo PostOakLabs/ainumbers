@@ -77,6 +77,14 @@ const COREP_MAPS = {
 
 export const XBRL_TAXONOMIES = [...Object.keys(TAXONOMIES), ...Object.keys(COREP_MAPS)];
 
+// Real ocg-ext concept local names + namespace URI, exported so sibling profiles (§13.14
+// xBRL-CSV) can cross-check a tableTemplates column against the SAME taxonomy source instead of
+// maintaining a second, driftable copy. The namespace PREFIX is a per-document binding choice
+// (xbrl.mjs's own XML instances use "ocg"; other profiles may bind "ocg-ext" to the same URI) —
+// consumers resolve by namespace URI, not by assuming this module's XML prefix.
+export const OCG_EXT_NAMESPACE_URI = OCG_EXT_NS;
+export const OCG_EXT_CONCEPT_NAMES = Object.values(TAXONOMIES['ocg-ext'].concepts).map((c) => c.name);
+
 // Build a COREP instance — or throw a clear "pending" error while unpopulated.
 function buildCorep(artifact, taxonomyId) {
   const map = COREP_MAPS[taxonomyId];

@@ -1,6 +1,6 @@
 ---
 title: OpenChainGraph Standard
-spec_version: 0.8.12
+spec_version: 0.8.13
 status: NORMATIVE — Single Source of Truth
 canonical: repo/chaingraph/standard/SPEC.md
 machine_schema: openchain-graph-v0.4.schema.json
@@ -462,6 +462,59 @@ Fence: this profile ships as SPEC.md text + schema (`export_capability` pattern 
 implementation (`exporters/xbrl-json.mjs`, worker wiring, MCP `export_artifact` format arm) is a
 separate, later work unit — this WU's normative surface stands on its own per fixture-only
 conformance, the same pattern the §PPH-1 shape gate used before its runtime landed.
+
+### §13.14 xBRL-CSV export profile `ocg-xbrl-csv@1` — NORMATIVE, new in v0.8.13
+Populates the Annex slot §13.13.5 reserved for **[xBRL-CSV](https://www.xbrl.org/Specification/xbrl-csv/REC-2021-10-13/xbrl-csv-REC-2021-10-13.html)**
+(REC 2021-10-13, the tabular OIM serialization) — the wire format EBA mandates for **DPM 2.0**
+reporting under Reporting Framework 4.0, **in force from reference date 2026-03**. Sibling to
+§13.13: same view-not-fact posture (generated after `execution_hash`, excluded from the hash
+preimage, mints no new hash, MUST NOT bump `chaingraph_version`), same never-fabricate discipline,
+same fixture-only fence.
+
+1. **Report package shape.** An xBRL-CSV report is a **JSON metadata part** (`documentInfo`,
+   `tableTemplates`, `tables` — the OIM-CSV structural members) plus one or more **CSV data parts**,
+   one per table, whose rows are the tabular facts. The JSON metadata part MUST apply JCS (RFC 8785)
+   key ordering (the same determinism discipline as §13.13.1); each CSV data part MUST be sorted by
+   its declared row-id column so the file is byte-identical for byte-identical inputs. `execution_hash`
+   is embedded in the JSON metadata part's `documentInfo.ocg:metadata` block, never inside a data row.
+2. **Taxonomy metadata is INPUT, not derived** — identical discipline to §13.13.2 and §13.8: a
+   `tableTemplates` column maps to a concept only when that concept is published in the target
+   taxonomy, or is an explicit `ocg-ext:*` element where no regulator taxonomy exists yet. DTS
+   discovery, XDT dimensional validation, and formula-linkbase execution are **explicitly OUT OF
+   SCOPE**, matching §13.13.2.
+3. **Normative caveat (MUST be surfaced by any presenting UI): this profile is NOT, by itself, a
+   submitted EBA return.** It emits a structurally valid xBRL-CSV report package; actual submission
+   to a national competent authority additionally requires DPM 2.0 dimensional/validation-rule
+   conformance that this spec does not vendor (§13.14.4). An implementation MUST NOT label
+   `ocg-xbrl-csv@1` output "submitted" or "regulator-accepted" — "submittable format, unvalidated
+   content" is the correct framing.
+4. **Validation is EXTERNAL, by pointer** — identical posture to §13.13.4: this spec does not vendor
+   a DPM 2.0 validator. Validate or convert with a certified OIM/xBRL-CSV processor (e.g.
+   [Arelle](https://arelle.org/), Apache-2.0) against the published EBA DPM 2.0 taxonomy package.
+5. **Annex 2 — EBA DPM 2.0 COREP mapping (RESERVED, unpopulated).** Mirrors §13.8's COREP maps
+   (`exporters/taxonomies/eba-corep-concept-map.json`) exactly: `entry_point_schemaRef`, the metric
+   namespace URI, and every `eba_qname` stay **NULL** until populated from the published EBA RF 4.0
+   DPM 2.0 taxonomy package. An unpopulated slot MUST return a clear "pending" error — **no fabricated
+   concept** (§13, §13.8, §13.13.5 all restate this same rule; this is not a new exception). The
+   working, real-content demonstration of the report-package structure uses the `ocg-ext` namespace
+   (the §13.8 pilot pattern), exactly as §13.13 Annex 1 demonstrates structure via FFIEC/MDRM before
+   any EBA concept is populated.
+6. **§15 fixtures (this profile's conformance surface until its exporter lands):** JSON metadata part
+   round-trip determinism (`fixtures/xbrl-csv/sample.metadata.json` re-canonicalized twice MUST be
+   byte-identical, and the fixture on disk is already canonical JCS key order); CSV data part
+   determinism (`fixtures/xbrl-csv/sample.data.csv` rows sorted ascending by row-id column, re-sort is
+   a no-op); every `tableTemplates` column in the metadata part resolves to either a real `ocg-ext`
+   concept or is absent (no null/placeholder concept slipped into a template); and the Annex 2 scaffold
+   (`fixtures/xbrl-csv/annex2-eba-dpm-corep.pending.json`) asserts `entry_point_schemaRef`, `ns.uri`,
+   and every `eba_qname` are `null`, and that a build attempted against it throws the "pending" error
+   rather than emitting a fact.
+
+Fence: this profile ships as SPEC.md text + schema (`export_capability` pattern gains
+`xbrl-csv(:[a-z0-9:-]+)?`) + the three committed fixtures above + their gate. The exporter
+implementation (`exporters/xbrl-csv.mjs`, worker wiring, MCP `export_artifact` format arm) and the
+populated Annex 2 EBA DPM 2.0 concept map are separate, later work units — this WU's normative
+surface stands on its own per fixture-only conformance, the same pattern §13.13 and the §PPH-1 shape
+gate used before their runtimes landed.
 
 ## §16 Proof Binding (NORMATIVE — new in v0.5)
 A node or chain page **MAY** bind authenticity to a verified artifact by attaching a **W3C Data Integrity
@@ -2266,6 +2319,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §20 anchor binding: per-type proof verification (`rfc3161-tst` real TST vs pinned TSA root incl. messageImprint/CMS/chain/EKU/genTime, `opentimestamps` completed proof vs pinned Bitcoin block header, `c2sp-tlog-proof-v1` vs pinned test log key + cosigners + Merkle inclusion, `scitt-receipt-rfc9942` COSE receipt), `anchored_hash` == recomputed `execution_hash`, tampered proof / mismatched hash MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
 | §13.13 xBRL-JSON export profile `ocg-xbrl-json@1`: fixture round-trip determinism (re-canonicalize twice ⇒ byte-identical), `canonicalValues` conformance (every fact value canonical-lexical string, no raw number/boolean), Annex 1 FFIEC Call Report sample structurally valid (real MDRM concept names, no placeholder/null concept), never labeled submittable | `xbrl-json-fixtures.test.mjs` | validate |
+| §13.14 xBRL-CSV export profile `ocg-xbrl-csv@1`: JSON metadata part round-trip determinism (byte-identical, already-canonical on disk), CSV data part row-id sort determinism, every `tableTemplates` column resolves to a real `ocg-ext` concept (no null/placeholder), Annex 2 EBA DPM 2.0 scaffold has `entry_point_schemaRef`/`ns.uri`/every `eba_qname` all `null` and throws "pending" rather than fabricating a concept, never labeled submitted | `xbrl-csv-fixtures.test.mjs` | validate |
 | §16.5 proof sets/chains: parallel proof set verifies, endorsement `previousProof` chain verifies in dependency order, broken `previousProof` MUST fail | `proof-binding.test.mjs` | validate |
 | §1 `supersedes` shape: array of `sha256:`-prefixed execution_hashes | `schema-validate.mjs` | validate |
 | §PPH-1 `policy_parameters_hash`: JCS-SHA-256 over `policy_parameters` alone through the one canonical `cgCanon` path, key-order independent and **mutation-sensitive** (catches the `cgCanon`-returns-an-object constant-digest trap), unmoved by an `output_payload` change; hash-EXCLUDED — the member demonstrably changes the artifact's canonical form yet the §4 preimage and `execution_hash` stay byte-identical (both halves asserted, either alone is vacuous), reinforced by `executionHash()`'s arity; `#/$defs/sha256ref` value form with **prefix-insensitive** verification (bare and `sha256:`-prefixed both accepted); absence conformant; tampered and stale digests detected | `policy-params-hash.test.mjs` (unit) + `schema-validate.mjs` (shape, exercised by `fixtures/policy-params-hash.fixture.json`) | validate |

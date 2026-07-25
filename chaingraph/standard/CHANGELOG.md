@@ -28,6 +28,21 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   (delegation exchange-chain shape, referenced not implemented), RFC 6920 / EU AI Act Art. 12 (naming +
   record-keeping minima) — patterns only, no code or text copied.
 
+## 0.8.13 — xBRL-CSV export profile (§13.14)
+- **Record bump.** `spec_version` of record moves 0.8.12 → 0.8.13.
+- **§13.14** populates the Annex slot §13.13.5 reserved for EBA DPM 2.0 (xBRL-CSV), mandatory from
+  reference date 2026-03. Sibling to §13.13 xBRL-JSON: same view-not-fact posture, same
+  never-fabricate discipline, same fixture-only fence. JSON metadata part + CSV data part(s), JCS
+  key ordering on the metadata part, row-id sort on each CSV part. Not a submitted EBA return by
+  itself (submission additionally needs DPM 2.0 dimensional/validation-rule conformance, out of
+  scope, external-by-pointer per §13.14.4). Annex 2 EBA DPM 2.0 COREP concept map is a RESERVED,
+  UNPOPULATED scaffold (`entry_point_schemaRef`/`ns.uri`/every `eba_qname` null) mirroring
+  §13.8's COREP maps — unpopulated slot returns "pending," never a fabricated concept. Real-content
+  structural demonstration uses the `ocg-ext` namespace, matching §13.13 Annex 1's FFIEC pattern.
+  `export_capability` pattern gains `xbrl-csv(:[a-z0-9:-]+)?`. Gate: `xbrl-csv-fixtures.test.mjs`
+  (§15) over three committed fixtures. Exporter implementation (`exporters/xbrl-csv.mjs`, worker
+  wiring) and the populated Annex 2 concept map are separate, later work units.
+
 ## 0.8.12 — Human Accountability (§27)
 - **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays 0.8.8, same separation as prior
   text passes.
