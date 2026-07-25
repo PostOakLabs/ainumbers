@@ -116,6 +116,7 @@ const GATES = [
   ['Verify-path no-egress (AV-NOEGRESS-1)', 'node scripts/check-verify-no-egress.mjs'],
   ['Site static egress scan (EGRESS-SITE-1)', 'node scripts/check-site-egress.mjs'],
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
+  ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
   ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
