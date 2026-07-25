@@ -31,7 +31,8 @@ h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-fa
 .q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
 .q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
 .q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
-input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:60px;resize:vertical}
 input:focus,select:focus{border-color:var(--teal)}
 input[type="checkbox"]{width:auto;accent-color:var(--teal);cursor:pointer;margin-right:6px}
 .check-row{display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);padding:.5rem 0}
@@ -192,6 +193,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="q-help">Art 12(2) requires records be retained for at least 6 months.</div>
       <input type="number" id="retentionMonths" value="6" min="6" max="120">
     </div>
+    <div class="q">
+      <label class="q-label" for="subjectHash">Section-27.6 subject_hash (optional &mdash; the sealed decision artifact this log evidences)</label>
+      <div class="q-help">When supplied, wraps this record as an evidence bundle over that subject.</div>
+      <input type="text" id="subjectHash" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="haRecords">Section-27.2 human_accountability_records (optional, JSON array)</label>
+      <textarea id="haRecords"></textarea>
+    </div>
     <div style="margin-top:20px">
       <button onclick="runBuild()">&#9654; Build Art 12 Record</button>
     </div>
@@ -305,7 +315,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-236-build-ai-decision-log-record',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'build_ai_decision_log_record',
   title: 'AI Decision Log Record Builder (EU AI Act Art 12)',
   description: 'Builds an EU AI Act Art 12(2)-conformant decision log record for high-risk AI systems. subject_ref is structural only (no PII). Disambiguates from build_session_receipt (cry-01).',
@@ -328,7 +338,9 @@ var MANIFEST = {
         override_by: { type: 'string' },
         subject_ref: { type: 'string', description: 'Structural opaque reference only, never a real person ID' },
         sha256_prev_record: { type: 'string', description: 'Hash of previous Art 12 record; empty = first record' },
-        retention_months: { type: 'integer', minimum: 6, default: 6 }
+        retention_months: { type: 'integer', minimum: 6, default: 6 },
+        subject_hash: { type: 'string', description: 'Optional section-27.6 subject reference -- the sealed decision artifact this log evidences' },
+        human_accountability_records: { type: 'array' }
       }
     }
   }
@@ -341,6 +353,26 @@ var ART12_FIELDS = ['model_id','model_version','input_digest','output_digest','d
 
 function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
 function safeNum(v,d){ var n=Number(v); return Number.isFinite(n)?n:d; }
+
+// HA-CONV-1 (SPEC.md section-27.6): mirrors the pure assembleEvidenceBundle
+// shape from chaingraph/kernels/_haevidence.mjs for byte-identical bundles.
+function assembleEvidenceBundle(params){
+  var subjectHash=params.subjectHash, records=params.records||[], verificationResult=params.verificationResult;
+  var forSubject=records.filter(function(r){ return r && r.subject_hash===subjectHash; });
+  var reviewers=forSubject.filter(function(r){ return r.record_type==='approval'&&r.role==='reviewer'; }).map(function(r){ return r.identity&&r.identity.id; }).filter(Boolean);
+  var approvers=forSubject.filter(function(r){ return r.record_type==='approval'&&r.role!=='reviewer'; }).map(function(r){ return r.identity&&r.identity.id; }).filter(Boolean);
+  var annotations=forSubject.filter(function(r){ return r.record_type==='annotation'; }).map(function(r){ return r.reason_code||r.decision; }).filter(Boolean);
+  var timestamps=forSubject.map(function(r){ return r.timestamp; }).filter(Boolean);
+  var overrideRec=forSubject.filter(function(r){ return r.record_type==='override'; })[0];
+  var bundle={subject_hash:subjectHash};
+  if(verificationResult) bundle.verification_result=verificationResult;
+  if(overrideRec&&overrideRec.reason_code) bundle.exception_rationale=overrideRec.reason_code;
+  if(annotations.length) bundle.annotations=annotations;
+  if(reviewers.length) bundle.reviewers=Array.from(new Set(reviewers));
+  if(approvers.length) bundle.approvers=Array.from(new Set(approvers));
+  if(timestamps.length) bundle.timestamps=timestamps;
+  return bundle;
+}
 
 function cgCanon(v){ return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v; }
 async function computeExecHash(pp,op){
@@ -362,6 +394,10 @@ function runBuild(){
   var overrideBy=safeStr(document.getElementById('overrideBy').value)||'';
   var subjectRef=safeStr(document.getElementById('subjectRef').value)||'';
   var retentionMonths=Math.max(6,Math.round(safeNum(document.getElementById('retentionMonths').value,6)));
+  var subjectHash=safeStr(document.getElementById('subjectHash').value)||'';
+  var humanAccountabilityRecords=[];
+  var haRecordsRaw=document.getElementById('haRecords').value.trim();
+  if(haRecordsRaw){ try{ var parsed=JSON.parse(haRecordsRaw); if(Array.isArray(parsed)) humanAccountabilityRecords=parsed; }catch(e){} }
 
   // chain_position
   var prevValid=/^[0-9a-f]{64}$/.test(sha256Prev)||(sha256Prev.startsWith('sha256:')&&/^[0-9a-f]{64}$/.test(sha256Prev.slice(7)));
@@ -389,7 +425,9 @@ function runBuild(){
   // anchor tools
   var anchorTools=retentionMonths>24?['anchor_hash','anchor_batch']:['anchor_hash'];
 
-  var pp={model_id:modelId,model_version:modelVer,input_digest:inputDigest,output_digest:outputDigest,decision_label:decLabel,confidence:confidence,override_flag:overrideFlag,override_by:overrideBy,subject_ref:subjectRef,sha256_prev_record:sha256Prev,retention_months:retentionMonths};
+  var haEvidenceBundle=subjectHash?assembleEvidenceBundle({subjectHash:subjectHash,records:humanAccountabilityRecords,verificationResult:decLabel||undefined}):null;
+
+  var pp={model_id:modelId,model_version:modelVer,input_digest:inputDigest,output_digest:outputDigest,decision_label:decLabel,confidence:confidence,override_flag:overrideFlag,override_by:overrideBy,subject_ref:subjectRef,sha256_prev_record:sha256Prev,retention_months:retentionMonths,subject_hash:subjectHash,human_accountability_records:humanAccountabilityRecords};
   var op={
     record_status:complete?'COMPLETE':'INCOMPLETE',
     model_id:modelId,
@@ -406,6 +444,7 @@ function runBuild(){
     art12_fields_present:fieldsPresent,
     art12_completeness_score:score,
     retention_months:retentionMonths,
+    ha_evidence_bundle:haEvidenceBundle,
     anchor_surface:'anchor.ainumbers.co/mcp',
     anchor_tools:anchorTools,
     pii_note:'subject_ref is a STRUCTURAL field only. No real natural-person identifier should enter this field. Zero PII by design.',
@@ -418,6 +457,7 @@ function runBuild(){
   if(overrideFlag) flags.push('HUMAN_OVERRIDE_APPLIED');
   if(chainPosition==='chained') flags.push('CHAIN_RECORD');
   if(complete) flags.push('ART12_RECORD_COMPLETE');
+  if(haEvidenceBundle) flags.push('HA_EVIDENCE_BUNDLE_ATTACHED');
 
   _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
 
@@ -481,7 +521,7 @@ function verifyHash(){
 function exportArtifact(){
   if(!_lastResult) return;
   var hash=document.getElementById('execHashBox').textContent||'pending';
-  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-236-build-ai-decision-log-record',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-236-build-ai-decision-log-record',tool_version:'1.1.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
   var json=JSON.stringify(artifact,null,2);
   document.getElementById('artifactPre').textContent=json;
   document.getElementById('artifactPre').style.display='block';
