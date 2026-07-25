@@ -2041,10 +2041,12 @@ that subject. `dual_control(2)` is the N=2 case (the FDIC GENIUS CEO/CFO certifi
 production use). A threshold gate over fewer than N distinct approvers is UNSATISFIED and MUST NOT auto-pass.
 
 **§27.4 Gate-policy vocabulary (NORMATIVE — wired to §21.4).** §27 defines a closed gate-policy enum, the
-`$defs/haGatePolicy` value applied to a §21.4 decision gate as an OPTIONAL precondition: `auto_pass` (no
-human act required), `review_required` (≥1 `approval` from a `reviewer`), `dual_control(N)` (§27.3 threshold
-N), `escalate` (route to the §22.3 reserved escalation target), `hold` (suspend pending a human act),
-`reject` (terminal human rejection), `emergency_override` (§27.5). A gate carrying a policy is satisfied ONLY
+`$defs/haGatePolicy` value applied to a §21.4 decision gate as an OPTIONAL precondition via the gate's own
+`gate_policy` field (v0.8.12; `$defs/decisionGate`): `auto_pass` (no human act required), `review_required`
+(≥1 `approval` from a `reviewer`), `dual_control(N)` (§27.3 threshold N, carried in the gate's sibling
+`gate_threshold` field — `$defs/haApprovalThreshold`, an in-toto `{role, threshold}` pair), `escalate` (route
+to the §22.3 reserved escalation target), `hold` (suspend pending a human act), `reject` (terminal human
+rejection), `emergency_override` (§27.5). A gate carrying a policy is satisfied ONLY
 when the named approval record(s) exist at the stated threshold over the gate's subject; **absent the
 required record(s), the gate does NOT fall through to its §21.4 `default`** — the human precondition is a
 hard predicate evaluated before the routing rules, and an unmet precondition holds the step. This composes
