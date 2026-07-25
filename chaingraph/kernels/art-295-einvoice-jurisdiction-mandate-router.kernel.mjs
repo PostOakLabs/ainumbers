@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-295-einvoice-jurisdiction-mandate-router';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -9,7 +9,7 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-const TABLE_VERSION = 'einvoice-mandate-table-2026-07-13';
+const TABLE_VERSION = 'einvoice-mandate-table-2026-07-24';
 
 // Version-pinned mandate table. FR receive-obligation date (2026-09-01) is the
 // confirmed research-cited date for this build. DE/AE/MY dates are DRAFT-PIN
@@ -30,6 +30,14 @@ const MANDATE_TABLE = {
   MY: {
     applicable_format: 'myinvois', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-07-13',
     transmission_channel: 'direct', note: 'MyInvois phased rollout by taxpayer tier',
+  },
+  BE: {
+    applicable_format: 'peppol-bis3', mandatory_from: '2026-01-01',
+    transmission_channel: 'Peppol network', note: 'Belgium mandatory B2B structured e-invoicing, live since 2026-01-01',
+  },
+  PL: {
+    applicable_format: 'ksef-fa3', mandatory_from: '2026-02-01',
+    transmission_channel: 'KSeF', note: 'Poland Krajowy System e-Faktur, FA(3) schema, mandatory-use phase-in from 2026-02-01',
   },
 };
 

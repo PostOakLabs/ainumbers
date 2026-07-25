@@ -133,7 +133,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite · ART-296 · e-invoicing</div>
   <h1>E-Invoice Transmission Receipt Builder</h1>
-  <p class="sub">Terminal node: composes the format-validation gate, VAT-arithmetic gate, and routed mandate into one hash-anchored receipt bound to the as-transmitted document digest (and, for hybrid Factur-X, the embedded XML digest separately). Proves the invoice you transmitted was format-validated and its math checks. Never certifies tax compliance, legal validity, or clearance-platform acceptance. Zero network.</p>
+  <p class="sub">Terminal node: composes the format-validation gate, VAT-arithmetic gate, and routed mandate into one hash-anchored receipt bound to the as-transmitted document digest (and, for hybrid Factur-X, the embedded XML digest separately). Proves the invoice you transmitted was format-validated and its math checks. Carries the SPEC.md §27 pre-transmission release gate (review_required, VAT-signer role) and rejected-batch override path (emergency_override with an evidence bundle) -- schema-only until HA-RETRO-1 builds the enforcement consumer. Never certifies tax compliance, legal validity, or clearance-platform acceptance. Zero network.</p>
   <div style="margin-bottom:6px"><span class="flag warn">E-Invoicing</span><span class="flag info">Chain Terminal</span><span class="flag purple">W3C VC §13.11</span><span class="flag">Zero PII</span></div>
 
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
@@ -282,11 +282,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 const MANIFEST = {
   "tool_id": "art-296-einvoice-transmission-receipt-builder",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "E-Invoice Transmission Receipt Builder",
   "mcp_tool_definition": {
     "name": "build_einvoice_transmission_receipt",
-    "description": "Build a hash-anchored receipt proving a specific e-invoice's transmitted bytes were format-validated and VAT-arithmetic-checked, with the routed mandate attached. Binds to the document digest (and, for hybrid Factur-X, the embedded XML digest separately). Asserts conformance and arithmetic consistency only, never legal validity or clearance acceptance. Zero network, zero PII.",
+    "description": "Build a hash-anchored receipt proving a specific e-invoice's transmitted bytes were format-validated and VAT-arithmetic-checked, with the routed mandate attached. Binds to the document digest (and, for hybrid Factur-X, the embedded XML digest separately). Asserts conformance and arithmetic consistency only, never legal validity or clearance acceptance. Carries SPEC.md §27 pre-transmission gate wiring (review_required release gate, emergency_override for a rejected batch) -- schema-only, enforcement pending HA-RETRO-1. Zero network, zero PII.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -318,7 +318,8 @@ function compute(pp) {
     { tool_id: 'art-295-einvoice-jurisdiction-mandate-router', mcp_name: 'route_einvoice_jurisdiction_mandate', gate_passed: true },
   ];
   const compliance_flags = ['EINVOICE_RECEIPT_ASSESSED', validated ? 'EINVOICE_RECEIPT_VALIDATED' : 'EINVOICE_RECEIPT_UNVERIFIED'];
-  return { output_payload: { document_sha256, embedded_xml_sha256, format, validated, claim_strength, format_gate_passed, vat_gate_passed, routed_mandate: routed_mandate || null, steps, not_legal_advice: 'Proves the transmitted document was format-validated and VAT-arithmetic-checked. Does not certify tax compliance, legal validity, or clearance-platform acceptance.' }, compliance_flags };
+  const ha_wiring = { release_gate_policy: 'review_required', release_gate_role: 'reviewer', override_gate_policy: 'emergency_override', enforcement: 'schema_only_pending_HA-RETRO-1' };
+  return { output_payload: { document_sha256, embedded_xml_sha256, format, validated, claim_strength, format_gate_passed, vat_gate_passed, routed_mandate: routed_mandate || null, steps, ha_wiring, not_legal_advice: 'Proves the transmitted document was format-validated and VAT-arithmetic-checked. Does not certify tax compliance, legal validity, or clearance-platform acceptance.' }, compliance_flags };
 }
 
 function getParams() {
