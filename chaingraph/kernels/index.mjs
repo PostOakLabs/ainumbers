@@ -401,6 +401,8 @@ import * as art465    from './art-465-workpaper-bundle-composer.kernel.mjs';
 import * as art466    from './art-466-dora-roi-builder.kernel.mjs';
 import * as art467    from './art-467-dora-incident-classifier.kernel.mjs';
 import * as art47     from './art-47-arc-cctp-transfer.kernel.mjs';
+import * as art470    from './art-470-lookback-completeness-reconciler.kernel.mjs';
+import * as art471    from './art-471-disposition-sampling-frame.kernel.mjs';
 import * as art472    from './art-472-cbcr-builder.kernel.mjs';
 import * as art473    from './art-473-interquartile-benchmark.kernel.mjs';
 import * as art474    from './art-474-validate-mt700-lc-fields.kernel.mjs';
@@ -876,6 +878,8 @@ export const KERNELS = {
   'art-466-dora-roi-builder':                                 art466,
   'art-467-dora-incident-classifier':                         art467,
   'art-47-arc-cctp-transfer':                                 art47,
+  'art-470-lookback-completeness-reconciler':                 art470,
+  'art-471-disposition-sampling-frame':                       art471,
   'art-472-cbcr-builder':                                     art472,
   'art-473-interquartile-benchmark':                          art473,
   'art-474-validate-mt700-lc-fields':                         art474,
