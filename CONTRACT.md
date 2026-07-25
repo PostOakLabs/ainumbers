@@ -362,7 +362,7 @@ function exportAP2() {
 
 **Date:** June 2026 · **Companion docs:** `WebGPU/CHAINGRAPH-V1_2026-06-12.md` (§4 artifact), `chaingraph-chains-schema_2026-06-13.md`, `CHAINGRAPH-CONVERSION-BUILD-SPEC_2026-06-13.md`
 
-**Context:** AINumbers shipped two multi-tool orchestration surfaces (Scenario Guides + Live Workflows; and Composer Runners, arch #4) alongside the hash-anchored `chaingraph/` suite. A dual surface confuses market participants and dilutes the M&A thesis. **Decision: collapse to one surface — ChainGraph — and make verifiable hash-chaining a contract-level MUST.**
+**Context:** AINumbers shipped two multi-tool orchestration surfaces (Scenario Guides + Live Workflows; and Composer Runners, arch #4) alongside the hash-anchored `chaingraph/` suite. **Decision: collapse to one surface — ChainGraph — and make verifiable hash-chaining a contract-level MUST.**
 
 ### A3.1 · Page architecture #5 — ChainGraph chain page (RFC 2119: MUST)
 
@@ -454,7 +454,7 @@ The MCP Worker (`mcp-apps-poc`) MAY make outbound network calls **only** to host
 |---|---|---|---|
 | `api.gleif.org` | `mcp-apps-poc/lei-kyb.mjs` (`GLEIF_HOST`, `fetchGleifRecord`) | GLEIF v2 LEI record lookup for the LEI/KYB grading tool. Public JSON:API, no credential, ~60 rpm — cache accordingly. | none |
 
-That is the entire list — **one host**. The Worker holds **no runtime secret** and no allowlist entry requires one; an integration that would introduce the first runtime secret is a separate Tim decision, not a §A4.7 edit (precedent: the Vanta evidence-push integration was dropped for exactly this reason and is deliberately absent here, including as a reserved or commented-out entry).
+That is the entire list — **one host**. The Worker holds **no runtime secret** and no allowlist entry requires one; an integration that would introduce the first runtime secret needs its own security review weighing that secret's blast radius, not a §A4.7 edit (precedent: the Vanta evidence-push integration was dropped for exactly this reason and is deliberately absent here, including as a reserved or commented-out entry).
 
 **RFC 3161 TSAs are NOT worker egress, and MUST NOT be added to this list on the assumption that they already are.** Verified against `origin/master` at authoring time: the Worker's RFC 3161 support is **verify-only and 100% offline** — `kernels/_rfc3161.mjs` contains **zero** `fetch` calls and validates a timestamp token against a **pinned** `FREETSA_ROOT_PEM` using `node:crypto` alone, and `_blta.mjs` states in-file that the Worker has *"no existing TSA-REQUEST integration"*, explicitly FLAGS obtaining a fresh timestamp as not built, and names anchor-suite as the natural future owner. Live TSA traffic belongs to the **anchor-suite / `anchor.ainumbers.co`** surface, which is not this Worker. The one `freetsa.org/tsr` call in the repo is in `scripts/_regen-input-attestations-fixture.mjs`, a developer fixture-regeneration script that never runs in the Worker. If a future WU adds a real TSA client to the Worker, it amends this table then — it does not inherit permission from this note.
 
