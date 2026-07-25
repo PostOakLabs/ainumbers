@@ -114,6 +114,7 @@ const GATES = [
   ['CSP consistency (FOOTER-1)',   'node scripts/check-csp-consistency.mjs'],
   ['Internal-lang leak (INTERNAL-LANG-LEAK-1)', 'node scripts/check-internal-lang-leak.mjs'],
   ['Verify-path no-egress (AV-NOEGRESS-1)', 'node scripts/check-verify-no-egress.mjs'],
+  ['Site static egress scan (EGRESS-SITE-1)', 'node scripts/check-site-egress.mjs'],
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
