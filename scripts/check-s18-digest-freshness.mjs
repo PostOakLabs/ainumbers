@@ -53,6 +53,21 @@ const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 const FRESH_LABEL = 'fresh (journal.kernel_digest matches the currently-deployed kernel source)';
 const STALE_LABEL = 'attests to an EARLIER kernel revision (seal is still cryptographically valid — this is a freshness gap, not a broken or fake proof)';
 
+// Static, hand-curated — NOT derived by this gate (no compute-comparison here; §18.2 bars proving in
+// CI). Per S18-STALE-SEMANTIC-2026-07-25.md's differential-execution sample: of the 129 stale nodes,
+// 123 are non-semantic (only out-of-proof-scope fields like `compliance_flags`/citation text moved —
+// `output_payload` itself is byte-identical). These 6 are the ones where `output_payload` differs —
+// the only stale nodes anyone might actually act on. List it here so the raw 129-line wall has a
+// pointer into it; update by hand if a future differential-execution pass changes the verdict.
+const KNOWN_SEMANTIC_STALE = new Set([
+  'assess_ai_act_conformity',            // art-05  — applicable_deadline/_note changed (ec72979 omnibus repin)
+  'run_treasury_clearing_fit',           // art-48  — new exemption_claimed input + branch logic (70a7467)
+  'model_clearing_access_economics',     // art-49  — same extension commit (70a7467)
+  'estimate_cross_margin_benefit',       // art-51  — same extension commit (70a7467)
+  'build_ai_decision_log_record',        // art-236 — same repin pattern (ec72979)
+  'classify_annex3_decisioning_obligations', // art-238 — same repin pattern (ec72979)
+]);
+
 // ── computeStaleness ─────────────────────────────────────────────────────────────────────────────
 // Pure function over an already-loaded chaingraph object + a tool_id -> kernel-source-text lookup, so
 // the unit test can feed a fixture without touching disk. `sourceDigestFn` is injected so the test can
@@ -126,7 +141,8 @@ if (SUMMARY || LIST_STALE) {
   console.log(`§18 digest freshness — gpu:false live w/ receipt: ${total} | fresh: ${fresh.length} | stale: ${stale.length}`);
   if (LIST_STALE) {
     for (const r of stale) {
-      console.log(`  STALE: ${r.name} — journal=${trunc(r.journalDigest)} recomputed=${trunc(r.recomputed)} (${STALE_LABEL})`);
+      const flag = KNOWN_SEMANTIC_STALE.has(r.name) ? ' [output_payload differs — see S18-STALE-SEMANTIC-2026-07-25.md]' : '';
+      console.log(`  STALE: ${r.name} — journal=${trunc(r.journalDigest)} recomputed=${trunc(r.recomputed)} (${STALE_LABEL})${flag}`);
     }
   }
   process.exit(0);
@@ -157,7 +173,10 @@ if (existsSync(BASELINE_PATH)) {
 // Always list every stale node, per row's REPORTING requirement — never just a count.
 if (stale.length) {
   console.error(`\n§18 digest freshness — ${stale.length} of ${total} gpu:false proven node(s) ${STALE_LABEL}:`);
-  for (const r of stale) console.error(`  • ${r.name} — journal=${trunc(r.journalDigest)} recomputed=${trunc(r.recomputed)}`);
+  for (const r of stale) {
+    const flag = KNOWN_SEMANTIC_STALE.has(r.name) ? ' [output_payload differs — see S18-STALE-SEMANTIC-2026-07-25.md]' : '';
+    console.error(`  • ${r.name} — journal=${trunc(r.journalDigest)} recomputed=${trunc(r.recomputed)}${flag}`);
+  }
 }
 
 if (failed) process.exit(1);
