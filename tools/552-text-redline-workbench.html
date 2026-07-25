@@ -474,6 +474,183 @@ async function verifySignature(pubHex,message,sigHex){
 }
 
 /* ══════════════════════════════════════════════════════════════
+   HA-CONV-2 – OpenChainGraph §27 human-accountability records.
+
+   The per-hunk disposition chain above is ALREADY a tamper-evident
+   record of what a reviewer decided. What it was not, before this,
+   was expressible in the estate's ONE accountability dialect: the
+   §27.2 human_accountability_record. This block maps each
+   disposition onto that shape so a redline review feeds the same
+   evidence desk as every other §27 surface, with no second dialect.
+
+   ADDITIVITY (§27.0) – the mapping is a SCITT-style statement about
+   a statement. A record only REFERENCES its subject by subject_hash
+   and never contains the subject's preimage, so diff_receipt,
+   hunk_receipts and disposition_receipt keep byte-identical
+   policy_parameters/output_payload and therefore byte-identical
+   execution_hash values. Adding §27 records to this page moves no
+   hash that this page ever emitted, and a receipt bundle produced
+   before this change still verifies unchanged (see the legacy
+   fixture in the Verify tab).
+
+   CONFORMANCE (§27.2) – an UNSIGNED approval record is not
+   conformant §27 evidence, so each record carries a §16
+   eddsa-jcs-2022 Data Integrity proof whose verificationMethod is
+   derived from the same ephemeral reviewer key that already signs
+   the diff receipt. The signing/canonicalisation path is the
+   estate's existing one, copied from the shipped in-page dialect
+   (tool 544): JCS over the proof options and the document, SHA-256
+   each, concatenate, Ed25519 over the result. Where SubtleCrypto
+   Ed25519 is unavailable the records are still emitted, honestly
+   marked conformant:false, exactly as the diff receipt already
+   degrades – never silently dropped and never falsely signed.
+══════════════════════════════════════════════════════════════ */
+const B58_ALPHABET='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes){
+  let zeros=0;while(zeros<bytes.length&&bytes[zeros]===0)zeros++;
+  const digits=[0];
+  for(let i=zeros;i<bytes.length;i++){
+    let carry=bytes[i];
+    for(let j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=(carry/58)|0;}
+    while(carry){digits.push(carry%58);carry=(carry/58)|0;}
+  }
+  let out='';for(let k=0;k<zeros;k++)out+='1';
+  for(let q=digits.length-1;q>=0;q--)out+=B58_ALPHABET[digits[q]];
+  return out;
+}
+function b58decode(str){
+  let zeros=0;while(zeros<str.length&&str[zeros]==='1')zeros++;
+  const bytes=[0];
+  for(let i=zeros;i<str.length;i++){
+    let carry=B58_ALPHABET.indexOf(str[i]);if(carry<0)throw new Error('bad base58 char');
+    for(let j=0;j<bytes.length;j++){carry+=bytes[j]*58;bytes[j]=carry&0xff;carry>>=8;}
+    while(carry){bytes.push(carry&0xff);carry>>=8;}
+  }
+  const out=new Uint8Array(zeros+bytes.length);
+  for(let k=0;k<bytes.length;k++)out[zeros+bytes.length-1-k]=bytes[k];
+  return out;
+}
+const ED25519_MULTICODEC=[0xed,0x01];
+async function reviewerDidKey(){
+  const rk=await ensureReviewerKey();
+  if(!rk.available)return null;
+  const raw=new Uint8Array(await crypto.subtle.exportKey('raw',rk.kp.publicKey));
+  const prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+  prefixed.set(ED25519_MULTICODEC,0);prefixed.set(raw,ED25519_MULTICODEC.length);
+  return 'did:key:z'+b58encode(prefixed);
+}
+function didKeyToRawPub(did){
+  if(!did||did.indexOf('did:key:z')!==0)throw new Error('not a did:key z-form');
+  const prefixed=b58decode(did.slice('did:key:z'.length));
+  if(prefixed[0]!==0xed||prefixed[1]!==0x01)throw new Error('did:key is not Ed25519');
+  return prefixed.slice(2);
+}
+function jcsBytes(obj){return new TextEncoder().encode(JSON.stringify(cgCanon(obj)));}
+async function sha256Bytes(bytes){return new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));}
+function haProofOptions(o){
+  return{type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',verificationMethod:o.verificationMethod,proofPurpose:'assertionMethod',created:o.created};
+}
+/* §16 hashData: SHA-256(JCS(proof options)) || SHA-256(JCS(document)). */
+async function haHashData(doc,opts){
+  const optHash=await sha256Bytes(jcsBytes(opts));
+  const docHash=await sha256Bytes(jcsBytes(doc));
+  const cat=new Uint8Array(optHash.length+docHash.length);
+  cat.set(optHash,0);cat.set(docHash,optHash.length);
+  return cat;
+}
+/* The proof is taken over the record artifact WITHOUT its
+   audit_signature member, so the proof never signs itself. */
+function unsecured(record){
+  const copy=JSON.parse(JSON.stringify(record));
+  delete copy.audit_signature;
+  return copy;
+}
+async function signHaRecord(record,did,created){
+  const rk=await ensureReviewerKey();
+  const vm=did+'#'+did.slice('did:key:'.length);
+  const opts=haProofOptions({verificationMethod:vm,created});
+  const sigBytes=new Uint8Array(await crypto.subtle.sign({name:'Ed25519'},rk.kp.privateKey,await haHashData(unsecured(record),opts)));
+  return Object.assign({},opts,{proofValue:'z'+b58encode(sigBytes)});
+}
+async function verifyHaRecord(record){
+  const proof=record&&record.audit_signature&&record.audit_signature.proof;
+  if(!proof||proof.type!=='DataIntegrityProof'||proof.cryptosuite!=='eddsa-jcs-2022')return false;
+  if(proof.proofPurpose!=='assertionMethod'||typeof proof.proofValue!=='string'||proof.proofValue[0]!=='z')return false;
+  const identityId=record.output_payload&&record.output_payload.identity&&record.output_payload.identity.id;
+  /* §27.2 binding: the verificationMethod must belong to the very
+     identity the record names, or the signature proves nothing about
+     the human being held accountable. */
+  if(!identityId||proof.verificationMethod.indexOf(identityId)!==0)return false;
+  try{
+    const pubKey=await crypto.subtle.importKey('raw',didKeyToRawPub(identityId),{name:'Ed25519'},true,['verify']);
+    const opts=haProofOptions({verificationMethod:proof.verificationMethod,created:proof.created});
+    return await crypto.subtle.verify({name:'Ed25519'},pubKey,b58decode(proof.proofValue.slice(1)),await haHashData(unsecured(record),opts));
+  }catch(e){return false;}
+}
+
+/* A disposition is an accountable act. accept is an approval,
+   reject is a rejection, comment is an annotation – the three
+   record_type values §27.2 defines for exactly this situation. */
+const DISPOSITION_RECORD_TYPE={accept:'approval',reject:'rejection',comment:'annotation'};
+
+async function buildHaRecord({subject_hash,record_type,decision,reason_code,timestamp,did}){
+  const identity={id:did||'urn:ainumbers:unsigned-reviewer'};
+  const ha={record_type,role:'reviewer',subject_hash,identity,decision,timestamp};
+  if(reason_code)ha.reason_code=reason_code;
+  const policy_parameters={subject_hash,record_type,role:'reviewer'};
+  const output_payload=ha;
+  const execution_hash=await executionHash(policy_parameters,output_payload);
+  const record={
+    chaingraph_version:'0.4.0',
+    mandate_type:'human_accountability_record',
+    tool_id:'552-text-redline-workbench',tool_version:'1.0.0',
+    generated_at:timestamp,
+    policy_parameters,output_payload,execution_hash,
+    compute_mode:'client_side_browser',compute_proof_ready:'deferred',
+  };
+  if(did){
+    record.audit_signature={
+      payloadType:'application/vnd.openchain.graph+json;version=0.4',
+      proof:await signHaRecord(record,did,timestamp),
+      conformant:true,
+    };
+  }else{
+    const rk=await ensureReviewerKey();
+    record.audit_signature={
+      payloadType:'application/vnd.openchain.graph+json;version=0.4',
+      conformant:false,
+      note:'Ed25519 unavailable in this browser (SubtleCrypto): '+rk.error+' – this record is NOT conformant §27 evidence, which requires a signature bound to a named human.',
+    };
+  }
+  return record;
+}
+
+/* One record per hunk disposition, plus a closing reviewer approval
+   over the disposition receipt – the document-level sign-off that a
+   §27.4 gate or a §27.6 bundle actually consumes. */
+async function buildHaRecords({hunkReceipts,dispositionReceipt,timestamp}){
+  const did=await reviewerDidKey();
+  const records=[];
+  for(let i=0;i<hunkReceipts.length;i++){
+    const r=hunkReceipts[i];
+    const disposition=r.policy_parameters.disposition;
+    records.push(await buildHaRecord({
+      subject_hash:r.execution_hash,
+      record_type:DISPOSITION_RECORD_TYPE[disposition]||'annotation',
+      decision:disposition,
+      reason_code:r.policy_parameters.note||null,
+      timestamp,did,
+    }));
+  }
+  records.push(await buildHaRecord({
+    subject_hash:dispositionReceipt.execution_hash,
+    record_type:'approval',decision:'review_complete',
+    reason_code:null,timestamp,did,
+  }));
+  return records;
+}
+
+/* ══════════════════════════════════════════════════════════════
    Receipt builders. Diff receipt is produced once, at diff time.
    Each hunk disposition emits a hash-chained hunk receipt
    (CHECKRUN-1 step-receipt pattern: execution_hash over
@@ -538,7 +715,8 @@ async function runFullPipeline(originalText,revisedText,dispositions,notes){
   const acceptedText=reconstructAcceptedText(diff.renderOps,dispositions);
   const acceptedTextDigest=await sha256Hex(acceptedText);
   const dispositionReceipt=await buildDispositionReceipt({diffReceipt,hunkReceipts,acceptedTextDigest,generated_at});
-  return{diff,diffReceipt,hunkReceipts,dispositionReceipt,acceptedText,acceptedTextDigest};
+  const haRecords=await buildHaRecords({hunkReceipts,dispositionReceipt,timestamp:generated_at});
+  return{diff,diffReceipt,hunkReceipts,dispositionReceipt,acceptedText,acceptedTextDigest,haRecords};
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -644,6 +822,10 @@ async function completeReview(){
     diff_receipt:result.diffReceipt,
     hunk_receipts:result.hunkReceipts,
     disposition_receipt:result.dispositionReceipt,
+    /* §27.2 records ride ALONGSIDE the receipts, never inside them –
+       the receipts above keep the exact bytes and execution_hash
+       values they had before this key existed. */
+    human_accountability_records:result.haRecords,
   };
   document.getElementById('receiptSection').style.display='block';
   document.getElementById('receiptBox').textContent=JSON.stringify(LAST_BUNDLE,null,2);
@@ -732,6 +914,36 @@ async function verifyBundle(originalText,revisedText,bundle){
   const acceptedText=reconstructAcceptedText(diff.renderOps,dispositions);
   const acceptedTextDigest=await sha256Hex(acceptedText);
   checks.push({label:'accepted-text digest recomputes from original + accepted hunks',ok:acceptedTextDigest===disposition_receipt.output_payload.accepted_text_digest});
+
+  /* §27 records are OPTIONAL on the wire. A bundle produced before
+     this page emitted them is still a fully valid bundle, so their
+     absence is reported as a plain fact and never as a failure. */
+  const haRecords=bundle.human_accountability_records;
+  if(!Array.isArray(haRecords)||haRecords.length===0){
+    checks.push({label:'§27 human-accountability records',ok:true,detail:'Not present in this bundle. Receipts produced before the §27 mapping shipped remain valid and verify in full above.'});
+  }else{
+    let allBound=true,allRecompute=true,signedCount=0;
+    for(const rec of haRecords){
+      const recomputed=await executionHash(rec.policy_parameters,rec.output_payload);
+      if(recomputed!==rec.execution_hash)allRecompute=false;
+      /* Every record must point at something this bundle actually
+         contains, or it is evidence about some other document. */
+      const subj=rec.output_payload&&rec.output_payload.subject_hash;
+      const known=subj===disposition_receipt.execution_hash||hunk_receipts.some(h=>h&&h.execution_hash===subj);
+      if(!known)allBound=false;
+      /* Signature failures are counted separately from binding
+         failures – conflating them would report a broken subject
+         link on a record whose only fault is a bad proof. */
+      if(rec.audit_signature&&rec.audit_signature.proof&&await verifyHaRecord(rec))signedCount++;
+    }
+    checks.push({label:`§27 records: all ${haRecords.length} execution_hash values recompute`,ok:allRecompute});
+    checks.push({label:'§27 records: every subject_hash resolves to a receipt in this bundle',ok:allBound});
+    checks.push({
+      label:`§27 records: ${signedCount} of ${haRecords.length} carry a verifying eddsa-jcs-2022 proof bound to the named identity`,
+      ok:signedCount===haRecords.length,
+      detail:signedCount===haRecords.length?null:'Records without a verifying proof are not conformant §27 evidence (§27.2).',
+    });
+  }
 
   const allOk=checks.every(c=>c.ok);
   return{ok:allOk,checks,brokenHunk};
