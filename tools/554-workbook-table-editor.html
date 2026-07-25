@@ -131,6 +131,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     <button class="tb-btn" onclick="addRowCol('row')">+ Row</button>
     <button class="tb-btn" onclick="addRowCol('col')">+ Col</button>
     <button class="tb-btn" onclick="digestSelection()">Digest Selected Range</button>
+    <button class="tb-btn" onclick="exportOcgArtifact()">Export as OCG Artifact</button>
   </div>
 
   <div class="formula-bar">
@@ -143,6 +144,31 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   <div class="out-section" id="digestSection" style="display:none">
     <div class="out-header"><span class="out-title">Range Digest Manifest</span><button class="tb-btn" onclick="copyDigest()">Copy</button></div>
     <div class="out-body" id="digestBody"></div>
+  </div>
+
+  <div class="out-section" id="artifactSection" style="display:none">
+    <div class="out-header">
+      <span class="out-title">OCG Artifact</span>
+      <div style="display:flex;gap:.4rem">
+        <button class="tb-btn" onclick="copyArtifactHash()">Copy Hash</button>
+        <button class="tb-btn" onclick="downloadArtifact()">Download JSON</button>
+      </div>
+    </div>
+    <div class="out-body" style="white-space:normal">
+      <div style="margin-bottom:.6rem"><span style="color:var(--teal);font-weight:600">execution_hash</span> <span id="artifactHash" style="word-break:break-all"></span></div>
+      <div id="artifactVolatileWarn" style="display:none;color:var(--warn);margin-bottom:.6rem">⚠ One or more cells reference a volatile function (RAND/NOW/TODAY). They resolve to a deterministic <code>#NAME?</code> error in this engine, but the export is flagged <code>deterministic:false</code> below rather than hidden.</div>
+      <div style="margin-bottom:.75rem">
+        <label style="display:block;font-size:.6rem;color:var(--muted);margin-bottom:.2rem">source description (provenance, not hashed)</label>
+        <input id="provSourceDesc" class="fb-input" style="background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.35rem .5rem;width:100%;margin-bottom:.4rem" placeholder="e.g. Q3 jurisdictional GloBE data extract">
+        <label style="display:block;font-size:.6rem;color:var(--muted);margin-bottom:.2rem">created_by (identity slot, optional did:key or free text)</label>
+        <input id="provCreatedBy" class="fb-input" style="background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.35rem .5rem;width:100%">
+      </div>
+      <div class="mfst-code" id="artifactBody" style="max-height:280px;overflow:auto"></div>
+      <div id="sendToChainRow" style="display:none;margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        <button class="tb-btn" onclick="sendToGlobeChain()">Send to GloBE Annual Filing Cycle Chain &#8594;</button>
+        <p style="font-size:.6rem;color:var(--muted);margin-top:.4rem;line-height:1.6">Copies the sheet as a <code>{"entities":[...]}</code> table (col A = entity_name, col B = net_income_or_loss, col C = covered_taxes, row 1 treated as a header) to your clipboard and opens the chain composer in a new tab. Paste into the jurisdictional ETR step. Only <a href="../chaingraph/chains/globe-annual-cycle.html" target="_blank" rel="noopener">GloBE Annual Filing Cycle</a> is wired here: it is the only landed chain in <code>chaingraph.json</code> whose first step accepts a table-shaped <code>entities</code> array.</p>
+      </div>
+    </div>
   </div>
 
 </div></div>
@@ -665,6 +691,76 @@ async function rangeDigest(wb, rangeRef) {
   const values = rangeValuesMatrix(wb, rangeRef);
   return executionHash(values, {});
 }
+
+// ---- chaingraph/workbook/workbook.mjs: exportArtifact() block (WB-BRIDGE-1, verbatim, export stripped) ----
+const VOLATILE_FUNCTION_NAMES = Object.freeze(['RAND', 'NOW', 'TODAY']);
+const VOLATILE_FN_RE = new RegExp(`\\b(?:${VOLATILE_FUNCTION_NAMES.join('|')})\\s*\\(`, 'i');
+function detectVolatileFormulas(wb) {
+  const hits = [];
+  for (const ref of Object.keys(wb.cells)) {
+    const cell = wb.cells[ref];
+    if (cell && typeof cell.raw === 'string' && cell.raw.startsWith('=') && VOLATILE_FN_RE.test(cell.raw)) {
+      hits.push(ref);
+    }
+  }
+  return hits.sort();
+}
+async function digestRows(matrix) {
+  const out = [];
+  for (const row of matrix) out.push(await executionHash(row, {}));
+  return out;
+}
+async function digestCols(matrix) {
+  const nCols = matrix[0] ? matrix[0].length : 0;
+  const out = [];
+  for (let c = 0; c < nCols; c++) out.push(await executionHash(matrix.map((row) => row[c]), {}));
+  return out;
+}
+async function exportArtifact(wb, meta = {}) {
+  recalc(wb);
+  const volatileCells = detectVolatileFormulas(wb);
+  const range = fullRangeRef(wb);
+  const values = range ? rangeValuesMatrix(wb, range) : [];
+  const cells = {};
+  const formulas = {};
+  for (const ref of Object.keys(wb.cells).sort()) {
+    const raw = wb.cells[ref].raw;
+    cells[ref] = raw;
+    if (typeof raw === 'string' && raw.startsWith('=')) formulas[ref] = raw;
+  }
+  const policy_parameters = { cells, formulas, rows: wb.rows, cols: wb.cols };
+  const total_digest = await executionHash(values, {});
+  const row_digests = await digestRows(values);
+  const col_digests = await digestCols(values);
+  const output_payload = {
+    values, row_digests, col_digests, total_digest,
+    deterministic: volatileCells.length === 0,
+    volatile_cells: volatileCells,
+  };
+  const execution_hash = await executionHash(policy_parameters, output_payload);
+  const timestamp = meta.timestamp || new Date().toISOString();
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'workbook_export',
+    tool_id: meta.tool_id || 'workbook-table-editor',
+    tool_version: meta.tool_version || '1.0.0',
+    generated_at: timestamp,
+    execution_hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters,
+    output_payload,
+    provenance: {
+      source_description: meta.source_description || '',
+      extract_params: meta.extract_params || {},
+      created_by: meta.created_by || '',
+      timestamp,
+    },
+    compute_mode: meta.compute_mode || 'client_side_browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
 </script>
 
 <!-- ═══ Thin UI renderer — grid, selection, formula bar, import/export, digest.
@@ -810,6 +906,78 @@ async function digestSelection() {
 }
 function copyDigest() {
   if (lastDigest) navigator.clipboard.writeText(JSON.stringify(lastDigest, null, 2));
+}
+
+// ── WB-BRIDGE-1: workbook -> OCG artifact bridge ────────────────────────────
+let lastArtifact = null;
+
+async function exportOcgArtifact() {
+  try {
+    const meta = {
+      source_description: document.getElementById('provSourceDesc').value || '',
+      created_by: document.getElementById('provCreatedBy').value || '',
+      extract_params: { range: fullRangeRef(wb) || null, rows: wb.rows, cols: wb.cols },
+    };
+    const artifact = await exportArtifact(wb, meta);
+    lastArtifact = artifact;
+    document.getElementById('artifactSection').style.display = '';
+    document.getElementById('artifactHash').textContent = artifact.execution_hash;
+    document.getElementById('artifactBody').textContent = JSON.stringify(artifact, null, 2);
+    document.getElementById('artifactVolatileWarn').style.display = artifact.output_payload.deterministic ? 'none' : '';
+    // Only offer "Send to chain" for a chain that has actually landed in
+    // chaingraph.json today (art-454-globe-jurisdictional-etr, first step of
+    // the globe-annual-cycle chain) -- never a dead link to a chain that
+    // doesn't exist yet (WB-BRIDGE-BUILD-SPEC.md §1.3).
+    document.getElementById('sendToChainRow').style.display = wb.cols >= 3 ? '' : 'none';
+  } catch (e) {
+    alert('OCG artifact export failed: ' + (e && e.message ? e.message : e));
+  }
+}
+
+function copyArtifactHash() {
+  if (lastArtifact) navigator.clipboard.writeText(lastArtifact.execution_hash);
+}
+
+function downloadArtifact() {
+  if (!lastArtifact) return;
+  const json = JSON.stringify(lastArtifact, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'workbook_artifact_' + new Date().toISOString().replace(/[:.TZ]/g, '').slice(0, 14) + '.ocg.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Maps the sheet's first 3 columns (row 1 = header, skipped) onto the
+// art-454-globe-jurisdictional-etr policy_parameters.entities shape --
+// {entity_name, net_income_or_loss, covered_taxes} -- the ONLY chain wired
+// here because it's the only landed chain whose first step accepts a
+// table-shaped input (WB-BRIDGE-BUILD-SPEC.md §1.3; grepped chaingraph.json
+// for GloBE/JE-extract/AML-lookback candidates -- only globe-annual-cycle
+// exists today). No prefill/query-param/storage channel exists on the
+// composer pages (CONTRACT §0 zero-storage), so this copies the mapped table
+// to the clipboard (the same local-only clipboard API copyDigest()/
+// copyMfst() already use here) and opens the composer in a new tab for the
+// operator to paste into.
+function buildGlobeEntitiesPayload(wbInstance) {
+  const range = fullRangeRef(wbInstance);
+  if (!range) return { entities: [] };
+  const matrix = rangeValuesMatrix(wbInstance, range);
+  const dataRows = matrix.slice(1); // row 1 treated as header
+  const entities = dataRows
+    .map((row) => ({
+      entity_name: row[0] == null ? '' : String(row[0]),
+      net_income_or_loss: typeof row[1] === 'number' ? row[1] : Number(row[1]) || 0,
+      covered_taxes: typeof row[2] === 'number' ? row[2] : Number(row[2]) || 0,
+    }))
+    .filter((e) => e.entity_name);
+  return { entities };
+}
+
+function sendToGlobeChain() {
+  const payload = buildGlobeEntitiesPayload(wb);
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+  window.open('../chaingraph/chains/globe-annual-cycle.html', '_blank', 'noopener');
 }
 
 renderGrid();

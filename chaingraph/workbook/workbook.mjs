@@ -511,3 +511,112 @@ export async function csvDigest(text) {
   if (!range) return executionHash([], {});
   return rangeDigest(wb, range);
 }
+
+// ── OCG artifact export (WB-BRIDGE-1) ───────────────────────────────────────
+// exportArtifact() turns a workbook into a conformant OpenChainGraph v0.4
+// artifact -- the "workbook = step 0" bridge. Reuses the SAME executionHash()/
+// cgCanon() path as every other kernel in this repo; there is no second
+// canonicalization or hashing scheme here.
+//
+// Determinism contract: execution_hash is computed ONLY from
+// {policy_parameters, output_payload} -- both are pure functions of the
+// recalculated cell content, never of wall-clock time or caller identity.
+// generated_at/provenance.timestamp/provenance.created_by live OUTSIDE the
+// hash preimage (top-level artifact fields), exactly like art-460's
+// buildArtifact() pattern, so the SAME sheet re-exported an hour later still
+// produces the SAME execution_hash. recalc(wb) runs first so a caller who
+// forgot to recalc after an edit can never hash a stale .value.
+
+// Functions this engine does not implement (WORKBOOK_FUNCTIONS above is the
+// closed set) but whose presence in raw formula text would make an export
+// non-reproducible if they were ever added later: clock/random reads.
+// evalCall() already rejects any unknown function name as #NAME! -- which
+// IS a deterministic, stable value -- but exportArtifact() additionally
+// flags the raw formula text itself so a future volatile-function addition
+// can never silently produce a wrong/unstable hash instead of an honest flag.
+export const VOLATILE_FUNCTION_NAMES = Object.freeze(['RAND', 'NOW', 'TODAY']);
+const VOLATILE_FN_RE = new RegExp(`\\b(?:${VOLATILE_FUNCTION_NAMES.join('|')})\\s*\\(`, 'i');
+
+export function detectVolatileFormulas(wb) {
+  const hits = [];
+  for (const ref of Object.keys(wb.cells)) {
+    const cell = wb.cells[ref];
+    if (cell && typeof cell.raw === 'string' && cell.raw.startsWith('=') && VOLATILE_FN_RE.test(cell.raw)) {
+      hits.push(ref);
+    }
+  }
+  return hits.sort();
+}
+
+async function digestRows(matrix) {
+  const out = [];
+  for (const row of matrix) out.push(await executionHash(row, {}));
+  return out;
+}
+async function digestCols(matrix) {
+  const nCols = matrix[0] ? matrix[0].length : 0;
+  const out = [];
+  for (let c = 0; c < nCols; c++) out.push(await executionHash(matrix.map((row) => row[c]), {}));
+  return out;
+}
+
+// Provenance fields (source description, extract params, created_by identity
+// slot, timestamp) match the IPE fields art-460-ipe-integrity-verifier checks
+// on the consuming side (WB-BRIDGE-BUILD-SPEC.md §1.2) -- kept in
+// `provenance` (outside the hash) rather than folded into policy_parameters,
+// specifically so they never perturb execution_hash.
+export async function exportArtifact(wb, meta = {}) {
+  recalc(wb); // never hash a stale .value
+
+  const volatileCells = detectVolatileFormulas(wb);
+  const range = fullRangeRef(wb);
+  const values = range ? rangeValuesMatrix(wb, range) : [];
+
+  const cells = {};
+  const formulas = {};
+  for (const ref of Object.keys(wb.cells).sort()) {
+    const raw = wb.cells[ref].raw;
+    cells[ref] = raw;
+    if (typeof raw === 'string' && raw.startsWith('=')) formulas[ref] = raw;
+  }
+
+  const policy_parameters = { cells, formulas, rows: wb.rows, cols: wb.cols };
+
+  const total_digest = await executionHash(values, {});
+  const row_digests = await digestRows(values);
+  const col_digests = await digestCols(values);
+
+  const output_payload = {
+    values,
+    row_digests,
+    col_digests,
+    total_digest,
+    deterministic: volatileCells.length === 0,
+    volatile_cells: volatileCells,
+  };
+
+  const execution_hash = await executionHash(policy_parameters, output_payload);
+  const timestamp = meta.timestamp || new Date().toISOString();
+
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'workbook_export',
+    tool_id: meta.tool_id || 'workbook-table-editor',
+    tool_version: meta.tool_version || '1.0.0',
+    generated_at: timestamp,
+    execution_hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters,
+    output_payload,
+    provenance: {
+      source_description: meta.source_description || '',
+      extract_params: meta.extract_params || {},
+      created_by: meta.created_by || '',
+      timestamp,
+    },
+    compute_mode: meta.compute_mode || 'client_side_browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
