@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="ocg-spec-version" content="0.8.12">
+<meta name="ocg-spec-version" content="0.8.13">
 <title>OpenChainGraph Standard v0.4: Technical Specification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -123,7 +123,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
       <a class="nav-link" href="badge-program.html">Verified Build →</a>
       <a class="nav-link" href="openchain-graph-paper.html">White Paper →</a>
       <span class="nav-tag">Technical Specification</span>
-      <span class="nav-pill">v0.8.12</span>
+      <span class="nav-pill">v0.8.13</span>
     </div>
   </div>
 </nav>
@@ -131,7 +131,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
 <div class="hero">
   <div class="wrap">
     <div class="eyebrow">AINumbers.co · Open Specification · 2026</div>
-    <h1>OpenChainGraph Standard v0.8.12</h1>
+    <h1>OpenChainGraph Standard v0.8.13</h1>
     <p class="hero-desc">Cryptographic provenance for AI-agent financial decisions. Where v0.2 aligned the provenance envelope with general-purpose standards (W3C PROV-DM, in-toto, Ed25519, OpenTelemetry, DCAT 3.0), v0.3 aligns the financial payload and the knowledge layer: an optional ISO 20022-aligned semantic profile, optional LEI / <code>did:key</code> party identity, and an Open Knowledge Format (OKF) companion bundle generated from the Graph Index. <strong>v0.3.1</strong> formalizes profile conformance: profiles are now published as dereferenceable URIs declared via <code>dct:conformsTo</code> (W3C PROF / Content Negotiation by Profile), with <code>semantic_profile</code> retained as a registered token alias, and a new <code>iso20022:party-identification</code> profile (REDA/ACMT-aligned) for party-only payloads. Every v0.3.1 addition is optional and additive: all v0.1/v0.2/v0.3 artifacts remain valid, the hash preimage is unchanged, and internal protocol identifiers are preserved. <strong>v0.4</strong> adds <strong>Compute Binding</strong> (§12) (server-side kernels make every <code>gpu:false</code> node agent-native over MCP in a single round-trip) and <strong>Export Profiles</strong> (§13): the <code>chaingraph_export</code> umbrella (xlsx / pdf / csv / xbrl) renders a verified artifact for human, pipeline, and regulator consumption, generated downstream of and excluded from the hash preimage. <strong>v0.4.1</strong> adds the <strong>Verifiable Credentials profile</strong> (§13.11): <code>chaingraph_export:vc</code> renders any verified artifact as a <a href="https://www.w3.org/TR/vc-data-model-2.0/">W3C Verifiable Credentials 2.0</a> credential that re-states the canonical <code>execution_hash</code> via <code>ocg:hashAnchor</code>; it is a base profile (every node), mints no new hash or proof, and leaves the artifact envelope unchanged.</p>
   </div>
 </div>
@@ -983,6 +983,14 @@ export const meta = { tool_id, tool_version, gpu: false, mandate_type };</pre>
     <p>Validation is external, by pointer: this spec vendors no OIM/XBRL validator (mirrors §18.1's stark-verifier delegation). Annex 1, the FFIEC Call Report mapping: concept namespace is the published FFIEC 031/041 taxonomy, item alignment keys off public-domain MDRM item codes (e.g. <code>RCON2170</code> Total assets, <code>RCON3210</code> Total equity capital), never a fabricated concept. Annex slots are reserved for EBA DPM 2.0 (xBRL-CSV) and future regimes; an unpopulated slot returns a "pending" error exactly as §13.8's COREP maps do.</p>
     <p>Gate: <code>xbrl-json-fixtures.test.mjs</code> (§15): round-trip determinism, <code>canonicalValues</code> conformance, and Annex 1 structural load against the committed fixtures. Fence: this profile ships as spec text + schema + the two fixtures; the exporter implementation (<code>exporters/xbrl-json.mjs</code>, worker wiring) is a separate, later work unit.</p>
 
+    <h3>§13.14: xBRL-CSV export profile <code>ocg-xbrl-csv@1</code> <span style="font-size:.75em;font-weight:400;color:var(--green)">new in v0.8.13</span></h3>
+    <p>Populates the Annex slot §13.13.5 reserved for <a href="https://www.xbrl.org/Specification/xbrl-csv/REC-2021-10-13/xbrl-csv-REC-2021-10-13.html">xBRL-CSV</a> (REC 2021-10-13, the tabular OIM serialization), the wire format EBA mandates for DPM 2.0 reporting under Reporting Framework 4.0, in force from reference date 2026-03. Sibling to §13.13: same view-not-fact posture (generated after <code>execution_hash</code>, excluded from the hash preimage, mints no new hash, MUST NOT bump <code>chaingraph_version</code>), same never-fabricate discipline, same fixture-only fence.</p>
+    <p>Report package shape: a JSON metadata part (<code>documentInfo</code>, <code>tableTemplates</code>, <code>tables</code>) plus one or more CSV data parts, one per table. The JSON metadata part MUST apply JCS (RFC 8785) key ordering; each CSV data part MUST be sorted by its declared row-id column, so the report is byte-identical for byte-identical inputs. <code>execution_hash</code> is embedded in the JSON metadata part's <code>documentInfo.ocg:metadata</code> block, never inside a data row.</p>
+    <p>Taxonomy metadata is INPUT, not derived: identical discipline to §13.13 and §13.8, a <code>tableTemplates</code> column maps to a concept only when published in the target taxonomy, or is an explicit <code>ocg-ext:*</code> element where none exists yet. DTS discovery, XDT validation, and formula-linkbase execution are explicitly out of scope.</p>
+    <p>Normative caveat (MUST be surfaced by presenting UIs): this profile is NOT, by itself, a submitted EBA return. It emits a structurally valid xBRL-CSV report package; actual submission additionally requires DPM 2.0 dimensional/validation-rule conformance this spec does not vendor. An implementation MUST NOT label it "submitted" or "regulator-accepted": "submittable format, unvalidated content" is the correct framing. Validation is external, by pointer (e.g. <a href="https://arelle.org/">Arelle</a>, Apache-2.0), mirroring §13.13.4.</p>
+    <p>Annex 2, the EBA DPM 2.0 COREP mapping, is RESERVED and UNPOPULATED: <code>entry_point_schemaRef</code>, the metric namespace URI, and every <code>eba_qname</code> stay <code>null</code> until populated from the published EBA RF 4.0 DPM 2.0 taxonomy package, mirroring §13.8's COREP maps exactly. An unpopulated slot returns a "pending" error; never a fabricated concept. The working, real-content structural demonstration uses the <code>ocg-ext</code> namespace, exactly as §13.13 Annex 1 demonstrates via FFIEC/MDRM.</p>
+    <p>Gate: <code>xbrl-csv-fixtures.test.mjs</code> (§15): JSON metadata part round-trip determinism, CSV data part row-id sort determinism, every <code>tableTemplates</code> column resolves to a real <code>ocg-ext</code> concept (no null/placeholder), and the Annex 2 scaffold asserts every taxonomy field stays <code>null</code> and throws "pending" rather than emitting a fact. Fence: this profile ships as spec text + schema + the three fixtures; the exporter implementation (<code>exporters/xbrl-csv.mjs</code>, worker wiring) and the populated Annex 2 concept map are separate, later work units.</p>
+
     <div class="callout">
       <div class="lab">Hash preimage unchanged</div>
       <p>Export profiles are generated downstream of <code>execution_hash = SHA-256(JCS({policy_parameters, output_payload}))</code> and never alter it. A v0.4 artifact with exports remains verifiable by any v0.3 verifier that ignores unknown fields.</p>
@@ -1639,7 +1647,7 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
 <footer>
   <div class="wrap">
     <p class="foot">
-      OpenChainGraph Standard v0.8.12 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      OpenChainGraph Standard v0.8.13 · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
       <span>·</span>
       Reference implementation: <a href="https://ainumbers.co">AINumbers.co</a>
       <span>·</span>

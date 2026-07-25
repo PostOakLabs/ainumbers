@@ -1,0 +1,100 @@
+{
+  "_artifact": "OCG chaingraph_export:xbrl-csv (§13.14) — EBA DPM 2.0 COREP concept-map SCAFFOLD, Annex 2",
+  "_status": "UNPOPULATED. Maps OCG tool output fields to PUBLIC COREP template/row references, same as exporters/taxonomies/eba-corep-concept-map.json (§13.8, XBRL 2.1 XML wire format) — this file is the xBRL-CSV (DPM 2.0) sibling. The machine-readable DPM 2.0 metric qnames (eba_met), dimensional members, entry-point schemaRefs, and exact table/row/col coordinates MUST be populated from the published EBA RF 4.0 DPM 2.0 taxonomy package before this is used to emit a submission-shaped report. DO NOT FABRICATE eba_met qnames (OCG Standard §13.14 / §13.8 / core project rule). Until eba_qname is populated, a build against these taxonomies MUST return a 'pending' error and the ocg-ext table template is used instead — see fixtures/xbrl-csv/annex2-eba-dpm-corep.pending.json for the minimal fixture the §15 gate reads.",
+  "_version": "0.1-scaffold",
+  "_created": "2026-07-25",
+  "source_of_truth": {
+    "framework": "EBA Reporting Framework 4.0 (DPM 2.0 + xBRL-CSV taxonomy)",
+    "reporting_framework_url": "https://www.eba.europa.eu/risk-and-data-analysis/reporting/reporting-frameworks/reporting-framework-40",
+    "note": "Download the COREP / Liquidity entry points + the DPM 2.0 dictionary; bind each eba_qname below to the taxonomy's metric (eba_met:*) and dimensional members, and each table below to its DPM 2.0 tableTemplates definition. Confirm every template/row reference against the ITS Annexes (templates) and Annex II (instructions) — identical source documents to the §13.8 XML map, different wire-format binding."
+  },
+  "conventions": {
+    "entity_identifier_scheme": "https://www.gleif.org/ (LEI) — preferred over the tool id used by ocg-ext",
+    "period": "instant (reference date) — bind to artifact.generated_at",
+    "monetary_unit": "iso4217 reporting currency (institution-specific; tool fields are in £bn/$bn — scale to absolute units on bind)",
+    "ratios": "report as decimals where the taxonomy item is a percentage/decimal; confirm scale per item",
+    "row_id_column": "each DPM 2.0 tableTemplate declares its own row-id column (the §13.14.1 sort key) — confirm per template, not assumed to be 'concept' as the ocg-ext pilot template uses"
+  },
+
+  "eba-corep-own-funds": {
+    "entry_point_schemaRef": null,
+    "_entry_point_note": "Populate with the COREP OF entry-point xBRL-CSV metadata part from EBA RF 4.0 / DPM 2.0.",
+    "templates_referenced": {
+      "C 01.00": "Own Funds (CET1 / AT1 / T2 / Total own funds amounts)",
+      "C 02.00": "Own Funds Requirements (Total Risk Exposure Amount / RWA)",
+      "C 03.00": "Capital Ratios (CET1 / T1 / Total capital ratio)"
+    },
+    "fields": [
+      {
+        "payload_field": "basel31_rwa_bn",
+        "source_tools": ["art-07-basel31-reporting-delta-calculator", "sim-03-basel-rwa-scenario-modeler", "optimize_settlement_capital (504)"],
+        "corep_template": "C 02.00",
+        "item_label": "TOTAL RISK EXPOSURE AMOUNT (TREA)",
+        "corep_ref_indicative": "row 0010 — CONFIRM vs ITS Annex I",
+        "eba_qname": null,
+        "unit": "monetary",
+        "status": "unmapped"
+      },
+      {
+        "payload_field": "cet1_ratio_basel31_pct",
+        "source_tools": ["art-07-basel31-reporting-delta-calculator"],
+        "corep_template": "C 03.00",
+        "item_label": "Common Equity Tier 1 Capital ratio",
+        "corep_ref_indicative": "row 0010 — CONFIRM vs ITS Annex I",
+        "eba_qname": null,
+        "unit": "percent",
+        "status": "unmapped"
+      },
+      {
+        "payload_field": "floor_rwa_bn",
+        "source_tools": ["art-07-basel31-reporting-delta-calculator"],
+        "corep_template": "C 02.00",
+        "item_label": "Total risk exposure amount — output floor (72.5%) reference",
+        "corep_ref_indicative": "output-floor memo item — CONFIRM; CRR3 output-floor row may differ by RF version",
+        "eba_qname": null,
+        "unit": "monetary",
+        "status": "unmapped"
+      }
+    ]
+  },
+
+  "eba-corep-lcr-nsfr": {
+    "entry_point_schemaRef": null,
+    "_entry_point_note": "Populate with the Liquidity (LCR + NSFR) entry-point xBRL-CSV metadata part from EBA RF 4.0 / DPM 2.0.",
+    "templates_referenced": {
+      "C 76.00": "LCR — Calculation (Liquidity Coverage Ratio)",
+      "C 84.00": "NSFR — Calculation (Net Stable Funding Ratio)"
+    },
+    "fields": [
+      {
+        "payload_field": "lcr_median_day30",
+        "source_tools": ["sim-01-lcr-nsfr-liquidity-stress-test"],
+        "corep_template": "C 76.00",
+        "item_label": "Liquidity Coverage Ratio (%)",
+        "corep_ref_indicative": "LCR ratio row — CONFIRM vs ITS (LCR DA); ratio is a stressed median, label as scenario output",
+        "eba_qname": null,
+        "unit": "percent",
+        "status": "unmapped"
+      },
+      {
+        "payload_field": "nsfr_median_day250",
+        "source_tools": ["sim-01-lcr-nsfr-liquidity-stress-test"],
+        "corep_template": "C 84.00",
+        "item_label": "Net Stable Funding Ratio (%)",
+        "corep_ref_indicative": "NSFR ratio row — CONFIRM vs ITS",
+        "eba_qname": null,
+        "unit": "percent",
+        "status": "unmapped"
+      }
+    ]
+  },
+
+  "_next_steps": [
+    "1. Download EBA RF 4.0 / DPM 2.0 COREP-OF and Liquidity xBRL-CSV entry points + the DPM 2.0 dictionary.",
+    "2. For each field with status 'unmapped', set eba_qname to the taxonomy metric qname and add any required dimensional members (eba_dim:*) + their domain members.",
+    "3. Set entry_point_schemaRef for each taxonomy, and the row-id column for each of its tableTemplates.",
+    "4. Confirm every corep_ref against the ITS Annexes; replace '_indicative' with the validated row/col.",
+    "5. In exporters/xbrl-csv.mjs (not yet built — §13.14 fence), load this map for the eba-corep-* taxonomies and build typed tableTemplates + CSV rows with contexts/units/dimensions; remove the 'pending' guard once a taxonomy is fully populated.",
+    "6. Validate the emitted report package against the EBA taxonomy with an XBRL-CSV-capable processor (e.g. Arelle) before claiming DPM 2.0 conformance."
+  ]
+}
