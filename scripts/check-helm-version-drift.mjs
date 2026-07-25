@@ -16,10 +16,15 @@
 // the reconciliation (tag -> version.json) is already enforced by the helm
 // repo's own release pipeline, not re-derived here.
 //
-// SCOPE: only version strings inside `ainumbers-helm/releases/(download|tag)/vX`
-// URLs are asserted — NOT every "vN.N.N"-shaped string in helm.html (the page
+// SCOPE: only version strings inside `ainumbers-helm/releases/(download|tag)/`
+// URLs are asserted — NOT every version-shaped string in helm.html (the page
 // also uses illustrative example strings, e.g. a kernel version in an SVG
 // diagram, that have nothing to do with the Helm release).
+//
+// HELM-CALVER-1 (2026-07-25): the helm repo dropped the "v" tag prefix for
+// CalVer releases (YYYY.M.D) going forward. `v0.1.0` (the last semver
+// release) stays tagged and linked as-is, so this gate accepts an optional
+// "v" — it must not assume every release link is prefixed.
 //
 // Usage:
 //   node scripts/check-helm-version-drift.mjs             strict: exit 1 on any mismatch
@@ -35,7 +40,7 @@ const REPO = resolve(HERE, '..');
 const VERSION_JSON_PATH = resolve(REPO, 'helm', 'version.json');
 const HELM_HTML_PATH = resolve(REPO, 'helm.html');
 
-const RELEASE_URL_RE = /ainumbers-helm\/releases\/(?:download|tag)\/v(\d+\.\d+\.\d+)/g;
+const RELEASE_URL_RE = /ainumbers-helm\/releases\/(?:download|tag)\/v?(\d+\.\d+\.\d+)/g;
 
 // Pure function of file contents (as strings) so it's independently testable
 // without touching the filesystem — see check-helm-version-drift.test.mjs.
@@ -65,8 +70,8 @@ export function evaluate({ versionJsonText, helmHtmlText }) {
   if (drifted.length) {
     return {
       ok: false,
-      reason: `helm/version.json says the current release is v${expected}, but helm.html links point at v${drifted.join(', v')}. ` +
-        `Update helm.html's release links to v${expected} (or, if version.json itself is wrong, fix that at the source — the helm repo's release job).`,
+      reason: `helm/version.json says the current release is ${expected}, but helm.html links point at ${drifted.join(', ')}. ` +
+        `Update helm.html's release links to ${expected} (or, if version.json itself is wrong, fix that at the source — the helm repo's release job).`,
     };
   }
 
@@ -81,7 +86,7 @@ function main() {
 
   if (SUMMARY) {
     console.log(result.ok
-      ? `helm version-drift: v${result.version} consistent across ${result.linkCount} link(s).`
+      ? `helm version-drift: ${result.version} consistent across ${result.linkCount} link(s).`
       : `helm version-drift: FAIL — ${result.reason}`);
     process.exit(0);
   }
@@ -90,7 +95,7 @@ function main() {
     console.error(`✗ helm version-drift gate FAILED — ${result.reason}`);
     process.exit(1);
   }
-  console.log(`✓ helm version-drift gate clean — v${result.version} consistent across ${result.linkCount} link(s) in helm.html and helm/version.json.`);
+  console.log(`✓ helm version-drift gate clean — ${result.version} consistent across ${result.linkCount} link(s) in helm.html and helm/version.json.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

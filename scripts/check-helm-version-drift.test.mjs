@@ -38,7 +38,7 @@ const STALE_HELM_HTML = `
 test('rejects a v0.2.0 release with v0.1.0 helm.html links (the #44 drift scenario)', () => {
   const r = evaluate({ versionJsonText: STALE_VERSION_JSON, helmHtmlText: STALE_HELM_HTML });
   assert(r.ok === false, 'expected evaluate() to reject stale links, but it passed');
-  assert(/v0\.1\.0/.test(r.reason) && /v0\.2\.0/.test(r.reason), `reason should name both versions, got: ${r.reason}`);
+  assert(/0\.1\.0/.test(r.reason) && /0\.2\.0/.test(r.reason), `reason should name both versions, got: ${r.reason}`);
 });
 
 test('rejects when helm.html has no release links at all (scope guard)', () => {
@@ -57,6 +57,29 @@ test('accepts a fixture where every link matches version.json', () => {
     helmHtmlText: STALE_HELM_HTML.replace(/v0\.1\.0/g, 'v0.2.0'),
   });
   assert(r.ok === true, `expected a fully-synced fixture to pass, got: ${r.reason}`);
+});
+
+// ---- HELM-CALVER-1: CalVer tags drop the "v" prefix (v0.1.0 stays as-is) ----
+const CALVER_VERSION_JSON = JSON.stringify({
+  latest_version: '2026.7.25',
+  minimum_supported_version: '2026.7.25',
+  release_url: 'https://github.com/PostOakLabs/ainumbers-helm/releases/tag/2026.7.25',
+  published_at: '2026-07-25T00:00:00Z',
+});
+const CALVER_HELM_HTML = `
+  <a class="qs-btn" href="https://github.com/PostOakLabs/ainumbers-helm/releases/download/2026.7.25/helmd-windows-x64.exe">Windows</a>
+  <a class="qs-btn" href="https://github.com/PostOakLabs/ainumbers-helm/releases/download/2026.7.25/helmd-macos-x64">macOS Intel</a>
+`;
+
+test('accepts a bare (no "v" prefix) CalVer tag consistent across links', () => {
+  const r = evaluate({ versionJsonText: CALVER_VERSION_JSON, helmHtmlText: CALVER_HELM_HTML });
+  assert(r.ok === true, `expected a synced CalVer fixture to pass, got: ${r.reason}`);
+});
+
+test('rejects a CalVer release with stale pre-CalVer (v-prefixed) helm.html links', () => {
+  const r = evaluate({ versionJsonText: CALVER_VERSION_JSON, helmHtmlText: STALE_HELM_HTML });
+  assert(r.ok === false, 'expected evaluate() to reject v0.1.0 links against a CalVer latest_version');
+  assert(/0\.1\.0/.test(r.reason) && /2026\.7\.25/.test(r.reason), `reason should name both versions, got: ${r.reason}`);
 });
 
 test('accepts the real committed helm.html + helm/version.json (must be in sync now)', () => {

@@ -59,21 +59,21 @@ export function evaluate({ latestVersion, guideHash, state }) {
   const ack = new Set(state.acknowledged_no_change || []);
 
   if (synced === latestVersion) {
-    return { action: 'none', ok: true, reason: `already synced for v${latestVersion}` };
+    return { action: 'none', ok: true, reason: `already synced for ${latestVersion}` };
   }
 
   if (ack.has(latestVersion)) {
-    return { action: 'sync', ok: true, reason: `v${latestVersion} is in acknowledged_no_change — escape used` };
+    return { action: 'sync', ok: true, reason: `${latestVersion} is in acknowledged_no_change — escape used` };
   }
 
   if (guideHash !== state.guide_hash) {
-    return { action: 'sync', ok: true, reason: `walkthrough markup changed since v${synced} — real update present` };
+    return { action: 'sync', ok: true, reason: `walkthrough markup changed since ${synced} — real update present` };
   }
 
   return {
     action: 'none',
     ok: false,
-    reason: `Helm released v${latestVersion} but the walkthrough (helm.html scenes s1-s6) is byte-identical to the last synced release v${synced}. ` +
+    reason: `Helm released ${latestVersion} but the walkthrough (helm.html scenes s1-s6) is byte-identical to the last synced release ${synced}. ` +
       `Either add something a user can see to the walkthrough for this release, or add "${latestVersion}" to helm/guide-freshness.json's acknowledged_no_change array (with a reason comment) if there is genuinely nothing visible to show.`,
   };
 }
@@ -98,7 +98,7 @@ function main() {
     }
     const seeded = { synced_version: latestVersion, guide_hash: guideHash, acknowledged_no_change: [] };
     writeFileSync(STATE_PATH, JSON.stringify(seeded, null, 2) + '\n');
-    console.log(`gen-helm-guide-freshness: bootstrapped helm/guide-freshness.json at v${latestVersion}.`);
+    console.log(`gen-helm-guide-freshness: bootstrapped helm/guide-freshness.json at ${latestVersion}.`);
     return;
   }
 
@@ -119,7 +119,7 @@ function main() {
   // --check gate) so the sync must be run and its result COMMITTED — a
   // silently-passing --check would let the record drift forever unwritten.
   if (CHECK) {
-    console.error(`✗ helm guide-freshness gate FAILED — ${result.reason}, but helm/guide-freshness.json is not synced to v${latestVersion} yet. Run: node scripts/gen-helm-guide-freshness.mjs (then commit the updated file).`);
+    console.error(`✗ helm guide-freshness gate FAILED — ${result.reason}, but helm/guide-freshness.json is not synced to ${latestVersion} yet. Run: node scripts/gen-helm-guide-freshness.mjs (then commit the updated file).`);
     process.exit(1);
   }
   const next = {
@@ -128,7 +128,7 @@ function main() {
     acknowledged_no_change: (state.acknowledged_no_change || []).filter((v) => v !== latestVersion),
   };
   writeFileSync(STATE_PATH, JSON.stringify(next, null, 2) + '\n');
-  console.log(`gen-helm-guide-freshness: synced helm/guide-freshness.json to v${latestVersion} — ${result.reason}.`);
+  console.log(`gen-helm-guide-freshness: synced helm/guide-freshness.json to ${latestVersion} — ${result.reason}.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
