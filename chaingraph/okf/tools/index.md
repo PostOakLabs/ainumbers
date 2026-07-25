@@ -402,10 +402,14 @@ timestamp: 2026-07-14
 - [DORA Register of Information (RoI) Builder & Cross-Validator](./art-466-dora-roi-builder.md) — `build_dora_roi_register`
 - [DORA ICT Incident Classifier & Reporting Clock](./art-467-dora-incident-classifier.md) — `classify_dora_ict_incident_and_clock_deadlines`
 - [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md) — `validate_cctp_v2_transfer`
+- [AML Lookback Completeness Reconciler](./art-470-lookback-completeness-reconciler.md) — `reconcile_aml_lookback_completeness`
+- [AML Disposition Sampling Frame Builder](./art-471-disposition-sampling-frame.md) — `plan_aml_disposition_sample`
 - [OECD Country-by-Country Report Builder](./art-472-cbcr-builder.md) — `build_cbcr_report`
 - [Transfer-Pricing Interquartile Range Benchmark](./art-473-interquartile-benchmark.md) — `benchmark_tp_interquartile_range`
 - [MT700 LC Field Validator](./art-474-validate-mt700-lc-fields.md) — `validate_mt700_lc_fields`
 - [CFPB 1071 Coverage Check & SBLAR Record Validator](./art-475-cfpb-1071-coverage-check.md) — `compute_cfpb_1071_coverage`
+- [Agent Payment Mandate Cross-Protocol Mapper](./art-476-map-agent-payment-mandate.md) — `map_agent_payment_mandate`
+- [BCBS 248 Intraday Liquidity Monitoring Snapshot](./art-477-intraday-liquidity-monitoring.md) — `compute_intraday_liquidity_monitoring`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
 - [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`

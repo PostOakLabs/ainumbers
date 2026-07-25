@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "E-Invoice Format Validator"
-description: "Conformance-validate a structured e-invoice extract against version-pinned Factur-X, XRechnung, PINT-AE, or MyInvois format rules: mandatory-field presence, currency/VAT-category codelist membership, line-item cardinality. Returns per-rule findings, missing_fields, and structural_completeness. Root node of the einvoice-validation-pipeline chain. Zero network, zero PII. Not a legal-validity determination."
+description: "Conformance-validate a structured e-invoice extract against version-pinned Factur-X, XRechnung, PINT-AE, MyInvois, Peppol BIS 3.0/EN 16931 core (Belgium), or KSeF FA(3) (Poland) format rules: mandatory-field presence, currency/VAT-category codelist membership, line-item cardinality. Returns per-rule findings, missing_fields, and structural_completeness. Root node of the einvoice-validation-pipeline chain. Zero network, zero PII. Not a legal-validity determination."
 resource: https://ainumbers.co/chaingraph/art-293-einvoice-format-validator.html
 tags: ["compliance_mandate", "wave-46", "mcp:validate_einvoice_format"]
 timestamp: 2026-07-14

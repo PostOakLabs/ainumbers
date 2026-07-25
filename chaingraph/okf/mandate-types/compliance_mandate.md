@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-278"]
+tags: ["compliance_mandate", "count-279"]
 timestamp: 2026-07-14
 ---
 
 # compliance_mandate
 
-278 tool(s) in this mandate-type group:
+279 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -285,6 +285,7 @@ timestamp: 2026-07-14
 - [Transfer-Pricing Interquartile Range Benchmark](../tools/art-473-interquartile-benchmark.md)
 - [MT700 LC Field Validator](../tools/art-474-validate-mt700-lc-fields.md)
 - [CFPB 1071 Coverage Check & SBLAR Record Validator](../tools/art-475-cfpb-1071-coverage-check.md)
+- [BCBS 248 Intraday Liquidity Monitoring Snapshot](../tools/art-477-intraday-liquidity-monitoring.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
