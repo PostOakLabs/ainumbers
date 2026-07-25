@@ -51,6 +51,7 @@ const GATES = [
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
   ['Tool-node pairing registry',   'node scripts/check-tool-node-pairings.mjs'],
   ['Topic cross-link registry (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/check-topic-links.mjs'],
