@@ -95,6 +95,8 @@ const GATES = [
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
+  ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
+  ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Helm release/version drift (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/check-helm-version-drift.mjs'],
   ['Helm release/version drift fixture proof', 'node scripts/check-helm-version-drift.test.mjs'],
