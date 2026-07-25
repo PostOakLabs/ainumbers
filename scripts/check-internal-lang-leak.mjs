@@ -10,6 +10,20 @@
 // Baseline-shielded (mirrors check-csp-consistency.mjs): a NEW marker not in
 // the baseline -> FAIL. Counts only go down — never up. Flags: --init /
 // --update regenerate the baseline from current state.
+//
+// INTERNAL-LANG-LEAK-2 extension (commercial/strategy class): private
+// strategy documents and public prose share ONE context window. A private
+// workspace-root doc can sit alongside this repo in the same session, so an
+// agent authoring public prose can reach for a commercial rationale instead
+// of the engineering one (this happened once — a dual-surface decision was
+// publicly justified by an M&A thesis instead of the technical reason).
+// Nothing separates "context I may reason from" from "content I may
+// publish" — this gate is that separation. When a hit needs rewriting: keep
+// the engineering reason, drop the commercial/strategic framing. The new
+// markers deliberately exclude bare "acquire"/"acquiring" (generic verb —
+// "acquire a token/lock" is common in ops docs) and "market participants"
+// in a regulatory sense (MiFID/market-abuse content) in favor of narrower
+// corporate-transaction and positioning-only phrases.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +52,21 @@ const MARKERS = [
   { name: 'orch-process-noun',   re: /\bORCH\b/g },
   { name: 'assemble-land-noun',  re: /\bASSEMBLE-LAND\b/g },
   { name: 'bare-wu-id',          re: /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){1,4}-\d+\b/g },
+  // Commercial/strategy class (INTERNAL-LANG-LEAK-2).
+  { name: 'acquisition',         re: /\b(?:acquisitions?|acquirers?|being acquired|acquired by|acqui-hire)\b/gi },
+  { name: 'valuation',           re: /\bvaluations?\b/gi },
+  { name: 'fundraise',           re: /\bfundrais(?:e|es|ed|ing)\b/gi },
+  { name: 'investor',            re: /\binvestors?\b/gi },
+  { name: 'term-sheet',          re: /\bterm sheets?\b/gi },
+  { name: 'runway',              re: /\brunway\b/gi },
+  { name: 'pre-revenue',         re: /\bpre-revenue\b/gi },
+  { name: 'monetization',        re: /\bmonetiz(?:e|es|ed|ing|ation)\b/gi },
+  { name: 'paying-customer',     re: /\bpaying customers?\b/gi },
+  { name: 'design-partner',      re: /\bdesign partners?\b/gi },
+  { name: 'moat',                re: /\bmoat\b/gi },
+  { name: 'market-participants', re: /\bmarket participants\b/gi },
+  { name: 'go-to-market',        re: /\bgo-to-market\b/gi },
+  { name: 'tam',                 re: /\bTAM\b/g },
 ];
 
 function walk(dir, out = []) {
