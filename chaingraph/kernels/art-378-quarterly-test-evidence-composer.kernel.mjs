@@ -1,7 +1,32 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-378-quarterly-test-evidence-composer';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
+
+// HA-CONV-1: inlined from _haevidence.mjs's pure assembleEvidenceBundle
+// (verbatim logic) -- the kernel-VM strips all ESM imports except _hash.mjs's
+// (chaingraph/vm/kernel-vm.mjs stripEsmSyntaxForVm), so any other cross-file
+// import throws "assembleEvidenceBundle is not defined" under VM-1a parity.
+function assembleEvidenceBundle({ subjectHash, records = [], inputHashes, kernelVersion, policyVersion, verificationResult, submissionReceipt }) {
+  const forSubject = records.filter((r) => r?.subject_hash === subjectHash);
+  const reviewers = forSubject.filter((r) => r.record_type === 'approval' && r.role === 'reviewer').map((r) => r.identity?.id).filter(Boolean);
+  const approvers = forSubject.filter((r) => r.record_type === 'approval' && r.role !== 'reviewer').map((r) => r.identity?.id).filter(Boolean);
+  const annotations = forSubject.filter((r) => r.record_type === 'annotation').map((r) => r.reason_code || r.decision).filter(Boolean);
+  const timestamps = forSubject.map((r) => r.timestamp).filter(Boolean);
+  const overrideRec = forSubject.find((r) => r.record_type === 'override');
+  const bundle = { subject_hash: subjectHash };
+  if (inputHashes?.length) bundle.input_hashes = inputHashes;
+  if (kernelVersion) bundle.kernel_version = kernelVersion;
+  if (policyVersion) bundle.policy_version = policyVersion;
+  if (verificationResult) bundle.verification_result = verificationResult;
+  if (overrideRec?.reason_code) bundle.exception_rationale = overrideRec.reason_code;
+  if (annotations.length) bundle.annotations = annotations;
+  if (reviewers.length) bundle.reviewers = [...new Set(reviewers)];
+  if (approvers.length) bundle.approvers = [...new Set(approvers)];
+  if (timestamps.length) bundle.timestamps = timestamps;
+  if (submissionReceipt) bundle.submission_receipt = submissionReceipt;
+  return bundle;
+}
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -87,11 +112,27 @@ export function compute(pp) {
 
   const pack_claim_strength = tamper_detected ? 'chain-broken' : (total === 0 ? 'insufficient' : 'evidence-backed');
 
+  // HA-CONV-1 (SPEC.md §27.6): additive -- wraps the pack's per-test receipt
+  // digests as an $defs/haEvidenceBundle's input_hashes, ONLY when the caller
+  // declares which sealed subject artifact this quarterly pack evidences
+  // (subject_hash, e.g. the AI system's registration/model-governance record).
+  // Absent subject_hash, ha_evidence_bundle is null and the pack's shape is
+  // byte-identical to a pre-convergence caller that never supplies it.
+  const subject_hash = pp && typeof pp.subject_hash === 'string' ? pp.subject_hash : null;
+  const ha_evidence_bundle = subject_hash ? assembleEvidenceBundle({
+    subjectHash: subject_hash,
+    inputHashes: per_test.map((t) => t.receipt_digest).filter(Boolean),
+    kernelVersion: suite.suite_version || undefined,
+    policyVersion: aiuc_version || undefined,
+    verificationResult: pack_claim_strength,
+  }) : null;
+
   const output_payload = {
     quarter, aiuc_version, suite, per_test, total, passed, pass_rate,
     prior_quarter, declared_prior_pack_digest, chain_intact, tamper_detected,
     regression: { delta, regressed },
     pack_claim_strength,
+    ha_evidence_bundle,
     certification_note: 'Prepared for AIUC-1 technical testing evidence; not a certification and not an underwriting decision.',
   };
 
@@ -100,6 +141,7 @@ export function compute(pp) {
     tamper_detected ? 'AU2_CHAIN_TAMPER_DETECTED' : null,
     regressed ? 'AU2_REGRESSION_DETECTED' : null,
     per_test.some((t) => t.coerced_from_forbidden_class) ? 'AU2_DETERMINISM_CLASS_COERCED' : null,
+    ha_evidence_bundle ? 'AU2_HA_EVIDENCE_BUNDLE_ASSEMBLED' : null,
   ].filter(Boolean);
 
   return { output_payload, compliance_flags };

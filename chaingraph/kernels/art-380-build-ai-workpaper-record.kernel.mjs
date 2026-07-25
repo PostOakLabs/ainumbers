@@ -1,7 +1,12 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-380-build-ai-workpaper-record';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
+
+// SPEC.md §27.1 closed role vocabulary -- an out-of-vocabulary declared
+// reviewer_ha_role coerces to 'reviewer' rather than emitting a malformed
+// $defs/humanAccountabilityRecord (HA-CONV-1, additive convergence onto §27.6).
+const HA_ROLES = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner'];
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -55,6 +60,9 @@ export function compute(pp) {
   const reviewer_statement = _str(pp.reviewer_statement).trim()
     || 'I have reviewed the referenced tool identity, execution hash, and declared limitations for this engagement.';
   const previous_workpaper_hash = _str(pp.previous_workpaper_hash).trim().toLowerCase();
+  const reviewer_identity_id = _str(pp.reviewer_identity_id).trim();
+  const reviewer_ha_role_in = _str(pp.reviewer_ha_role).trim();
+  const reviewer_ha_role = HA_ROLES.includes(reviewer_ha_role_in) ? reviewer_ha_role_in : 'reviewer';
 
   const toolIdPresent = receipt_tool_id.length > 0;
   checks.push({ check: 'receipt_tool_id_present', pass: toolIdPresent,
@@ -98,6 +106,27 @@ export function compute(pp) {
 
   const allValid = checks.every(c => c.pass);
 
+  // HA-CONV-1 (SPEC.md §27.1/§27.2): additive remap of the declared sign_off
+  // into a $defs/humanAccountabilityRecord shape, ONLY when the caller opts in
+  // by supplying reviewer_identity_id (a §9 identity). Legacy sign_off above is
+  // untouched and stays fully populated regardless -- this is a NEW sibling
+  // field, never a replacement. Absent reviewer_identity_id, ha_record is null
+  // and the emitted artifact is byte-identical in shape to pre-convergence
+  // callers that never supply it.
+  const ha_record = (allValid && reviewer_identity_id) ? {
+    record_type: 'approval',
+    role: reviewer_ha_role,
+    subject_hash: receipt_execution_hash,
+    identity: { id: reviewer_identity_id },
+    decision: 'approve',
+    reason_code: reviewer_statement || undefined,
+    timestamp: receipt_generated_at || undefined,
+  } : null;
+  if (ha_record) {
+    if (ha_record.reason_code === undefined) delete ha_record.reason_code;
+    if (ha_record.timestamp === undefined) delete ha_record.timestamp;
+  }
+
   const output_payload = {
     tool_identity: allValid ? {
       tool_id: receipt_tool_id, tool_version: receipt_tool_version, kernel_digest: receipt_kernel_digest,
@@ -112,6 +141,7 @@ export function compute(pp) {
     engagement: allValid ? { engagement_id, reporting_period: reporting_period || null } : null,
     documentation_standard_ref: allValid ? documentation_standard_ref : null,
     previous_workpaper_hash: allValid && previous_workpaper_hash ? previous_workpaper_hash : null,
+    ha_record,
     checks,
     zero_pii_notice: 'This record carries no client or personnel identity beyond a declared reviewer role and an engagement identifier the caller controls. Real reviewer identity stays off-platform.',
     disclaimer: 'This is an evidence format, not an audit opinion. It does not assert PCAOB or AICPA endorsement, or that the referenced engagement complies with any standard -- it is designed to satisfy the documentation elements (tool identity, inputs/outputs, limitations, sign-off) described in the cited standard reference. The declared reviewer sign-off becomes a countersigned record only once an OPTIONAL section-16 eddsa-jcs-2022 signature is applied to this emitted artifact.',
@@ -120,6 +150,7 @@ export function compute(pp) {
   const compliance_flags = ['AI_WORKPAPER_RECORD_BOUND', 'ZERO_PII', 'NOT_AN_AUDIT_OPINION'];
   if (!allValid) compliance_flags.push('WORKPAPER_INPUTS_INVALID');
   if (previous_workpaper_hash) compliance_flags.push('WORKPAPER_CHAIN_REFERENCED');
+  if (ha_record) compliance_flags.push('HA_APPROVAL_RECORD_MAPPED');
 
   return { output_payload, compliance_flags };
 }

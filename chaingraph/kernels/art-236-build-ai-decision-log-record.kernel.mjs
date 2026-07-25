@@ -1,7 +1,32 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-236-build-ai-decision-log-record';
-const TOOL_VERSION = '1.0.1';
+const TOOL_VERSION = '1.1.0';
+
+// HA-CONV-1: inlined from _haevidence.mjs's pure assembleEvidenceBundle
+// (verbatim logic) -- the kernel-VM strips all ESM imports except _hash.mjs's
+// (chaingraph/vm/kernel-vm.mjs stripEsmSyntaxForVm), so any other cross-file
+// import throws "assembleEvidenceBundle is not defined" under VM-1a parity.
+function assembleEvidenceBundle({ subjectHash, records = [], inputHashes, kernelVersion, policyVersion, verificationResult, submissionReceipt }) {
+  const forSubject = records.filter((r) => r?.subject_hash === subjectHash);
+  const reviewers = forSubject.filter((r) => r.record_type === 'approval' && r.role === 'reviewer').map((r) => r.identity?.id).filter(Boolean);
+  const approvers = forSubject.filter((r) => r.record_type === 'approval' && r.role !== 'reviewer').map((r) => r.identity?.id).filter(Boolean);
+  const annotations = forSubject.filter((r) => r.record_type === 'annotation').map((r) => r.reason_code || r.decision).filter(Boolean);
+  const timestamps = forSubject.map((r) => r.timestamp).filter(Boolean);
+  const overrideRec = forSubject.find((r) => r.record_type === 'override');
+  const bundle = { subject_hash: subjectHash };
+  if (inputHashes?.length) bundle.input_hashes = inputHashes;
+  if (kernelVersion) bundle.kernel_version = kernelVersion;
+  if (policyVersion) bundle.policy_version = policyVersion;
+  if (verificationResult) bundle.verification_result = verificationResult;
+  if (overrideRec?.reason_code) bundle.exception_rationale = overrideRec.reason_code;
+  if (annotations.length) bundle.annotations = annotations;
+  if (reviewers.length) bundle.reviewers = [...new Set(reviewers)];
+  if (approvers.length) bundle.approvers = [...new Set(approvers)];
+  if (timestamps.length) bundle.timestamps = timestamps;
+  if (submissionReceipt) bundle.submission_receipt = submissionReceipt;
+  return bundle;
+}
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -80,12 +105,19 @@ export function compute(pp) {
   const sha256_prev_record = bounded(pp.sha256_prev_record || '', 128); // '' for first record in chain
   const retention_months   = Math.max(6, Math.round(safeNum(pp.retention_months, 6)));
   const operator_id    = bounded(pp.operator_id || '', 128);
+  // HA-CONV-1 (SPEC.md §27.6): additive -- caller-declared reference to the
+  // sealed decision/credit/pricing artifact this Art 12 log entry evidences,
+  // plus any already-collected §27.2 human_accountability_records over it.
+  // anchor_surface / anchor_tools above are UNTOUCHED by this convergence.
+  const subject_hash = pp && typeof pp.subject_hash === 'string' ? pp.subject_hash : '';
+  const human_accountability_records = Array.isArray(pp.human_accountability_records) ? pp.human_accountability_records : [];
 
   // Empty-input guard: returns finite sentinel record
   if (!model_id || model_id === 'unknown-model') {
     return {
       output_payload: {
         record_status: 'EMPTY_INPUT',
+        ha_evidence_bundle: null,
         model_id: 'unknown-model',
         model_version: '0.0.0',
         input_digest: '',
@@ -139,6 +171,13 @@ export function compute(pp) {
   if (missing_fields.includes('input_digest')) compliance_flags.push('MISSING_INPUT_DIGEST');
   if (missing_fields.includes('output_digest')) compliance_flags.push('MISSING_OUTPUT_DIGEST');
 
+  const ha_evidence_bundle = subject_hash ? assembleEvidenceBundle({
+    subjectHash: subject_hash,
+    records: human_accountability_records,
+    verificationResult: decision_label || undefined,
+  }) : null;
+  if (ha_evidence_bundle) compliance_flags.push('HA_EVIDENCE_BUNDLE_ATTACHED');
+
   const output_payload = {
     record_status: art12_fields_present ? 'COMPLETE' : 'INCOMPLETE',
     model_id,
@@ -158,6 +197,7 @@ export function compute(pp) {
     art12_completeness_score,
     retention_months,
     operator_id,
+    ha_evidence_bundle,
     anchor_surface: 'anchor.ainumbers.co/mcp',
     anchor_tools: {
       single: 'anchor_hash',

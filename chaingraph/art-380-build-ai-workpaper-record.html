@@ -155,6 +155,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
     <div class="q"><label class="q-label" for="reviewerStatement">Reviewer statement (optional, default supplied)</label><textarea id="reviewerStatement"></textarea></div>
     <div class="q"><label class="q-label" for="previousHash">Previous workpaper execution_hash (optional, chains a prior record)</label><input type="text" id="previousHash" value=""></div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="reviewerIdentityId">Reviewer identity id (optional -- section-9 did:key/LEI; remaps sign_off to a section-27.1 approval record)</label><input type="text" id="reviewerIdentityId" value=""></div>
+      <div class="q"><label class="q-label" for="reviewerHaRole">Section-27 role (optional, default reviewer)</label><input type="text" id="reviewerHaRole" value=""></div>
+    </div>
 
     <div style="margin-top:8px">
       <button onclick="runWorkpaperRecord()">&#9654; Build Workpaper Record</button>
@@ -266,7 +270,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-380-build-ai-workpaper-record',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'build_ai_workpaper_record',
   title: 'AI-Tool-Usage Workpaper Record',
   description: 'Composes a documentation-element workpaper record from an existing OCG receipt, declared limitations, engagement metadata, and a reviewer sign-off statement. An evidence format, not an audit opinion.',
@@ -286,7 +290,8 @@ var MANIFEST = {
         declared_conventions: { type: 'string' }, documentation_standard_ref: { type: 'string' },
         engagement_id: { type: 'string' }, reporting_period: { type: 'string' },
         reviewer_role: { type: 'string' }, reviewer_statement: { type: 'string' },
-        previous_workpaper_hash: { type: 'string' }
+        previous_workpaper_hash: { type: 'string' },
+        reviewer_identity_id: { type: 'string' }, reviewer_ha_role: { type: 'string' }
       }
     }
   }
@@ -297,6 +302,7 @@ var _lastResult = null;
 var HEX64 = /^[0-9a-f]{64}$/;
 var SHA256_PREFIXED = /^sha256:[0-9a-f]{64}$/;
 var VALID_DETERMINISM_CLASSES = ['deterministic','estimated'];
+var HA_ROLES = ['preparer','reviewer','approver','attestor','submitter','model_owner','compliance_officer','examiner'];
 
 function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
 async function computeExecHash(pp, op) {
@@ -324,6 +330,9 @@ function computeWorkpaperRecord(pp) {
   var reviewerRole = str(pp.reviewer_role).trim();
   var reviewerStatement = str(pp.reviewer_statement).trim() || 'I have reviewed the referenced tool identity, execution hash, and declared limitations for this engagement.';
   var previousHash = str(pp.previous_workpaper_hash).trim().toLowerCase();
+  var reviewerIdentityId = str(pp.reviewer_identity_id).trim();
+  var reviewerHaRoleIn = str(pp.reviewer_ha_role).trim();
+  var reviewerHaRole = HA_ROLES.indexOf(reviewerHaRoleIn) !== -1 ? reviewerHaRoleIn : 'reviewer';
 
   var toolIdPresent = receiptToolId.length > 0;
   checks.push({ check: 'receipt_tool_id_present', pass: toolIdPresent, detail: toolIdPresent ? receiptToolId : 'receipt_tool_id is required' });
@@ -357,6 +366,16 @@ function computeWorkpaperRecord(pp) {
 
   var allValid = checks.every(function(c){ return c.pass; });
 
+  // HA-CONV-1 (SPEC.md section-27.1/27.2): additive remap of the declared
+  // sign_off into a humanAccountabilityRecord shape, only when the caller
+  // opts in with reviewerIdentityId. Legacy sign_off stays untouched.
+  var haRecord = null;
+  if (allValid && reviewerIdentityId) {
+    haRecord = { record_type: 'approval', role: reviewerHaRole, subject_hash: receiptExecHash, identity: { id: reviewerIdentityId }, decision: 'approve' };
+    if (reviewerStatement) haRecord.reason_code = reviewerStatement;
+    if (receiptGeneratedAt) haRecord.timestamp = receiptGeneratedAt;
+  }
+
   var op = {
     tool_identity: allValid ? { tool_id: receiptToolId, tool_version: receiptToolVersion, kernel_digest: receiptKernelDigest } : null,
     evidence_binding: allValid ? { execution_hash: receiptExecHash, generated_at: receiptGeneratedAt || null } : null,
@@ -365,6 +384,7 @@ function computeWorkpaperRecord(pp) {
     engagement: allValid ? { engagement_id: engagementId, reporting_period: reportingPeriod || null } : null,
     documentation_standard_ref: allValid ? standardRef : null,
     previous_workpaper_hash: allValid && previousHash ? previousHash : null,
+    ha_record: haRecord,
     checks: checks,
     zero_pii_notice: 'This record carries no client or personnel identity beyond a declared reviewer role and an engagement identifier the caller controls. Real reviewer identity stays off-platform.',
     disclaimer: 'This is an evidence format, not an audit opinion. It does not assert PCAOB or AICPA endorsement, or that the referenced engagement complies with any standard -- it is designed to satisfy the documentation elements (tool identity, inputs/outputs, limitations, sign-off) described in the cited standard reference. The declared reviewer sign-off becomes a countersigned record only once an OPTIONAL section-16 eddsa-jcs-2022 signature is applied to this emitted artifact.'
@@ -373,13 +393,14 @@ function computeWorkpaperRecord(pp) {
   var flags = ['AI_WORKPAPER_RECORD_BOUND', 'ZERO_PII', 'NOT_AN_AUDIT_OPINION'];
   if (!allValid) flags.push('WORKPAPER_INPUTS_INVALID');
   if (previousHash) flags.push('WORKPAPER_CHAIN_REFERENCED');
+  if (haRecord) flags.push('HA_APPROVAL_RECORD_MAPPED');
 
   return { pp: {
     receipt_tool_id: receiptToolId, receipt_tool_version: receiptToolVersion, receipt_execution_hash: receiptExecHash,
     receipt_kernel_digest: receiptKernelDigest, receipt_generated_at: receiptGeneratedAt, determinism_class: determinismClass,
     declared_conventions: declaredConventions, documentation_standard_ref: standardRef, engagement_id: engagementId,
     reporting_period: reportingPeriod, reviewer_role: reviewerRole, reviewer_statement: reviewerStatement,
-    previous_workpaper_hash: previousHash
+    previous_workpaper_hash: previousHash, reviewer_identity_id: reviewerIdentityId, reviewer_ha_role: reviewerHaRole
   }, output_payload: op, compliance_flags: flags, valid: allValid };
 }
 
@@ -397,7 +418,9 @@ function runWorkpaperRecord() {
     reporting_period: document.getElementById('reportingPeriod').value,
     reviewer_role: document.getElementById('reviewerRole').value,
     reviewer_statement: document.getElementById('reviewerStatement').value,
-    previous_workpaper_hash: document.getElementById('previousHash').value
+    previous_workpaper_hash: document.getElementById('previousHash').value,
+    reviewer_identity_id: document.getElementById('reviewerIdentityId').value,
+    reviewer_ha_role: document.getElementById('reviewerHaRole').value
   };
 
   var result = computeWorkpaperRecord(pp);
@@ -430,6 +453,7 @@ function runWorkpaperRecord() {
     rows.push(['Reviewer', op.sign_off.reviewer_role]);
     rows.push(['Reviewer statement', op.sign_off.reviewer_statement]);
     if (op.previous_workpaper_hash) rows.push(['Chained to prior workpaper', op.previous_workpaper_hash]);
+    if (op.ha_record) rows.push(['Section-27 approval record', op.ha_record.role + ' / ' + op.ha_record.identity.id]);
   } else {
     op.checks.filter(function(c){return !c.pass;}).forEach(function(c){ rows.push([c.check, c.detail]); });
   }
@@ -463,7 +487,7 @@ function exportArtifact() {
     chaingraph_version: '0.4.0',
     mandate_type: 'compliance_mandate',
     tool_id: 'art-380-build-ai-workpaper-record',
-    tool_version: '1.0.0',
+    tool_version: '1.1.0',
     generated_at: new Date().toISOString(),
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },

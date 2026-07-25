@@ -145,6 +145,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="q"><label class="q-label" for="proofRefs">Proof refs (one per line &mdash; receipt/proof/anchor references attached to this bundle)</label><textarea id="proofRefs">receipt:art-171-envelope
 receipt:art-171-mandate
 proof:art-171-risc0-groth16</textarea></div>
+    <div class="q"><label class="q-label" for="haRecords">Section-27.2 human_accountability_records (optional, JSON array &mdash; consumed into a section-27.6 evidence bundle keyed to the artifact hash above)</label><textarea id="haRecords"></textarea></div>
   </div>
 
   <div class="card">
@@ -265,7 +266,7 @@ proof:art-171-risc0-groth16</textarea></div>
 <script>
 var MANIFEST = {
   tool_id: 'art-408-evidence-bundle-tier-labeler',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'assemble_ocg_evidence_bundle',
   title: 'Evidence Bundle Tier Labeler',
   description: 'Assembles a shareable evidence bundle around an artifact and stamps the tiered OCG-Verify / OCG-Execute / OCG-Prove label it qualifies for, computed purely from declared §15 gate results.',
@@ -288,7 +289,8 @@ var MANIFEST = {
           chain_execution_valid: { type: 'boolean' },
           mandate_gates_valid: { type: 'boolean' },
           compute_integrity_proof_valid: { type: 'boolean' }
-        } }
+        } },
+        human_accountability_records: { type: 'array' }
       }
     }
   }
@@ -298,6 +300,26 @@ var ANCHOR_BASE = 'https://anchor.ainumbers.co';
 var _lastResult = null;
 
 function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+
+// HA-CONV-1 (SPEC.md section-27.6): mirrors the pure assembleEvidenceBundle
+// shape from chaingraph/kernels/_haevidence.mjs for byte-identical bundles.
+function assembleEvidenceBundle(params) {
+  var subjectHash = params.subjectHash, records = params.records || [], verificationResult = params.verificationResult;
+  var forSubject = records.filter(function(r){ return r && r.subject_hash === subjectHash; });
+  var reviewers = forSubject.filter(function(r){ return r.record_type === 'approval' && r.role === 'reviewer'; }).map(function(r){ return r.identity && r.identity.id; }).filter(Boolean);
+  var approvers = forSubject.filter(function(r){ return r.record_type === 'approval' && r.role !== 'reviewer'; }).map(function(r){ return r.identity && r.identity.id; }).filter(Boolean);
+  var annotations = forSubject.filter(function(r){ return r.record_type === 'annotation'; }).map(function(r){ return r.reason_code || r.decision; }).filter(Boolean);
+  var timestamps = forSubject.map(function(r){ return r.timestamp; }).filter(Boolean);
+  var overrideRec = forSubject.filter(function(r){ return r.record_type === 'override'; })[0];
+  var bundle = { subject_hash: subjectHash };
+  if (verificationResult) bundle.verification_result = verificationResult;
+  if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
+  if (annotations.length) bundle.annotations = annotations;
+  if (reviewers.length) bundle.reviewers = Array.from(new Set(reviewers));
+  if (approvers.length) bundle.approvers = Array.from(new Set(approvers));
+  if (timestamps.length) bundle.timestamps = timestamps;
+  return bundle;
+}
 async function computeExecHash(pp, op) {
   var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
@@ -336,6 +358,18 @@ function runLabeler() {
   );
   if (!artifact_execution_hash) flags.push('SIDECAR_NO_ARTIFACT_HASH_DECLARED');
 
+  var human_accountability_records = [];
+  var haRecordsRaw = document.getElementById('haRecords').value.trim();
+  if (haRecordsRaw) {
+    try { var parsed = JSON.parse(haRecordsRaw); if (Array.isArray(parsed)) human_accountability_records = parsed; } catch (e) {}
+  }
+  var ha_evidence_bundle = (artifact_execution_hash && human_accountability_records.length) ? assembleEvidenceBundle({
+    subjectHash: artifact_execution_hash,
+    records: human_accountability_records,
+    verificationResult: tier_label
+  }) : null;
+  if (ha_evidence_bundle) flags.push('SIDECAR_HA_EVIDENCE_BUNDLE_ATTACHED');
+
   var pp = {
     artifact_tool_id: artifact_tool_id,
     artifact_execution_hash: artifact_execution_hash,
@@ -346,7 +380,8 @@ function runLabeler() {
       chain_execution_valid: chain_execution_valid,
       mandate_gates_valid: mandate_gates_valid,
       compute_integrity_proof_valid: compute_integrity_proof_valid
-    }
+    },
+    human_accountability_records: human_accountability_records
   };
   var op = {
     artifact_tool_id: artifact_tool_id,
@@ -356,6 +391,7 @@ function runLabeler() {
     gate_provenance: pp.gate_results,
     proof_refs: proof_refs,
     proof_ref_count: proof_refs.length,
+    ha_evidence_bundle: ha_evidence_bundle,
     note: 'The tiered label re-expresses existing §15 gate-pass results; it adds no new gate and mints no new trust claim (SPEC.md §SIDECAR.1).',
     disambiguation: 'This node does not re-run §1/§4/§18/§21/§22 gates itself -- gate_results is a caller declaration of prior gate outcomes for the referenced artifact, not independently re-verified here.'
   };
@@ -421,7 +457,7 @@ function exportArtifact() {
     chaingraph_version: '0.4.0',
     mandate_type: 'attestation_mandate',
     tool_id: 'art-408-evidence-bundle-tier-labeler',
-    tool_version: '1.0.0',
+    tool_version: '1.1.0',
     generated_at: new Date().toISOString(),
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
