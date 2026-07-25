@@ -177,7 +177,7 @@ const rootPages = [
   { icon: '🎯', name: 'Agentic Readiness Diagnostic (A–F)', href: 'chaingraph/art-27-agentic-readiness-diagnostic.html' },
   { icon: '🔌', name: 'MCP Server (docs & connect)', href: 'mcp.html' },
   { icon: '🔁', name: 'Conversion Suite', href: 'convert.html' },
-  { icon: '🧩', name: 'Helm (control plane, Phase 1)', href: 'helm.html' },
+  { icon: '🧩', name: 'Helm (control plane, beta)', href: 'helm.html' },
   { icon: '🔌', name: 'Live MCP Apps Server ↗', href: 'https://mcp.ainumbers.co/mcp', ext: true },
   { icon: '📖', name: 'Developer Docs ↗', href: 'https://docs.ainumbers.co', ext: true },
   { icon: '🎯', name: 'MCP Server Deployability Diagnostic (A–F)', href: 'chaingraph/art-28-mcp-server-deployability-diagnostic.html' },
