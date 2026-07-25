@@ -566,6 +566,190 @@ function renderExceptionRow(exc, i){
     + '</div>';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   HA-CONV-2 — OpenChainGraph §27 human accountability.
+
+   A bank close is a preparer/reviewer cycle, and this workbench
+   already produced the two artefacts that cycle turns on: a
+   reconciliation receipt and a chain of exception dispositions.
+   What was missing was the estate's accountability dialect, so the
+   close could not feed the same evidence desk as every other §27
+   surface. This block adds it without inventing a second dialect.
+
+   ADDITIVITY (§27.0). Two things are added and nothing is changed:
+   (1) reconciliation_artifact, a §4 envelope built from the SAME
+   policy_parameters and output_payload the receipt hash was always
+   computed over, so its execution_hash is bit-for-bit the existing
+   reconciliation digest and no new canonicalisation exists; and
+   (2) human_accountability_records, SCITT-style statements that
+   reference their subject by subject_hash only. The legacy flat
+   reconciliation_receipt and the disposition receipts keep their
+   exact previous shape and hashes, so a bundle produced before this
+   change still verifies, and a consumer reading the old keys is
+   unaffected.
+
+   CONFORMANCE (§27.2). An unsigned approval is not conformant §27
+   evidence, so records carry a §16 eddsa-jcs-2022 proof bound to
+   the acting identity.
+
+   SEGREGATION OF DUTIES, STATED HONESTLY. Preparer and reviewer get
+   SEPARATE ephemeral session keys, so the two roles are genuinely
+   distinct identities under §27.3 rather than one key wearing two
+   hats. They are still session-scoped browser keys: they demonstrate
+   the record shape and prove the hashes, they do not prove that two
+   different humans acted. A real deployment binds real §9 identities.
+   The records say so in their own note field rather than letting a
+   reader infer a control that is not there.
+══════════════════════════════════════════════════════════════ */
+const B58_ALPHABET='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes){
+  let zeros=0;while(zeros<bytes.length&&bytes[zeros]===0)zeros++;
+  const digits=[0];
+  for(let i=zeros;i<bytes.length;i++){
+    let carry=bytes[i];
+    for(let j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=(carry/58)|0;}
+    while(carry){digits.push(carry%58);carry=(carry/58)|0;}
+  }
+  let out='';for(let k=0;k<zeros;k++)out+='1';
+  for(let q=digits.length-1;q>=0;q--)out+=B58_ALPHABET[digits[q]];
+  return out;
+}
+function b58decode(str){
+  let zeros=0;while(zeros<str.length&&str[zeros]==='1')zeros++;
+  const bytes=[0];
+  for(let i=zeros;i<str.length;i++){
+    let carry=B58_ALPHABET.indexOf(str[i]);if(carry<0)throw new Error('bad base58 char');
+    for(let j=0;j<bytes.length;j++){carry+=bytes[j]*58;bytes[j]=carry&0xff;carry>>=8;}
+    while(carry){bytes.push(carry&0xff);carry>>=8;}
+  }
+  const out=new Uint8Array(zeros+bytes.length);
+  for(let k=0;k<bytes.length;k++)out[zeros+bytes.length-1-k]=bytes[k];
+  return out;
+}
+const ED25519_MULTICODEC=[0xed,0x01];
+const ROLE_KEYS={};
+async function ensureRoleKey(role){
+  if(ROLE_KEYS[role])return ROLE_KEYS[role];
+  try{
+    const kp=await globalThis.crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+    const raw=new Uint8Array(await globalThis.crypto.subtle.exportKey('raw',kp.publicKey));
+    const prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+    prefixed.set(ED25519_MULTICODEC,0);prefixed.set(raw,ED25519_MULTICODEC.length);
+    ROLE_KEYS[role]={kp,did:'did:key:z'+b58encode(prefixed),available:true};
+  }catch(e){
+    ROLE_KEYS[role]={kp:null,did:null,available:false,error:String(e&&e.message||e)};
+  }
+  return ROLE_KEYS[role];
+}
+function didKeyToRawPub(did){
+  if(!did||did.indexOf('did:key:z')!==0)throw new Error('not a did:key z-form');
+  const prefixed=b58decode(did.slice('did:key:z'.length));
+  if(prefixed[0]!==0xed||prefixed[1]!==0x01)throw new Error('did:key is not Ed25519');
+  return prefixed.slice(2);
+}
+function jcsBytes(obj){return new TextEncoder().encode(JSON.stringify(cgCanon(obj)));}
+async function sha256Bytes(bytes){return new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',bytes));}
+function haProofOptions(o){
+  return{type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',verificationMethod:o.verificationMethod,proofPurpose:'assertionMethod',created:o.created};
+}
+async function haHashData(doc,opts){
+  const optHash=await sha256Bytes(jcsBytes(opts));
+  const docHash=await sha256Bytes(jcsBytes(doc));
+  const cat=new Uint8Array(optHash.length+docHash.length);
+  cat.set(optHash,0);cat.set(docHash,optHash.length);
+  return cat;
+}
+function unsecured(record){
+  const copy=JSON.parse(JSON.stringify(record));
+  delete copy.audit_signature;
+  return copy;
+}
+const SESSION_KEY_NOTE='Signed with a session-scoped browser key. This proves the record shape and the hashes, not that a separate human performed the role. Bind a real §9 identity in production use.';
+
+/* A §27.2 record is an artifact in its own right: its output_payload
+   IS the humanAccountabilityRecord, and it references the subject by
+   hash alone so the subject's own execution_hash is never disturbed. */
+async function buildHaRecord({subject_hash,record_type,role,decision,reason_code,timestamp}){
+  const rk=await ensureRoleKey(role);
+  const identity={id:rk.available?rk.did:'urn:ainumbers:unsigned-'+role};
+  const output_payload={record_type,role,subject_hash,identity,decision,timestamp};
+  if(reason_code)output_payload.reason_code=reason_code;
+  const policy_parameters={subject_hash,record_type,role};
+  const execution_hash=await executionHash(policy_parameters,output_payload);
+  const record={
+    chaingraph_version:'0.4.0',
+    mandate_type:'human_accountability_record',
+    tool_id:'565-camt053-reconciliation-workbench',tool_version:'1.0.0',
+    generated_at:timestamp,
+    policy_parameters,output_payload,execution_hash,
+    compute_mode:'client_side_browser',compute_proof_ready:'deferred',
+  };
+  if(rk.available){
+    const vm=rk.did+'#'+rk.did.slice('did:key:'.length);
+    const opts=haProofOptions({verificationMethod:vm,created:timestamp});
+    const sigBytes=new Uint8Array(await globalThis.crypto.subtle.sign({name:'Ed25519'},rk.kp.privateKey,await haHashData(unsecured(record),opts)));
+    record.audit_signature={payloadType:'application/vnd.openchain.graph+json;version=0.4',proof:Object.assign({},opts,{proofValue:'z'+b58encode(sigBytes)}),conformant:true,note:SESSION_KEY_NOTE};
+  }else{
+    record.audit_signature={payloadType:'application/vnd.openchain.graph+json;version=0.4',conformant:false,note:'Ed25519 unavailable in this browser (SubtleCrypto): '+rk.error+'. This record is NOT conformant §27 evidence, which requires a signature bound to a named human.'};
+  }
+  return record;
+}
+
+async function verifyHaRecord(record){
+  const proof=record&&record.audit_signature&&record.audit_signature.proof;
+  if(!proof||proof.type!=='DataIntegrityProof'||proof.cryptosuite!=='eddsa-jcs-2022')return false;
+  if(proof.proofPurpose!=='assertionMethod'||typeof proof.proofValue!=='string'||proof.proofValue[0]!=='z')return false;
+  const identityId=record.output_payload&&record.output_payload.identity&&record.output_payload.identity.id;
+  if(!identityId||proof.verificationMethod.indexOf(identityId)!==0)return false;
+  try{
+    const pubKey=await globalThis.crypto.subtle.importKey('raw',didKeyToRawPub(identityId),{name:'Ed25519'},true,['verify']);
+    const opts=haProofOptions({verificationMethod:proof.verificationMethod,created:proof.created});
+    return await globalThis.crypto.subtle.verify({name:'Ed25519'},pubKey,b58decode(proof.proofValue.slice(1)),await haHashData(unsecured(record),opts));
+  }catch(e){return false;}
+}
+
+/* The §4 envelope view of the reconciliation. Built from the very
+   same two members the digest was always taken over, so this asserts
+   no new hash: reconciliation_artifact.execution_hash === the
+   reconciliation receipt hash this tool has always published. */
+function reconciliationArtifact(st){
+  const r=st.reconciliationReceipt;
+  const policy_parameters={statement_digest:r.statement_digest,expectation_set_digest:r.expectation_set_digest,match_rule_declaration:r.match_rule_declaration};
+  const output_payload={matched_count:r.matched_count,unmatched_entry_count:r.unmatched_entry_count,unmatched_expectation_count:r.unmatched_expectation_count,exception_digests:r.exception_digests};
+  return{
+    chaingraph_version:'0.4.0',
+    mandate_type:'camt053_reconciliation',
+    tool_id:'565-camt053-reconciliation-workbench',tool_version:'1.0.0',
+    generated_at:r.produced_at,
+    policy_parameters,output_payload,
+    execution_hash:r.execution_hash,
+    compute_mode:'client_side_browser',compute_proof_ready:'deferred',
+  };
+}
+
+/* Preparer signs the reconciliation itself; the reviewer files one
+   record per exception disposition, mapped onto the §27.2 act that
+   actually occurred. investigate is an annotation, not an approval:
+   an unfinished look is not a sign-off. */
+const DISPOSITION_RECORD_TYPE={accept:'approval',reject:'rejection',investigate:'annotation'};
+
+async function buildHaRecords(st,receipts){
+  const subject=st.reconciliationReceipt.execution_hash;
+  const timestamp=st.reconciliationReceipt.produced_at;
+  const records=[await buildHaRecord({subject_hash:subject,record_type:'approval',role:'preparer',decision:'reconciliation_prepared',reason_code:null,timestamp})];
+  for(const r of receipts){
+    records.push(await buildHaRecord({
+      subject_hash:r.execution_hash,
+      record_type:DISPOSITION_RECORD_TYPE[r.policy_parameters.disposition]||'annotation',
+      role:'reviewer',
+      decision:r.policy_parameters.disposition,
+      reason_code:r.output_payload.note||null,
+      timestamp:r.produced_at,
+    }));
+  }
+  return records;
+}
+
 // Per-disposition receipt — the CHECKRUN-1 step-receipt hash-chain pattern
 // (chaingraph/kernels/_checklist.mjs buildStepReceipt): each disposition chains
 // to the previous one via prev_step_receipt_digest so the review sequence is
@@ -595,7 +779,11 @@ async function refreshBundle(){
   const bundleOut = document.getElementById('bundleSection');
   if(!st) return;
   const bundleDigest = await executionHash({ reconciliation_hash: st.reconciliationReceipt.execution_hash }, { disposition_receipts: dispositionReceipts.map(r => r.execution_hash) });
-  lastBundle = { reconciliation_receipt: st.reconciliationReceipt, disposition_receipts: dispositionReceipts, bundle_digest: bundleDigest };
+  /* The legacy keys stay first and stay exactly as they were; the
+     §27 view is added alongside, never in place of them. */
+  lastBundle = { reconciliation_receipt: st.reconciliationReceipt, disposition_receipts: dispositionReceipts, bundle_digest: bundleDigest,
+    reconciliation_artifact: reconciliationArtifact(st),
+    human_accountability_records: await buildHaRecords(st, dispositionReceipts) };
   bundleOut.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Reconciliation Bundle</span><button class="tb-btn" onclick="verifyChain()">Verify Chain</button></div><div class="out-body" id="bundleBody">'+JSON.stringify(lastBundle, null, 2)+'</div></div>';
   window._ap2Result = { output: 'Reconciliation: '+st.matches.length+' matched, '+st.exceptions.length+' exception(s), '+dispositionReceipts.length+' disposition(s) recorded. Bundle digest '+bundleDigest.slice(0,16)+'…', inputs: { statement_msg_id: st.statement.msgId, expectation_count: st.expectations.length } };
   window.enableAP2Btn();
@@ -612,8 +800,41 @@ async function verifyChain(){
     if(!prevOk || recomputed !== r.execution_hash) { ok = false; break; }
     prev = r.execution_hash;
   }
+  const lines = [ok
+    ? '✓ Chain verified: every disposition receipt recomputes to its stored hash and links to its predecessor.'
+    : '✗ Chain verification FAILED — a receipt does not recompute or the chain link is broken.'];
+
+  /* §27 records and the artifact view are OPTIONAL on the wire: a
+     bundle produced before this mapping shipped is still valid, so
+     their absence is stated as a fact and never scored as a failure. */
+  const art = lastBundle.reconciliation_artifact;
+  if(art){
+    const artOk = await executionHash(art.policy_parameters, art.output_payload) === art.execution_hash
+      && art.execution_hash === lastBundle.reconciliation_receipt.execution_hash;
+    if(!artOk) ok = false;
+    lines.push((artOk ? '✓' : '✗') + ' §4 artifact view recomputes to the same hash the reconciliation receipt has always published.');
+  }
+  const recs = lastBundle.human_accountability_records;
+  if(!Array.isArray(recs) || recs.length === 0){
+    lines.push('· §27 human-accountability records not present in this bundle. Bundles predating the §27 mapping remain valid.');
+  } else {
+    const subjects = new Set([lastBundle.reconciliation_receipt.execution_hash, ...lastBundle.disposition_receipts.map(r => r.execution_hash)]);
+    let recompute = 0, bound = 0, signed = 0;
+    for(const rec of recs){
+      if(await executionHash(rec.policy_parameters, rec.output_payload) === rec.execution_hash) recompute++;
+      if(subjects.has(rec.output_payload.subject_hash)) bound++;
+      if(rec.audit_signature && rec.audit_signature.proof && await verifyHaRecord(rec)) signed++;
+    }
+    if(recompute !== recs.length || bound !== recs.length || signed !== recs.length) ok = false;
+    lines.push((recompute === recs.length ? '✓' : '✗') + ' §27 records: ' + recompute + ' of ' + recs.length + ' execution_hash values recompute.');
+    lines.push((bound === recs.length ? '✓' : '✗') + ' §27 records: ' + bound + ' of ' + recs.length + ' subject_hash values resolve to a receipt in this bundle.');
+    lines.push((signed === recs.length ? '✓' : '✗') + ' §27 records: ' + signed + ' of ' + recs.length + ' carry a verifying eddsa-jcs-2022 proof bound to the named identity (§27.2).');
+    const roles = [...new Set(recs.map(r => r.output_payload.role))];
+    const ids = [...new Set(recs.map(r => r.output_payload.identity.id))];
+    lines.push('· Roles present: ' + roles.join(', ') + ' across ' + ids.length + ' distinct identity/identities (§27.3 counts identities, never records).');
+  }
   const body = document.getElementById('bundleBody');
-  if(body) body.innerHTML = (ok ? '✓ Chain verified: every disposition receipt recomputes to its stored hash and links to its predecessor.\n\n' : '✗ Chain verification FAILED — a receipt does not recompute or the chain link is broken.\n\n') + JSON.stringify(lastBundle, null, 2);
+  if(body) body.innerHTML = lines.join('\n') + '\n\n' + JSON.stringify(lastBundle, null, 2);
 }
 
 loadStmtFixture();
