@@ -1,0 +1,245 @@
+{
+  "tool_id": "art-476-map-agent-payment-mandate",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: AP2->x402, missing payer_ref makes mapping_ok false (honest gap, not invented). Vector 2: x402->ACP, missing payee_ref does not block ACP (not required there), purpose is lossy. Vector 3: AP2->ACP, human_not_present + max_amount lossy (ACP DRAFT-GENERIC has neither slot), mapping_ok true. Vector 4: unrecognised target protocol rejected honestly, never guessed.",
+  "vectors": [
+    {
+      "name": "ap2_to_x402_missing_payer_ref",
+      "description": "AP2 payment mandate translates to an x402 PaymentPayload (scheme:exact); AP2 has no payer-identifier field, so canonical payer_ref stays null and x402's required-field list (payer_ref/payee_ref/amount/expires_at) is not fully met -- missing_required_target_fields:[\"payer_ref\"], mapping_ok:false. human_not_present is also lossy (x402 has no human-presence slot). Demonstrates the receipt surfacing an honest cross-protocol gap rather than inventing a payer.",
+      "policy_parameters": {
+        "source_protocol": "ap2",
+        "target_protocol": "x402",
+        "source_mandate": {
+          "mandate_id": "ap2-pay-001",
+          "mandate_type": "payment",
+          "merchant_id": "merchant-42",
+          "amount": 25.5,
+          "currency": "USDC",
+          "issued_at": "2026-07-24T10:00:00Z",
+          "expires_at": "2026-07-24T11:00:00Z",
+          "human_not_present": true,
+          "scope": {
+            "max_amount": 100,
+            "merchant_ids": [
+              "merchant-42"
+            ]
+          }
+        }
+      },
+      "output_payload": {
+        "source_protocol": "ap2",
+        "target_protocol": "x402",
+        "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+        "protocol_versions": {
+          "ap2": "AP2 v0.2 (per art-01/art-62 field usage, live 2026-07-18)",
+          "x402": "x402 (Coinbase, scheme=exact; per art-26 field usage, live 2026-07-18)"
+        },
+        "canonical_pivot": {
+          "mandate_id": "ap2-pay-001",
+          "payer_ref": null,
+          "payee_ref": "merchant-42",
+          "amount": 25.5,
+          "currency": "USDC",
+          "max_amount": 100,
+          "issued_at": "2026-07-24T10:00:00Z",
+          "expires_at": "2026-07-24T11:00:00Z",
+          "human_not_present": true,
+          "purpose": "merchant-42"
+        },
+        "translated_mandate": {
+          "x402Version": 1,
+          "scheme": "exact",
+          "maxAmountRequired": 100,
+          "resource": "merchant-42",
+          "payTo": "merchant-42",
+          "asset": "USDC",
+          "payload": {
+            "authorization": {
+              "from": null,
+              "to": "merchant-42",
+              "value": 25.5,
+              "validAfter": "2026-07-24T10:00:00Z",
+              "validBefore": "2026-07-24T11:00:00Z",
+              "nonce": "ap2-pay-001"
+            }
+          }
+        },
+        "mapping_receipt": {
+          "source_digest": "6f6c4f9b8f59c9a6d0b61825bdb522a00290df017299176cbcea232c6756059c",
+          "target_digest": "b190008e4f0158fa351ebd7df33bd8285b850550fb78dc1ac1bb889d74c13ded",
+          "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+          "lossy_fields": [
+            "human_not_present"
+          ]
+        },
+        "missing_required_target_fields": [
+          "payer_ref"
+        ],
+        "mapping_ok": false
+      },
+      "compliance_flags": [
+        "MAPPING_INCOMPLETE",
+        "FIELDS_DROPPED_NOT_SILENT",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "38c8b3c43c10bf22bb4b2b0a79710af74d39463b8d89c4a8c7bf289c19211918"
+    },
+    {
+      "name": "x402_to_acp_lossy_purpose",
+      "description": "x402 PaymentPayload (no payTo/authorization.to present, so canonical payee_ref is null) translates to ACP (DRAFT-GENERIC target). ACP's required fields (mandate_id/amount/currency) all resolve from x402's nonce/value/asset, so mapping_ok is true despite the missing payee_ref -- ACP does not require payee_ref. purpose (from x402 resource) is a declared lossy field because the ACP DRAFT-GENERIC profile has no purpose slot.",
+      "policy_parameters": {
+        "source_protocol": "x402",
+        "target_protocol": "acp",
+        "source_mandate": {
+          "x402Version": 1,
+          "scheme": "exact",
+          "asset": "USDC",
+          "resource": "order-9981",
+          "payload": {
+            "authorization": {
+              "from": "agent-buyer-7",
+              "value": "4200000",
+              "validAfter": "2026-07-24T09:00:00Z",
+              "validBefore": "2026-07-24T09:30:00Z",
+              "nonce": "x402-nonce-abc"
+            }
+          }
+        }
+      },
+      "output_payload": {
+        "source_protocol": "x402",
+        "target_protocol": "acp",
+        "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+        "protocol_versions": {
+          "x402": "x402 (Coinbase, scheme=exact; per art-26 field usage, live 2026-07-18)",
+          "acp": "ACP DRAFT-GENERIC-2026-07-24 (unconfirmed public schema; re-verify before conformance claims)"
+        },
+        "canonical_pivot": {
+          "mandate_id": "x402-nonce-abc",
+          "payer_ref": "agent-buyer-7",
+          "payee_ref": null,
+          "amount": "4200000",
+          "currency": "USDC",
+          "max_amount": null,
+          "issued_at": "2026-07-24T09:00:00Z",
+          "expires_at": "2026-07-24T09:30:00Z",
+          "human_not_present": null,
+          "purpose": "order-9981"
+        },
+        "translated_mandate": {
+          "checkout_session_id": "x402-nonce-abc",
+          "buyer_id": "agent-buyer-7",
+          "merchant_id": null,
+          "total_amount": "4200000",
+          "currency": "USDC",
+          "created_at": "2026-07-24T09:00:00Z",
+          "expires_at": "2026-07-24T09:30:00Z"
+        },
+        "mapping_receipt": {
+          "source_digest": "f8d9f6091cdbdaf8e46c0bf5ec727233fe354b25de1ed8f47064ef0d0e601377",
+          "target_digest": "622727fc815fc69bd880c8ac1d568687b116ae0769ac62f1e2d9ec445652d5c8",
+          "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+          "lossy_fields": [
+            "purpose"
+          ]
+        },
+        "missing_required_target_fields": [],
+        "mapping_ok": true
+      },
+      "compliance_flags": [
+        "MAPPING_COMPLETE",
+        "FIELDS_DROPPED_NOT_SILENT"
+      ],
+      "golden_hash": "0da72139dcbf33e8448230513b79b9c7cf3c646b8248dda426de20d883d0158d"
+    },
+    {
+      "name": "ap2_to_acp_lossy_human_not_present",
+      "description": "AP2 payment mandate with human_not_present=true translates to ACP (DRAFT-GENERIC profile); ACP has no human-presence slot so human_not_present is a declared lossy field even though all of ACP's required canonical fields (mandate_id, amount, currency) resolve and mapping_ok is true.",
+      "policy_parameters": {
+        "source_protocol": "ap2",
+        "target_protocol": "acp",
+        "source_mandate": {
+          "mandate_id": "ap2-pay-002",
+          "mandate_type": "payment",
+          "merchant_id": "merchant-77",
+          "amount": 9.99,
+          "currency": "USD",
+          "issued_at": "2026-07-24T12:00:00Z",
+          "expires_at": "2026-07-24T12:15:00Z",
+          "human_not_present": false,
+          "scope": {
+            "max_amount": 50
+          }
+        }
+      },
+      "output_payload": {
+        "source_protocol": "ap2",
+        "target_protocol": "acp",
+        "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+        "protocol_versions": {
+          "ap2": "AP2 v0.2 (per art-01/art-62 field usage, live 2026-07-18)",
+          "acp": "ACP DRAFT-GENERIC-2026-07-24 (unconfirmed public schema; re-verify before conformance claims)"
+        },
+        "canonical_pivot": {
+          "mandate_id": "ap2-pay-002",
+          "payer_ref": null,
+          "payee_ref": "merchant-77",
+          "amount": 9.99,
+          "currency": "USD",
+          "max_amount": 50,
+          "issued_at": "2026-07-24T12:00:00Z",
+          "expires_at": "2026-07-24T12:15:00Z",
+          "human_not_present": false,
+          "purpose": null
+        },
+        "translated_mandate": {
+          "checkout_session_id": "ap2-pay-002",
+          "buyer_id": null,
+          "merchant_id": "merchant-77",
+          "total_amount": 9.99,
+          "currency": "USD",
+          "created_at": "2026-07-24T12:00:00Z",
+          "expires_at": "2026-07-24T12:15:00Z"
+        },
+        "mapping_receipt": {
+          "source_digest": "5d96c0fd1c4491936f1fff53eea503ebbe78ea2b03a0f5c7bdf1fe226f6b3964",
+          "target_digest": "bb693287d6f56c0963c099d4c98b89248716e8a8df40db7a34bb8d27d0867244",
+          "mapping_table_version": "AI2-MAP-V1-2026-07-24",
+          "lossy_fields": [
+            "max_amount",
+            "human_not_present"
+          ]
+        },
+        "missing_required_target_fields": [],
+        "mapping_ok": true
+      },
+      "compliance_flags": [
+        "MAPPING_COMPLETE",
+        "FIELDS_DROPPED_NOT_SILENT"
+      ],
+      "golden_hash": "1559f2b8751b7376cb78300ef901d9545a1a6f8b5659954a083d94e87d33aa8c"
+    },
+    {
+      "name": "unknown_protocol_rejected",
+      "description": "target_protocol names a protocol outside {ap2, x402, acp} (\"visa_tap\") -- rejected honestly with error:\"unknown_protocol\" rather than guessing a mapping; confirms the kernel never emits a partial/garbage translation for an unrecognised protocol.",
+      "policy_parameters": {
+        "source_protocol": "ap2",
+        "target_protocol": "visa_tap",
+        "source_mandate": {
+          "mandate_id": "ap2-pay-003",
+          "amount": 10,
+          "currency": "USD"
+        }
+      },
+      "output_payload": {
+        "error": "unknown_protocol",
+        "detail": "source_protocol and target_protocol must each be one of ap2, x402, acp.",
+        "source_protocol": "ap2",
+        "target_protocol": "visa_tap"
+      },
+      "compliance_flags": [
+        "MAPPING_REJECTED"
+      ],
+      "golden_hash": "8a013db75e07fe8e6e7338353a80fc3e890f67803cda1f678a8effde5598b282"
+    }
+  ]
+}
