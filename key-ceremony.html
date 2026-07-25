@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Key Ceremony Helper: Generate a did:key + Sign a §27.1 Role-Binding Record · AINumbers.co</title>
+<meta name="description" content="Generate an Ed25519 did:key entirely in your browser, sign a §27.1 role-binding record, and print a dual-control key-custody record. The private key never leaves this tab.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/key-ceremony.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Key Ceremony Helper","url":"https://ainumbers.co/key-ceremony.html","description":"Client-side did:key generation and §27.1 role-binding record signing for OpenChainGraph human-accountability records.","isPartOf":{"@id":"https://ainumbers.co/#org"}}</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.014) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.014) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.nostore{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--red);padding:.65rem 1rem;font-size:.72rem;color:var(--text);line-height:1.6;margin-bottom:1rem}
+.nostore strong{color:var(--bright)}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:block}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-row textarea,.panel-row input[type=text],.panel-row input[type=number],.panel-row select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:4px;outline:none;width:100%}
+.panel-row textarea:focus,.panel-row input:focus,.panel-row select:focus{border-color:var(--purple)}
+.inline-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end}
+.inline-row .panel-row{flex:1;min-width:140px;margin-bottom:0}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.ghost{background:var(--bg-3);color:var(--text);border:1px solid var(--border)}
+.run-btn.ghost:hover{background:var(--bg-4);color:var(--bright)}
+.hashbox{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .7rem;margin:.35rem 0;white-space:pre-wrap}
+.detail-line{font-size:.74rem;color:var(--body);line-height:1.7;margin-bottom:.4rem}
+.limit-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.6rem;padding:.55rem .8rem;background:var(--bg-3);border-left:3px solid var(--warn);border-radius:4px}
+.checklist{list-style:none;counter-reset:step;margin-top:.5rem}
+.checklist li{counter-increment:step;font-size:.76rem;color:var(--text);padding:.5rem 0 .5rem 2rem;position:relative;border-bottom:1px solid var(--border)}
+.checklist li:last-child{border-bottom:none}
+.checklist li::before{content:counter(step);position:absolute;left:0;top:.45rem;width:1.3rem;height:1.3rem;border:1px solid var(--purple);border-radius:3px;color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:.6rem;display:flex;align-items:center;justify-content:center}
+.custody-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-top:1rem}
+.custody-row{display:flex;justify-content:space-between;gap:1rem;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.custody-row:last-child{border-bottom:none}
+.custody-row .k{color:var(--muted);font-family:'JetBrains Mono',monospace}
+.custody-row .v{color:var(--bright);font-family:'JetBrains Mono',monospace;word-break:break-all;text-align:right;max-width:70%}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+@media print{
+  nav,.run-btn,footer,.pii-notice,.disclaimer,.hero-badges,#genPanel,#recordPanel{display:none!important}
+  body{background:#fff;color:#111}
+  .panel,.hashbox,.custody-card{border-color:#ccc;background:#fff}
+  .custody-row .k,.custody-row .v{color:#111}
+  .checklist li::before{color:#111;border-color:#111}
+}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="start.html">Start</a><span class="nav-sep">/</span><span>Key Ceremony Helper</span></div>
+  <div class="nav-right"><a href="verification-desk.html" class="nav-cta">Verification Desk &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Examiner Infrastructure</div>
+  <h1>Key Ceremony Helper</h1>
+  <p class="hero-desc">Generate an Ed25519 <code>did:key</code>, sign a §27.1 role-binding record naming who holds it, and print a dual-control key-custody record. This is the onboarding step for §27 human accountability &mdash; the record this page produces is the same shape the <a href="verification-desk.html" style="color:var(--teal)">Verification Desk</a> and <a href="chaingraph/verify.html" style="color:var(--teal)">Verify</a> tool check.</p>
+  <div class="disclaimer">&#9888; A did:key is a self-asserted identity binding: it proves control of a private key, not who a person is in the physical world. Pair the printed custody record with your own out-of-band identity check (in person, notarized, or a vLEI/ACDC anchor) before treating a role_binding as trustworthy.</div>
+  <div class="nostore">Zero egress, zero storage. This page makes no <code>fetch</code>/XHR/WebSocket calls (its Content-Security-Policy sets <code>connect-src 'none'</code>) and writes nothing to <code>localStorage</code>, <code>sessionStorage</code>, <code>IndexedDB</code>, or a cookie. The private key exists only as an unextractable in-memory <code>CryptoKey</code> in this browser tab and is discarded the moment you close or reload it.</div>
+  <div class="hero-badges">
+    <span class="badge badge-purple">Client-Side</span>
+    <span class="badge badge-gold">Zero PII</span>
+    <span class="badge badge-green">Key Never Leaves Browser</span>
+    <span class="badge badge-muted">Print-Ready</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel" id="genPanel">
+    <span class="panel-label">Step 1: Generate a did:key</span>
+    <div class="inline-row">
+      <button class="run-btn" onclick="ceremonyGenerateKeypair()">&#9654; Generate Ed25519 Keypair</button>
+      <span id="genStatus" class="detail-line" style="margin:0"></span>
+    </div>
+    <div id="genOut"></div>
+  </div>
+
+  <div class="panel" id="recordPanel" style="display:none">
+    <span class="panel-label">Step 2: Sign a §27.1 Role-Binding Record</span>
+    <div class="detail-line">Paste the OCG artifact this binding applies to (its <code>execution_hash</code> becomes the record's <code>subject_hash</code>, per §27.2). Use the artifact your role-bound identity will be approving, rejecting, or overriding under a §27 gate.</div>
+    <div class="panel-row"><label for="subjectPaste">Subject artifact JSON</label><textarea id="subjectPaste" rows="4" placeholder="Paste an OCG artifact JSON (needs policy_parameters + output_payload)"></textarea></div>
+    <div class="inline-row">
+      <div class="panel-row"><label>identity.id (did:key)</label><input type="text" id="ceremonyIdentity"></div>
+      <div class="panel-row"><label>role</label><input type="text" id="ceremonyRole" value="approver"></div>
+      <div class="panel-row"><label>reason_code (optional)</label><input type="text" id="ceremonyReason"></div>
+    </div>
+    <div class="panel-row"><label for="ceremonyAnchor">identity_anchor_evidence (optional, paste the JSON exported by the <a href="tools/553-vlei-acdc-said-structural-checker.html" style="color:var(--teal)">vLEI SAID checker</a> or the <a href="chaingraph/art-285-acdc-delegation-chain-verifier.html" style="color:var(--teal)">ACDC delegation-chain verifier</a>)</label><textarea id="ceremonyAnchor" rows="2"></textarea></div>
+    <div class="inline-row">
+      <button class="run-btn" onclick="ceremonySignRecord()">&#9654; Sign role_binding Record</button>
+      <span id="signStatus" class="detail-line" style="margin:0"></span>
+    </div>
+    <div id="recordOut"></div>
+  </div>
+
+  <div class="panel" id="checklistPanel" style="display:none">
+    <span class="panel-label">Step 3: Dual-Control Ceremony Checklist</span>
+    <div class="detail-line">Print this page (or just this checklist + the custody record below) and complete it with a second, independent participant present. The checklist itself is not a §27 gate; it is the paper trail a §27.3 <code>dual_control</code> gate later points back to.</div>
+    <ol class="checklist" id="checklistList"></ol>
+  </div>
+
+  <div class="custody-card" id="custodyCard" style="display:none">
+    <span class="panel-label" style="margin-bottom:.6rem">Printable Key-Custody Record</span>
+    <div class="custody-row"><span class="k">identity.id (did:key)</span><span class="v" id="custodyDid">-</span></div>
+    <div class="custody-row"><span class="k">generated</span><span class="v" id="custodyGenerated">-</span></div>
+    <div class="custody-row"><span class="k">key holder (write by hand)</span><span class="v">________________________</span></div>
+    <div class="custody-row"><span class="k">witness / second participant (write by hand)</span><span class="v">________________________</span></div>
+    <div class="custody-row"><span class="k">custody location (write by hand)</span><span class="v">________________________</span></div>
+    <div class="custody-row"><span class="k">holder signature / date</span><span class="v">________________________</span></div>
+    <div class="custody-row"><span class="k">witness signature / date</span><span class="v">________________________</span></div>
+    <div class="inline-row" style="margin-top:1rem">
+      <button class="run-btn ghost" onclick="window.print()">&#128424; Print Custody Record + Checklist</button>
+    </div>
+  </div>
+
+  <div class="limit-note" id="roundtripNote" style="display:none">To round-trip this record: copy the signed JSON above, wrap it in an array <code>[ ... ]</code> if it isn't already, and paste it into the <a href="verification-desk.html" style="color:var(--teal-lt)">Verification Desk</a>'s "…or paste JSON directly" box, or into <a href="chaingraph/verify.html" style="color:var(--teal-lt)">Verify</a>'s §27 tab. It should report as a conformant <code>role_binding</code> record.</div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="tools.html">All Tools</a>
+      <a href="verification-desk.html">Verification Desk</a>
+      <a href="chaingraph/verify.html">Verify (hash / §16 / §27)</a>
+      <a href="sitemap.html">Sitemap</a>
+      <a href="contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+async function executionHash(policy_parameters,output_payload){return __ocgSha256Hex(new TextEncoder().encode(JSON.stringify(__ocgCanon({policy_parameters:policy_parameters,output_payload:output_payload}))));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to chaingraph/verify.html / chaingraph/kernels/_proof.mjs.
+   Exposes: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact; __ocgDidKeyFromPub(pubKey) -> did:key. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  window.__ocgSign=sign;window.__ocgDidKeyFromPub=didFromPub;
+})();
+</script>
+<script>
+/* §27 KEY CEREMONY — did:key generation + §27.1 role_binding signing. The private key is generated
+   with extractable:false and held only as an in-memory CryptoKey for this tab's lifetime (SO #0 /
+   the row's no-storage requirement) — it is never exported, never written to storage, never sent anywhere. */
+let __ceremonyKeypair = null; // { privateKey, publicKey, did, generatedAt }
+
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function ceremonyGenerateKeypair(){
+  var status=document.getElementById('genStatus');
+  try{
+    var kp=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);
+    var did=await __ocgDidKeyFromPub(kp.publicKey);
+    __ceremonyKeypair={privateKey:kp.privateKey,publicKey:kp.publicKey,did:did,generatedAt:new Date().toISOString()};
+    document.getElementById('ceremonyIdentity').value=did;
+    document.getElementById('genOut').innerHTML='<div class="hashbox">'+escHtml(did)+'</div>';
+    status.textContent='Generated, non-extractable, in-memory only, this tab only.';
+    document.getElementById('recordPanel').style.display='block';
+    document.getElementById('checklistPanel').style.display='block';
+    document.getElementById('custodyCard').style.display='block';
+    document.getElementById('custodyDid').textContent=did;
+    document.getElementById('custodyGenerated').textContent=__ceremonyKeypair.generatedAt;
+    renderChecklist(did);
+  }catch(e){ status.textContent='Keypair generation failed: '+e.message; }
+}
+
+function renderChecklist(did){
+  var steps=[
+    'Confirm the identity being bound is a real, known person: check a photo ID or existing organizational credential out of band. This page cannot verify who a person is.',
+    'Generate the keypair on this page with the second participant (witness) watching the screen. did:key generated: '+did,
+    'Optionally strengthen the binding with an out-of-band identity anchor (vLEI/ACDC) and paste its exported JSON into the identity_anchor_evidence field before signing.',
+    'Paste the subject artifact (the workflow output this identity will approve/reject/override under a §27 gate) and confirm its subject_hash with the witness before signing.',
+    'Sign the role_binding record. Both participants independently confirm the printed did:key matches the one just generated on screen.',
+    'Print this page. Both participants fill in and sign the custody record below by hand.',
+    'Store the printed custody record per your organization\'s key-custody policy. This page holds no copy after you navigate away or reload.',
+    'Round-trip the signed record through the Verification Desk or Verify tool and confirm it reports as a conformant role_binding record before relying on it.'
+  ];
+  document.getElementById('checklistList').innerHTML=steps.map(function(s){return '<li>'+escHtml(s)+'</li>';}).join('');
+}
+
+async function ceremonySignRecord(){
+  var status=document.getElementById('signStatus');
+  try{
+    if(!__ceremonyKeypair){ status.textContent='Generate a keypair first.'; return; }
+    var raw=document.getElementById('subjectPaste').value.trim();
+    if(!raw){ status.textContent='Paste a subject artifact JSON first: the record needs its subject_hash.'; return; }
+    var artifact;
+    try{ artifact=JSON.parse(raw); }catch(e){ status.textContent='Subject artifact is not valid JSON: '+e.message; return; }
+    if(!artifact || !artifact.policy_parameters || !artifact.output_payload){ status.textContent='Subject artifact needs policy_parameters and output_payload to compute a subject_hash.'; return; }
+    var subjectHash='sha256:'+await executionHash(artifact.policy_parameters,artifact.output_payload);
+    var identityId=document.getElementById('ceremonyIdentity').value.trim()||__ceremonyKeypair.did;
+    var role=document.getElementById('ceremonyRole').value.trim()||'approver';
+    var reasonCode=document.getElementById('ceremonyReason').value.trim();
+    var record={
+      record_type:'role_binding', role:role, subject_hash:subjectHash,
+      identity:{id:identityId}, timestamp:new Date().toISOString()
+    };
+    if(reasonCode) record.reason_code=reasonCode;
+    var anchorRaw=document.getElementById('ceremonyAnchor').value.trim();
+    if(anchorRaw){
+      var anchor;
+      try{ anchor=JSON.parse(anchorRaw); }catch(e){ status.textContent='identity_anchor_evidence is not valid JSON: '+e.message; return; }
+      if(!anchor || !anchor.identity_anchor_evidence){ status.textContent='Pasted JSON is missing the top-level "identity_anchor_evidence" key.'; return; }
+      record.identity_anchor_evidence=anchor.identity_anchor_evidence;
+    }
+    var signed=await __ocgSign(record,{verificationMethod:identityId+'#key-1',created:record.timestamp,privateKey:__ceremonyKeypair.privateKey});
+    document.getElementById('recordOut').innerHTML='<div class="hashbox">'+escHtml(JSON.stringify(signed,null,2))+'</div>';
+    document.getElementById('roundtripNote').style.display='block';
+    status.textContent='Signed.';
+  }catch(e){ status.textContent='Sign record failed: '+e.message; }
+}
+</script>
+</body>
+</html>
