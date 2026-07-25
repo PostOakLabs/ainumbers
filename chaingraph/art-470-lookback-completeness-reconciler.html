@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AML Lookback Completeness Reconciler &middot; ART-470 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Reconciles an AML consent-order lookback's source-system record counts against the extract actually re-screened, period by period, and flags periods with no preserved policy-list snapshot as unverifiable. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-470-lookback-completeness-reconciler.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row6{display:grid;grid-template-columns:1.1fr .9fr .9fr .9fr .7fr .6fr;gap:8px;align-items:end;margin-bottom:8px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.mini-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;text-transform:uppercase}
+.rm-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--red);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.35rem .6rem;cursor:pointer}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-470 · AML Lookback Completeness Reconciler</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-470 &middot; AML Consent-Order Remediation</div>
+  <h1>AML Lookback Completeness Reconciler</h1>
+  <p class="sub">Reconciles an AML consent-order remediation lookback's order-scope population against the extract actually produced for re-screening, period by period. Coverage is always measured against the source-system record count you declare, never the extract's own self-reported count &mdash; a lookback that reports zero gaps because it only counted what the extract already contains is indistinguishable from a clean lookback, and catching that blind spot is the point of this tool. A second, independent check flags any period whose versioned sanctions/PEP list snapshot was not preserved as unverifiable, excluded from the coverage total rather than silently re-screened against today's list.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Consent-order lookback</span><span class="flag info">Source-count reconciliation</span><span class="flag info">Snapshot-absence gate</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Lookback Periods <button type="button" class="mini-btn" onclick="addRow()">+ Add period</button></div>
+    <div class="row6">
+      <div class="q-label">Period label</div>
+      <div class="q-label">Source count</div>
+      <div class="q-label">Extract count</div>
+      <div class="q-label">Dedup count</div>
+      <div class="q-label">Snapshot ok?</div>
+      <div class="q-label"></div>
+    </div>
+    <div id="periodRows"></div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCheck()">&#9654; Run Completeness Reconciliation</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="subsection">Period Detail</div>
+      <div id="periodsDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-470-lookback-completeness-reconciler',
+  version: '1.0.0',
+  mcp_name: 'reconcile_aml_lookback_completeness',
+  title: 'AML Lookback Completeness Reconciler',
+  description: 'Reconciles an AML consent-order lookback\'s source-system record counts against the extract actually re-screened, period by period, and flags periods with no preserved policy-list snapshot as unverifiable.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'reconcile_aml_lookback_completeness',
+    description: 'Reconcile per-period source-system record counts against extracted/re-screened counts for an AML lookback, flagging gaps and snapshot-absent periods as unverifiable.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        periods: { type: 'array' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+var _rowSeq = 0;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+
+function addRow(label, source, extract, dedup, snapshotOk) {
+  _rowSeq++;
+  var n = _rowSeq;
+  var wrap = document.createElement('div');
+  wrap.className = 'row6';
+  wrap.id = 'prow' + n;
+  wrap.innerHTML =
+    '<input type="text" id="plabel' + n + '" placeholder="2024-Q1" value="' + (label || ('period-' + n)) + '">' +
+    '<input type="number" id="psource' + n + '" value="' + (source != null ? source : 1000) + '" step="1" min="0">' +
+    '<input type="number" id="pextract' + n + '" value="' + (extract != null ? extract : 1000) + '" step="1" min="0">' +
+    '<input type="number" id="pdedup' + n + '" value="' + (dedup != null ? dedup : (extract != null ? extract : 1000)) + '" step="1" min="0">' +
+    '<select id="psnap' + n + '"><option value="true"' + (snapshotOk === false ? '' : ' selected') + '>Yes</option><option value="false"' + (snapshotOk === false ? ' selected' : '') + '>No</option></select>' +
+    '<button type="button" class="rm-btn" onclick="document.getElementById(\'prow' + n + '\').remove()">Remove</button>';
+  document.getElementById('periodRows').appendChild(wrap);
+}
+
+addRow('2024-Q1', 1000, 1000, 1000, true);
+addRow('2024-Q2', 1200, 1100, 1100, true);
+addRow('2024-Q3', 900, 900, 900, false);
+
+function reconcilePeriod(p) {
+  var period_label = String(p.period_label || 'unlabeled_period').trim() || 'unlabeled_period';
+  var source_record_count = Math.max(0, Math.trunc(safe(p.source_record_count, 0)));
+  var extract_record_count = Math.max(0, Math.trunc(safe(p.extract_record_count, 0)));
+  var dedup_record_count = Math.max(0, Math.trunc(safe(p.dedup_record_count, extract_record_count)));
+  var snapshot_available = p.snapshot_available === true;
+
+  var gap_count = Math.max(0, source_record_count - extract_record_count);
+  var coverage_pct = source_record_count > 0
+    ? Math.round((extract_record_count / source_record_count) * 10000) / 100
+    : (extract_record_count > 0 ? 0 : 100);
+  var duplicate_count = Math.max(0, extract_record_count - dedup_record_count);
+
+  var period_status;
+  if (!snapshot_available) period_status = 'unverifiable_no_snapshot';
+  else if (gap_count > 0) period_status = 'incomplete';
+  else if (duplicate_count > 0) period_status = 'complete_with_duplicates';
+  else period_status = 'complete';
+
+  return {
+    period_label: period_label, source_record_count: source_record_count, extract_record_count: extract_record_count,
+    dedup_record_count: dedup_record_count, duplicate_count: duplicate_count, gap_count: gap_count,
+    coverage_pct: coverage_pct, snapshot_available: snapshot_available, period_status: period_status
+  };
+}
+
+function computeReconciliation(pp) {
+  var periods = (pp.periods || []).map(reconcilePeriod);
+
+  var total_source_record_count = periods.reduce(function(a, p) { return a + p.source_record_count; }, 0);
+  var total_extract_record_count = periods.reduce(function(a, p) { return a + p.extract_record_count; }, 0);
+  var total_duplicate_count = periods.reduce(function(a, p) { return a + p.duplicate_count; }, 0);
+
+  var unverifiable_periods = periods.filter(function(p) { return p.period_status === 'unverifiable_no_snapshot'; }).map(function(p) { return p.period_label; });
+  var gap_periods = periods.filter(function(p) { return p.period_status === 'incomplete'; }).map(function(p) { return p.period_label; });
+
+  var verifiable = periods.filter(function(p) { return p.period_status !== 'unverifiable_no_snapshot'; });
+  var verifiable_source_count = verifiable.reduce(function(a, p) { return a + p.source_record_count; }, 0);
+  var verifiable_extract_count = verifiable.reduce(function(a, p) { return a + p.extract_record_count; }, 0);
+  var overall_coverage_pct = verifiable_source_count > 0
+    ? Math.round((verifiable_extract_count / verifiable_source_count) * 10000) / 100
+    : (verifiable_extract_count > 0 ? 0 : 100);
+
+  var flags = ['LOOKBACK_COMPLETENESS_EVALUATED'];
+  if (unverifiable_periods.length > 0) flags.push('SNAPSHOT_ABSENT_PERIODS_FLAGGED_UNVERIFIABLE');
+  if (gap_periods.length > 0) flags.push('LOOKBACK_COVERAGE_GAP_DETECTED');
+  if (total_duplicate_count > 0) flags.push('DUPLICATE_RECORDS_IN_EXTRACT');
+  if (gap_periods.length === 0 && unverifiable_periods.length === 0) flags.push('LOOKBACK_FULLY_RECONCILED');
+
+  var lookback_status = unverifiable_periods.length > 0
+    ? 'incomplete_unverifiable_periods_present'
+    : (gap_periods.length > 0 ? 'incomplete_gaps_present' : 'complete');
+
+  var op = {
+    period_count: periods.length, periods: periods,
+    total_source_record_count: total_source_record_count, total_extract_record_count: total_extract_record_count,
+    total_duplicate_count: total_duplicate_count, verifiable_source_count: verifiable_source_count,
+    verifiable_extract_count: verifiable_extract_count, overall_coverage_pct: overall_coverage_pct,
+    gap_periods: gap_periods, unverifiable_periods: unverifiable_periods, lookback_status: lookback_status
+  };
+  return { output_payload: op, compliance_flags: flags };
+}
+
+function runCheck() {
+  var rows = document.getElementById('periodRows').children;
+  var periods = [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    periods.push({
+      period_label: row.querySelector('input[type="text"]').value,
+      source_record_count: row.querySelectorAll('input[type="number"]')[0].value,
+      extract_record_count: row.querySelectorAll('input[type="number"]')[1].value,
+      dedup_record_count: row.querySelectorAll('input[type="number"]')[2].value,
+      snapshot_available: row.querySelector('select').value === 'true'
+    });
+  }
+
+  var pp = { periods: periods };
+  var result = computeReconciliation(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  var vColor = op.lookback_status === 'complete' ? 'var(--green)' : (op.lookback_status === 'incomplete_unverifiable_periods_present' ? 'var(--warn)' : 'var(--red)');
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = op.lookback_status.toUpperCase().split('_').join(' ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.period_count + '</span><span class="stat-key">Periods</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.overall_coverage_pct + '%</span><span class="stat-key">Verifiable coverage</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.gap_periods.length + '</span><span class="stat-key">Gap periods</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.unverifiable_periods.length + '</span><span class="stat-key">Unverifiable periods</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = (f.indexOf('GAP') >= 0) ? 'fail' : (f.indexOf('UNVERIFIABLE') >= 0 || f.indexOf('DUPLICATE') >= 0) ? 'warn' : 'ok';
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+
+  document.getElementById('periodsDiv').innerHTML = op.periods.map(function(p) {
+    var color = p.period_status === 'complete' ? 'var(--green)' : (p.period_status === 'unverifiable_no_snapshot' ? 'var(--warn)' : 'var(--red)');
+    return '<div class="kv"><span class="kv-k">' + p.period_label + ' &middot; ' + p.extract_record_count + '/' + p.source_record_count + ' extracted' + (p.duplicate_count ? ' &middot; ' + p.duplicate_count + ' dup' : '') + '</span><span class="kv-v" style="color:' + color + '">' + p.period_status.toUpperCase().split('_').join(' ') + '</span></div>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_control',
+    tool_id: 'art-470-lookback-completeness-reconciler', tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-470-lookback-completeness-reconciler.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
