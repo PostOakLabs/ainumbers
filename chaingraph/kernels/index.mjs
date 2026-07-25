@@ -410,6 +410,7 @@ import * as art475    from './art-475-cfpb-1071-coverage-check.kernel.mjs';
 import * as art476    from './art-476-map-agent-payment-mandate.kernel.mjs';
 import * as art477    from './art-477-intraday-liquidity-monitoring.kernel.mjs';
 import * as art478    from './art-478-analyze-dc-vs-lc-cost-benefit.kernel.mjs';
+import * as art479    from './art-479-compare-receivables-finance-economics.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
@@ -888,6 +889,7 @@ export const KERNELS = {
   'art-476-map-agent-payment-mandate':                        art476,
   'art-477-intraday-liquidity-monitoring':                    art477,
   'art-478-analyze-dc-vs-lc-cost-benefit':                    art478,
+  'art-479-compare-receivables-finance-economics':            art479,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
   'art-49-clearing-access-model-selector':                    art49,
   'art-50-ficc-margin-netting-estimator':                     art50,
