@@ -410,6 +410,8 @@ timestamp: 2026-07-14
 - [CFPB 1071 Coverage Check & SBLAR Record Validator](./art-475-cfpb-1071-coverage-check.md) — `compute_cfpb_1071_coverage`
 - [Agent Payment Mandate Cross-Protocol Mapper](./art-476-map-agent-payment-mandate.md) — `map_agent_payment_mandate`
 - [BCBS 248 Intraday Liquidity Monitoring Snapshot](./art-477-intraday-liquidity-monitoring.md) — `compute_intraday_liquidity_monitoring`
+- [Documentary Collection vs Letter of Credit Cost-Benefit](./art-478-analyze-dc-vs-lc-cost-benefit.md) — `analyze_dc_vs_lc_cost_benefit`
+- [Forfaiting vs Factoring vs Invoice Discounting Economics](./art-479-compare-receivables-finance-economics.md) — `compare_receivables_finance_economics`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
 - [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`
