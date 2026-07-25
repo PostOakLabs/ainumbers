@@ -246,11 +246,14 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
 function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
 // ---- shared canon/hash (byte-identical to chaingraph/kernels/_hash.mjs) ----
-function cgCanon(v){
-  if(Array.isArray(v)) return v.map(cgCanon);
+var __EF_MAX_DEPTH=200; // named cap — a hostile/pasted receipt must not crash the tab (SECFIX-WAVE2-1 item 2, mirrors bundle-diff.html's __BI_MAX_DEPTH)
+function cgCanon(v,depth){
+  depth=depth||0;
+  if(depth>__EF_MAX_DEPTH) throw new Error('policy_parameters nesting exceeds '+__EF_MAX_DEPTH+' levels — refusing to canonicalize further.');
+  if(Array.isArray(v)) return v.map(function(x){ return cgCanon(x,depth+1); });
   if(v && typeof v==='object'){
     var keys=Object.keys(v).sort(); var o={};
-    for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+    for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]],depth+1);
     return o;
   }
   return v;
@@ -1061,7 +1064,14 @@ async function runFidelityCheckUI(){
     byteReport={pass:false, degraded:true, detail:'Could not re-render this receipt as '+format+': '+e.message};
   }
 
-  var attReport = receipt.input_attestations ? await check23(receipt) : null;
+  var attReport;
+  try{
+    attReport = receipt.input_attestations ? await check23(receipt) : null;
+  }catch(e){
+    attReport = null;
+    errEl.textContent='Could not evaluate §23 input_attestations: '+e.message+' (export/byte-compare results below are unaffected.)';
+    errEl.style.display='block';
+  }
   renderResult(format, fieldReport, byteReport, attReport);
 }
 

@@ -316,6 +316,10 @@ function validateDefinitionRT(def) {
 /* ─────────────────────────────────────────────────────────────────
    RUN STATE + UI
    ───────────────────────────────────────────────────────────────── */
+// 5-char HTML escaper — reference: workpaper-index.html:181 (SECFIX-WAVE2-1 item 1).
+// This file had NO escaping helper at all before this fix; every field below is
+// attacker-controlled (pasted/imported checklist definition JSON via loadDefinition()).
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 let definition = null, defDigest = null;
 let cursor = 0;                 // index of the current actionable step
 let stepStatus = [];             // 'pending' | 'done' | 'skipped'
@@ -372,8 +376,8 @@ function renderStepPanel() {
       : '<label style="font-family:JetBrains Mono,monospace;font-size:.6rem;text-transform:uppercase;color:var(--muted);">' + (step.evidence_requirement === 'attestation' ? 'Pasted attestation' : 'Evidence note') + '</label><textarea id="evidenceText" rows="3"></textarea>';
   host.innerHTML =
     '<div class="step-panel">' +
-      '<div class="step-panel-head"><span class="step-title">Step ' + (cursor + 1) + ' of ' + definition.steps.length + ': ' + step.title + '<span class="gate-badge ' + step.gate + '">' + step.gate + '</span></span></div>' +
-      '<div class="step-instruction">' + step.instruction + (step.approver_role ? ' (approver role: ' + step.approver_role + ')' : '') + '</div>' +
+      '<div class="step-panel-head"><span class="step-title">Step ' + (cursor + 1) + ' of ' + definition.steps.length + ': ' + esc(step.title) + '<span class="gate-badge ' + esc(step.gate) + '">' + esc(step.gate) + '</span></span></div>' +
+      '<div class="step-instruction">' + esc(step.instruction) + (step.approver_role ? ' (approver role: ' + esc(step.approver_role) + ')' : '') + '</div>' +
       inputHtml +
       '<div class="btn-row">' +
         '<button class="btn btn-primary btn-sm" onclick="completeStep()">Complete step</button>' +
@@ -432,8 +436,8 @@ function renderReceipts() {
   const el = document.getElementById('receiptList');
   if (!stepReceipts.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.75rem;">No steps completed yet.</p>'; return; }
   el.innerHTML = stepReceipts.map((r, i) =>
-    '<div class="receipt-row"><span class="rk">step ' + (i + 1) + ' · ' + r.policy_parameters.step_id + '</span><br><span class="rv">execution_hash: ' + r.execution_hash + '</span>' +
-    (r.policy_parameters.prev_step_receipt_digest ? '<br><span class="rk">chained to:</span> <span class="rv">' + r.policy_parameters.prev_step_receipt_digest + '</span>' : '<br><span class="rk">root of chain (no predecessor)</span>') +
+    '<div class="receipt-row"><span class="rk">step ' + (i + 1) + ' · ' + esc(r.policy_parameters.step_id) + '</span><br><span class="rv">execution_hash: ' + esc(r.execution_hash) + '</span>' +
+    (r.policy_parameters.prev_step_receipt_digest ? '<br><span class="rk">chained to:</span> <span class="rv">' + esc(r.policy_parameters.prev_step_receipt_digest) + '</span>' : '<br><span class="rk">root of chain (no predecessor)</span>') +
     '</div>'
   ).join('');
 }
