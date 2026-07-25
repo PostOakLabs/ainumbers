@@ -147,9 +147,12 @@ const PROTOCOL_PROFILES = {
 const VALID_PROTOCOLS = Object.keys(PROTOCOL_PROFILES);
 
 // Pure structural transform: source-protocol mandate -> canonical pivot -> target-protocol mandate.
-// Digests (source_digest/target_digest) use the same JCS-SHA-256 path as every other kernel's
-// execution_hash, via _hash.mjs's policyParametersHash -- never an ad-hoc canonicalization.
-export async function compute(pp) {
+// Synchronous by design -- the QuickJS proving guest has no WebCrypto and cannot resolve an
+// in-guest await, so compute() must not itself call policyParametersHash. Digests are threaded
+// in by buildArtifact() (source_digest before compute(), target_digest immediately after) using
+// the same JCS-SHA-256 path as every other kernel's execution_hash, via _hash.mjs's
+// policyParametersHash -- never an ad-hoc canonicalization.
+export function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   const sourceProtocol = pp.source_protocol;
   const targetProtocol = pp.target_protocol;
@@ -188,9 +191,6 @@ export async function compute(pp) {
   const lossy_fields = ALL_CANONICAL_FIELDS.filter((f) => canonical_pivot[f] !== null && canonical_pivot[f] !== undefined && !target.supported_canonical_fields.includes(f));
   const mapping_ok = missing_required_target_fields.length === 0;
 
-  const source_digest = await policyParametersHash(sourceMandate);
-  const target_digest = await policyParametersHash(translated_mandate);
-
   const output_payload = {
     source_protocol: sourceProtocol,
     target_protocol: targetProtocol,
@@ -198,9 +198,10 @@ export async function compute(pp) {
     protocol_versions: { [sourceProtocol]: source.protocol_version, [targetProtocol]: target.protocol_version },
     canonical_pivot,
     translated_mandate,
+    // source_digest/target_digest filled in by buildArtifact() -- see compute()'s header comment.
     mapping_receipt: {
-      source_digest,
-      target_digest,
+      source_digest: null,
+      target_digest: null,
       mapping_table_version: MAPPING_TABLE_VERSION,
       lossy_fields,
     },
@@ -217,7 +218,14 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const ppSafe = (pp !== null && typeof pp === 'object') ? pp : {};
+  const sourceMandate = (ppSafe.source_mandate !== null && typeof ppSafe.source_mandate === 'object') ? ppSafe.source_mandate : {};
+  const source_digest = await policyParametersHash(sourceMandate);
+  const { output_payload, compliance_flags } = compute(pp);
+  if (output_payload.mapping_receipt) {
+    output_payload.mapping_receipt.source_digest = source_digest;
+    output_payload.mapping_receipt.target_digest = await policyParametersHash(output_payload.translated_mandate);
+  }
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
