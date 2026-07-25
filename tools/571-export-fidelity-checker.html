@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Export Fidelity Checker · T571 · AINumbers.co</title>
+<meta name="description" content="Upload an exported xlsx, csv, pdf, xbrl, or Verifiable Credential rendering plus the canonical OCG receipt it claims to come from, and check field-by-field whether the export corresponds to the receipt, entirely offline in your browser. Zero network calls. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/571-export-fidelity-checker.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Export Fidelity Checker · T571","url":"https://ainumbers.co/tools/571-export-fidelity-checker.html","description":"Checks whether an exported xlsx/csv/pdf/xbrl/vc rendering faithfully corresponds to the canonical OCG receipt it claims to come from — embedded-binding compare plus a byte-identical deterministic re-render, entirely offline.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "571-export-fidelity-checker",
+  "version": "1.0.0",
+  "title": "Export Fidelity Checker",
+  "description": "Given an exported xlsx/csv/pdf/xbrl/vc rendering and the canonical OCG v0.4 receipt it claims to come from, extracts the export's embedded binding (tool_id/execution_hash/chaingraph_version/compute_mode/keyid) and compares it field-by-field to the receipt, then deterministically re-renders the export from the receipt using the same shipped exporter and byte-compares. Also reports the receipt's §23 input_attestations (pointer resolution + digest binding). Zero network calls anywhere in the tool.",
+  "category": "mcp",
+  "tags": ["export fidelity", "chaingraph_export", "xlsx", "csv", "pdf", "xbrl", "verifiable credentials", "input attestations", "offline checker", "zero network"],
+  "audience": ["compliance", "auditor", "engineer", "risk"],
+  "input_schema": {"type":"object","properties":{"receipt":{"type":"object","description":"Canonical OCG v0.4 artifact JSON the export claims to come from"},"export_bytes_base64":{"type":"string","description":"Base64 of the exported artifact file (xlsx/csv/pdf/xbrl/vc.json) to check"},"export_format":{"type":"string","enum":["xlsx","csv","pdf","xbrl","vc"]}},"required":["receipt","export_bytes_base64"]},
+  "output_schema": {"type":"object","properties":{"format":{"type":"string"},"binding_comparison":{"type":"array"},"byte_compare":{"type":"object"},"input_attestations_report":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"check_export_fidelity","description":"Compares an exported chaingraph_export rendering (xlsx/csv/pdf/xbrl/vc) against the canonical OCG receipt it claims to come from: embedded-binding field compare plus byte-identical deterministic re-render.","inputSchema":{"type":"object","properties":{"receipt":{"type":"object"},"export_bytes_base64":{"type":"string"},"export_format":{"type":"string"}},"required":["receipt","export_bytes_base64"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/571-export-fidelity-checker.html","function_name":"runFidelityCheckUI","timeout_ms":5000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:140px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.form-group input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.55rem .75rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;max-width:280px}
+.form-group input[type=text]:focus{outline:none;border-color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:1.5rem 1.25rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);transition:border-color .2s;cursor:pointer;margin-bottom:1rem}
+.drop-zone.drag{border-color:var(--teal)}
+.drop-zone strong{color:var(--text)}
+
+.finding{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:1rem 1.1rem;margin-bottom:.9rem}
+.finding-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap}
+.finding-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--bright)}
+.finding-status{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid currentColor}
+.st-ok{color:var(--green);background:var(--green-dim)}
+.st-bad{color:var(--red);background:var(--red-dim)}
+.st-warn{color:var(--warn);background:var(--warn-dim)}
+.st-info{color:var(--muted);background:var(--bg-4)}
+.finding-detail{font-size:.76rem;color:var(--body);line-height:1.65;margin-bottom:.5rem}
+.finding-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;background:var(--bg-4);border-radius:4px;padding:.5rem .6rem;margin-top:.4rem;line-height:1.6}
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .6rem;background:var(--bg-4);border-radius:4px;flex-wrap:wrap}
+.check-pass{color:var(--green)}.check-fail{color:var(--red)}.check-na{color:var(--muted)}
+.check-name{color:var(--bright);min-width:150px;flex-shrink:0}
+.check-detail{color:var(--body)}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.verdict.warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-4);border-left:3px solid var(--warn);border-radius:4px}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-571</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T571 &middot; MCP &amp; Agentic Commerce &middot; Export Fidelity &middot; Airgapped</div>
+    <h1>Export Fidelity Checker</h1>
+    <p class="hero-desc">Upload an exported xlsx, csv, pdf, xbrl, or Verifiable Credential rendering plus the canonical OCG receipt it claims to come from. This tool extracts the export's embedded binding and compares it field-by-field to the receipt, then deterministically re-renders the export from the receipt using the exact same shipped exporter code and byte-compares the result &ndash; entirely in your browser, with zero network calls.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">xlsx &middot; csv &middot; pdf &middot; xbrl &middot; vc</span>
+      <span class="hero-badge badge-gold">byte-identical re-render</span>
+      <span class="hero-badge badge-purple">&sect;23 input attestations</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      Exports are a view, never a fact (OCG Standard &sect;13.2). A PASS here proves that the rendering you uploaded corresponds &ndash; field-for-field and byte-for-byte &ndash; to the canonical receipt you pasted. It does not re-verify the receipt itself: it does not check <code>execution_hash</code> recomputation, any <code>audit_signature</code>, or any <code>anchor_bindings</code> proof. This tool is not a second verification authority &ndash; it answers exactly one question, "does this rendering faithfully correspond to that receipt?", and on every PASS it points you back to the canonical JSON as the authority. For the receipt's own cryptographic verification, use the <a href="../chaingraph/verify.html" style="color:var(--teal)">OCG Receipt Verifier (verify.html)</a>. Nothing on this page ever opens a network connection &ndash; every check runs against the bytes you paste or upload.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="sec-label">Step 1 &middot; Canonical OCG Receipt</div>
+    <div class="panel">
+      <div class="panel-label">Paste or upload the canonical OCG v0.4 artifact JSON</div>
+      <div class="panel-body">
+        <div class="drop-zone" id="dropReceipt">Drag a receipt <code>.json</code> here, or click to choose a file</div>
+        <input type="file" id="fileReceiptInput" accept="application/json,.json" style="display:none">
+        <div class="form-group">
+          <label>Receipt JSON</label>
+          <textarea id="receiptInput" placeholder="Paste the canonical OCG artifact JSON this export claims to come from." spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-label">Step 2 &middot; Exported Artifact To Check</div>
+    <div class="panel">
+      <div class="panel-label">Upload the exported file (xlsx / csv / pdf / xbrl / vc.json)</div>
+      <div class="panel-body">
+        <div class="drop-zone" id="dropArtifact">Drag one exported file here, or click to choose a file</div>
+        <input type="file" id="fileArtifactInput" accept=".xlsx,.csv,.pdf,.xbrl,.xml,.json" style="display:none">
+        <div id="artifactLoaded" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-bottom:.75rem"></div>
+        <div class="form-group">
+          <label>xbrl_taxonomy (only used when the uploaded file is xbrl)</label>
+          <input type="text" id="xbrlTaxonomy" value="ocg-ext">
+        </div>
+        <button class="run-btn" id="runBtn" onclick="runFidelityCheckUI()">Check Fidelity &#8594;</button>
+        <div id="runErr" class="errbox"></div>
+      </div>
+    </div>
+
+    <div id="resultSection"></div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/verify.html">OCG Receipt Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   EXPORT-RENDER-CORE v1 (inline, single-file port of
+   chaingraph/exporters/{_meta,csv,zip,xlsx,pdf,vc,xbrl}.mjs).
+   Byte-identical to the shipped chaingraph_export renderers — this
+   is NOT a second renderer, it is the same code, ported inline
+   because CONTRACT.md §0 requires every tool to be one
+   self-contained .html file (no cross-file <script type=module>
+   imports). Every build* function below produces bytes identical
+   to what the worker's export_artifact tool would return for the
+   same artifact (OCG Standard §13). `unzipStore` is new — a
+   store-only ZIP reader, the read-side counterpart to zipStore,
+   needed to extract an uploaded .xlsx's embedded binding.
+══════════════════════════════════════════════════════════════ */
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// ---- shared canon/hash (byte-identical to chaingraph/kernels/_hash.mjs) ----
+function cgCanon(v){
+  if(Array.isArray(v)) return v.map(cgCanon);
+  if(v && typeof v==='object'){
+    var keys=Object.keys(v).sort(); var o={};
+    for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+    return o;
+  }
+  return v;
+}
+async function sha256Hex(bytesOrStr){
+  var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;
+  var d=await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+}
+function jsonPointerGet(obj,pointer){
+  if(!pointer||pointer==='')return obj;
+  var parts=pointer.replace(/^\//,'').split('/').map(function(p){return p.replace(/~1/g,'/').replace(/~0/g,'~');});
+  var cur=obj;
+  for(var i=0;i<parts.length;i++){ if(cur===undefined||cur===null)return undefined; cur=cur[parts[i]]; }
+  return cur;
+}
+
+// ---- _meta.mjs port ----
+var VERIFY_BASE='https://ainumbers.co/chaingraph/verify';
+function metaBlock(artifact){
+  artifact=artifact||{};
+  var keyid=(artifact.audit_signature&&artifact.audit_signature.signatures&&artifact.audit_signature.signatures[0]&&artifact.audit_signature.signatures[0].keyid)||null;
+  var hash=artifact.execution_hash!==undefined?artifact.execution_hash:null;
+  return {
+    tool_id: artifact.tool_id!==undefined?artifact.tool_id:null,
+    execution_hash: hash,
+    chaingraph_version: artifact.chaingraph_version!==undefined?artifact.chaingraph_version:null,
+    compute_mode: artifact.compute_mode!==undefined?artifact.compute_mode:null,
+    mandate_type: artifact.mandate_type!==undefined?artifact.mandate_type:null,
+    keyid: keyid,
+    verify_url: hash ? (VERIFY_BASE+'?hash='+String(hash).replace(/^sha256:/,'')) : null,
+  };
+}
+function exportFilename(artifact, ext){
+  artifact=artifact||{};
+  var tid=(artifact.tool_id!==undefined&&artifact.tool_id!==null?artifact.tool_id:'artifact').toString().replace(/[^a-z0-9._-]/gi,'_');
+  var h=String(artifact.execution_hash!==undefined&&artifact.execution_hash!==null?artifact.execution_hash:'').replace(/^sha256:/,'').slice(0,8)||'nohash';
+  return tid+'-'+h+'.'+ext;
+}
+function xmlEscape(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+// OWASP CSV-injection prefix rule (serializeCsvField, chaingraph/kernels/_csv_injection.mjs
+// — CSV_INJECTION_RE pattern). The currently-shipped exporters/csv.mjs does NOT yet apply
+// this, so a receipt whose output_payload contains a field starting with = + - @ TAB CR will
+// legitimately byte-mismatch against a real export produced by that unpatched exporter until
+// it adopts the same fix — that is a true finding about the upstream file, not a bug here.
+function csvFieldSafe(v){
+  var s = v==null ? '' : String(v);
+  var wasRisk = /^[=+\-@\t\r]/.test(s);
+  if(wasRisk) s = "'"+s;
+  var mustQuote = wasRisk || /[",\r\n]/.test(s);
+  return mustQuote ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function flattenPayload(payload, prefix){
+  payload=payload||{}; prefix=prefix||'';
+  var scalars=[], tables=[];
+  var entries=Object.keys(payload).map(function(k){return [k,payload[k]];});
+  for(var e=0;e<entries.length;e++){
+    var k=entries[e][0], v=entries[e][1];
+    var key=prefix?(prefix+'.'+k):k;
+    if(Array.isArray(v)){
+      if(v.length && v[0] && typeof v[0]==='object' && !Array.isArray(v[0])){
+        var colSet={}; var cols=[];
+        for(var r0=0;r0<v.length;r0++){ var ks=Object.keys(v[r0]); for(var c0=0;c0<ks.length;c0++){ if(!colSet[ks[c0]]){colSet[ks[c0]]=true;cols.push(ks[c0]);} } }
+        var rows=v.map(function(r){ return cols.map(function(c){ return r[c]; }); });
+        tables.push({name:key, columns:cols, rows:rows});
+      } else {
+        tables.push({name:key, columns:[key], rows:v.map(function(x){return [x];})});
+      }
+    } else if(v && typeof v==='object'){
+      var inner=flattenPayload(v, key);
+      scalars=scalars.concat(inner.scalars);
+      tables=tables.concat(inner.tables);
+    } else {
+      scalars.push([key, v]);
+    }
+  }
+  return {scalars:scalars, tables:tables};
+}
+
+// ---- csv.mjs port ----
+function buildCsv(artifact){
+  var m=metaBlock(artifact);
+  var lines=[];
+  lines.push(['# chaingraph_export:csv — generated view, not independently verifiable'].map(csvFieldSafe).join(','));
+  var mkeys=['tool_id','execution_hash','chaingraph_version','compute_mode','mandate_type','keyid','verify_url'];
+  for(var i=0;i<mkeys.length;i++) lines.push(['# '+mkeys[i], m[mkeys[i]]].map(csvFieldSafe).join(','));
+  lines.push('');
+  var fp=flattenPayload((artifact&&artifact.output_payload)||{});
+  lines.push(['key','value'].map(csvFieldSafe).join(','));
+  for(var s=0;s<fp.scalars.length;s++) lines.push([fp.scalars[s][0], fp.scalars[s][1]].map(csvFieldSafe).join(','));
+  for(var t=0;t<fp.tables.length;t++){
+    var tb=fp.tables[t];
+    lines.push('');
+    lines.push(['# table: '+tb.name].map(csvFieldSafe).join(','));
+    lines.push(tb.columns.map(csvFieldSafe).join(','));
+    for(var r=0;r<tb.rows.length;r++) lines.push(tb.rows[r].map(csvFieldSafe).join(','));
+  }
+  var body=new TextEncoder().encode(lines.join('\r\n'));
+  var bytes=new Uint8Array(3+body.length);
+  bytes.set([0xEF,0xBB,0xBF],0);
+  bytes.set(body,3);
+  return {bytes:bytes, filename:exportFilename(artifact,'csv'), media_type:'text/csv'};
+}
+
+// ---- zip.mjs port (+ unzipStore, new read-side counterpart) ----
+var CRC_TABLE=(function(){
+  var t=new Uint32Array(256);
+  for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c>>>0; }
+  return t;
+})();
+function crc32(bytes){
+  var c=0xFFFFFFFF;
+  for(var i=0;i<bytes.length;i++) c=CRC_TABLE[(c^bytes[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+function u16(n){return [n&0xFF,(n>>>8)&0xFF];}
+function u32(n){return [n&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF];}
+function zipStore(files){
+  var parts=[], central=[], offset=0;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    var nameBytes=new TextEncoder().encode(f.name);
+    var data=f.data;
+    var crc=crc32(data);
+    var size=data.length;
+    var lfh=[].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0));
+    var lfhBytes=new Uint8Array(lfh);
+    parts.push(lfhBytes, nameBytes, data);
+    var cdh=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push(new Uint8Array(cdh), nameBytes);
+    offset+=lfhBytes.length+nameBytes.length+data.length;
+  }
+  var centralStart=offset, centralSize=0;
+  for(var c=0;c<central.length;c++) centralSize+=central[c].length;
+  var eocd=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(centralSize),u32(centralStart),u16(0)));
+  var total=centralStart+centralSize+eocd.length;
+  var out=new Uint8Array(total);
+  var p=0;
+  for(var b=0;b<parts.length;b++){ out.set(parts[b],p); p+=parts[b].length; }
+  for(var cc=0;cc<central.length;cc++){ out.set(central[cc],p); p+=central[cc].length; }
+  out.set(eocd,p);
+  return out;
+}
+// Read-side counterpart to zipStore — walks sequential local file headers
+// (method 0 = STORE only, exactly what zipStore emits). Not a general ZIP
+// reader: throws on any other compression method (e.g. a re-saved xlsx).
+function unzipStore(bytes){
+  var view=new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  var files=[]; var p=0;
+  while(p+30<=bytes.length && view.getUint32(p,true)===0x04034b50){
+    var method=view.getUint16(p+8,true);
+    var compSize=view.getUint32(p+18,true);
+    var nameLen=view.getUint16(p+26,true);
+    var extraLen=view.getUint16(p+28,true);
+    var nameStart=p+30;
+    var name=new TextDecoder('utf-8').decode(bytes.subarray(nameStart,nameStart+nameLen));
+    var dataStart=nameStart+nameLen+extraLen;
+    if(method!==0) throw new Error('zip entry "'+name+'" uses compression method '+method+' (expected 0/store) — this file was likely re-saved by another program, not the original exported bytes.');
+    var data=bytes.subarray(dataStart,dataStart+compSize);
+    files.push({name:name, data:data});
+    p=dataStart+compSize;
+  }
+  if(!files.length) throw new Error('no store-method zip entries found — not a recognizable xlsx.');
+  return files;
+}
+
+// ---- xlsx.mjs port ----
+function colLetter(n){ var s=''; n+=1; while(n>0){ var r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); } return s; }
+function cellXml(ref, v){
+  if(typeof v==='number' && Number.isFinite(v)) return '<c r="'+ref+'"><v>'+v+'</v></c>';
+  if(v===null||v===undefined||v==='') return '<c r="'+ref+'"/>';
+  return '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEscape(v)+'</t></is></c>';
+}
+function sheetXml(rows){
+  var body='';
+  rows.forEach(function(row,r){
+    var cells=row.map(function(v,c){ return cellXml(colLetter(c)+(r+1), v); }).join('');
+    body+='<row r="'+(r+1)+'">'+cells+'</row>';
+  });
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetData>'+body+'</sheetData></worksheet>';
+}
+function decisionRows(artifact){
+  var m=metaBlock(artifact);
+  var op=(artifact&&artifact.output_payload)||{};
+  var verdict=op.verdict!==undefined?op.verdict:(op.grade!==undefined?op.grade:(op.overall_grade!==undefined?op.overall_grade:(op.recommended_model!==undefined?op.recommended_model:'(see Data)')));
+  return [
+    ['OpenChainGraph Export — Decision'],
+    [],
+    ['tool_id', m.tool_id],
+    ['mandate_type', m.mandate_type],
+    ['verdict / headline', verdict],
+    ['generated_at', artifact&&artifact.generated_at!==undefined?artifact.generated_at:null],
+    [],
+    ['— Provenance metadata —'],
+    ['execution_hash', m.execution_hash],
+    ['chaingraph_version', m.chaingraph_version],
+    ['compute_mode', m.compute_mode],
+    ['signing keyid', m.keyid],
+    ['verify_url', m.verify_url],
+    [],
+    ['This spreadsheet is a generated VIEW of a verified artifact. It is not'],
+    ['independently verifiable — verify the JSON artifact at verify_url.'],
+  ];
+}
+function dataRows(artifact){
+  var fp=flattenPayload((artifact&&artifact.output_payload)||{});
+  var rows=[['output_payload — scalars'],['key','value']];
+  for(var s=0;s<fp.scalars.length;s++) rows.push(fp.scalars[s]);
+  for(var t=0;t<fp.tables.length;t++){
+    var tb=fp.tables[t];
+    rows.push([]);
+    rows.push(['table: '+tb.name]);
+    rows.push(tb.columns);
+    for(var r=0;r<tb.rows.length;r++) rows.push(tb.rows[r]);
+  }
+  return rows;
+}
+function provenanceRows(artifact){
+  var chain=(artifact&&artifact.chain)||{};
+  var rows=[['Provenance']];
+  rows.push([],['parent_hashes']);
+  (chain.parent_hashes||[]).forEach(function(h){rows.push([h]);});
+  rows.push([],['parent_tool_ids']);
+  (chain.parent_tool_ids||[]).forEach(function(t){rows.push([t]);});
+  rows.push(['chain_depth', chain.chain_depth!==undefined?chain.chain_depth:0]);
+  rows.push([],['compliance_flags']);
+  ((artifact&&artifact.compliance_flags)||[]).forEach(function(f){rows.push([f]);});
+  return rows;
+}
+var XLSX_SHEETS=[
+  {name:'Decision', build:decisionRows},
+  {name:'Data', build:dataRows},
+  {name:'Provenance', build:provenanceRows},
+];
+function xlsxContentTypes(){
+  var overrides=XLSX_SHEETS.map(function(_,i){ return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('');
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+    '<Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    overrides+'</Types>';
+}
+function xlsxRootRels(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
+    '</Relationships>';
+}
+function xlsxWorkbookXml(){
+  var sheets=XLSX_SHEETS.map(function(s,i){ return '<sheet name="'+xmlEscape(s.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>'; }).join('');
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+    '<sheets>'+sheets+'</sheets></workbook>';
+}
+function xlsxWorkbookRels(){
+  var rels=XLSX_SHEETS.map(function(_,i){ return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>'; }).join('');
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+rels+'</Relationships>';
+}
+function buildXlsx(artifact){
+  var enc=function(s){return new TextEncoder().encode(s);};
+  var files=[
+    {name:'[Content_Types].xml', data:enc(xlsxContentTypes())},
+    {name:'_rels/.rels', data:enc(xlsxRootRels())},
+    {name:'xl/workbook.xml', data:enc(xlsxWorkbookXml())},
+    {name:'xl/_rels/workbook.xml.rels', data:enc(xlsxWorkbookRels())},
+  ].concat(XLSX_SHEETS.map(function(s,i){ return {name:'xl/worksheets/sheet'+(i+1)+'.xml', data:enc(sheetXml(s.build(artifact)))}; }));
+  return {bytes:zipStore(files), filename:exportFilename(artifact,'xlsx'), media_type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+}
+
+// ---- pdf.mjs port (QR is parked upstream — never emitted, so not ported) ----
+var PDF_TITLES={
+  agent_guardrail_mandate:'Readiness Diagnostic', treasury_mandate:'Treasury Decision Memo',
+  risk_parameter:'Risk / Margin Estimate', compliance_mandate:'Compliance Determination',
+  attestation_mandate:'Attestation', settlement_mandate:'Settlement Decision',
+  capital_assessment:'Capital Assessment', liquidity_mandate:'Liquidity Assessment',
+  collateral_mandate:'Collateral Eligibility', cryptographic_mandate:'Cryptographic Verification',
+  'party-identification':'Party Identification', payment_mandate:'Payment Mandate',
+  risk_control:'Risk Control', model_governance:'Model Governance',
+  infrastructure_mandate:'Infrastructure Decision',
+};
+var PDF_PAGE_W=612, PDF_PAGE_H=792, PDF_X_LEFT=72, PDF_Y_TOP=750, PDF_Y_BOTTOM=60, PDF_USABLE_W=PDF_PAGE_W-2*PDF_X_LEFT;
+var PDF_SUBS={'—':'-','–':'-','‘':"'",'’':"'",'“':'"','”':'"','…':'...','·':'*','→':'->'};
+function pdfAsciiSafe(s){
+  var out=''; var str=String(s==null?'':s);
+  for(var i=0;i<str.length;i++){
+    var ch=str[i];
+    if(PDF_SUBS[ch]) out+=PDF_SUBS[ch];
+    else out += (ch.codePointAt(0)<=0xFF) ? ch : '?';
+  }
+  return out;
+}
+function pdfEscape(s){ return pdfAsciiSafe(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)'); }
+function pdfWrap(text, size){
+  var max=Math.max(8, Math.floor(PDF_USABLE_W/(size*0.5)));
+  var words=pdfAsciiSafe(text).split(/\s+/);
+  var lines=[]; var cur='';
+  for(var i=0;i<words.length;i++){
+    var w=words[i];
+    if(!cur){ cur=w; }
+    else if((cur+' '+w).length<=max){ cur+=' '+w; }
+    else { lines.push(cur); cur=w; }
+    while(cur.length>max){ lines.push(cur.slice(0,max)); cur=cur.slice(max); }
+  }
+  if(cur) lines.push(cur);
+  return lines.length?lines:[''];
+}
+function pdfLayoutLines(artifact){
+  var m=metaBlock(artifact);
+  var op=(artifact&&artifact.output_payload)||{};
+  var mt=(artifact&&artifact.mandate_type)||'';
+  var title=PDF_TITLES[mt]||'OpenChainGraph Decision Memo';
+  var verdict=op.verdict!==undefined?op.verdict:(op.grade!==undefined?op.grade:(op.overall_grade!==undefined?op.overall_grade:(op.recommended_model!==undefined?op.recommended_model:(op.verdict_label!==undefined?op.verdict_label:'(see Key results)'))));
+  var L=[];
+  function push(text, opts){ opts=opts||{}; var bold=opts.bold||false, size=opts.size||9; pdfWrap(text,size).forEach(function(ln){ L.push({text:ln, bold:bold, size:size}); }); }
+  function spacer(size){ L.push({text:'', bold:false, size:size||6}); }
+  push(title,{bold:true,size:18});
+  push('Tool: '+m.tool_id,{size:9});
+  push('Mandate type: '+(mt||'(none)'),{size:9});
+  spacer();
+  push('Decision: '+verdict,{bold:true,size:13});
+  spacer();
+  push('Key results',{bold:true,size:11});
+  var fp=flattenPayload(op);
+  var sc=fp.scalars.slice(0,30);
+  for(var i=0;i<sc.length;i++) push(sc[i][0]+': '+sc[i][1],{size:9});
+  if(fp.scalars.length>30) push('... ('+(fp.scalars.length-30)+' more fields in the xlsx/json)',{size:8});
+  var flags=(artifact&&artifact.compliance_flags)||[];
+  if(flags.length){ spacer(); push('Compliance flags',{bold:true,size:11}); push(flags.join(', '),{size:9}); }
+  spacer(8);
+  push('Provenance',{bold:true,size:11});
+  push('execution_hash: '+m.execution_hash,{size:8});
+  push('chaingraph_version: '+m.chaingraph_version+'    compute_mode: '+m.compute_mode,{size:8});
+  push('signing keyid: '+(m.keyid||'(unsigned)'),{size:8});
+  push('verify: '+m.verify_url,{size:8});
+  spacer(8);
+  push('This PDF is a generated view of a verified artifact (OCG Standard §13). It is not independently verifiable - verify the JSON artifact at the URL above.',{size:8});
+  return L;
+}
+function pdfPaginate(lines){
+  var pages=[]; var cur=[], y=PDF_Y_TOP;
+  for(var i=0;i<lines.length;i++){
+    var ln=lines[i];
+    var lead=Math.max(ln.size,8)*1.6;
+    if(y-lead<PDF_Y_BOTTOM){ pages.push(cur); cur=[]; y=PDF_Y_TOP; }
+    y-=lead;
+    cur.push({text:ln.text, bold:ln.bold, size:ln.size, x:PDF_X_LEFT, y:Math.round(y)});
+  }
+  if(cur.length) pages.push(cur);
+  return pages.length?pages:[[]];
+}
+function pdfPageContent(pageLines){
+  var s='';
+  for(var i=0;i<pageLines.length;i++){
+    var ln=pageLines[i];
+    var f=ln.bold?'F2':'F1';
+    s+='BT /'+f+' '+ln.size+' Tf 1 0 0 1 '+ln.x+' '+ln.y+' Tm ('+pdfEscape(ln.text)+') Tj ET\n';
+  }
+  return s;
+}
+function pdfLatin1Bytes(str){
+  var out=new Uint8Array(str.length);
+  for(var i=0;i<str.length;i++) out[i]=str.charCodeAt(i)&0xFF;
+  return out;
+}
+function buildPdf(artifact){
+  var pages=pdfPaginate(pdfLayoutLines(artifact));
+  var all=[];
+  all[1]='<< /Type /Catalog /Pages 2 0 R >>';
+  all[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+  all[4]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  var objNum=5; var pageRefs=[];
+  for(var p=0;p<pages.length;p++){
+    var contentNum=objNum++, pageNum=objNum++;
+    var stream=pdfPageContent(pages[p]);
+    all[contentNum]='<< /Length '+stream.length+' >>\nstream\n'+stream+'endstream';
+    all[pageNum]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PDF_PAGE_W+' '+PDF_PAGE_H+'] '+
+      '/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+contentNum+' 0 R >>';
+    pageRefs.push(pageNum);
+  }
+  all[2]='<< /Type /Pages /Kids ['+pageRefs.map(function(n){return n+' 0 R';}).join(' ')+'] /Count '+pageRefs.length+' >>';
+  var N=all.length-1;
+  var pdf='%PDF-1.4\n%ÿÿÿÿ\n';
+  var offsets=[];
+  for(var i=1;i<=N;i++){ offsets[i]=pdf.length; pdf+=i+' 0 obj\n'+all[i]+'\nendobj\n'; }
+  var xref=pdf.length;
+  pdf+='xref\n0 '+(N+1)+'\n0000000000 65535 f \n';
+  for(var j=1;j<=N;j++) pdf+=String(offsets[j]).padStart(10,'0')+' 00000 n \n';
+  pdf+='trailer\n<< /Size '+(N+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+  return {bytes:pdfLatin1Bytes(pdf), filename:exportFilename(artifact,'pdf'), media_type:'application/pdf'};
+}
+
+// ---- vc.mjs port ----
+var VC_CONTEXT_V2='https://www.w3.org/ns/credentials/v2';
+var OCG_VC_CONTEXT='https://ainumbers.co/chaingraph/context/vc/v0.4';
+var AGENT_RECEIPTS_CONTEXT='https://agentreceipts.ai/context/v1';
+var AGENT_RECEIPTS_ACTION_TYPE_ALIASES={};
+function agentReceiptsActionType(artifact){
+  var slug=(artifact&&artifact.policy_parameters&&artifact.policy_parameters.chain)||(artifact&&artifact.tool_id)||null;
+  if(slug && AGENT_RECEIPTS_ACTION_TYPE_ALIASES[slug]) return AGENT_RECEIPTS_ACTION_TYPE_ALIASES[slug];
+  return 'x-ocg.'+(slug||(artifact&&artifact.mandate_type)||'unknown');
+}
+function sha256Prefixed(h){ if(!h) return null; return String(h).indexOf('sha256:')===0?String(h):('sha256:'+h); }
+function buildVc(artifact){
+  var m=metaBlock(artifact);
+  var hash=(artifact&&artifact.execution_hash!==undefined)?artifact.execution_hash:null;
+  var bareHash=String(hash==null?'':hash).replace(/^sha256:/,'');
+  var validFrom=(artifact&&(artifact.valid_from!==undefined?artifact.valid_from:artifact.issued_at))||null;
+  var validUntil=(artifact&&artifact.valid_until)||null;
+  var chainDepth=(artifact&&artifact.chain&&artifact.chain.chain_depth)||0;
+  var parentHash=(artifact&&artifact.chain&&artifact.chain.parent_hashes&&artifact.chain.parent_hashes[0])||null;
+  var chainSlug=(artifact&&artifact.policy_parameters&&artifact.policy_parameters.chain)||null;
+  var pph=(artifact&&artifact.policy_parameters_hash)||null;
+  var hasMandate=!!(artifact&&artifact.policy_parameters&&artifact.policy_parameters.mandate_hash!=null);
+  var credentialSubject={};
+  if(artifact&&artifact.tool_id) credentialSubject.id='urn:ocg:tool:'+artifact.tool_id;
+  if(artifact&&artifact.mandate_type) credentialSubject.mandate_type=artifact.mandate_type;
+  credentialSubject.policy_parameters=(artifact&&artifact.policy_parameters)||{};
+  credentialSubject.output_payload=(artifact&&artifact.output_payload)||{};
+  var action={type:agentReceiptsActionType(artifact)};
+  if(pph) action.parameters_hash=sha256Prefixed(pph);
+  credentialSubject.action=action;
+  credentialSubject.outcome={status: (((artifact&&artifact.compliance_flags&&artifact.compliance_flags.length)||0)>0)?'failure':'success'};
+  credentialSubject.chain={
+    sequence: chainDepth+1,
+    previous_receipt_hash: parentHash?sha256Prefixed(parentHash):null,
+    chain_id: chainSlug?('x-ocg:chain:'+chainSlug):('x-ocg:tool:'+((artifact&&artifact.tool_id)||'unknown')),
+  };
+  if(hasMandate && m.keyid) credentialSubject.principal={id:m.keyid};
+  var credential={
+    '@context':[VC_CONTEXT_V2, OCG_VC_CONTEXT, AGENT_RECEIPTS_CONTEXT],
+    id: bareHash?('urn:ocg:artifact:'+bareHash):'urn:ocg:artifact:nohash',
+    type:['VerifiableCredential','OpenChainGraphCredential'],
+    issuer:(artifact&&artifact.issued_by)||'https://ainumbers.co',
+  };
+  if(validFrom) credential.validFrom=validFrom;
+  if(validUntil) credential.validUntil=validUntil;
+  credential.credentialSubject=credentialSubject;
+  credential['ocg:hashAnchor']={
+    type:'OpenChainGraphHashAnchor2026', digestMethod:'sha-256', executionHash:hash,
+    chaingraph_version:(artifact&&artifact.chaingraph_version!==undefined)?artifact.chaingraph_version:null,
+    compute_mode:(artifact&&artifact.compute_mode!==undefined)?artifact.compute_mode:null,
+    verify_url:m.verify_url,
+  };
+  if(m.keyid) credential['ocg:hashAnchor'].keyid=m.keyid;
+  credential['ocg:metadata']=m;
+  var bytes=new TextEncoder().encode(JSON.stringify(credential,null,2));
+  return {bytes:bytes, filename:exportFilename(artifact,'vc.json'), media_type:'application/vc+json'};
+}
+
+// ---- xbrl.mjs port (ocg-ext taxonomy only — eba-corep-* stay pending upstream,
+// unpopulated concept maps, so no real artifact of that taxonomy can exist to check) ----
+var OCG_EXT_NS='https://ainumbers.co/chaingraph/xbrl/ocg-ext';
+var XBRL_TAXONOMIES={
+  'ocg-ext': {
+    ns: OCG_EXT_NS, prefix:'ocg', schemaRef: OCG_EXT_NS+'/ocg-ext-2026.xsd',
+    concepts: {
+      verdict:{name:'Verdict',type:'string'}, grade:{name:'Grade',type:'string'},
+      overall_grade:{name:'Grade',type:'string'}, recommended_model:{name:'RecommendedModel',type:'string'},
+      annual_saving_usd:{name:'AnnualSaving',type:'monetary',unit:'USD'}, net_cleared_im:{name:'NetClearedInitialMargin',type:'monetary',unit:'USD'},
+      gross_bilateral_im:{name:'GrossBilateralInitialMargin',type:'monetary',unit:'USD'}, netting_benefit_usd:{name:'NettingBenefit',type:'monetary',unit:'USD'},
+      netting_benefit_pct:{name:'NettingBenefitPct',type:'percent'}, estimated_vbm:{name:'EstimatedVaRBasedMargin',type:'monetary',unit:'USD'},
+      rwa_delta:{name:'RwaDelta',type:'monetary',unit:'USD'},
+    },
+  },
+};
+function xbrlUnitRef(type, unit){ if(type==='monetary') return 'u-'+unit; if(type==='pure'||type==='percent') return 'u-pure'; return null; }
+function xbrlFactValue(type, v){
+  if(type==='monetary'||type==='pure') return Number(v)||0;
+  if(type==='percent'){ var n=Number(v)||0; return n>1?n/100:n; }
+  return xmlEscape(v);
+}
+function buildXbrl(artifact, xbrl_taxonomy){
+  var tax=XBRL_TAXONOMIES[xbrl_taxonomy];
+  if(!tax) throw new Error('Unknown or not-yet-implemented xbrl_taxonomy "'+xbrl_taxonomy+'". This checker mirrors the shipped exporter: only "ocg-ext" is implemented; eba-corep-* taxonomies remain pending upstream (unpopulated concept maps, OCG §13.8).');
+  var m=metaBlock(artifact);
+  var op=(artifact&&artifact.output_payload)||{};
+  var fp=flattenPayload(op);
+  var period=((artifact&&artifact.generated_at)||'').slice(0,10)||'1970-01-01';
+  var entity=m.tool_id||'ocg';
+  var ctxId='c1';
+  var monetaryUnits={};
+  for(var i=0;i<fp.scalars.length;i++){ var c=tax.concepts[fp.scalars[i][0]]; if(c&&c.type==='monetary') monetaryUnits[c.unit||'USD']=true; }
+  var facts=[];
+  for(var j=0;j<fp.scalars.length;j++){
+    var k=fp.scalars[j][0], v=fp.scalars[j][1];
+    var cc=tax.concepts[k];
+    if(cc){
+      var u=xbrlUnitRef(cc.type, cc.unit);
+      var decimals=(cc.type==='monetary'||cc.type==='pure'||cc.type==='percent')?' decimals="2"':'';
+      var unitAttr=u?(' unitRef="'+u+'"'):'';
+      facts.push('  <'+tax.prefix+':'+cc.name+' contextRef="'+ctxId+'"'+unitAttr+decimals+'>'+xbrlFactValue(cc.type,v)+'</'+tax.prefix+':'+cc.name+'>');
+    } else {
+      facts.push('  <'+tax.prefix+':Fact><'+tax.prefix+':Key contextRef="'+ctxId+'">'+xmlEscape(k)+'</'+tax.prefix+':Key><'+tax.prefix+':Value contextRef="'+ctxId+'">'+xmlEscape(v)+'</'+tax.prefix+':Value></'+tax.prefix+':Fact>');
+    }
+  }
+  var units=['  <unit id="u-pure"><measure>xbrli:pure</measure></unit>'].concat(Object.keys(monetaryUnits).map(function(u){ return '  <unit id="u-'+u+'"><measure>iso4217:'+u+'</measure></unit>'; })).join('\n');
+  var xml='<?xml version="1.0" encoding="UTF-8"?>\n'+
+'<!-- chaingraph_export:xbrl (OCG Standard §13.8). Generated view of a verified\n'+
+'     artifact — NOT independently verifiable. Verify the JSON artifact:\n'+
+'     '+m.verify_url+'\n'+
+'     Source artifact execution_hash: '+m.execution_hash+'\n'+
+'     Taxonomy: '+xbrl_taxonomy+' -->\n'+
+'<xbrli:xbrl\n'+
+'    xmlns:xbrli="http://www.xbrl.org/2003/instance"\n'+
+'    xmlns:link="http://www.xbrl.org/2003/linkbase"\n'+
+'    xmlns:xlink="http://www.w3.org/1999/xlink"\n'+
+'    xmlns:iso4217="http://www.xbrl.org/2003/iso4217"\n'+
+'    xmlns:'+tax.prefix+'="'+tax.ns+'">\n'+
+'  <link:schemaRef xlink:type="simple" xlink:href="'+tax.schemaRef+'"/>\n'+
+'  <xbrli:context id="'+ctxId+'">\n'+
+'    <xbrli:entity><xbrli:identifier scheme="https://ainumbers.co/chaingraph/tool">'+xmlEscape(entity)+'</xbrli:identifier></xbrli:entity>\n'+
+'    <xbrli:period><xbrli:instant>'+period+'</xbrli:instant></xbrli:period>\n'+
+'  </xbrli:context>\n'+
+units+'\n'+facts.join('\n')+'\n</xbrli:xbrl>\n';
+  return {bytes:new TextEncoder().encode(xml), filename:exportFilename(artifact,'xbrl'), media_type:'application/xml'};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EXTRACTION — parse the embedded binding out of an uploaded export
+   file, per format. Used for the field-by-field compare (step 2/3
+   of EXPORT-FIDELITY-BUILD-SPEC.md §1.2); independent of, and a
+   useful diagnostic alongside, the byte-compare re-render below.
+══════════════════════════════════════════════════════════════ */
+function parseCsvLine(line){
+  var out=[], cur='', inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(inQ){
+      if(c==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
+      else cur+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){ out.push(cur); cur=''; }
+      else cur+=c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function extractCsvBinding(text){
+  var lines=text.split(/\r\n|\n/);
+  var map={};
+  for(var i=0;i<lines.length;i++){
+    var fields=parseCsvLine(lines[i]);
+    if(fields.length===2 && fields[0].indexOf('# ')===0) map[fields[0].slice(2)]=fields[1];
+  }
+  return {tool_id:map.tool_id, execution_hash:map.execution_hash, chaingraph_version:map.chaingraph_version, compute_mode:map.compute_mode, keyid:(map.keyid||undefined)};
+}
+function extractVcBinding(text){
+  var obj=JSON.parse(text);
+  if(!obj['ocg:hashAnchor']) throw new Error('This JSON has no "ocg:hashAnchor" — it looks like a canonical OCG receipt, not a chaingraph_export:vc rendering. Upload the exported file as the artifact, not the receipt.');
+  var ha=obj['ocg:hashAnchor']||{};
+  var subj=obj.credentialSubject||{};
+  var tool_id = (subj.id && String(subj.id).indexOf('urn:ocg:tool:')===0) ? subj.id.slice('urn:ocg:tool:'.length) : undefined;
+  return {tool_id:tool_id, execution_hash:ha.executionHash, chaingraph_version:ha.chaingraph_version, compute_mode:ha.compute_mode, keyid:ha.keyid};
+}
+function latin1Decode(bytes){
+  var CHUNK=0x8000, s='';
+  for(var i=0;i<bytes.length;i+=CHUNK) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+CHUNK));
+  return s;
+}
+function extractPdfBinding(bytes){
+  var str=latin1Decode(bytes);
+  var re=/\(((?:\\.|[^()\\])*)\)\s*Tj/g;
+  var tokens=[]; var mm;
+  while((mm=re.exec(str))){
+    tokens.push(mm[1].replace(/\\(.)/g, function(_,ch){ return ch; }));
+  }
+  var map={};
+  for(var i=0;i<tokens.length;i++){
+    var t=tokens[i];
+    var m1;
+    if(t.indexOf('Tool: ')===0) map.tool_id=t.slice(6);
+    else if(t.indexOf('Mandate type: ')===0) map.mandate_type=t.slice(14);
+    else if(t.indexOf('execution_hash: ')===0) map.execution_hash=t.slice(16);
+    else if((m1=t.match(/^chaingraph_version:\s*(\S+)\s+compute_mode:\s*(\S+)$/))){ map.chaingraph_version=m1[1]; map.compute_mode=m1[2]; }
+    else if(t.indexOf('signing keyid: ')===0){ var kid=t.slice(15); map.keyid = kid==='(unsigned)' ? undefined : kid; }
+    else if(t.indexOf('verify: ')===0) map.verify_url=t.slice(8);
+  }
+  if(map.tool_id===undefined && map.execution_hash===undefined) throw new Error('No recognizable provenance footer text found — not a chaingraph_export:pdf rendering from this exporter.');
+  return map;
+}
+function extractXlsxBinding(bytes){
+  var entries=unzipStore(bytes);
+  var sheet1=entries.filter(function(e){return e.name==='xl/worksheets/sheet1.xml';})[0];
+  if(!sheet1) throw new Error('No xl/worksheets/sheet1.xml (Decision sheet) found in this xlsx.');
+  var xml=new TextDecoder('utf-8').decode(sheet1.data);
+  var rowRe=/<row[^>]*>([\s\S]*?)<\/row>/g;
+  var map={}; var rm;
+  var LABELS={'tool_id':'tool_id','mandate_type':'mandate_type','execution_hash':'execution_hash','chaingraph_version':'chaingraph_version','compute_mode':'compute_mode','signing keyid':'keyid'};
+  while((rm=rowRe.exec(xml))){
+    var cellRe=/<t[^>]*>([\s\S]*?)<\/t>/g;
+    var texts=[]; var cm;
+    while((cm=cellRe.exec(rm[1]))) texts.push(cm[1].replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&'));
+    if(texts.length>=1 && LABELS[texts[0]]) map[LABELS[texts[0]]] = texts.length>=2 ? texts[1] : undefined;
+  }
+  if(map.tool_id===undefined && map.execution_hash===undefined) throw new Error('No recognizable Decision-sheet provenance rows found — not a chaingraph_export:xlsx rendering from this exporter.');
+  return map;
+}
+function extractXbrlBinding(text){
+  var m={};
+  var h=text.match(/Source artifact execution_hash:\s*(\S+)/);
+  if(h) m.execution_hash=h[1];
+  var idm=text.match(/<xbrli:identifier[^>]*>([^<]*)<\/xbrli:identifier>/);
+  if(idm) m.tool_id=idm[1];
+  if(m.execution_hash===undefined && m.tool_id===undefined) throw new Error('No recognizable OCG provenance comment/identifier found — not a chaingraph_export:xbrl rendering from this exporter.');
+  return m; // chaingraph_version/compute_mode/keyid are not embedded in this format — reported n/a
+}
+function detectFormat(bytes, filename){
+  var name=(filename||'').toLowerCase();
+  if(name.slice(-5)==='.xlsx') return 'xlsx';
+  if(name.slice(-4)==='.pdf') return 'pdf';
+  if(name.slice(-4)==='.csv') return 'csv';
+  if(name.slice(-5)==='.xbrl'||name.slice(-4)==='.xml') return 'xbrl';
+  if(name.slice(-5)==='.json'||name.slice(-8)==='.vc.json') return 'vc';
+  if(bytes.length>=2 && bytes[0]===0x50 && bytes[1]===0x4B) return 'xlsx';
+  if(bytes.length>=4 && bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46) return 'pdf';
+  if(bytes.length>=3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) return 'csv';
+  var head=latin1Decode(bytes.subarray(0,Math.min(64,bytes.length))).replace(/^﻿/,'').replace(/^\s+/,'');
+  if(head[0]==='<') return 'xbrl';
+  if(head[0]==='{') return 'vc';
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMPARE — binding field diff + byte-identical re-render check
+══════════════════════════════════════════════════════════════ */
+function compareBinding(extracted, m){
+  var FIELDS=['tool_id','execution_hash','chaingraph_version','compute_mode','keyid'];
+  return FIELDS.map(function(f){
+    var ev=extracted[f];
+    var rv=m[f];
+    if(ev===undefined||ev===null||ev===''){
+      return {field:f, receipt:rv, extracted:null, status:'n/a'};
+    }
+    var norm=function(x){ return x==null?null:String(x); };
+    var pass = norm(ev)===norm(rv);
+    return {field:f, receipt:rv, extracted:ev, status: pass?'pass':'fail'};
+  });
+}
+function bytesEqual(a,b){
+  if(a.length!==b.length) return false;
+  for(var i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
+  return true;
+}
+function compareBytes(rendered, uploaded, format){
+  if(bytesEqual(rendered, uploaded)) return {pass:true};
+  var isText = format==='csv'||format==='vc'||format==='xbrl';
+  if(isText){
+    var a=new TextDecoder('utf-8').decode(rendered).split(/\r\n|\n/);
+    var b=new TextDecoder('utf-8').decode(uploaded).split(/\r\n|\n/);
+    var n=Math.max(a.length,b.length);
+    for(var j=0;j<n;j++){
+      if(a[j]!==b[j]) return {pass:false, detail:'First differing line '+(j+1)+' — expected '+JSON.stringify(a[j]===undefined?'(end of file)':a[j])+', uploaded file has '+JSON.stringify(b[j]===undefined?'(end of file)':b[j])+'.'};
+    }
+    return {pass:false, detail:'Byte length differs ('+rendered.length+' vs '+uploaded.length+' bytes) with no line-level difference found.'};
+  }
+  var minLen=Math.min(rendered.length, uploaded.length);
+  var offset=minLen;
+  for(var k=0;k<minLen;k++){ if(rendered[k]!==uploaded[k]){ offset=k; break; } }
+  return {pass:false, detail:'Rendered '+rendered.length+' bytes vs uploaded '+uploaded.length+' bytes; first differing byte at offset '+offset+'.'};
+}
+
+// §23 input attestations fold-in (Tim's ruling) — pointer resolves into
+// policy_parameters (RFC 6901) + digest = SHA-256 of cgCanon(resolved value).
+// Report shape per SPEC.md §23.2: { pointer, type, structural, verifiable }.
+async function check23(receipt){
+  var atts=receipt.input_attestations||[];
+  var out=[];
+  for(var i=0;i<atts.length;i++){
+    var e=atts[i]||{};
+    var resolved;
+    try{ resolved=jsonPointerGet(receipt.policy_parameters, e.pointer); }catch(err){ resolved=undefined; }
+    var structural = resolved!==undefined ? 'pass' : 'fail';
+    var verifiable='n/a', note='';
+    if(resolved===undefined){
+      note='Pointer does not resolve inside policy_parameters.';
+    } else if(e.type==='vc-2.0'){
+      var expect = e.proof && e.proof.credentialSubject && e.proof.credentialSubject.digest;
+      if(expect){
+        var d='sha256:'+await sha256Hex(new TextEncoder().encode(JSON.stringify(cgCanon(resolved))));
+        if(d!==expect) structural='fail';
+      }
+      note='Digest binding checked against policy_parameters. Verifying the attestation\'s own DataIntegrityProof signature is out of scope for this fidelity checker — see the OCG Receipt Verifier for full §16 proof verification.';
+    } else if(e.type==='rfc3161-snapshot'){
+      note='Pointer resolves. Timestamp-token messageImprint/CMS-signature verification (the full §20 rfc3161-tst path) is not implemented in this tool.';
+    } else if(e.type==='c2pa-manifest'){
+      var present = e.proof!==undefined && e.proof!==null && (typeof e.proof!=='object' || Object.keys(e.proof).length>0);
+      structural = present?'pass':'fail';
+      note='C2PA manifest structural presence only — JUMBF parsing not implemented in this tool.';
+    } else if(e.type==='zktls'){
+      verifiable='external';
+      note='OCG ships no zkTLS verifier by design (SPEC §23.1).';
+    } else {
+      note='Unknown attestation type — reported present only.';
+    }
+    var freshness='undeclared';
+    if(e.freshness && e.freshness.observed_at){
+      freshness = (e.freshness.expires_at && Date.parse(e.freshness.expires_at) < Date.now()) ? 'stale' : 'fresh';
+    }
+    out.push({pointer:e.pointer, type:e.type, structural:structural, verifiable:verifiable, freshness_status:freshness, note:note});
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UI
+══════════════════════════════════════════════════════════════ */
+var FIELD_LABEL={tool_id:'tool_id', execution_hash:'execution_hash', chaingraph_version:'chaingraph_version', compute_mode:'compute_mode', keyid:'keyid (signing key)'};
+function renderField(f){
+  var cls = f.status==='pass'?'check-pass':(f.status==='fail'?'check-fail':'check-na');
+  var mark = f.status==='pass'?'✓':(f.status==='fail'?'✗':'—');
+  var detail;
+  if(f.status==='n/a') detail='not embedded in this export format (receipt value: '+escHtml(f.receipt==null?'(none)':String(f.receipt))+')';
+  else if(f.status==='pass') detail=escHtml(String(f.receipt));
+  else detail='receipt has '+escHtml(String(f.receipt))+' — export has '+escHtml(String(f.extracted));
+  return '<div class="check-row"><span class="'+cls+'">'+mark+'</span><span class="check-name">'+escHtml(FIELD_LABEL[f.field])+'</span><span class="check-detail">'+detail+'</span></div>';
+}
+function renderAtt(a){
+  var stCls = a.structural==='pass' ? 'check-pass' : 'check-fail';
+  var stMark = a.structural==='pass' ? '✓' : '✗';
+  return '<div class="check-row"><span class="'+stCls+'">'+stMark+'</span><span class="check-name">'+escHtml(a.type||'(unknown)')+'</span>'+
+    '<span class="check-detail">pointer <code>'+escHtml(a.pointer||'')+'</code> &middot; structural: '+a.structural+' &middot; verifiable: '+a.verifiable+' &middot; freshness: '+a.freshness_status+'<br>'+escHtml(a.note)+'</span></div>';
+}
+function renderResult(format, fieldReport, byteReport, attReport){
+  var out=document.getElementById('resultSection');
+  var fieldsFailed=fieldReport.filter(function(f){return f.status==='fail';});
+  var overallPass = fieldsFailed.length===0 && byteReport.pass===true;
+  var html='';
+  html+='<div class="sec-label">Result</div>';
+  html+='<div class="summary-grid">'+
+    '<div class="sg-cell"><div class="sg-lbl">Detected format</div><div class="sg-val" style="font-size:.95rem">'+escHtml(format)+'</div></div>'+
+    '<div class="sg-cell"><div class="sg-lbl">Embedded binding</div><div class="sg-val '+(fieldsFailed.length?'sg-bad':'sg-ok')+'">'+(fieldsFailed.length?fieldsFailed.length+' mismatch':'matches')+'</div></div>'+
+    '<div class="sg-cell"><div class="sg-lbl">Byte-identical re-render</div><div class="sg-val '+(byteReport.pass?'sg-ok':(byteReport.degraded?'sg-warn':'sg-bad'))+'">'+(byteReport.pass?'PASS':(byteReport.degraded?'DEGRADED':'FAIL'))+'</div></div>'+
+    '</div>';
+  html+='<div class="verdict '+(overallPass?'pass':(byteReport.degraded&&!fieldsFailed.length?'warn':'fail'))+'">'+
+    (overallPass ? '✓ PASS — this rendering faithfully corresponds to the receipt.' :
+     (byteReport.degraded ? '⚠ PARTIAL — embedded binding checked; byte re-render could not run (see detail below).' :
+      '✗ FAIL — this rendering does not faithfully correspond to the receipt (see field/byte detail below).'))+
+    '</div>';
+
+  html+='<div class="finding"><div class="finding-head"><span class="finding-title">Embedded-binding comparison</span></div><div class="check-list">'+fieldReport.map(renderField).join('')+'</div></div>';
+
+  html+='<div class="finding"><div class="finding-head"><span class="finding-title">Deterministic re-render byte-compare</span><span class="finding-status '+(byteReport.pass?'st-ok':(byteReport.degraded?'st-warn':'st-bad'))+'">'+(byteReport.pass?'PASS':(byteReport.degraded?'DEGRADED':'FAIL'))+'</span></div>'+
+    '<div class="finding-detail">'+(byteReport.pass ? 'The receipt was re-rendered into '+escHtml(format)+' using the exact same shipped exporter code, and the result is byte-identical to the uploaded file.' : escHtml(byteReport.detail||''))+'</div>'+
+    (!byteReport.pass && format==='csv' ? '<div class="exclusion-note">This checker applies the OWASP CSV-injection prefix rule when re-rendering (a field starting with = + - @ TAB gets a leading quote). The currently-shipped csv exporter does not yet apply this fix, so a receipt with such a field will legitimately byte-mismatch here until that exporter adopts the same rule.</div>' : '')+
+    '</div>';
+
+  if(attReport && attReport.length){
+    html+='<div class="finding"><div class="finding-head"><span class="finding-title">§23 Input Attestations ('+attReport.length+')</span></div><div class="check-list">'+attReport.map(renderAtt).join('')+'</div>'+
+      '<div class="exclusion-note">The execution_hash verdict is computed independently of attestation status (SPEC §23.2) — a failed or absent attestation never changes it.</div></div>';
+  }
+
+  html+='<div class="exclusion-note">This checks fidelity of the rendering only. It does not verify the receipt itself — execution_hash recomputation, audit_signature, and anchor_bindings are checked at the <a href="../chaingraph/verify.html" style="color:var(--teal)">OCG Receipt Verifier</a>, never here (OCG Standard §13.2).</div>';
+
+  out.innerHTML=html;
+}
+async function runFidelityCheckUI(){
+  var errEl=document.getElementById('runErr');
+  errEl.style.display='none'; errEl.textContent='';
+  document.getElementById('resultSection').innerHTML='';
+  var receiptText=document.getElementById('receiptInput').value.trim();
+  var file=window.__expfidArtifactFile;
+  if(!receiptText){ errEl.textContent='Paste or upload the canonical OCG receipt JSON first.'; errEl.style.display='block'; return; }
+  if(!file){ errEl.textContent='Upload the exported artifact file to check.'; errEl.style.display='block'; return; }
+  var receipt;
+  try{ receipt=JSON.parse(receiptText); }catch(e){ errEl.textContent='Receipt is not valid JSON: '+e.message; errEl.style.display='block'; return; }
+  if(receipt.policy_parameters===undefined || receipt.output_payload===undefined || receipt.execution_hash===undefined){
+    errEl.textContent='This does not look like a full OCG v0.4 artifact — policy_parameters, output_payload, and execution_hash are all required.'; errEl.style.display='block'; return;
+  }
+  var artifactBytes;
+  try{ artifactBytes=new Uint8Array(await file.arrayBuffer()); }catch(e){ errEl.textContent='Could not read the uploaded file: '+e.message; errEl.style.display='block'; return; }
+  var format=detectFormat(artifactBytes, file.name);
+  if(!format){ errEl.textContent='Could not detect the export format from the file name/contents. Supported: xlsx, csv, pdf, xbrl, vc (json).'; errEl.style.display='block'; return; }
+
+  var receiptMeta=metaBlock(receipt);
+  var extracted;
+  try{
+    if(format==='csv') extracted=extractCsvBinding(new TextDecoder('utf-8').decode(artifactBytes));
+    else if(format==='vc') extracted=extractVcBinding(new TextDecoder('utf-8').decode(artifactBytes));
+    else if(format==='xlsx') extracted=extractXlsxBinding(artifactBytes);
+    else if(format==='pdf') extracted=extractPdfBinding(artifactBytes);
+    else if(format==='xbrl') extracted=extractXbrlBinding(new TextDecoder('utf-8').decode(artifactBytes));
+  }catch(e){
+    errEl.textContent='Could not parse this file as a '+format+' export: '+e.message; errEl.style.display='block'; return;
+  }
+  var fieldReport=compareBinding(extracted, receiptMeta);
+
+  var byteReport;
+  try{
+    var rerendered;
+    if(format==='csv') rerendered=buildCsv(receipt).bytes;
+    else if(format==='vc') rerendered=buildVc(receipt).bytes;
+    else if(format==='xlsx') rerendered=buildXlsx(receipt).bytes;
+    else if(format==='pdf') rerendered=buildPdf(receipt).bytes;
+    else if(format==='xbrl') rerendered=buildXbrl(receipt, (document.getElementById('xbrlTaxonomy').value||'ocg-ext').trim()).bytes;
+    byteReport=compareBytes(rerendered, artifactBytes, format);
+  }catch(e){
+    byteReport={pass:false, degraded:true, detail:'Could not re-render this receipt as '+format+': '+e.message};
+  }
+
+  var attReport = receipt.input_attestations ? await check23(receipt) : null;
+  renderResult(format, fieldReport, byteReport, attReport);
+}
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody'), a=document.getElementById('mfstArr');
+  if(b.style.display==='none'||b.style.display===''){
+    b.style.display='block'; if(a) a.textContent='▲';
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+  } else { b.style.display='none'; if(a) a.textContent='▼'; }
+}
+var MANIFEST={"tool_id":"571-export-fidelity-checker","version":"1.0.0","title":"Export Fidelity Checker","description":"Given an exported xlsx/csv/pdf/xbrl/vc rendering and the canonical OCG v0.4 receipt it claims to come from, extracts the export's embedded binding and compares it field-by-field to the receipt, then deterministically re-renders the export from the receipt using the same shipped exporter and byte-compares. Also reports the receipt's §23 input_attestations. Zero network calls anywhere in the tool.","category":"mcp","tags":["export fidelity","chaingraph_export","xlsx","csv","pdf","xbrl","verifiable credentials","input attestations","offline checker","zero network"],"audience":["compliance","auditor","engineer","risk"],"input_schema":{"type":"object","properties":{"receipt":{"type":"object"},"export_bytes_base64":{"type":"string"},"export_format":{"type":"string","enum":["xlsx","csv","pdf","xbrl","vc"]}},"required":["receipt","export_bytes_base64"]},"output_schema":{"type":"object","properties":{"format":{"type":"string"},"binding_comparison":{"type":"array"},"byte_compare":{"type":"object"},"input_attestations_report":{"type":"array"}}},"mcp_tool_definition":{"name":"check_export_fidelity","description":"Compares an exported chaingraph_export rendering (xlsx/csv/pdf/xbrl/vc) against the canonical OCG receipt it claims to come from.","inputSchema":{"type":"object","properties":{"receipt":{"type":"object"},"export_bytes_base64":{"type":"string"},"export_format":{"type":"string"}},"required":["receipt","export_bytes_base64"]}},"execution":{"type":"browser-javascript","entry":"tools/571-export-fidelity-checker.html","function_name":"runFidelityCheckUI","timeout_ms":5000},"ap2_export":false};
+
+document.addEventListener('DOMContentLoaded', function(){
+  var zr=document.getElementById('dropReceipt'), ir=document.getElementById('fileReceiptInput');
+  zr.addEventListener('click', function(){ ir.click(); });
+  ir.addEventListener('change', function(){ if(ir.files[0]) readReceiptFile(ir.files[0]); });
+  zr.addEventListener('dragover', function(e){ e.preventDefault(); zr.classList.add('drag'); });
+  zr.addEventListener('dragleave', function(){ zr.classList.remove('drag'); });
+  zr.addEventListener('drop', function(e){ e.preventDefault(); zr.classList.remove('drag'); if(e.dataTransfer.files[0]) readReceiptFile(e.dataTransfer.files[0]); });
+
+  var za=document.getElementById('dropArtifact'), ia=document.getElementById('fileArtifactInput');
+  za.addEventListener('click', function(){ ia.click(); });
+  ia.addEventListener('change', function(){ if(ia.files[0]) setArtifactFile(ia.files[0]); });
+  za.addEventListener('dragover', function(e){ e.preventDefault(); za.classList.add('drag'); });
+  za.addEventListener('dragleave', function(){ za.classList.remove('drag'); });
+  za.addEventListener('drop', function(e){ e.preventDefault(); za.classList.remove('drag'); if(e.dataTransfer.files[0]) setArtifactFile(e.dataTransfer.files[0]); });
+});
+function readReceiptFile(file){
+  var reader=new FileReader();
+  reader.onload=function(){ document.getElementById('receiptInput').value=reader.result; document.getElementById('dropReceipt').innerHTML='Loaded: '+escHtml(file.name); };
+  reader.readAsText(file);
+}
+function setArtifactFile(file){
+  window.__expfidArtifactFile=file;
+  document.getElementById('artifactLoaded').textContent='Loaded: '+file.name+' ('+file.size+' bytes)';
+  document.getElementById('dropArtifact').innerHTML='Loaded: '+escHtml(file.name);
+}
+</script>
+</body>
+</html>
