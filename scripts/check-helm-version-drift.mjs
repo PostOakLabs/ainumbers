@@ -26,6 +26,13 @@
 // release) stays tagged and linked as-is, so this gate accepts an optional
 // "v" — it must not assume every release link is prefixed.
 //
+// HELM-SITE-LINKS-LAND-1 (2026-07-25): helm.html's download buttons now use
+// `releases/latest/download/<asset>` — version-agnostic, so the drift class
+// this gate was built for (a hand-pinned tag string going stale) can no
+// longer occur on those links. Zero version-pinned release links is the
+// EXPECTED, passing state now, not a scope error — treat it as clean rather
+// than failing "nothing to check".
+//
 // Usage:
 //   node scripts/check-helm-version-drift.mjs             strict: exit 1 on any mismatch
 //   node scripts/check-helm-version-drift.mjs --summary    counts only, exit 0
@@ -63,7 +70,7 @@ export function evaluate({ versionJsonText, helmHtmlText }) {
   while ((m = RELEASE_URL_RE.exec(helmHtmlText))) { found.add(m[1]); occurrences++; }
 
   if (occurrences === 0) {
-    return { ok: false, reason: 'helm.html has no ainumbers-helm release download/tag links to check (page structure changed — update this gate\'s scope)' };
+    return { ok: true, version: expected, linkCount: 0, versionAgnostic: true };
   }
 
   const drifted = [...found].filter((v) => v !== expected);
@@ -86,7 +93,9 @@ function main() {
 
   if (SUMMARY) {
     console.log(result.ok
-      ? `helm version-drift: ${result.version} consistent across ${result.linkCount} link(s).`
+      ? (result.versionAgnostic
+        ? `helm version-drift: helm.html links are version-agnostic, nothing to drift (current release ${result.version}).`
+        : `helm version-drift: ${result.version} consistent across ${result.linkCount} link(s).`)
       : `helm version-drift: FAIL — ${result.reason}`);
     process.exit(0);
   }
@@ -95,7 +104,11 @@ function main() {
     console.error(`✗ helm version-drift gate FAILED — ${result.reason}`);
     process.exit(1);
   }
-  console.log(`✓ helm version-drift gate clean — ${result.version} consistent across ${result.linkCount} link(s) in helm.html and helm/version.json.`);
+  if (result.versionAgnostic) {
+    console.log(`✓ helm version-drift gate clean — helm.html has no version-pinned release links (version-agnostic by design); current release ${result.version}.`);
+  } else {
+    console.log(`✓ helm version-drift gate clean — ${result.version} consistent across ${result.linkCount} link(s) in helm.html and helm/version.json.`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
