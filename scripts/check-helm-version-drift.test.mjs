@@ -41,9 +41,10 @@ test('rejects a v0.2.0 release with v0.1.0 helm.html links (the #44 drift scenar
   assert(/0\.1\.0/.test(r.reason) && /0\.2\.0/.test(r.reason), `reason should name both versions, got: ${r.reason}`);
 });
 
-test('rejects when helm.html has no release links at all (scope guard)', () => {
+test('accepts when helm.html has no version-pinned release links (version-agnostic links, e.g. releases/latest/)', () => {
   const r = evaluate({ versionJsonText: STALE_VERSION_JSON, helmHtmlText: '<p>no links here</p>' });
-  assert(r.ok === false, 'expected evaluate() to reject a page with zero release links');
+  assert(r.ok === true, 'expected evaluate() to accept a page with zero version-pinned release links as drift-free');
+  assert(r.versionAgnostic === true, 'expected the zero-link result to be flagged versionAgnostic');
 });
 
 test('rejects malformed helm/version.json', () => {
