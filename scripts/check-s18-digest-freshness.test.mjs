@@ -86,7 +86,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 129/454 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the confirmed 132/454 stale count against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -97,8 +97,11 @@ await test('reproduces the confirmed 129/454 stale count against the real commit
   }
   const { stale, fresh, total } = await computeStaleness(cg, kernelSources, sourceDigest);
   assert(total === 454, `expected 454 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 325, `expected 325 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 129, `expected 129 stale (STALE-PROOF-AUDIT-2026-07-25.md / S18-CONFIRM-1's post-#622 figure), got ${stale.length}`);
+  // 129 -> 132 post-ASSEMBLE-LAND-CONV-1 (2026-07-25): HA-CONV-1 (#627) converged art-380/378/408/236
+  // onto section-27.6 additive-only, moving their journal.kernel_digest out of freshness on purpose
+  // (old->new hashes carried forward in the ASSEMBLE-LAND-CONV-1 check-off for a later G-class prove row).
+  assert(fresh.length === 322, `expected 322 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 132, `expected 132 stale (STALE-PROOF-AUDIT-2026-07-25.md / S18-CONFIRM-1's post-#622 figure of 129, +3 net from HA-CONV-1's landing), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
