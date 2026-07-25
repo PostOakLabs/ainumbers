@@ -81,7 +81,8 @@ def get_changed_files(ref):
                 ["git", "status", "--porcelain"]):
         res = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True)
         if res.returncode != 0:
-            continue
+            print(f"  ⚠️  `{' '.join(cmd)}` failed (exit {res.returncode}) — falling back to full scan")
+            return None
         for line in res.stdout.splitlines():
             line = line.strip()
             if not line:
@@ -289,7 +290,14 @@ def main():
     args = parser.parse_args()
 
     changed = get_changed_files(args.changed) if args.changed else None
-    mode = f"incremental vs {args.changed}" if changed is not None else "full estate"
+    if not args.changed:
+        mode = "full estate"
+    elif changed is None:
+        mode = f"git failed, full scan (--changed {args.changed} requested)"
+    elif len(changed) == 0:
+        mode = f"incremental vs {args.changed} — no changes"
+    else:
+        mode = f"incremental vs {args.changed} — scanned {len(changed)} changed file(s)"
     print(f"\n=== verify_repo.py — deploy gate ({mode}) ===\n")
 
     check_pii_text(changed)
