@@ -8,12 +8,15 @@
 // is that scan: it greps tools/, guides/, chaingraph/, and the root pages for
 // network-capable JS API references and fails on anything new.
 //
-// One lawful exception is carved out by ALLOWLIST_PATHS, not scanned here at
-// all because it already has its own narrower, more precise gate:
-//   - ledger/            CONTRACT §A7 — permits exactly anchor.ainumbers.co,
-//                         enforced by scripts/check-ledger-hermetic.mjs.
-//   - (CONTRACT-A8-1's playground exception lands here when that WU ships —
-//      do not pre-add it speculatively.)
+// Lawful exceptions are carved out by ALLOWLIST_PATHS / ALLOWLIST_FILES, not
+// scanned here at all because each already has its own narrower, more
+// precise gate:
+//   - ledger/                CONTRACT §A7 — permits exactly anchor.ainumbers.co,
+//                             enforced by scripts/check-ledger-hermetic.mjs.
+//   - mcp-playground.html     CONTRACT §A8 — permits exactly mcp.ainumbers.co,
+//                             enforced by scripts/check-playground-hermetic.mjs.
+//                             SI-6 has not shipped the page yet; the entry is
+//                             a no-op until it exists.
 //
 // Baseline-shielded (same pattern as check-csp-consistency.mjs /
 // copy-hallmarks): a hit in scripts/site-egress-baseline.json is a KNOWN,
@@ -38,6 +41,9 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', 'worktrees']);
 // dedicated gate already covers them. Do not widen without a CONTRACT.md
 // amendment (per the row this gate shipped from, EGRESS-SITE-1).
 const ALLOWLIST_PATHS = ['ledger'];
+// Root-level single-file exceptions (not a directory, so ALLOWLIST_PATHS'
+// dir-only filter in walk() doesn't cover them).
+const ALLOWLIST_FILES = ['mcp-playground.html'];
 
 const PATTERNS = [
   [/\bfetch\s*\(/g, 'fetch('],
@@ -59,7 +65,7 @@ function walk(dir, out = []) {
 
 function rootHtmlFiles() {
   return readdirSync(ROOT, { withFileTypes: true })
-    .filter(e => e.isFile() && e.name.endsWith('.html'))
+    .filter(e => e.isFile() && e.name.endsWith('.html') && !ALLOWLIST_FILES.includes(e.name))
     .map(e => join(ROOT, e.name));
 }
 
@@ -139,4 +145,4 @@ if (healedFiles.length || healedExt.length) {
 }
 
 const totalBaselined = Object.values(baseFiles).reduce((s, p) => s + Object.values(p).reduce((a, b) => a + b, 0), 0);
-console.log(`check-site-egress: 0 new violations across ${files.length} scanned file(s) (${totalBaselined} baseline-shielded hit(s) in ${Object.keys(baseFiles).length} file(s); ${ALLOWLIST_PATHS.join(', ')} excluded per lawful exception).`);
+console.log(`check-site-egress: 0 new violations across ${files.length} scanned file(s) (${totalBaselined} baseline-shielded hit(s) in ${Object.keys(baseFiles).length} file(s); ${[...ALLOWLIST_PATHS, ...ALLOWLIST_FILES].join(', ')} excluded per lawful exception).`);

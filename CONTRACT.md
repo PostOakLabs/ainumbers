@@ -495,5 +495,23 @@ The `ledger/` directory in the site repo is the ONLY surface covered by this car
 
 ---
 
+## Amendment A8 — MCP Playground egress carve-out (July 2026)
+
+`mcp-playground.html` (`START-INFRA-BUILD-SPEC.md` §6, SI-6) is a hand-rolled JSON-RPC client against the live MCP Worker. An MCP playground that cannot call the MCP server is a JSON formatter — this amendment is the same shape as §A7's `ledger/` carve-out, scoped to one page and one host.
+
+### A8.1 · Scope
+`mcp-playground.html` MAY call exactly **one host**, `https://mcp.ainumbers.co`, and no other. The call MUST be **user-initiated only** — no on-load `fetch`, no auto-fire loops, no polling. No credentials, no PII, and no client storage (`sessionStorage`/`localStorage`/`cookies`/`IndexedDB`) — §0's storage prohibition is unchanged for this page; A8 relaxes egress only, not storage. Every other `tools/`, `guides/`, `chaingraph/`, and root page remains bound by §0 *Runtime* and §A4.7's browser-side zero-egress constraint, unchanged and unaffected by this section.
+
+### A8.2 · Hermetic gate
+`scripts/check-playground-hermetic.mjs` enforces that `mcp-playground.html` makes NO network calls except `https://mcp.ainumbers.co`. Modeled on `check-ledger-hermetic.mjs` (§A7.2). Until SI-6 ships the page, the gate exits 0 with a "not yet built" notice rather than failing on a missing file; once the page exists, the gate polices *what* it calls, not whether it calls anything. Wired into `scripts/preflight.mjs` and CI, same as §A7.2.
+
+### A8.3 · Registration, not duplication
+`mcp-playground.html` is added to `scripts/check-site-egress.mjs`'s lawful-exception list (`ALLOWLIST_FILES`) alongside `ledger/`'s `ALLOWLIST_PATHS` entry — the broad site-wide static egress scan (§A4.7 enforcement note) excludes it because the narrower §A8.2 gate already covers it precisely. This is registration in the existing allowlist, not a second detection mechanism.
+
+### A8.4 · CSP and worker CORS are separate concerns, not covered here
+The per-page CSP `connect-src` for `mcp-playground.html` and any Worker-side CORS change needed for a browser origin are SI-6's own build concerns (`check-csp-consistency.mjs`; CONTRACT §A4 same-push rule if the Worker changes). This amendment governs the egress carve-out only.
+
+---
+
 **END OF CONTRACT**  
 *This document is version-controlled. All deviations require a formal spec amendment and consensus from Post Oak Labs Engineering & Compliance leads.*
