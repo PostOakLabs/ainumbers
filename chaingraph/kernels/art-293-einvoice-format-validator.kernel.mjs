@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-293-einvoice-format-validator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -27,6 +27,18 @@ const FORMAT_RULES = {
   },
   'myinvois': {
     rule_set_version: 'MyInvois e-Invoice Guideline v4.3 (DRAFT-PIN, unconfirmed as of 2026-07-13)',
+    required: ['invoice_number', 'invoice_date', 'currency_code', 'seller_name', 'seller_vat_id', 'buyer_name'],
+  },
+  // Belgium mandatory B2B e-invoicing (live 2026-01-01) is a Peppol BIS 3.0 / EN 16931
+  // core profile transmitted over the Peppol network -- required-field set is the EN
+  // 16931 core, no country-specific extension fields.
+  'peppol-bis3': {
+    rule_set_version: 'Peppol BIS Billing 3.0 / EN 16931 core (confirmed for BE mandate, 2026-07-24)',
+    required: ['invoice_number', 'invoice_date', 'currency_code', 'seller_name', 'seller_vat_id', 'buyer_name'],
+  },
+  // Poland KSeF FA(3) -- the schema version live for the 2026-02 mandatory-use phase-in.
+  'ksef-fa3': {
+    rule_set_version: 'KSeF FA(3) logical structure (confirmed for PL mandate, 2026-07-24)',
     required: ['invoice_number', 'invoice_date', 'currency_code', 'seller_name', 'seller_vat_id', 'buyer_name'],
   },
 };

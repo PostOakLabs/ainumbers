@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-296-einvoice-transmission-receipt-builder';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -38,11 +38,25 @@ export function compute(pp) {
 
   const compliance_flags = ['EINVOICE_RECEIPT_ASSESSED', validated ? 'EINVOICE_RECEIPT_VALIDATED' : 'EINVOICE_RECEIPT_UNVERIFIED'];
 
+  // SPEC.md §27 human-accountability pre-transmission gate (schema-only until
+  // HA-RETRO-1 builds the enforcement consumer -- see §27.9 conformance-is-optional
+  // and §27.0 additivity: declaring these fields does not itself gate anything).
+  // release_gate_policy: the batch may not leave this node for transmission without
+  // a `reviewer`-role approval record (VAT-signer). override_gate_policy: a batch
+  // that failed the release gate can only proceed via a time-boxed emergency_override
+  // carrying its §27.6 evidence bundle.
+  const ha_wiring = {
+    release_gate_policy: 'review_required',
+    release_gate_role: 'reviewer',
+    override_gate_policy: 'emergency_override',
+    enforcement: 'schema_only_pending_HA-RETRO-1',
+  };
+
   return {
     output_payload: {
       document_sha256, embedded_xml_sha256, format,
       validated, claim_strength, format_gate_passed, vat_gate_passed,
-      routed_mandate: routed_mandate || null, steps,
+      routed_mandate: routed_mandate || null, steps, ha_wiring,
       not_legal_advice: 'Proves the transmitted document was format-validated and VAT-arithmetic-checked. Does not certify tax compliance, legal validity, or clearance-platform acceptance.',
     },
     compliance_flags,

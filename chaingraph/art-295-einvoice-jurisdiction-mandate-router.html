@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>E-Invoice Jurisdiction Mandate Router · ART-295 · OpenChainGraph · AINumbers.co</title>
-<meta name="description" content="Route a transaction to its applicable e-invoicing mandate regime, format, and transmission channel: France PDP (B2B receive obligation live 2026-09-01), Germany XRechnung, UAE PINT-AE pilot, Malaysia MyInvois. Zero network.">
+<meta name="description" content="Route a transaction to its applicable e-invoicing mandate regime, format, and transmission channel: France PDP (B2B receive obligation live 2026-09-01), Germany XRechnung, UAE PINT-AE pilot, Malaysia MyInvois, Belgium Peppol BIS 3.0 (mandatory since 2026-01-01), Poland KSeF FA(3) (mandatory-use phase-in from 2026-02-01). Zero network.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-295-einvoice-jurisdiction-mandate-router.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <script type="application/ld+json">
@@ -134,7 +134,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite · ART-295 · e-invoicing</div>
   <h1>E-Invoice Jurisdiction Mandate Router</h1>
-  <p class="sub">Deterministic lookup over a version-pinned mandate table: given supplier/buyer country, transaction type, and transaction date, routes to the applicable e-invoicing regime, format, phase status, and transmission channel. France's B2B receive obligation is live from 2026-09-01 via the PDP channel; Germany's XRechnung B2G/B2B receive obligation is already live; UAE PINT-AE and Malaysia MyInvois dates are DRAFT-PIN pending re-confirmation. Zero network.</p>
+  <p class="sub">Deterministic lookup over a version-pinned mandate table: given supplier/buyer country, transaction type, and transaction date, routes to the applicable e-invoicing regime, format, phase status, and transmission channel. France's B2B receive obligation is live from 2026-09-01 via the PDP channel; Germany's XRechnung B2G/B2B receive obligation is already live; Belgium's Peppol BIS 3.0 mandate has been live since 2026-01-01; Poland's KSeF FA(3) mandatory-use phase-in starts 2026-02-01; UAE PINT-AE and Malaysia MyInvois dates are DRAFT-PIN pending re-confirmation. Zero network.</p>
   <div style="margin-bottom:6px"><span class="flag warn">E-Invoicing</span><span class="flag info">France PDP 2026-09-01</span><span class="flag gold">4 Regimes</span><span class="flag">Zero PII</span><span class="flag purple">W3C VC §13.11</span></div>
 
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
@@ -148,6 +148,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button class="preset-btn" onclick="loadPreset('fr_pending')">France B2B (phase-in pending)</button>
       <button class="preset-btn" onclick="loadPreset('ae_pilot')">UAE PINT-AE pilot</button>
       <button class="preset-btn" onclick="loadPreset('b2c')">B2C (out of scope)</button>
+      <button class="preset-btn" onclick="loadPreset('be_mandatory')">Belgium Peppol BIS 3.0 (mandatory)</button>
+      <button class="preset-btn" onclick="loadPreset('pl_mandatory')">Poland KSeF FA(3) (mandatory)</button>
     </div>
 
     <div class="section-head">Transaction Facts</div>
@@ -281,11 +283,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 const MANIFEST = {
   "tool_id": "art-295-einvoice-jurisdiction-mandate-router",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "E-Invoice Jurisdiction Mandate Router",
   "mcp_tool_definition": {
     "name": "route_einvoice_jurisdiction_mandate",
-    "description": "Route a transaction to its applicable e-invoicing mandate regime, format, phase status, and transmission channel via a version-pinned mandate table keyed on supplier/buyer country, transaction type, and transaction date. Covers France (PDP, live 2026-09-01), Germany (XRechnung), UAE (PINT-AE pilot), Malaysia (MyInvois). Zero network, zero PII.",
+    "description": "Route a transaction to its applicable e-invoicing mandate regime, format, phase status, and transmission channel via a version-pinned mandate table keyed on supplier/buyer country, transaction type, and transaction date. Covers France (PDP, live 2026-09-01), Germany (XRechnung), UAE (PINT-AE pilot), Malaysia (MyInvois), Belgium (Peppol BIS 3.0, mandatory since 2026-01-01), Poland (KSeF FA(3), mandatory-use phase-in from 2026-02-01). Zero network, zero PII.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -300,12 +302,14 @@ const MANIFEST = {
 };
 
 function compute(pp) {
-  const TABLE_VERSION = 'einvoice-mandate-table-2026-07-13';
+  const TABLE_VERSION = 'einvoice-mandate-table-2026-07-24';
   const MANDATE_TABLE = {
     FR: { applicable_format: 'factur-x_or_ubl', mandatory_from: '2026-09-01', transmission_channel: 'PDP' },
     DE: { applicable_format: 'xrechnung', mandatory_from: '2025-01-01', transmission_channel: 'direct' },
     AE: { applicable_format: 'pint-ae', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-07-13', transmission_channel: 'direct' },
     MY: { applicable_format: 'myinvois', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-07-13', transmission_channel: 'direct' },
+    BE: { applicable_format: 'peppol-bis3', mandatory_from: '2026-01-01', transmission_channel: 'Peppol network' },
+    PL: { applicable_format: 'ksef-fa3', mandatory_from: '2026-02-01', transmission_channel: 'KSeF' },
   };
   function dateAtOrPast(dateStr, mandatoryFrom) { if (!/^\d{4}-\d{2}-\d{2}$/.test(mandatoryFrom)) return null; if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null; return dateStr >= mandatoryFrom; }
   const supplier_country = typeof pp.supplier_country === 'string' ? pp.supplier_country.trim().toUpperCase() : '';
@@ -373,6 +377,8 @@ const PRESETS = {
   fr_pending: { supplier_country: 'DE', buyer_country: 'FR', transaction_type: 'B2B', transaction_date: '2026-01-15' },
   ae_pilot: { supplier_country: 'AE', buyer_country: 'AE', transaction_type: 'B2B', transaction_date: '2026-07-13' },
   b2c: { supplier_country: 'DE', buyer_country: 'FR', transaction_type: 'B2C', transaction_date: '2026-09-15' },
+  be_mandatory: { supplier_country: 'FR', buyer_country: 'BE', transaction_type: 'B2B', transaction_date: '2026-02-01' },
+  pl_mandatory: { supplier_country: 'FR', buyer_country: 'PL', transaction_type: 'B2B', transaction_date: '2026-03-01' },
 };
 function loadPreset(n) {
   const d = PRESETS[n]; if (!d) return;
