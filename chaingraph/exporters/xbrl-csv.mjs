@@ -21,6 +21,7 @@
 // validation-rule machinery this module does not vendor (§13.14.3/.4) — this
 // emits a structurally valid, NOT independently submittable report package.
 
+import { readFileSync } from 'node:fs';
 import { metaBlock, exportFilename, csvField, flattenPayload } from './_meta.mjs';
 import { zipStore } from './zip.mjs';
 import { cgCanon } from '../kernels/_hash.mjs';
@@ -29,29 +30,48 @@ import { OCG_EXT_NAMESPACE_URI, OCG_EXT_CONCEPTS, OCG_EXT_SCHEMA_REF } from './x
 const MEDIA_TYPE = 'application/zip';
 const TABLE_COLUMNS = ['concept', 'decimals', 'entity', 'period', 'unit', 'value']; // already alphabetical
 
-// Mirrors exporters/taxonomies/eba-dpm2-xbrlcsv-corep-map.json (the human artifact) — every
-// entry_point_schemaRef / eba_qname stays NULL until populated from the published EBA DPM 2.0
-// taxonomy package. DO NOT set any of these directly; edit the JSON scaffold first, then mirror.
-const COREP_MAPS_CSV = {
-  'eba-corep-own-funds': { entry_point_schemaRef: null, fields: [{ eba_qname: null }, { eba_qname: null }, { eba_qname: null }] },
-  'eba-corep-lcr-nsfr':   { entry_point_schemaRef: null, fields: [{ eba_qname: null }, { eba_qname: null }] },
-};
+// SETTLED DISPOSITION (XBRLCSV-SSOT-1, 2026-07-26): eba-corep-* stays pending-guarded by design,
+// not by omission — the eba_qname values require an XBRL/DPM 2.0 taxonomy processor (XSD +
+// linkbase parsing) this zero-dependency repo deliberately does not carry. This is a decided
+// limit, not open work. Revival trigger is a CONDITION, never a date: it revives only if a
+// citable flat eba_qname lookup source becomes available. See the taxonomy JSON's own header:
+// exporters/taxonomies/eba-dpm2-xbrlcsv-corep-map.json.
+//
+// The taxonomy JSON is the single source of truth for the concept map (no hand-mirrored JS
+// copy) — read once at runtime. If the scaffold isn't co-located (e.g. a bundle that vendors
+// only *.mjs, never this repo's live worker path today since eba-corep-* never leaves 'pending'),
+// loadCorepMaps() falls back to null and every taxonomy id still resolves to the same guard.
+const KNOWN_COREP_TAXONOMY_IDS = ['eba-corep-own-funds', 'eba-corep-lcr-nsfr'];
 
-export const XBRL_CSV_TAXONOMIES = ['ocg-ext', ...Object.keys(COREP_MAPS_CSV)];
+function loadCorepMaps() {
+  try {
+    const url = new URL('./taxonomies/eba-dpm2-xbrlcsv-corep-map.json', import.meta.url);
+    const json = JSON.parse(readFileSync(url, 'utf8'));
+    return Object.fromEntries(
+      Object.entries(json).filter(([, v]) => v && typeof v === 'object' && 'entry_point_schemaRef' in v),
+    );
+  } catch {
+    return null;
+  }
+}
+const COREP_MAPS_CSV = loadCorepMaps();
+
+export const XBRL_CSV_TAXONOMIES = ['ocg-ext', ...KNOWN_COREP_TAXONOMY_IDS];
 
 function buildCorepCsv(taxonomyId) {
-  const map = COREP_MAPS_CSV[taxonomyId];
-  const ready = map.entry_point_schemaRef && map.fields.some((f) => f.eba_qname);
+  const map = COREP_MAPS_CSV?.[taxonomyId];
+  const ready = map && map.entry_point_schemaRef && map.fields.some((f) => f.eba_qname);
   if (ready) {
     // Not reachable today — the scaffold's eba_qname values are all null (see the JSON
     // scaffold's concept_binding_status). Left as an explicit branch so populating the
-    // scaffold + mirroring it here is the only change needed to activate this taxonomy.
+    // scaffold is the only change needed to activate this taxonomy.
     throw new Error(`EBA DPM 2.0 xBRL-CSV ${taxonomyId}: concept map reports ready but no build path is wired yet.`);
   }
   throw new Error(
-    `EBA DPM 2.0 xBRL-CSV ${taxonomyId}: concept map not populated (entry_point_schemaRef / eba_qname are null). ` +
-    `See exporters/taxonomies/eba-dpm2-xbrlcsv-corep-map.json — populate from the published EBA DPM 2.0 taxonomy ` +
-    `package; concepts must not be fabricated (OCG Standard §13.14.5). Use xbrl_csv_taxonomy="ocg-ext" in the interim.`);
+    `EBA DPM 2.0 xBRL-CSV ${taxonomyId}: pending by design, not by omission (SETTLED DISPOSITION, XBRLCSV-SSOT-1). ` +
+    `eba_qname values require an XBRL/DPM 2.0 taxonomy processor this zero-dependency repo deliberately does not ` +
+    `carry — see exporters/taxonomies/eba-dpm2-xbrlcsv-corep-map.json. Revives only if a citable flat eba_qname ` +
+    `lookup source becomes available (OCG Standard §13.14.5). Use xbrl_csv_taxonomy="ocg-ext" in the interim.`);
 }
 
 function buildOcgExtCsv(artifact) {
