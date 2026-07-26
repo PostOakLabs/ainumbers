@@ -199,6 +199,33 @@ function isConformantEvidence(record) {
   }
 }
 
+// ── (7) HA-RETRO-2 FLAGSHIP SWEEP — gate_policy wired on target chain steps ───────────────────
+// Reads graph/chains/*.json shards directly (the assembled source of truth) so this stays valid
+// whether or not chaingraph.json has been re-assembled. Each entry names the chain, the step
+// tool_id carrying the gate, and the expected gate_policy (§27.4 enum) HA-RETRO-2 wired.
+{
+  const CHAINS_DIR = resolve(HERE, '..', 'graph', 'chains');
+  const wired = [
+    { chain: 'adverse-action-notice-compliance', step: 'art-228-build-adverse-action-notice', policy: 'review_required' },
+    { chain: 'mortgage-high-cost-and-hpml-screen', step: 'art-234-test-hoepa-high-cost', policy: 'review_required' },
+    { chain: 'fair-lending-disparity-audit', step: 'art-229-compute-disparity-metrics', policy: 'review_required' },
+    { chain: 'kyb-beneficial-ownership-attribution', step: 'art-268-compute-cdd-ownership-25pct', policy: 'review_required' },
+  ];
+  const errs = [];
+  for (const w of wired) {
+    const shardPath = resolve(CHAINS_DIR, `${w.chain}.json`);
+    if (!existsSync(shardPath)) { errs.push(`${w.chain}: shard missing`); continue; }
+    const chain = JSON.parse(readFileSync(shardPath, 'utf8'));
+    const step = (chain.steps || []).find((s) => s.tool_id === w.step);
+    if (!step) { errs.push(`${w.chain}: step ${w.step} not found`); continue; }
+    if (!step.gate) { errs.push(`${w.chain}/${w.step}: no gate object`); continue; }
+    if (step.gate.gate_policy !== w.policy) errs.push(`${w.chain}/${w.step}: gate_policy is "${step.gate.gate_policy}", want "${w.policy}"`);
+    if (!POLICY.includes(step.gate.gate_policy)) errs.push(`${w.chain}/${w.step}: gate_policy "${step.gate.gate_policy}" not in haGatePolicy enum`);
+  }
+  if (errs.length) bad(`HA-RETRO-2 sweep: ${errs.join('; ')}`);
+  else ok(`HA-RETRO-2 sweep: gate_policy "review_required" present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership)`);
+}
+
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }
 console.error(`\n✗ ${fail} §27 human-accountability failure(s).`);
 process.exit(1);
