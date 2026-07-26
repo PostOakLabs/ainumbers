@@ -86,7 +86,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 132/461 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the confirmed 132/462 stale count against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -99,8 +99,12 @@ await test('reproduces the confirmed 132/461 stale count against the real commit
   // 454 -> 461 post-ASSEMBLE-LAND-PROVE8-1 (2026-07-25): landed 7 of 8 deferred nodes
   // (art-470/471/474/475/477/478/479) with groth16 compute_proof, execution_hash unchanged
   // (attaching a receipt doesn't move compute) — denominator moves, stale count doesn't.
-  assert(total === 461, `expected 461 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 329, `expected 329 fresh (calibration set), got ${fresh.length}`);
+  // 461 -> 462 post-ASSEMBLE-LAND-ART476-1 (2026-07-26): landed art-476 (S18-ART476-FIX-2 +
+  // S18-ART476-PROVE-2, PR #657) with groth16 compute_proof, kernel_digest unchanged by
+  // construction (inlined SHA-256 reproduces the same policyParametersHash) — denominator
+  // moves, stale count doesn't.
+  assert(total === 462, `expected 462 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 330, `expected 330 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 132, `expected 132 stale (STALE-PROOF-AUDIT-2026-07-25.md / S18-CONFIRM-1's post-#622 figure of 129, +3 net from HA-CONV-1's landing), got ${stale.length}`);
 });
 
