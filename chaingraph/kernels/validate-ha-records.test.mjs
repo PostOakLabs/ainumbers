@@ -217,6 +217,8 @@ function isConformantEvidence(record) {
     { chain: 'tempo-issuance', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
     { chain: 'call-report-edit-gate', step: 'art-433-call-report-rcr-capital', policy: 'review_required' },
     { chain: 'model-passport-lifecycle', step: 'art-453-model-validation-status', policy: 'review_required' },
+    { chain: 'mortgage-government-loan-fit', step: 'art-223-conforming-loan-limit', policy: 'review_required' },
+    { chain: 'insurer-rbc-action-level', step: 'art-254-compute-rbc-action-level', policy: 'escalate' },
   ];
   const errs = [];
   for (const w of wired) {
@@ -229,8 +231,8 @@ function isConformantEvidence(record) {
     if (step.gate.gate_policy !== w.policy) errs.push(`${w.chain}/${w.step}: gate_policy is "${step.gate.gate_policy}", want "${w.policy}"`);
     if (!POLICY.includes(step.gate.gate_policy)) errs.push(`${w.chain}/${w.step}: gate_policy "${step.gate.gate_policy}" not in haGatePolicy enum`);
   }
-  if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1 sweep: ${errs.join('; ')}`);
-  else ok(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1 sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control; GENIUS reserve pre-check ×4, call-report capital, model-passport review_required)`);
+  if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: ${errs.join('; ')}`);
+  else ok(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control; GENIUS reserve pre-check ×4, call-report capital, model-passport review_required; mortgage government-loan-fit review_required; insurer RBC action-level escalate)`);
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }
