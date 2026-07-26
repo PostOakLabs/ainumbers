@@ -211,6 +211,12 @@ function isConformantEvidence(record) {
     { chain: 'fair-lending-disparity-audit', step: 'art-229-compute-disparity-metrics', policy: 'review_required' },
     { chain: 'kyb-beneficial-ownership-attribution', step: 'art-268-compute-cdd-ownership-25pct', policy: 'review_required' },
     { chain: 'y9c-schedule-hc-hcr-capital', step: 'art-436-bhc-schedule-hcr-capital', policy: 'dual_control' },
+    { chain: 'genius-listing-acceptance-pack', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
+    { chain: 'fiusd-reserve-attestation', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
+    { chain: 'stablecoin-issuer-genius-mica', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
+    { chain: 'tempo-issuance', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
+    { chain: 'call-report-edit-gate', step: 'art-433-call-report-rcr-capital', policy: 'review_required' },
+    { chain: 'model-passport-lifecycle', step: 'art-453-model-validation-status', policy: 'review_required' },
   ];
   const errs = [];
   for (const w of wired) {
@@ -223,8 +229,8 @@ function isConformantEvidence(record) {
     if (step.gate.gate_policy !== w.policy) errs.push(`${w.chain}/${w.step}: gate_policy is "${step.gate.gate_policy}", want "${w.policy}"`);
     if (!POLICY.includes(step.gate.gate_policy)) errs.push(`${w.chain}/${w.step}: gate_policy "${step.gate.gate_policy}" not in haGatePolicy enum`);
   }
-  if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1 sweep: ${errs.join('; ')}`);
-  else ok(`HA-RETRO-2/HARETRO-Y9C-1 sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control)`);
+  if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1 sweep: ${errs.join('; ')}`);
+  else ok(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1 sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control; GENIUS reserve pre-check ×4, call-report capital, model-passport review_required)`);
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }
