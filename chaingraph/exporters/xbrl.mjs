@@ -84,6 +84,10 @@ export const XBRL_TAXONOMIES = [...Object.keys(TAXONOMIES), ...Object.keys(COREP
 // consumers resolve by namespace URI, not by assuming this module's XML prefix.
 export const OCG_EXT_NAMESPACE_URI = OCG_EXT_NS;
 export const OCG_EXT_CONCEPT_NAMES = Object.values(TAXONOMIES['ocg-ext'].concepts).map((c) => c.name);
+// Full concept map (payload key -> {name, type, unit}), exported so §13.14 xBRL-CSV can build
+// typed table rows (decimals/unit columns) from the SAME source instead of a second copy.
+export const OCG_EXT_CONCEPTS = TAXONOMIES['ocg-ext'].concepts;
+export const OCG_EXT_SCHEMA_REF = TAXONOMIES['ocg-ext'].schemaRef;
 
 // Build a COREP instance — or throw a clear "pending" error while unpopulated.
 function buildCorep(artifact, taxonomyId) {
