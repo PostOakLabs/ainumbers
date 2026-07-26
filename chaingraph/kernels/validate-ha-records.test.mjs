@@ -217,6 +217,22 @@ function isConformantEvidence(record) {
     { chain: 'tempo-issuance', step: 'art-06-genius-act-reserve-attestation', policy: 'review_required' },
     { chain: 'call-report-edit-gate', step: 'art-433-call-report-rcr-capital', policy: 'review_required' },
     { chain: 'model-passport-lifecycle', step: 'art-453-model-validation-status', policy: 'review_required' },
+    // HA-RETRO-3B (2026-07-26) — bucket B, 14 node-chain pairs across 7 nodes, gate objects authored
+    // from scratch (no pre-existing own-step gate) per HA-GATE-SURFACE-MEASURE-1's strict §3 target set.
+    { chain: 'mortgage-agency-pricing-and-eligibility', step: 'art-223-conforming-loan-limit', policy: 'review_required' },
+    { chain: 'life-illustration-self-support-test', step: 'art-254-compute-rbc-action-level', policy: 'escalate' },
+    { chain: 'canton-cash-leg-assurance', step: 'sim-01-lcr-nsfr-liquidity-stress-test', policy: 'escalate' },
+    { chain: 'treasury-clearing-liquidity', step: 'sim-01-lcr-nsfr-liquidity-stress-test', policy: 'escalate' },
+    { chain: 'wholesale-settlement-intraday-liquidity', step: 'sim-01-lcr-nsfr-liquidity-stress-test', policy: 'escalate' },
+    { chain: 'digital-trade-counterparty-aml', step: 'art-10-amla-transaction-typology-risk-scorer', policy: 'escalate' },
+    { chain: 'digital-trade-tbml-surveillance', step: 'art-10-amla-transaction-typology-risk-scorer', policy: 'escalate' },
+    { chain: 'treasury-clearing-onboarding', step: 'art-10-amla-transaction-typology-risk-scorer', policy: 'escalate' },
+    { chain: 'wholesale-settlement-participant-onboarding', step: 'art-10-amla-transaction-typology-risk-scorer', policy: 'escalate' },
+    { chain: 'tempo-onchain-aml', step: 'art-38-tempo-onchain-aml', policy: 'escalate' },
+    { chain: 'tempo-onchain-aml', step: 'art-10-amla-transaction-typology-risk-scorer', policy: 'escalate' },
+    { chain: 'tempo-zone-disclosure', step: 'art-38-tempo-onchain-aml', policy: 'escalate' },
+    { chain: 'aml-lookback-cycle', step: 'art-90-sanctions-screening-fit-diagnostic', policy: 'escalate' },
+    { chain: 'aml-lookback-cycle', step: 'art-97-sanctions-screening-quality-scorer', policy: 'escalate' },
   ];
   const errs = [];
   for (const w of wired) {
