@@ -13,11 +13,20 @@
 //       all null, and a simulated build against it throws a "pending" error rather than emitting
 //       a fact (mirrors exporters/xbrl.mjs buildCorep()'s guard).
 // Node 18+. Run: node chaingraph/exporters/xbrl-csv-fixtures.test.mjs
+//
+// XBRLCSV-EXPORTER-1 (2026-07-26) added a live exporter (exporters/xbrl-csv.mjs) — the block
+// below the fixture checks now runs the SAME §13.14.6 properties against its actual output,
+// not just the committed fixtures, plus a ZIP-structural check and the Annex 2 pending guard
+// via the real exporter (not a simulation). See research/XBRLCSV-EXPORTER-1-2026-07-26.md for
+// what remains unverified (no offline OIM/xBRL-CSV certified validator — §13.14.4 is EXTERNAL by
+// design; this repo is zero-dep and does not vendor one).
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cgCanon } from '../kernels/_hash.mjs';
 import { OCG_EXT_NAMESPACE_URI, OCG_EXT_CONCEPT_NAMES } from './xbrl.mjs';
+import { buildXbrlCsv } from './xbrl-csv.mjs';
+import { buildArtifact } from '../kernels/art-35-tempo-payments-business-case.kernel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = join(HERE, 'fixtures', 'xbrl-csv');
@@ -110,6 +119,93 @@ console.log('\nannex2-eba-dpm-corep.pending.json:');
   ok(threw, 'annex2: a simulated build against the unpopulated scaffold throws "pending", never emits a fact');
 }
 
+console.log('\nlive exporter (exporters/xbrl-csv.mjs) — §13.14.6 properties on ACTUAL output, not fixtures:');
+{
+  const artifact = await buildArtifact(
+    { rail: 'swift', stablecoin: 'usdc', tx_amount_usd: 25000, monthly_volume: 800, impl_months: 3 },
+    { now: '2026-06-19T00:00:00Z' },
+  );
+
+  // Minimal STORE-only ZIP reader (mirrors zip.mjs's writer) — just enough to pull the two
+  // parts back out and prove the package is a real, readable ZIP, not a check on our own writer.
+  function unzipStore(bytes) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const files = {};
+    let p = 0;
+    while (p < bytes.length && dv.getUint32(p, true) === 0x04034b50) {
+      const method = dv.getUint16(p + 8, true);
+      const size = dv.getUint32(p + 22, true);
+      const nameLen = dv.getUint16(p + 26, true);
+      const extraLen = dv.getUint16(p + 28, true);
+      const nameStart = p + 30;
+      const name = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLen));
+      const dataStart = nameStart + nameLen + extraLen;
+      files[name] = { method, data: bytes.slice(dataStart, dataStart + size) };
+      p = dataStart + size;
+    }
+    return files;
+  }
+
+  const built = buildXbrlCsv(artifact, 'ocg-ext');
+  ok(built.media_type === 'application/zip', 'live export: media_type application/zip');
+  ok(built.bytes[0] === 0x50 && built.bytes[1] === 0x4b, 'live export: bytes start with ZIP local-file-header signature (PK)');
+
+  const parts = unzipStore(built.bytes);
+  ok(!!parts['metadata.json'] && !!parts['data.csv'], 'live export: ZIP contains metadata.json + data.csv (readable by an independent unzip, not just our own writer)');
+  ok(Object.values(parts).every((f) => f.method === 0), 'live export: both parts are STORE (method 0) — no compression to independently re-implement to read them');
+
+  const liveDoc = JSON.parse(new TextDecoder().decode(parts['metadata.json'].data));
+  ok(JSON.stringify(cgCanon(liveDoc)) === JSON.stringify(liveDoc), 'live export: metadata.json is byte-identical to its own canonical (JCS) re-serialization (§13.14.1)');
+  ok(liveDoc.documentInfo?.features?.['xbrl:canonicalValues'] === true, 'live export: documentInfo.features["xbrl:canonicalValues"] === true');
+  ok(typeof liveDoc.documentInfo?.['ocg:metadata']?.execution_hash === 'string' &&
+     liveDoc.documentInfo['ocg:metadata'].execution_hash === `sha256:${artifact.execution_hash.replace(/^sha256:/, '')}`,
+     'live export: execution_hash embedded matches the source artifact, sha256:-prefixed');
+  ok(liveDoc.documentInfo?.['ocg:metadata']?.chaingraph_version === artifact.chaingraph_version,
+     'live export: chaingraph_version carried through unchanged (export mints no envelope change)');
+
+  const liveNamespaces = liveDoc.documentInfo?.namespaces ?? {};
+  const livePrefix = Object.keys(liveNamespaces).find((p) => liveNamespaces[p] === OCG_EXT_NAMESPACE_URI);
+  ok(typeof livePrefix === 'string', 'live export: documentInfo.namespaces binds a prefix to the real ocg-ext namespace URI');
+
+  const liveTableName = Object.keys(liveDoc.tables ?? {})[0];
+  const liveTable = liveDoc.tables[liveTableName];
+  const liveRowIdCol = liveTable?.rowIdColumn;
+  const liveCsv = new TextDecoder().decode(parts['data.csv'].data);
+  const liveLines = liveCsv.replace(/\r\n/g, '\n').split('\n').filter((l) => l.length > 0);
+  const liveHeader = liveLines[0].split(',');
+  const liveRows = liveLines.slice(1).map((l) => l.split(','));
+  ok(liveRows.length > 0, 'live export: data.csv has at least one data row for this real artifact');
+  const liveIdIdx = liveHeader.indexOf(liveRowIdCol);
+  const liveIds = liveRows.map((r) => r[liveIdIdx]);
+  const liveSorted = [...liveIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  ok(JSON.stringify(liveIds) === JSON.stringify(liveSorted), 'live export: data.csv rows sorted ascending by the declared row-id column');
+  const liveConceptIdx = liveHeader.indexOf('concept');
+  for (const r of liveRows) {
+    const c = r[liveConceptIdx];
+    const [prefix, local] = c.split(':');
+    ok(prefix === livePrefix && OCG_EXT_CONCEPT_NAMES.includes(local),
+      `live export: concept "${c}" resolves to a real ocg-ext taxonomy concept, never a placeholder`);
+  }
+
+  // RED before / GREEN after (JOB 3a/3b): before XBRLCSV-EXPORTER-1, exporters/xbrl-csv.mjs did
+  // not exist at all — importing it threw ERR_MODULE_NOT_FOUND (verified by hand pre-change,
+  // recorded in research/XBRLCSV-EXPORTER-1-2026-07-26.md). The imports above succeeding, and
+  // every assertion in this block passing, is the GREEN half of that pair.
+
+  // Annex 2 pending guard via the REAL exporter, not a simulation (§13.14.5).
+  let corepThrew = false;
+  try { buildXbrlCsv(artifact, 'eba-corep-own-funds'); } catch { corepThrew = true; }
+  ok(corepThrew, 'live export: eba-corep-own-funds throws "pending" through the real exporter — no fabricated EBA concept ever reaches output');
+
+  ok(!!buildXbrlCsv(artifact, 'ocg-ext').bytes.length, 'live export: deterministic run does not throw on repeat call');
+  const built2 = buildXbrlCsv(artifact, 'ocg-ext');
+  ok(JSON.stringify([...built.bytes]) === JSON.stringify([...built2.bytes]), 'live export: byte-identical on re-run for the same artifact (determinism)');
+}
+
 console.log();
-console.log(fail ? `✗ ${fail} failure(s)` : '✓ all §13.14 fixture checks pass');
+console.log(fail ? `✗ ${fail} failure(s)` : '✓ all §13.14 fixture + live-exporter checks pass');
+console.log('\nNOT verified here (SPEC.md §13.14.4 — validation is EXTERNAL by design, and this repo is');
+console.log('zero-dep so it vendors no processor): full OIM/xBRL-CSV REC 2021-10-13 structural conformance');
+console.log('(report-package JSON Schema, table-linking machinery) beyond the §13.14.6-named properties');
+console.log('checked above. Validate with a certified processor (e.g. Arelle) before any submission claim.');
 process.exitCode = fail ? 1 : 0;
