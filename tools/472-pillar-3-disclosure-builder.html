@@ -147,10 +147,18 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
     <div id="liq1-table"></div>
     <div id="liq2-table"></div>
     <p class="cite">Source: BCBS 309 Pillar 3 disclosure requirements: consolidated and enhanced framework (March 2017); BCBS 400 (December 2018). ⚠ Verify all row definitions and required disclosure frequency against BCBS 309 Annex, EBA ITS on Pillar 3 disclosures (EU), and PRA rules (UK). Rows may differ by jurisdiction.</p>
+    <div id="p3-digest-row" style="display:none;margin:.9rem 0 .2rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;word-break:break-all;color:var(--muted,#3A5270)">
+      <span style="color:var(--bright,#D4E8F8)">Disclosure export hash</span> <span id="p3-digest"></span>
+      <div style="margin-top:.3rem">This is the subject a reviewer and an attestor sign. Re-running the same figures reproduces the same hash.</div>
+    </div>
     <div class="export-row">
       <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
       <button class="exp-btn" onclick="exportMarkdown()">📄 Export Pillar 3 Markdown</button>
+      <button class="exp-btn" onclick="signDisclosure('reviewer')">🖊 Sign as reviewer</button>
+      <button class="exp-btn" onclick="signDisclosure('attestor')">🖊 Sign as attestor</button>
+      <button class="exp-btn" onclick="exportEvidencePack()">📦 Export evidence pack</button>
     </div>
+    <div id="p3-ha-status" style="margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted,#3A5270)"></div>
   </div>
 </div>
 
@@ -210,6 +218,9 @@ function buildP3(){
   };
   _lastResult=d;
   renderP3(d);
+  /* Give the disclosure its identity as soon as it exists, so the
+     hash on screen always describes the figures on screen. */
+  refreshDisclosureSubject();
 }
 
 function renderP3(d){
@@ -278,6 +289,220 @@ function buildTable(caption, rows){
 }
 
 function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+/* ══════════════════════════════════════════════════════════════
+   HA-CONV-2 — the disclosure export as an OpenChainGraph §27.6
+   subject, with reviewer and attestor legs.
+
+   A Pillar 3 disclosure is signed off by named humans before it is
+   published, but this builder previously emitted only a Policy
+   Mandate: nothing a reviewer or an attestor could put their name
+   against, and nothing the evidence desk could index. This block
+   gives the disclosure a stable identity (one hash over exactly what
+   is disclosed) and then records the sign-offs against that hash in
+   the estate's §27 dialect.
+
+   ADDITIVITY (§27.0). Everything here is new surface. buildMandateObj,
+   exportMandate and exportMarkdown are untouched, so every existing
+   consumer of the Policy Mandate export sees exactly what it saw
+   before. The §27 records reference the disclosure by hash and never
+   contain or perturb it.
+
+   WHAT THE HASH COVERS. The preimage is the DISCLOSED figures, not
+   the raw form state: the KM1/OV1/LIQ1/LIQ2 rows as published,
+   including the OV1 capital requirements and totals this tool derives
+   at 8%. Hashing the inputs alone would let a change in a derived row
+   pass unnoticed, which is the opposite of what a disclosure hash is
+   for. Canonicalisation is the estate's single JCS path.
+══════════════════════════════════════════════════════════════ */
+function assertIJson(v){
+  if(typeof v==='number'&&!Number.isFinite(v))throw new Error('non-finite number is not I-JSON');
+  if(Array.isArray(v)){v.forEach(assertIJson);}
+  else if(v&&typeof v==='object'){Object.keys(v).forEach(function(k){assertIJson(v[k]);});}
+  return v;
+}
+function cgCanon(v){
+  if(Array.isArray(v))return v.map(cgCanon);
+  if(v&&typeof v==='object'){
+    var out={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)out[k]=cgCanon(v[k]);});
+    return out;
+  }
+  return v;
+}
+async function executionHash(policy_parameters,output_payload){
+  var obj={policy_parameters:policy_parameters,output_payload:output_payload};
+  assertIJson(obj);
+  var bytes=new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  var digest=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+var B58_ALPHABET='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(bytes){
+  var zeros=0;while(zeros<bytes.length&&bytes[zeros]===0)zeros++;
+  var digits=[0];
+  for(var i=zeros;i<bytes.length;i++){
+    var carry=bytes[i];
+    for(var j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=(carry/58)|0;}
+    while(carry){digits.push(carry%58);carry=(carry/58)|0;}
+  }
+  var out='';for(var k=0;k<zeros;k++)out+='1';
+  for(var q=digits.length-1;q>=0;q--)out+=B58_ALPHABET[digits[q]];
+  return out;
+}
+function b58decode(str){
+  var zeros=0;while(zeros<str.length&&str[zeros]==='1')zeros++;
+  var bytes=[0];
+  for(var i=zeros;i<str.length;i++){
+    var carry=B58_ALPHABET.indexOf(str[i]);if(carry<0)throw new Error('bad base58 char');
+    for(var j=0;j<bytes.length;j++){carry+=bytes[j]*58;bytes[j]=carry&0xff;carry>>=8;}
+    while(carry){bytes.push(carry&0xff);carry>>=8;}
+  }
+  var out=new Uint8Array(zeros+bytes.length);
+  for(var k=0;k<bytes.length;k++)out[zeros+bytes.length-1-k]=bytes[k];
+  return out;
+}
+var ED25519_MULTICODEC=[0xed,0x01];
+var P3_ROLE_KEYS={};
+async function ensureRoleKey(role){
+  if(P3_ROLE_KEYS[role])return P3_ROLE_KEYS[role];
+  try{
+    var kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+    var raw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+    var prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+    prefixed.set(ED25519_MULTICODEC,0);prefixed.set(raw,ED25519_MULTICODEC.length);
+    P3_ROLE_KEYS[role]={kp:kp,did:'did:key:z'+b58encode(prefixed),available:true};
+  }catch(e){
+    P3_ROLE_KEYS[role]={kp:null,did:null,available:false,error:String(e&&e.message||e)};
+  }
+  return P3_ROLE_KEYS[role];
+}
+function jcsBytes(obj){return new TextEncoder().encode(JSON.stringify(cgCanon(obj)));}
+async function sha256Bytes(bytes){return new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));}
+function haProofOptions(o){
+  return{type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',verificationMethod:o.verificationMethod,proofPurpose:'assertionMethod',created:o.created};
+}
+async function haHashData(doc,opts){
+  var optHash=await sha256Bytes(jcsBytes(opts));
+  var docHash=await sha256Bytes(jcsBytes(doc));
+  var cat=new Uint8Array(optHash.length+docHash.length);
+  cat.set(optHash,0);cat.set(docHash,optHash.length);
+  return cat;
+}
+function unsecured(record){var c=JSON.parse(JSON.stringify(record));delete c.audit_signature;return c;}
+var SESSION_KEY_NOTE='Signed with a session-scoped browser key. This proves the record shape and the hashes, not that a particular named officer acted. Bind a real §9 identity in production use.';
+
+/* The disclosure itself, as a §4 artifact. This is the §27.6 subject. */
+function disclosureArtifact(d){
+  var cr_cap=d.cr_rwa*0.08, mr_cap=d.mr_rwa*0.08, or_cap=d.or_rwa*0.08;
+  var policy_parameters={
+    bank_name:d.bank_name,period:d.period,
+    templates:['KM1','OV1','LIQ1','LIQ2'],
+    disclosure_basis:['BCBS 309 (March 2017)','BCBS 400 (December 2018)'],
+    ov1_capital_requirement_pct:8,
+  };
+  var output_payload={
+    km1:{cet1_ratio_pct:d.cet1_ratio,t1_ratio_pct:d.t1_ratio,tc_ratio_pct:d.tc_ratio,total_rwa_m:d.rwa,cet1_capital_m:d.cet1_cap,t1_capital_m:d.t1_cap,total_capital_m:d.tc_cap,lr_pct:d.lr_pct,total_exposure_m:d.total_exp,lcr_pct:d.lcr_pct,nsfr_pct:d.nsfr_pct},
+    ov1:{cr_rwa_m:d.cr_rwa,mr_rwa_m:d.mr_rwa,or_rwa_m:d.or_rwa,cr_capital_m:cr_cap,mr_capital_m:mr_cap,or_capital_m:or_cap,total_rwa_m:d.cr_rwa+d.mr_rwa+d.or_rwa,total_capital_m:cr_cap+mr_cap+or_cap},
+    liq1:{hqla_m:d.hqla_m,gross_outflows_m:d.gross_out,net_inflows_m:d.net_inf,nco_m:d.nco,lcr_pct:d.lcr_pct},
+    liq2:{asf_m:d.asf_m,rsf_m:d.rsf_m,surplus_m:d.nsfr_surp,nsfr_pct:d.nsfr_pct},
+  };
+  return{
+    chaingraph_version:'0.4.0',
+    mandate_type:'pillar3_disclosure',
+    tool_id:'472-pillar-3-disclosure-builder',tool_version:'1.0.0',
+    policy_parameters:policy_parameters,output_payload:output_payload,
+    compute_mode:'client_side_browser',compute_proof_ready:'deferred',
+  };
+}
+
+var P3_SUBJECT=null;      // the disclosure artifact, hash included
+var P3_RECORDS=[];        // §27.2 records filed against it
+
+async function refreshDisclosureSubject(){
+  if(!_lastResult){P3_SUBJECT=null;P3_RECORDS=[];return null;}
+  var art=disclosureArtifact(_lastResult);
+  art.execution_hash=await executionHash(art.policy_parameters,art.output_payload);
+  /* A sign-off is against a specific set of figures. If the figures
+     change, previously collected records no longer describe what is
+     on screen, so they are dropped rather than silently re-pointed. */
+  if(!P3_SUBJECT||P3_SUBJECT.execution_hash!==art.execution_hash)P3_RECORDS=[];
+  P3_SUBJECT=art;
+  var row=document.getElementById('p3-digest-row');
+  if(row){row.style.display='block';document.getElementById('p3-digest').textContent=art.execution_hash;}
+  renderHaStatus();
+  return art;
+}
+
+async function signDisclosure(role){
+  if(!_lastResult){alert('Run the builder first.');return;}
+  await refreshDisclosureSubject();
+  var rk=await ensureRoleKey(role);
+  var timestamp=new Date().toISOString();
+  var identity={id:rk.available?rk.did:'urn:ainumbers:unsigned-'+role};
+  var output_payload={record_type:'approval',role:role,subject_hash:P3_SUBJECT.execution_hash,identity:identity,decision:role==='attestor'?'attested':'reviewed',timestamp:timestamp};
+  var policy_parameters={subject_hash:P3_SUBJECT.execution_hash,record_type:'approval',role:role};
+  var record={
+    chaingraph_version:'0.4.0',
+    mandate_type:'human_accountability_record',
+    tool_id:'472-pillar-3-disclosure-builder',tool_version:'1.0.0',
+    generated_at:timestamp,
+    policy_parameters:policy_parameters,output_payload:output_payload,
+    execution_hash:await executionHash(policy_parameters,output_payload),
+    compute_mode:'client_side_browser',compute_proof_ready:'deferred',
+  };
+  if(rk.available){
+    var vm=rk.did+'#'+rk.did.slice('did:key:'.length);
+    var opts=haProofOptions({verificationMethod:vm,created:timestamp});
+    var sig=new Uint8Array(await crypto.subtle.sign({name:'Ed25519'},rk.kp.privateKey,await haHashData(unsecured(record),opts)));
+    record.audit_signature={payloadType:'application/vnd.openchain.graph+json;version=0.4',proof:Object.assign({},opts,{proofValue:'z'+b58encode(sig)}),conformant:true,note:SESSION_KEY_NOTE};
+  }else{
+    record.audit_signature={payloadType:'application/vnd.openchain.graph+json;version=0.4',conformant:false,note:'Ed25519 unavailable in this browser (SubtleCrypto): '+rk.error+'. This record is NOT conformant §27 evidence, which requires a signature bound to a named human.'};
+  }
+  /* §27.3 counts identities, not records: re-signing in the same role
+     replaces that role's record instead of inflating the count. */
+  P3_RECORDS=P3_RECORDS.filter(function(r){return r.output_payload.role!==role;});
+  P3_RECORDS.push(record);
+  renderHaStatus();
+}
+
+/* §27.6 haEvidenceBundle — same field mapping as the shipped
+   chaingraph/kernels/_haevidence.mjs assembler, so the pack this page
+   exports is the shape the evidence desk already reads. */
+function assembleEvidenceBundle(subjectHash,records){
+  var forSubject=records.filter(function(r){return r.output_payload.subject_hash===subjectHash;});
+  var reviewers=forSubject.filter(function(r){return r.output_payload.record_type==='approval'&&r.output_payload.role==='reviewer';}).map(function(r){return r.output_payload.identity.id;});
+  var approvers=forSubject.filter(function(r){return r.output_payload.record_type==='approval'&&r.output_payload.role!=='reviewer';}).map(function(r){return r.output_payload.identity.id;});
+  var timestamps=forSubject.map(function(r){return r.output_payload.timestamp;});
+  var bundle={subject_hash:subjectHash};
+  if(reviewers.length)bundle.reviewers=reviewers;
+  if(approvers.length)bundle.approvers=approvers;
+  if(timestamps.length)bundle.timestamps=timestamps;
+  bundle.verification_result=(reviewers.length&&approvers.length)?'reviewed_and_attested':'incomplete_sign_off';
+  return bundle;
+}
+
+function renderHaStatus(){
+  var el=document.getElementById('p3-ha-status');
+  if(!el)return;
+  if(!P3_SUBJECT){el.textContent='';return;}
+  var roles=P3_RECORDS.map(function(r){return r.output_payload.role;});
+  var missing=['reviewer','attestor'].filter(function(x){return roles.indexOf(x)===-1;});
+  el.textContent=missing.length
+    ? 'Sign-off outstanding: '+missing.join(' and ')+'. The evidence pack will export and will say the sign-off is incomplete.'
+    : 'Reviewer and attestor records collected against this disclosure hash.';
+}
+
+function exportEvidencePack(){
+  if(!_lastResult){alert('Run the builder first.');return;}
+  if(!P3_SUBJECT){alert('Run the builder first.');return;}
+  var pack={
+    disclosure_artifact:P3_SUBJECT,
+    human_accountability_records:P3_RECORDS,
+    evidence_bundle:assembleEvidenceBundle(P3_SUBJECT.execution_hash,P3_RECORDS),
+  };
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('pillar3-evidence-pack_'+ts+'.json',JSON.stringify(pack,null,2),'application/json');
+}
 
 function buildMandateObj(d){
   var now=new Date().toISOString();
