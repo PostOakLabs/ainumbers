@@ -199,10 +199,10 @@ function isConformantEvidence(record) {
   }
 }
 
-// ── (7) HA-RETRO-2 FLAGSHIP SWEEP — gate_policy wired on target chain steps ───────────────────
+// ── (7) HA-RETRO-2 / HARETRO-Y9C-1 FLAGSHIP SWEEP — gate_policy wired on target chain steps ────
 // Reads graph/chains/*.json shards directly (the assembled source of truth) so this stays valid
 // whether or not chaingraph.json has been re-assembled. Each entry names the chain, the step
-// tool_id carrying the gate, and the expected gate_policy (§27.4 enum) HA-RETRO-2 wired.
+// tool_id carrying the gate, and the expected gate_policy (§27.4 enum) wired onto it.
 {
   const CHAINS_DIR = resolve(HERE, '..', 'graph', 'chains');
   const wired = [
@@ -210,6 +210,7 @@ function isConformantEvidence(record) {
     { chain: 'mortgage-high-cost-and-hpml-screen', step: 'art-234-test-hoepa-high-cost', policy: 'review_required' },
     { chain: 'fair-lending-disparity-audit', step: 'art-229-compute-disparity-metrics', policy: 'review_required' },
     { chain: 'kyb-beneficial-ownership-attribution', step: 'art-268-compute-cdd-ownership-25pct', policy: 'review_required' },
+    { chain: 'y9c-schedule-hc-hcr-capital', step: 'art-436-bhc-schedule-hcr-capital', policy: 'dual_control' },
   ];
   const errs = [];
   for (const w of wired) {
@@ -222,8 +223,8 @@ function isConformantEvidence(record) {
     if (step.gate.gate_policy !== w.policy) errs.push(`${w.chain}/${w.step}: gate_policy is "${step.gate.gate_policy}", want "${w.policy}"`);
     if (!POLICY.includes(step.gate.gate_policy)) errs.push(`${w.chain}/${w.step}: gate_policy "${step.gate.gate_policy}" not in haGatePolicy enum`);
   }
-  if (errs.length) bad(`HA-RETRO-2 sweep: ${errs.join('; ')}`);
-  else ok(`HA-RETRO-2 sweep: gate_policy "review_required" present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership)`);
+  if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1 sweep: ${errs.join('; ')}`);
+  else ok(`HA-RETRO-2/HARETRO-Y9C-1 sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control)`);
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }

@@ -39429,6 +39429,46 @@
           "handoff": "Exports composite settlement-asset artifact with execution_hash (H3) -- final stage"
         }
       ]
+    },
+    {
+      "name": "y9c-schedule-hc-hcr-capital",
+      "domain": "Bank Capital & Credit Risk",
+      "title": "FR Y-9C Schedule HC to HC-R Capital Chain",
+      "spec_version": "0.8.0",
+      "wave": 71,
+      "description": "Gated two-step chain for top-tier bank holding companies (Y-9C panel, total consolidated assets >= $3B). Step 1 maps caller-declared Schedule HC balance-sheet line items into Schedule HC totals and checks the balance-sheet identity. Step 2 consumes those totals alongside caller-supplied capital components to compute Schedule HC-R capital ratios and the supplementary leverage ratio, gated dual_control(2) before the capital-adequacy result is treated as final -- any failed capital-ratio or SLR threshold requires two distinct approver sign-offs (recorded, not yet runtime-gated pending HA-RETRO-1 wiring).",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/y9c-schedule-hc-hcr-capital.html",
+      "regulatory_refs": [
+        "FR Y-9C (Financial Statements for Holding Companies) Schedule HC",
+        "FR Y-9C Schedule HC-R (Regulatory Capital)",
+        "eSLR final rule, published 2025-12-01, effective 2026-04-01"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-435-bhc-schedule-hc-balance-sheet",
+          "handoff": "Schedule HC totals (total assets, total liabilities, total equity capital) feed Schedule HC-R capital-ratio computation"
+        },
+        {
+          "tool_id": "art-436-bhc-schedule-hcr-capital",
+          "handoff": "CET1/Tier1/Total capital ratios and SLR against caller-declared, version-pinned minimums. Final stage.",
+          "gate": {
+            "input": "/ratios/total_capital_pass",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "end",
+            "gate_policy": "dual_control",
+            "gate_threshold": {
+              "role": "approver",
+              "threshold": 2
+            }
+          }
+        }
+      ]
     }
   ],
   "chains_schema": "https://ainumbers.co/schema/chaingraph-chains-v1.0.json",
