@@ -395,7 +395,10 @@ function parseStatement(xml){
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
   if(doc.querySelector('parsererror')) throw new Error('camt.053 XML did not parse: check for a malformed tag or unescaped character.');
-  const root = doc.documentElement;
+  const docEl = doc.documentElement;
+  let root = null;
+  Array.from(docEl.children).forEach(c => { if(localName(c) === 'BkToCstmrStmt') root = c; });
+  if(!root) throw new Error('camt.053 XML is missing the BkToCstmrStmt envelope under Document.');
   const structuralErrors = validateCamt053Structural(root);
   if(structuralErrors.length) {
     const e = new Error('camt.053 failed schema-subset validation: ' + structuralErrors.map(x => x.path+' ('+x.rule+')').join('; '));
@@ -408,7 +411,7 @@ function parseStatement(xml){
   const ccy = queryPath(root, 'Stmt/Acct/Ccy')[0];
 
   let stmtNode = null;
-  Array.from(root.children).forEach(cstmr => { Array.from(cstmr.children).forEach(c => { if(localName(c) === 'Stmt') stmtNode = c; }); });
+  Array.from(root.children).forEach(c => { if(localName(c) === 'Stmt') stmtNode = c; });
   const balEls = Array.from(stmtNode.children).filter(c => localName(c) === 'Bal');
   const ntryEls = Array.from(stmtNode.children).filter(c => localName(c) === 'Ntry');
 
