@@ -182,6 +182,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-label">Load a review bundle (optional, SPEC §27.4 gate-consumer)</div>
+    <p class="hero-sub" style="margin-bottom:10px;">Paste <code>{"artifact":{...}, "gate":{"gate_policy":"dual_control","gate_threshold":{"role":"approver","threshold":2}}, "records":[...]}</code>: a chain step's declared gate alongside the artifact it guards and any §27.2 records already collected. Only <code>artifact</code> is required. Loading a bundle runs the same hash verification as above, then evaluates the declared gate automatically. This is an evidence recorder, never a blocker; nothing below disables verification or export.</p>
+    <textarea id="haBundleInput" placeholder='{"artifact": {...}, "gate": {"gate_policy": "dual_control", "gate_threshold": {"role": "approver", "threshold": 2}}, "records": []}'></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="haLoadBundle()">Load &amp; review bundle</button>
+    </div>
+  </div>
+
   <div class="error-box" id="errorBox"></div>
 
   <div id="result">
@@ -215,6 +224,14 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="card" id="haCard">
       <div class="card-label">Human accountability (SPEC §27)</div>
       <p class="hero-sub" style="margin-bottom:14px;">Sign an approval/rejection/override record for this artifact, evaluate whether its <code>haGatePolicy</code> precondition is currently satisfied, and assemble a §27.6 evidence bundle. Everything below runs client-side, and no data leaves your browser.</p>
+
+      <div id="haDeclaredGateCard" class="hash-block" style="display:none;margin-bottom:20px;">
+        <div class="card-label" style="margin-top:0;">0. Declared gate (from loaded bundle)</div>
+        <div class="hash-row"><div class="hash-lbl">gate_policy</div><div class="hash-val" id="haDeclaredGatePolicy"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="haDeclaredGateStatus"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Reason</div><div class="hash-val" id="haDeclaredGateReason" style="color:var(--text);"></div></div>
+        <p class="hero-sub" style="margin:8px 0 0;font-size:.68rem;">Non-blocking: this reflects the declared gate's evidentiary state at load time. It never disables signing, verification, or export below. Add approval records in step 1 (or paste more into the records box in step 2) and click "Load &amp; review bundle" again to re-evaluate.</p>
+      </div>
 
       <div class="card-label" style="margin-top:4px;">1. Approval record</div>
       <div class="btn-row" style="margin-top:0; margin-bottom:10px; gap:14px; align-items:flex-end;">
@@ -680,6 +697,88 @@ function haToggleAnchorRow() {
   document.getElementById('haAnchorRow').style.display = show ? 'block' : 'none';
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   §5 HA-GATE-CONSUMER — declared-gate evidence-recorder wiring.
+   Re-homes any JSON.parse()d object onto a null-prototype target before
+   this file's code reads its keys, so a pasted {"__proto__":{...}} record
+   can never arm a later Object.assign/spread onto a real object's chain
+   (same pattern as helm/ui/lib/custom-connectors.mjs's parseJson — read-only
+   reference, not a code dependency). Applied one level deep (top-level
+   bundle, the gate object, and each record) since __haBuildBundle() below
+   already spreads/collects fields off individual records.
+   ───────────────────────────────────────────────────────────────── */
+function __haReHome(o) {
+  return (o && typeof o === 'object' && !Array.isArray(o)) ? Object.assign(Object.create(null), o) : o;
+}
+function __haSafeParseBundle(text) {
+  const parsed = JSON.parse(text);
+  const bundle = __haReHome(parsed);
+  if (bundle && bundle.gate) bundle.gate = __haReHome(bundle.gate);
+  if (bundle && Array.isArray(bundle.records)) bundle.records = bundle.records.map(__haReHome);
+  return bundle;
+}
+
+// Last declared-gate verdict this page evaluated, or null if none was ever
+// declared/evaluated. Read by __haBuildBundle() so the §27.6 evidence bundle
+// always states satisfied / held / never-evaluated — never silently omits it.
+let __haDeclaredVerdict = null;
+
+function haLoadBundle() {
+  try {
+    const raw = document.getElementById('haBundleInput').value.trim();
+    if (!raw) { showError('Paste a bundle JSON first — {"artifact":{...}} at minimum.'); return; }
+    const bundle = __haSafeParseBundle(raw);
+    if (!bundle || typeof bundle !== 'object' || !bundle.artifact) {
+      showError('Bundle JSON must have a top-level "artifact" object.');
+      return;
+    }
+
+    const records = Array.isArray(bundle.records) ? bundle.records : [];
+    document.getElementById('artifactInput').value = JSON.stringify(bundle.artifact, null, 2);
+    document.getElementById('haRecordsInput').value = records.length ? JSON.stringify(records, null, 2) : '';
+
+    // Reuses the existing, unchanged hash-verification flow — loading a
+    // bundle never bypasses or duplicates it.
+    runVerify();
+
+    const declaredCard = document.getElementById('haDeclaredGateCard');
+    const policyEl = document.getElementById('haDeclaredGatePolicy');
+    const statusEl = document.getElementById('haDeclaredGateStatus');
+    const reasonEl = document.getElementById('haDeclaredGateReason');
+
+    if (!bundle.gate || !bundle.gate.gate_policy) {
+      __haDeclaredVerdict = null;
+      declaredCard.style.display = 'block';
+      policyEl.textContent = 'none declared';
+      statusEl.textContent = 'NOT EVALUATED';
+      statusEl.className = 'hash-val';
+      reasonEl.textContent = 'This bundle carries no gate.gate_policy — nothing to evaluate.';
+      hideError();
+      return;
+    }
+
+    const artifact = bundle.artifact;
+    const gatePolicy = bundle.gate.gate_policy;
+    const gateThreshold = bundle.gate.gate_threshold;
+    const threshold = gateThreshold && Number.isFinite(gateThreshold.threshold) ? gateThreshold.threshold : undefined;
+    const role = (gateThreshold && typeof gateThreshold.role === 'string' && gateThreshold.role) || 'approver';
+
+    executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
+      const subjectHash = 'sha256:' + hex;
+      const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+      __haDeclaredVerdict = result;
+      declaredCard.style.display = 'block';
+      policyEl.textContent = gatePolicy + (threshold ? '(' + threshold + ')' : '');
+      statusEl.textContent = result.status.toUpperCase();
+      statusEl.className = 'hash-val' + (result.satisfied ? '' : (result.status === 'rejected' ? ' mismatch' : ''));
+      reasonEl.textContent = result.reason;
+      hideError();
+    }).catch((e) => { showError('Declared-gate evaluation failed: ' + e.message); });
+  } catch (e) {
+    showError('Load bundle failed: ' + e.message);
+  }
+}
+
 function haEvaluateGate() {
   try {
     const artifact = __haCurrentArtifact();
@@ -687,7 +786,7 @@ function haEvaluateGate() {
     const threshold = parseInt(document.getElementById('haThreshold').value, 10);
     const role = document.getElementById('haRole').value.trim() || 'approver';
     const recordsRaw = document.getElementById('haRecordsInput').value.trim();
-    const records = recordsRaw ? JSON.parse(recordsRaw) : [];
+    const records = recordsRaw ? (JSON.parse(recordsRaw) || []).map(__haReHome) : [];
     executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
       const subjectHash = 'sha256:' + hex;
       const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
@@ -704,7 +803,7 @@ function haEvaluateGate() {
 function __haBuildBundle() {
   const artifact = __haCurrentArtifact();
   const recordsRaw = document.getElementById('haRecordsInput').value.trim();
-  const records = recordsRaw ? JSON.parse(recordsRaw) : [];
+  const records = recordsRaw ? (JSON.parse(recordsRaw) || []).map(__haReHome) : [];
   return executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
     const subjectHash = 'sha256:' + hex;
     const forSubject = records.filter((r) => r.subject_hash === subjectHash);
@@ -721,6 +820,14 @@ function __haBuildBundle() {
     if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
     if (artifact.tool_version) bundle.kernel_version = artifact.tool_version;
     if (artifact.chaingraph_version) bundle.policy_version = artifact.chaingraph_version;
+    // §5 HA-GATE-CONSUMER: always states the declared gate's evidentiary
+    // state — satisfied / held / rejected / escalate / override_active, or
+    // not_evaluated when no bundle.gate was ever declared/loaded — so a
+    // downstream reviewer or the offline verifier never has to guess whether
+    // the gate was checked at all.
+    const gv = __haDeclaredVerdict;
+    const verdictLine = gv ? `ha_gate_verdict:${gv.status}:${gv.policy_applied}` : 'ha_gate_verdict:not_evaluated';
+    bundle.annotations = (bundle.annotations || []).concat([verdictLine]);
     return bundle;
   });
 }
