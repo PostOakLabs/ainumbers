@@ -235,6 +235,14 @@ function isConformantEvidence(record) {
     { chain: 'tempo-zone-disclosure', step: 'art-38-tempo-onchain-aml', policy: 'escalate' },
     { chain: 'aml-lookback-cycle', step: 'art-90-sanctions-screening-fit-diagnostic', policy: 'escalate' },
     { chain: 'aml-lookback-cycle', step: 'art-97-sanctions-screening-quality-scorer', policy: 'escalate' },
+    // ASSURANCE-GATES-1 (2026-07-26) — A-shape appends (gate_policy added to a pre-existing own-step
+    // gate) + B-shape authored gates (no pre-existing gate on that step) across the assurance family.
+    { chain: 'einvoice-validation-pipeline', step: 'art-293-einvoice-format-validator', policy: 'review_required' },
+    { chain: 'einvoice-validation-pipeline', step: 'art-294-einvoice-vat-calc-verifier', policy: 'review_required' },
+    { chain: 'dora-escalation-demo', step: 'art-29-dora-readiness-diagnostic', policy: 'escalate' },
+    { chain: 'dora-resilience', step: 'art-29-dora-readiness-diagnostic', policy: 'escalate' },
+    { chain: 'globe-annual-cycle', step: 'art-456-globe-safe-harbour-tests', policy: 'review_required' },
+    { chain: 'substantive-procedure-cycle', step: 'art-465-workpaper-bundle-composer', policy: 'escalate' },
   ];
   const errs = [];
   for (const w of wired) {
