@@ -2083,7 +2083,13 @@ MUST carry a §16 whole-artifact proof bound to the named human (an unsigned app
 conformant §27 evidence — exactly the §22.11 rule for resume artifacts). Because the record only *references*
 `subject_hash` and never contains the subject's preimage, it has **zero impact on the subject's hash or
 canonicalization**: the accountability trail is portable, tamper-evident, and offline-verifiable rather than
-a row locked inside one vendor's queue.
+a row locked inside one vendor's queue. **`reason_code` is an OPEN vocabulary (NORMATIVE clarification).**
+`$defs/humanAccountabilityRecord.reason_code` is an unconstrained `string` with no `enum`, and §27
+deliberately leaves it open: rationale tokens are deployment- and regime-specific, so an implementation MAY
+mint a machine-stable token (for example `ARTIFACT_BINDING_VERIFIED`) WITHOUT a spec or schema change, and a
+verifier MUST NOT reject a record for carrying an unrecognised one. The ONLY closed §27 enums are
+`record_type` (this section), `role` (§27.1), and `$defs/haGatePolicy` (§27.4) — those three are what §27.9
+machine-checks for closure, and adding a value to any of them IS a spec change.
 
 **§27.3 Dual control and thresholds (NORMATIVE — in-toto integer threshold).** A gate MAY require **N
 distinct role-bound identities** to have signed approval records over the SAME `subject_hash` before it is
@@ -2106,6 +2112,34 @@ hard predicate evaluated before the routing rules, and an unmet precondition hol
 with §21.4 without changing its evaluator: the policy is a precondition ANNOTATION consumed by the
 accountability layer, the §21.4 `_gateval.mjs` routing math is untouched, and a chain with no HA policy
 evaluates byte-identically to today.
+
+**Non-node gate subjects (NORMATIVE, additive — new in v0.8.13).** A §27.4 gate's subject need NOT be
+produced by executing a §12 kernel node. An implementation MAY apply a gate policy to an **attested
+artifact**: the sealed output of a pinned non-OCG producer (a browser tool, a report builder — a surface with
+a content-addressed manifest but no kernel, no node, and no chain). Most reporting artifacts in practice have
+no chain, so admitting this subject class is what lets §27 evidence them at all. The subject is identified by
+an `execution_hash` computed on the ONE canonical path (§4, the single `_hash.mjs` `cgCanon`, RFC 8785/JCS —
+never a second canon), with the preimage fixed EXACTLY and exhaustively as the three-member object
+
+`execution_hash = sha256( JCS( { tool_ref, inputs_digest, artifact } ) )`
+
+where **`tool_ref`** pins the producer as `{ tool_id, tool_version, entry, manifest_digest }` —
+`manifest_digest` is the chainless analogue of the §17 `kernel_digest`, and is what makes the producer, not
+merely the output, tamper-evident; **`inputs_digest`** is the JCS digest of the producer's inputs; and
+**`artifact`** is `{ content_type, content_digest }` over the sealed output. **No wall clock, no run
+identifier, no host or session state may enter this preimage** — the value MUST be recomputable offline from
+those three members alone, by a verifier that never executed the producer. The `subject_hash` of every
+approval record over such a subject is this value, `sha256:`-prefixed, exactly as §27.2 requires; the gate
+predicate, §27.3 thresholds, §27.5 override semantics, and §27.6 bundles are evaluated unchanged.
+
+This is a SUBJECT-IDENTIFICATION rule ONLY. It introduces no envelope member, changes no existing
+`execution_hash` preimage, and leaves §27.0 additivity and `chaingraph_version` `"0.4.0"` intact; a verifier
+that ignores §27 is unaffected. ⚠ **Stated limit, normative:** an attested-artifact subject carries NO §18
+compute proof and NO §16/§17 re-execution claim. It evidences producer pinning, input binding, and content
+integrity — never that the producer's arithmetic is correct. Such a subject MUST NOT be reported as
+`replay_verified`, and omitting that flag (rather than setting it `false`) is the honest encoding, since no
+replay was attempted. A surface MUST NOT claim §27 conformance for a non-node subject whose
+`execution_hash` was derived by any preimage other than the one fixed above.
 
 **§27.5 Override and waiver (NORMATIVE — time-boxed §22.10 attenuation + mandatory evidence).** An
 `emergency_override` is NOT an unconditional bypass. It is a **time-boxed §22.10 attenuated mandate** paired
