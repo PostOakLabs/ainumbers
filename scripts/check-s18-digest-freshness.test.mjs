@@ -103,9 +103,13 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // S18-ART476-PROVE-2, PR #657) with groth16 compute_proof, kernel_digest unchanged by
   // construction (inlined SHA-256 reproduces the same policyParametersHash) — denominator
   // moves, stale count doesn't.
+  // 132 -> 131 post-ASSEMBLE-LAND-ART336-1 (2026-07-26): landed art-336 (S18-ART336-FIX-1 +
+  // S18-ART336-PROVE-1, PR #655) — kernel source moved b1cf4e50->65a08e84 and the reprove
+  // receipt now matches it, so compute_ltv_ratios (art-336) drops out of stale. Named,
+  // node-by-node: this is the only node that moved.
   assert(total === 462, `expected 462 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 330, `expected 330 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 132, `expected 132 stale (STALE-PROOF-AUDIT-2026-07-25.md / S18-CONFIRM-1's post-#622 figure of 129, +3 net from HA-CONV-1's landing), got ${stale.length}`);
+  assert(fresh.length === 331, `expected 331 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
