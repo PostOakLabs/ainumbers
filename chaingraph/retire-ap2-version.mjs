@@ -25,6 +25,23 @@
  * NOTE (flagged separately, NOT done here): art-17's validator still REQUIRES ap2_version in pasted
  * mandates and CONTRACT §3.1 lists it — those are a follow-up rubric/schema decision, not this strip.
  *
+ * ── 2026-07-27 (EXPORTREQ-FIX-1): the deliberate "don't touch validator arrays" carve-out above had
+ * a consequence this script did not anticipate. On the 10 pages that BUILD their own §4 artifact and
+ * then self-validate it, the emitter and the required-fields list are the same object's two halves.
+ * Stripping only the emitter left `req=['ap2_version',…]` asserting a field the artifact no longer
+ * carries, so `AP2Schema.validate()` threw `Error: AP2 §4: ap2_version` — uncaught, no toast, no
+ * download. Verified live in-browser on all 10 (AP2VER-VERIFY-1, research/AP2VER-VERIFY-1-2026-07-27.md).
+ * Pattern D below closes that gap: it removes the retired field from a SELF-validation required-fields
+ * array only. The correct direction is REMOVE, not re-add — re-introducing the emitter would resurrect
+ * exactly the false AP2-conformance implication this script exists to retire. The post-fix shape is
+ * byte-identical to the already-correct v0.4 pages (art-27:452, art-15/16/18).
+ *
+ * Pattern D still does NOT touch art-17's grading rubric: that page validates OTHER people's pasted
+ * mandates and its list is domain logic, not a self-check (it is also a `_warn`, not a `_fail`).
+ * SKIP_FILES exempts art-29, whose emitter and requirement are mutually CONSISTENT (it still sets the
+ * field at :470) — it exports successfully today and is explicitly out of scope for EXPORTREQ-FIX-1.
+ * Retiring art-29's residue is a separate, deliberate decision, not a side effect of this run.
+ *
  * SCOPE: HTML pages and kernel files (.kernel.mjs) under repo/chaingraph/, searched recursively (source).
  * After --apply, re-vendor with `node generate.mjs` so the worker bundle (mcp-apps-poc/) matches,
  * and commit data/ + kernels/ in the SAME push (CONTRACT §A4). worker.mjs emission is edited by hand.
@@ -52,8 +69,15 @@ const INLINE = /([,{])[ \t]*ap2_version:[ \t]*(['"])\d+\.\d+(?:\.\d+)?\2,/g;
 //    Restricted to a 3-part value so it can NEVER match art-17's spaced 2-part input placeholder
 //    `"ap2_version": "1.0"`. Targets the art-38/39/40 Tempo pages' minified artifact objects.
 const JSON_INLINE = /,"ap2_version":"\d+\.\d+\.\d+"/g;
+// D) SELF-validation required-fields array member (EXPORTREQ-FIX-1). Anchored to the array literal's
+//    OPENING BRACKET of a `req` / `requiredFields` assignment, so it can only ever remove the retired
+//    field from a page's own §4 self-check. It cannot reach art-17's rubric (`_warn` domain logic on
+//    pasted third-party mandates, not a `req=[` assignment) or any `'ap2_version' in m` style check.
+const REQ_ARRAY = /((?:\bvar\s+)?(?:req|requiredFields)\s*=\s*\[\s*)(['"])ap2_version\2,\s*/g;
 
 const SKIP_DIRS = new Set(['okf', 'node_modules', '.git', 'exporters', 'fixtures', 'taxonomies']);
+// art-29 emits AND requires the field consistently — it exports fine. Out of scope (see header note).
+const SKIP_FILES = new Set(['art-29-dora-readiness-diagnostic.html']);
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     if (SKIP_DIRS.has(name)) continue;
@@ -73,6 +97,7 @@ const log = [];
 let filesChanged = 0, totalRemoved = 0;
 
 for (const f of targets) {
+  if (SKIP_FILES.has(basename(f))) continue;
   let text;
   try { text = readFileSync(f, 'utf8'); } catch { continue; }
   const orig = text;
@@ -82,10 +107,12 @@ for (const f of targets) {
   for (const m of text.matchAll(LINE_START))  hits.push(m[0].trim());
   for (const m of text.matchAll(INLINE))      hits.push(m[0].replace(/^[,{]/, '').trim());
   for (const m of text.matchAll(JSON_INLINE)) hits.push(m[0].replace(/^,/, '').trim());
+  for (const m of text.matchAll(REQ_ARRAY))   hits.push(`req[] member ${m[2]}ap2_version${m[2]}`);
 
   text = text.replace(LINE_START, '$1');
   text = text.replace(INLINE, '$1');
   text = text.replace(JSON_INLINE, '');
+  text = text.replace(REQ_ARRAY, '$1');
 
   // Anomaly guard: any bare-key ap2_version emission left behind in an UNHANDLED value/form.
   const residue = /(^|[,{])\s*ap2_version:\s*['"][^'"]*['"]/m.test(text);
