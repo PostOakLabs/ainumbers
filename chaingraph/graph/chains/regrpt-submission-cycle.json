@@ -1,0 +1,49 @@
+{
+      "name": "regrpt-submission-cycle",
+      "domain": "Bank Capital & Credit Risk",
+      "title": "Regulatory Report Submission Cycle (Published Edit Checks)",
+      "description": "Two-step pre-submission cycle over a report instance and a freely published rule set. Step 1 evaluates the instance against policy-supplied validity and quality edits, keyed by the published edit identifier, and records which deactivated rules were suppressed so a stood-down rule cannot produce a false failure. Step 2 computes period-over-period variance per line item against policy-supplied materiality thresholds and flags which movements require a written explanation. Step 1 is gated hold on any hard-rule failure, and in that state the cycle stops before a submission bundle is produced. Step 2 is gated dual_control(2) for filing release, satisfied by a preparer and a distinct signing-officer approver; a flagged material movement carrying no explanation annotation holds the release for review, and the submitter identity is recorded separately at transmission. The bundle is the filer's own evidence and does not satisfy any issuer's submission requirement.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/regrpt-submission-cycle.html",
+      "regulatory_refs": [
+        "FFIEC Call Report validation criteria (validity and quality edits)",
+        "EBA implementing technical standards validation-rules list"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-484-regrpt-editcheck-runner",
+          "handoff": "Per-rule pass/fail keyed by the published edit identifier, with failing cell references and computed-versus-reported values, feeds the variance stage",
+          "gate": {
+            "input": "/summary/overall_pass",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "art-485-regrpt-variance-explainer",
+            "gate_policy": "hold"
+          }
+        },
+        {
+          "tool_id": "art-485-regrpt-variance-explainer",
+          "handoff": "Ranked material movements and the explained/unexplained split close the submission-evidence bundle under dual control. Final stage.",
+          "gate": {
+            "input": "/summary/all_material_explained",
+            "rules": [
+              {
+                "op": "eq",
+                "value": false,
+                "next": "end"
+              }
+            ],
+            "default": "end",
+            "gate_policy": "dual_control",
+            "gate_threshold": {
+              "role": "approver",
+              "threshold": 2
+            }
+          }
+        }
+      ]
+    }

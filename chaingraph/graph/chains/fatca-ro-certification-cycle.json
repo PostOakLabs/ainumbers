@@ -1,0 +1,45 @@
+{
+      "name": "fatca-ro-certification-cycle",
+      "domain": "Financial Crime & KYC",
+      "title": "Responsible-Officer Certification Cycle (FATCA / CRS)",
+      "description": "Two-step certification-period cycle over the institution's own submission file, the notifications returned against it, and its remediation records. Step 1 evaluates the submission against a policy-supplied schema and business-rule set -- element sequencing and cardinality, mandatory identifiers, and message and document reference uniqueness across corrected and voided records -- keyed by the published error code and element path, with a suppression list so stood-down rules cannot produce false findings. Step 2 triages the returned notification set against the firm's remediation records: open, closed or overdue per notification, which corrected message closes which error, closure coverage, and a readiness verdict against the declared cut-off. Step 1 is gated review_required once findings exist, with the compliance officer as reviewer, because a disclosed-and-corrected failure is a reviewed act rather than an automatic one. Step 2 is gated hold while any error remains unremediated past its policy cut-off. The certification itself carries an approval record bound to the Responsible Officer identity, which is the approver role named exactly as the regulation names it. Free validators already check these files; what this cycle adds is a sealed, offline-verifiable chain from submission errors through remediation to that named signature. The bundle is the institution's own evidence and does not satisfy an IRS or competent-authority requirement.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/fatca-ro-certification-cycle.html",
+      "regulatory_refs": [
+        "FATCA Responsible Officer certification of compliance (Treas. Reg. 1.1471-4(f)(3))",
+        "IRS FATCA XML schema and ICMM notifications; OECD CRS XML and Status Message schemas"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-490-fatca-crs-submission-check",
+          "handoff": "Per-finding pass/fail keyed by published error code and element path, with the applied suppressions recorded, feeds the remediation-closure stage",
+          "gate": {
+            "input": "/fail_count",
+            "rules": [
+              {
+                "op": "gt",
+                "value": 0,
+                "next": "art-491-ro-remediation-closure"
+              }
+            ],
+            "default": "art-491-ro-remediation-closure",
+            "gate_policy": "review_required"
+          }
+        },
+        {
+          "tool_id": "art-491-ro-remediation-closure",
+          "handoff": "Open, closed and overdue determinations per notification, resubmission linkage, closure coverage and the certification-period readiness verdict close the certification evidence bundle. Final stage.",
+          "gate": {
+            "input": "/readiness_verdict",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "NOT_READY",
+                "next": "end"
+              }
+            ],
+            "default": "end",
+            "gate_policy": "hold"
+          }
+        }
+      ]
+    }
