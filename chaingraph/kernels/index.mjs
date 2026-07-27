@@ -415,6 +415,8 @@ import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs
 import * as art484    from './art-484-regrpt-editcheck-runner.kernel.mjs';
 import * as art485    from './art-485-regrpt-variance-explainer.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
+import * as art490    from './art-490-fatca-crs-submission-check.kernel.mjs';
+import * as art491    from './art-491-ro-remediation-closure.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
 import * as art52     from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
@@ -896,6 +898,8 @@ export const KERNELS = {
   'art-484-regrpt-editcheck-runner':                          art484,
   'art-485-regrpt-variance-explainer':                        art485,
   'art-49-clearing-access-model-selector':                    art49,
+  'art-490-fatca-crs-submission-check':                       art490,
+  'art-491-ro-remediation-closure':                           art491,
   'art-50-ficc-margin-netting-estimator':                     art50,
   'art-51-cross-margining-benefit-estimator':                 art51,
   'art-52-digital-trade-fit-diagnostic':                      art52,
