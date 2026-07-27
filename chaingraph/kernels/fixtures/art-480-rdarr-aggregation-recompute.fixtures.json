@@ -1,0 +1,365 @@
+{
+  "tool_id": "art-480-rdarr-aggregation-recompute",
+  "note": "Synthetic RDARR extract vectors: netted counterparty positions with an excluded line and a nonzero delta (vector-1), an exact-match clean roll-up with no netting (vector-2), and an UNMAPPED-line case exercising the implicit unmapped bucket (vector-3). golden_hash empty until first `node golden-parity.test.mjs --update`.",
+  "vectors": [
+    {
+      "name": "netted-with-exclusion-and-delta",
+      "policy_parameters": {
+        "base_currency": "USD",
+        "reported_figure": 5000,
+        "aggregation_policy": {
+          "exclude_flagged": true,
+          "netting": {
+            "enabled": true,
+            "by": "counterparty"
+          },
+          "rounding": {
+            "decimal_places": 2,
+            "mode": "half_up"
+          }
+        },
+        "hierarchy": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Credit Risk RWA"
+          },
+          {
+            "node_id": "RETAIL",
+            "parent_node_id": "ROOT",
+            "label": "Retail"
+          },
+          {
+            "node_id": "CORP",
+            "parent_node_id": "ROOT",
+            "label": "Corporate"
+          }
+        ],
+        "extract": [
+          {
+            "line_id": "L1",
+            "node_id": "RETAIL",
+            "counterparty": "CP-A",
+            "amount": 2000,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          },
+          {
+            "line_id": "L2",
+            "node_id": "RETAIL",
+            "counterparty": "CP-A",
+            "amount": -500,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          },
+          {
+            "line_id": "L3",
+            "node_id": "CORP",
+            "counterparty": "CP-B",
+            "amount": 3000,
+            "currency": "EUR",
+            "fx_rate_to_base": 1.08,
+            "include": true
+          },
+          {
+            "line_id": "L4",
+            "node_id": "CORP",
+            "counterparty": "CP-C",
+            "amount": 400,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": false
+          }
+        ]
+      },
+      "output_payload": {
+        "base_currency": "USD",
+        "reported_figure": "5000.00",
+        "recomputed_figure": "4740.00",
+        "delta": "-260.00",
+        "delta_pct": "-5.20",
+        "lines_included": 3,
+        "lines_excluded": 1,
+        "netting_applied": true,
+        "netting_sets": [
+          {
+            "netting_key": "RETAIL::CP-A",
+            "line_count": 2,
+            "gross_value": "2500.00",
+            "net_value": "1500.00"
+          },
+          {
+            "netting_key": "CORP::CP-B",
+            "line_count": 1,
+            "gross_value": "3240.00",
+            "net_value": "3240.00"
+          }
+        ],
+        "contribution_breakdown": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Credit Risk RWA",
+            "value": "4740.00",
+            "contribution_pct": "100.00"
+          },
+          {
+            "node_id": "CORP",
+            "parent_node_id": "ROOT",
+            "label": "Corporate",
+            "value": "3240.00",
+            "contribution_pct": "68.35"
+          },
+          {
+            "node_id": "RETAIL",
+            "parent_node_id": "ROOT",
+            "label": "Retail",
+            "value": "1500.00",
+            "contribution_pct": "31.65"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "not_proven": [
+          {
+            "item": "Extract accuracy",
+            "detail": "Every extract line and FX rate is caller-supplied and asserted. This kernel performs no market-data or source-system lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Reported-figure correctness",
+            "detail": "The reported figure is a caller-supplied comparison point, not validated independently. A signed delta is reported exactly as computed, with no correctness or materiality judgement attached."
+          },
+          {
+            "item": "Data quality",
+            "detail": "This kernel performs arithmetic recomputation only. Completeness, referential integrity, timeliness, reconciliation coverage, and manual-adjustment ratio are scored separately by art-481-rdarr-quality-scorecard."
+          },
+          {
+            "item": "Materiality",
+            "detail": "Whether a computed delta is material is a policy/governance judgement outside this kernel's scope — it is never emitted as a kernel output."
+          }
+        ],
+        "fence": "FX rates and extract lines are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs under the declared aggregation policy and attests THAT — never an opinion on extract or reported-figure correctness, never a data-quality assessment (see art-481), never a materiality judgement (zero-egress by contract)."
+      },
+      "golden_hash": "be16a474d4471da4aef5663aedeb714659c39a0da2f44ead558bdad2c375ed87"
+    },
+    {
+      "name": "exact-match-no-netting",
+      "policy_parameters": {
+        "base_currency": "USD",
+        "reported_figure": 10000,
+        "aggregation_policy": {
+          "exclude_flagged": true,
+          "netting": {
+            "enabled": false
+          },
+          "rounding": {
+            "decimal_places": 2,
+            "mode": "half_up"
+          }
+        },
+        "hierarchy": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Market Risk RWA"
+          },
+          {
+            "node_id": "FX",
+            "parent_node_id": "ROOT",
+            "label": "FX Risk"
+          },
+          {
+            "node_id": "RATES",
+            "parent_node_id": "ROOT",
+            "label": "Interest Rate Risk"
+          }
+        ],
+        "extract": [
+          {
+            "line_id": "L1",
+            "node_id": "FX",
+            "amount": 4000,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          },
+          {
+            "line_id": "L2",
+            "node_id": "RATES",
+            "amount": 6000,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          }
+        ]
+      },
+      "output_payload": {
+        "base_currency": "USD",
+        "reported_figure": "10000.00",
+        "recomputed_figure": "10000.00",
+        "delta": "0.00",
+        "delta_pct": "0.00",
+        "lines_included": 2,
+        "lines_excluded": 0,
+        "netting_applied": false,
+        "netting_sets": [],
+        "contribution_breakdown": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Market Risk RWA",
+            "value": "10000.00",
+            "contribution_pct": "100.00"
+          },
+          {
+            "node_id": "RATES",
+            "parent_node_id": "ROOT",
+            "label": "Interest Rate Risk",
+            "value": "6000.00",
+            "contribution_pct": "60.00"
+          },
+          {
+            "node_id": "FX",
+            "parent_node_id": "ROOT",
+            "label": "FX Risk",
+            "value": "4000.00",
+            "contribution_pct": "40.00"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "not_proven": [
+          {
+            "item": "Extract accuracy",
+            "detail": "Every extract line and FX rate is caller-supplied and asserted. This kernel performs no market-data or source-system lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Reported-figure correctness",
+            "detail": "The reported figure is a caller-supplied comparison point, not validated independently. A signed delta is reported exactly as computed, with no correctness or materiality judgement attached."
+          },
+          {
+            "item": "Data quality",
+            "detail": "This kernel performs arithmetic recomputation only. Completeness, referential integrity, timeliness, reconciliation coverage, and manual-adjustment ratio are scored separately by art-481-rdarr-quality-scorecard."
+          },
+          {
+            "item": "Materiality",
+            "detail": "Whether a computed delta is material is a policy/governance judgement outside this kernel's scope — it is never emitted as a kernel output."
+          }
+        ],
+        "fence": "FX rates and extract lines are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs under the declared aggregation policy and attests THAT — never an opinion on extract or reported-figure correctness, never a data-quality assessment (see art-481), never a materiality judgement (zero-egress by contract)."
+      },
+      "golden_hash": "4913ca81022712c5e3692c16f68b13ff709c6c38439f0e950e56be3fe965c8b3"
+    },
+    {
+      "name": "unmapped-line-present",
+      "policy_parameters": {
+        "base_currency": "USD",
+        "reported_figure": 1200,
+        "aggregation_policy": {
+          "exclude_flagged": true,
+          "netting": {
+            "enabled": false
+          },
+          "rounding": {
+            "decimal_places": 2,
+            "mode": "half_up"
+          }
+        },
+        "hierarchy": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Operational Risk Capital"
+          },
+          {
+            "node_id": "OPS",
+            "parent_node_id": "ROOT",
+            "label": "Operations Division"
+          }
+        ],
+        "extract": [
+          {
+            "line_id": "L1",
+            "node_id": "OPS",
+            "amount": 800,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          },
+          {
+            "line_id": "L2",
+            "node_id": "UNKNOWN_NODE",
+            "amount": 500,
+            "currency": "USD",
+            "fx_rate_to_base": 1,
+            "include": true
+          }
+        ]
+      },
+      "output_payload": {
+        "base_currency": "USD",
+        "reported_figure": "1200.00",
+        "recomputed_figure": "1300.00",
+        "delta": "100.00",
+        "delta_pct": "8.33",
+        "lines_included": 2,
+        "lines_excluded": 0,
+        "netting_applied": false,
+        "netting_sets": [],
+        "contribution_breakdown": [
+          {
+            "node_id": "ROOT",
+            "parent_node_id": null,
+            "label": "Total Operational Risk Capital",
+            "value": "800.00",
+            "contribution_pct": "61.54"
+          },
+          {
+            "node_id": "OPS",
+            "parent_node_id": "ROOT",
+            "label": "Operations Division",
+            "value": "800.00",
+            "contribution_pct": "61.54"
+          },
+          {
+            "node_id": "UNMAPPED",
+            "parent_node_id": null,
+            "label": "Lines with no hierarchy mapping",
+            "value": "500.00",
+            "contribution_pct": "38.46"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "not_proven": [
+          {
+            "item": "Extract accuracy",
+            "detail": "Every extract line and FX rate is caller-supplied and asserted. This kernel performs no market-data or source-system lookups (zero-egress) and does not verify these values against any external source."
+          },
+          {
+            "item": "Reported-figure correctness",
+            "detail": "The reported figure is a caller-supplied comparison point, not validated independently. A signed delta is reported exactly as computed, with no correctness or materiality judgement attached."
+          },
+          {
+            "item": "Data quality",
+            "detail": "This kernel performs arithmetic recomputation only. Completeness, referential integrity, timeliness, reconciliation coverage, and manual-adjustment ratio are scored separately by art-481-rdarr-quality-scorecard."
+          },
+          {
+            "item": "Materiality",
+            "detail": "Whether a computed delta is material is a policy/governance judgement outside this kernel's scope — it is never emitted as a kernel output."
+          }
+        ],
+        "fence": "FX rates and extract lines are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs under the declared aggregation policy and attests THAT — never an opinion on extract or reported-figure correctness, never a data-quality assessment (see art-481), never a materiality judgement (zero-egress by contract)."
+      },
+      "golden_hash": "6b0d47089a5454b804fdea7786be45698b53b2dce3acfb53d49bb7ca3eed1595"
+    }
+  ]
+}

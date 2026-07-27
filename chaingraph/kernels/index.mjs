@@ -412,8 +412,8 @@ import * as art477    from './art-477-intraday-liquidity-monitoring.kernel.mjs';
 import * as art478    from './art-478-analyze-dc-vs-lc-cost-benefit.kernel.mjs';
 import * as art479    from './art-479-compare-receivables-finance-economics.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
-import * as art486    from './art-486-cscf-control-applicability.kernel.mjs';
-import * as art487    from './art-487-assessor-independence-check.kernel.mjs';
+import * as art480    from './art-480-rdarr-aggregation-recompute.kernel.mjs';
+import * as art481    from './art-481-rdarr-quality-scorecard.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
@@ -893,8 +893,8 @@ export const KERNELS = {
   'art-478-analyze-dc-vs-lc-cost-benefit':                    art478,
   'art-479-compare-receivables-finance-economics':            art479,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
-  'art-486-cscf-control-applicability':                       art486,
-  'art-487-assessor-independence-check':                      art487,
+  'art-480-rdarr-aggregation-recompute':                      art480,
+  'art-481-rdarr-quality-scorecard':                          art481,
   'art-49-clearing-access-model-selector':                    art49,
   'art-50-ficc-margin-netting-estimator':                     art50,
   'art-51-cross-margining-benefit-estimator':                 art51,
