@@ -45,6 +45,7 @@ const GATES = [
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
+  ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Unassembled-shard scan (ASSEMBLE-COVER-1, advisory)', 'node scripts/check-shard-assembly.mjs'],

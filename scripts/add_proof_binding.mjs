@@ -25,6 +25,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { analyseHtml } from './check-canon-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -83,6 +84,14 @@ function transform(html) {
     ['buildArtifact(', 'buildArtifact('],
   ];
   for (const [label, token] of need) if (!html.includes(token)) return { skip: `missing anchor: ${label}` };
+
+  // This injector never CREATES the OCG-CANON block — it only anchors off one that
+  // add_proof_binding_universal.mjs already placed, and it never repositions it. So a
+  // page whose canon sits after a load-time consumer would have its bad layout cemented
+  // rather than repaired (CANON-ORDER-1). Refuse instead: fix the ordering first.
+  if (analyseHtml(html).violates) {
+    return { skip: 'OCG-CANON block is mis-ordered — run scripts/check-canon-order.mjs and fix placement first' };
+  }
 
   let out = html;
 
