@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { findLoadTimeCanonConsumer } from './check-canon-order.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -150,14 +151,35 @@ function injectWindowGetters(html) {
   return out;
 }
 
-// ── OCG-CANON v1 + OCG-PROOF v1 injection (before </body>) ───────────────────
-// Uses lastIndexOf to avoid hitting </body> inside document.write() strings.
+// Offset of the <script> tag that first consumes a canon identifier at load time,
+// i.e. where CANON has to be inserted. -1 when the page has no load-time consumer.
+function canonInsertOffset(html) {
+  const hit = findLoadTimeCanonConsumer(html);
+  return hit ? hit.tagStart : -1;
+}
+
+// ── OCG-CANON v1 + OCG-PROOF v1 injection ────────────────────────────────────
+// CANON must land BEFORE the first script block that consumes it at load time.
+// Classic <script> blocks do not share hoisting, so a canon block spliced in at
+// </body> leaves a load-time `(function init(){ ... __ocgCanonStr(...) })()` in an
+// earlier block throwing ReferenceError — which silently kills the whole §4
+// surface (CANON-ORDER-1). PROOF is only ever reached from button handlers, so it
+// keeps its </body> position; canon preceding it satisfies its __ocgCanon use a
+// fortiori.
+// Uses lastIndexOf for </body> to avoid hitting one inside document.write() strings.
 function injectCanonAndProof(html) {
   if (html.includes(CANON_MARK)) return html; // already has canon
   const bodyClose = '</body>';
   const idx = html.lastIndexOf(bodyClose);
   if (idx === -1) return html;
-  return html.slice(0, idx) + CANON_BLOCK + '\n' + PROOF_BLOCK + '\n' + html.slice(idx);
+
+  const canonAt = canonInsertOffset(html);
+  if (canonAt === -1 || canonAt > idx) {
+    // No load-time consumer — the historical placement is correct for this page.
+    return html.slice(0, idx) + CANON_BLOCK + '\n' + PROOF_BLOCK + '\n' + html.slice(idx);
+  }
+  return html.slice(0, canonAt) + CANON_BLOCK + '\n' + html.slice(canonAt, idx)
+       + PROOF_BLOCK + '\n' + html.slice(idx);
 }
 
 // ── UI script injection (before </body>, after proof blocks) ──────────────────
