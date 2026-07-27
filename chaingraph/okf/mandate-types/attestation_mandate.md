@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "attestation_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"attestation_mandate\"."
-tags: ["attestation_mandate", "count-13"]
+tags: ["attestation_mandate", "count-18"]
 timestamp: 2026-07-14
 ---
 
 # attestation_mandate
 
-13 tool(s) in this mandate-type group:
+18 tool(s) in this mandate-type group:
 
 - [On-Chain Cash-Leg Finality Checker](../tools/506-onchain-cash-leg-finality-checker.md)
 - [GENIUS Act Reserve Attestation Pre-Check](../tools/art-06-genius-act-reserve-attestation.md)
@@ -23,3 +23,8 @@ timestamp: 2026-07-14
 - [Cyber Incident Notification Clock](../tools/art-428-cyber-incident-clock.md)
 - [Workpaper Bundle Composer](../tools/art-465-workpaper-bundle-composer.md)
 - [DORA ICT Incident Classifier & Reporting Clock](../tools/art-467-dora-incident-classifier.md)
+- [RDARR Aggregation Recompute](../tools/art-480-rdarr-aggregation-recompute.md)
+- [RDARR Quality Scorecard](../tools/art-481-rdarr-quality-scorecard.md)
+- [EMIR Trade-Repository Reconciliation Adjudicator](../tools/art-482-emir-recon-adjudicator.md)
+- [EMIR Reconciliation Break Ageing](../tools/art-483-emir-break-ageing.md)
+- [FATCA/CRS RO Remediation Closure Tracker](../tools/art-491-ro-remediation-closure.md)

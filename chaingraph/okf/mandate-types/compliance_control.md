@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-25"]
+tags: ["compliance_control", "count-27"]
 timestamp: 2026-07-14
 ---
 
 # compliance_control
 
-25 tool(s) in this mandate-type group:
+27 tool(s) in this mandate-type group:
 
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -35,3 +35,5 @@ timestamp: 2026-07-14
 - [AML Lookback Completeness Reconciler](../tools/art-470-lookback-completeness-reconciler.md)
 - [AML Disposition Sampling Frame Builder](../tools/art-471-disposition-sampling-frame.md)
 - [Agent Payment Mandate Cross-Protocol Mapper](../tools/art-476-map-agent-payment-mandate.md)
+- [Model Replication Diff](../tools/art-488-model-replication-diff.md)
+- [Model Test Battery](../tools/art-489-model-test-battery.md)

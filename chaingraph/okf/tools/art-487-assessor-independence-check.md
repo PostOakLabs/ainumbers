@@ -1,10 +1,10 @@
 ---
 type: DecisionTool
 title: "Swift CSP Assessor Independence Eligibility"
-description: "Checks eligibility of a Swift CSCF Independent Assessment Framework assessment: route (internal 2nd/3rd line vs external) against a policy-supplied permitted-routes table, claimed assessor certifications against a policy-supplied required set, a distinct-identity independence test over a declared identity set, and assessment-date validity against the attestation deadline. Returns eligible/ineligible with the first failing predicate named."
+description: "Checks eligibility of a Swift CSCF Independent Assessment Framework assessment: assessment route (internal 2nd/3rd line vs external) against a policy-supplied permitted-routes-per-architecture-type table, claimed assessor certifications against a policy-supplied required set, an independence-from-implementer test over a declared identity set using distinct-identity counting so one person wearing two hats cannot satisfy both sides, and assessment-date validity against the attestation deadline. Returns eligible/ineligible with the first failing predicate named. Not an accreditation of the assessor and not a Swift endorsement -- an eligibility check over the firm's own declared facts."
 resource: https://ainumbers.co/chaingraph/art-487-assessor-independence-check.html
-tags: ["compliance_mandate", "swift", "cscf", "mcp:check_assessor_independence"]
-timestamp: 2026-07-27
+tags: ["compliance_mandate", "wave-66", "mcp:check_assessor_independence"]
+timestamp: 2026-07-14
 ---
 
 # Swift CSP Assessor Independence Eligibility

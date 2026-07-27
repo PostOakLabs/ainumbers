@@ -412,9 +412,19 @@ import * as art477    from './art-477-intraday-liquidity-monitoring.kernel.mjs';
 import * as art478    from './art-478-analyze-dc-vs-lc-cost-benefit.kernel.mjs';
 import * as art479    from './art-479-compare-receivables-finance-economics.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
+import * as art480    from './art-480-rdarr-aggregation-recompute.kernel.mjs';
+import * as art481    from './art-481-rdarr-quality-scorecard.kernel.mjs';
+import * as art482    from './art-482-emir-recon-adjudicator.kernel.mjs';
+import * as art483    from './art-483-emir-break-ageing.kernel.mjs';
+import * as art484    from './art-484-regrpt-editcheck-runner.kernel.mjs';
+import * as art485    from './art-485-regrpt-variance-explainer.kernel.mjs';
+import * as art486    from './art-486-cscf-control-applicability.kernel.mjs';
+import * as art487    from './art-487-assessor-independence-check.kernel.mjs';
 import * as art488    from './art-488-model-replication-diff.kernel.mjs';
 import * as art489    from './art-489-model-test-battery.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
+import * as art490    from './art-490-fatca-crs-submission-check.kernel.mjs';
+import * as art491    from './art-491-ro-remediation-closure.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
 import * as art52     from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
@@ -893,9 +903,19 @@ export const KERNELS = {
   'art-478-analyze-dc-vs-lc-cost-benefit':                    art478,
   'art-479-compare-receivables-finance-economics':            art479,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
+  'art-480-rdarr-aggregation-recompute':                      art480,
+  'art-481-rdarr-quality-scorecard':                          art481,
+  'art-482-emir-recon-adjudicator':                           art482,
+  'art-483-emir-break-ageing':                                art483,
+  'art-484-regrpt-editcheck-runner':                          art484,
+  'art-485-regrpt-variance-explainer':                        art485,
+  'art-486-cscf-control-applicability':                       art486,
+  'art-487-assessor-independence-check':                      art487,
   'art-488-model-replication-diff':                           art488,
   'art-489-model-test-battery':                               art489,
   'art-49-clearing-access-model-selector':                    art49,
+  'art-490-fatca-crs-submission-check':                       art490,
+  'art-491-ro-remediation-closure':                           art491,
   'art-50-ficc-margin-netting-estimator':                     art50,
   'art-51-cross-margining-benefit-estimator':                 art51,
   'art-52-digital-trade-fit-diagnostic':                      art52,

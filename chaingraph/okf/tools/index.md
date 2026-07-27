@@ -413,7 +413,19 @@ timestamp: 2026-07-14
 - [Documentary Collection vs Letter of Credit Cost-Benefit](./art-478-analyze-dc-vs-lc-cost-benefit.md) — `analyze_dc_vs_lc_cost_benefit`
 - [Forfaiting vs Factoring vs Invoice Discounting Economics](./art-479-compare-receivables-finance-economics.md) — `compare_receivables_finance_economics`
 - [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md) — `run_treasury_clearing_fit`
+- [RDARR Aggregation Recompute](./art-480-rdarr-aggregation-recompute.md) — `rdarr_aggregation_recompute`
+- [RDARR Quality Scorecard](./art-481-rdarr-quality-scorecard.md) — `rdarr_quality_scorecard`
+- [EMIR Trade-Repository Reconciliation Adjudicator](./art-482-emir-recon-adjudicator.md) — `adjudicate_emir_reconciliation`
+- [EMIR Reconciliation Break Ageing](./art-483-emir-break-ageing.md) — `age_emir_reconciliation_breaks`
+- [Published Regulatory Report Edit-Check Runner](./art-484-regrpt-editcheck-runner.md) — `run_regrpt_edit_checks`
+- [Regulatory Report Period-over-Period Variance Explainer](./art-485-regrpt-variance-explainer.md) — `explain_regrpt_variance`
+- [CSCF Control Applicability & Coverage](./art-486-cscf-control-applicability.md) — `check_cscf_control_applicability`
+- [Swift CSP Assessor Independence Eligibility](./art-487-assessor-independence-check.md) — `check_assessor_independence`
+- [Model Replication Diff](./art-488-model-replication-diff.md) — `replicate_model_outputs`
+- [Model Test Battery](./art-489-model-test-battery.md) — `run_model_test_battery`
 - [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md) — `model_clearing_access_economics`
+- [FATCA/CRS Submission Conformance Check](./art-490-fatca-crs-submission-check.md) — `check_fatca_crs_submission_conformance`
+- [FATCA/CRS RO Remediation Closure Tracker](./art-491-ro-remediation-closure.md) — `track_fatca_crs_ro_remediation_closure`
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md) — `estimate_ficc_margin_netting`
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`

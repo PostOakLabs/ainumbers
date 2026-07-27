@@ -2,13 +2,13 @@
 type: MandateTypeGroup
 title: "regulatory_reporting"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"regulatory_reporting\"."
-tags: ["regulatory_reporting", "count-8"]
+tags: ["regulatory_reporting", "count-10"]
 timestamp: 2026-07-14
 ---
 
 # regulatory_reporting
 
-8 tool(s) in this mandate-type group:
+10 tool(s) in this mandate-type group:
 
 - [Call Report Schedule RC (Balance Sheet) Mapper](../tools/art-432-call-report-rc-balance-sheet.md)
 - [Call Report Schedule RC-R (Regulatory Capital) Mapper](../tools/art-433-call-report-rcr-capital.md)
@@ -18,3 +18,5 @@ timestamp: 2026-07-14
 - [FR 2052a Inflow/Outflow Bucket Classifier](../tools/art-437-fr2052a-inflow-outflow-classifier.md)
 - [FR Y-14 Capital Worksheet Roll-Forward & Cross-Check](../tools/art-439-y14-capital-worksheet-rollforward.md)
 - [Collateral Haircut Engine (Basel CRE22)](../tools/art-444-collateral-haircut-engine.md)
+- [Published Regulatory Report Edit-Check Runner](../tools/art-484-regrpt-editcheck-runner.md)
+- [Regulatory Report Period-over-Period Variance Explainer](../tools/art-485-regrpt-variance-explainer.md)
