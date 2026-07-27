@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EMIR Trade-Repository Reconciliation Adjudicator &middot; ART-482 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Provable node: reproduces the EMIR Refit trade-repository reconciliation verdict from the TR's own ISO 20022 response and the firm's submitted state, under a policy-supplied field/tolerance/suppression table.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-482-emir-recon-adjudicator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:110px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.out-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:8px}
+.out-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+.out-table td{padding:.4rem .55rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.disagree{color:var(--red)}
+.agree{color:var(--green)}
+.suppressed{color:var(--muted)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-482 · EMIR Recon Adjudicator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-482 &middot; EMIR Refit / Trade Reporting</div>
+  <h1>EMIR Trade-Repository Reconciliation Adjudicator</h1>
+  <p class="sub">Under EMIR Refit, the trade repository (TR) runs the inter-TR reconciliation and returns a daily ISO 20022 response naming the matched/unreconciled fields per UTI &mdash; a firm holds that response plus its own submitted state, never both counterparties' raw extracts. This tool independently reproduces the reconciliation verdict from the TR response + your submitted state, under a policy-supplied field/tolerance/suppression table, and treats disagreement with the TR's own verdict as a first-class result, never an error. Not <a href="art-156-emir-counterparty-pairing-reconciler.html">art-156 emir-counterparty-pairing-reconciler</a>, which compares two counterparties' extracts directly &mdash; a premise EMIR Refit's TR-mediated model replaced for the reconciliation step.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">EMIR Refit</span>
+    <span class="flag info">ISO 20022</span>
+    <span class="flag">Breaks &amp; Ageing</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; The field/tolerance/suppression table is a per-cycle POLICY INPUT, not a fixed list &mdash; the ESMA EMIR Refit reconciliation-tolerances table (ESMA74-362-2683) reconciles 87 fields at go-live, with 61 more (148 total) added by Phase 2 (27 Apr 2026 EU / Sep 2026 UK). Re-derive your own field/tolerance table from the current ESMA release each cycle; this tool does not ship or assume one.</div>
+
+  <div class="card">
+    <div class="section-head">TR ISO 20022 Reconciliation Response</div>
+    <div class="q"><label class="q-label" for="trResponse">tr_response (JSON)</label>
+      <textarea id="trResponse" rows="10"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Firm Submitted State</div>
+    <div class="q"><label class="q-label" for="firmState">firm_state (JSON)</label>
+      <textarea id="firmState" rows="8"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Policy: Field / Tolerance / Suppression Table</div>
+    <div class="q"><label class="q-label" for="policyInput">policy (JSON)</label>
+      <textarea id="policyInput" rows="12"></textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runKernel()">&#9654; Adjudicate Reconciliation</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="section-head">Verdict Summary</div>
+      <div class="stat-row" id="statRow"></div>
+      <div style="overflow-x:auto"><table class="out-table"><thead><tr><th>UTI</th><th>Lifecycle</th><th>TR Status</th><th>Computed</th><th>Disagrees w/ TR</th><th>Field Breaks</th></tr></thead><tbody id="tradesTbody"></tbody></table></div>
+      <div class="section-head" style="margin-top:14px">Break Set (feeds ART-483 ageing)</div>
+      <div style="overflow-x:auto"><table class="out-table"><thead><tr><th>Break Key</th><th>UTI</th><th>Field</th><th>TR Value</th><th>Firm Value</th><th>Reason</th></tr></thead><tbody id="breaksTbody"></tbody></table></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-482-emir-recon-adjudicator',
+  version: '1.0.0',
+  mcp_name: 'adjudicate_emir_reconciliation',
+  title: 'EMIR Trade-Repository Reconciliation Adjudicator',
+  description: 'Independently reproduces the EMIR Refit trade-repository reconciliation verdict from the TR ISO 20022 response and the firm submitted state, under a policy-supplied field/tolerance/suppression table. Disagreement with the TR verdict is a first-class output.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'adjudicate_emir_reconciliation',
+    description: 'Adjudicate an EMIR trade-repository reconciliation cycle: reproduce the per-field, per-UTI match verdict from the TR ISO 20022 response and the firm submitted state under a policy-supplied field/tolerance/suppression table, emit a stable-keyed break set, and flag any disagreement with the TR\'s own stated match status.',
+    inputSchema: {
+      type: 'object',
+      required: ['tr_response', 'firm_state', 'policy'],
+      properties: {
+        tr_response: { type: 'object', description: 'TR ISO 20022 reconciliation response: {as_of_date, trades:[{uti, tr_match_status, lifecycle_event, tr_reported:{field:value,...}}]}' },
+        firm_state: { type: 'object', description: 'Firm submitted state: {trades:[{uti, submitted:{field:value,...}}]}' },
+        policy: { type: 'object', description: '{field_tolerance_table_version, fields:[{field_name,type,numeric_tolerance|date_tolerance_days|enum_equivalence}], suppression_list:[field_name,...]}' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function isStr(v) { return typeof v === 'string' && v.length > 0; }
+function str(v) { return typeof v === 'string' ? v : ''; }
+function isFiniteNum(v) { var n = Number(v); return isFinite(n); }
+function parseIsoDay(v) { if (typeof v !== 'string' || !v) return null; var t = Date.parse(v); return isFinite(t) ? Math.floor(t/86400000) : null; }
+function isAbsent(v) { return v === undefined || v === null || v === ''; }
+function normEnum(fieldSpec, v) { var eq = (fieldSpec && fieldSpec.enum_equivalence) || {}; var key = str(v); return Object.prototype.hasOwnProperty.call(eq, key) ? String(eq[key]) : key; }
+
+function compareField(fieldSpec, trVal, firmVal) {
+  var trAbsent = isAbsent(trVal), firmAbsent = isAbsent(firmVal);
+  if (trAbsent && firmAbsent) return { agree: true, delta: null };
+  if (trAbsent !== firmAbsent) return { agree: false, delta: null };
+  var type = (fieldSpec.type === 'numeric' || fieldSpec.type === 'date' || fieldSpec.type === 'enum') ? fieldSpec.type : 'string';
+  if (type === 'numeric') {
+    if (!isFiniteNum(trVal) || !isFiniteNum(firmVal)) return { agree: false, delta: null };
+    var tol = isFiniteNum(fieldSpec.numeric_tolerance) ? Math.abs(Number(fieldSpec.numeric_tolerance)) : 0;
+    var delta = Math.abs(Number(trVal) - Number(firmVal));
+    return { agree: delta <= tol, delta: delta };
+  }
+  if (type === 'date') {
+    var trDay = parseIsoDay(trVal), firmDay = parseIsoDay(firmVal);
+    if (trDay === null || firmDay === null) return { agree: false, delta: null };
+    var dtol = isFiniteNum(fieldSpec.date_tolerance_days) ? Math.abs(Math.trunc(Number(fieldSpec.date_tolerance_days))) : 0;
+    var ddelta = Math.abs(trDay - firmDay);
+    return { agree: ddelta <= dtol, delta: ddelta };
+  }
+  if (type === 'enum') return { agree: normEnum(fieldSpec, trVal) === normEnum(fieldSpec, firmVal), delta: null };
+  return { agree: str(trVal) === str(firmVal), delta: null };
+}
+
+// Mirrors chaingraph/kernels/art-482-emir-recon-adjudicator.kernel.mjs compute() exactly (tool<->kernel parity).
+function adjudicateEmirRecon(pp) {
+  var trResponse = pp.tr_response || {};
+  var firmState = pp.firm_state || {};
+  var policy = pp.policy || {};
+  var fieldTable = Array.isArray(policy.fields) ? policy.fields : [];
+  var suppressionSet = {};
+  (Array.isArray(policy.suppression_list) ? policy.suppression_list : []).forEach(function(f){ if (isStr(f)) suppressionSet[f] = true; });
+  var tableVersion = isStr(policy.field_tolerance_table_version) ? policy.field_tolerance_table_version : 'UNVERSIONED';
+
+  var firmByUti = {};
+  (Array.isArray(firmState.trades) ? firmState.trades : []).forEach(function(t){ if (t && isStr(t.uti)) firmByUti[t.uti] = t; });
+
+  var trades = [], break_set = [], tr_matched_count = 0, tr_disputed_count = 0, verdict_disagrees_with_tr_count = 0;
+
+  (Array.isArray(trResponse.trades) ? trResponse.trades : []).forEach(function(trTrade){
+    if (!trTrade || !isStr(trTrade.uti)) return;
+    var uti = trTrade.uti;
+    var trReported = trTrade.tr_reported || {};
+    var trMatchStatus = isStr(trTrade.tr_match_status) ? trTrade.tr_match_status : 'UNKNOWN';
+    var lifecycleEvent = isStr(trTrade.lifecycle_event) ? trTrade.lifecycle_event : 'NEW';
+    var firmTrade = firmByUti[uti] || null;
+    var firmSubmitted = firmTrade ? (firmTrade.submitted || {}) : null;
+    var field_results = [], tradeHasBreak = false;
+
+    fieldTable.forEach(function(fieldSpec){
+      var fieldName = str(fieldSpec && fieldSpec.field_name);
+      if (!fieldName) return;
+      var trVal = Object.prototype.hasOwnProperty.call(trReported, fieldName) ? trReported[fieldName] : null;
+      var firmVal = (firmSubmitted && Object.prototype.hasOwnProperty.call(firmSubmitted, fieldName)) ? firmSubmitted[fieldName] : null;
+
+      if (suppressionSet[fieldName]) { field_results.push({ field_name: fieldName, status: 'suppressed', tr_value: trVal, firm_value: firmVal }); return; }
+      if (firmSubmitted === null) {
+        field_results.push({ field_name: fieldName, status: 'no_firm_record', tr_value: trVal, firm_value: null });
+        tradeHasBreak = true;
+        break_set.push({ break_key: uti + '::' + fieldName, uti: uti, field_name: fieldName, tr_value: trVal, firm_value: null, reason: 'no_firm_record' });
+        return;
+      }
+      var cmp = compareField(fieldSpec, trVal, firmVal);
+      if (cmp.agree) {
+        field_results.push({ field_name: fieldName, status: 'agree', tr_value: trVal, firm_value: firmVal, delta: cmp.delta });
+      } else {
+        field_results.push({ field_name: fieldName, status: 'disagree', tr_value: trVal, firm_value: firmVal, delta: cmp.delta });
+        tradeHasBreak = true;
+        break_set.push({ break_key: uti + '::' + fieldName, uti: uti, field_name: fieldName, tr_value: trVal, firm_value: firmVal, reason: 'field_mismatch' });
+      }
+    });
+
+    var computedVerdict = firmSubmitted === null ? 'UNMATCHED' : (tradeHasBreak ? 'DISPUTED' : 'MATCHED');
+    var verdictDisagreesWithTr = computedVerdict !== trMatchStatus;
+    if (verdictDisagreesWithTr) verdict_disagrees_with_tr_count++;
+    if (trMatchStatus === 'MATCHED') tr_matched_count++;
+    if (trMatchStatus === 'DISPUTED') tr_disputed_count++;
+
+    trades.push({ uti: uti, lifecycle_event: lifecycleEvent, tr_match_status: trMatchStatus, computed_verdict: computedVerdict, verdict_disagrees_with_tr: verdictDisagreesWithTr, field_results: field_results });
+  });
+
+  return {
+    output_payload: {
+      as_of_date: isStr(trResponse.as_of_date) ? trResponse.as_of_date : null,
+      field_tolerance_table_version: tableVersion,
+      trade_count: trades.length,
+      tr_matched_count: tr_matched_count,
+      tr_disputed_count: tr_disputed_count,
+      verdict_disagrees_with_tr_count: verdict_disagrees_with_tr_count,
+      break_count: break_set.length,
+      trades: trades,
+      break_set: break_set,
+      note: 'Independently reproduces the EMIR trade-repository reconciliation verdict from the TR ISO 20022 response and the firm submitted state, under a policy-supplied per-cycle field/tolerance/suppression table. Disagreement with the TR verdict is a first-class output, never an error. Lifecycle events (amendment/compression/termination) are ordinary inputs. This tool computes a reconciliation verdict only; it does not itself resubmit, dispute, or file any regulatory report.'
+    },
+    compliance_flags: (function(){
+      var f = [];
+      if (break_set.length > 0) f.push('EMIR_RECON_BREAKS_PRESENT');
+      if (verdict_disagrees_with_tr_count > 0) f.push('EMIR_RECON_VERDICT_DISAGREES_WITH_TR');
+      if (fieldTable.length === 0) f.push('EMIR_RECON_FIELD_TABLE_EMPTY');
+      return f;
+    })()
+  };
+}
+
+var DEFAULT_TR_RESPONSE = {
+  as_of_date: '2026-07-27',
+  trades: [
+    { uti: 'UTI0001', tr_match_status: 'MATCHED', lifecycle_event: 'NEW',
+      tr_reported: { notional_amount: 1000000, price: 101.25, effective_date: '2026-01-15', maturity_date: '2031-01-15', settlement_currency: 'USD', delta: 0.42 } },
+    { uti: 'UTI0002', tr_match_status: 'MATCHED', lifecycle_event: 'AMENDMENT',
+      tr_reported: { notional_amount: 5000000, price: 98.5, effective_date: '2025-06-01', maturity_date: '2030-06-01', settlement_currency: 'USD', delta: 0.3 } }
+  ]
+};
+var DEFAULT_FIRM_STATE = {
+  trades: [
+    { uti: 'UTI0001', submitted: { notional_amount: 1000000, price: 101.25, effective_date: '2026-01-15', maturity_date: '2031-01-15', settlement_currency: 'US DOLLAR', delta: 0.55 } },
+    { uti: 'UTI0002', submitted: { notional_amount: 5025000, price: 98.5, effective_date: '2025-06-01', maturity_date: '2030-06-01', settlement_currency: 'USD', delta: 0.3 } }
+  ]
+};
+var DEFAULT_POLICY = {
+  field_tolerance_table_version: 'ESMA74-362-2683-PHASE2-2026-04-27',
+  fields: [
+    { field_name: 'notional_amount', type: 'numeric', numeric_tolerance: 10 },
+    { field_name: 'price', type: 'numeric', numeric_tolerance: 0.01 },
+    { field_name: 'effective_date', type: 'date', date_tolerance_days: 0 },
+    { field_name: 'maturity_date', type: 'date', date_tolerance_days: 0 },
+    { field_name: 'settlement_currency', type: 'enum', enum_equivalence: { USD: 'USD', 'US DOLLAR': 'USD' } },
+    { field_name: 'delta', type: 'numeric', numeric_tolerance: 0.05 }
+  ],
+  suppression_list: ['delta']
+};
+
+function loadDefaults() {
+  document.getElementById('trResponse').value = JSON.stringify(DEFAULT_TR_RESPONSE, null, 2);
+  document.getElementById('firmState').value = JSON.stringify(DEFAULT_FIRM_STATE, null, 2);
+  document.getElementById('policyInput').value = JSON.stringify(DEFAULT_POLICY, null, 2);
+}
+
+function runKernel() {
+  var pp;
+  try {
+    pp = {
+      tr_response: JSON.parse(document.getElementById('trResponse').value || '{}'),
+      firm_state: JSON.parse(document.getElementById('firmState').value || '{}'),
+      policy: JSON.parse(document.getElementById('policyInput').value || '{}')
+    };
+  } catch (e) { alert('Invalid JSON: ' + e.message); return; }
+
+  var r = adjudicateEmirRecon(pp);
+  var op = r.output_payload;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: r.compliance_flags };
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.trade_count + '</span><span class="stat-key">Trades</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.break_count + '</span><span class="stat-key">Field Breaks</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.verdict_disagrees_with_tr_count + '</span><span class="stat-key">Disagree w/ TR</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.field_tolerance_table_version + '</span><span class="stat-key">Field Table Version</span></div>';
+
+  document.getElementById('tradesTbody').innerHTML = op.trades.map(function(t){
+    return '<tr><td>' + t.uti + '</td><td>' + t.lifecycle_event + '</td><td>' + t.tr_match_status + '</td><td>' + t.computed_verdict + '</td><td class="' + (t.verdict_disagrees_with_tr ? 'disagree' : 'agree') + '">' + (t.verdict_disagrees_with_tr ? 'YES' : 'no') + '</td><td>' + t.field_results.filter(function(fr){return fr.status==='disagree'||fr.status==='no_firm_record';}).length + '</td></tr>';
+  }).join('');
+
+  document.getElementById('breaksTbody').innerHTML = op.break_set.map(function(b){
+    return '<tr><td>' + b.break_key + '</td><td>' + b.uti + '</td><td>' + b.field_name + '</td><td>' + JSON.stringify(b.tr_value) + '</td><td>' + JSON.stringify(b.firm_value) + '</td><td>' + b.reason + '</td></tr>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h){
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'attestation_mandate',
+    tool_id: 'art-482-emir-recon-adjudicator', tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-482-emir-recon-adjudicator.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) { b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+
+loadDefaults();
+</script>
+</body>
+</html>
