@@ -104,6 +104,7 @@ const EVIDENCE_CARDS = [
 
 const REFERENCE_CARDS = [
   ['mcp-agent-demo.html', 'Demo', 'MCP Agent Demo', 'A live MCP agent session replay discovering and using AINumbers.co.'],
+  ['mcp-clone-guide.html', 'Guide', 'Clone This MCP Server', 'Standing up an equivalent MCP server on Cloudflare Workers, with the gates and workarounds that keep it up.'],
   ['regression-replayer.html', 'Tool', 'Mandate Regression Replayer', 'Re-run an exported Policy Mandate through its originating tool and compare results.'],
   ['evidence-profile-catalog.html', 'Reference', 'Evidence Profile Catalog', 'Named evidence profiles for OpenChainGraph input attestations.'],
   ['accept-api-court-checkable-agreements.html', 'Walkthrough', 'Accept-API Agreements', 'The agent-native agreement flow: assemble and bind a court-checkable acceptance.'],
