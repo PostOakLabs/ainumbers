@@ -49,11 +49,7 @@ const HASH_IDS = ['__ocgCanonStr', '__ocgCanon', '__ocgAssertIJson'];
  * and fails the gate, so a fix cannot silently leave dead weight behind, and a new
  * violation anywhere else fails immediately.
  */
-const KNOWN_DEBT = new Set([
-  'chaingraph/art-27-agentic-readiness-diagnostic.html',
-  'chaingraph/art-28-mcp-server-deployability-diagnostic.html',
-  'chaingraph/art-29-dora-readiness-diagnostic.html',
-]);
+const KNOWN_DEBT = new Set([]);
 
 /** <script type="..."> values that are still JavaScript. Anything else is data. */
 const JS_TYPES = new Set([
