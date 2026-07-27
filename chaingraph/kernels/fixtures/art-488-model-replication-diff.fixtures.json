@@ -1,0 +1,228 @@
+{
+  "tool_id": "art-488-model-replication-diff",
+  "note": "golden_hash filled by golden-parity.test.mjs --update; output_payload filled by fill-fixture-payloads.mjs. Vector 1: linear model, all records within tolerance -> replicated. Vector 2: logistic model, one segment out of tolerance -> not_replicated with failing_segments named. Vector 3: unsupported transform -> not_replicable_as_specified (finite gate).",
+  "vectors": [
+    {
+      "name": "linear_within_tolerance",
+      "description": "Two-record linear model (intercept 10, coefficients x1=2 x2=-1), both records recompute within abs_tolerance 0.5 of their reported values -> replicated.",
+      "policy_parameters": {
+        "model_spec": {
+          "version": "credit-scorecard-v3.2",
+          "as_of_date": "2026-01-01",
+          "transform": "linear",
+          "intercept": 10,
+          "coefficients": {
+            "x1": 2,
+            "x2": -1
+          }
+        },
+        "tolerance": {
+          "abs_tolerance": 0.5,
+          "rel_tolerance": null
+        },
+        "records": [
+          {
+            "id": "r1",
+            "segment": "prime",
+            "features": {
+              "x1": 5,
+              "x2": 3
+            },
+            "reported_value": 17
+          },
+          {
+            "id": "r2",
+            "segment": "prime",
+            "features": {
+              "x1": 2,
+              "x2": 4
+            },
+            "reported_value": 9.8
+          }
+        ]
+      },
+      "output_payload": {
+        "model_spec_version": "credit-scorecard-v3.2",
+        "model_spec_as_of_date": "2026-01-01",
+        "transform": "linear",
+        "tolerance_applied": {
+          "abs_tolerance": 0.5,
+          "rel_tolerance": null
+        },
+        "verdict": "replicated",
+        "reason": null,
+        "per_record": [
+          {
+            "id": "r1",
+            "segment": "prime",
+            "reported_value": 17,
+            "recomputed_value": 17,
+            "abs_diff": 0,
+            "rel_diff": 0,
+            "within_tolerance": true
+          },
+          {
+            "id": "r2",
+            "segment": "prime",
+            "reported_value": 9.8,
+            "recomputed_value": 10,
+            "abs_diff": 0.2,
+            "rel_diff": 0.0204081633,
+            "within_tolerance": true
+          }
+        ],
+        "aggregate": {
+          "count_total": 2,
+          "count_computed": 2,
+          "count_out_of_tolerance": 0,
+          "max_abs_diff": 0.2,
+          "mean_abs_diff": 0.1
+        },
+        "failing_segments": []
+      },
+      "golden_hash": "99d156e4638f99a3b749a59b8352143c20dee6550c5f42f43132871f2c6757fd"
+    },
+    {
+      "name": "logistic_segment_failure",
+      "description": "Three-record logistic model; the subprime segment's reported values diverge from the recomputed sigmoid beyond abs_tolerance 0.02 -> not_replicated, failing_segments names subprime only.",
+      "policy_parameters": {
+        "model_spec": {
+          "version": "credit-scorecard-v3.2",
+          "as_of_date": "2026-01-01",
+          "transform": "logistic",
+          "intercept": -1,
+          "coefficients": {
+            "ltv": -2,
+            "dti": -1.5
+          }
+        },
+        "tolerance": {
+          "abs_tolerance": 0.02,
+          "rel_tolerance": null
+        },
+        "records": [
+          {
+            "id": "r1",
+            "segment": "prime",
+            "features": {
+              "ltv": 0.2,
+              "dti": 0.1
+            },
+            "reported_value": 0.175
+          },
+          {
+            "id": "r2",
+            "segment": "prime",
+            "features": {
+              "ltv": 0.1,
+              "dti": 0.1
+            },
+            "reported_value": 0.206
+          },
+          {
+            "id": "r3",
+            "segment": "subprime",
+            "features": {
+              "ltv": 0.6,
+              "dti": 0.5
+            },
+            "reported_value": 0.9
+          }
+        ]
+      },
+      "output_payload": {
+        "model_spec_version": "credit-scorecard-v3.2",
+        "model_spec_as_of_date": "2026-01-01",
+        "transform": "logistic",
+        "tolerance_applied": {
+          "abs_tolerance": 0.02,
+          "rel_tolerance": null
+        },
+        "verdict": "not_replicated",
+        "reason": null,
+        "per_record": [
+          {
+            "id": "r1",
+            "segment": "prime",
+            "reported_value": 0.175,
+            "recomputed_value": 0.1750862682,
+            "abs_diff": 0.0000862682,
+            "rel_diff": 0.0004929609,
+            "within_tolerance": true
+          },
+          {
+            "id": "r2",
+            "segment": "prime",
+            "reported_value": 0.206,
+            "recomputed_value": 0.2058703718,
+            "abs_diff": 0.0001296282,
+            "rel_diff": 0.0006292631,
+            "within_tolerance": true
+          },
+          {
+            "id": "r3",
+            "segment": "subprime",
+            "reported_value": 0.9,
+            "recomputed_value": 0.0497365116,
+            "abs_diff": 0.8502634884,
+            "rel_diff": 0.9447372094,
+            "within_tolerance": false
+          }
+        ],
+        "aggregate": {
+          "count_total": 3,
+          "count_computed": 3,
+          "count_out_of_tolerance": 1,
+          "max_abs_diff": 0.8502634884,
+          "mean_abs_diff": 0.2834931283
+        },
+        "failing_segments": [
+          "subprime"
+        ]
+      },
+      "golden_hash": "44cb2a2f69df35bbf8bee287de79fd0395db2ff783e13d3108f949eaa068c77a"
+    },
+    {
+      "name": "unsupported_transform_edge",
+      "description": "Declared transform 'neural_net' has no recognized recompute path -> not_replicable_as_specified with a reason, per_record empty (finite gate).",
+      "policy_parameters": {
+        "model_spec": {
+          "version": "fraud-model-v1.0",
+          "as_of_date": "2026-02-01",
+          "transform": "neural_net",
+          "coefficients": {
+            "x1": 1
+          }
+        },
+        "tolerance": {
+          "abs_tolerance": 0.1
+        },
+        "records": [
+          {
+            "id": "r1",
+            "segment": "a",
+            "features": {
+              "x1": 1
+            },
+            "reported_value": 0.5
+          }
+        ]
+      },
+      "output_payload": {
+        "model_spec_version": "fraud-model-v1.0",
+        "model_spec_as_of_date": "2026-02-01",
+        "transform": "neural_net",
+        "tolerance_applied": {
+          "abs_tolerance": 0.1,
+          "rel_tolerance": null
+        },
+        "verdict": "not_replicable_as_specified",
+        "reason": "declared transform \"neural_net\" is not a recognized recompute path (supported: linear, logistic)",
+        "per_record": [],
+        "aggregate": null,
+        "failing_segments": []
+      },
+      "golden_hash": "65f9a625e803a0c52ddb1f7607c6221f792ac4ed9ed85bc51a1b025036b7886f"
+    }
+  ]
+}
