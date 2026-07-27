@@ -27,6 +27,18 @@
  *     scripts/sync-stats.mjs, which merely mentions "--check" in a comment
  *     about a DIFFERENT script (gen-chain-index.mjs); the quoted form only
  *     matches an actual argv check.
+ *   - "wired into preflight.mjs" = GENCOV-GATE-FIX-1 (2026-07-27): the path
+ *     appears as the script argument of an actual `['label', 'cmd']` GATES
+ *     entry — NOT a bare substring match against the whole file. The prior
+ *     `preflightSrc.includes(r)` form was satisfied by the path appearing in
+ *     a comment, a string, or a disabled/commented-out row; it never checked
+ *     that preflight.mjs actually *executes* the generator. Extraction: pull
+ *     the `const GATES = [ ... ];` array literal text, strip full-line `//`
+ *     comments first (so a commented-out row counts as NOT wired — same
+ *     verdict as a row that was never added), then regex out every quoted
+ *     `node <path> ...` / `python <path> ...` command token and take the
+ *     path. A generator only counts as covered if its rel path is the exact
+ *     script token of a live GATES entry.
  *
  * Scans: scripts/*.mjs, chaingraph/*.mjs, and chaingraph/(nested)/scripts/*.mjs
  * (any directory literally named "scripts" nested anywhere under chaingraph/).
@@ -82,6 +94,32 @@ const rel = (p) => relative(REPO, p).split('\\').join('/');
 // ── 2. Classify ───────────────────────────────────────────────────────────
 const preflightSrc = readFileSync(resolve(REPO, 'scripts', 'preflight.mjs'), 'utf8');
 
+// Extract the invoked-script set from the GATES array — never a substring
+// match against the raw file (see header note). Strip full-line comments
+// first: a commented-out GATES row is not an execution and must not count.
+function extractInvokedPaths(src) {
+  const liveLines = src
+    .split('\n')
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+  const arrayMatch = liveLines.match(/const GATES = \[([\s\S]*?)\n\];/);
+  const arraySrc = arrayMatch ? arrayMatch[1] : '';
+  const invoked = new Set();
+  // Every fully-quoted string in the array — capture up to the MATCHING
+  // quote char (not just "the next quote") so a path is never truncated or
+  // over-run by an adjacent `'],` array-syntax character.
+  const quotedRe = /'([^']*)'|"([^"]*)"|`([^`]*)`/g;
+  let m;
+  while ((m = quotedRe.exec(arraySrc))) {
+    const content = m[1] ?? m[2] ?? m[3] ?? '';
+    if (!/^(node|python)\s+/.test(content)) continue;
+    const path = content.split(/\s+/)[1];
+    if (path) invoked.add(path);
+  }
+  return invoked;
+}
+const invokedPaths = extractInvokedPaths(preflightSrc);
+
 const hasCheckFlag = [];   // generators that support --check
 const gapless = [];        // generator-shaped files with no --check at all
 
@@ -98,8 +136,8 @@ for (const file of candidates) {
 hasCheckFlag.sort();
 gapless.sort();
 
-// ── 3. Hard-fail half: every --check generator must be called from preflight.mjs ──
-const uncalled = hasCheckFlag.filter((r) => !preflightSrc.includes(r));
+// ── 3. Hard-fail half: every --check generator must be INVOKED by preflight.mjs ──
+const uncalled = hasCheckFlag.filter((r) => !invokedPaths.has(r));
 
 // ── 4. Warn half: baseline-shielded gapless generators ───────────────────
 let baseline = { gapless: [] };
