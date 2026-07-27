@@ -1,0 +1,119 @@
+{
+  "tool_id": "art-484-regrpt-editcheck-runner",
+  "note": "Vectors computed directly from the shipped kernel. clean-pass exercises all four rule shapes evaluating pass with zero suppressions. validation-failures-with-suppression exercises a failing arithmetic_identity, a failing cross_schedule_tie_out, a failing sign_domain (missing ref), a failing mandatory_field (empty value), a suppressed rule, and a stale suppression (edit_id absent from the rule set). empty-input exercises the finite empty-input path.",
+  "vectors": [
+    {
+      "name": "clean-pass",
+      "description": "One instance of each rule type, all evaluating pass; no suppressions applied.",
+      "policy_parameters": {
+        "report_instance": {
+          "as_of": "2026-03-31",
+          "cells": [
+            { "cell_ref": "RCON2170", "schedule": "RC", "line_item": "total_assets", "value": 1000 },
+            { "cell_ref": "RCON2948", "schedule": "RC", "line_item": "total_liabilities", "value": 700 },
+            { "cell_ref": "RCON3210", "schedule": "RC", "line_item": "total_equity_capital", "value": 300 },
+            { "cell_ref": "RCFA7206", "schedule": "RC-R", "line_item": "cet1_capital", "value": 250 },
+            { "cell_ref": "RCFA7206_TIEOUT", "schedule": "RC-R-SUMMARY", "line_item": "cet1_capital_restated", "value": 250 },
+            { "cell_ref": "RCFAB588", "schedule": "RC-R", "line_item": "total_rwa", "value": 2000 },
+            { "cell_ref": "RCONK652", "schedule": "RC", "line_item": "entity_id", "value": "FDIC-CERT-1234" }
+          ]
+        },
+        "rule_set": {
+          "version": "FFIEC-2026-01-22",
+          "source": "FFIEC Call Report Validity and Quality Edits, effective 2026-01-22",
+          "rules": [
+            { "edit_id": "FFIEC-VE-0142", "type": "arithmetic_identity", "schedule": "RC", "description": "Total assets equals total liabilities plus total equity capital.", "severity": "fatal", "target_ref": "RCON2170", "component_refs": ["RCON2948", "RCON3210"], "tolerance": 1 },
+            { "edit_id": "FFIEC-VE-0891", "type": "cross_schedule_tie_out", "schedule": "RC-R", "description": "CET1 capital ties out to its RC-R summary restatement.", "severity": "fatal", "ref_a": "RCFA7206", "ref_b": "RCFA7206_TIEOUT", "tolerance": 0 },
+            { "edit_id": "FFIEC-VE-0203", "type": "sign_domain", "schedule": "RC-R", "description": "Total risk-weighted assets is positive.", "severity": "fatal", "ref": "RCFAB588", "domain": "positive" },
+            { "edit_id": "FFIEC-VE-0004", "type": "mandatory_field", "schedule": "RC", "description": "Entity identifier is present.", "severity": "fatal", "ref": "RCONK652" }
+          ]
+        },
+        "suppressions": []
+      },
+      "output_payload": {
+        "rule_set_version": "FFIEC-2026-01-22",
+        "rule_set_source": "FFIEC Call Report Validity and Quality Edits, effective 2026-01-22",
+        "suppressions_applied": [],
+        "stale_suppressions": [],
+        "findings": [
+          { "edit_id": "FFIEC-VE-0142", "type": "arithmetic_identity", "schedule": "RC", "severity": "fatal", "description": "Total assets equals total liabilities plus total equity capital.", "status": "pass", "computed_value": 1000, "reported_value": 1000, "message": "Sum of RCON2948 + RCON3210 agrees with RCON2170 within tolerance 1." },
+          { "edit_id": "FFIEC-VE-0891", "type": "cross_schedule_tie_out", "schedule": "RC-R", "severity": "fatal", "description": "CET1 capital ties out to its RC-R summary restatement.", "status": "pass", "computed_value": 250, "reported_value": 250, "message": "RCFA7206 (250) ties out to RCFA7206_TIEOUT (250) within tolerance 0." },
+          { "edit_id": "FFIEC-VE-0203", "type": "sign_domain", "schedule": "RC-R", "severity": "fatal", "description": "Total risk-weighted assets is positive.", "status": "pass", "computed_value": 2000, "reported_value": 2000, "message": "RCFAB588 (2000) satisfies domain > 0." },
+          { "edit_id": "FFIEC-VE-0004", "type": "mandatory_field", "schedule": "RC", "severity": "fatal", "description": "Entity identifier is present.", "status": "pass", "computed_value": null, "reported_value": "FDIC-CERT-1234", "message": "RCONK652 is present and non-empty." }
+        ],
+        "summary": { "total_rules": 4, "applied": 4, "suppressed": 0, "pass": 4, "fail": 0, "stale_suppression_count": 0, "overall_pass": true },
+        "compliance_flags": [],
+        "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
+      },
+      "golden_hash": "ec0c6ed97a0c23cecc1300998b41616566986da15268d79c100d175c9389c8e2"
+    },
+    {
+      "name": "validation-failures-with-suppression",
+      "description": "One rule fails arithmetic identity, one fails tie-out, one fails sign domain (missing ref), one fails mandatory field (empty), one rule is suppressed, and one suppression is stale (edit_id not present in rule_set).",
+      "policy_parameters": {
+        "report_instance": {
+          "as_of": "2026-06-30",
+          "cells": [
+            { "cell_ref": "RCON2170", "schedule": "RC", "line_item": "total_assets", "value": 1000 },
+            { "cell_ref": "RCON2948", "schedule": "RC", "line_item": "total_liabilities", "value": 700 },
+            { "cell_ref": "RCON3210", "schedule": "RC", "line_item": "total_equity_capital", "value": 250 },
+            { "cell_ref": "RCFA7206", "schedule": "RC-R", "line_item": "cet1_capital", "value": 250 },
+            { "cell_ref": "RCFA7206_TIEOUT", "schedule": "RC-R-SUMMARY", "line_item": "cet1_capital_restated", "value": 240 },
+            { "cell_ref": "RCONK652", "schedule": "RC", "line_item": "entity_id", "value": "" }
+          ]
+        },
+        "rule_set": {
+          "version": "FFIEC-2026-01-22",
+          "source": "FFIEC Call Report Validity and Quality Edits, effective 2026-01-22",
+          "rules": [
+            { "edit_id": "FFIEC-VE-0142", "type": "arithmetic_identity", "schedule": "RC", "description": "Total assets equals total liabilities plus total equity capital.", "severity": "fatal", "target_ref": "RCON2170", "component_refs": ["RCON2948", "RCON3210"], "tolerance": 1 },
+            { "edit_id": "FFIEC-VE-0891", "type": "cross_schedule_tie_out", "schedule": "RC-R", "description": "CET1 capital ties out to its RC-R summary restatement.", "severity": "fatal", "ref_a": "RCFA7206", "ref_b": "RCFA7206_TIEOUT", "tolerance": 0 },
+            { "edit_id": "FFIEC-VE-0203", "type": "sign_domain", "schedule": "RC-R", "description": "Total risk-weighted assets is positive.", "severity": "fatal", "ref": "RCFAB588", "domain": "positive" },
+            { "edit_id": "FFIEC-VE-0004", "type": "mandatory_field", "schedule": "RC", "description": "Entity identifier is present.", "severity": "fatal", "ref": "RCONK652" },
+            { "edit_id": "FFIEC-VE-9999", "type": "sign_domain", "schedule": "RC", "description": "Deactivated by FFIEC for known IT issue.", "severity": "warning", "ref": "RCON2170", "domain": "non_negative" }
+          ]
+        },
+        "suppressions": [
+          { "edit_id": "FFIEC-VE-9999", "reason": "Deactivated by FFIEC 2026-Q1 for a known IT-system false-positive (per published deactivation script)." },
+          { "edit_id": "FFIEC-VE-STALE", "reason": "No longer present in the current rule set version." }
+        ]
+      },
+      "output_payload": {
+        "rule_set_version": "FFIEC-2026-01-22",
+        "rule_set_source": "FFIEC Call Report Validity and Quality Edits, effective 2026-01-22",
+        "suppressions_applied": [
+          { "edit_id": "FFIEC-VE-9999", "reason": "Deactivated by FFIEC 2026-Q1 for a known IT-system false-positive (per published deactivation script)." },
+          { "edit_id": "FFIEC-VE-STALE", "reason": "No longer present in the current rule set version." }
+        ],
+        "stale_suppressions": ["FFIEC-VE-STALE"],
+        "findings": [
+          { "edit_id": "FFIEC-VE-0142", "type": "arithmetic_identity", "schedule": "RC", "severity": "fatal", "description": "Total assets equals total liabilities plus total equity capital.", "status": "fail", "computed_value": 950, "reported_value": 1000, "message": "Sum of RCON2948 + RCON3210 = 950 disagrees with reported RCON2170 = 1000 (difference 50.000000 exceeds tolerance 1)." },
+          { "edit_id": "FFIEC-VE-0891", "type": "cross_schedule_tie_out", "schedule": "RC-R", "severity": "fatal", "description": "CET1 capital ties out to its RC-R summary restatement.", "status": "fail", "computed_value": 250, "reported_value": 240, "message": "RCFA7206 (250) disagrees with RCFA7206_TIEOUT (240); difference 10.000000 exceeds tolerance 0." },
+          { "edit_id": "FFIEC-VE-0203", "type": "sign_domain", "schedule": "RC-R", "severity": "fatal", "description": "Total risk-weighted assets is positive.", "status": "fail", "computed_value": null, "reported_value": null, "message": "Missing cell reference in report instance: RCFAB588." },
+          { "edit_id": "FFIEC-VE-0004", "type": "mandatory_field", "schedule": "RC", "severity": "fatal", "description": "Entity identifier is present.", "status": "fail", "computed_value": null, "reported_value": "", "message": "RCONK652 is present but empty/null." },
+          { "edit_id": "FFIEC-VE-9999", "type": "sign_domain", "schedule": "RC", "severity": "warning", "description": "Deactivated by FFIEC for known IT issue.", "status": "suppressed", "computed_value": null, "reported_value": null, "message": "Suppressed: Deactivated by FFIEC 2026-Q1 for a known IT-system false-positive (per published deactivation script)." }
+        ],
+        "summary": { "total_rules": 5, "applied": 4, "suppressed": 1, "pass": 0, "fail": 4, "stale_suppression_count": 1, "overall_pass": false },
+        "compliance_flags": ["EDIT_CHECK_FAILED:FFIEC-VE-0142", "EDIT_CHECK_FAILED:FFIEC-VE-0891", "EDIT_CHECK_FAILED:FFIEC-VE-0203", "EDIT_CHECK_FAILED:FFIEC-VE-0004", "STALE_SUPPRESSION_LIST"],
+        "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
+      },
+      "golden_hash": "9b24056a53f98d0c2e310ea38ef49de432df98642cc79be530bd89609f928aaf"
+    },
+    {
+      "name": "empty-input",
+      "description": "Empty policy_parameters -- finite, deterministic empty-state output (empty-input finite gate).",
+      "policy_parameters": {},
+      "output_payload": {
+        "rule_set_version": null,
+        "rule_set_source": null,
+        "suppressions_applied": [],
+        "stale_suppressions": [],
+        "findings": [],
+        "summary": { "total_rules": 0, "applied": 0, "suppressed": 0, "pass": 0, "fail": 0, "stale_suppression_count": 0, "overall_pass": true },
+        "compliance_flags": [],
+        "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
+      },
+      "golden_hash": "73a11dc255e5388e3eb40677647435beb257fc98d73280095a245c7b0aa4cd0f"
+    }
+  ]
+}

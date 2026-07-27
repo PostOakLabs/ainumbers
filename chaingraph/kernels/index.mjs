@@ -412,6 +412,8 @@ import * as art477    from './art-477-intraday-liquidity-monitoring.kernel.mjs';
 import * as art478    from './art-478-analyze-dc-vs-lc-cost-benefit.kernel.mjs';
 import * as art479    from './art-479-compare-receivables-finance-economics.kernel.mjs';
 import * as art48     from './art-48-treasury-clearing-fit-diagnostic.kernel.mjs';
+import * as art484    from './art-484-regrpt-editcheck-runner.kernel.mjs';
+import * as art485    from './art-485-regrpt-variance-explainer.kernel.mjs';
 import * as art49     from './art-49-clearing-access-model-selector.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
@@ -891,6 +893,8 @@ export const KERNELS = {
   'art-478-analyze-dc-vs-lc-cost-benefit':                    art478,
   'art-479-compare-receivables-finance-economics':            art479,
   'art-48-treasury-clearing-fit-diagnostic':                  art48,
+  'art-484-regrpt-editcheck-runner':                          art484,
+  'art-485-regrpt-variance-explainer':                        art485,
   'art-49-clearing-access-model-selector':                    art49,
   'art-50-ficc-margin-netting-estimator':                     art50,
   'art-51-cross-margining-benefit-estimator':                 art51,
