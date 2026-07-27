@@ -48,6 +48,27 @@ const GATES = [
   ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
   ['DAG helper resolvability (ESCDAG-FIX-1)', 'node scripts/check-dag-idents.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
+  // SSOTPREFLIGHT-WIRE-1 (2026-07-27): registry of the 6 SSOT-writing producers
+  // this gate defends against (SSOTGUARD-VERIFY-1). None of the 6 has a --check
+  // flag or idempotency guard of its own — this gate is the only thing standing
+  // between them and a malformed chaingraph.json/chaingraph.meta.json landing on
+  // main, so their names are recorded here for traceability even though the gate
+  // command below doesn't take arguments naming them.
+  //   scripts/patch-wave38.mjs              — direct chaingraph.json writeFileSync
+  //   scripts/add-wave43-nodes.mjs          — direct chaingraph.json writeFileSync
+  //   scripts/add-cc-g-tvm-nodes.mjs        — direct chaingraph.json writeFileSync
+  //   scripts/add-rhc-wave-a-nodes.mjs      — direct chaingraph.json writeFileSync
+  //   scripts/add-rhc-wave-b-node.mjs       — direct chaingraph.json writeFileSync
+  //   scripts/migrate-chaingraph-shards.mjs — writes chaingraph.meta.json + shards,
+  //     NOT chaingraph.json directly. Same gate still covers it: assemble-chaingraph.mjs
+  //     reads chaingraph.meta.json (META_PATH) as its input and diffs the assembled
+  //     result against the committed chaingraph.json (CG_PATH) — a meta.json/shard
+  //     corruption from this script surfaces as an assemble --check mismatch exactly
+  //     like a direct-appender divergence would. One gate, two write targets, reasoned
+  //     not assumed (assemble-chaingraph.mjs META_PATH read + CG_PATH diff).
+  // ⚠ This registry is documentation, not enforcement, and does NOT close the
+  // `--no-verify` bypass — the pre-push hook (and this gate) simply doesn't run
+  // if a push skips hooks.
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Unassembled-shard scan (ASSEMBLE-COVER-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
