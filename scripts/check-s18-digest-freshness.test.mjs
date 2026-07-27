@@ -107,8 +107,12 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // S18-ART336-PROVE-1, PR #655) — kernel source moved b1cf4e50->65a08e84 and the reprove
   // receipt now matches it, so compute_ltv_ratios (art-336) drops out of stale. Named,
   // node-by-node: this is the only node that moved.
-  assert(total === 462, `expected 462 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 331, `expected 331 fresh (calibration set), got ${fresh.length}`);
+  // 462 -> 474 post-ASSEMBLE-LAND-W2PROOFS-1 (2026-07-27): landed the twelve assurance-wave-2
+  // nodes (art-480..art-491, PR #687) with groth16 compute_proof. Verified before/after the
+  // assemble: zero nodes moved their compute_images sha256-source digest, so the denominator
+  // and the fresh set each move by exactly 12 and the stale count does not move.
+  assert(total === 474, `expected 474 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 343, `expected 343 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
 });
 
