@@ -41,6 +41,14 @@
 // Baseline is downward-ratchet only: removing an entry without fixing the code errors.
 //
 // Wire: scripts/preflight.mjs + .github/workflows/deploy-to-dreamhost.yml
+//
+// THIS FILE IS THE SINGLE SOURCE OF THE BAN LIST (PAGEDET-GATE-1, 2026-07-28).
+// `check-page-determinism.mjs` applies the SAME constructs to node/tool PAGES, but
+// scoped by REACHABILITY into the execution_hash preimage rather than whole-file
+// presence (pages legitimately format for display). It imports `HARD_BANS` and
+// `stripCommentsLine` from here, so a construct added below covers both surfaces at
+// once and there is never a second copy of the list. The scan below therefore runs
+// only when this file is executed directly.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -67,7 +75,8 @@ const BASELINE_SET = new Set(
 );
 
 // Hard-ban patterns: [label, regex]
-const HARD_BANS = [
+// EXPORTED: check-page-determinism.mjs consumes this list. Do not copy it.
+export const HARD_BANS = [
   ['Math.random()',         /\bMath\.random\s*\(/],
   ['Date.now()',            /\bDate\.now\s*\(/],
   ['new Date() (no-arg)',  /\bnew\s+Date\s*\(\s*\)/],
@@ -96,7 +105,7 @@ const TRANSCENDENTAL_RE = /\bMath\.(exp|expm1|log1p|log2|log10|log|sin|cos|tan|a
 
 // Strip both // and /* */ comments from a line, tracking block-comment state.
 // Returns { code, inBlock } where inBlock is the updated state after this line.
-function stripCommentsLine(raw, inBlock) {
+export function stripCommentsLine(raw, inBlock) {
   let code = raw;
 
   if (inBlock) {
@@ -127,6 +136,7 @@ function stripCommentsLine(raw, inBlock) {
   return { code, inBlock };
 }
 
+function main() {
 let errors = 0;
 let warnings = 0;
 let filesScanned = 0;
@@ -204,3 +214,8 @@ if (warnings) {
 } else {
   console.log(`✓ kernel-determinism clean — ${filesScanned} kernel(s), 0 violations.`);
 }
+}
+
+// Run the scan only when executed directly. Importing this module (which
+// check-page-determinism.mjs does, for HARD_BANS) must not run the kernel gate.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
