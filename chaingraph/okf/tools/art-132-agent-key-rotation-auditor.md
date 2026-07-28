@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agent Payment Rail Trust Crosswalk](./art-133-agent-payment-rail-trust-crosswalk.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-132-agent-key-rotation-auditor.md) — §10.2.

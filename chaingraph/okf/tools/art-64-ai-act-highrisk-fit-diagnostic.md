@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md), [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md), [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md), [EU AI Act Credit-Scoring Conformity Pack](./art-05-eu-ai-act-credit-scoring-conformity.md), `452-fair-lending-ai-bias-assessment` _(not live)_, [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-64-ai-act-highrisk-fit-diagnostic.md) — §10.2.

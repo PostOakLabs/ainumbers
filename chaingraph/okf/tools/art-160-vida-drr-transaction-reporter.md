@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ViDA EN 16931 E-Invoice Conformance Validator](./art-159-vida-einvoice-en16931-conformance-validator.md)
 
 **Feeds:** [ViDA Recapitulative Statement Migration Assessor](./art-161-vida-recapitulative-statement-migration-assessor.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-160-vida-drr-transaction-reporter.md) — §10.2.

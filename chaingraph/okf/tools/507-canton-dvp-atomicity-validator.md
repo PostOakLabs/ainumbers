@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Tokenized Collateral Eligibility Checker](./505-tokenized-collateral-eligibility-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/507-canton-dvp-atomicity-validator.md) — §10.2.

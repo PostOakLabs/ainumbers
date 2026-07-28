@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md)
 
 **Feeds:** [AI Addendum Assembler](./art-411-ai-addendum-assembler.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-412-ai-act-procurement-clause-mapper.md) — §10.2.

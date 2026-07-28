@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tokenized Collateral Eligibility Checker](./505-tokenized-collateral-eligibility-checker.md)
 
 **Feeds:** [On-Chain Cash-Leg Finality Checker](./506-onchain-cash-leg-finality-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/513-margin-call-collateral-mobilizer.md) — §10.2.

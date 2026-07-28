@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-364-compute-lcr-nsfr-leverage.md) — §10.2.

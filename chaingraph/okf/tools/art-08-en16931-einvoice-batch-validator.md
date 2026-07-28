@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ISO 20022 Structured-Address Migration Batch Verifier](./rca-03-iso20022-address-migration-verifier.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-08-en16931-einvoice-batch-validator.md) — §10.2.

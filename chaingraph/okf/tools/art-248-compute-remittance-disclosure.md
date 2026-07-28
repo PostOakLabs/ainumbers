@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Corridor Cost Comparator (World Bank RPW)](./art-249-compare-corridor-cost.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-248-compute-remittance-disclosure.md) — §10.2.

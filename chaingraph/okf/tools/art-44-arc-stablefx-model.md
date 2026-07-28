@@ -35,3 +35,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-44-arc-stablefx-model.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [SWIFT GPI Tracker Lifecycle Simulator](./art-244-gpi-tracker-lifecycle-simulator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-245-mt-mx-translation-fidelity-scorer.md) — §10.2.

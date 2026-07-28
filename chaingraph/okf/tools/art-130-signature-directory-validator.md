@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Web Bot Auth Signature Verifier (RFC 9421)](./art-129-webbotauth-signature-verifier.md)
 
 **Feeds:** [Signature Agent Card Validator](./art-131-signature-agent-card-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-130-signature-directory-validator.md) — §10.2.

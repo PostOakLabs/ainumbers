@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Ownership 50%-Rule Aggregator](./art-91-ownership-50pct-aggregator.md), [Screening List-Coverage Checker](./art-92-screening-list-coverage-checker.md), [Fuzzy-Match Calibration Scorer](./art-93-fuzzy-match-calibration-scorer.md), [ECCN / Dual-Use Classifier](./art-94-eccn-dual-use-classifier.md), [Circumvention Diligence Assessor](./art-95-circumvention-diligence-assessor.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-90-sanctions-screening-fit-diagnostic.md) — §10.2.

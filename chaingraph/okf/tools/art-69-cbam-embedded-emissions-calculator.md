@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md), [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md), [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md)
 
 **Feeds:** [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-69-cbam-embedded-emissions-calculator.md) — §10.2.

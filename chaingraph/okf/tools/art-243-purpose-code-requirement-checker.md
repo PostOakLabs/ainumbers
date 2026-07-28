@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Cross-Border Payment Prevalidation Readiness Scorer](./art-247-prevalidation-readiness-scorer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-243-purpose-code-requirement-checker.md) — §10.2.

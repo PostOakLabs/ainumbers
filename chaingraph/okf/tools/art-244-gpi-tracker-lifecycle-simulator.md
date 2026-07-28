@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [MT103 to MX Translation Fidelity Scorer](./art-245-mt-mx-translation-fidelity-scorer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-244-gpi-tracker-lifecycle-simulator.md) — §10.2.

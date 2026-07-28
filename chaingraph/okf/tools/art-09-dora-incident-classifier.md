@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [DORA Readiness Diagnostic](./art-29-dora-readiness-diagnostic.md)
 
 **Feeds:** [DORA ICT Cascade Simulator](./pnr-01-dora-ict-cascade-simulator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-09-dora-incident-classifier.md) — §10.2.

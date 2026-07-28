@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Insurability Evidence Scorer](./art-306-agent-insurability-evidence-scorer.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-307-claim-dispute-bundle-builder.md) — §10.2.

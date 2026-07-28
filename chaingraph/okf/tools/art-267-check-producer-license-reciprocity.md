@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-267-check-producer-license-reciprocity.md) — §10.2.

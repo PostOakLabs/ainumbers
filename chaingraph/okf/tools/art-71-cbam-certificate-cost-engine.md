@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 
 **Feeds:** [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md), [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-71-cbam-certificate-cost-engine.md) — §10.2.

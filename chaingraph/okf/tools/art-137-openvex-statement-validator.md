@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [SLSA Provenance Verifier](./art-136-slsa-provenance-verifier.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-137-openvex-statement-validator.md) — §10.2.

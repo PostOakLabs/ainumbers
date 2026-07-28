@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Document Integrity & eIDAS Electronic Timestamp Anchor](./art-121-document-integrity-anchor.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-122-timestamp-attestation-verifier.md) — §10.2.

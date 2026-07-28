@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Isolation Forest Transaction Anomaly Detector](./ml-01-isolation-forest.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-05-eu-ai-act-credit-scoring-conformity.md) — §10.2.

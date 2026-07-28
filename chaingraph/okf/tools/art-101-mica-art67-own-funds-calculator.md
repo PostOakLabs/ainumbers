@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CASP Authorization-Readiness Assessor](./art-100-mica-casp-authorization-readiness.md)
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-101-mica-art67-own-funds-calculator.md) — §10.2.

@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [GENIUS Act Reserve Attestation Pre-Check](./art-06-genius-act-reserve-attestation.md), [Liquidity Stress Test Simulator (LCR/NSFR)](./sim-01-lcr-nsfr-liquidity-stress-test.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/rca-02-mica-reserve-stress.md) — §10.2.

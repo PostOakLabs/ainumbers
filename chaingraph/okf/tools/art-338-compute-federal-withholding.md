@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Gross-to-Net Payroll Calculator (FICA)](./art-339-compute-gross-to-net.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-338-compute-federal-withholding.md) — §10.2.

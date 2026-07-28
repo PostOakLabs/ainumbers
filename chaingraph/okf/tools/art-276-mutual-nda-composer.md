@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agreement Acceptance Binder](./art-277-agreement-acceptance-binder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-276-mutual-nda-composer.md) — §10.2.

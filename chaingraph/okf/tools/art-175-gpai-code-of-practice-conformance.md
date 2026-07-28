@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NIST AI RMF Function Mapper](./art-174-nist-ai-rmf-function-mapper.md)
 
 **Feeds:** [AI Governance Readiness Diagnostic](./art-176-ai-governance-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-175-gpai-code-of-practice-conformance.md) — §10.2.

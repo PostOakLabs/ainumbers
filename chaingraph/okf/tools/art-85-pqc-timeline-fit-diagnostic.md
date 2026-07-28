@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md), [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md), [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md), [Blockchain / Stablecoin Quantum-Risk Classifier](./art-89-blockchain-quantum-risk-classifier.md), `499-crypto-asset-inventory-classifier` _(not live)_, [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-85-pqc-timeline-fit-diagnostic.md) — §10.2.

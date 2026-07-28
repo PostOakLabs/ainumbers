@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [OECD Country-by-Country Report Builder](./art-472-cbcr-builder.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-473-interquartile-benchmark.md) — §10.2.

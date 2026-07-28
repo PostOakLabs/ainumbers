@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-352-etr-control-evidence-checker.md) — §10.2.

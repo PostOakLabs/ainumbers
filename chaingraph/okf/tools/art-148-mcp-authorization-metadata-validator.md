@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [MCP Server Identity Attestation Validator](./art-147-mcp-server-identity-attestation-validator.md)
 
 **Feeds:** [MCP Registry Entry Conformance Checker](./art-149-mcp-registry-entry-conformance.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-148-mcp-authorization-metadata-validator.md) — §10.2.

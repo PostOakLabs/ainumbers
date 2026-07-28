@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [DSCSA Saleable Returns Verifier](./art-113-saleable-returns-verifier.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-114-suspect-product-quarantine.md) — §10.2.

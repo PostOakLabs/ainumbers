@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Options Greeks Calculator](./qfa-01-options-greeks.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/qfa-04-xva-cva-calculator.md) — §10.2.

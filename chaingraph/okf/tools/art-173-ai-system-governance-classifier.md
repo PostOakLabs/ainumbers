@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [AI Risk Impact Assessment Validator](./art-172-ai-risk-impact-assessment-validator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-173-ai-system-governance-classifier.md) — §10.2.

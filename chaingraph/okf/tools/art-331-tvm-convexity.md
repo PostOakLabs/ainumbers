@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Bond Macaulay / Modified Duration](./art-329-tvm-bond-duration.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-331-tvm-convexity.md) — §10.2.

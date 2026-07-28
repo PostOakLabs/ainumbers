@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ACA Employer Shared Responsibility Payment Exposure Calculator](./art-299-aca-esrp-exposure.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-298-aca-affordability-safe-harbor.md) — §10.2.

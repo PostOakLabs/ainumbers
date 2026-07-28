@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Debt Validation Notice Completeness Checker](./art-403-check-debt-validation-notice.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-402-validate-regf-call-frequency.md) — §10.2.

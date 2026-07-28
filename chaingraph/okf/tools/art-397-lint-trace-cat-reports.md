@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [15c3-3 Customer Reserve Formula Calculator](./art-396-compute-15c3-3-reserve.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-397-lint-trace-cat-reports.md) — §10.2.

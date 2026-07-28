@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [MiCA Stablecoin Reserve Stress Simulator](./rca-02-mica-reserve-stress.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/sim-01-lcr-nsfr-liquidity-stress-test.md) — §10.2.

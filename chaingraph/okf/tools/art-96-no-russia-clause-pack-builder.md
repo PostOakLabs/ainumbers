@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Circumvention Diligence Assessor](./art-95-circumvention-diligence-assessor.md)
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-96-no-russia-clause-pack-builder.md) — §10.2.

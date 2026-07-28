@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Fedwire Structured Address Linter](./art-349-fedwire-structured-address-linter.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-350-fedwire-address-sweep.md) — §10.2.

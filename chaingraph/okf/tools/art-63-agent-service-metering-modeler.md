@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md)
 
 **Feeds:** [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [Time-Series Anomaly Detector](./ml-03-timeseries-anomaly-detector.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-63-agent-service-metering-modeler.md) — §10.2.

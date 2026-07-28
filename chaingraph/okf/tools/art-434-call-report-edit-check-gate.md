@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Call Report Schedule RC (Balance Sheet) Mapper](./art-432-call-report-rc-balance-sheet.md), [Call Report Schedule RC-R (Regulatory Capital) Mapper](./art-433-call-report-rcr-capital.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-434-call-report-edit-check-gate.md) — §10.2.

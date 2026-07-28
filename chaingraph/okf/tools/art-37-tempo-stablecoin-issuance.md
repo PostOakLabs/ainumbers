@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md)
 
 **Feeds:** [GENIUS Act Reserve Attestation Pre-Check](./art-06-genius-act-reserve-attestation.md), [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md), [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-37-tempo-stablecoin-issuance.md) — §10.2.

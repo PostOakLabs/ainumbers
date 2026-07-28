@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo On-Chain AML & Travel Rule Screener](./art-38-tempo-onchain-aml.md)
 
 **Feeds:** [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-39-tempo-zone-disclosure.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [IFRS 17 CSM Roll-Forward Validator](./art-178-ifrs17-csm-rollforward-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-177-ifrs17-measurement-model-classifier.md) — §10.2.

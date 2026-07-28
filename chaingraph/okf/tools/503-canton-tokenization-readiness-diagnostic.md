@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Settlement-Risk Capital Efficiency Optimizer](./504-settlement-risk-capital-optimizer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/503-canton-tokenization-readiness-diagnostic.md) — §10.2.

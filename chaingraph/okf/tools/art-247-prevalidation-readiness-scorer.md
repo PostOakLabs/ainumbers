@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISO 20022 Purpose Code Requirement Checker](./art-243-purpose-code-requirement-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-247-prevalidation-readiness-scorer.md) — §10.2.

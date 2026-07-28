@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Transfer-Pricing Interquartile Range Benchmark](./art-473-interquartile-benchmark.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-472-cbcr-builder.md) — §10.2.

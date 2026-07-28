@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CBPR+ Structured Address Linter](./art-241-cbpr-structured-address-linter.md)
 
 **Feeds:** [Wolfsberg Payment Transparency & LEI Binding Linter](./art-246-lei-payment-binding-linter.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-242-pacs008-party-completeness-validator.md) — §10.2.

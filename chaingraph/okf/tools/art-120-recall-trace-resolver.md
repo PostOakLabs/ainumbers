@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [FSMA 204 Traceability Lot Code Chain Linker](./art-119-traceability-lot-code-linker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-120-recall-trace-resolver.md) — §10.2.

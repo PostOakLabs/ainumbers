@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [FR Y-9C Schedule HC (Consolidated Balance Sheet) Mapper](./art-435-bhc-schedule-hc-balance-sheet.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-436-bhc-schedule-hcr-capital.md) — §10.2.

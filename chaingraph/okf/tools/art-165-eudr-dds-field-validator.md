@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [EUDR Geolocation Plot Validator](./art-166-eudr-geolocation-plot-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-165-eudr-dds-field-validator.md) — §10.2.

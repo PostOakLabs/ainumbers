@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ACA Affordability Safe-Harbor Calculator](./art-298-aca-affordability-safe-harbor.md)
 
 **Feeds:** [226J Response Evidence Pack Builder](./art-300-aca-226j-response-evidence-pack.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-299-aca-esrp-exposure.md) — §10.2.

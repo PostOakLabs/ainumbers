@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Basel RWA Scenario Modeler](./sim-03-basel-rwa-scenario-modeler.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-07-basel31-reporting-delta-calculator.md) — §10.2.

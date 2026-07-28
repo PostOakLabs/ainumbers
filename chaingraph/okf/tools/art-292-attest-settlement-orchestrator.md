@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Besu Settlement Contract Linter](./art-289-lint-besu-settlement-contract.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-292-attest-settlement-orchestrator.md) — §10.2.

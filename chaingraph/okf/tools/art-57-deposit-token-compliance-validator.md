@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md)
 
 **Feeds:** [Digital Asset Regulatory Classifier](./510-digital-asset-regulatory-classifier.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-57-deposit-token-compliance-validator.md) — §10.2.

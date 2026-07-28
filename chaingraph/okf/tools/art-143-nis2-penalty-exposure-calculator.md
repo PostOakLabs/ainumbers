@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NIS2 Article 21 Gap Checker (Ten Cybersecurity Risk-Management Measures)](./art-142-nis2-art21-gap-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-143-nis2-penalty-exposure-calculator.md) — §10.2.

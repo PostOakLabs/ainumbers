@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EMIR Trade Report Field Validator](./art-153-emir-trade-report-field-validator.md)
 
 **Feeds:** [EMIR UPI Validator](./art-155-emir-upi-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-154-emir-uti-completeness-checker.md) — §10.2.

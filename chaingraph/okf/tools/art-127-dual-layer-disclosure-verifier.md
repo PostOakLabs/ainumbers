@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EU AI Act Art. 50 Marking Checker](./art-126-ai-act-art50-marking-checker.md)
 
 **Feeds:** [Content Binding Assertion Validator](./art-128-content-binding-assertion-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-127-dual-layer-disclosure-verifier.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Compute Disparate Impact Metrics](./art-229-compute-disparity-metrics.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-230-compute-hmda-rate-spread.md) — §10.2.

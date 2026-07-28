@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md), [VoP Batch Match-Rate Analyser](./art-11-vop-batch-match-rate-analyser.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md), [APP Fraud Graph Simulator](./mms-03-app-fraud-graph.md), [Isolation Forest Transaction Anomaly Detector](./ml-01-isolation-forest.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-10-amla-transaction-typology-risk-scorer.md) — §10.2.

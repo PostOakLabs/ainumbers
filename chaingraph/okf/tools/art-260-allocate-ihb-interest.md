@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Multilateral Cash Netting](./art-259-compute-multilateral-netting.md), [eBAM Account Message Flow Validation](./art-262-validate-ebam-acmt-flow.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-260-allocate-ihb-interest.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Fedwire Payment-File Address Sweep](./art-350-fedwire-address-sweep.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-349-fedwire-structured-address-linter.md) — §10.2.

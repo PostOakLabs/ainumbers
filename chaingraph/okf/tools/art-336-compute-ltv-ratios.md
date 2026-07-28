@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agency Eligibility Matrix](./art-222-agency-eligibility-matrix.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-336-compute-ltv-ratios.md) — §10.2.

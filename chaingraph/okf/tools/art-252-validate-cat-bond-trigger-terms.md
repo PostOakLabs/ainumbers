@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Parametric Trigger Payout Calculator](./art-251-compute-parametric-trigger-payout.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-252-validate-cat-bond-trigger-terms.md) — §10.2.

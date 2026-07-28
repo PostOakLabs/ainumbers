@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
 
 **Feeds:** [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md), [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-80-ssi-conformance-checker.md) — §10.2.

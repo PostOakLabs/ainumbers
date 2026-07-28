@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md)
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-61-x402-batch-settlement-reconciler.md) — §10.2.

@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ACP/UCP Product-Feed Conformance Auditor](./art-20-acp-ucp-product-feed-conformance-auditor.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-19-agentic-checkout-protocol-selector.md) — §10.2.

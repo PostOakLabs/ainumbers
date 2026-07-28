@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Multi-Currency PvP Validator](./511-multi-currency-pvp-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-111-arc-corridor-jurisdiction-router.md) — §10.2.

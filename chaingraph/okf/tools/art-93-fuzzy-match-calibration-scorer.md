@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Sanctions & Export-Control Screening Fit Diagnostic](./art-90-sanctions-screening-fit-diagnostic.md)
 
 **Feeds:** [Sanctions Screening-Program Quality Scorer](./art-97-sanctions-screening-quality-scorer.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-93-fuzzy-match-calibration-scorer.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NIS2 Entity Scope Classifier (Essential / Important / Out-of-Scope)](./art-141-nis2-entity-scope-classifier.md)
 
 **Feeds:** [NIS2 Penalty Exposure Calculator (Art. 34)](./art-143-nis2-penalty-exposure-calculator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-142-nis2-art21-gap-checker.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [AI Decision Log Record Builder (EU AI Act Art 12)](./art-236-build-ai-decision-log-record.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-237-validate-agent-audit-trail.md) — §10.2.

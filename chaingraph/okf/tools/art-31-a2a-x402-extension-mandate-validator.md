@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)
 
 **Feeds:** [Agent Commerce Cross-Protocol Conformance Validator](./art-30-agent-commerce-conformance-validator.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-31-a2a-x402-extension-mandate-validator.md) — §10.2.

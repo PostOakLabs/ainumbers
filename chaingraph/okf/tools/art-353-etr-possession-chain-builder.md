@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ETR Singularity & Exclusive-Control Evidence Checker](./art-352-etr-control-evidence-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-353-etr-possession-chain-builder.md) — §10.2.

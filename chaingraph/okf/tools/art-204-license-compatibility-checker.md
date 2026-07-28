@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Embedded License Selector](./art-203-embedded-license-selector.md), `art-198-rights-matrix-comparator` _(not live)_
 
 **Feeds:** [License Terms Assembler](./art-205-license-terms-assembler.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-204-license-compatibility-checker.md) — §10.2.

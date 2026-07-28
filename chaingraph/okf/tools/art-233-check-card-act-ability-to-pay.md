@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Build Adverse Action Notice](./art-228-build-adverse-action-notice.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-233-check-card-act-ability-to-pay.md) — §10.2.

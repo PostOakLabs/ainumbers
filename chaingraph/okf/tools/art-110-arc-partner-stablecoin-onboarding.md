@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Arc Fit Diagnostic](./art-42-arc-fit-diagnostic.md)
 
 **Feeds:** [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-110-arc-partner-stablecoin-onboarding.md) — §10.2.

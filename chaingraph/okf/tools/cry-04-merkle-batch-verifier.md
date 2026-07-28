@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [MiCA Stablecoin Reserve Stress Simulator](./rca-02-mica-reserve-stress.md), [DORA ICT Cascade Simulator](./pnr-01-dora-ict-cascade-simulator.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/cry-04-merkle-batch-verifier.md) — §10.2.

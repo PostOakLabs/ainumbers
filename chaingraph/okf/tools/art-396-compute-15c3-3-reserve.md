@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [TRACE / CAT Reporting Lint](./art-397-lint-trace-cat-reports.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-396-compute-15c3-3-reserve.md) — §10.2.

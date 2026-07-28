@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [MCP Authorization Metadata Validator (RFC 9728)](./art-148-mcp-authorization-metadata-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-147-mcp-server-identity-attestation-validator.md) — §10.2.

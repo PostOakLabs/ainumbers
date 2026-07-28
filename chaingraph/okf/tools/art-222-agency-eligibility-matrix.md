@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Conforming Loan Limit Check](./art-223-conforming-loan-limit.md)
 
 **Feeds:** [LLPA Stack Calculator](./art-221-llpa-stack.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-222-agency-eligibility-matrix.md) — §10.2.

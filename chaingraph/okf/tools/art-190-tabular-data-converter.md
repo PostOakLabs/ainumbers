@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Conversion Receipt Builder](./art-191-conversion-receipt-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-190-tabular-data-converter.md) — §10.2.

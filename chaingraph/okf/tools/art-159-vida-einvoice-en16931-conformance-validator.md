@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ViDA DRR Transaction Reporter](./art-160-vida-drr-transaction-reporter.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-159-vida-einvoice-en16931-conformance-validator.md) — §10.2.

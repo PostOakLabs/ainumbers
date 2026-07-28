@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [did:webvh DID Log Verifier](./art-284-did-webvh-log-verifier.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-285-acdc-delegation-chain-verifier.md) — §10.2.

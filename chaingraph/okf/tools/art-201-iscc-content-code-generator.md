@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [TDMRep AI Training Reservation Builder](./art-202-tdmrep-reservation-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-201-iscc-content-code-generator.md) — §10.2.

@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISO 20022 Structured-Address Migration Batch Verifier](./rca-03-iso20022-address-migration-verifier.md), [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-11-vop-batch-match-rate-analyser.md) — §10.2.

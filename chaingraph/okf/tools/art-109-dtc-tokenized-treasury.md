@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Digital Asset Regulatory Classifier](./510-digital-asset-regulatory-classifier.md)
 
 **Feeds:** [Canton DvP Atomicity Validator](./507-canton-dvp-atomicity-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-109-dtc-tokenized-treasury.md) — §10.2.

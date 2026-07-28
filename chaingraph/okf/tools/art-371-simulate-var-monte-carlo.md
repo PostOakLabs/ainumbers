@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Portfolio Covariance & VaR Engine](./qfa-02-portfolio-var-engine.md), [Stress Test Engine](./qfa-03-stress-test-engine.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-371-simulate-var-monte-carlo.md) — §10.2.

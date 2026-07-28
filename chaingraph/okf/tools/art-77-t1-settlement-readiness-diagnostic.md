@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md), [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md), [SSI Conformance Checker](./art-80-ssi-conformance-checker.md), [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md), [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md), [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-77-t1-settlement-readiness-diagnostic.md) — §10.2.

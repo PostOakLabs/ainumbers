@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-13-eudi-wallet-credential-readiness-checker.md) — §10.2.

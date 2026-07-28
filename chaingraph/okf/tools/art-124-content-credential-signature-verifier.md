@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [C2PA Content Credential Manifest Validator](./art-123-c2pa-manifest-validator.md)
 
 **Feeds:** [Provenance Ingredient Tree Resolver](./art-125-provenance-ingredient-tree-resolver.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-124-content-credential-signature-verifier.md) — §10.2.

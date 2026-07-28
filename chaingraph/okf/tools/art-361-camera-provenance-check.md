@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [IDV/KYC Session Evidence Receipt Builder](./art-359-idv-session-receipt-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-361-camera-provenance-check.md) — §10.2.

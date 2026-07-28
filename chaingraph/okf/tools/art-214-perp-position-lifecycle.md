@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Perp Margin and Liquidation Calculator](./art-213-perp-liquidation-calculator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-214-perp-position-lifecycle.md) — §10.2.

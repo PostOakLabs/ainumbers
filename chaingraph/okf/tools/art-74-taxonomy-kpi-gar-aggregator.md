@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md)
 
 **Feeds:** [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-74-taxonomy-kpi-gar-aggregator.md) — §10.2.

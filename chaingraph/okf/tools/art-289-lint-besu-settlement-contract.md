@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Settlement Orchestrator Attestation](./art-292-attest-settlement-orchestrator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-289-lint-besu-settlement-contract.md) — §10.2.

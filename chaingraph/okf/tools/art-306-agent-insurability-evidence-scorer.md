@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Claim Dispute Bundle Builder](./art-307-claim-dispute-bundle-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-306-agent-insurability-evidence-scorer.md) — §10.2.

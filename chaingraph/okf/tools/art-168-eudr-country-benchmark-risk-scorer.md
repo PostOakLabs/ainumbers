@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [EUDR Supply-Chain Traceability Linker](./art-169-eudr-supply-chain-traceability-linker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-168-eudr-country-benchmark-risk-scorer.md) — §10.2.

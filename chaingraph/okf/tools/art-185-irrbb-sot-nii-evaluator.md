@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [IRRBB SOT EVE Evaluator](./art-184-irrbb-sot-eve-evaluator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-185-irrbb-sot-nii-evaluator.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [QM APR-APOR Spread Classifier](./art-219-qm-apr-apor-spread.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-218-qm-points-and-fees.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EMIR UTI Completeness Checker](./art-154-emir-uti-completeness-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-155-emir-upi-validator.md) — §10.2.

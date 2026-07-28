@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [DORA ICT Cascade Simulator](./pnr-01-dora-ict-cascade-simulator.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/sim-07-open-banking-consent-flow-stress.md) — §10.2.

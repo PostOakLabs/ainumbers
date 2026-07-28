@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [VoP Batch Match-Rate Analyser](./art-11-vop-batch-match-rate-analyser.md), [EN 16931 / Factur-X E-Invoicing Batch Validator](./art-08-en16931-einvoice-batch-validator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/rca-03-iso20022-address-migration-verifier.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ERC-8056 Multiplier Reconciler](./art-317-rhc-multiplier-reconciler.md), [Financial-Instrument Regime Mapper](./art-318-rhc-regime-mapper.md), [Valuation Double-Count / Decimal Linter](./art-319-rhc-valuation-linter.md), [Halt + Staleness Collateral Haircut](./art-320-rhc-collateral-haircut.md), [BoLD Challenge-Window Finality Classifier](./art-321-rhc-bold-finality-classifier.md), [AP Concentration + Redemption-Path Stress](./art-322-rhc-ap-redemption-stress.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-323-rhc-fit-diagnostic.md) — §10.2.

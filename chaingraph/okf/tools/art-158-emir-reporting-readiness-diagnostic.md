@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EMIR Lifecycle Event Validator](./art-157-emir-lifecycle-event-validator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-158-emir-reporting-readiness-diagnostic.md) — §10.2.

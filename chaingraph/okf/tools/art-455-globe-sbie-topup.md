@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [GloBE Jurisdictional ETR Calculator](./art-454-globe-jurisdictional-etr.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-455-globe-sbie-topup.md) — §10.2.

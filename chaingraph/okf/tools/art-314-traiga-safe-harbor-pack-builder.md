@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [TRAIGA Exposure Assessor](./art-313-traiga-exposure-assessor.md), [NIST AI RMF Function Mapper](./art-174-nist-ai-rmf-function-mapper.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-314-traiga-safe-harbor-pack-builder.md) — §10.2.

@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Recompute Fund NAV](./art-373-recompute-fund-nav.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-374-test-nav-error-materiality.md) — §10.2.

@@ -18,13 +18,25 @@
  * execution_hash and NO audit_signature. Nothing in OpenChainGraph's
  * verification path depends on this bundle — it is a discovery surface only.
  *
+ * v0.2 §10.2 Attested Computation (OKFV2-3): every live node publishing a Graph
+ * Index kernel identity (a `compute_images[]` sha256-source entry, SPEC.md §17.1)
+ * also gets an `okf/computations/<tool_id>.md` concept with `executor:{resource,
+ * receipt}` + `attester:{resource}`. `attester.resource` points at that node's
+ * compute_images entry — per Tim's 2026-07-28 ruling, deliberately the KERNEL
+ * IDENTITY (content-addressed, already published, no new infrastructure), never
+ * the verify page (a human UI, not verification code) or a receipt endpoint (a
+ * live service is an availability dependency the OKF/OCG firewall forbids).
+ * `audit_signature` is artifact-time only, never on a Graph Index node, so this
+ * describes the SHAPE a §18 zkVM compute-integrity proof carries when attached —
+ * it never asserts that one exists for any given execution.
+ *
  * The frontmatter `timestamp` is derived from chaingraph.json's own `updated`
  * date field, NOT wall-clock time — a wall-clock timestamp would make every
  * `--check` run report stale regardless of content, since it differs on every
  * invocation even when nothing changed.
  *
  * Usage:
- *   node generate-okf.mjs          # write ./okf/{index.md, log.md, tools/*.md, mandate-types/*.md}
+ *   node generate-okf.mjs          # write ./okf/{index.md, log.md, tools/*.md, mandate-types/*.md, computations/*.md}
  *   node generate-okf.mjs --check  # freshness gate (exit 1 if okf/ doesn't match chaingraph.json)
  *
  * Zero dependencies (Node 18+ ESM).
@@ -78,6 +90,62 @@ function sourcesBlock(n) {
   return lines.join('\n');
 }
 
+// v0.2 §10.2 Attested Computation — only for nodes with a published sha256-source
+// kernel identity (SPEC.md §17.1); this is the population Tim's ruling scoped
+// attester.resource to, and the only claim this generator can make honestly from
+// a Graph Index node alone (audit_signature.compute_proof is artifact-time, never
+// on the node — see file-header note).
+function kernelIdentityEntry(n) {
+  return (n.compute_images ?? []).find((i) => i.system === 'sha256-source') ?? null;
+}
+
+const KERNEL_BASE = 'https://ainumbers.co/chaingraph/kernels';
+// §18.0's ZkVmReceipt object shape — the fields a compute-integrity proof carries
+// *when attached* to an artifact for this node. Listed descriptively; presence of
+// this list is not a claim that a proof exists for any particular execution.
+const COMPUTE_PROOF_RECEIPT_FIELDS = ['type', 'system', 'receiptFormat', 'imageId', 'seal', 'journal'];
+
+function attestedComputationFrontmatter(n, kernelIdentity) {
+  return [
+    '---',
+    'type: Attested Computation',
+    `title: ${JSON.stringify(`${n.display_name} — attested computation`)}`,
+    `runtime: ${n.gpu === false ? 'server' : 'browser'}`,
+    `computation: ${JSON.stringify(`Kernel-backed evaluation for the ${n.mandate_type} decision, producing a hash-anchored OpenChainGraph artifact.`)}`,
+    'executor:',
+    `  resource: ${KERNEL_BASE}/${n.tool_id}.kernel.mjs`,
+    `  receipt: ${yamlList(COMPUTE_PROOF_RECEIPT_FIELDS)}`,
+    'attester:',
+    `  resource: ${SHARD_BASE}/${n.tool_id}.json#compute_images`,
+    `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
+    '---',
+  ].join('\n');
+}
+
+function attestedComputationBody(n, kernelIdentity) {
+  return [
+    `# ${n.display_name} — attested computation`,
+    '',
+    `> §10.2 Attested Computation binding for [${n.display_name}](../tools/${fileFor(n.tool_id)}).`,
+    '',
+    '## Executor',
+    '',
+    `Kernel source: \`chaingraph/kernels/${n.tool_id}.kernel.mjs\`. A §18 zkVM compute-integrity`,
+    'proof, when attached to an artifact this kernel produced, carries these receipt fields:',
+    `${COMPUTE_PROOF_RECEIPT_FIELDS.map((f) => `\`${f}\``).join(', ')} (SPEC.md §18.0).`,
+    '',
+    '## Attester',
+    '',
+    `Kernel identity: \`${kernelIdentity.image_id}\` (SPEC.md §17.1 \`compute_images\`) — a`,
+    'content-addressed digest of this node\'s deployed kernel source, already published in the',
+    'Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on',
+    'this OKF bundle, and this concept asserts no execution event or `verified:` status.',
+    '',
+  ].join('\n');
+}
+
 function frontmatter(n) {
   const tags = [n.mandate_type, `wave-${n.wave}`, `mcp:${n.mcp_name}`];
   if (n.semantic_profile) tags.push(n.semantic_profile);
@@ -121,6 +189,9 @@ function conceptBody(n) {
   lines.push('');
   lines.push('**Feeds:** ' + (feeds.length ? feeds.map(toolLink).join(', ') : '_terminal node_'));
   lines.push('');
+  if (kernelIdentityEntry(n)) {
+    lines.push('## Attested computation', '', `[executor + attester binding](../computations/${fileFor(n.tool_id)}) — §10.2.`, '');
+  }
   return lines.join('\n');
 }
 
@@ -128,6 +199,42 @@ function conceptBody(n) {
 // one concept per live tool
 for (const n of live) {
   write(`tools/${fileFor(n.tool_id)}`, `${frontmatter(n)}\n\n${conceptBody(n)}`);
+}
+
+// one Attested Computation concept per live tool with a published kernel identity
+const attested = [];
+for (const n of live) {
+  const kernelIdentity = kernelIdentityEntry(n);
+  if (!kernelIdentity) continue;
+  attested.push(n);
+  write(
+    `computations/${fileFor(n.tool_id)}`,
+    `${attestedComputationFrontmatter(n, kernelIdentity)}\n\n${attestedComputationBody(n, kernelIdentity)}`,
+  );
+}
+if (attested.length) {
+  write(
+    'computations/index.md',
+    [
+      '---',
+      'type: Index',
+      'title: "Attested computations"',
+      `timestamp: ${now}`,
+      genLine(),
+      'status: stable',
+      '---',
+      '',
+      '# Attested computations',
+      '',
+      '§10.2 concepts for live nodes publishing a kernel identity (SPEC.md §17.1).',
+      '',
+      ...attested
+        .slice()
+        .sort((a, b) => a.tool_id.localeCompare(b.tool_id))
+        .map((n) => `- [${n.display_name}](./${fileFor(n.tool_id)})`),
+      '',
+    ].join('\n'),
+  );
 }
 
 // group by mandate_type
@@ -230,6 +337,7 @@ write(
     '',
     `- [All tools](tools/index.md) (${live.length})`,
     `- [By mandate type](mandate-types/index.md) (${groups.size})`,
+    ...(attested.length ? [`- [Attested computations](computations/index.md) (${attested.length})`] : []),
     '',
     '## Call',
     '',
@@ -294,8 +402,9 @@ if (CHECK) {
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(resolve(OUT, 'tools'), { recursive: true });
   mkdirSync(resolve(OUT, 'mandate-types'), { recursive: true });
+  if (attested.length) mkdirSync(resolve(OUT, 'computations'), { recursive: true });
   for (const [relPath, content] of files) {
     writeFileSync(resolve(OUT, relPath), content);
   }
-  console.log(`OKF bundle written to ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups.`);
+  console.log(`OKF bundle written to ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups, ${attested.length} attested computations.`);
 }

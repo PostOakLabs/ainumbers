@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [IRRBB Standardised Approach Mapper](./art-186-irrbb-standardised-approach-mapper.md)
 
 **Feeds:** [IRRBB Disclosure Readiness Diagnostic](./art-188-irrbb-disclosure-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-187-irrbb-csrbb-scope-checker.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agent On-Behalf-Of (OBO) Mandate Validator](./art-151-agent-obo-mandate-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-150-mcp-tool-scope-revocation-auditor.md) — §10.2.

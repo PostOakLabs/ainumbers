@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo Payments Business Case](./art-35-tempo-payments-business-case.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-107-tempo-gas-economics.md) — §10.2.

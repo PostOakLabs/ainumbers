@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Model Inventory Entry Builder](./art-450-model-inventory-entry.md)
 
 **Feeds:** [Model Validation Status Assessor](./art-453-model-validation-status.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-451-model-outcome-analysis.md) — §10.2.

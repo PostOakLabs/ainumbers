@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Life Illustration Self-Support Test (NAIC Model 582)](./art-253-run-illustration-selfsupport-test.md)
 
 **Feeds:** [Claims STP Economics Calculator](./art-257-calculate-claims-stp-economics.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-254-compute-rbc-action-level.md) — §10.2.

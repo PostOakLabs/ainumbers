@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Amortization Schedule Builder](./art-332-build-amortization-schedule.md)
 
 **Feeds:** [TRID APR Accuracy Verifier](./art-217-trid-apr-accuracy.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-215-reg-z-appendix-j-apr.md) — §10.2.

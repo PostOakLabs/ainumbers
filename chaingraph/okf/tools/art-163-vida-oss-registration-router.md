@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ViDA Platform Deemed Supplier Classifier](./art-162-vida-platform-deemed-supplier-classifier.md)
 
 **Feeds:** [ViDA Compliance Readiness Diagnostic](./art-164-vida-compliance-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-163-vida-oss-registration-router.md) — §10.2.

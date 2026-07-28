@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [every tool in the suite](./index.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/ptg-01-ap2-prompt-template-generator.md) — §10.2.

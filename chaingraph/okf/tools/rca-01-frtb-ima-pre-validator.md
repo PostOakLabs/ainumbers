@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Portfolio Covariance & VaR Engine](./qfa-02-portfolio-var-engine.md), [Basel RWA Scenario Modeler](./sim-03-basel-rwa-scenario-modeler.md)
 
 **Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/rca-01-frtb-ima-pre-validator.md) — §10.2.

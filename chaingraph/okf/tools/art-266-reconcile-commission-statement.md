@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Commission Hierarchy Validator](./art-264-validate-commission-hierarchy.md)
 
 **Feeds:** [ASC 340-40 Commission Amortization](./art-265-amortize-asc606-commissions.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-266-reconcile-commission-statement.md) — §10.2.

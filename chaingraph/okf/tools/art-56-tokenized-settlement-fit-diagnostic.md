@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md), [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md), [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md), [Tokenized Collateral Eligibility Checker](./505-tokenized-collateral-eligibility-checker.md), [Canton Party Allowlist Validator](./509-canton-party-allowlist-validator.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-56-tokenized-settlement-fit-diagnostic.md) — §10.2.

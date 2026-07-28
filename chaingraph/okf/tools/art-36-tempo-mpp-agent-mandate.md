@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md)
 
 **Feeds:** [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md), [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-36-tempo-mpp-agent-mandate.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-321-rhc-bold-finality-classifier.md) — §10.2.

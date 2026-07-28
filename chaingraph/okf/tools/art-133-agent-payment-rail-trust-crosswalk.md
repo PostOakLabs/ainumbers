@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Key Rotation Auditor](./art-132-agent-key-rotation-auditor.md)
 
 **Feeds:** [Agent Directory Publish Readiness Diagnostic](./art-134-agent-directory-publish-readiness.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-133-agent-payment-rail-trust-crosswalk.md) — §10.2.

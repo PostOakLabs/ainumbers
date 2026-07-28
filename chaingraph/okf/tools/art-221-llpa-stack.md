@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agency Eligibility Matrix](./art-222-agency-eligibility-matrix.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-221-llpa-stack.md) — §10.2.

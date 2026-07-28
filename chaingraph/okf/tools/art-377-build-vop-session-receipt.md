@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Payee Name-Match Score (VoP/CoP)](./art-376-score-payee-name-match.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-377-build-vop-session-receipt.md) — §10.2.

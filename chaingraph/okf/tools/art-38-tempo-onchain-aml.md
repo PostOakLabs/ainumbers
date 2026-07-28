@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo Stablecoin Issuance Compliance](./art-37-tempo-stablecoin-issuance.md)
 
 **Feeds:** [Tempo Zone Selective-Disclosure Attestation](./art-39-tempo-zone-disclosure.md), [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-38-tempo-onchain-aml.md) — §10.2.

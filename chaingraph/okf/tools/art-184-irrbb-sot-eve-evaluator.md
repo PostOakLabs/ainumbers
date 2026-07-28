@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [IRRBB EVE Shock Calculator](./art-183-irrbb-eve-shock-calculator.md)
 
 **Feeds:** [IRRBB SOT NII Evaluator](./art-185-irrbb-sot-nii-evaluator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-184-irrbb-sot-eve-evaluator.md) — §10.2.

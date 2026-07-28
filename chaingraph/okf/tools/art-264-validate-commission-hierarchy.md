@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Commission Statement Reconciler](./art-266-reconcile-commission-statement.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-264-validate-commission-hierarchy.md) — §10.2.

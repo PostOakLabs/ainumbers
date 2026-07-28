@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [TRAIGA Safe Harbor Pack Builder](./art-314-traiga-safe-harbor-pack-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-313-traiga-exposure-assessor.md) — §10.2.
