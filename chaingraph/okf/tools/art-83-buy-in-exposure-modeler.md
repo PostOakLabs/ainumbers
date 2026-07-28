@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md)
 
 **Feeds:** [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-83-buy-in-exposure-modeler.md) — §10.2.

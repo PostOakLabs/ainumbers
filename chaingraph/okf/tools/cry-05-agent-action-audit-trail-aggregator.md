@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Commerce Cross-Protocol Conformance Validator](./art-30-agent-commerce-conformance-validator.md), [A2A x402-Extension Mandate Validator](./art-31-a2a-x402-extension-mandate-validator.md), [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md)
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/cry-05-agent-action-audit-trail-aggregator.md) — §10.2.

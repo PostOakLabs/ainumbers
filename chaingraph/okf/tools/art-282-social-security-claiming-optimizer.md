@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Pension Lump-Sum vs. Annuity Decision Engine](./art-283-pension-lump-sum-vs-annuity-decision-engine.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-282-social-security-claiming-optimizer.md) — §10.2.

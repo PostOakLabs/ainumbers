@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Social Security Claiming-Age Optimizer](./art-282-social-security-claiming-optimizer.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-283-pension-lump-sum-vs-annuity-decision-engine.md) — §10.2.

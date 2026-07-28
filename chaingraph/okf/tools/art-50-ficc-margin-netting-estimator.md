@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md), [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md)
 
 **Feeds:** [On-Chain Repo Haircut Calculator](./508-repo-haircut-collateral-calculator.md), [Portfolio Covariance & VaR Engine](./qfa-02-portfolio-var-engine.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-50-ficc-margin-netting-estimator.md) — §10.2.

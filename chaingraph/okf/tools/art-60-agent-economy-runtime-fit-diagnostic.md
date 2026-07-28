@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md), [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md), [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md), [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [APP Fraud Graph Simulator](./mms-03-app-fraud-graph.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-60-agent-economy-runtime-fit-diagnostic.md) — §10.2.

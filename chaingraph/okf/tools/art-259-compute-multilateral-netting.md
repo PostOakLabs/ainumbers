@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [IHB Interest Allocation](./art-260-allocate-ihb-interest.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-259-compute-multilateral-netting.md) — §10.2.

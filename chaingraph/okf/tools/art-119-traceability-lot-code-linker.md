@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [FSMA 204 Critical Tracking Event (CTE) Validator](./art-118-fsma204-cte-validator.md)
 
 **Feeds:** [FSMA 204 Recall Trace Resolver (24-Hour FDA List)](./art-120-recall-trace-resolver.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-119-traceability-lot-code-linker.md) — §10.2.

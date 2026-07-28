@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/509-canton-party-allowlist-validator.md) — §10.2.

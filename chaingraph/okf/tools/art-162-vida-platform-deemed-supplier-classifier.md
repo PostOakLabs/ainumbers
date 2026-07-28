@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [ViDA OSS Registration Router](./art-163-vida-oss-registration-router.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-162-vida-platform-deemed-supplier-classifier.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [E-Invoice Jurisdiction Mandate Router](./art-295-einvoice-jurisdiction-mandate-router.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-296-einvoice-transmission-receipt-builder.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [BIFSG Insurance Proxy Bias Threshold Test (Colorado SB 21-169)](./art-239-test-bifsg-bias-thresholds.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-240-assess-naic-ais-program-readiness.md) — §10.2.

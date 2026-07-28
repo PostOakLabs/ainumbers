@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Basel 3.1 Reporting Delta Calculator](./art-07-basel31-reporting-delta-calculator.md)
 
 **Feeds:** [Time-Series Anomaly Detector](./ml-03-timeseries-anomaly-detector.md), [Portfolio Covariance & VaR Engine](./qfa-02-portfolio-var-engine.md), [FRTB IMA Expected Shortfall Pre-Validator](./rca-01-frtb-ima-pre-validator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/sim-03-basel-rwa-scenario-modeler.md) — §10.2.

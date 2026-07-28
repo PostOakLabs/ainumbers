@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Remittance Disclosure Calculator (Reg E Subpart B)](./art-248-compute-remittance-disclosure.md), [Stablecoin Corridor Economics Model](./art-250-model-stablecoin-corridor-economics.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-249-compare-corridor-cost.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [pacs.008 Party Completeness Validator](./art-242-pacs008-party-completeness-validator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-246-lei-payment-binding-linter.md) — §10.2.

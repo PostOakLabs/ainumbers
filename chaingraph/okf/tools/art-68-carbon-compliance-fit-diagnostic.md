@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md), [CBAM Precursor-Emissions Aggregator](./art-72-cbam-precursor-emissions-aggregator.md), [EU Taxonomy Alignment Scorer](./art-73-taxonomy-alignment-scorer.md), [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md), [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-68-carbon-compliance-fit-diagnostic.md) — §10.2.

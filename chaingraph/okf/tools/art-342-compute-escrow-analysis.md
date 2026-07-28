@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [HPML Definition and Escrow Requirement Test](./art-235-test-hpml-escrow.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-342-compute-escrow-analysis.md) — §10.2.

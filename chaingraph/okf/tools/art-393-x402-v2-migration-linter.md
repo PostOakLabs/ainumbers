@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md)
 
 **Feeds:** [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md), [x402 Deferred-Scheme Handshake Validator](./art-394-x402-deferred-handshake-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-393-x402-v2-migration-linter.md) — §10.2.

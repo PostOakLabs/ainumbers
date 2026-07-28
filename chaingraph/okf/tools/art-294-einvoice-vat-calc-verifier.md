@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [E-Invoice Format Validator](./art-293-einvoice-format-validator.md)
 
 **Feeds:** [E-Invoice Jurisdiction Mandate Router](./art-295-einvoice-jurisdiction-mandate-router.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-294-einvoice-vat-calc-verifier.md) — §10.2.

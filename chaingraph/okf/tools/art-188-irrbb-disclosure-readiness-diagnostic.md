@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [IRRBB CSRBB Scope Checker](./art-187-irrbb-csrbb-scope-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-188-irrbb-disclosure-readiness-diagnostic.md) — §10.2.

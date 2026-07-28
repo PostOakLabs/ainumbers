@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EMIR Counterparty Pairing Reconciler](./art-156-emir-counterparty-pairing-reconciler.md)
 
 **Feeds:** [EMIR Reporting Readiness Diagnostic](./art-158-emir-reporting-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-157-emir-lifecycle-event-validator.md) — §10.2.

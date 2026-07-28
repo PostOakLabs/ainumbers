@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [DSCSA Transaction Statement (T3) Verifier](./art-112-dscsa-transaction-statement-verifier.md)
 
 **Feeds:** [DSCSA Suspect/Illegitimate Product Quarantine Assessor](./art-114-suspect-product-quarantine.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-113-saleable-returns-verifier.md) — §10.2.

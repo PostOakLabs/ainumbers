@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CRA Annex I Completeness Checker](./art-139-cra-annex1-completeness-checker.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-140-cra-vuln-reporting-readiness.md) — §10.2.

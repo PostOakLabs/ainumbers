@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [HTTP Signatures Directory Validator](./art-130-signature-directory-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-129-webbotauth-signature-verifier.md) — §10.2.

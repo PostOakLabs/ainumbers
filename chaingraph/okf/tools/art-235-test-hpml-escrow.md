@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Reg Z Threshold Lookup](./art-220-reg-z-threshold-lookup.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-235-test-hpml-escrow.md) — §10.2.

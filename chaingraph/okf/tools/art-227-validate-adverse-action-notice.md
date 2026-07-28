@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Build Adverse Action Notice](./art-228-build-adverse-action-notice.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-227-validate-adverse-action-notice.md) — §10.2.

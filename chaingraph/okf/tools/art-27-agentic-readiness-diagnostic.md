@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** `art-15-agentic-mandate-sandbox` _(not live)_, `art-16-google-ap2-mandate-builder` _(not live)_, `art-17-ap2-mcp-policy-validator` _(not live)_, `art-18-mcp-developer-readiness-scorecard` _(not live)_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-27-agentic-readiness-diagnostic.md) — §10.2.

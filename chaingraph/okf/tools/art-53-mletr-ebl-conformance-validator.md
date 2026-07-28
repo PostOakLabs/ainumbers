@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md)
 
 **Feeds:** [Digital Asset Regulatory Classifier](./510-digital-asset-regulatory-classifier.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Credit Default Risk Scorer](./ml-02-credit-default-risk-scorer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-53-mletr-ebl-conformance-validator.md) — §10.2.

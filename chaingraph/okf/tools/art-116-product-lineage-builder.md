@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EU ESPR Digital Product Passport Data Carrier Validator](./art-115-dpp-data-carrier-validator.md)
 
 **Feeds:** [Luxury Goods Product Authenticity Verifier](./art-117-product-authenticity-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-116-product-lineage-builder.md) — §10.2.

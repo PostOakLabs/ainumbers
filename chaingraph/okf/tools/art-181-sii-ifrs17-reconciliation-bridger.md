@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Solvency II SCR Ratio Calculator](./art-180-solvency2-scr-ratio-calculator.md)
 
 **Feeds:** [Insurance Reporting Readiness Diagnostic](./art-182-insurance-reporting-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-181-sii-ifrs17-reconciliation-bridger.md) — §10.2.

@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [AIUC-1 Control Evidence Linter](./art-303-aiuc1-control-evidence-linter.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
 
 **Feeds:** [AIUC-1 Evidence Freshness Lint](./art-305-aiuc1-evidence-freshness-lint.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-304-aiuc1-evidence-pack-assembler.md) — §10.2.

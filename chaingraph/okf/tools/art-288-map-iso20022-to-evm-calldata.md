@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [On-Ledger Transfer Batch Screen](./art-291-screen-onledger-transfer-batch.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-288-map-iso20022-to-evm-calldata.md) — §10.2.

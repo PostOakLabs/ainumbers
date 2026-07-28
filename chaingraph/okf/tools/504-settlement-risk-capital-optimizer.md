@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Canton Tokenization Readiness Diagnostic](./503-canton-tokenization-readiness-diagnostic.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/504-settlement-risk-capital-optimizer.md) — §10.2.

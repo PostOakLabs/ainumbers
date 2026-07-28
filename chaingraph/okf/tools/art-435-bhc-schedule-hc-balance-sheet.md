@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [FR Y-9C Schedule HC-R (Regulatory Capital) Calculator](./art-436-bhc-schedule-hcr-capital.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-435-bhc-schedule-hc-balance-sheet.md) — §10.2.

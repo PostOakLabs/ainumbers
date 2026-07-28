@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md)
 
 **Feeds:** [ACDC Delegation Chain Verifier](./art-285-acdc-delegation-chain-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-284-did-webvh-log-verifier.md) — §10.2.

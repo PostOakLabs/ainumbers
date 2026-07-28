@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Tokenized Collateral Eligibility Checker](./505-tokenized-collateral-eligibility-checker.md), [On-Chain Cash-Leg Finality Checker](./506-onchain-cash-leg-finality-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/508-repo-haircut-collateral-calculator.md) — §10.2.

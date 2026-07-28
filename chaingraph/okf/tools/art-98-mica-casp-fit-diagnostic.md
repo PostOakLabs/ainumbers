@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [MiCA Transitional-Deadline Router](./art-99-mica-transitional-deadline-router.md), [CASP Authorization-Readiness Assessor](./art-100-mica-casp-authorization-readiness.md), [Crypto-Asset Whitepaper Linter (iXBRL)](./art-102-crypto-asset-whitepaper-linter.md), [MAR-Crypto Surveillance-Readiness Assessor](./art-103-mar-crypto-surveillance-readiness.md), [TFR Travel-Rule Batch Validator](./art-104-tfr-travel-rule-batch-validator.md), [MiCA Token & Service Scoper](./art-105-mica-token-service-scoper.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-98-mica-casp-fit-diagnostic.md) — §10.2.

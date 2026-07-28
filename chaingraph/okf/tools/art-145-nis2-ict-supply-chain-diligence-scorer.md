@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NIS2 Incident Significance Scorer (Art. 23 Reporting Threshold)](./art-144-nis2-incident-significance-scorer.md)
 
 **Feeds:** [NIS2 Governance Readiness Checker (Art. 20 — Management Body Accountability)](./art-146-nis2-governance-readiness-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-145-nis2-ict-supply-chain-diligence-scorer.md) — §10.2.

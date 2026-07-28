@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [SII-IFRS 17 Reconciliation Bridger](./art-181-sii-ifrs17-reconciliation-bridger.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-182-insurance-reporting-readiness-diagnostic.md) — §10.2.

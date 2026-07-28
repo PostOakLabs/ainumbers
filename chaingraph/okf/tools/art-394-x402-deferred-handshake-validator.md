@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [x402 v2 Wire-Format Migration Linter](./art-393-x402-v2-migration-linter.md), [Web Bot Auth Signature Verifier (RFC 9421)](./art-129-webbotauth-signature-verifier.md)
 
 **Feeds:** [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-394-x402-deferred-handshake-validator.md) — §10.2.

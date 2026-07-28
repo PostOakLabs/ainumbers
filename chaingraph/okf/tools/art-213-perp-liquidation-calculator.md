@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Perp Position Lifecycle](./art-214-perp-position-lifecycle.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-213-perp-liquidation-calculator.md) — §10.2.

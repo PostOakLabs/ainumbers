@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [NAIC AI Systems Program Readiness Assessment](./art-240-assess-naic-ais-program-readiness.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-239-test-bifsg-bias-thresholds.md) — §10.2.

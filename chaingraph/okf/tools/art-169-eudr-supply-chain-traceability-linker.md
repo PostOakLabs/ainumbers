@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EUDR Country Benchmark Risk Scorer](./art-168-eudr-country-benchmark-risk-scorer.md)
 
 **Feeds:** [EUDR Readiness Diagnostic](./art-170-eudr-readiness-diagnostic.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-169-eudr-supply-chain-traceability-linker.md) — §10.2.

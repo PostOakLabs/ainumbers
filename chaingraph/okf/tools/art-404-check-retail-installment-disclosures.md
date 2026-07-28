@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Amortization Schedule Builder](./art-332-build-amortization-schedule.md), [Net Present Value (NPV)](./art-324-tvm-npv.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-404-check-retail-installment-disclosures.md) — §10.2.

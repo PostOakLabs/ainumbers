@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md), [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md), [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md), [Canton Party Allowlist Validator](./509-canton-party-allowlist-validator.md), [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md), [Credit Default Risk Scorer](./ml-02-credit-default-risk-scorer.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-52-digital-trade-fit-diagnostic.md) — §10.2.

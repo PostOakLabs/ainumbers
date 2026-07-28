@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [AI Act Procurement Clause Mapper](./art-412-ai-act-procurement-clause-mapper.md)
 
 **Feeds:** [DPA Article 28 Completeness Checker](./art-409-dpa-art28-completeness-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-411-ai-addendum-assembler.md) — §10.2.

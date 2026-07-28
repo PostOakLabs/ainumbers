@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISO 42001 AIMS Clause Conformance](./art-171-iso42001-aims-clause-conformance.md)
 
 **Feeds:** [AI System Governance Classifier](./art-173-ai-system-governance-classifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-172-ai-risk-impact-assessment-validator.md) — §10.2.

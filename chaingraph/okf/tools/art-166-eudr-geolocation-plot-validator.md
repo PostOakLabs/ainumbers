@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [EUDR DDS Field Validator](./art-165-eudr-dds-field-validator.md)
 
 **Feeds:** [EUDR Commodity Scope Classifier](./art-167-eudr-commodity-scope-classifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-166-eudr-geolocation-plot-validator.md) — §10.2.

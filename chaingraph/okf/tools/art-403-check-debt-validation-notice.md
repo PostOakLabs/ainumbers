@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Reg F Call-Frequency Presumption Validator](./art-402-validate-regf-call-frequency.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-403-check-debt-validation-notice.md) — §10.2.

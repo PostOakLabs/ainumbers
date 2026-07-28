@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Tempo Fit Diagnostic](./art-34-tempo-fit-diagnostic.md), [Tempo MPP Agent Mandate](./art-36-tempo-mpp-agent-mandate.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-40-tempo-agentic-checkout.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agent Audit Trail Conformance Validator (IETF AAT)](./art-237-validate-agent-audit-trail.md), [EU AI Act Annex III FS Decisioning Obligations Classifier](./art-238-classify-annex3-decisioning-obligations.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-236-build-ai-decision-log-record.md) — §10.2.

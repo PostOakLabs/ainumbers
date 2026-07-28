@@ -37,3 +37,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Tokenized Security Lifecycle Validator](./512-tokenized-security-lifecycle-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/510-digital-asset-regulatory-classifier.md) — §10.2.

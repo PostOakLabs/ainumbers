@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [W-8 Series Structural Validator](./art-269-validate-w8-series-structural.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-268-compute-cdd-ownership-25pct.md) — §10.2.

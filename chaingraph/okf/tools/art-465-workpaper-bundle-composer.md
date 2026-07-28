@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Journal-Entry Ruleset Screen](./art-462-je-ruleset-screen.md), [Audit Recalculation Suite](./art-463-recalc-suite.md), [Bank/AR Confirmation Matcher](./art-464-confirmation-matcher.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-465-workpaper-bundle-composer.md) — §10.2.

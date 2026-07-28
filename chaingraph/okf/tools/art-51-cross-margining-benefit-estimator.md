@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md)
 
 **Feeds:** [Portfolio Covariance & VaR Engine](./qfa-02-portfolio-var-engine.md), [Stress Test Engine](./qfa-03-stress-test-engine.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-51-cross-margining-benefit-estimator.md) — §10.2.

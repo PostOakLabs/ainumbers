@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [QM Points and Fees Test](./art-218-qm-points-and-fees.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-219-qm-apr-apor-spread.md) — §10.2.

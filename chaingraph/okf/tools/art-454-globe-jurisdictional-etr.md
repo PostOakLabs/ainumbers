@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [GloBE SBIE & Top-up Tax Calculator](./art-455-globe-sbie-topup.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-454-globe-jurisdictional-etr.md) — §10.2.

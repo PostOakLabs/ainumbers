@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** `art-18-mcp-developer-readiness-scorecard` _(not live)_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-28-mcp-server-deployability-diagnostic.md) — §10.2.

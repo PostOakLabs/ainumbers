@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Screening List-Coverage Checker](./art-92-screening-list-coverage-checker.md), [Fuzzy-Match Calibration Scorer](./art-93-fuzzy-match-calibration-scorer.md)
 
 **Feeds:** [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-97-sanctions-screening-quality-scorer.md) — §10.2.

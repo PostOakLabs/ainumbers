@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md), [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md)
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [AMLA Transaction-Typology Risk Scorer](./art-10-amla-transaction-typology-risk-scorer.md), [Time-Series Anomaly Detector](./ml-03-timeseries-anomaly-detector.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-55-trade-document-provenance-verifier.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NIS2 ICT Supply-Chain Diligence Scorer (Art. 21(2)(d) / ENISA)](./art-145-nis2-ict-supply-chain-diligence-scorer.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-146-nis2-governance-readiness-checker.md) — §10.2.

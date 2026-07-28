@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Sanctions & Export-Control Screening Fit Diagnostic](./art-90-sanctions-screening-fit-diagnostic.md)
 
 **Feeds:** [Circumvention Diligence Assessor](./art-95-circumvention-diligence-assessor.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-94-eccn-dual-use-classifier.md) — §10.2.

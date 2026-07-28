@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md), [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [Agent Identity & Authorization Attestation Checker](./art-04-agent-identity-attestation-checker.md), [ACP Checkout Conformance Validator](./art-12-acp-checkout-conformance-validator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-01-ap2-mandate-chain-validator.md) — §10.2.

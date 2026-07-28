@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md)
 
 **Feeds:** [EN 16931 / Factur-X E-Invoicing Batch Validator](./art-08-en16931-einvoice-batch-validator.md), [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-54-digital-trade-rules-checker.md) — §10.2.

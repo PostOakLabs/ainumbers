@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [CycloneDX SBOM Validator (EU CRA Annex I)](./art-135-cyclonedx-sbom-validator.md)
 
 **Feeds:** [OpenVEX Statement Validator](./art-137-openvex-statement-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-136-slsa-provenance-verifier.md) — §10.2.

@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Clearing Access Model Selector](./art-49-clearing-access-model-selector.md), [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-48-treasury-clearing-fit-diagnostic.md) — §10.2.

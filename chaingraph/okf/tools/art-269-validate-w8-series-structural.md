@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [FinCEN CDD 25% Beneficial Ownership Attribution](./art-268-compute-cdd-ownership-25pct.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-269-validate-w8-series-structural.md) — §10.2.

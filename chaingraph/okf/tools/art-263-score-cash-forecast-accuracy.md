@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISO 20022 camt.053 Statement Reconciliation](./art-258-parse-camt053-reconciliation.md), [Hedge Effectiveness Test](./art-261-test-hedge-effectiveness.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-263-score-cash-forecast-accuracy.md) — §10.2.

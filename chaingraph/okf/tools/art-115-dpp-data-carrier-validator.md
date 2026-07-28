@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Digital Product Passport Cradle-to-Gate Lineage Builder](./art-116-product-lineage-builder.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-115-dpp-data-carrier-validator.md) — §10.2.

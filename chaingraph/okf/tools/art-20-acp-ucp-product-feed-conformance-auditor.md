@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Agentic Checkout Protocol Selector](./art-19-agentic-checkout-protocol-selector.md)
 
 **Feeds:** [Agent-Traffic Acceptance Policy Builder](./art-21-agent-traffic-acceptance-policy-builder.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-20-acp-ucp-product-feed-conformance-auditor.md) — §10.2.

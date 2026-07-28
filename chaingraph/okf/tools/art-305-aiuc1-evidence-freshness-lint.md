@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [AIUC-1 Evidence Pack Assembler](./art-304-aiuc1-evidence-pack-assembler.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-305-aiuc1-evidence-freshness-lint.md) — §10.2.

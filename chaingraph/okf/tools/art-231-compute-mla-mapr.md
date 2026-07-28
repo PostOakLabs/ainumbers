@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Compute SCRA Rate Cap](./art-232-compute-scra-rate-cap.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-231-compute-mla-mapr.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Reg Z Appendix J APR Solver](./art-215-reg-z-appendix-j-apr.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-217-trid-apr-accuracy.md) — §10.2.

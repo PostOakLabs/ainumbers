@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISO 20022-to-EVM Calldata Mapper](./art-288-map-iso20022-to-evm-calldata.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-291-screen-onledger-transfer-batch.md) — §10.2.

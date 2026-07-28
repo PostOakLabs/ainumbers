@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Federal Withholding Calculator (Percentage Method)](./art-338-compute-federal-withholding.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-339-compute-gross-to-net.md) — §10.2.

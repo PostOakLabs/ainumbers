@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Timestamp Attestation Verifier](./art-122-timestamp-attestation-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-121-document-integrity-anchor.md) — §10.2.

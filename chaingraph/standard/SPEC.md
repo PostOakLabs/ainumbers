@@ -268,6 +268,15 @@ Each concept carries OKF YAML frontmatter (type, title, description, resource, t
 Maturity note
 
 OKF is a v0.2 specification (v0.1 published June 2026; republished as v0.2 in July 2026, backward-compatible — v0.2 consumers still read legacy v0.1 concepts via documented fallbacks). It is adopted here as a companion artifact only. Tie nothing in artifact verification to it; treat the bundle as a generated, swappable discovery surface. v0.2 adds an OPTIONAL trust family to concept frontmatter (`generated:`, `verified:`); a concept's `verified:` entry, and any trust tier derived from it, is a SELF-ASSERTION made by whoever wrote that frontmatter, never an OCG verification, and MUST NOT be read as one.
+
+### §10.2 Attested Computation (optional, OKF v0.2)
+
+OKF v0.2 defines an additional concept type, `type: Attested Computation`, carrying `runtime`, `computation`, `executor: {resource, receipt}`, and `attester: {resource}`. It is generated at `okf/computations/<tool_id>.md` for every live node that publishes a §17.1 kernel identity (a `compute_images[]` `sha256-source` entry). `executor.resource` names the deployed kernel source; `executor.receipt` lists the §18.0 `ZkVmReceipt` field names a compute-integrity proof carries *when attached* — this is a description of shape, not a claim that a proof exists for any given artifact, since `audit_signature` is artifact-time and never present on a Graph Index node.
+
+`attester.resource` points at the node's `compute_images[]` entry — the kernel identity. This was a deliberate design decision (2026-07-28), made against two rejected alternatives: the verify page (a human UI, not verification code, so a category error against OKF's definition of `attester`) and a receipt endpoint (a live service, which is a runtime/availability dependency and the shape most likely to breach the §10 firewall). The kernel identity is content-addressed, already published, needs no new infrastructure, and has no availability dependency — a static pointer that cannot pull OKF into a verification path.
+
+As with every OKF field, `Attested Computation` concepts carry no `execution_hash` impact and stay outside the hash preimage; nothing in OpenChainGraph's verification path depends on them.
+
 ## §11 Profile Conformance
 
 v0.3 introduced ISO 20022 alignment via an inline semantic_profile string token. v0.3.1 makes that conformance a first-class, machine-resolvable assertion using the W3C Profiles Vocabulary (PROF) and Content Negotiation by Profile: a profile is a dct:Standard published at a dereferenceable URI and declared with dct:conformsTo. This is fully additive — the execution_hash preimage is unchanged and semantic_profile tokens stay valid as registered aliases.

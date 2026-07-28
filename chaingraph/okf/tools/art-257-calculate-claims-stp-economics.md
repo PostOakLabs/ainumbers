@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [NAIC RBC Action Level Calculator](./art-254-compute-rbc-action-level.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-257-calculate-claims-stp-economics.md) — §10.2.

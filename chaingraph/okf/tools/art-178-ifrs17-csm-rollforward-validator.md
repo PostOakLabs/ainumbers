@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [IFRS 17 Measurement Model Classifier](./art-177-ifrs17-measurement-model-classifier.md)
 
 **Feeds:** [IFRS 17 Risk Adjustment Checker](./art-179-ifrs17-risk-adjustment-checker.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-178-ifrs17-csm-rollforward-validator.md) — §10.2.

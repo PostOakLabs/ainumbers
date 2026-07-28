@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md), `499-crypto-asset-inventory-classifier` _(not live)_
 
 **Feeds:** [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-86-tls-pki-migration-planner.md) — §10.2.

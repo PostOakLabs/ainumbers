@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [SLSA Provenance Verifier](./art-136-slsa-provenance-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-135-cyclonedx-sbom-validator.md) — §10.2.

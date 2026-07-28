@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ECCN / Dual-Use Classifier](./art-94-eccn-dual-use-classifier.md)
 
 **Feeds:** [No-Russia-Clause Pack Builder](./art-96-no-russia-clause-pack-builder.md), [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-95-circumvention-diligence-assessor.md) — §10.2.

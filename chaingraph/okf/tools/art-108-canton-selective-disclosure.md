@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Canton DvP Atomicity Validator](./507-canton-dvp-atomicity-validator.md)
 
 **Feeds:** [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-108-canton-selective-disclosure.md) — §10.2.

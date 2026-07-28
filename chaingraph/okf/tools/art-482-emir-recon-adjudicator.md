@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [EMIR Reconciliation Break Ageing](./art-483-emir-break-ageing.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-482-emir-recon-adjudicator.md) — §10.2.

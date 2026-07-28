@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Bond DV01 (Price Value of a Basis Point)](./art-330-tvm-dv01.md), [Bond Convexity](./art-331-tvm-convexity.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-329-tvm-bond-duration.md) — §10.2.

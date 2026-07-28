@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Cat Bond Trigger Terms Validator](./art-252-validate-cat-bond-trigger-terms.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-251-compute-parametric-trigger-payout.md) — §10.2.

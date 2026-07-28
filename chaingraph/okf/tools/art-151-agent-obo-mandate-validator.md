@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [MCP Tool Scope & Revocation Auditor](./art-150-mcp-tool-scope-revocation-auditor.md)
 
 **Feeds:** [MCP Task Lifecycle State Machine Validator](./art-152-mcp-task-lifecycle-validator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-151-agent-obo-mandate-validator.md) — §10.2.

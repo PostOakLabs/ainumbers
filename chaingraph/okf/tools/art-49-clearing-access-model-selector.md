@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Treasury Clearing Fit Diagnostic](./art-48-treasury-clearing-fit-diagnostic.md)
 
 **Feeds:** [Settlement-Risk Capital Efficiency Optimizer](./504-settlement-risk-capital-optimizer.md), [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-49-clearing-access-model-selector.md) — §10.2.

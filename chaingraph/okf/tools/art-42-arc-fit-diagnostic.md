@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Arc CPN Corridor Economics Model](./art-43-arc-cpn-model.md), [Arc StableFX RFQ Economics Model](./art-44-arc-stablefx-model.md), [Arc xReserve Config Linter](./art-45-arc-xreserve-linter.md), [Arc Paymaster Economics Model](./art-46-arc-paymaster-model.md), [Arc CCTP v2 Transfer Validator](./art-47-arc-cctp-transfer.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-42-arc-fit-diagnostic.md) — §10.2.

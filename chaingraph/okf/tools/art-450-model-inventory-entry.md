@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Model Outcome-Analysis Comparison](./art-451-model-outcome-analysis.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-450-model-inventory-entry.md) — §10.2.

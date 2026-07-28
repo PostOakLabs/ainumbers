@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [ISCC Content Code Generator](./art-201-iscc-content-code-generator.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-202-tdmrep-reservation-builder.md) — §10.2.

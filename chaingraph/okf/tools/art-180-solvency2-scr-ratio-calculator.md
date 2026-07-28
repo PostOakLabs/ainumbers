@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [SII-IFRS 17 Reconciliation Bridger](./art-181-sii-ifrs17-reconciliation-bridger.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-180-solvency2-scr-ratio-calculator.md) — §10.2.

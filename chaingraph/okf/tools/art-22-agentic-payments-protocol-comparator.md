@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** `art-16-google-ap2-mandate-builder` _(not live)_, [Visa Trusted Agent Protocol (TAP) Signature Inspector](./art-23-visa-trusted-agent-protocol-inspector.md), [Mastercard Agentic Token Scope Builder](./art-24-mastercard-agentic-token-builder.md), [A2A Agent Card Validator & Extension Checker](./art-25-a2a-agent-card-validator.md), [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-22-agentic-payments-protocol-comparator.md) — §10.2.

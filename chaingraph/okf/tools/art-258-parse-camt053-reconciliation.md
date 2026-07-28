@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Cash Forecast Accuracy Scoring](./art-263-score-cash-forecast-accuracy.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-258-parse-camt053-reconciliation.md) — §10.2.

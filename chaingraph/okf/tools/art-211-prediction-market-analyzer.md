@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Prediction Market Arbitrage](./art-212-prediction-market-arbitrage.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-211-prediction-market-analyzer.md) — §10.2.

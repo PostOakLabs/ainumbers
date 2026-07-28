@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [GPAI Code of Practice Conformance](./art-175-gpai-code-of-practice-conformance.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-176-ai-governance-readiness-diagnostic.md) — §10.2.

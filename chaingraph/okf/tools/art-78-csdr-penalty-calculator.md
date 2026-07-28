@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md)
 
 **Feeds:** [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md), [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-78-csdr-penalty-calculator.md) — §10.2.

@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [E-Invoice VAT Calculation Verifier](./art-294-einvoice-vat-calc-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-293-einvoice-format-validator.md) — §10.2.

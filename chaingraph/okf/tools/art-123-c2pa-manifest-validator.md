@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Content Credential Signature Verifier](./art-124-content-credential-signature-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-123-c2pa-manifest-validator.md) — §10.2.

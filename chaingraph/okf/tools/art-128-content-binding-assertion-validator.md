@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Dual-Layer Disclosure Verifier](./art-127-dual-layer-disclosure-verifier.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-128-content-binding-assertion-validator.md) — §10.2.

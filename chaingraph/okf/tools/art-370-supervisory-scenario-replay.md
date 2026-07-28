@@ -33,3 +33,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Liquidity Stress Test Simulator (LCR/NSFR)](./sim-01-lcr-nsfr-liquidity-stress-test.md), [Basel RWA Scenario Modeler](./sim-03-basel-rwa-scenario-modeler.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-370-supervisory-scenario-replay.md) — §10.2.

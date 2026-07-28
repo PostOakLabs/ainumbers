@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Compute HMDA Rate Spread](./art-230-compute-hmda-rate-spread.md)
 
 **Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-229-compute-disparity-metrics.md) — §10.2.

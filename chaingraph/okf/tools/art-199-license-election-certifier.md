@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [Story PIL Flavor Mapper](./art-197-pil-flavor-mapper.md), [Can't Be Evil License Selector](./art-196-cant-be-evil-license-selector.md), [Creative Commons License Chooser](./art-195-creative-commons-license-chooser.md)
 
 **Feeds:** [License Election Verifier](./art-200-license-election-verifier.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-199-license-election-certifier.md) — §10.2.

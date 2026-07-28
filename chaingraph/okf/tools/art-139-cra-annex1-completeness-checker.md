@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** [SPDX SBOM Validator (EU CRA Annex I)](./art-138-spdx-sbom-validator.md)
 
 **Feeds:** [CRA Vulnerability Reporting Readiness (Art. 14)](./art-140-cra-vuln-reporting-readiness.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-139-cra-annex1-completeness-checker.md) — §10.2.

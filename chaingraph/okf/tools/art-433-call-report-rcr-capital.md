@@ -31,3 +31,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 **Consumes:** _none (root node)_
 
 **Feeds:** [Call Report Published Edit-Check Gate](./art-434-call-report-edit-check-gate.md)
+
+## Attested computation
+
+[executor + attester binding](../computations/art-433-call-report-rcr-capital.md) — §10.2.
