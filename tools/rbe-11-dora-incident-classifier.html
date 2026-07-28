@@ -804,6 +804,40 @@ function computeScores(){
   return scores;
 }
 
+/* ── Deadline arithmetic ──
+   All times are epoch milliseconds (classificationTime is built with new Date(...).getTime()).
+   DORA reporting deadlines are expressed in UTC, so formatting goes through toISOString(). */
+function addHours(ms,h){return ms + h*3600000;}
+function addDays(ms,d){return ms + d*86400000;}
+function fmtUTC(ms){
+  if(!Number.isFinite(ms))return '—';
+  return new Date(ms).toISOString().slice(0,16).replace('T',' ')+' UTC';
+}
+
+/* ── Live per-criterion severity badges ──
+   Called from every criterion input and at load; reflects computeScores()
+   into the 7 C1–C7 badges so the user sees each criterion's level before
+   running the full compound classification. */
+const SEV_BADGE_IDS = {
+  clients_affected:'sev_clients',
+  reputational_impact:'sev_rep',
+  duration_hours:'sev_dur',
+  geographic_spread:'sev_geo',
+  data_losses:'sev_data',
+  criticality_of_services:'sev_crit',
+  economic_impact_eur:'sev_econ',
+};
+function scoreCriterion(){
+  const scores = computeScores();
+  for(const [key,id] of Object.entries(SEV_BADGE_IDS)){
+    const el = document.getElementById(id);
+    if(!el) continue;
+    const level = scores[key] || 'none';
+    el.className = `severity-badge sev-${level}`;
+    el.textContent = level==='none' ? '-' : level;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    COMPOUND CLASSIFICATION LOGIC (RTS 2024/1772 v3-corrected)
    Condition A: criticality_of_services === 'major'  (prerequisite)
@@ -1149,7 +1183,7 @@ function buildAP2(result, scores, proximity, deadlines){
     rts_version: DORA_RTS_THRESHOLDS.version,
     its_template_version: DORA_RTS_THRESHOLDS.its_template,
     summary: `Incident ${refId} classified as ${result.result.toUpperCase()} under DORA RTS 2024/1772. ${result.result==='major' ? `Initial notification due by ${fmtUTC(deadlines.initialNotificationTime)}.` : 'No mandatory reporting required at Major level.'} ${proximity.length} threshold proximity warning(s).`,
-    agent_instructions: "classification.result drives notification obligations. Major requires compound logic: condition_a (criticality) AND (condition_b1 data breach OR condition_b2 2+ criteria at Major). If 'major': reporting_deadlines[] gives UTC timestamps — note intermediate_report_utc is 72h from initial notification submission, not from classification. initial_notification_draft[] follows ITS 2025/302 Annex I — review and complete freetext fields before filing. proximity_warnings[] should trigger proactive preparation even before Major classification is confirmed.",
+    agent_instructions: ["classification.result drives notification obligations. Major requires compound logic: condition_a (criticality) AND (condition_b1 data breach OR condition_b2 2+ criteria at Major). If 'major': reporting_deadlines[] gives UTC timestamps — note intermediate_report_utc is 72h from initial notification submission, not from classification. initial_notification_draft[] follows ITS 2025/302 Annex I — review and complete freetext fields before filing. proximity_warnings[] should trigger proactive preparation even before Major classification is confirmed."],
     valid_from: classTimeStr ? new Date(classTimeStr+'Z').toISOString() : null,
     last_reviewed: "2025-04-01",
     regulatory_citations: [
