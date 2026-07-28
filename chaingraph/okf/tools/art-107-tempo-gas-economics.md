@@ -5,6 +5,13 @@ description: "Model Tempo enshrined-AMM gas cost paid in any major stablecoin, s
 resource: https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html
 tags: ["treasury_mandate", "wave-21", "mcp:model_tempo_gas_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-107-tempo-gas-economics.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html
+    title: "public tool page"
 ---
 
 # Tempo Fee-Sponsorship & Gas-AMM Economics

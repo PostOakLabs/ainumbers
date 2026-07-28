@@ -5,6 +5,13 @@ description: "Validates SWIFT MT700 Documentary Credit field-format and date-log
 resource: https://ainumbers.co/chaingraph/art-474-validate-mt700-lc-fields.html
 tags: ["compliance_mandate", "wave-65", "mcp:validate_mt700_lc_fields"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-474-validate-mt700-lc-fields.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-474-validate-mt700-lc-fields.html
+    title: "public tool page"
 ---
 
 # MT700 LC Field Validator

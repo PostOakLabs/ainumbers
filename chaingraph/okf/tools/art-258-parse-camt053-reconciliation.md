@@ -5,6 +5,13 @@ description: "Classifies ISO 20022 camt.053 BkTxCd entries by Domain, Family, an
 resource: https://ainumbers.co/chaingraph/art-258-parse-camt053-reconciliation.html
 tags: ["analytics_mandate", "wave-44", "mcp:parse_camt053_reconciliation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-258-parse-camt053-reconciliation.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-258-parse-camt053-reconciliation.html
+    title: "public tool page"
 ---
 
 # ISO 20022 camt.053 Statement Reconciliation

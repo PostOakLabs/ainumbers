@@ -5,6 +5,13 @@ description: "Determines a model's SR 26-2 validation status by combining its pr
 resource: https://ainumbers.co/chaingraph/art-453-model-validation-status.html
 tags: ["compliance_control", "wave-73", "mcp:assess_model_validation_status"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-453-model-validation-status.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-453-model-validation-status.html
+    title: "public tool page"
 ---
 
 # Model Validation Status Assessor

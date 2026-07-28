@@ -5,6 +5,13 @@ description: "TRACE (FINRA Rule 6730) trade-report timeliness lint against a cal
 resource: https://ainumbers.co/chaingraph/art-397-lint-trace-cat-reports.html
 tags: ["compliance_mandate", "wave-63", "mcp:lint_trace_cat_reports"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-397-lint-trace-cat-reports.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-397-lint-trace-cat-reports.html
+    title: "public tool page"
 ---
 
 # TRACE / CAT Reporting Lint

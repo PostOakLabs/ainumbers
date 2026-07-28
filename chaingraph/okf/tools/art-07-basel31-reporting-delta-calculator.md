@@ -5,6 +5,13 @@ description: "Per-asset-class RWA delta (current vs Basel 3.1), output-floor bin
 resource: https://ainumbers.co/chaingraph/art-07-basel31-reporting-delta-calculator.html
 tags: ["capital_assessment", "wave-2", "mcp:compute_basel31_delta"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-07-basel31-reporting-delta-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-07-basel31-reporting-delta-calculator.html
+    title: "public tool page"
 ---
 
 # Basel 3.1 Reporting Delta Calculator

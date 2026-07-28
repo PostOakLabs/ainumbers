@@ -5,6 +5,13 @@ description: "Composes a structured verification-failure/fraud-attempt incident 
 resource: https://ainumbers.co/chaingraph/art-418-idv-verification-failure-incident-composer.html
 tags: ["compliance_mandate", "wave-62", "mcp:build_idv_verification_incident_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-418-idv-verification-failure-incident-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-418-idv-verification-failure-incident-composer.html
+    title: "public tool page"
 ---
 
 # IDV/KYC Verification-Failure Incident Composer

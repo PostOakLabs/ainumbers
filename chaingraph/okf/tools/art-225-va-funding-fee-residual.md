@@ -5,6 +5,13 @@ description: "VA home loan funding fee (38 USC §3729) and residual income quali
 resource: https://ainumbers.co/chaingraph/art-225-va-funding-fee-residual.html
 tags: ["compliance_mandate", "wave-38", "mcp:compute_va_funding_fee_residual"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-225-va-funding-fee-residual.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-225-va-funding-fee-residual.html
+    title: "public tool page"
 ---
 
 # VA Funding Fee and Residual Income

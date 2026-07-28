@@ -4,6 +4,8 @@ title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
 tags: ["analytics_mandate", "count-34"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # analytics_mandate

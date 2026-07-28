@@ -5,6 +5,13 @@ description: "A-F AI governance readiness diagnostic across six dimensions spann
 resource: https://ainumbers.co/chaingraph/art-176-ai-governance-readiness-diagnostic.html
 tags: ["compliance_mandate", "wave-31", "mcp:run_ai_governance_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-176-ai-governance-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-176-ai-governance-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # AI Governance Readiness Diagnostic

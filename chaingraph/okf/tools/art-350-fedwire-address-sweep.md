@@ -5,6 +5,13 @@ description: "Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per 
 resource: https://ainumbers.co/chaingraph/art-350-fedwire-address-sweep.html
 tags: ["compliance_mandate", "wave-46", "mcp:sweep_fedwire_addresses"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-350-fedwire-address-sweep.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-350-fedwire-address-sweep.html
+    title: "public tool page"
 ---
 
 # Fedwire Payment-File Address Sweep

@@ -5,6 +5,13 @@ description: "Compute proposed IRC 4980H(a) (\"no offer to 95%\") and 4980H(b) (
 resource: https://ainumbers.co/chaingraph/art-299-aca-esrp-exposure.html
 tags: ["compliance_mandate", "wave-48", "mcp:compute_esrp_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-299-aca-esrp-exposure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-299-aca-esrp-exposure.html
+    title: "public tool page"
 ---
 
 # ACA Employer Shared Responsibility Payment Exposure Calculator

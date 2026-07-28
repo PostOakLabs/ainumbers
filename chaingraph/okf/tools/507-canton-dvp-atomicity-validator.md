@@ -5,6 +5,13 @@ description: "Validate atomic DvP settlement on Canton Network against PFMI Prin
 resource: https://ainumbers.co/tools/507-canton-dvp-atomicity-validator.html
 tags: ["settlement_mandate", "wave-8", "mcp:validate_canton_dvp_atomicity", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/507-canton-dvp-atomicity-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/507-canton-dvp-atomicity-validator.html
+    title: "public tool page"
 ---
 
 # Canton DvP Atomicity Validator

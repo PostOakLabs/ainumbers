@@ -5,6 +5,13 @@ description: "Validate a DTCC/ComposerX tokenized U.S. Treasury for issuance and
 resource: https://ainumbers.co/chaingraph/art-109-dtc-tokenized-treasury.html
 tags: ["compliance_mandate", "wave-21", "mcp:validate_dtc_tokenized_treasury"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-109-dtc-tokenized-treasury.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-109-dtc-tokenized-treasury.html
+    title: "public tool page"
 ---
 
 # DTC-Custodied Tokenized U.S. Treasury Issuance & DvP

@@ -5,6 +5,13 @@ description: "OECD Transfer Pricing Guidelines Ch. III §3.57 interquartile-rang
 resource: https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html
 tags: ["compliance_mandate", "wave-75", "mcp:benchmark_tp_interquartile_range"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-473-interquartile-benchmark.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-473-interquartile-benchmark.html
+    title: "public tool page"
 ---
 
 # Transfer-Pricing Interquartile Range Benchmark

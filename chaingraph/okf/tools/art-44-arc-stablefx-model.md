@@ -5,6 +5,13 @@ description: "Quantify Herstatt risk elimination and FX spread savings from Arc 
 resource: https://ainumbers.co/chaingraph/art-44-arc-stablefx-model.html
 tags: ["treasury_mandate", "wave-10", "mcp:model_arc_stablefx_rfq", "iso20022:fxtr.008"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-44-arc-stablefx-model.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-44-arc-stablefx-model.html
+    title: "public tool page"
 ---
 
 # Arc StableFX RFQ Economics Model

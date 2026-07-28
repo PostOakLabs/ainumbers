@@ -5,6 +5,13 @@ description: "12-question weighted diagnostic across six readiness domains for C
 resource: https://ainumbers.co/tools/503-canton-tokenization-readiness-diagnostic.html
 tags: ["readiness_diagnostic", "wave-8", "mcp:diagnose_canton_readiness", "iso20022:party-identification"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/503-canton-tokenization-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/503-canton-tokenization-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # Canton Tokenization Readiness Diagnostic

@@ -5,6 +5,13 @@ description: "Binds an ACP / Visa TAP / ISO 20022 checkout to a TIP-20 settlemen
 resource: https://ainumbers.co/chaingraph/art-40-tempo-agentic-checkout.html
 tags: ["settlement_mandate", "wave-9", "mcp:map_tempo_settlement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-40-tempo-agentic-checkout.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-40-tempo-agentic-checkout.html
+    title: "public tool page"
 ---
 
 # Tempo Agentic Checkout Settlement Mapper

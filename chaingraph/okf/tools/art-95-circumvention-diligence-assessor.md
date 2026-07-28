@@ -5,6 +5,13 @@ description: "Scores a transaction/contract config vs the EU 20th-package (23 Ap
 resource: https://ainumbers.co/chaingraph/art-95-circumvention-diligence-assessor.html
 tags: ["compliance_mandate", "wave-19", "mcp:assess_circumvention_diligence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-95-circumvention-diligence-assessor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-95-circumvention-diligence-assessor.html
+    title: "public tool page"
 ---
 
 # Circumvention Diligence Assessor

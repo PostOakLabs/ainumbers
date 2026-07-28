@@ -5,6 +5,13 @@ description: "SEC Rule 15c3-3 Exhibit A customer reserve formula: credit items (
 resource: https://ainumbers.co/chaingraph/art-396-compute-15c3-3-reserve.html
 tags: ["compliance_mandate", "wave-63", "mcp:compute_15c3_3_reserve"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-396-compute-15c3-3-reserve.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-396-compute-15c3-3-reserve.html
+    title: "public tool page"
 ---
 
 # 15c3-3 Customer Reserve Formula Calculator

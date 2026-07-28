@@ -5,6 +5,13 @@ description: "Models the all-in cost of a USDC-based remittance corridor: on-ram
 resource: https://ainumbers.co/chaingraph/art-250-model-stablecoin-corridor-economics.html
 tags: ["analytics_mandate", "wave-42", "mcp:model_stablecoin_corridor_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-250-model-stablecoin-corridor-economics.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-250-model-stablecoin-corridor-economics.html
+    title: "public tool page"
 ---
 
 # Stablecoin Corridor Economics Model

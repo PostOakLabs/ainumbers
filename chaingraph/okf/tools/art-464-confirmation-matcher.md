@@ -5,6 +5,13 @@ description: "Joins caller-supplied bank and accounts-receivable confirmation re
 resource: https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html
 tags: ["compliance_control", "wave-74", "mcp:match_confirmations"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-464-confirmation-matcher.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-464-confirmation-matcher.html
+    title: "public tool page"
 ---
 
 # Bank/AR Confirmation Matcher

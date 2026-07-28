@@ -5,6 +5,13 @@ description: "Assesses supplied Texas AI-deployment attributes and intentional-u
 resource: https://ainumbers.co/chaingraph/art-313-traiga-exposure-assessor.html
 tags: ["compliance_mandate", "wave-55", "mcp:assess_traiga_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-313-traiga-exposure-assessor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-313-traiga-exposure-assessor.html
+    title: "public tool page"
 ---
 
 # TRAIGA Exposure Assessor

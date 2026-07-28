@@ -5,6 +5,13 @@ description: "Bias testing across protected characteristics (disparate impact ra
 resource: https://ainumbers.co/chaingraph/art-05-eu-ai-act-credit-scoring-conformity.html
 tags: ["model_governance", "wave-1", "mcp:assess_ai_act_conformity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-05-eu-ai-act-credit-scoring-conformity.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-05-eu-ai-act-credit-scoring-conformity.html
+    title: "public tool page"
 ---
 
 # EU AI Act Credit-Scoring Conformity Pack

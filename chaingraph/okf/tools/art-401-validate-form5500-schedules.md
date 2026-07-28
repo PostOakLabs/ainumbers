@@ -5,6 +5,13 @@ description: "Validates a Form 5500 schedule-applicability matrix (plan type and
 resource: https://ainumbers.co/chaingraph/art-401-validate-form5500-schedules.html
 tags: ["compliance_mandate", "wave-47", "mcp:validate_form5500_schedules"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-401-validate-form5500-schedules.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-401-validate-form5500-schedules.html
+    title: "public tool page"
 ---
 
 # ERISA Form 5500 Schedule Validator

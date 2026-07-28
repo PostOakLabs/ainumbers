@@ -5,6 +5,13 @@ description: "SR 26-2 ongoing-monitoring backtest: compares a list of period pre
 resource: https://ainumbers.co/chaingraph/art-451-model-outcome-analysis.html
 tags: ["compliance_control", "wave-73", "mcp:compare_model_outcome_analysis"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-451-model-outcome-analysis.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-451-model-outcome-analysis.html
+    title: "public tool page"
 ---
 
 # Model Outcome-Analysis Comparison

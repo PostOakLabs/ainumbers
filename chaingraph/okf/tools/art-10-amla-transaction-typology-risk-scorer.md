@@ -5,6 +5,13 @@ description: "Scores a synthetic transaction graph against AML typologies and FA
 resource: https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html
 tags: ["risk_control", "wave-1", "mcp:score_aml_typologies"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-10-amla-transaction-typology-risk-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html
+    title: "public tool page"
 ---
 
 # AMLA Transaction-Typology Risk Scorer

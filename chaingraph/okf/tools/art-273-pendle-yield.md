@@ -5,6 +5,13 @@ description: "Decomposes Pendle Finance yield tokenization: PT implied fixed yie
 resource: https://ainumbers.co/chaingraph/art-273-pendle-yield.html
 tags: ["analytics_mandate", "wave-46", "mcp:compute_pt_yt_yield"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-273-pendle-yield.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-273-pendle-yield.html
+    title: "public tool page"
 ---
 
 # Pendle Yield Tokenization Analyzer (PT/YT)

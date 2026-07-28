@@ -5,6 +5,13 @@ description: "Replays the Fed's published 2026 28-variable supervisory scenario 
 resource: https://ainumbers.co/chaingraph/art-370-supervisory-scenario-replay.html
 tags: ["capital_assessment", "wave-2", "mcp:replay_supervisory_scenario"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-370-supervisory-scenario-replay.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-370-supervisory-scenario-replay.html
+    title: "public tool page"
 ---
 
 # Supervisory Scenario Replay (DFAST-lite)

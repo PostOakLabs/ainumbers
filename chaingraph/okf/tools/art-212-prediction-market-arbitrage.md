@@ -5,6 +5,13 @@ description: "Calculates cross-venue prediction market arbitrage: gross spread, 
 resource: https://ainumbers.co/chaingraph/art-212-prediction-market-arbitrage.html
 tags: ["event_market_pnl", "wave-36", "mcp:find_prediction_arbitrage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-212-prediction-market-arbitrage.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-212-prediction-market-arbitrage.html
+    title: "public tool page"
 ---
 
 # Prediction Market Arbitrage

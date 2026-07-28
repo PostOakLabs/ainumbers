@@ -5,6 +5,13 @@ description: "Scores a trade's fail probability from anonymized configuration fe
 resource: https://ainumbers.co/chaingraph/art-79-settlement-fail-predictor.html
 tags: ["model_governance", "wave-17", "mcp:predict_settlement_fail"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-79-settlement-fail-predictor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-79-settlement-fail-predictor.html
+    title: "public tool page"
 ---
 
 # Settlement-Fail Predictor

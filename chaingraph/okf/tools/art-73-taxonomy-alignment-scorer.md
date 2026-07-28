@@ -5,6 +5,13 @@ description: "Scores an economic activity against an environmental objective: su
 resource: https://ainumbers.co/chaingraph/art-73-taxonomy-alignment-scorer.html
 tags: ["compliance_mandate", "wave-16", "mcp:score_taxonomy_alignment"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-73-taxonomy-alignment-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-73-taxonomy-alignment-scorer.html
+    title: "public tool page"
 ---
 
 # EU Taxonomy Alignment Scorer

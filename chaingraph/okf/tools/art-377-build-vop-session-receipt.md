@@ -5,6 +5,13 @@ description: "Builds a signed, hash-chained Verification-of-Payee / Confirmation
 resource: https://ainumbers.co/chaingraph/art-377-build-vop-session-receipt.html
 tags: ["compliance_mandate", "wave-2", "mcp:build_vop_session_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-377-build-vop-session-receipt.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-377-build-vop-session-receipt.html
+    title: "public tool page"
 ---
 
 # VoP Session Receipt Builder

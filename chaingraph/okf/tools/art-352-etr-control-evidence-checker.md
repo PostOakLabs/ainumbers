@@ -5,6 +5,13 @@ description: "Checks a supplied electronic transferable record (ETR/eBL) documen
 resource: https://ainumbers.co/chaingraph/art-352-etr-control-evidence-checker.html
 tags: ["compliance_mandate", "wave-61", "mcp:check_etr_control_evidence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-352-etr-control-evidence-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-352-etr-control-evidence-checker.html
+    title: "public tool page"
 ---
 
 # ETR Singularity & Exclusive-Control Evidence Checker

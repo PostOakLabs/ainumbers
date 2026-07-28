@@ -5,6 +5,13 @@ description: "Score a non-USD stablecoin issuer readiness to join Circle Partner
 resource: https://ainumbers.co/chaingraph/art-110-arc-partner-stablecoin-onboarding.html
 tags: ["compliance_mandate", "wave-21", "mcp:score_partner_stablecoin_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-110-arc-partner-stablecoin-onboarding.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-110-arc-partner-stablecoin-onboarding.html
+    title: "public tool page"
 ---
 
 # Arc Partner Stablecoin Onboarding Conformance

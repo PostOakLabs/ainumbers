@@ -5,6 +5,13 @@ description: "Monte Carlo stress simulation of PSD2/FAPI 2.0/CDR consent lifecyc
 resource: https://ainumbers.co/chaingraph/sim-07-open-banking-consent-flow-stress.html
 tags: ["compliance_mandate", "wave-3", "mcp:simulate_consent_stress"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/sim-07-open-banking-consent-flow-stress.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/sim-07-open-banking-consent-flow-stress.html
+    title: "public tool page"
 ---
 
 # Open Banking Consent Flow Stress Simulator

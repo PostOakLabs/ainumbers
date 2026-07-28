@@ -5,6 +5,13 @@ description: "Runs a fixed, int8-quantized logistic-regression-class credit-deci
 resource: https://ainumbers.co/chaingraph/art-348-score-credit-model-quantized.html
 tags: ["credit_assessment", "wave-58", "mcp:score_credit_model_quantized"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-348-score-credit-model-quantized.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-348-score-credit-model-quantized.html
+    title: "public tool page"
 ---
 
 # Quantized Credit Model Scorer

@@ -5,6 +5,13 @@ description: "FHFA annual conforming loan limit classifier. 2026 baseline: $806,
 resource: https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html
 tags: ["compliance_mandate", "wave-38", "mcp:check_conforming_loan_limit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-223-conforming-loan-limit.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html
+    title: "public tool page"
 ---
 
 # Conforming Loan Limit Check

@@ -5,6 +5,13 @@ description: "Sequences TLS and X.509 PKI migration from RSA/ECDSA to post-quant
 resource: https://ainumbers.co/chaingraph/art-86-tls-pki-migration-planner.html
 tags: ["compliance_mandate", "wave-18", "mcp:plan_tls_pki_migration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-86-tls-pki-migration-planner.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-86-tls-pki-migration-planner.html
+    title: "public tool page"
 ---
 
 # TLS / X.509 PKI Migration Planner

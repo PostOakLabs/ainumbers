@@ -5,6 +5,13 @@ description: "Validates an SPDX SBOM against the EU CRA Annex I machine-readable
 resource: https://ainumbers.co/chaingraph/art-138-spdx-sbom-validator.html
 tags: ["compliance_mandate", "wave-25", "mcp:validate_spdx_sbom"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-138-spdx-sbom-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-138-spdx-sbom-validator.html
+    title: "public tool page"
 ---
 
 # SPDX SBOM Validator (EU CRA Annex I)

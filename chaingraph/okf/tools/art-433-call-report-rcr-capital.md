@@ -5,6 +5,13 @@ description: "Maps caller-declared FFIEC Call Report (FFIEC 031) Schedule RC-R r
 resource: https://ainumbers.co/chaingraph/art-433-call-report-rcr-capital.html
 tags: ["regulatory_reporting", "wave-71", "mcp:map_call_report_schedule_rcr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-433-call-report-rcr-capital.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-433-call-report-rcr-capital.html
+    title: "public tool page"
 ---
 
 # Call Report Schedule RC-R (Regulatory Capital) Mapper

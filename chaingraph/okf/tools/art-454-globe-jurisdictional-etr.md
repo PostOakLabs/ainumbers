@@ -5,6 +5,13 @@ description: "Computes a jurisdiction's OECD Pillar Two (GloBE) effective tax ra
 resource: https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html
 tags: ["compliance_control", "wave-32", "mcp:compute_globe_jurisdictional_etr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-454-globe-jurisdictional-etr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-454-globe-jurisdictional-etr.html
+    title: "public tool page"
 ---
 
 # GloBE Jurisdictional ETR Calculator

@@ -5,6 +5,13 @@ description: "Runs a caller-declared, versioned journal-entry testing ruleset ov
 resource: https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html
 tags: ["compliance_control", "wave-74", "mcp:screen_je_ruleset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-462-je-ruleset-screen.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-462-je-ruleset-screen.html
+    title: "public tool page"
 ---
 
 # Journal-Entry Ruleset Screen

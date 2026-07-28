@@ -5,6 +5,13 @@ description: "Checks NAIC producer license reciprocity for non-resident filing a
 resource: https://ainumbers.co/chaingraph/art-267-check-producer-license-reciprocity.html
 tags: ["compliance_mandate", "wave-45", "mcp:check_producer_license_reciprocity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-267-check-producer-license-reciprocity.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-267-check-producer-license-reciprocity.html
+    title: "public tool page"
 ---
 
 # NAIC Producer License Reciprocity Check

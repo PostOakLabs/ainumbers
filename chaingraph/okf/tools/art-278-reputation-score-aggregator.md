@@ -5,6 +5,13 @@ description: "Aggregates a set of OCG execution receipts (attestations) into a d
 resource: https://ainumbers.co/chaingraph/art-278-reputation-score-aggregator.html
 tags: ["attestation_mandate", "wave-49", "mcp:aggregate_reputation_score"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-278-reputation-score-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-278-reputation-score-aggregator.html
+    title: "public tool page"
 ---
 
 # Provable Reputation Score Aggregator

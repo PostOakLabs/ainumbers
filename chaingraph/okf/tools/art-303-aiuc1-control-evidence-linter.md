@@ -5,6 +5,13 @@ description: "Lints a supplied control-evidence bundle against the 23 automatabl
 resource: https://ainumbers.co/chaingraph/art-303-aiuc1-control-evidence-linter.html
 tags: ["compliance_mandate", "wave-54", "mcp:lint_aiuc1_control_evidence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-303-aiuc1-control-evidence-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-303-aiuc1-control-evidence-linter.html
+    title: "public tool page"
 ---
 
 # AIUC-1 Control Evidence Linter

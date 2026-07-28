@@ -5,6 +5,13 @@ description: "Classifies a settlement-finality claim on Robinhood Chain, an Arbi
 resource: https://ainumbers.co/chaingraph/art-321-rhc-bold-finality-classifier.html
 tags: ["settlement_finality_mandate", "wave-56", "mcp:classify_bold_challenge_finality"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-321-rhc-bold-finality-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-321-rhc-bold-finality-classifier.html
+    title: "public tool page"
 ---
 
 # BoLD Challenge-Window Finality Classifier

@@ -5,6 +5,13 @@ description: "Composes a structured agent incident/failure record from caller-de
 resource: https://ainumbers.co/chaingraph/art-379-agent-incident-record-composer.html
 tags: ["compliance_mandate", "wave-65", "mcp:build_agent_incident_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-379-agent-incident-record-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-379-agent-incident-record-composer.html
+    title: "public tool page"
 ---
 
 # Agent Incident Record Composer

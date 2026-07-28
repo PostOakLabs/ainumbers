@@ -5,6 +5,13 @@ description: "Models Social Security claiming-age tradeoffs from a claimant's ow
 resource: https://ainumbers.co/chaingraph/art-282-social-security-claiming-optimizer.html
 tags: ["compliance_mandate", "wave-50", "mcp:optimize_social_security_claim_age"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-282-social-security-claiming-optimizer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-282-social-security-claiming-optimizer.html
+    title: "public tool page"
 ---
 
 # Social Security Claiming-Age Optimizer

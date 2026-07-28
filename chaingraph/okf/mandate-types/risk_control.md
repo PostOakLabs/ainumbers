@@ -4,6 +4,8 @@ title: "risk_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"risk_control\"."
 tags: ["risk_control", "count-5"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # risk_control

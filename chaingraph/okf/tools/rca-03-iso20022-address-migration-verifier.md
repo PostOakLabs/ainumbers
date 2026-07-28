@@ -5,6 +5,13 @@ description: "GPU-parallel validation of PostalAddress24 fields across pacs.008 
 resource: https://ainumbers.co/chaingraph/rca-03-iso20022-address-migration-verifier.html
 tags: ["compliance_mandate", "wave-1", "mcp:verify_address_migration_batch", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/rca-03-iso20022-address-migration-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/rca-03-iso20022-address-migration-verifier.html
+    title: "public tool page"
 ---
 
 # ISO 20022 Structured-Address Migration Batch Verifier

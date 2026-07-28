@@ -5,6 +5,13 @@ description: "Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against t
 resource: https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html
 tags: ["compliance_mandate", "wave-46", "mcp:lint_fedwire_structured_address"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-349-fedwire-structured-address-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-349-fedwire-structured-address-linter.html
+    title: "public tool page"
 ---
 
 # Fedwire Structured Address Linter

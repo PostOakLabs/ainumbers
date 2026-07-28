@@ -5,6 +5,13 @@ description: "Compiles a §22 Work Mandate document into a deterministic §21.4 
 resource: https://ainumbers.co/chaingraph/art-274-compile-work-mandate.html
 tags: ["governance_mandate", "wave-47", "mcp:compile_work_mandate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-274-compile-work-mandate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-274-compile-work-mandate.html
+    title: "public tool page"
 ---
 
 # Work Mandate Compiler

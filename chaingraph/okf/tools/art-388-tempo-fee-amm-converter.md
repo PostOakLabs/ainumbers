@@ -5,6 +5,13 @@ description: "Converts a supplied fee-token amount to the validator's token thro
 resource: https://ainumbers.co/chaingraph/art-388-tempo-fee-amm-converter.html
 tags: ["treasury_mandate", "wave-65", "mcp:convert_tempo_fee_amm"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-388-tempo-fee-amm-converter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-388-tempo-fee-amm-converter.html
+    title: "public tool page"
 ---
 
 # Tempo Fee-AMM Conversion Calculator

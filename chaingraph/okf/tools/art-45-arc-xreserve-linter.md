@@ -5,6 +5,13 @@ description: "8-check A–F linter for an Arc xReserve / on-chain reserve config
 resource: https://ainumbers.co/chaingraph/art-45-arc-xreserve-linter.html
 tags: ["compliance_mandate", "wave-10", "mcp:lint_arc_xreserve_config", "iso20022:acmt.023"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-45-arc-xreserve-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-45-arc-xreserve-linter.html
+    title: "public tool page"
 ---
 
 # Arc xReserve Config Linter

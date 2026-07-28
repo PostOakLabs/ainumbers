@@ -5,6 +5,13 @@ description: "Verifies an extract's Merkle inclusion against a root only when th
 resource: https://ainumbers.co/chaingraph/art-286-anchored-extract-verifier.html
 tags: ["compliance_mandate", "wave-51", "mcp:verify_anchored_extract"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-286-anchored-extract-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-286-anchored-extract-verifier.html
+    title: "public tool page"
 ---
 
 # Anchored Extract Verifier

@@ -5,6 +5,13 @@ description: "Per-tx fee (fee_microusd = ceil(base_fee_attodollars_per_gas x gas
 resource: https://ainumbers.co/chaingraph/art-389-tempo-mainnet-fee-capacity.html
 tags: ["treasury_mandate", "wave-65", "mcp:compute_tempo_mainnet_fee_capacity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-389-tempo-mainnet-fee-capacity.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-389-tempo-mainnet-fee-capacity.html
+    title: "public tool page"
 ---
 
 # TIP-1010 Mainnet Fee & Payment-Lane Capacity Calculator

@@ -5,6 +5,13 @@ description: "Native-JS Isolation Forest anomaly detection on synthetic transact
 resource: https://ainumbers.co/chaingraph/ml-01-isolation-forest.html
 tags: ["risk_control", "wave-3", "mcp:detect_transaction_anomalies"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/ml-01-isolation-forest.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/ml-01-isolation-forest.html
+    title: "public tool page"
 ---
 
 # Isolation Forest Transaction Anomaly Detector

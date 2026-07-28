@@ -5,6 +5,13 @@ description: "Standard closed-form convexity for a bullet bond, annualized by co
 resource: https://ainumbers.co/chaingraph/art-331-tvm-convexity.html
 tags: ["analytics_mandate", "wave-57", "mcp:compute_convexity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-331-tvm-convexity.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-331-tvm-convexity.html
+    title: "public tool page"
 ---
 
 # Bond Convexity

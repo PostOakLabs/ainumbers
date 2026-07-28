@@ -5,6 +5,13 @@ description: "Rolls forward a caller-declared FR Y-14A/Q capital worksheet (CET1
 resource: https://ainumbers.co/chaingraph/art-439-y14-capital-worksheet-rollforward.html
 tags: ["regulatory_reporting", "wave-71", "mcp:rollforward_y14_capital_worksheet"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-439-y14-capital-worksheet-rollforward.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-439-y14-capital-worksheet-rollforward.html
+    title: "public tool page"
 ---
 
 # FR Y-14 Capital Worksheet Roll-Forward & Cross-Check

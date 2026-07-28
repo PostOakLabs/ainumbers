@@ -5,6 +5,13 @@ description: "Monte Carlo XVA/CVA calculator. Simulates expected-exposure profil
 resource: https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html
 tags: ["risk_parameter", "wave-3", "mcp:calculate_xva"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/qfa-04-xva-cva-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/qfa-04-xva-cva-calculator.html
+    title: "public tool page"
 ---
 
 # XVA / CVA Calculator

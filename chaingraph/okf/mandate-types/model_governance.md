@@ -4,6 +4,8 @@ title: "model_governance"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"model_governance\"."
 tags: ["model_governance", "count-10"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # model_governance

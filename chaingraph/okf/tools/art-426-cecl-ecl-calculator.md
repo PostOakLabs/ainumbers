@@ -5,6 +5,13 @@ description: "Computes a deterministic CECL (Current Expected Credit Loss, ASC 3
 resource: https://ainumbers.co/chaingraph/art-426-cecl-ecl-calculator.html
 tags: ["credit_assessment", "wave-70", "mcp:calculate_cecl_ecl_allowance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-426-cecl-ecl-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-426-cecl-ecl-calculator.html
+    title: "public tool page"
 ---
 
 # CECL Expected Credit Loss & Allowance Calculator

@@ -5,6 +5,13 @@ description: "Wolfsberg-aligned screening-program quality scorecard: list covera
 resource: https://ainumbers.co/chaingraph/art-97-sanctions-screening-quality-scorer.html
 tags: ["model_governance", "wave-19", "mcp:score_sanctions_screening_quality"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-97-sanctions-screening-quality-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-97-sanctions-screening-quality-scorer.html
+    title: "public tool page"
 ---
 
 # Sanctions Screening-Program Quality Scorer

@@ -5,6 +5,13 @@ description: "Score ICT vendor due-diligence posture against NIS2 Art. 21(2)(d) 
 resource: https://ainumbers.co/chaingraph/art-145-nis2-ict-supply-chain-diligence-scorer.html
 tags: ["compliance_mandate", "wave-26", "mcp:score_nis2_supply_chain_diligence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-145-nis2-ict-supply-chain-diligence-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-145-nis2-ict-supply-chain-diligence-scorer.html
+    title: "public tool page"
 ---
 
 # NIS2 ICT Supply-Chain Diligence Scorer (Art. 21(2)(d) / ENISA)

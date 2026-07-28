@@ -5,6 +5,13 @@ description: "Binds a party's acceptance to a specific assembled agreement artif
 resource: https://ainumbers.co/chaingraph/art-277-agreement-acceptance-binder.html
 tags: ["compliance_mandate", "wave-49", "mcp:bind_agreement_acceptance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-277-agreement-acceptance-binder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-277-agreement-acceptance-binder.html
+    title: "public tool page"
 ---
 
 # Agreement Acceptance Binder

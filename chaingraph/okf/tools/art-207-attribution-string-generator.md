@@ -5,6 +5,13 @@ description: "Generates a human-readable TASL (Title/Author/Source/License) attr
 resource: https://ainumbers.co/chaingraph/art-207-attribution-string-generator.html
 tags: ["compliance_mandate", "wave-35", "mcp:generate_attribution_string"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-207-attribution-string-generator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-207-attribution-string-generator.html
+    title: "public tool page"
 ---
 
 # Attribution String Generator

@@ -5,6 +5,13 @@ description: "12-question A-F diagnostic grading a firm's Robinhood Chain adopti
 resource: https://ainumbers.co/chaingraph/art-323-rhc-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-56", "mcp:run_robinhood_chain_fit_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-323-rhc-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-323-rhc-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Robinhood Chain Fit Diagnostic

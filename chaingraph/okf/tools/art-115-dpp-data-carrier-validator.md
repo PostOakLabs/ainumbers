@@ -5,6 +5,13 @@ description: "Validate DPP required data elements against the CIRPASS-2 Core Ont
 resource: https://ainumbers.co/chaingraph/art-115-dpp-data-carrier-validator.html
 tags: ["compliance_mandate", "wave-22", "mcp:validate_dpp_data_carrier"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-115-dpp-data-carrier-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-115-dpp-data-carrier-validator.html
+    title: "public tool page"
 ---
 
 # EU ESPR Digital Product Passport Data Carrier Validator

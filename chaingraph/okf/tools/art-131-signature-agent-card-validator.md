@@ -5,6 +5,13 @@ description: "Validate the Signature Agent Card (Cloudflare/Bedrock AgentCore sc
 resource: https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html
 tags: ["compliance_mandate", "wave-24", "mcp:validate_signature_agent_card"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-131-signature-agent-card-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html
+    title: "public tool page"
 ---
 
 # Signature Agent Card Validator

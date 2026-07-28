@@ -5,6 +5,13 @@ description: "Lints Robinhood Chain stock-token USD valuation expressions for th
 resource: https://ainumbers.co/chaingraph/art-319-rhc-valuation-linter.html
 tags: ["collateral_mandate", "wave-56", "mcp:lint_stock_token_valuation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-319-rhc-valuation-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-319-rhc-valuation-linter.html
+    title: "public tool page"
 ---
 
 # Valuation Double-Count / Decimal Linter

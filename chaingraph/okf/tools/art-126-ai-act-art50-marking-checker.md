@@ -5,6 +5,13 @@ description: "Check c2pa.actions for a c2pa.created action whose IPTC digitalSou
 resource: https://ainumbers.co/chaingraph/art-126-ai-act-art50-marking-checker.html
 tags: ["compliance_mandate", "wave-23", "mcp:check_ai_act_art50_marking"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-126-ai-act-art50-marking-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-126-ai-act-art50-marking-checker.html
+    title: "public tool page"
 ---
 
 # EU AI Act Art. 50 Marking Checker

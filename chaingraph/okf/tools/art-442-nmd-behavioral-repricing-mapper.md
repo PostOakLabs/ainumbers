@@ -5,6 +5,13 @@ description: "OCC 2010-1 Interagency Advisory on IRR: maps non-maturity deposit 
 resource: https://ainumbers.co/chaingraph/art-442-nmd-behavioral-repricing-mapper.html
 tags: ["analytics_mandate", "wave-73", "mcp:map_nmd_behavioral_repricing"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-442-nmd-behavioral-repricing-mapper.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-442-nmd-behavioral-repricing-mapper.html
+    title: "public tool page"
 ---
 
 # NMD Behavioral Repricing Mapper

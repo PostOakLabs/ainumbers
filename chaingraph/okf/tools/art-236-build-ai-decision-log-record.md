@@ -5,6 +5,13 @@ description: "Builds an EU AI Act Art 12(2)-conformant decision log record for h
 resource: https://ainumbers.co/chaingraph/art-236-build-ai-decision-log-record.html
 tags: ["compliance_mandate", "wave-40", "mcp:build_ai_decision_log_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-236-build-ai-decision-log-record.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-236-build-ai-decision-log-record.html
+    title: "public tool page"
 ---
 
 # AI Decision Log Record Builder (EU AI Act Art 12)

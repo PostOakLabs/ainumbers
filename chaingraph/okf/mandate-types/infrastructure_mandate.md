@@ -4,6 +4,8 @@ title: "infrastructure_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"infrastructure_mandate\"."
 tags: ["infrastructure_mandate", "count-6"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # infrastructure_mandate

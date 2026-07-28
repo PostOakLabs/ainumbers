@@ -5,6 +5,13 @@ description: "Deterministic conversion across CSV, JSON (array of objects), and 
 resource: https://ainumbers.co/chaingraph/art-190-tabular-data-converter.html
 tags: ["compliance_mandate", "wave-34", "mcp:convert_tabular_data"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-190-tabular-data-converter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-190-tabular-data-converter.html
+    title: "public tool page"
 ---
 
 # Tabular Data Converter

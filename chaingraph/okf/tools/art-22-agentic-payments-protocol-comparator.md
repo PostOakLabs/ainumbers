@@ -5,6 +5,13 @@ description: "Compares AP2, ACP, x402, Visa TAP, Mastercard Agentic Token, and T
 resource: https://ainumbers.co/chaingraph/art-22-agentic-payments-protocol-comparator.html
 tags: ["routing_policy", "wave-A", "mcp:compare_agentic_rail_protocols"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-22-agentic-payments-protocol-comparator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-22-agentic-payments-protocol-comparator.html
+    title: "public tool page"
 ---
 
 # Agentic Payments Protocol Comparator

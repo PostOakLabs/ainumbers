@@ -5,6 +5,13 @@ description: "Benchmarks a remittance corridor total cost (fee % + FX margin %) 
 resource: https://ainumbers.co/chaingraph/art-249-compare-corridor-cost.html
 tags: ["analytics_mandate", "wave-42", "mcp:compare_corridor_cost"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-249-compare-corridor-cost.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-249-compare-corridor-cost.html
+    title: "public tool page"
 ---
 
 # Corridor Cost Comparator (World Bank RPW)

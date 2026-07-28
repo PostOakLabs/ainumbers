@@ -5,6 +5,13 @@ description: "Margin computation branched by instrument type: UMR/BCBS d499 for 
 resource: https://ainumbers.co/tools/513-margin-call-collateral-mobilizer.html
 tags: ["collateral_mandate", "wave-8", "mcp:mobilize_margin_collateral", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/513-margin-call-collateral-mobilizer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/513-margin-call-collateral-mobilizer.html
+    title: "public tool page"
 ---
 
 # Margin Call Collateral Mobilizer

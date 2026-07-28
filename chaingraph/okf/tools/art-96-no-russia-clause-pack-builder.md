@@ -5,6 +5,13 @@ description: "Generates the contractual no-Russia clause + DD-evidence checklist
 resource: https://ainumbers.co/chaingraph/art-96-no-russia-clause-pack-builder.html
 tags: ["disclosure_template", "wave-19", "mcp:build_no_russia_clause_pack"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-96-no-russia-clause-pack-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-96-no-russia-clause-pack-builder.html
+    title: "public tool page"
 ---
 
 # No-Russia-Clause Pack Builder

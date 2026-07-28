@@ -5,6 +5,13 @@ description: "FHA mortgage insurance premium (MIP) eligibility and cost calculat
 resource: https://ainumbers.co/chaingraph/art-224-fha-mip-eligibility.html
 tags: ["compliance_mandate", "wave-38", "mcp:compute_fha_mip_eligibility"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-224-fha-mip-eligibility.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-224-fha-mip-eligibility.html
+    title: "public tool page"
 ---
 
 # FHA MIP Eligibility Calculator

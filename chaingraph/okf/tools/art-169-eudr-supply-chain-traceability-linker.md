@@ -5,6 +5,13 @@ description: "Validate EUDR single-DDS rule compliance and supply-chain traceabi
 resource: https://ainumbers.co/chaingraph/art-169-eudr-supply-chain-traceability-linker.html
 tags: ["compliance_mandate", "wave-30", "mcp:link_eudr_supply_chain_traceability"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-169-eudr-supply-chain-traceability-linker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-169-eudr-supply-chain-traceability-linker.html
+    title: "public tool page"
 ---
 
 # EUDR Supply-Chain Traceability Linker

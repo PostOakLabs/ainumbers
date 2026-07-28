@@ -5,6 +5,13 @@ description: "Embedded-insurance unit economics for a platform attaching per-tra
 resource: https://ainumbers.co/chaingraph/art-366-price-embedded-insurance.html
 tags: ["analytics_mandate", "wave-63", "mcp:price_embedded_insurance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-366-price-embedded-insurance.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-366-price-embedded-insurance.html
+    title: "public tool page"
 ---
 
 # Embedded Insurance Pricing Modeller

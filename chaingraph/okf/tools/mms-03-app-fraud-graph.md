@@ -5,6 +5,13 @@ description: "Monte Carlo BFS simulation of Authorised Push Payment (APP) fraud 
 resource: https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html
 tags: ["aml_rule", "wave-3", "mcp:simulate_app_fraud_graph"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/mms-03-app-fraud-graph.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/mms-03-app-fraud-graph.html
+    title: "public tool page"
 ---
 
 # APP Fraud Graph Simulator

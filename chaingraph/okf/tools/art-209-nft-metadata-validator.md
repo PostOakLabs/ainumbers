@@ -5,6 +5,13 @@ description: "Validates ERC-721/ERC-1155 and OpenSea NFT metadata JSON against r
 resource: https://ainumbers.co/chaingraph/art-209-nft-metadata-validator.html
 tags: ["compliance_mandate", "wave-35", "mcp:validate_nft_metadata_art209"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-209-nft-metadata-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-209-nft-metadata-validator.html
+    title: "public tool page"
 ---
 
 # NFT Metadata Validator

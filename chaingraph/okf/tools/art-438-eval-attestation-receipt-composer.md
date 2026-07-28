@@ -5,6 +5,13 @@ description: "Hashes a third-party eval log (e.g. an Inspect AI transcript) and 
 resource: https://ainumbers.co/chaingraph/art-438-eval-attestation-receipt-composer.html
 tags: ["governance_mandate", "wave-72", "mcp:compose_eval_attestation_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-438-eval-attestation-receipt-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-438-eval-attestation-receipt-composer.html
+    title: "public tool page"
 ---
 
 # Eval Attestation Receipt Composer

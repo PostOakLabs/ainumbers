@@ -5,6 +5,13 @@ description: "Black-Scholes options pricer with full Greeks (delta, gamma, theta
 resource: https://ainumbers.co/chaingraph/qfa-01-options-greeks.html
 tags: ["risk_parameter", "wave-3", "mcp:compute_options_greeks"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/qfa-01-options-greeks.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/qfa-01-options-greeks.html
+    title: "public tool page"
 ---
 
 # Options Greeks Calculator

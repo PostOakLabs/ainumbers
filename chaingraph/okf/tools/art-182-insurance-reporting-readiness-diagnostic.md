@@ -5,6 +5,13 @@ description: "A-F insurance reporting readiness diagnostic across six dimensions
 resource: https://ainumbers.co/chaingraph/art-182-insurance-reporting-readiness-diagnostic.html
 tags: ["compliance_mandate", "wave-32", "mcp:run_insurance_reporting_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-182-insurance-reporting-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-182-insurance-reporting-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # Insurance Reporting Readiness Diagnostic

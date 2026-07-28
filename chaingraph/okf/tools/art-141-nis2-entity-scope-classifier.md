@@ -5,6 +5,13 @@ description: "Classify an entity as Essential, Important, or Out-of-Scope under 
 resource: https://ainumbers.co/chaingraph/art-141-nis2-entity-scope-classifier.html
 tags: ["compliance_mandate", "wave-26", "mcp:classify_nis2_entity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-141-nis2-entity-scope-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-141-nis2-entity-scope-classifier.html
+    title: "public tool page"
 ---
 
 # NIS2 Entity Scope Classifier (Essential / Important / Out-of-Scope)

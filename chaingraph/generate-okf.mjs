@@ -3,10 +3,16 @@
  * generate-okf.mjs — OpenChainGraph v0.3 OKF companion-bundle generator.
  *
  * Reads chaingraph.json (the DCAT Graph Index) and emits an Open Knowledge
- * Format (OKF v0.1) bundle under ./okf/ — one markdown "concept" per live
+ * Format (OKF v0.2) bundle under ./okf/ — one markdown "concept" per live
  * node, with YAML frontmatter and markdown links mirroring the consumes/feeds
  * edges. Wired into `scripts/preflight.mjs` + CI via `--check` (same freshness-gate
  * pattern as gen-chain-index.mjs / gen-llms-full.mjs) so the bundle never drifts.
+ *
+ * v0.2 migration (OKFV2-1): adds `generated:{by,at}` and `status: stable`
+ * alongside the legacy `timestamp` (kept — v0.1 consumers still read it), and
+ * `sources:` per tool concept (shard + public page). Deliberately omits
+ * `stale_after` (a date promise nobody owns) and `verified:` (no verification
+ * event occurs here — that's a checker's job, not a generator's).
  *
  * OKF concepts are KNOWLEDGE, never decision artifacts: they carry NO
  * execution_hash and NO audit_signature. Nothing in OpenChainGraph's
@@ -54,6 +60,23 @@ const toolLink = (id) =>
       : `\`${id}\` _(not live)_`;
 
 const yamlList = (arr) => `[${arr.map((s) => JSON.stringify(s)).join(', ')}]`;
+// v0.2 §5.2/§5.4 trust+lifecycle lines, shared by every generated concept.
+const genLine = () => `generated: { by: "ainumbers/generate-okf", at: ${JSON.stringify(now)} }`;
+
+// v0.2 §5.1 sources: resolvable shard (DCAT record) + public page, per tool concept.
+const SHARD_BASE = 'https://ainumbers.co/chaingraph/graph/nodes';
+function sourcesBlock(n) {
+  const entries = [
+    { resource: `${SHARD_BASE}/${n.tool_id}.json`, title: 'chaingraph.json shard entry' },
+    { resource: n.url, title: 'public tool page' },
+  ];
+  const lines = ['sources:'];
+  for (const e of entries) {
+    lines.push(`  - resource: ${e.resource}`);
+    lines.push(`    title: ${JSON.stringify(e.title)}`);
+  }
+  return lines.join('\n');
+}
 
 function frontmatter(n) {
   const tags = [n.mandate_type, `wave-${n.wave}`, `mcp:${n.mcp_name}`];
@@ -66,6 +89,9 @@ function frontmatter(n) {
     `resource: ${n.url}`,
     `tags: ${yamlList(tags)}`,
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
+    sourcesBlock(n),
     '---',
   ].join('\n');
 }
@@ -120,6 +146,8 @@ for (const [type, members] of groups) {
     `description: ${JSON.stringify(`OpenChainGraph tools whose decisions carry mandate_type "${type}".`)}`,
     `tags: ${yamlList([type, `count-${members.length}`])}`,
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
     '---',
   ].join('\n');
   const body = [
@@ -141,6 +169,8 @@ write(
     'type: Index',
     'title: "Mandate types"',
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
     '---',
     '',
     '# Mandate types',
@@ -158,6 +188,8 @@ write(
     'type: Index',
     'title: "Tools"',
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
     '---',
     '',
     '# Tools',
@@ -179,8 +211,10 @@ write(
     'title: "AINumbers OpenChainGraph Suite"',
     `description: ${JSON.stringify(idx.suite_claim ?? '')}`,
     `resource: ${idx.hub_url}`,
-    `tags: ["openchaingraph", "okf", "spec-${idx.spec_version ?? '0.3'}"]`,
+    `tags: ["openchaingraph", "okf-v0.2", "spec-${idx.spec_version ?? '0.3'}"]`,
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
     '---',
     '',
     '# AINumbers OpenChainGraph Suite',
@@ -214,6 +248,8 @@ write(
     'type: Log',
     'title: "Generation log"',
     `timestamp: ${now}`,
+    genLine(),
+    'status: stable',
     '---',
     '',
     '# Generation log',

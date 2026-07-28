@@ -5,6 +5,13 @@ description: "Computes Canton Network synchronizer traffic cost (CIP-0042/CIP-00
 resource: https://ainumbers.co/chaingraph/art-391-compute-canton-traffic-cost.html
 tags: ["analytics_mandate", "wave-64", "mcp:compute_canton_traffic_cost"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-391-compute-canton-traffic-cost.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-391-compute-canton-traffic-cost.html
+    title: "public tool page"
 ---
 
 # Canton Synchronizer Traffic-Cost Calculator

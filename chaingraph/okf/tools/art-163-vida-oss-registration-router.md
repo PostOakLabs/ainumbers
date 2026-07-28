@@ -5,6 +5,13 @@ description: "Route a supply to the correct ViDA Single VAT Registration scheme:
 resource: https://ainumbers.co/chaingraph/art-163-vida-oss-registration-router.html
 tags: ["compliance_mandate", "wave-29", "mcp:route_vida_oss_registration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-163-vida-oss-registration-router.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-163-vida-oss-registration-router.html
+    title: "public tool page"
 ---
 
 # ViDA OSS Registration Router

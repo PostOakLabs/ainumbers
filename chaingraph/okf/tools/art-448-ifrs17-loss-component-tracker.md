@@ -5,6 +5,13 @@ description: "Tracks the IFRS 17 para 50 loss-component roll-forward across peri
 resource: https://ainumbers.co/chaingraph/art-448-ifrs17-loss-component-tracker.html
 tags: ["compliance_mandate", "wave-32", "mcp:track_ifrs17_loss_component_rollforward"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-448-ifrs17-loss-component-tracker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-448-ifrs17-loss-component-tracker.html
+    title: "public tool page"
 ---
 
 # IFRS 17 Loss Component Roll-Forward Tracker

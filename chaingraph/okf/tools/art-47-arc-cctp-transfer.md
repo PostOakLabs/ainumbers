@@ -5,6 +5,13 @@ description: "Validates a CCTP v2 cross-chain USDC transfer for domain pair elig
 resource: https://ainumbers.co/chaingraph/art-47-arc-cctp-transfer.html
 tags: ["settlement_mandate", "wave-10", "mcp:validate_cctp_v2_transfer", "iso20022:pacs.009"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-47-arc-cctp-transfer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-47-arc-cctp-transfer.html
+    title: "public tool page"
 ---
 
 # Arc CCTP v2 Transfer Validator

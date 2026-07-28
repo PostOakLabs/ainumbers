@@ -5,6 +5,13 @@ description: "ULDD Phase 5 / ULAD structural lint of required data points, enume
 resource: https://ainumbers.co/chaingraph/art-226-mismo-uldd-ulad.html
 tags: ["compliance_mandate", "wave-38", "mcp:lint_mismo_uldd_ulad"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-226-mismo-uldd-ulad.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-226-mismo-uldd-ulad.html
+    title: "public tool page"
 ---
 
 # ULDD/ULAD Structural Linter

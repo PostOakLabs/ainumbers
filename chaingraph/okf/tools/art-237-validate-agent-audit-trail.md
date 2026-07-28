@@ -5,6 +5,13 @@ description: "Validates agent audit trail records against IETF draft-sharif-agen
 resource: https://ainumbers.co/chaingraph/art-237-validate-agent-audit-trail.html
 tags: ["compliance_mandate", "wave-40", "mcp:validate_agent_audit_trail"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-237-validate-agent-audit-trail.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-237-validate-agent-audit-trail.html
+    title: "public tool page"
 ---
 
 # Agent Audit Trail Conformance Validator (IETF AAT)

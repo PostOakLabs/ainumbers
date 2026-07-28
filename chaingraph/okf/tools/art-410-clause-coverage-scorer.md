@@ -5,6 +5,13 @@ description: "Scores an agreement's clause coverage against a named clause taxon
 resource: https://ainumbers.co/chaingraph/art-410-clause-coverage-scorer.html
 tags: ["compliance_mandate", "wave-69", "mcp:score_clause_coverage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-410-clause-coverage-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-410-clause-coverage-scorer.html
+    title: "public tool page"
 ---
 
 # Clause Coverage Scorer

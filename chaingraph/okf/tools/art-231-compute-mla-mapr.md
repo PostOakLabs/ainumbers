@@ -5,6 +5,13 @@ description: "Computes the Military Annual Percentage Rate (MAPR) per 32 CFR §2
 resource: https://ainumbers.co/chaingraph/art-231-compute-mla-mapr.html
 tags: ["compliance_mandate", "wave-39", "mcp:compute_mla_mapr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-231-compute-mla-mapr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-231-compute-mla-mapr.html
+    title: "public tool page"
 ---
 
 # Compute MLA MAPR

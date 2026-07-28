@@ -5,6 +5,13 @@ description: "Checks a debt-validation-notice content-element checklist against 
 resource: https://ainumbers.co/chaingraph/art-403-check-debt-validation-notice.html
 tags: ["compliance_mandate", "wave-60", "mcp:check_debt_validation_notice"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-403-check-debt-validation-notice.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-403-check-debt-validation-notice.html
+    title: "public tool page"
 ---
 
 # Debt Validation Notice Completeness Checker

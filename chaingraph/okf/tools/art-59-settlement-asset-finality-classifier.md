@@ -5,6 +5,13 @@ description: "Classifies the settlement asset (CBM token / tokenized commercial 
 resource: https://ainumbers.co/chaingraph/art-59-settlement-asset-finality-classifier.html
 tags: ["compliance_mandate", "wave-13", "mcp:classify_settlement_asset_finality"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-59-settlement-asset-finality-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-59-settlement-asset-finality-classifier.html
+    title: "public tool page"
 ---
 
 # Settlement-Asset & Legal-Finality Classifier

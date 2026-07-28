@@ -5,6 +5,13 @@ description: "Validates W-8 series form structural consistency for withholding t
 resource: https://ainumbers.co/chaingraph/art-269-validate-w8-series-structural.html
 tags: ["compliance_mandate", "wave-45", "mcp:validate_w8_series_structural"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-269-validate-w8-series-structural.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-269-validate-w8-series-structural.html
+    title: "public tool page"
 ---
 
 # W-8 Series Structural Validator

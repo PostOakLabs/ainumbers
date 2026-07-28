@@ -5,6 +5,13 @@ description: "Validates AP2 v0.2 Intent→Cart→Payment mandate trio: signature
 resource: https://ainumbers.co/chaingraph/art-01-ap2-mandate-chain-validator.html
 tags: ["payment_mandate", "wave-1", "mcp:validate_ap2_mandate_chain"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-01-ap2-mandate-chain-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-01-ap2-mandate-chain-validator.html
+    title: "public tool page"
 ---
 
 # AP2 Mandate-Chain Validator

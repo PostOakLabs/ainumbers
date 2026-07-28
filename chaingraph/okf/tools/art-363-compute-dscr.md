@@ -5,6 +5,13 @@ description: "Debt Service Coverage Ratio and Interest Coverage Ratio suite: Bas
 resource: https://ainumbers.co/chaingraph/art-363-compute-dscr.html
 tags: ["compliance_mandate", "wave-62", "mcp:compute_dscr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-363-compute-dscr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-363-compute-dscr.html
+    title: "public tool page"
 ---
 
 # DSCR & Interest Coverage Ratio Calculator

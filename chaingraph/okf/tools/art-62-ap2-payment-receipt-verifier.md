@@ -5,6 +5,13 @@ description: "Verifies an AP2 v0.2 PaymentReceipt against its signed Intent/Cart
 resource: https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html
 tags: ["attestation_mandate", "wave-14", "mcp:verify_ap2_payment_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-62-ap2-payment-receipt-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-62-ap2-payment-receipt-verifier.html
+    title: "public tool page"
 ---
 
 # AP2 PaymentReceipt Verifier & HNP Guardrail

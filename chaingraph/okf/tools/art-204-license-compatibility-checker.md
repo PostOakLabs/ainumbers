@@ -5,6 +5,13 @@ description: "Checks whether a child license can derive from a parent asset lice
 resource: https://ainumbers.co/chaingraph/art-204-license-compatibility-checker.html
 tags: ["compliance_mandate", "wave-35", "mcp:check_license_compatibility"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-204-license-compatibility-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-204-license-compatibility-checker.html
+    title: "public tool page"
 ---
 
 # License Compatibility Checker

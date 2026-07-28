@@ -5,6 +5,13 @@ description: "Validate the /.well-known/http-message-signatures-directory JWKS: 
 resource: https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html
 tags: ["compliance_mandate", "wave-24", "mcp:validate_signature_directory"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-130-signature-directory-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html
+    title: "public tool page"
 ---
 
 # HTTP Signatures Directory Validator

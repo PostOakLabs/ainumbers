@@ -5,6 +5,13 @@ description: "Computes perpetual futures funding rates, compound annual APR, and
 resource: https://ainumbers.co/chaingraph/art-270-perp-funding-carry.html
 tags: ["analytics_mandate", "wave-46", "mcp:compute_perp_funding"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-270-perp-funding-carry.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-270-perp-funding-carry.html
+    title: "public tool page"
 ---
 
 # Perp Funding and Carry Calculator

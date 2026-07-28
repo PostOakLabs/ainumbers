@@ -5,6 +5,13 @@ description: "Computes DeFi lending health factor, liquidation price, borrow cap
 resource: https://ainumbers.co/chaingraph/art-271-defi-lending-health.html
 tags: ["analytics_mandate", "wave-46", "mcp:assess_defi_lending"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-271-defi-lending-health.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-271-defi-lending-health.html
+    title: "public tool page"
 ---
 
 # DeFi Lending Health and Liquidation Monitor

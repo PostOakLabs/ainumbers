@@ -5,6 +5,13 @@ description: "Validates catastrophe bond trigger term structure and computes lay
 resource: https://ainumbers.co/chaingraph/art-252-validate-cat-bond-trigger-terms.html
 tags: ["compliance_mandate", "wave-43", "mcp:validate_cat_bond_trigger_terms"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-252-validate-cat-bond-trigger-terms.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-252-validate-cat-bond-trigger-terms.html
+    title: "public tool page"
 ---
 
 # Cat Bond Trigger Terms Validator

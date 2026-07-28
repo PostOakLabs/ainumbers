@@ -5,6 +5,13 @@ description: "EU Securitisation Regulation (EU) 2017/2402 Art.6 and U.S. Credit 
 resource: https://ainumbers.co/chaingraph/art-447-securitization-risk-retention-check.html
 tags: ["compliance_mandate", "wave-73", "mcp:check_securitization_risk_retention"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-447-securitization-risk-retention-check.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-447-securitization-risk-retention-check.html
+    title: "public tool page"
 ---
 
 # Securitization Risk Retention Check

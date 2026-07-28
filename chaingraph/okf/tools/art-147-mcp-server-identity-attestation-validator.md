@@ -5,6 +5,13 @@ description: "Validate a new-spec MCP server identity document: required claims 
 resource: https://ainumbers.co/chaingraph/art-147-mcp-server-identity-attestation-validator.html
 tags: ["compliance_mandate", "wave-27", "mcp:validate_mcp_server_identity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-147-mcp-server-identity-attestation-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-147-mcp-server-identity-attestation-validator.html
+    title: "public tool page"
 ---
 
 # MCP Server Identity Attestation Validator

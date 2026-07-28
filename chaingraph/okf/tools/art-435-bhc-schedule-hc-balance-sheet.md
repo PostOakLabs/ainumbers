@@ -5,6 +5,13 @@ description: "Maps caller-declared FR Y-9C (Financial Statements for Holding Com
 resource: https://ainumbers.co/chaingraph/art-435-bhc-schedule-hc-balance-sheet.html
 tags: ["regulatory_reporting", "wave-71", "mcp:map_bhc_schedule_hc"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-435-bhc-schedule-hc-balance-sheet.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-435-bhc-schedule-hc-balance-sheet.html
+    title: "public tool page"
 ---
 
 # FR Y-9C Schedule HC (Consolidated Balance Sheet) Mapper

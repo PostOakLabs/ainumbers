@@ -5,6 +5,13 @@ description: "Validates originator/beneficiary field completeness on synthetic/h
 resource: https://ainumbers.co/chaingraph/art-104-tfr-travel-rule-batch-validator.html
 tags: ["compliance_mandate", "wave-20", "mcp:validate_tfr_travel_rule_batch"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-104-tfr-travel-rule-batch-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-104-tfr-travel-rule-batch-validator.html
+    title: "public tool page"
 ---
 
 # TFR Travel-Rule Batch Validator

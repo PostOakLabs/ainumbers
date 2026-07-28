@@ -5,6 +5,13 @@ description: "Compares net proceeds and effective annual cost across forfaiting 
 resource: https://ainumbers.co/chaingraph/art-479-compare-receivables-finance-economics.html
 tags: ["analytics_mandate", "wave-65", "mcp:compare_receivables_finance_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-479-compare-receivables-finance-economics.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-479-compare-receivables-finance-economics.html
+    title: "public tool page"
 ---
 
 # Forfaiting vs Factoring vs Invoice Discounting Economics

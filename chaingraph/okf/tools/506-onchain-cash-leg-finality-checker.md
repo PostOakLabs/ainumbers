@@ -5,6 +5,13 @@ description: "Validate USDC/deposit-token cash-leg finality, reserve attestation
 resource: https://ainumbers.co/tools/506-onchain-cash-leg-finality-checker.html
 tags: ["attestation_mandate", "wave-8", "mcp:check_cash_leg_finality", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/506-onchain-cash-leg-finality-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/506-onchain-cash-leg-finality-checker.html
+    title: "public tool page"
 ---
 
 # On-Chain Cash-Leg Finality Checker

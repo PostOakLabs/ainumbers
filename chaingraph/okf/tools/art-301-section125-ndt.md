@@ -5,6 +5,13 @@ description: "Runs the §125 cafeteria-plan nondiscrimination tests from supplie
 resource: https://ainumbers.co/chaingraph/art-301-section125-ndt.html
 tags: ["compliance_mandate", "wave-48", "mcp:run_section125_ndt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-301-section125-ndt.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-301-section125-ndt.html
+    title: "public tool page"
 ---
 
 # §125 Cafeteria Plan Nondiscrimination Tester

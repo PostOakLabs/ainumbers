@@ -4,6 +4,8 @@ title: "cryptographic_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"cryptographic_mandate\"."
 tags: ["cryptographic_mandate", "count-11"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # cryptographic_mandate

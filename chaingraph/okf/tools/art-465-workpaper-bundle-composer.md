@@ -5,6 +5,13 @@ description: "Terminal composer for a substantive-procedure evidence bundle: a p
 resource: https://ainumbers.co/chaingraph/art-465-workpaper-bundle-composer.html
 tags: ["attestation_mandate", "wave-75", "mcp:compose_workpaper_bundle"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-465-workpaper-bundle-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-465-workpaper-bundle-composer.html
+    title: "public tool page"
 ---
 
 # Workpaper Bundle Composer

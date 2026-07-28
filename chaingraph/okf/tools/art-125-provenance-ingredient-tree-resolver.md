@@ -5,6 +5,13 @@ description: "Walk the c2pa.ingredient parent-of tree; confirm each ingredient h
 resource: https://ainumbers.co/chaingraph/art-125-provenance-ingredient-tree-resolver.html
 tags: ["compliance_mandate", "wave-23", "mcp:resolve_provenance_ingredient_tree"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-125-provenance-ingredient-tree-resolver.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-125-provenance-ingredient-tree-resolver.html
+    title: "public tool page"
 ---
 
 # Provenance Ingredient Tree Resolver

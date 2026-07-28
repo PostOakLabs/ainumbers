@@ -5,6 +5,13 @@ description: "Generates ISO 24138 ISCC content fingerprints for digital content.
 resource: https://ainumbers.co/chaingraph/art-201-iscc-content-code-generator.html
 tags: ["compliance_mandate", "wave-35", "mcp:generate_iscc_code"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-201-iscc-content-code-generator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-201-iscc-content-code-generator.html
+    title: "public tool page"
 ---
 
 # ISCC Content Code Generator

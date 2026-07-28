@@ -5,6 +5,13 @@ description: "Compares the total cost and risk-adjusted exposure of Documentary 
 resource: https://ainumbers.co/chaingraph/art-478-analyze-dc-vs-lc-cost-benefit.html
 tags: ["compliance_mandate", "wave-65", "mcp:analyze_dc_vs_lc_cost_benefit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-478-analyze-dc-vs-lc-cost-benefit.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-478-analyze-dc-vs-lc-cost-benefit.html
+    title: "public tool page"
 ---
 
 # Documentary Collection vs Letter of Credit Cost-Benefit

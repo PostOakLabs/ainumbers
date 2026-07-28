@@ -5,6 +5,13 @@ description: "Assess NIS2 Art. 20 management-body accountability: board approval
 resource: https://ainumbers.co/chaingraph/art-146-nis2-governance-readiness-checker.html
 tags: ["compliance_mandate", "wave-26", "mcp:check_nis2_governance_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-146-nis2-governance-readiness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-146-nis2-governance-readiness-checker.html
+    title: "public tool page"
 ---
 
 # NIS2 Governance Readiness Checker (Art. 20 — Management Body Accountability)

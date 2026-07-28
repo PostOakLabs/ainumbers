@@ -5,6 +5,13 @@ description: "KYA-OS (DIF Trusted AI Agents WG) credential-chain attestation: de
 resource: https://ainumbers.co/chaingraph/art-04-agent-identity-attestation-checker.html
 tags: ["compliance_mandate", "wave-2", "mcp:check_agent_attestation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-04-agent-identity-attestation-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-04-agent-identity-attestation-checker.html
+    title: "public tool page"
 ---
 
 # Agent Identity & Authorization Attestation Checker

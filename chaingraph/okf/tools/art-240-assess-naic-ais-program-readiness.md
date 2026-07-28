@@ -5,6 +5,13 @@ description: "Scores insurance AI program readiness against the NAIC AI Model Bu
 resource: https://ainumbers.co/chaingraph/art-240-assess-naic-ais-program-readiness.html
 tags: ["compliance_mandate", "wave-40", "mcp:assess_naic_ais_program_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-240-assess-naic-ais-program-readiness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-240-assess-naic-ais-program-readiness.html
+    title: "public tool page"
 ---
 
 # NAIC AI Systems Program Readiness Assessment

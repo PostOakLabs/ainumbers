@@ -5,6 +5,13 @@ description: "VaR and Expected Shortfall: Historical Simulation, Parametric (var
 resource: https://ainumbers.co/chaingraph/qfa-02-portfolio-var-engine.html
 tags: ["risk_control", "wave-2", "mcp:compute_portfolio_var"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/qfa-02-portfolio-var-engine.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/qfa-02-portfolio-var-engine.html
+    title: "public tool page"
 ---
 
 # Portfolio Covariance & VaR Engine

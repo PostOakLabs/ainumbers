@@ -5,6 +5,13 @@ description: "Screen counterparties against FATF Travel Rule, AML/KYA requiremen
 resource: https://ainumbers.co/tools/509-canton-party-allowlist-validator.html
 tags: ["compliance_mandate", "wave-8", "mcp:validate_canton_party_allowlist", "iso20022:party-identification"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/509-canton-party-allowlist-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/509-canton-party-allowlist-validator.html
+    title: "public tool page"
 ---
 
 # Canton Party Allowlist Validator

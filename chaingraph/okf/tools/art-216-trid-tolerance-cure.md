@@ -5,6 +5,13 @@ description: "TRID fee tolerance analysis and cure calculation per Reg Z §1026.
 resource: https://ainumbers.co/chaingraph/art-216-trid-tolerance-cure.html
 tags: ["compliance_mandate", "wave-37", "mcp:compute_trid_tolerance_cure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-216-trid-tolerance-cure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-216-trid-tolerance-cure.html
+    title: "public tool page"
 ---
 
 # TRID Fee Tolerance and Cure

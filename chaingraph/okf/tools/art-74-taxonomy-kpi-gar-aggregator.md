@@ -5,6 +5,13 @@ description: "Rolls activity-level Taxonomy alignment (from ART-73) into entity 
 resource: https://ainumbers.co/chaingraph/art-74-taxonomy-kpi-gar-aggregator.html
 tags: ["model_governance", "wave-16", "mcp:aggregate_taxonomy_kpi_gar"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-74-taxonomy-kpi-gar-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-74-taxonomy-kpi-gar-aggregator.html
+    title: "public tool page"
 ---
 
 # Taxonomy KPI & Green Asset Ratio Aggregator

@@ -5,6 +5,13 @@ description: "FDIC deposit-insurance assessment rate calculator (12 CFR 327): lo
 resource: https://ainumbers.co/chaingraph/art-431-fdic-assessment-rate-calculator.html
 tags: ["compliance_mandate", "wave-71", "mcp:compute_fdic_assessment_rate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-431-fdic-assessment-rate-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-431-fdic-assessment-rate-calculator.html
+    title: "public tool page"
 ---
 
 # FDIC Deposit-Insurance Assessment Rate Calculator

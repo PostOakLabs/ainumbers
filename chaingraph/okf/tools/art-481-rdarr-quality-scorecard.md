@@ -5,6 +5,13 @@ description: "Deterministic data-quality metrics over a SUPPLIED risk-data extra
 resource: https://ainumbers.co/chaingraph/art-481-rdarr-quality-scorecard.html
 tags: ["attestation_mandate", "wave-66", "mcp:rdarr_quality_scorecard"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-481-rdarr-quality-scorecard.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-481-rdarr-quality-scorecard.html
+    title: "public tool page"
 ---
 
 # RDARR Quality Scorecard

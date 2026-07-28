@@ -5,6 +5,13 @@ description: "Reconciles an AML consent-order remediation lookback's order-scope
 resource: https://ainumbers.co/chaingraph/art-470-lookback-completeness-reconciler.html
 tags: ["compliance_control", "wave-74", "mcp:reconcile_aml_lookback_completeness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-470-lookback-completeness-reconciler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-470-lookback-completeness-reconciler.html
+    title: "public tool page"
 ---
 
 # AML Lookback Completeness Reconciler

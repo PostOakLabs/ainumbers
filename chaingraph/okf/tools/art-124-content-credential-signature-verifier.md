@@ -5,6 +5,13 @@ description: "Verify the COSE_Sign1 claim signature against a caller-supplied si
 resource: https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html
 tags: ["compliance_mandate", "wave-23", "mcp:verify_content_credential_signature"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-124-content-credential-signature-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html
+    title: "public tool page"
 ---
 
 # Content Credential Signature Verifier

@@ -5,6 +5,13 @@ description: "Maps a Tempo Zone's party-visibility model (operator-sees-all / us
 resource: https://ainumbers.co/chaingraph/art-39-tempo-zone-disclosure.html
 tags: ["attestation_mandate", "wave-9", "mcp:validate_tempo_zone_disclosure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-39-tempo-zone-disclosure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-39-tempo-zone-disclosure.html
+    title: "public tool page"
 ---
 
 # Tempo Zone Selective-Disclosure Attestation

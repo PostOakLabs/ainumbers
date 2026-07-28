@@ -5,6 +5,13 @@ description: "12-question A–F readiness diagnostic for digital trade / electro
 resource: https://ainumbers.co/chaingraph/art-52-digital-trade-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-12", "mcp:run_digital_trade_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-52-digital-trade-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-52-digital-trade-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Digital Trade Corridor Fit Diagnostic

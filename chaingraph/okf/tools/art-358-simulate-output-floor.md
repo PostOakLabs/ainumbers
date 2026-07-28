@@ -5,6 +5,13 @@ description: "Basel III finalization / 2026 reproposal output-floor simulator: a
 resource: https://ainumbers.co/chaingraph/art-358-simulate-output-floor.html
 tags: ["compliance_mandate", "wave-61", "mcp:simulate_output_floor"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-358-simulate-output-floor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-358-simulate-output-floor.html
+    title: "public tool page"
 ---
 
 # Basel Output-Floor Phase-In Simulator

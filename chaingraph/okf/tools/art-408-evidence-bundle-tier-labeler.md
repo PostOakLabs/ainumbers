@@ -5,6 +5,13 @@ description: "Assembles a shareable evidence bundle around an artifact and stamp
 resource: https://ainumbers.co/chaingraph/art-408-evidence-bundle-tier-labeler.html
 tags: ["attestation_mandate", "wave-68", "mcp:assemble_ocg_evidence_bundle"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-408-evidence-bundle-tier-labeler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-408-evidence-bundle-tier-labeler.html
+    title: "public tool page"
 ---
 
 # Evidence Bundle Tier Labeler

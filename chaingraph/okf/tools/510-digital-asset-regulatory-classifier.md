@@ -5,6 +5,13 @@ description: "Classify tokenized assets under GENIUS Act, MiCA, MiFID II, and EU
 resource: https://ainumbers.co/tools/510-digital-asset-regulatory-classifier.html
 tags: ["compliance_mandate", "wave-8", "mcp:classify_digital_asset_regulatory", "iso20022:party-identification"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/510-digital-asset-regulatory-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/510-digital-asset-regulatory-classifier.html
+    title: "public tool page"
 ---
 
 # Digital Asset Regulatory Classifier

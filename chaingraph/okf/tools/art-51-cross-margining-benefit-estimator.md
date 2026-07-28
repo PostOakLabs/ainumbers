@@ -5,6 +5,13 @@ description: "Estimates the initial-margin reduction from the FICC-CME cross-mar
 resource: https://ainumbers.co/chaingraph/art-51-cross-margining-benefit-estimator.html
 tags: ["risk_parameter", "wave-11", "mcp:estimate_cross_margin_benefit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-51-cross-margining-benefit-estimator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-51-cross-margining-benefit-estimator.html
+    title: "public tool page"
 ---
 
 # FICC-CME Cross-Margining Estimator

@@ -5,6 +5,13 @@ description: "Verifies a certificate produced by the License Election Certifier 
 resource: https://ainumbers.co/chaingraph/art-200-license-election-verifier.html
 tags: ["cryptographic_mandate", "wave-35", "mcp:verify_license_election"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-200-license-election-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-200-license-election-verifier.html
+    title: "public tool page"
 ---
 
 # License Election Verifier

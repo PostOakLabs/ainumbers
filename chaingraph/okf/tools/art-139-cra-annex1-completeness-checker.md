@@ -5,6 +5,13 @@ description: "Checks EU CRA Annex I Part I essential cybersecurity requirements:
 resource: https://ainumbers.co/chaingraph/art-139-cra-annex1-completeness-checker.html
 tags: ["compliance_mandate", "wave-25", "mcp:check_cra_annex1_completeness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-139-cra-annex1-completeness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-139-cra-annex1-completeness-checker.html
+    title: "public tool page"
 ---
 
 # CRA Annex I Completeness Checker

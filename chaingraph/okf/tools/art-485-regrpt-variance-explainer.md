@@ -5,6 +5,13 @@ description: "Computes period-over-period variance across a regulatory report in
 resource: https://ainumbers.co/chaingraph/art-485-regrpt-variance-explainer.html
 tags: ["regulatory_reporting", "wave-77", "mcp:explain_regrpt_variance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-485-regrpt-variance-explainer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-485-regrpt-variance-explainer.html
+    title: "public tool page"
 ---
 
 # Regulatory Report Period-over-Period Variance Explainer

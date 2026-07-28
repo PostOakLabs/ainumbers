@@ -5,6 +5,13 @@ description: "Cross-validates a full trade-document set (eBL, commercial invoice
 resource: https://ainumbers.co/chaingraph/art-55-trade-document-provenance-verifier.html
 tags: ["cryptographic_mandate", "wave-12", "mcp:verify_trade_document_set"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-55-trade-document-provenance-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-55-trade-document-provenance-verifier.html
+    title: "public tool page"
 ---
 
 # Trade Document Provenance & Consistency Verifier

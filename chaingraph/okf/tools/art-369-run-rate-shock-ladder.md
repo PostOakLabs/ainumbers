@@ -5,6 +5,13 @@ description: "US OCC/FDIC interest-rate-risk parallel shock ladder: sweeps four 
 resource: https://ainumbers.co/chaingraph/art-369-run-rate-shock-ladder.html
 tags: ["analytics_mandate", "wave-64", "mcp:run_rate_shock_ladder"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-369-run-rate-shock-ladder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-369-run-rate-shock-ladder.html
+    title: "public tool page"
 ---
 
 # Rate Shock Ladder Replay

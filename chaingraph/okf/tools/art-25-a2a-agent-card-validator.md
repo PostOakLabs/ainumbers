@@ -5,6 +5,13 @@ description: "Validates an A2A agent-card.json against the v1.0 shape: identity 
 resource: https://ainumbers.co/chaingraph/art-25-a2a-agent-card-validator.html
 tags: ["compliance_control", "wave-A", "mcp:verify_a2a_agent_card"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-25-a2a-agent-card-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-25-a2a-agent-card-validator.html
+    title: "public tool page"
 ---
 
 # A2A Agent Card Validator & Extension Checker

@@ -5,6 +5,13 @@ description: "Decodes base64 PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESP
 resource: https://ainumbers.co/chaingraph/art-26-x402-payload-decoder-flow-simulator.html
 tags: ["compliance_control", "wave-A", "mcp:simulate_x402_flow"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-26-x402-payload-decoder-flow-simulator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-26-x402-payload-decoder-flow-simulator.html
+    title: "public tool page"
 ---
 
 # x402 Header Decoder, Payload Linter & 402 Flow Simulator

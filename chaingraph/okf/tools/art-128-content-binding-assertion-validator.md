@@ -5,6 +5,13 @@ description: "Validate hard-binding (c2pa.hash.data/bmff, tamper-evident) vs sof
 resource: https://ainumbers.co/chaingraph/art-128-content-binding-assertion-validator.html
 tags: ["compliance_mandate", "wave-23", "mcp:validate_content_binding_assertion"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-128-content-binding-assertion-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-128-content-binding-assertion-validator.html
+    title: "public tool page"
 ---
 
 # Content Binding Assertion Validator

@@ -5,6 +5,13 @@ description: "12-question A-F readiness diagnostic for the agent-economy runtime
 resource: https://ainumbers.co/chaingraph/art-60-agent-economy-runtime-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-14", "mcp:run_agent_economy_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-60-agent-economy-runtime-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-60-agent-economy-runtime-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Agent Economy Runtime Fit Diagnostic

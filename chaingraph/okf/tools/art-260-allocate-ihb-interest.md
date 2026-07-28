@@ -5,6 +5,13 @@ description: "Allocates overnight in-house-bank (IHB) interest across notional p
 resource: https://ainumbers.co/chaingraph/art-260-allocate-ihb-interest.html
 tags: ["analytics_mandate", "wave-44", "mcp:allocate_ihb_interest"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-260-allocate-ihb-interest.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-260-allocate-ihb-interest.html
+    title: "public tool page"
 ---
 
 # IHB Interest Allocation

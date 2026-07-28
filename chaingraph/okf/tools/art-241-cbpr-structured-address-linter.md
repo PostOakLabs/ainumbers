@@ -5,6 +5,13 @@ description: "Lints a single pacs.008 PostalAddress24 block against the SWIFT CB
 resource: https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.html
 tags: ["compliance_mandate", "wave-41", "mcp:lint_cbpr_structured_address"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-241-cbpr-structured-address-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.html
+    title: "public tool page"
 ---
 
 # CBPR+ Structured Address Linter

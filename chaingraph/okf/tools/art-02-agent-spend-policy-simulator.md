@@ -5,6 +5,13 @@ description: "Simulates thousands of synthetic agent transactions against a user
 resource: https://ainumbers.co/chaingraph/art-02-agent-spend-policy-simulator.html
 tags: ["payment_policy", "wave-1", "mcp:simulate_spend_policy"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-02-agent-spend-policy-simulator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-02-agent-spend-policy-simulator.html
+    title: "public tool page"
 ---
 
 # Agent Spend-Policy Simulator

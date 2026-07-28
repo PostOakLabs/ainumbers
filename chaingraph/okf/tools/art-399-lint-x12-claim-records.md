@@ -5,6 +5,13 @@ description: "Lints X12 837 (health-care claim) and 835 (claim payment/remittanc
 resource: https://ainumbers.co/chaingraph/art-399-lint-x12-claim-records.html
 tags: ["compliance_mandate", "wave-47", "mcp:lint_x12_claim_records"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-399-lint-x12-claim-records.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-399-lint-x12-claim-records.html
+    title: "public tool page"
 ---
 
 # X12 837/835 Healthcare-Claim Records Lint

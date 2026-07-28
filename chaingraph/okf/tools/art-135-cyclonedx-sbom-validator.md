@@ -5,6 +5,13 @@ description: "Validates a CycloneDX SBOM against the EU CRA Annex I machine-read
 resource: https://ainumbers.co/chaingraph/art-135-cyclonedx-sbom-validator.html
 tags: ["compliance_mandate", "wave-25", "mcp:validate_cyclonedx_sbom"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-135-cyclonedx-sbom-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-135-cyclonedx-sbom-validator.html
+    title: "public tool page"
 ---
 
 # CycloneDX SBOM Validator (EU CRA Annex I)

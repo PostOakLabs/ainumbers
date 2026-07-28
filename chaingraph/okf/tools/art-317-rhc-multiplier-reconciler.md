@@ -5,6 +5,13 @@ description: "Reconciles Robinhood Chain stock-token corporate actions against t
 resource: https://ainumbers.co/chaingraph/art-317-rhc-multiplier-reconciler.html
 tags: ["collateral_mandate", "wave-56", "mcp:reconcile_erc8056_multiplier"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-317-rhc-multiplier-reconciler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-317-rhc-multiplier-reconciler.html
+    title: "public tool page"
 ---
 
 # ERC-8056 Multiplier Reconciler

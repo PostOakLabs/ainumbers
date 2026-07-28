@@ -5,6 +5,13 @@ description: "Maps creator answers to the SolSea and ALL.ART 4-tier embedded-lic
 resource: https://ainumbers.co/chaingraph/art-203-embedded-license-selector.html
 tags: ["compliance_mandate", "wave-35", "mcp:select_embedded_license"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-203-embedded-license-selector.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-203-embedded-license-selector.html
+    title: "public tool page"
 ---
 
 # Embedded License Selector

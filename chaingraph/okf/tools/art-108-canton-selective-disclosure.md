@@ -5,6 +5,13 @@ description: "Attest that a Canton DvP privacy partition is sound: each counterp
 resource: https://ainumbers.co/chaingraph/art-108-canton-selective-disclosure.html
 tags: ["attestation_mandate", "wave-21", "mcp:validate_canton_selective_disclosure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-108-canton-selective-disclosure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-108-canton-selective-disclosure.html
+    title: "public tool page"
 ---
 
 # Canton Selective-Disclosure DvP Reconciliation Attestation

@@ -5,6 +5,13 @@ description: "Compares an erroneous NAV-per-share against a corrected NAV-per-sh
 resource: https://ainumbers.co/chaingraph/art-374-test-nav-error-materiality.html
 tags: ["attestation_mandate", "wave-51", "mcp:test_nav_error_materiality"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-374-test-nav-error-materiality.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-374-test-nav-error-materiality.html
+    title: "public tool page"
 ---
 
 # Test NAV-Error Materiality

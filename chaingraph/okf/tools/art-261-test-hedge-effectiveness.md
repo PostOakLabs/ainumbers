@@ -5,6 +5,13 @@ description: "ASC 815-20-35 retrospective hedge effectiveness test. Computes dol
 resource: https://ainumbers.co/chaingraph/art-261-test-hedge-effectiveness.html
 tags: ["compliance_mandate", "wave-44", "mcp:test_hedge_effectiveness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-261-test-hedge-effectiveness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-261-test-hedge-effectiveness.html
+    title: "public tool page"
 ---
 
 # Hedge Effectiveness Test

@@ -5,6 +5,13 @@ description: "Multilateral FX netting across up to 8 currencies: nets each curre
 resource: https://ainumbers.co/chaingraph/art-368-compute-fx-netting-positions.html
 tags: ["analytics_mandate", "wave-63", "mcp:compute_fx_netting_positions"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-368-compute-fx-netting-positions.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-368-compute-fx-netting-positions.html
+    title: "public tool page"
 ---
 
 # Multilateral FX Netting Calculator

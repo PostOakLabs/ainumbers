@@ -5,6 +5,13 @@ description: "eIDAS 2.0 verifiable-credential acceptance readiness against EUDI 
 resource: https://ainumbers.co/chaingraph/art-13-eudi-wallet-credential-readiness-checker.html
 tags: ["compliance_mandate", "wave-2", "mcp:check_eudi_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-13-eudi-wallet-credential-readiness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-13-eudi-wallet-credential-readiness-checker.html
+    title: "public tool page"
 ---
 
 # EUDI Wallet Credential-Acceptance Readiness Checker

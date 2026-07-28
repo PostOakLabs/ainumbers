@@ -5,6 +5,13 @@ description: "Produces a proof-of-sanitization record binding the original diges
 resource: https://ainumbers.co/chaingraph/art-193-metadata-sanitization-prover.html
 tags: ["compliance_mandate", "wave-34", "mcp:prove_metadata_sanitization"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-193-metadata-sanitization-prover.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-193-metadata-sanitization-prover.html
+    title: "public tool page"
 ---
 
 # Metadata Sanitization Prover

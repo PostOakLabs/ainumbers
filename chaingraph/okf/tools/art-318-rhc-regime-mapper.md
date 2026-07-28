@@ -5,6 +5,13 @@ description: "Maps the regulatory regime implied by a pasted Robinhood Chain sto
 resource: https://ainumbers.co/chaingraph/art-318-rhc-regime-mapper.html
 tags: ["crypto_regulatory_mandate", "wave-56", "mcp:map_robinhood_chain_regime"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-318-rhc-regime-mapper.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-318-rhc-regime-mapper.html
+    title: "public tool page"
 ---
 
 # Financial-Instrument Regime Mapper

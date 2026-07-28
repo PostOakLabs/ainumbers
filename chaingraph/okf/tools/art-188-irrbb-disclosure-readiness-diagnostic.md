@@ -5,6 +5,13 @@ description: "A-F IRRBB disclosure readiness diagnostic across five dimensions: 
 resource: https://ainumbers.co/chaingraph/art-188-irrbb-disclosure-readiness-diagnostic.html
 tags: ["compliance_mandate", "wave-33", "mcp:run_irrbb_disclosure_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-188-irrbb-disclosure-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-188-irrbb-disclosure-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # IRRBB Disclosure Readiness Diagnostic

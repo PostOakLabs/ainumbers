@@ -5,6 +5,13 @@ description: "Routes supplied model compute (FLOPs, as a decimal string above th
 resource: https://ainumbers.co/chaingraph/art-316-sb53-frontier-scope-checker.html
 tags: ["compliance_mandate", "wave-55", "mcp:check_sb53_frontier_scope"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-316-sb53-frontier-scope-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-316-sb53-frontier-scope-checker.html
+    title: "public tool page"
 ---
 
 # SB 53 Frontier Scope Checker

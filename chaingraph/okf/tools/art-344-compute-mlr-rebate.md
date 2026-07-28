@@ -5,6 +5,13 @@ description: "Medical Loss Ratio numerator/denominator, credibility-adjustment t
 resource: https://ainumbers.co/chaingraph/art-344-compute-mlr-rebate.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_mlr_rebate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-344-compute-mlr-rebate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-344-compute-mlr-rebate.html
+    title: "public tool page"
 ---
 
 # MLR Rebate Calculator

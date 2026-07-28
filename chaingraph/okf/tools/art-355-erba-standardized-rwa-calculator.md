@@ -5,6 +5,13 @@ description: "Credit-risk expanded risk-based approach (ERBA) / standardized-app
 resource: https://ainumbers.co/chaingraph/art-355-erba-standardized-rwa-calculator.html
 tags: ["capital_assessment", "wave-48", "mcp:compute_rwa_erba_2026"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-355-erba-standardized-rwa-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-355-erba-standardized-rwa-calculator.html
+    title: "public tool page"
 ---
 
 # ERBA / Standardized RWA Calculator (Basel Endgame 2026)

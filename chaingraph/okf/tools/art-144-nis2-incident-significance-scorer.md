@@ -5,6 +5,13 @@ description: "Score whether an operational event meets the NIS2 Art. 23 signific
 resource: https://ainumbers.co/chaingraph/art-144-nis2-incident-significance-scorer.html
 tags: ["compliance_mandate", "wave-26", "mcp:score_nis2_incident_significance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-144-nis2-incident-significance-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-144-nis2-incident-significance-scorer.html
+    title: "public tool page"
 ---
 
 # NIS2 Incident Significance Scorer (Art. 23 Reporting Threshold)

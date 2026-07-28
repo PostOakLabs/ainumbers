@@ -5,6 +5,13 @@ description: "Batch IBAN-name matching: match/close-match/no-match classificatio
 resource: https://ainumbers.co/chaingraph/art-11-vop-batch-match-rate-analyser.html
 tags: ["compliance_mandate", "wave-1", "mcp:simulate_vop_matching", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-11-vop-batch-match-rate-analyser.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-11-vop-batch-match-rate-analyser.html
+    title: "public tool page"
 ---
 
 # VoP Batch Match-Rate Analyser

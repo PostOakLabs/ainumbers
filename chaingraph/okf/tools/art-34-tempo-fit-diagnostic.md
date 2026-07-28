@@ -5,6 +5,13 @@ description: "12-question A–F diagnostic grading an organisation's Tempo adopt
 resource: https://ainumbers.co/chaingraph/art-34-tempo-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-9", "mcp:run_tempo_fit_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-34-tempo-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-34-tempo-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Tempo Fit Diagnostic

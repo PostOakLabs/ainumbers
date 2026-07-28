@@ -5,6 +5,13 @@ description: "FRTB IMA Expected Shortfall pre-validation: MC simulation across l
 resource: https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.html
 tags: ["risk_parameter", "wave-3", "mcp:simulate_frtb_es"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/rca-01-frtb-ima-pre-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.html
+    title: "public tool page"
 ---
 
 # FRTB IMA Expected Shortfall Pre-Validator

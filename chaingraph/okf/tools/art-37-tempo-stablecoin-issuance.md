@@ -5,6 +5,13 @@ description: "Dual-jurisdiction TIP-20 token compliance validator. Tab 1: TIP-20
 resource: https://ainumbers.co/chaingraph/art-37-tempo-stablecoin-issuance.html
 tags: ["compliance_mandate", "wave-9", "mcp:validate_tempo_token_compliance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-37-tempo-stablecoin-issuance.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-37-tempo-stablecoin-issuance.html
+    title: "public tool page"
 ---
 
 # Tempo Stablecoin Issuance Compliance

@@ -5,6 +5,13 @@ description: "Evaluates a credit card application against CARD Act §1026.51 abi
 resource: https://ainumbers.co/chaingraph/art-233-check-card-act-ability-to-pay.html
 tags: ["compliance_mandate", "wave-39", "mcp:check_card_act_ability_to_pay"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-233-check-card-act-ability-to-pay.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-233-check-card-act-ability-to-pay.html
+    title: "public tool page"
 ---
 
 # Check CARD Act Ability to Pay

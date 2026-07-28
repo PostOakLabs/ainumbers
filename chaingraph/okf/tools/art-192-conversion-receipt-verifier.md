@@ -5,6 +5,13 @@ description: "Re-verifies a conversion receipt from art-191: recomputes binding_
 resource: https://ainumbers.co/chaingraph/art-192-conversion-receipt-verifier.html
 tags: ["cryptographic_mandate", "wave-34", "mcp:verify_conversion_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-192-conversion-receipt-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-192-conversion-receipt-verifier.html
+    title: "public tool page"
 ---
 
 # Conversion Receipt Verifier

@@ -5,6 +5,13 @@ description: "Classifies quantum-exposure risk for blockchain/stablecoin assets:
 resource: https://ainumbers.co/chaingraph/art-89-blockchain-quantum-risk-classifier.html
 tags: ["model_governance", "wave-18", "mcp:classify_blockchain_quantum_risk"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-89-blockchain-quantum-risk-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-89-blockchain-quantum-risk-classifier.html
+    title: "public tool page"
 ---
 
 # Blockchain / Stablecoin Quantum-Risk Classifier

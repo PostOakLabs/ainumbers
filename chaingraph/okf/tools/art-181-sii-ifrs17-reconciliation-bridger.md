@@ -5,6 +5,13 @@ description: "Bridge Solvency II technical provisions (best estimate + risk marg
 resource: https://ainumbers.co/chaingraph/art-181-sii-ifrs17-reconciliation-bridger.html
 tags: ["compliance_mandate", "wave-32", "mcp:reconcile_sii_ifrs17"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-181-sii-ifrs17-reconciliation-bridger.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-181-sii-ifrs17-reconciliation-bridger.html
+    title: "public tool page"
 ---
 
 # SII-IFRS 17 Reconciliation Bridger

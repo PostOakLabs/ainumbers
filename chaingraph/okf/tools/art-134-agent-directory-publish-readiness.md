@@ -5,6 +5,13 @@ description: "Diagnostic: is the operator ready to publish a verifiable Web Bot 
 resource: https://ainumbers.co/chaingraph/art-134-agent-directory-publish-readiness.html
 tags: ["compliance_mandate", "wave-24", "mcp:assess_agent_directory_publish_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-134-agent-directory-publish-readiness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-134-agent-directory-publish-readiness.html
+    title: "public tool page"
 ---
 
 # Agent Directory Publish Readiness Diagnostic

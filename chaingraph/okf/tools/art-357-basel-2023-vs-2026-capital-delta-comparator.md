@@ -5,6 +5,13 @@ description: "Runs the same portfolio through the 2023 Basel III Endgame NPR ris
 resource: https://ainumbers.co/chaingraph/art-357-basel-2023-vs-2026-capital-delta-comparator.html
 tags: ["compliance_mandate", "wave-48", "mcp:compare_basel_2023_vs_2026"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-357-basel-2023-vs-2026-capital-delta-comparator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-357-basel-2023-vs-2026-capital-delta-comparator.html
+    title: "public tool page"
 ---
 
 # Basel 2023-vs-2026 Capital-Delta Comparator

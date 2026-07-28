@@ -5,6 +5,13 @@ description: "Basel III Liquidity Coverage Ratio (BCBS 238), Net Stable Funding 
 resource: https://ainumbers.co/chaingraph/art-364-compute-lcr-nsfr-leverage.html
 tags: ["compliance_mandate", "wave-62", "mcp:compute_lcr_nsfr_leverage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-364-compute-lcr-nsfr-leverage.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-364-compute-lcr-nsfr-leverage.html
+    title: "public tool page"
 ---
 
 # LCR / NSFR / Leverage Ratio Calculator

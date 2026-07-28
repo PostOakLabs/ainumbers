@@ -5,6 +5,13 @@ description: "Checks a declared debt-collection call log against the two 12 CFR 
 resource: https://ainumbers.co/chaingraph/art-402-validate-regf-call-frequency.html
 tags: ["compliance_mandate", "wave-60", "mcp:validate_regf_call_frequency"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-402-validate-regf-call-frequency.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-402-validate-regf-call-frequency.html
+    title: "public tool page"
 ---
 
 # Reg F Call-Frequency Presumption Validator

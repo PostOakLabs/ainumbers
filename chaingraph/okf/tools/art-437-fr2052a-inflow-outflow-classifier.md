@@ -5,6 +5,13 @@ description: "FR 2052a complex-institution liquidity monitoring filing-layer ker
 resource: https://ainumbers.co/chaingraph/art-437-fr2052a-inflow-outflow-classifier.html
 tags: ["regulatory_reporting", "wave-71", "mcp:compute_fr2052a_inflow_outflow_classification"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-437-fr2052a-inflow-outflow-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-437-fr2052a-inflow-outflow-classifier.html
+    title: "public tool page"
 ---
 
 # FR 2052a Inflow/Outflow Bucket Classifier

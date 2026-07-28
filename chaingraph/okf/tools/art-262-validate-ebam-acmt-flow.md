@@ -5,6 +5,13 @@ description: "Validates the CGI-MP eBAM 2023 account message state machine acros
 resource: https://ainumbers.co/chaingraph/art-262-validate-ebam-acmt-flow.html
 tags: ["compliance_mandate", "wave-44", "mcp:validate_ebam_acmt_flow"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-262-validate-ebam-acmt-flow.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-262-validate-ebam-acmt-flow.html
+    title: "public tool page"
 ---
 
 # eBAM Account Message Flow Validation

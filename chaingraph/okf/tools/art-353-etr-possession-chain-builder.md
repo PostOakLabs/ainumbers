@@ -5,6 +5,13 @@ description: "Builds a hash-chained possession-receipt evidence pack for an elec
 resource: https://ainumbers.co/chaingraph/art-353-etr-possession-chain-builder.html
 tags: ["cryptographic_mandate", "wave-61", "mcp:build_etr_possession_chain"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-353-etr-possession-chain-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-353-etr-possession-chain-builder.html
+    title: "public tool page"
 ---
 
 # ETR Possession-Chain Receipt Builder

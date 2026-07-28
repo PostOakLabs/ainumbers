@@ -5,6 +5,13 @@ description: "Verifies an EIP-1186 (eth_getProof) account and storage Merkle-Pat
 resource: https://ainumbers.co/chaingraph/art-279-state-proof-verifier.html
 tags: ["cryptographic_mandate", "wave-49", "mcp:verify_eth_state_proof"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-279-state-proof-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-279-state-proof-verifier.html
+    title: "public tool page"
 ---
 
 # State-Proof Verifier

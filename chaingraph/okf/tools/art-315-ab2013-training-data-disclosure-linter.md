@@ -5,6 +5,13 @@ description: "Lints a supplied generative-AI training-data disclosure against th
 resource: https://ainumbers.co/chaingraph/art-315-ab2013-training-data-disclosure-linter.html
 tags: ["compliance_mandate", "wave-55", "mcp:lint_ab2013_training_data_disclosure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-315-ab2013-training-data-disclosure-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-315-ab2013-training-data-disclosure-linter.html
+    title: "public tool page"
 ---
 
 # AB 2013 Training Data Disclosure Linter

@@ -5,6 +5,13 @@ description: "Compute repo haircut with Canton 24/7 collateral valuation versus 
 resource: https://ainumbers.co/tools/508-repo-haircut-collateral-calculator.html
 tags: ["collateral_mandate", "wave-8", "mcp:calculate_repo_haircut", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/508-repo-haircut-collateral-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/508-repo-haircut-collateral-calculator.html
+    title: "public tool page"
 ---
 
 # On-Chain Repo Haircut Calculator

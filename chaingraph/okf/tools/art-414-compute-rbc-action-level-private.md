@@ -5,6 +5,13 @@ description: "Computes the NAIC Risk-Based Capital action-level tier from a priv
 resource: https://ainumbers.co/chaingraph/art-414-compute-rbc-action-level-private.html
 tags: ["analytics_mandate", "wave-51", "mcp:compute_rbc_action_level_private"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-414-compute-rbc-action-level-private.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-414-compute-rbc-action-level-private.html
+    title: "public tool page"
 ---
 
 # Private-Input NAIC RBC Action Level

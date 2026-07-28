@@ -5,6 +5,13 @@ description: "3-test validator distinguishing a bank-liability deposit token (JP
 resource: https://ainumbers.co/chaingraph/art-57-deposit-token-compliance-validator.html
 tags: ["compliance_mandate", "wave-13", "mcp:validate_deposit_token_compliance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-57-deposit-token-compliance-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-57-deposit-token-compliance-validator.html
+    title: "public tool page"
 ---
 
 # Deposit-Token Compliance Validator

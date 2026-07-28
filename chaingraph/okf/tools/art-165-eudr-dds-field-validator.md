@@ -5,6 +5,13 @@ description: "Validate the required-field subset of an EUDR Due Diligence Statem
 resource: https://ainumbers.co/chaingraph/art-165-eudr-dds-field-validator.html
 tags: ["compliance_mandate", "wave-30", "mcp:validate_eudr_due_diligence_statement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-165-eudr-dds-field-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-165-eudr-dds-field-validator.html
+    title: "public tool page"
 ---
 
 # EUDR DDS Field Validator

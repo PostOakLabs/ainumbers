@@ -5,6 +5,13 @@ description: "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity 
 resource: https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html
 tags: ["compliance_mandate", "wave-41", "mcp:score_mt_mx_translation_fidelity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-245-mt-mx-translation-fidelity-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html
+    title: "public tool page"
 ---
 
 # MT103 to MX Translation Fidelity Scorer

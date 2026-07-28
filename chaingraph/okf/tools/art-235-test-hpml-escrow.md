@@ -5,6 +5,13 @@ description: "Tests whether a loan qualifies as a Higher-Priced Mortgage Loan (H
 resource: https://ainumbers.co/chaingraph/art-235-test-hpml-escrow.html
 tags: ["compliance_mandate", "wave-39", "mcp:test_hpml_escrow"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-235-test-hpml-escrow.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-235-test-hpml-escrow.html
+    title: "public tool page"
 ---
 
 # HPML Definition and Escrow Requirement Test

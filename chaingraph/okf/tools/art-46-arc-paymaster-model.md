@@ -5,6 +5,13 @@ description: "ERC-4337 Paymaster economics model for Arc. Computes gas cost (gas
 resource: https://ainumbers.co/chaingraph/art-46-arc-paymaster-model.html
 tags: ["treasury_mandate", "wave-10", "mcp:model_arc_paymaster_economics", "iso20022:pacs.028"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-46-arc-paymaster-model.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-46-arc-paymaster-model.html
+    title: "public tool page"
 ---
 
 # Arc Paymaster Economics Model

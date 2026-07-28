@@ -5,6 +5,13 @@ description: "Evaluates a FATCA/CRS submission record set against a policy-suppl
 resource: https://ainumbers.co/chaingraph/art-490-fatca-crs-submission-check.html
 tags: ["compliance_mandate", "wave-77", "mcp:check_fatca_crs_submission_conformance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-490-fatca-crs-submission-check.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-490-fatca-crs-submission-check.html
+    title: "public tool page"
 ---
 
 # FATCA/CRS Submission Conformance Check

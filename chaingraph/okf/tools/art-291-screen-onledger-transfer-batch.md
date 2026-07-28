@@ -5,6 +5,13 @@ description: "Batch-level pre-commit sanctions and purpose-code screen for a sha
 resource: https://ainumbers.co/chaingraph/art-291-screen-onledger-transfer-batch.html
 tags: ["compliance_mandate", "wave-53", "mcp:screen_onledger_transfer_batch"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-291-screen-onledger-transfer-batch.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-291-screen-onledger-transfer-batch.html
+    title: "public tool page"
 ---
 
 # On-Ledger Transfer Batch Screen

@@ -5,6 +5,13 @@ description: "Recursive indirect natural-person beneficial ownership computation
 resource: https://ainumbers.co/chaingraph/art-268-compute-cdd-ownership-25pct.html
 tags: ["compliance_mandate", "wave-45", "mcp:compute_cdd_ownership_25pct"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-268-compute-cdd-ownership-25pct.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-268-compute-cdd-ownership-25pct.html
+    title: "public tool page"
 ---
 
 # FinCEN CDD 25% Beneficial Ownership Attribution

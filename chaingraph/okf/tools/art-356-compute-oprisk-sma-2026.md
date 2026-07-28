@@ -5,6 +5,13 @@ description: "Basel Standardized Measurement Approach (SMA) for operational-risk
 resource: https://ainumbers.co/chaingraph/art-356-compute-oprisk-sma-2026.html
 tags: ["capital_assessment", "wave-62", "mcp:compute_oprisk_sma_2026"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-356-compute-oprisk-sma-2026.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-356-compute-oprisk-sma-2026.html
+    title: "public tool page"
 ---
 
 # Basel Operational Risk SMA (2026 Reproposal)

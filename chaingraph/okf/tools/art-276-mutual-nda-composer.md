@@ -5,6 +5,13 @@ description: "Assembles a Common Paper Mutual NDA (Version 1.0, CC BY 4.0) from 
 resource: https://ainumbers.co/chaingraph/art-276-mutual-nda-composer.html
 tags: ["compliance_mandate", "wave-49", "mcp:assemble_mutual_nda"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-276-mutual-nda-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-276-mutual-nda-composer.html
+    title: "public tool page"
 ---
 
 # Mutual NDA Composer

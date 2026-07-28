@@ -5,6 +5,13 @@ description: "Applies a climate scenario path (NGFS Phase V orderly/disorderly/h
 resource: https://ainumbers.co/chaingraph/art-76-climate-scenario-applicator.html
 tags: ["model_governance", "wave-16", "mcp:apply_climate_scenario"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-76-climate-scenario-applicator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-76-climate-scenario-applicator.html
+    title: "public tool page"
 ---
 
 # Climate Scenario Applicator (NGFS / Fit-for-55)

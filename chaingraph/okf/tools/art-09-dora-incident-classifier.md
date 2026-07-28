@@ -5,6 +5,13 @@ description: "DORA Article 19/20 reporting determination and reporting-clock sta
 resource: https://ainumbers.co/chaingraph/art-09-dora-incident-classifier.html
 tags: ["infrastructure_mandate", "wave-1", "mcp:classify_dora_incident"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-09-dora-incident-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-09-dora-incident-classifier.html
+    title: "public tool page"
 ---
 
 # DORA Major-Incident Reporting Threshold Classifier

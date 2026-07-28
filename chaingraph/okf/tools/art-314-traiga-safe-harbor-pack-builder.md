@@ -5,6 +5,13 @@ description: "Assembles a supplied NIST AI RMF function-mapping result (map_nist
 resource: https://ainumbers.co/chaingraph/art-314-traiga-safe-harbor-pack-builder.html
 tags: ["compliance_mandate", "wave-55", "mcp:build_traiga_safe_harbor_pack"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-314-traiga-safe-harbor-pack-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-314-traiga-safe-harbor-pack-builder.html
+    title: "public tool page"
 ---
 
 # TRAIGA Safe Harbor Pack Builder

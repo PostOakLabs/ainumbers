@@ -5,6 +5,13 @@ description: "Binds one file-conversion event into a canonical receipt tying the
 resource: https://ainumbers.co/chaingraph/art-191-conversion-receipt-builder.html
 tags: ["cryptographic_mandate", "wave-34", "mcp:build_conversion_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-191-conversion-receipt-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-191-conversion-receipt-builder.html
+    title: "public tool page"
 ---
 
 # Conversion Receipt Builder

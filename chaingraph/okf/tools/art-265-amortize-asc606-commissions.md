@@ -5,6 +5,13 @@ description: "Computes ASC 340-40-25-4 practical expedient (contract_term_months
 resource: https://ainumbers.co/chaingraph/art-265-amortize-asc606-commissions.html
 tags: ["compliance_mandate", "wave-45", "mcp:amortize_asc606_commissions"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-265-amortize-asc606-commissions.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-265-amortize-asc606-commissions.html
+    title: "public tool page"
 ---
 
 # ASC 340-40 Commission Amortization

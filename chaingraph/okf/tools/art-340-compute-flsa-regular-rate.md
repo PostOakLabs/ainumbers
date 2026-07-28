@@ -5,6 +5,13 @@ description: "FLSA regular rate of pay and overtime premium per 29 CFR 778, Subp
 resource: https://ainumbers.co/chaingraph/art-340-compute-flsa-regular-rate.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_flsa_regular_rate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-340-compute-flsa-regular-rate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-340-compute-flsa-regular-rate.html
+    title: "public tool page"
 ---
 
 # FLSA Regular Rate & Overtime Calculator

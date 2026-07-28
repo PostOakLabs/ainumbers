@@ -5,6 +5,13 @@ description: "Calculate Delta Economic Value of Equity (EVE) under the 6 BCBS d3
 resource: https://ainumbers.co/chaingraph/art-183-irrbb-eve-shock-calculator.html
 tags: ["compliance_mandate", "wave-33", "mcp:calculate_irrbb_eve_shocks"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-183-irrbb-eve-shock-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-183-irrbb-eve-shock-calculator.html
+    title: "public tool page"
 ---
 
 # IRRBB EVE Shock Calculator

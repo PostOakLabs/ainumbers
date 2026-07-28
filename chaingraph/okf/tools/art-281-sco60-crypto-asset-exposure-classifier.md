@@ -5,6 +5,13 @@ description: "Classifies a crypto-asset position into Basel SCO60 Group 1a, 1b, 
 resource: https://ainumbers.co/chaingraph/art-281-sco60-crypto-asset-exposure-classifier.html
 tags: ["compliance_mandate", "wave-50", "mcp:classify_sco60_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-281-sco60-crypto-asset-exposure-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-281-sco60-crypto-asset-exposure-classifier.html
+    title: "public tool page"
 ---
 
 # SCO60 Crypto-Asset Exposure Classifier

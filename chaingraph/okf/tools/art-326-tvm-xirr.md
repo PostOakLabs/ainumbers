@@ -5,6 +5,13 @@ description: "Annualized rate of return for irregular-interval dated cash flows,
 resource: https://ainumbers.co/chaingraph/art-326-tvm-xirr.html
 tags: ["analytics_mandate", "wave-57", "mcp:compute_xirr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-326-tvm-xirr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-326-tvm-xirr.html
+    title: "public tool page"
 ---
 
 # XIRR (Irregular Dated Cash Flows)

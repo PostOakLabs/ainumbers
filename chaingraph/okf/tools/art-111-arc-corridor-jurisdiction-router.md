@@ -5,6 +5,13 @@ description: "Route each leg of a multi-currency Arc corridor to its per-currenc
 resource: https://ainumbers.co/chaingraph/art-111-arc-corridor-jurisdiction-router.html
 tags: ["compliance_mandate", "wave-21", "mcp:route_partner_stablecoin_jurisdiction"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-111-arc-corridor-jurisdiction-router.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-111-arc-corridor-jurisdiction-router.html
+    title: "public tool page"
 ---
 
 # Arc Multi-Currency Corridor Jurisdiction Router

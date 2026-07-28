@@ -5,6 +5,13 @@ description: "Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3).
 resource: https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.html
 tags: ["compliance_mandate", "wave-37", "mcp:check_qm_points_and_fees"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-218-qm-points-and-fees.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-218-qm-points-and-fees.html
+    title: "public tool page"
 ---
 
 # QM Points and Fees Test

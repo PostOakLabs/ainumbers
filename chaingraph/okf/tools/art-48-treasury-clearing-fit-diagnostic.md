@@ -5,6 +5,13 @@ description: "12-question A-F readiness diagnostic for the SEC US Treasury clear
 resource: https://ainumbers.co/chaingraph/art-48-treasury-clearing-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-11", "mcp:run_treasury_clearing_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-48-treasury-clearing-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-48-treasury-clearing-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Treasury Clearing Fit Diagnostic

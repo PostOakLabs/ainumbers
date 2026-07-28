@@ -5,6 +5,13 @@ description: "Machine-checks a digital trade presentation (digital LC, collectio
 resource: https://ainumbers.co/chaingraph/art-54-digital-trade-rules-checker.html
 tags: ["scheme_rule", "wave-12", "mcp:check_digital_trade_rules"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-54-digital-trade-rules-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-54-digital-trade-rules-checker.html
+    title: "public tool page"
 ---
 
 # Digital Trade Rules Compliance Checker
