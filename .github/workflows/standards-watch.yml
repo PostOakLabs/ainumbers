@@ -1,0 +1,40 @@
+name: Standards drift watch
+
+# STDWATCH-1 (OKF-V02-STANDARDS-WATCH-BUILD-SPEC.md §5): re-fetches the small
+# set of standards that republish IN PLACE (unlike dated/versioned RFCs and
+# W3C Recs, which are pinned and need no watching — §5.1) and opens an issue
+# on drift. Deliberately a SEPARATE, schedule-only workflow — NEVER wired
+# into deploy-to-dreamhost.yml or any pull_request trigger, so a third
+# party's server can never block a push (§5.3 inv.1).
+on:
+  schedule:
+    - cron: '0 13 * * 1' # weekly, Monday 13:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-drift:
+    name: Check watched standards for drift
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🔎 Check standards drift (never fails the run — see script header)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/check-standards-drift.mjs
