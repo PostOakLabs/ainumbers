@@ -149,6 +149,8 @@ const GATES = [
   ['art-424 witness checkpoint proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
+  ['Authority contradiction gate (CB4-CONTRADICTION-GATE-1)', 'node scripts/check-authority-contradiction.mjs'],
+  ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
   ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
