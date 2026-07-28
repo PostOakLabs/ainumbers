@@ -318,8 +318,8 @@ var _lastResult=null;
 var MANIFEST={schema_version:'1.0',tool_id:'art-272-restaking-risk',mcp_name:'assess_restaking_risk',display_name:'Restaking Delegation and Slashing Risk Analyzer',mandate_type:'analytics_mandate',description:'Models restaking rewards, slashing waterfall, and insurance for EigenLayer and Symbiotic.',input_parameters:[{name:'protocol',type:'string',default:'eigenlayer'},{name:'staked_eth',type:'number',default:32},{name:'eth_price_usd',type:'number',default:3500},{name:'base_staking_apy_pct',type:'number',default:3.5},{name:'operator_fee_pct',type:'number',default:10},{name:'avs_reward_apy_pct',type:'number',default:2.5},{name:'slashing_risk_pct',type:'number',default:0.5},{name:'slash_magnitude_pct',type:'number',default:1},{name:'first_loss_tranche_pct',type:'number',default:0},{name:'insurance_enabled',type:'boolean',default:true},{name:'insurance_premium_pct_of_rewards',type:'number',default:0.5}],pii_constraints:'ZERO PII: staking amounts and protocol parameters only.',not_financial_advice:true};
 
 var DEFS={
-  eigenlayer:{note:'EigenLayer: Ethereum restaking. ETH or LST delegated to operators who opt into AVS. Slashing conditions per-AVS; operator+delegator both exposed. No protocol first-loss buffer (operator stake absorbs first; delegators exposed immediately after).'},
-  symbiotic:{note:'Symbiotic: three-way opt-in restaking (network, vault, operator). Burner routers + resolver multisigs mediate slashing. Vaults hold a configurable first-loss buffer (e.g. 20-30% of slash).'},
+  eigenlayer:{note:'EigenLayer: Ethereum restaking. ETH or LST delegated to operators who opt into AVS. Slashing conditions per-AVS; operator+delegator both exposed. No protocol first-loss buffer (operator stake absorbs first; delegators exposed immediately after).',protocol_note:'EigenLayer: Ethereum restaking. ETH or LST delegated to operators who opt into AVS (Actively Validated Services). Slashing conditions defined per-AVS; operator+delegator both exposed. Three-party model: restaker, operator, AVS.'},
+  symbiotic:{note:'Symbiotic: three-way opt-in restaking (network, vault, operator). Burner routers + resolver multisigs mediate slashing. Vaults hold a configurable first-loss buffer (e.g. 20-30% of slash).',protocol_note:'Symbiotic: three-way opt-in restaking (network, vault, operator all choose each other). Burner routers + resolver multisigs mediate slashing. Vaults can allocate stake across multiple networks with independent slashing domains.'},
 };
 
 function safeNum(v,d){var n=parseFloat(v);return isFinite(n)?n:d;}
@@ -339,6 +339,7 @@ window.onload=function(){applyDefaults();};
 
 function runCompute(){
   var protocol=document.getElementById('protocol').value;
+  var def=DEFS[protocol]||DEFS.eigenlayer;
   var stakedEth=Math.max(0,safeNum(document.getElementById('stakedEth').value,32));
   var ethPrice=Math.max(0.01,safeNum(document.getElementById('ethPrice').value,3500));
   var baseApy=Math.max(0,safeNum(document.getElementById('baseApy').value,3.5));
@@ -416,7 +417,14 @@ function runCompute(){
     ?flags.map(function(f){return '<span class="badge '+(f==='NEGATIVE_RISK_ADJUSTED_YIELD'?'fail':'warn')+'">'+f+'</span>';}).join('')
     :'<span class="badge ok">NO FLAGS</span>';
 
-  var op={protocol:protocol,staked_eth:r6(stakedEth),staked_usd:stakedUsd,eth_price_usd:r2(ethPrice),gross_apy_pct:grossApy,operator_cut_pct:opCut,net_apy_pct:netApy,gross_usd_per_year:grossUsd,operator_fee_usd_per_year:opFeeUsd,net_usd_per_year:netUsd,slash_magnitude_pct:r4(slashMag),max_slash_usd:maxSlash,first_loss_tranche_pct:r4(firstLoss),buffer_absorbs_usd:bufferAbs,delegator_net_slash_usd:delegNetSlash,delegator_net_slash_eth:delegNetEth,slashing_risk_pct:r4(slashRisk),expected_annual_slash_usd:expectedSlash,net_usd_per_year_risk_adjusted:netRiskAdj,net_apy_risk_adjusted_pct:netRiskAdjApy,insurance_enabled:insEnabled,insurance_premium_pct_of_rewards:r4(insPct),insurance_premium_usd_per_year:insPremUsd,risk_reward_ratio:rrRatio,insurance_makes_sense:insMakesSense,net_with_insurance_usd_per_year:netWithIns,net_with_insurance_apy_pct:netWithInsApy};
+  var op={protocol:protocol,staked_eth:r6(stakedEth),staked_usd:stakedUsd,eth_price_usd:r2(ethPrice),gross_apy_pct:grossApy,operator_cut_pct:opCut,net_apy_pct:netApy,gross_usd_per_year:grossUsd,operator_fee_usd_per_year:opFeeUsd,net_usd_per_year:netUsd,slash_magnitude_pct:r4(slashMag),max_slash_usd:maxSlash,first_loss_tranche_pct:r4(firstLoss),buffer_absorbs_usd:bufferAbs,delegator_net_slash_usd:delegNetSlash,delegator_net_slash_eth:delegNetEth,slashing_risk_pct:r4(slashRisk),expected_annual_slash_usd:expectedSlash,net_usd_per_year_risk_adjusted:netRiskAdj,net_apy_risk_adjusted_pct:netRiskAdjApy,insurance_enabled:insEnabled,insurance_premium_pct_of_rewards:r4(insPct),insurance_premium_usd_per_year:insPremUsd,risk_reward_ratio:rrRatio,insurance_makes_sense:insMakesSense,net_with_insurance_usd_per_year:netWithIns,net_with_insurance_apy_pct:netWithInsApy,
+    protocol_note:def.protocol_note,
+    table_version:'RESTAKING-PROTOCOLS-EIGENLAYER-SYMBIOTIC-2024',
+    table_source:'EigenLayer restaking documentation 2024 (operator/AVS model, slashing conditions); Symbiotic protocol specification 2024 (three-way opt-in, burner routers); slashing-insurance premium benchmarks ~0.5% of rewards per market survey 2024.',
+    regulatory_basis:'Restaking is an unregulated activity in most jurisdictions. Slashing conditions vary by AVS/network and operator behavior. This model uses protocol-level parameters; actual slashing probability depends on operator diligence and AVS code correctness.',
+    pii_note:'ZERO PII: staking amounts and protocol parameters only. No wallet address, staking key, operator identity, or personal data enters this kernel.',
+    not_financial_advice:'Not financial or investment advice. Restaking carries smart contract risk, operator risk, slashing risk, and liquidity risk. Verify current operator and AVS conditions before delegating.',
+  };
   var pp={protocol:protocol,staked_eth:stakedEth,eth_price_usd:ethPrice,base_staking_apy_pct:baseApy,operator_fee_pct:opFee,avs_reward_apy_pct:avsApy,slashing_risk_pct:slashRisk,slash_magnitude_pct:slashMag,first_loss_tranche_pct:firstLoss,insurance_enabled:insEnabled,insurance_premium_pct_of_rewards:insPct};
   _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
   document.getElementById('resultsPanel').classList.add('show');

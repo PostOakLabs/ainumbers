@@ -288,11 +288,11 @@ var _lastResult=null;
 var MANIFEST={schema_version:'1.0',tool_id:'art-271-defi-lending-health',mcp_name:'assess_defi_lending',display_name:'DeFi Lending Health and Liquidation Monitor',mandate_type:'analytics_mandate',description:'Computes DeFi lending health factor, liquidation price, borrow capacity for Aave, Morpho, Fluid, Sky, Liquity.',input_parameters:[{name:'protocol',type:'string',default:'aave'},{name:'collateral_value_usd',type:'number',default:10000},{name:'debt_value_usd',type:'number',default:5000},{name:'collateral_price_usd',type:'number',default:2000},{name:'collateral_amount',type:'number'},{name:'liquidation_threshold_pct',type:'number'}],pii_constraints:'ZERO PII: position amounts and protocol parameters only.',not_financial_advice:true};
 
 var DEFS={
-  aave:{liq:83,bonus:5,cr:false,note:'Aave v3: fixed 5% liquidation bonus; close factor 50% (up to 100% when HF < 0.95). HF = collateral * liq_threshold / debt. LTV mode.'},
-  morpho:{liq:86,bonus:3.5,cr:false,note:'Morpho Blue: MEV-auction liquidation. Bonus market-determined (0-5%). Full position may be liquidated. LTV mode.'},
-  fluid:{liq:90,bonus:2,cr:false,note:'Fluid: continuous liquidation curve. Partial liquidation available as health drops. LTV mode.'},
-  sky:{liq:170,bonus:13,cr:true,note:'Sky (MakerDAO v2): Clipper Dutch-auction. Liquidation Ratio = min collateral ratio % (e.g. 170%). CR mode: HF = (collateral/debt) / (liq_ratio/100).'},
-  liquity_v2:{liq:110,bonus:10,cr:true,note:'Liquity v2: Dutch-auction; MCR 110%. Stability Pool absorbs BOLD at discount. CR mode.'},
+  aave:{liq:83,bonus:5,cr:false,note:'Aave v3: fixed 5% liquidation bonus; close factor 50% (up to 100% when HF < 0.95). HF = collateral * liq_threshold / debt. LTV mode.',mech:'fixed_bonus',mech_note:'Aave v3 fixed 5% liquidation bonus; close factor 50% (up to 100% when HF < 0.95). Any address may trigger liquidation. ETH/USDC main market default thresholds.'},
+  morpho:{liq:86,bonus:3.5,cr:false,note:'Morpho Blue: MEV-auction liquidation. Bonus market-determined (0-5%). Full position may be liquidated. LTV mode.',mech:'mev_auction',mech_note:'Morpho Blue: permissionless MEV-auction liquidation. Bonus is market-determined per-vault curator (0-5%); full position may be liquidated. More capital-efficient; higher liquidation severity than Aave.'},
+  fluid:{liq:90,bonus:2,cr:false,note:'Fluid: continuous liquidation curve. Partial liquidation available as health drops. LTV mode.',mech:'continuous',mech_note:'Fluid: continuous liquidation curve. As health drops below threshold, liquidatable amount increases continuously rather than discretely. Reduces cascades; partial liquidation always available.'},
+  sky:{liq:170,bonus:13,cr:true,note:'Sky (MakerDAO v2): Clipper Dutch-auction. Liquidation Ratio = min collateral ratio % (e.g. 170%). CR mode: HF = (collateral/debt) / (liq_ratio/100).',mech:'dutch_auction',mech_note:'Sky (MakerDAO v2): Clipper Dutch-auction. Price starts at collateral_value * multiplier and decays over time. Liquidation Ratio = minimum collateral/debt ratio. DAI/USDS debt; WETH/stETH collateral typical.'},
+  liquity_v2:{liq:110,bonus:10,cr:true,note:'Liquity v2: Dutch-auction; MCR 110%. Stability Pool absorbs BOLD at discount. CR mode.',mech:'dutch_auction',mech_note:'Liquity v2: Dutch-auction liquidation. Minimum Collateral Ratio (MCR) 110%. Stability Pool absorbs BOLD and earns collateral at discount. Recovery mode tightens to 150% CR.'},
 };
 
 function safeNum(v,d){var n=parseFloat(v);return isFinite(n)?n:d;}
@@ -377,7 +377,15 @@ function runCompute(){
     ?flags.map(function(f){return '<span class="badge '+(f==='LIQUIDATABLE'?'fail':'warn')+'">'+f+'</span>';}).join('')
     :'<span class="badge ok">SAFE</span>';
 
-  var op={protocol:protocol,health_factor:r6(hf),health_status:status,current_ltv_pct:currentLtv,liquidation_threshold_pct:r4(liqThr),liquidation_bonus_pct:r4(liqBonus),liquidation_price_usd:liqPrice,distance_to_liquidation_pct:distLiq,borrow_capacity_usd:borrowCap,collateral_value_usd:r2(collUsd),debt_value_usd:r2(debtUsd),liquidation_penalty_usd:liqPenalty};
+  var bufferLiq=r4(Math.max(0,(hf-1.0)/Math.max(0.001,hf)*100));
+  var op={protocol:protocol,health_factor:r6(hf),health_status:status,current_ltv_pct:currentLtv,liquidation_threshold_pct:r4(liqThr),liquidation_bonus_pct:r4(liqBonus),liquidation_price_usd:liqPrice,distance_to_liquidation_pct:distLiq,buffer_to_liquidation_pct:bufferLiq,borrow_capacity_usd:borrowCap,collateral_value_usd:r2(collUsd),debt_value_usd:r2(debtUsd),liquidation_penalty_usd:liqPenalty,
+    liquidation_mechanism:def.mech,liquidation_mechanism_note:def.mech_note,
+    table_version:'DEFI-LENDING-PROTOCOLS-2024',
+    table_source:'Aave v3 Risk Parameters 2024; Morpho Blue vault documentation; Fluid Protocol 2024; Sky (MakerDAO v2) Clipper liquidation; Liquity v2 specification. HF formula: collateral * liq_threshold / debt (Aave-style). Sky/Liquity use collateral-ratio mode. Not live oracle data.',
+    regulatory_basis:'DeFi lending is unregulated in most jurisdictions. Health factor and liquidation prices are computed from protocol parameters entered by the user; this is not a live risk monitor. Protocol parameters change via governance vote.',
+    pii_note:'ZERO PII: position amounts and protocol parameters only. No wallet address, ENS name, or personal data enters this kernel.',
+    not_financial_advice:'Not financial or investment advice. DeFi lending carries smart contract risk, oracle manipulation risk, and liquidation risk. Verify current parameters with protocol risk dashboards before taking any position.',
+  };
   var pp={protocol:protocol,collateral_value_usd:collUsd,debt_value_usd:debtUsd,collateral_price_usd:collPrice,collateral_amount:collAmt,liquidation_threshold_pct:liqThr};
   _lastResult={pp:pp,output_payload:op,compliance_flags:flags};
   document.getElementById('resultsPanel').classList.add('show');

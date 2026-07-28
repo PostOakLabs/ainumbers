@@ -413,6 +413,10 @@ function runLint(){
   if (beneLeiResult.present && !beneLeiResult.valid) lei_errors.push('Beneficiary LEI: ' + beneLeiResult.error);
   var lei_valid = lei_errors.length === 0;
 
+  var issues = [];
+  if (origLeiResult.present && !origLeiResult.valid) issues.push({ code: 'ORIGINATOR_LEI_INVALID', severity: 'ERROR', field: 'Dbtr/Id/LEI', message: origLeiResult.error });
+  if (beneLeiResult.present && !beneLeiResult.valid) issues.push({ code: 'BENEFICIARY_LEI_INVALID', severity: 'ERROR', field: 'Cdtr/Id/LEI', message: beneLeiResult.error });
+
   var op = {
     wolfsberg_score: score,
     wolfsberg_max: WEIGHT_MAX,
@@ -422,7 +426,20 @@ function runLint(){
     originator_lei_valid: origLeiResult.valid,
     beneficiary_lei_valid: beneLeiResult.valid,
     lei_valid: lei_valid,
-    lei_errors: lei_errors
+    lei_errors: lei_errors,
+    error_count: issues.length,
+    issues: issues,
+    lei_results: {
+      originator: { lei: origLei.length > 0 ? origLei : null, valid: origLeiResult.valid, error: origLeiResult.error },
+      beneficiary: { lei: beneLei.length > 0 ? beneLei : null, valid: beneLeiResult.valid, error: beneLeiResult.error }
+    },
+    wolfsberg_transparency_score: score_pct,
+    wolfsberg_transparency_tier: tier,
+    wolfsberg_field_results: field_results.map(function(f){ return { label: f.label, present: f.present, weight: f.weight }; }),
+    pii_note: 'LEIs are PUBLIC registry data (GLEIF global LEI database, gleif.org). Party names and account identifiers are processed structurally for presence/format only. No real PII processed -- use synthetic data for testing.',
+    table_version: 'ISO17442-LEI-CHECK-2024 + WOLFSBERG-PAYMENT-TRANSPARENCY-2023',
+    table_source: 'ISO 17442:2020 Legal Entity Identifier (iso.org/standard/78829.html); ISO 7064:2003 Mod 97-10 check digit algorithm; Wolfsberg Payment Transparency Standards 2023 (wolfsberg-principles.com/documents/wolfsberg-payment-transparency-standards)',
+    regulatory_basis: 'ISO 17442:2020 Legal Entity Identifier; ISO 7064:2003 Mod 97-10; Wolfsberg Payment Transparency Standards 2023; CPMI d218 LEI mandate guidance'
   };
 
   computeExecHash(pp, op).then(function(hash){
