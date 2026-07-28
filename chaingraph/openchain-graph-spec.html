@@ -169,6 +169,7 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s25"><span class="toc-sec">§25</span>Private-Input Profile <span style="color:var(--green)">(new in v0.8.5)</span></a></li>
         <li><a href="#s26"><span class="toc-sec">§26</span>Control Plane Profile <span style="color:var(--green)">(new in v0.9-draft)</span></a></li>
         <li><a href="#s27"><span class="toc-sec">§27</span>Human Accountability <span style="color:var(--green)">(new in v0.8.12)</span></a></li>
+        <li><a href="#s28"><span class="toc-sec">§28</span>Clause Binding Profile <span style="color:var(--green)">(new in v0.8.14)</span></a></li>
         <li><a href="#s15"><span class="toc-sec">§15</span>Conformance Gates</a></li>
         <li><a href="#s14"><span class="toc-sec">§14</span>Changelog</a></li>
       </ul>
@@ -1320,6 +1321,24 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   </div>
 </div>
 
+<!-- ═══ §28 Clause Binding Profile ═══ -->
+<div class="section" id="s28">
+  <div class="wrap">
+    <div class="sec-num">§28 · Normative · Optional · Profile-scoped · New in v0.8.14</div>
+    <h2>Clause Binding Profile: <code>ocg-clause-binding@1</code></h2>
+    <p>A regulatory citation in prose form (<code>"MiCA"</code>, <code>"17 CFR 240.15c3-3"</code>) reads present-tense forever and is never bound to any computation. §28 names a profile, <code>ocg-clause-binding@1</code>, that lets a citation become pinned: machine-declared, dated, attributed, and bound inside the same <code>{policy_parameters, output_payload}</code> preimage <code>execution_hash</code> already covers, with no new integrity machinery. Binding force comes entirely from placement, not shape.</p>
+    <p>§28.0 Two forms, one classification rule. A citation MAY be a bare string (the legacy, UNPINNED form, which stays valid and fully conformant everywhere it already appears) or a §28.1 citation object. An object is pinned if and only if it sits inside the preimage <code>execution_hash</code> covers, reachable from <code>policy_parameters</code> or <code>output_payload</code>. A copy of a well-formed object anywhere else is not pinned.</p>
+    <p>§28.1 The pinned citation object (<code>$defs.regulatoryCitation</code>). Required: <code>scheme</code> (an open enum: <code>cfr</code>, <code>eli</code>, <code>akn</code>, <code>bcbs-para</code>, <code>sr-letter</code>, <code>esma-vr</code>, <code>uscode</code>, <code>other</code>), <code>id</code>, <code>in_force_from</code> (ISO date; a bare four-digit schedule year does not satisfy this), <code>mapped_by</code> (an unattributed mapping is not a pinned mapping), and <code>mapped_at</code>. Optional: <code>path</code>, <code>uri</code>, <code>in_force_to</code>, <code>jurisdiction</code>, <code>governing_law</code>, <code>superseded_by</code> (a supersession is recorded additively, never a silent strip), and <code>interpretation_ref</code>. Where present, <code>interpretation_ref</code> MUST be a <code>sha256:</code> content hash, never a URL or mutable registry key.</p>
+    <p>§28.2 Declaration index, <code>clause_bindings[]</code> (<code>$defs.clauseBinding</code>). An artifact MAY carry a top-level <code>clause_bindings</code> array of <code>{ pointer }</code> entries. Like §20 <code>anchor_bindings</code>, §23 <code>input_attestations</code>, and §25 <code>private_inputs</code>, it is attached after hashing and EXCLUDED from <code>execution_hash</code> scope: a sibling of <code>policy_parameters</code> and <code>output_payload</code>, never a wrapper around either, so adding, removing, or reordering entries leaves every existing <code>execution_hash</code> byte-identical. The array binds nothing itself; it is a machine-readable index onto citations already pinned by their preimage placement.</p>
+    <p>§28.3 The preimage-rooting rule, made mechanical. <code>pointer</code> MUST root at <code>/policy_parameters</code> or <code>/output_payload</code>. A pointer rooted anywhere else MUST be rejected as a hard error: a citation there is unpinned and may not be declared in this array as though it were.</p>
+    <p>§28.4 Why the addition cannot move a hash. <code>executionHash()</code> hashes exactly <code>{policy_parameters, output_payload}</code>; <code>clause_bindings</code> sits outside both. A kernel places a §28.1 object under <code>policy_parameters</code> or <code>output_payload</code> at mint time, before that artifact has ever been hashed. Nothing re-hashes an existing artifact to retrofit a citation.</p>
+    <p>§28.5 Scope: new-artifacts-only. This profile applies to newly-minted artifacts only. An artifact minted before this profile existed stays unmigrated: its <code>execution_hash</code> and any §16/§18 proof over it remain valid forever. Converting an existing kernel's bare-string <code>regulatory_basis</code> into a pinned object would move that kernel's <code>output_payload</code> and stale a live proof, so this profile defines no migration path.</p>
+    <p>§28.6 Relationship to §16/§18 proof coverage. A pinned citation is covered by the same guarantee as any other <code>policy_parameters</code>/<code>output_payload</code> member, no more and no less. Where a §16 proof is present it secures the full artifact with <code>audit_signature.proof</code> removed; where a §18 compute-integrity proof is present, its journal's committed output MUST equal the artifact <code>output_payload</code>, so a citation pinned inside <code>output_payload</code> is bound by the same journal-equality obligation as every other output field. §28 adds no proof requirement of its own.</p>
+    <p>§28.7 Frozen-envelope invariance. <code>clause_bindings</code> is an OPTIONAL top-level property, exactly as §20/§23/§25 were: <code>$defs/artifact.required</code> is UNCHANGED, the §4 preimage members are UNCHANGED, and <code>chaingraph_version</code> stays <code>"0.4.0"</code>. Measured against the three-condition freeze test (no existing <code>execution_hash</code> moves, no <code>required[]</code> changes, no MUST-emit), all three clear, so this is additive. A verifier correct for v0.8.13 computes an identical <code>execution_hash</code> for a v0.8.14 artifact and MAY ignore <code>clause_bindings</code> entirely.</p>
+    <p>§28.8 Conformance. An implementation MAY declare <code>ocg-clause-binding@1</code> for a kernel that pins one or more citations under this profile. Conformance is machine-checked by <code>clause-binding.test.mjs</code> (§15): citation shape, the §28.3 preimage-rooting RED condition, pointer resolution, and the no-hash-move guarantee. Like §18 and §25, the profile defaults OFF: no node is required to adopt it, and its absence is never itself a finding.</p>
+  </div>
+</div>
+
 <!-- ═══ §15 Conformance Gates ═══ -->
 <div class="section" id="s15">
   <div class="wrap">
@@ -1337,6 +1356,14 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
   <div class="wrap">
     <div class="sec-num">§14 · Changelog</div>
     <h2>Changelog</h2>
+
+    <h3 style="margin-top:.4rem">v0.8.14: 2026-07-28 &mdash; spec-text pass</h3>
+    <div style="margin-top:.6rem">
+      <div class="change-row">
+        <span class="change-ref">§28</span>
+        <span class="change-desc">A normative Clause Binding profile, <code>ocg-clause-binding@1</code>. Spec-text pass, not a record bump: <code>spec_version</code> stays at whatever <code>chaingraph.json</code> carries until the next coordinated landing moves it. §28 lets a regulatory citation become pinned: dated, attributed, and bound inside the same <code>{policy_parameters, output_payload}</code> preimage <code>execution_hash</code> covers, as an alternative to the pre-existing legacy bare-string form, which stays valid and UNPINNED. Adds <code>$defs.citationRef</code>, <code>$defs.regulatoryCitation</code>, <code>$defs.clauseBinding</code>, and an OPTIONAL top-level <code>clause_bindings[]</code> array (schema, kernel helper <code>_clausebinding.mjs</code>, and gate <code>clause-binding.test.mjs</code> shipped previously; this entry documents the standard). <code>clause_bindings</code> sits outside the preimage, exactly like §20 <code>anchor_bindings</code>, §23 <code>input_attestations</code>, and §25 <code>private_inputs</code>; a <code>pointer</code> MUST root at <code>/policy_parameters</code> or <code>/output_payload</code> (§28.3), which is what makes a citation actually pinned. New-artifacts-only: the 105 server kernels carrying a bare-string <code>regulatory_basis</code> today are explicitly out of scope and unmigrated. Purely additive: no envelope/hash/schema-required change, <code>chaingraph_version</code> stays <code>0.4.0</code>, every existing <code>execution_hash</code> is byte-identical. One new §15 gate row (<code>clause-binding.test.mjs</code>, <code>schema-validate.mjs</code>) proves citation shape, the preimage-rooting RED condition, pointer resolution, and the no-hash-move guarantee. Attribution: none. This profile composes only pre-existing OCG mechanisms (the §4 preimage, the §20/§23/§25 hash-excluded-index shape).</span>
+      </div>
+    </div>
 
     <h3 style="margin-top:.4rem">v0.8.12: 2026-07-23 &mdash; spec-text pass</h3>
     <div style="margin-top:.6rem">
