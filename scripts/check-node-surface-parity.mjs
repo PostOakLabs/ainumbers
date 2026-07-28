@@ -154,10 +154,21 @@ function matchBrace(src, open) {
 // that CANTONDIV-MEASURE-1 case #13 (art-free node 515) needs; see the
 // NESTED COMPARISON block below for why a member whose value is anything else
 // (identifier, call, ternary) is deliberately absent from this map.
+//
+// SPREADS ARE RECORDED, NOT MERELY OBSERVED (GATE-SPREAD-OPAQUE-1, 2026-07-28).
+// `{...receiptCore, binding_sha256}` is opaque HERE — this function sees only
+// the literal's own text — but the identifier it spreads is usually declared a
+// few lines up in the same page. `spreads` carries those identifier names out
+// so `resolveSpreads()` can follow them and turn the LOWER BOUND back into an
+// observed member set. `opaqueNonSpread` is the opacity that CANNOT be resolved
+// that way (computed key, unrecognized key token, a spread of a non-identifier
+// expression): it keeps `opaque` true no matter how many spreads resolve.
 function objectLiteralKeys(lit) {
   const keys = [];
   const nested = new Map();
   const valueIdent = new Map();
+  const spreads = [];
+  let opaqueNonSpread = false;
   let opaque = false;
   let i = 1; // past `{`
   let expectKey = true;
@@ -171,8 +182,16 @@ function objectLiteralKeys(lit) {
     if (expectKey && d === 1) {
       if (c === "}") break;
       if (c === "," ) { i++; continue; }
-      if (c === "." && lit[i + 1] === "." && lit[i + 2] === ".") { opaque = true; expectKey = false; valueStart = false; i += 3; continue; }
-      if (c === "[") { opaque = true; expectKey = false; valueStart = false; i++; d++; continue; }
+      if (c === "." && lit[i + 1] === "." && lit[i + 2] === ".") {
+        opaque = true;
+        // `...ident` followed by `,` or `}` is resolvable one hop; `...f(x)`,
+        // `...(a||b)` and `...obj.prop` are not, and stay permanently opaque.
+        const sm = /^\s*([A-Za-z_$][\w$]*)\s*(?=[,}])/.exec(lit.slice(i + 3));
+        if (sm) spreads.push(sm[1]);
+        else opaqueNonSpread = true;
+        expectKey = false; valueStart = false; i += 3; continue;
+      }
+      if (c === "[") { opaque = true; opaqueNonSpread = true; expectKey = false; valueStart = false; i++; d++; continue; }
       if (c === "'" || c === '"') {
         const end = skipString(lit, i);
         lastKey = lit.slice(i + 1, end - 1);
@@ -193,6 +212,7 @@ function objectLiteralKeys(lit) {
       }
       // Numeric or otherwise unrecognized key token — do not guess.
       opaque = true;
+      opaqueNonSpread = true;
       expectKey = false;
       valueStart = false;
       i++;
@@ -235,7 +255,73 @@ function objectLiteralKeys(lit) {
     if (c === "," && d === 1) { expectKey = true; i++; continue; }
     i++;
   }
-  return { keys, opaque, nested, valueIdent };
+  return { keys, opaque, opaqueNonSpread, nested, valueIdent, spreads };
+}
+
+/* ------------------------------------------------------------------ *
+ * SPREAD RESOLUTION — turn a LOWER BOUND back into an observed member set.
+ *
+ * GATE-SPREAD-OPAQUE-1 (2026-07-28). `art-191` seals
+ * `receipt = {...receiptCore, binding_sha256}` and `art-193` seals
+ * `sanitization_record = {...recordCore, record_sha256}`. The spread's core
+ * object carries EVERY member the gate reported as missing — the member sets
+ * are identical — so both were PHANTOM divergences: the gate compared a
+ * truncated literal as though it were complete.
+ *
+ * Following the identifier is strictly better than declaring the node
+ * unresolved, so that is what this does; `opaque` survives only where the core
+ * genuinely cannot be followed, and litPaths()/the caller then route that node
+ * to UNRESOLVED or to a SKIPPED subtree rather than to a false "missing".
+ * ------------------------------------------------------------------ */
+// Index of the `{` that opens `ident`'s own object literal, or -1.
+// Accepts the SECOND and later declarators of a comma-continued statement
+// (`var rows = [], extra = {}` — art-332), which a `(?:const|let|var)\s+ident`
+// anchor cannot see. Missing it is not a neutral under-report: an identifier
+// the resolver cannot follow keeps the node opaque, and an opaque node is a
+// LOWER BOUND, so the members really present go unproven.
+function declLiteralOpen(text, ident) {
+  const esc = ident.replace(/\$/g, "\\$");
+  const m =
+    new RegExp(`(?:const|let|var)\\s+${esc}\\s*=\\s*\\{`).exec(text) ||
+    new RegExp(`,\\s*${esc}\\s*=\\s*\\{`).exec(text);
+  return m ? m.index + m[0].length - 1 : -1;
+}
+
+function resolveSpreads(node, html, seen = new Set()) {
+  if (!node || !node.spreads || !node.spreads.length) return node;
+  const pending = node.spreads.splice(0);
+  let unresolved = false;
+  for (const ident of pending) {
+    if (seen.has(ident)) { unresolved = true; continue; } // cyclic/self spread
+    const esc = ident.replace(/\$/g, "\\$");
+    const open = declLiteralOpen(html, ident);
+    if (open < 0) { unresolved = true; continue; }
+    const end = matchBrace(html, open);
+    if (end < 0) { unresolved = true; continue; }
+    // A computed member write (`core[k] = ...`) fills the object at runtime with
+    // keys no literal can show — the core is a LOWER BOUND too, so following it
+    // would swap one false-complete set for another.
+    if (new RegExp(`\\b${esc}\\s*\\[(?!\\s*['"])[^\\]]*\\]\\s*=[^=]`).test(html)) { unresolved = true; continue; }
+    const sub = resolveSpreads(objectLiteralKeys(html.slice(open, end)), html, new Set([...seen, ident]));
+    if (sub.opaque) unresolved = true;
+    // Members attached to the core after construction belong to it.
+    for (const am of html.matchAll(new RegExp(`\\b${esc}\\.([A-Za-z_$][\\w$]*)\\s*=[^=]`, "g"))) {
+      if (!sub.keys.includes(am[1])) sub.keys.push(am[1]);
+    }
+    for (const k of sub.keys) if (!node.keys.includes(k)) node.keys.push(k);
+    for (const [k, v] of sub.nested) if (!node.nested.has(k)) node.nested.set(k, v);
+    for (const [k, v] of sub.valueIdent) if (!node.valueIdent.has(k)) node.valueIdent.set(k, v);
+  }
+  node.opaque = node.opaqueNonSpread || unresolved;
+  return node;
+}
+
+// Same, applied to a literal and every object literal nested inside it.
+function resolveSpreadsDeep(node, html) {
+  if (!node) return node;
+  resolveSpreads(node, html);
+  for (const v of node.nested.values()) resolveSpreadsDeep(v, html);
+  return node;
 }
 
 /* ------------------------------------------------------------------ *
@@ -264,7 +350,7 @@ function objectLiteralKeys(lit) {
 
 // Walk a page-side objectLiteralKeys() result into dotted paths.
 // `objPaths` collects the paths whose value was a resolved object literal.
-function litPaths(node, prefix, paths, objPaths) {
+function litPaths(node, prefix, paths, objPaths, opaquePaths) {
   for (const k of node.keys) {
     const p = prefix ? `${prefix}.${k}` : k;
     paths.add(p);
@@ -274,7 +360,19 @@ function litPaths(node, prefix, paths, objPaths) {
     // would report every member the kernel emits there as "missing from the
     // page" — art-183's six IRRBB shock scenarios are exactly that shape. Treat
     // it as unresolved instead, which routes it to the SKIPPED note.
-    if (sub && sub.keys.length) { objPaths.add(p); litPaths(sub, p, paths, objPaths); }
+    // ...and an OPAQUE literal (`{...core, x}` whose core could not be
+    // followed) is a LOWER BOUND, so it is not a comparable object either:
+    // registering it would report every member the kernel emits under it as
+    // "missing from the page" when the member may sit inside the spread.
+    // GATE-SPREAD-OPAQUE-1: that is exactly the phantom art-191/art-193 hit.
+    // Its known children are still recorded as paths — a lower bound is true
+    // as far as it goes — but the subtree is not comparable, so it lands in
+    // the SKIPPED note instead of in a false divergence.
+    if (sub && sub.keys.length) {
+      if (sub.opaque) opaquePaths?.add(p);
+      else objPaths.add(p);
+      litPaths(sub, p, paths, objPaths, opaquePaths);
+    }
   }
 }
 
@@ -337,8 +435,10 @@ function pagePayloadKeys(html) {
     const out = {
       keys: [...new Set([...a.keys, ...b.keys])],
       opaque: a.opaque || b.opaque,
+      opaqueNonSpread: a.opaqueNonSpread || b.opaqueNonSpread,
       nested: new Map(a.nested),
       valueIdent: new Map([...a.valueIdent, ...b.valueIdent]),
+      spreads: [...new Set([...(a.spreads || []), ...(b.spreads || [])])],
     };
     for (const [k, v] of b.nested) out.nested.set(k, mergeNode(out.nested.get(k), v));
     return out;
@@ -353,15 +453,14 @@ function pagePayloadKeys(html) {
     for (const [k, ident] of node.valueIdent) {
       if (node.nested.has(k)) continue;
       const esc = ident.replace(/\$/g, "\\$");
-      const m = new RegExp(`(?:const|let|var)\\s+${esc}\\s*=\\s*\\{`).exec(html);
-      if (!m) continue;
-      const open = m.index + m[0].length - 1;
+      const open = declLiteralOpen(html, ident);
+      if (open < 0) continue;
       const end = matchBrace(html, open);
       if (end < 0) continue;
       // A computed member write (`shocks[name] = ...`) means the object is
       // filled at runtime with keys no literal can show. Leave it unresolved.
       if (new RegExp(`\\b${esc}\\s*\\[(?!\\s*['"])[^\\]]*\\]\\s*=[^=]`).test(html)) continue;
-      const sub = objectLiteralKeys(html.slice(open, end));
+      const sub = resolveSpreadsDeep(objectLiteralKeys(html.slice(open, end)), html);
       // Members attached after construction (`pacs008.foo = ...`) belong to the
       // same object; omitting them would manufacture a false "missing".
       for (const am of html.matchAll(new RegExp(`\\b${esc}\\.([A-Za-z_$][\\w$]*)\\s*=[^=]`, "g"))) {
@@ -378,7 +477,7 @@ function pagePayloadKeys(html) {
     const end = matchBrace(html, open);
     if (end < 0) return false;
     const lit = html.slice(open, end);
-    const node = objectLiteralKeys(lit);
+    const node = resolveSpreadsDeep(objectLiteralKeys(lit), html);
     if (node.keys.includes("output_payload") || node.keys.includes("policy_parameters")) return false;
     if (node.opaque) opaque = true;
     for (const k of node.keys) keys.add(k);
@@ -423,11 +522,16 @@ function pagePayloadKeys(html) {
       if (depth === 1 && /[A-Za-z_$]/.test(c)) {
         const m = /^[A-Za-z_$][\w$]*/.exec(html.slice(i));
         const ref = m[0];
-        const d = new RegExp(`(?:const|let|var)\\s+${ref.replace(/\$/g, "\\$")}\\s*=\\s*\\{`).exec(scope);
-        if (d) {
-          const open = scopeOffset + d.index + d[0].length - 1;
-          if (take(open)) hit = true;
-          else opaque = true;
+        const d = declLiteralOpen(scope, ref);
+        if (d >= 0) {
+          if (take(scopeOffset + d)) {
+            hit = true;
+            // The literal may be empty by construction and filled by later
+            // `ref.foo = ...` writes (art-332's `extra`); those members are as
+            // real as declared ones and their absence is what made the node
+            // read as a lower bound.
+            takeAssignments(ref);
+          } else opaque = true;
         } else {
           opaque = true;
         }
@@ -518,9 +622,12 @@ function pagePayloadKeys(html) {
       notes: [named ? `payload named via ${named}, but no object literal resolved` : "page never names output_payload (ENVELOPE-ABSENT: no {policy_parameters, output_payload} envelope on the page)"],
     };
   }
-  if (opaque) notes.push("payload literal contains a spread or computed key — member set is a LOWER BOUND");
+  if (opaque) notes.push("payload literal contains an UNRESOLVABLE spread or a computed key — member set is only a LOWER BOUND, so a 'missing' member is unprovable");
   if (wallClock) notes.push("DEFECT: wall-clock read (Date.now()/new Date()) inside the sealed payload literal — execution_hash is not reproducible for identical input");
-  return { keys, notes, nested };
+  // `opaque` is REPORTED, not swallowed (GATE-SPREAD-OPAQUE-1). It used to be
+  // computed here, mentioned in a note, and then dropped on the floor — the
+  // caller diffed a LOWER BOUND as though it were a complete member set.
+  return { keys, notes, nested, opaque };
 }
 
 /* ------------------------------------------------------------------ *
@@ -686,6 +793,11 @@ for (const id of ids) {
 
   if (!kern.keys) { unresolved.push({ id, scope, side: "kernel", page: loc.rel, why: kern.notes.join("; ") }); tally[scope].unresolved++; continue; }
   if (!page.keys) { unresolved.push({ id, scope, side: "page", page: loc.rel, why: page.notes.join("; ") }); tally[scope].unresolved++; continue; }
+  // A TOP-LEVEL lower bound cannot be diffed at all: "the page is missing X" is
+  // unprovable when X may sit inside the spread, and a silent pass would be the
+  // false clean this gate's header forbids. UNRESOLVED is the honest outcome —
+  // the same category `513` already lands in.
+  if (page.opaque) { unresolved.push({ id, scope, side: "page", page: loc.rel, why: page.notes.join("; ") }); tally[scope].unresolved++; continue; }
 
   compared++;
   tally[scope].compared++;
@@ -695,7 +807,25 @@ for (const id of ids) {
   // Nested paths, compared only under a parent BOTH sides resolved as an object.
   const pagePaths = new Set();
   const pageObjPaths = new Set();
-  litPaths({ keys: [...page.keys], opaque: false, nested: page.nested }, "", pagePaths, pageObjPaths);
+  const pageOpaquePaths = new Set();
+  litPaths({ keys: [...page.keys], opaque: page.opaque, nested: page.nested }, "", pagePaths, pageObjPaths, pageOpaquePaths);
+  // A nested literal the resolver could not follow, at a path the kernel's own
+  // fixtures prove is a fixed record, is comparable in principle and only
+  // unknowable in practice. Reporting nothing there would be the false clean
+  // this gate exists to prevent, so the NODE goes UNRESOLVED. (A subtree the
+  // page simply does not build as an object literal is a different, older,
+  // stated blind spot and stays in the SKIPPED note.)
+  const opaqueComparable = [...pageOpaquePaths].filter((p) => kern.stableObjPaths.has(p)).sort();
+  if (opaqueComparable.length) {
+    unresolved.push({
+      id, scope, side: "page", page: loc.rel,
+      why: `nested literal is a LOWER BOUND (unresolvable spread or computed key) at: ${opaqueComparable.join(", ")}`,
+    });
+    tally[scope].unresolved++;
+    compared--;
+    tally[scope].compared--;
+    continue;
+  }
   // Both sides resolved an object at the parent: the subtree is comparable.
   const bothObj = (p) => {
     const par = parentOf(p);
