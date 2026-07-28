@@ -491,10 +491,17 @@ const PROJECTORS = new Set([
 // bodies excluded but template SUBSTITUTIONS kept (that is where art-09's
 // defect lives). `[0]`/`[i]` become the wildcard `*` — the element shapes of an
 // array literal are all candidates for the same member.
+//
+// Each result also carries `end` — the offset, in THIS `text` argument, of the
+// character right after the matched chain. A projection call (`.map(`,
+// `.filter(`) sits immediately after that offset when one is present; `end` is
+// what lets a caller look for it. Threaded through the template-substitution
+// recursion via `base` so it stays correct even when the match was found
+// inside a `${...}` slice rather than at top level (PAGEDET-FP-FIX-1).
 function refsIn(text) {
   const out = [];
   let i = 0;
-  const scan = (s) => {
+  const scan = (s, base) => {
     const re = /([A-Za-z_$][\w$]*)((?:\s*(?:\.\s*[A-Za-z_$][\w$]*|\[[^\][]*\]))*)/g;
     let m;
     while ((m = re.exec(s))) {
@@ -513,7 +520,7 @@ function refsIn(text) {
           path.push(lit ? lit[1] : "*");
         }
       }
-      out.push({ ident, path });
+      out.push({ ident, path, end: base + m.index + m[0].length });
     }
   };
   while (i < text.length) {
@@ -528,7 +535,7 @@ function refsIn(text) {
         if (tpl[k] === "\\") { k += 2; continue; }
         if (tpl[k] === "$" && tpl[k + 1] === "{") {
           const sEnd = matchBrace(tpl, k + 1);
-          if (sEnd > 0) { scan(tpl.slice(k + 2, sEnd - 1)); k = sEnd; continue; }
+          if (sEnd > 0) { scan(tpl.slice(k + 2, sEnd - 1), i + k + 2); k = sEnd; continue; }
         }
         k++;
       }
@@ -538,7 +545,7 @@ function refsIn(text) {
     if (c === "/" && (text[i + 1] === "/" || text[i + 1] === "*")) { i = skipTrivia(text, i); continue; }
     let j = i;
     while (j < text.length && !/['"`]/.test(text[j]) && !(text[j] === "/" && (text[j + 1] === "/" || text[j + 1] === "*"))) j++;
-    scan(text.slice(i, j));
+    scan(text.slice(i, j), i);
     i = j;
   }
   return out;
@@ -744,6 +751,317 @@ function analysePage(html, rel) {
     return [{ ...span, residual: path }];
   };
 
+  /* ---------------------------------------------------------------- *
+   * PROJECTION-AWARE REACHABILITY (PAGEDET-FP-FIX-1).
+   *
+   * `narrow()` above treats every `.map`/`.filter`/`.some`/`.every` step as
+   * "any member of any element could matter" and widens to the WHOLE
+   * container. That is a correct lower bound in general (a projector's
+   * callback isn't visible to `narrow()` — the callback text lives at the
+   * REFERENCE site, not at the array's declaration site, so by the time
+   * `narrow()` is walking the declaration it has nothing to inspect). But it
+   * is provably too wide for the two shapes below, and over-widening here is
+   * exactly what produced art-09:693 and 557:282 as false positives: a
+   * `.map(c => ({id: c.id, ...}))` NEVER exposes a member the callback
+   * doesn't name, and a `.filter(pred).length` NEVER exposes anything except
+   * whatever field(s) `pred` itself reads (the values, not just membership,
+   * only matter through the predicate).
+   *
+   * The functions below detect those two shapes AT THE REFERENCE SITE (where
+   * the callback text is still available) and narrow accordingly. Anything
+   * that doesn't match — a block-body map with more than one return, an
+   * opaque predicate, a `.filter()` result consumed as an array rather than
+   * via `.length` — falls straight through to the untouched code above via
+   * `walk()`, so nothing here can ever WIDEN what used to be flagged; only
+   * narrow it. See board/done/PAGEDET-FP-FIX-1.md for the derivation.
+   * ---------------------------------------------------------------- */
+
+  // `PARAM[, IDX] => BODY` immediately at `openParenPos` (the `(` opening a
+  // `.map(`/`.filter(`/`.some(`/`.every(` call). Returns the param name and
+  // the body's span, tagged `expr` (concise arrow) or `block` (braced body) —
+  // callers decide how to read it. `callEnd` is the position just past the
+  // call's own closing `)`, used to confirm a resolved span IS exactly this
+  // call (not a call with something trailing it).
+  function parseArrowCallback(openParenPos) {
+    if (code[openParenPos] !== "(") return null;
+    const callEnd = matchBracket(code, openParenPos);
+    if (callEnd < 0) return null;
+    const argText = code.slice(openParenPos + 1, callEnd - 1);
+    const m =
+      /^\s*\(\s*([A-Za-z_$][\w$]*)(?:\s*,[^)]*)?\)\s*=>\s*/.exec(argText) ||
+      /^\s*([A-Za-z_$][\w$]*)\s*=>\s*/.exec(argText);
+    if (!m) return null;
+    const param = m[1];
+    let bodyAbs = openParenPos + 1 + m[0].length;
+    while (/\s/.test(code[bodyAbs])) bodyAbs++;
+    if (code[bodyAbs] === "{") {
+      const blockEnd = matchBracket(code, bodyAbs);
+      if (blockEnd < 0) return null;
+      return { param, callEnd, kind: "block", bodySpan: { start: bodyAbs, end: blockEnd } };
+    }
+    let end = callEnd - 1;
+    while (end > bodyAbs && /\s/.test(code[end - 1])) end--;
+    if (end <= bodyAbs) return null;
+    return { param, callEnd, kind: "expr", bodySpan: { start: bodyAbs, end } };
+  }
+
+  // `.map(callback)` where the callback's return is a PLAIN object literal
+  // (no spread, no computed key — checked by the caller via `objectMembers`)
+  // — `param => ({...})`, `param => { ... return {...}; }` — or a bare
+  // expression `param => c.id` (one synthetic "whole value" member). Any
+  // other shape (multiple returns, a non-literal/non-identifier-chain
+  // expression body split across branches) returns null and the caller falls
+  // back to the old whole-container behaviour.
+  function parseMapProjection(openParenPos) {
+    const cb = parseArrowCallback(openParenPos);
+    if (!cb) return null;
+    if (cb.kind === "expr") {
+      let s = cb.bodySpan.start;
+      while (/\s/.test(code[s])) s++;
+      if (code[s] === "(") {
+        let k = s + 1;
+        while (/\s/.test(code[k])) k++;
+        if (code[k] === "{") {
+          const litEnd = matchBracket(code, k);
+          if (litEnd > 0) return { kind: "map-object", param: cb.param, callEnd: cb.callEnd, literalSpan: { start: k, end: litEnd } };
+        }
+      }
+      return { kind: "map-expr", param: cb.param, callEnd: cb.callEnd, exprSpan: cb.bodySpan };
+    }
+    const rets = returnSpans(code, cb.bodySpan);
+    if (rets.length !== 1) return null;
+    let s = rets[0].start;
+    while (/\s/.test(code[s])) s++;
+    if (code[s] === "{") {
+      const litEnd = matchBracket(code, s);
+      if (litEnd > 0) return { kind: "map-object", param: cb.param, callEnd: cb.callEnd, literalSpan: { start: s, end: litEnd } };
+    }
+    return { kind: "map-expr", param: cb.param, callEnd: cb.callEnd, exprSpan: rets[0] };
+  }
+
+  // `.filter(pred)` / `.some(pred)` / `.every(pred)` — collects the set of
+  // `param.field` names the predicate itself reads. Only THOSE fields can
+  // affect which elements survive (or the boolean outcome); every other
+  // field of an element is invisible to the predicate's result.
+  function parsePredicateProjection(openParenPos) {
+    const cb = parseArrowCallback(openParenPos);
+    if (!cb) return null;
+    let predSpan = cb.bodySpan;
+    if (cb.kind === "block") {
+      const rets = returnSpans(code, cb.bodySpan);
+      if (rets.length !== 1) return null;
+      predSpan = rets[0];
+    }
+    const predText = html.slice(predSpan.start, predSpan.end);
+    const fields = new Set();
+    for (const { ident, path } of refsIn(predText)) {
+      if (ident === cb.param && path.length) fields.add(path[0]);
+    }
+    return { kind: "predicate", param: cb.param, callEnd: cb.callEnd, bodySpan: predSpan, fields };
+  }
+
+  // Resolve `ident.path` to concrete source span(s) — following bare-
+  // identifier indirection (object-literal shorthand carriage) and named-
+  // function calls, same as `resolveRef` does, but RETURNING the resolved
+  // span(s) instead of scanning them. Used to find what a `.map`/`.filter`
+  // call was invoked ON.
+  function resolveSourceSpans(ident, path, depth) {
+    if (depth > MAX_DEPTH) {
+      unresolved.push(`depth cap (${MAX_DEPTH}) reached resolving a map/filter source — deeper values NOT inspected`);
+      return [];
+    }
+    const { spans, ambiguous } = rhsSpans(code, ident);
+    if (ambiguous) {
+      ambiguousIdents.add(ident);
+      return [];
+    }
+    if (!spans.length) return [];
+    const out = [];
+    for (const t of spans) {
+      const ttext = code.slice(t.start, t.end);
+      const call = /^(?:await\s+)?([A-Za-z_$][\w$]*)\s*\(/.exec(ttext);
+      const bodies = call && !GLOBALS.has(call[1]) ? functionBodies(code, call[1]) : [];
+      if (bodies.length) {
+        for (const body of bodies) {
+          for (const r of returnSpans(code, body)) {
+            for (const np of narrow(r, path)) out.push(...settleSourceSpan(np, depth));
+          }
+        }
+        continue;
+      }
+      for (const np of narrow(t, path)) out.push(...settleSourceSpan(np, depth));
+    }
+    return out;
+  }
+  function settleSourceSpan(np, depth) {
+    const text = code.slice(np.start, np.end).trim();
+    if (!np.residual.length && /^[A-Za-z_$][\w$]*$/.test(text)) {
+      return resolveSourceSpans(text, [], depth + 1);
+    }
+    return [{ start: np.start, end: np.end, residual: np.residual }];
+  }
+
+  // Is `span` ITSELF (start to end, exactly) a `<chain>.map(cb)` /
+  // `<chain>.filter(cb)` / `.some(cb)` / `.every(cb)` call? Used when a
+  // projection's source turns out to be ANOTHER projector call rather than a
+  // real array literal (the 557 shape: `findings` is itself `rows.map(...)`).
+  function detectTrailingProjectorCall(span, depth) {
+    const text = code.slice(span.start, span.end);
+    const m = /^([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*\.\s*(map|filter|some|every)\s*\(/.exec(text);
+    if (!m) return null;
+    const openParen = span.start + m[0].length - 1;
+    const kind = m[2] === "map" ? "map" : "predicate";
+    const proj = kind === "map" ? parseMapProjection(openParen) : parsePredicateProjection(openParen);
+    if (!proj || proj.callEnd !== span.end) return null;
+    const chain = m[1].split(".").map((s) => s.trim());
+    const sources = resolveSourceSpans(chain[0], chain.slice(1), depth);
+    return { kind, proj, sources };
+  }
+
+  // `<chain>.filter/some/every(pred).length` written as ONE self-contained
+  // expression — the shape that ends up being an identifier's WHOLE RHS
+  // (557's `exposedCount`/`currentCount`/`unrecognizedCount`: `const
+  // exposedCount = findings.filter(f => f.status==='exposed').length;`).
+  // Unlike `detectTrailingProjectorCall`, `.length` here is textually PART OF
+  // `span` itself rather than arriving as a separately-tracked residual path
+  // (contrast art-09's `criteriaMetList.length`, a plain chained reference,
+  // which the residual-based check above already handles) — so it needs its
+  // own detection, matched only when `.length` is the LAST thing in the span.
+  function detectFilterLengthExpr(span, depth) {
+    const text = code.slice(span.start, span.end);
+    const m = /^([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*\.\s*(map|filter|some|every)\s*\(/.exec(text);
+    if (!m) return null;
+    const openParen = span.start + m[0].length - 1;
+    const kind = m[2] === "map" ? "map" : "predicate";
+    const proj = kind === "map" ? parseMapProjection(openParen) : parsePredicateProjection(openParen);
+    if (!proj) return null;
+    let after = proj.callEnd;
+    while (/\s/.test(code[after])) after++;
+    if (code.slice(after, after + 7) !== ".length") return null;
+    if (/[\w$]/.test(code[after + 7] || "")) return null;
+    if (after + 7 !== span.end) return null; // nothing else may trail
+    const chain = m[1].split(".").map((s) => s.trim());
+    const sources = resolveSourceSpans(chain[0], chain.slice(1), depth);
+    return { kind, proj, sources };
+  }
+
+  // `.length` never depends on element FIELD content by itself: `.map()`
+  // preserves element count exactly (its callback contributes nothing to a
+  // count, so it is skipped and the walk continues into whatever `.map` was
+  // itself called on); `.filter/.some/.every` can change the count, so only
+  // the predicate's own referenced fields could make that count non-
+  // deterministic. An array literal, or anything opaque/dynamic (user input,
+  // a fetch result), has nothing further to scan for `.length` either way.
+  // Returns true when `nested` (from `detectTrailingProjectorCall` or
+  // `detectFilterLengthExpr`) was actually handled.
+  function resolveLengthSource(nested, depth, why) {
+    if (!nested) return false;
+    if (depth > MAX_DEPTH) {
+      unresolved.push(`depth cap (${MAX_DEPTH}) reached following a .length source`);
+      return true;
+    }
+    if (nested.kind === "map") {
+      for (const s of nested.sources) {
+        resolveLengthSource(detectTrailingProjectorCall({ start: s.start, end: s.end }, depth + 1), depth + 1, why);
+      }
+      return true;
+    }
+    scanBans(scan, html, nested.proj.bodySpan, hits, `${why} (predicate, via .length)`);
+    for (const field of nested.proj.fields) {
+      for (const s of nested.sources) {
+        followSourceElement({ start: s.start, end: s.end }, [field], depth + 1, `${why} → ${nested.proj.param}.${field} (predicate, via .length)`);
+      }
+    }
+    return true;
+  }
+
+  // Given the resolved source of a `.map`/`.filter` call and a member path
+  // still needed from EACH element, dispatch on shape: a real array literal
+  // narrows each element normally (reusing `walk`); another projector call
+  // recurses one layer deeper; anything else (opaque/dynamic data — user
+  // input, a fetch result) falls back to the old whole-span-in-scope
+  // behaviour, which is always a safe (if imprecise) default.
+  function followSourceElement(sourceSpan, path, depth, why) {
+    if (depth > MAX_DEPTH) {
+      unresolved.push(`depth cap (${MAX_DEPTH}) reached inside a map/filter projection — deeper values NOT inspected`);
+      return;
+    }
+    const text = code.slice(sourceSpan.start, sourceSpan.end);
+    if (text[0] === "[") {
+      for (const el of arrayElements(text)) {
+        walk({ start: sourceSpan.start + el.start, end: sourceSpan.start + el.end }, path, depth + 1, why);
+      }
+      return;
+    }
+    const nested = detectTrailingProjectorCall(sourceSpan, depth);
+    if (nested && nested.kind === "map") {
+      for (const s of nested.sources) applyProjection({ start: s.start, end: s.end }, nested.proj, [...(s.residual || []), ...path], depth + 1, why);
+      return;
+    }
+    if (nested && nested.kind === "predicate") {
+      // filter/some/every never reshape an element — the predicate's own
+      // fields are scanned (a nondeterministic predicate is a real defect:
+      // it would make SELECTION itself non-reproducible), then the SAME
+      // path is carried straight through to the pre-filter source, since the
+      // surviving elements are identical in shape to the original ones.
+      scanBans(scan, html, nested.proj.bodySpan, hits, `${why} (predicate, element shape unchanged)`);
+      for (const s of nested.sources) followSourceElement({ start: s.start, end: s.end }, path, depth + 1, why);
+      return;
+    }
+    walk(sourceSpan, path, depth + 1, why);
+  }
+
+  // Apply a parsed `.map` projection: only the members the callback ACTUALLY
+  // returns (filtered to `neededPath[0]` when the caller only needs one) are
+  // in scope. A member the callback drops — the exact shape of art-09:693's
+  // `detail` and 557:282's `detail` — is never visited at all.
+  function applyProjection(sourceSpan, proj, neededPath, depth, why) {
+    if (proj.kind === "map-object") {
+      const lit = code.slice(proj.literalSpan.start, proj.literalSpan.end);
+      const node = objectMembers(lit);
+      if (node.opaqueNonSpread || node.spreads.length) {
+        unresolved.push(`${why}: map callback literal has a computed key or spread — member set is a LOWER BOUND; scanning source conservatively`);
+        scanBans(scan, html, proj.literalSpan, hits, `${why} (map callback, opaque)`);
+        followSourceElement(sourceSpan, [], depth + 1, why);
+        return;
+      }
+      const members = neededPath.length ? node.members.filter((m) => m.key === neededPath[0]) : node.members;
+      const rest = neededPath.length ? neededPath.slice(1) : [];
+      for (const m of members) {
+        const valSpan = { start: proj.literalSpan.start + m.start, end: proj.literalSpan.start + m.end };
+        scanBans(scan, html, valSpan, hits, `${why} (map callback → ${m.key})`);
+        const valText = html.slice(valSpan.start, valSpan.end);
+        for (const { ident, path: rp } of refsIn(valText)) {
+          if (ident === proj.param) {
+            followSourceElement(sourceSpan, [...rp, ...rest], depth + 1, `${why} → ${proj.param}${rp.length ? "." + rp.join(".") : ""}`);
+          } else {
+            resolveRef(ident, rp, depth + 1, `${why} → ${ident}`);
+          }
+        }
+      }
+      return;
+    }
+    if (proj.kind === "map-expr") {
+      scanBans(scan, html, proj.exprSpan, hits, `${why} (map callback)`);
+      const valText = html.slice(proj.exprSpan.start, proj.exprSpan.end);
+      for (const { ident, path: rp } of refsIn(valText)) {
+        if (ident === proj.param) {
+          followSourceElement(sourceSpan, [...rp, ...neededPath], depth + 1, `${why} → ${proj.param}${rp.length ? "." + rp.join(".") : ""}`);
+        } else {
+          resolveRef(ident, rp, depth + 1, `${why} → ${ident}`);
+        }
+      }
+      return;
+    }
+    // proj.kind === "predicate" — reached when a `.filter/.some/.every` call
+    // is used directly as an output member's value (e.g. `flag: arr.some(f
+    // => f.bad)`); only the predicate's own referenced fields matter here too.
+    scanBans(scan, html, proj.bodySpan, hits, `${why} (predicate)`);
+    for (const field of proj.fields) {
+      followSourceElement(sourceSpan, [field], depth + 1, `${why} → ${proj.param}.${field} (predicate)`);
+    }
+  }
+
   const resolveRef = (ident, path, depth, why) => {
     const { spans, ambiguous } = rhsSpans(code, ident);
     if (ambiguous) {
@@ -801,6 +1119,22 @@ function analysePage(html, rel) {
         continue;
       }
 
+      // `<x>.filter/some/every(pred).length` (or any longer residual chain
+      // starting with `.length`) — a COUNT never exposes non-predicate
+      // fields (PAGEDET-FP-FIX-1: this is how art-09's `criteriaMetList` and
+      // 557's `exposedCount`/`currentCount`/`unrecognizedCount` reach a
+      // dropped field today). Falls through to the old behaviour if the span
+      // isn't exactly this shape.
+      if (span.residual.length && span.residual[0] === "length") {
+        if (resolveLengthSource(detectTrailingProjectorCall(span, depth), depth, why)) continue;
+      }
+
+      // Same rule, other shape: `.length` written directly onto the call
+      // rather than arriving as a separate chained reference.
+      if (!span.residual.length) {
+        if (resolveLengthSource(detectFilterLengthExpr(span, depth), depth, why)) continue;
+      }
+
       scanBans(scan, html, span, hits, why);
 
       // Spreads: `{...core, x}` shows only part of its member set. Follow the
@@ -822,12 +1156,36 @@ function analysePage(html, rel) {
       }
 
       const bound = paramsIn(text);
-      for (const { ident, path: rpath } of refsIn(real)) {
+      for (const { ident, path: rpath, end } of refsIn(real)) {
         if (bound.has(ident)) continue; // parameter of a callback inside this span
         const rkey = `ref:${ident}${rpath.length ? "." + rpath.join(".") : ""}@${depth}`;
         if (seen.has(rkey)) continue;
         seen.add(rkey);
-        resolveRef(ident, rpath, depth, `${why} → ${ident}${rpath.length ? "." + rpath.join(".") : ""}`);
+        const refWhy = `${why} → ${ident}${rpath.length ? "." + rpath.join(".") : ""}`;
+
+        // `<x>.map(cb)` reached directly (a payload member's value IS the
+        // mapped array) — narrow to what `cb` actually returns instead of
+        // widening to the whole source (PAGEDET-FP-FIX-1). `.filter`/`.some`/
+        // `.every` are deliberately NOT handled here: used directly (not via
+        // `.length`) their result carries every field of every surviving
+        // element, so the old whole-container behaviour is already correct.
+        const lastSeg = rpath[rpath.length - 1];
+        if (lastSeg === "map") {
+          let p = span.start + end;
+          while (/\s/.test(code[p])) p++;
+          if (code[p] === "(") {
+            const proj = parseMapProjection(p);
+            if (proj) {
+              const pathWithoutMap = rpath.slice(0, -1);
+              for (const s of resolveSourceSpans(ident, pathWithoutMap, depth)) {
+                applyProjection({ start: s.start, end: s.end }, proj, s.residual || [], depth + 1, refWhy);
+              }
+              continue;
+            }
+          }
+        }
+
+        resolveRef(ident, rpath, depth, refWhy);
       }
     }
   }

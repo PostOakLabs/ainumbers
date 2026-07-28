@@ -141,6 +141,92 @@ function download(){ var ts = new Date().toISOString(); return 'f_' + ts + '.jso
   check("download-filename timestamp is outside the preimage and not flagged", r.newDefects.length === 0, JSON.stringify(r.newDefects));
 }
 
+/* 6b. PAGEDET-FP-FIX-1 — a `.map(c => ({...}))` projection must not widen to
+ *     the whole source array: a field the callback DROPS is invisible to the
+ *     payload even when it carries a banned construct (this is the exact
+ *     shape of art-09:693 and 557:282 — both were false positives caused by
+ *     the gate widening a `.map`/`.filter` step to "whole container"). */
+{
+  const f = page("map-drops-field", `
+    function seal(){
+      var rows = [
+        { id: 'a', kept: 1, dropped: (5).toLocaleString() },
+        { id: 'b', kept: 2, dropped: new Date().toISOString() },
+      ];
+      var op = { items: rows.map(c => ({ id: c.id, kept: c.kept })) };
+      return { policy_parameters: {}, output_payload: op };
+    }`);
+  const r = run(f);
+  check("a field a .map() callback never returns is not flagged", r.newDefects.length === 0, JSON.stringify(r.newDefects));
+}
+
+/* 6c. POSITIVE CONTROL — the SAME shape, but the field the callback DOES
+ *     keep is itself sourced from a banned construct: still caught. This is
+ *     what proves the fix narrows reachability rather than disabling it —
+ *     art-09:694 (the `value` field, kept by its own `.map()`) must survive
+ *     remediation of :693 (the dropped `detail` field) in the same page. */
+{
+  const f = page("map-keeps-tainted-field", `
+    function seal(){
+      var rows = [
+        { id: 'a', kept: (5).toLocaleString(), dropped: 'x' },
+      ];
+      var op = { items: rows.map(c => ({ id: c.id, kept: c.kept })) };
+      return { policy_parameters: {}, output_payload: op };
+    }`);
+  const r = run(f);
+  check("a field a .map() callback DOES return is still flagged", r.newDefects.length === 1, JSON.stringify(r.newDefects));
+}
+
+/* 6d. PAGEDET-FP-FIX-1 — `.filter(pred).length` is a COUNT: a banned
+ *     construct in a field the predicate never reads must not be flagged
+ *     (557's `exposedCount = findings.filter(f => f.status===...).length`,
+ *     where `detail` carried the construct but never fed the predicate). */
+{
+  const f = page("filter-length-drops-field", `
+    function seal(){
+      var rows = [
+        { ok: true, note: (5).toLocaleString() },
+        { ok: false, note: new Date().toISOString() },
+      ];
+      var count = rows.filter(c => c.ok).length;
+      var op = { total: count };
+      return { policy_parameters: {}, output_payload: op };
+    }`);
+  const r = run(f);
+  check("a field .filter().length's predicate never reads is not flagged", r.newDefects.length === 0, JSON.stringify(r.newDefects));
+}
+
+/* 6e. POSITIVE CONTROL — the predicate's OWN field is tainted: a
+ *     non-deterministic predicate makes the COUNT itself non-reproducible,
+ *     so this must still be caught. */
+{
+  const f = page("filter-length-tainted-predicate", `
+    function seal(){
+      var rows = [{ ok: (5).toLocaleString() === '5' }];
+      var count = rows.filter(c => c.ok).length;
+      var op = { total: count };
+      return { policy_parameters: {}, output_payload: op };
+    }`);
+  const r = run(f);
+  check("a tainted predicate field feeding .filter().length is still flagged", r.newDefects.length === 1, JSON.stringify(r.newDefects));
+}
+
+/* 6f. `.map(cb).length` — map never changes element count, so a construct
+ *     reachable only through the map's OWN callback (never through a further
+ *     nested filter/predicate) must not be flagged via the `.length` path. */
+{
+  const f = page("map-length-drops-callback", `
+    function seal(){
+      var rows = [{ v: 1 }];
+      var count = rows.map(c => ({ label: (c.v).toLocaleString() })).length;
+      var op = { total: count };
+      return { policy_parameters: {}, output_payload: op };
+    }`);
+  const r = run(f);
+  check(".map().length does not expose the callback's own construct", r.newDefects.length === 0, JSON.stringify(r.newDefects));
+}
+
 /* 7. BASELINE + RATCHET — a baselined defect warns instead of failing. */
 {
   const f = page("baselined", `
