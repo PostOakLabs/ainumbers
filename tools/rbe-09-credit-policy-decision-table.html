@@ -695,6 +695,39 @@ function showToast(msg,type='success'){const t=document.getElementById('toast');
 function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
 function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 
+/* Cell-id encoder. btoa() throws on the band labels (they contain –, ≤, £),
+   so encode the UTF-8 bytes as hex — deterministic and id-safe. */
+function cellKeyId(key){
+  return Array.from(new TextEncoder().encode(key)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ── Axis / band configuration ── */
+function updateBands(){
+  const pSel=document.getElementById('primaryAxis');
+  const sSel=document.getElementById('secondaryAxis');
+  const wrap=document.getElementById('bandsConfig');
+  currentPrimary=pSel.value;
+  currentSecondary=sSel.value;
+
+  const render=(axis,role)=>{
+    const bands=AXIS_BANDS[axis];
+    return `<div class="field" style="gap:6px">
+      <label>${role} — ${AXIS_LABELS[axis]} (${bands.length} bands)</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${bands.map(b=>`<span class="status-pill pill-info">${b}</span>`).join('')}
+      </div>
+    </div>`;
+  };
+
+  let html=render(currentPrimary,'Columns')+render(currentSecondary,'Rows');
+  if(currentPrimary===currentSecondary){
+    html+=`<div class="field" style="gap:6px">
+      <label>⚠ Both axes are ${AXIS_LABELS[currentPrimary]} — pick two different dimensions for a meaningful matrix.</label>
+    </div>`;
+  }
+  wrap.innerHTML=html;
+}
+
 /* ── Build Matrix ── */
 function buildMatrix(){
   updateBands();
@@ -713,7 +746,7 @@ function buildMatrix(){
     cols.forEach(col=>{
       const key=`${row}|${col}`;
       matrixState[key]='unassigned';
-      html+=`<td class="cell-unassigned" id="td_${btoa(key).replace(/=/g,'')}">
+      html+=`<td class="cell-unassigned" id="td_${cellKeyId(key)}">
         <select onchange="setCellOutcome('${key}',this)">
           ${OUTCOMES.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
         </select>
@@ -895,7 +928,7 @@ function buildCCMatrix(){
     cols.forEach(col=>{
       const key=`${row}|${col}`;
       ccMatrixState[key]='unassigned';
-      html+=`<td class="cell-unassigned" id="cc_td_${btoa(key).replace(/=/g,'')}">
+      html+=`<td class="cell-unassigned" id="cc_td_${cellKeyId(key)}">
         <select onchange="setCCOutcome('${key}',this)" style="border-color:rgba(155,114,245,.3)">
           ${OUTCOMES.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
         </select>
@@ -1042,7 +1075,7 @@ function runAnalysis(){
       },
     },
     summary:`Credit policy '${document.getElementById('policyName').value}' v${document.getElementById('policyVer').value}. ${total} decision rules across ${AXIS_LABELS[currentPrimary]} × ${AXIS_LABELS[currentSecondary]}. ${gaps} gaps, ${total-gaps-vals.filter(v=>v==='approve').length-vals.filter(v=>v==='decline').length} non-approve/decline cells. ${fairnessFlags.length} fairness flags raised. ${ccEnabled?`Champion-Challenger enabled: ${divergenceCount} divergences, ${approvalDelta>0?'+':''}${approvalDelta}% approval rate delta.`:''}`,
-    agent_instructions:"Consume rules[] to route applicant profiles. Resolve coverage_gaps[] before production deployment. Review fairness_flags[] with compliance counsel. reg_b_reasons[] are formatted for direct insertion into ECOA adverse action notices per CFPB Circular 2022-03.",
+    agent_instructions:["Consume rules[] to route applicant profiles. Resolve coverage_gaps[] before production deployment. Review fairness_flags[] with compliance counsel. reg_b_reasons[] are formatted for direct insertion into ECOA adverse action notices per CFPB Circular 2022-03."],
     valid_from:document.getElementById('policyEff').value,
     last_reviewed:"2025-04-01",
     regulatory_citations:["ECOA / Regulation B (12 CFR Part 1002)","CFPB Circular 2022-03 — adverse action notification requirements and AI/complex model specificity","SR 11-7 Model Risk Management Guidance (Federal Reserve)","EU Consumer Credit Directive 2 (CCD2) Article 18 — creditworthiness assessment","FCA CONC 5 — Responsible lending and affordability"],
@@ -1187,7 +1220,7 @@ function loadPreset(){
       const outcome=(policy[row]||[])[ci]||'unassigned';
       matrixState[key]=outcome;
       // Update the select
-      const encoded=btoa(key).replace(/=/g,'');
+      const encoded=cellKeyId(key);
       const td=document.getElementById(`td_${encoded}`);
       if(td){
         const sel=td.querySelector('select');

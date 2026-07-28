@@ -653,6 +653,36 @@ let lastResults=null;
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
 function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
 function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+/* Field readers — n() integer counts, f() decimal amounts. Missing element is a
+   page defect, not a user error, so surface it rather than silently returning 0. */
+function fieldEl(id){
+  const el=document.getElementById(id);
+  if(!el)throw new Error(`rbe-12: missing input element #${id}`);
+  return el;
+}
+function n(id){const v=parseInt(fieldEl(id).value,10);return Number.isFinite(v)?v:0;}
+function f(id){const v=parseFloat(fieldEl(id).value);return Number.isFinite(v)?v:0;}
+
+/* Ratio → percentage string. Two decimals matches the page's own threshold copy
+   ("below 0.30%"); the full-precision values go to the Policy Mandate export. */
+function pct(r){return Number.isFinite(r)?(r*100).toFixed(2)+'%':'—';}
+
+/* Entity / region / phased-enforcement selectors */
+function getEntityType(){
+  return document.querySelector('input[name="entityType"]:checked')?.value||'merchant';
+}
+function getRegion(){
+  return fieldEl('region').value;
+}
+/* Visa merchant phase 2 (2.2% → 1.5%) applies from 2026-04-01 in US/Canada/EU/APAC only. */
+function isPhase2Active(){
+  const M=SCHEME_THRESHOLDS.visa_vamp.merchant;
+  if(!M.phase2_regions.includes(getRegion()))return false;
+  const mon=fieldEl('monPeriod').value;           // YYYY-MM
+  if(!mon)return false;
+  return mon>=M.phase2_effective_date.slice(0,7); // YYYY-MM compare
+}
+
 function getVAMPThreshold(){
   const et=getEntityType();
   const T=SCHEME_THRESHOLDS.visa_vamp;
@@ -994,7 +1024,7 @@ function buildAP2(r){
     what_if_scenarios:[],
     threshold_versions:{visa_vamp:SCHEME_THRESHOLDS.visa_vamp.version,visa_vaai:SCHEME_THRESHOLDS.visa_vaai_enumeration.version,mastercard_dimp:SCHEME_THRESHOLDS.mastercard_dimp.version,mastercard_vimp:SCHEME_THRESHOLDS.mastercard_vimp.version},
     summary:`${r.et} (${r.region}, MCC ${document.getElementById('mcc').value}): VAMP ${(r.vampRatio*100).toFixed(3)}% — ${r.vampStatus.replace(/_/g,' ')}. VAAI enumeration ${(r.vaaiRatio*100).toFixed(3)}% — ${r.vaaiStatus}. DIMP ${(r.dimpRatio*100).toFixed(3)}% — ${r.dimpStatus}. Breach risk score: ${(r.breachRisk*10).toFixed(1)}/10.`,
-    agent_instructions:"visa_vamp.status and visa_vaai_enumeration.status are independent VAMP compliance dimensions — a merchant can breach on enumeration even if vamp_ratio is green. status hierarchy: excessive > above_standard > early_warning > green. breach_risk_score > 0.7 requires immediate remediation_controls[] implementation. Check grace_period_active before computing enforcement_fee_exposure. headroom_transactions / headroom_eur give absolute capacity before breach.",
+    agent_instructions:["visa_vamp.status and visa_vaai_enumeration.status are independent VAMP compliance dimensions — a merchant can breach on enumeration even if vamp_ratio is green. status hierarchy: excessive > above_standard > early_warning > green. breach_risk_score > 0.7 requires immediate remediation_controls[] implementation. Check grace_period_active before computing enforcement_fee_exposure. headroom_transactions / headroom_eur give absolute capacity before breach."],
     regulatory_citations:["Visa Acquirer Monitoring Program (VAMP) Framework — enforcement October 2025; acquirer thresholds January 2026; merchant phase 2 April 2026","Visa Account Attack Intelligence (VAAI) Score system — enumeration rate component effective June 2025","Visa Core Rules and Visa Product and Service Rules — April 2026 edition","Mastercard Data Integrity Monitoring Program (DIMP)","Mastercard Visa Issuer Monitoring Program (VIMP)","EU PSD2 Art. 96 — payment security incident reporting"],
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true},
   };

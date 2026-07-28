@@ -798,6 +798,40 @@ function showToast(msg,type='success'){const t=document.getElementById('toast');
 function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
 function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 
+/* Field readers. A missing element is a page defect, not a user error — throw
+   rather than silently substituting a default that would skew the analysis. */
+function fieldEl(id){
+  const el=document.getElementById(id);
+  if(!el)throw new Error(`rbe-13: missing input element #${id}`);
+  return el;
+}
+function sel(id){return fieldEl(id).value;}
+function cap(id){return !!fieldEl(id).checked;}
+function num(id){const v=parseFloat(fieldEl(id).value);return Number.isFinite(v)?v:0;}
+
+/* The INTERCHANGE_SCHEDULES entries carry `fixed`; older call sites read
+   `fixed_fee_usd`. Same tolerant idiom already used for `tier || tier_name`. */
+function tierFixed(t){return (t && (t.fixed_fee_usd ?? t.fixed)) ?? 0;}
+
+/* ── Country regulatory context ──
+   Called from the Country select and at load. Describes which of this engine's
+   rule sets apply in the selected jurisdiction. */
+const COUNTRY_CONTEXT = {
+  US:        'Durbin Amendment §1075: dual-network consumer debit must be routable to the lowest-cost eligible network. Regulated debit is capped at 0.05% + $0.22. LCR rules are generated at priority 1.',
+  Canada:    'This engine applies the Durbin-style regulated-debit LCR rule to Canadian debit volume. Verify against the Code of Conduct for the Credit and Debit Card Industry in Canada before configuring your gateway.',
+  Australia: 'RBA Standard No. 1 of 2006: debit least-cost routing is mandatory for Australian merchants. LCR rules are generated at priority 1.',
+  EU:        'EU IFR Regulation 2015/751 caps interchange at 0.2% (consumer debit) and 0.3% (consumer credit); PSD2 Art. 62 governs surcharging and transparency. No LCR mandate, so the routing rules below are commercial optimisations, not obligations.',
+  UK:        'UK FCA / PSR post-Brexit interchange caps mirror the EU IFR levels for domestic transactions. No LCR mandate, so the routing rules below are commercial optimisations, not obligations.',
+  Other:     'No regulated-debit LCR obligation is modelled for this jurisdiction. The rules below are commercial optimisations only; the US April 2025 published schedules are used as the rate basis.',
+};
+function updateCountryContext(){
+  const country=sel('country');
+  const box=document.getElementById('countryContext');
+  if(!box)throw new Error('rbe-13: missing #countryContext element');
+  const text=COUNTRY_CONTEXT[country];
+  box.textContent=text||`No regulatory context recorded for "${country}".`;
+}
+
 /* ── Interchange lookup ── */
 function lookupInterchange(network, cardType, txType, auth, dataLevel){
   const sch=INTERCHANGE_SCHEDULES[network];
@@ -828,15 +862,15 @@ function simulateTransaction(){
     return;
   }
 
-  const interchangeAmt=(amount*tier.rate_pct/100)+tier.fixed_fee_usd;
+  const interchangeAmt=(amount*tier.rate_pct/100)+tierFixed(tier);
   const effRate=(interchangeAmt/amount*100).toFixed(3);
 
   document.getElementById('simTierName').textContent=tier.tier_name||tier.tier;
-  document.getElementById('simRateDisplay').textContent=`${tier.rate_pct.toFixed(2)}% + $${tier.fixed_fee_usd.toFixed(2)} fixed`;
+  document.getElementById('simRateDisplay').textContent=`${tier.rate_pct.toFixed(2)}% + $${tierFixed(tier).toFixed(2)} fixed`;
 
   document.getElementById('simBreakdown').innerHTML=`
     <div class="sim-breakdown-item"><div class="lbl">Interchange %</div><div class="val">${tier.rate_pct.toFixed(2)}%</div></div>
-    <div class="sim-breakdown-item"><div class="lbl">Fixed Fee</div><div class="val">$${tier.fixed_fee_usd.toFixed(2)}</div></div>
+    <div class="sim-breakdown-item"><div class="lbl">Fixed Fee</div><div class="val">$${tierFixed(tier).toFixed(2)}</div></div>
     <div class="sim-breakdown-item"><div class="lbl">All-in ($${amount})</div><div class="val">$${interchangeAmt.toFixed(2)} (${effRate}%)</div></div>`;
 
   // Downgrade risks
@@ -1109,7 +1143,7 @@ function buildAP2(savings,lcr){
       data_level:lastSimResult.dataLevel,
       qualifying_tier:lastSimResult.tier.tier||lastSimResult.tier.tier_name,
       interchange_rate_pct:lastSimResult.tier.rate_pct,
-      interchange_fixed:lastSimResult.tier.fixed_fee_usd,
+      interchange_fixed:tierFixed(lastSimResult.tier),
       all_in_cost:lastSimResult.interchangeAmt,
       downgrade_risks:lastSimResult.downgrades.map(d=>({risk:d.risk,additional_rate_pct:parseFloat(d.additional)||0.20,mitigation:d.mitigation})),
       optimisation_opportunities:lastSimResult.optims.map(o=>({action:o.action,saving_pct:parseFloat(o.saving)||0,new_tier:o.newTier})),
@@ -1126,7 +1160,7 @@ function buildAP2(savings,lcr){
       note:"Estimates based on publicly published interchange schedules embedded in this tool. Actual savings depend on acquirer pricing model.",
     },
     summary:`Portfolio (${sel('entityType')}, ${sel('country')}, MCC ${sel('mcc')}): ${lcr.length} LCR rules generated. Estimated annual interchange saving: ${sel('country')==='EU'||sel('country')==='UK'?'€':'$'}${Math.round(savings.annualSaving).toLocaleString()} (blended rate ${savings.currentBlended.toFixed(3)}% → ${savings.optBlended.toFixed(3)}%).`,
-    agent_instructions:"lcr_routing_rules[] are ordered by priority — apply first matching rule. transaction_simulation.downgrade_risks[] must be remediated before production routing decisions. level2_3_matrix[] gives field-level requirements per card type. portfolio_savings_estimate is indicative — validate against live acquirer statement. Check last_reviewed date annually.",
+    agent_instructions:["lcr_routing_rules[] are ordered by priority — apply first matching rule. transaction_simulation.downgrade_risks[] must be remediated before production routing decisions. level2_3_matrix[] gives field-level requirements per card type. portfolio_savings_estimate is indicative — validate against live acquirer statement. Check last_reviewed date annually."],
     regulatory_citations:["Visa Interchange Reimbursement Fees — US April 2025 schedule (publicly published)","Mastercard Interchange Rates — US April 2025 schedule (publicly published)","Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit LCR obligation","RBA Standard No. 1 of 2006 — Australian debit LCR obligation","PSD2 Art. 62 — EU interchange fee caps","EU IFR Regulation 2015/751 — interchange fee caps (0.2% debit, 0.3% credit)","UK FCA PSR — post-Brexit interchange fee caps"],
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true},
   };
