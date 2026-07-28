@@ -43,35 +43,46 @@ const PENALTY_RATES_BPS = {
 
 const RATE_TABLE_VERSION = 'CSDR-RTS-2025-10';
 
+// CSDR §2.8 (ICMA best-practice guidance) distinguishes a running Settlement
+// Fail Penalty (SEFP) on the open fail from a Late Matching Fail Penalty (LMFP)
+// on a late-matched reinstruction — both can accrue over the same window on
+// overlapping quantities, and the LMFP leg is a reclaim candidate, not a sum.
+// See research/HANDTEST-2-2026-07-27.md.
+const PENALTY_TYPES = new Set(['sefp', 'lmfp']);
+
 export function compute(pp) {
   const {
     fail: {
       asset_class      = 'equity',
       notional         = 0,
-      reference_price  = notional,  // reference/transaction price
+      reference_price  = notional,  // reference/transaction price — CSDR prices the penalty off this, not raw notional
       fail_days        = 1,
       partial_settled_pct = 0,
+      penalty_type     = 'sefp',    // 'sefp' (running settlement fail penalty) | 'lmfp' (late matching fail penalty)
     } = {},
     rate_table_version = RATE_TABLE_VERSION,
-    open_fails         = [],   // optional batch: [{ asset_class, notional, reference_price, fail_days, partial_settled_pct }]
+    open_fails         = [],   // optional batch: [{ asset_class, notional, reference_price, fail_days, partial_settled_pct, penalty_type }]
   } = pp;
 
-  const calcPenalty = (ac, ntl, price, days, partial_pct) => {
-    const rate    = (PENALTY_RATES_BPS[ac] ?? PENALTY_RATES_BPS.equity) / 10000;
-    const adj_ntl = ntl * (1 - Math.min(1, Math.max(0, partial_pct)));
-    return +(rate * adj_ntl * days).toFixed(2);
+  const calcPenalty = (ac, price, days, partial_pct) => {
+    const rate      = (PENALTY_RATES_BPS[ac] ?? PENALTY_RATES_BPS.equity) / 10000;
+    const adj_price = price * (1 - Math.min(1, Math.max(0, partial_pct)));
+    return +(rate * adj_price * days).toFixed(2);
   };
 
-  const rate_bps       = PENALTY_RATES_BPS[asset_class] ?? PENALTY_RATES_BPS.equity;
-  const penalty_amount = calcPenalty(asset_class, notional, reference_price, +fail_days, +partial_settled_pct);
+  const rate_bps      = PENALTY_RATES_BPS[asset_class] ?? PENALTY_RATES_BPS.equity;
+  const resolved_type = PENALTY_TYPES.has(penalty_type) ? penalty_type : 'sefp';
+  const penalty_amount = calcPenalty(asset_class, +reference_price, +fail_days, +partial_settled_pct);
 
   // ── Batch ──
   let batch_total_exposure = 0;
   const batch_detail = [];
   for (const f of open_fails) {
-    const p = calcPenalty(f.asset_class ?? asset_class, +(f.notional ?? 0), +(f.reference_price ?? f.notional ?? 0), +(f.fail_days ?? 1), +(f.partial_settled_pct ?? 0));
+    const f_price = +(f.reference_price ?? f.notional ?? 0);
+    const f_type  = PENALTY_TYPES.has(f.penalty_type) ? f.penalty_type : resolved_type;
+    const p = calcPenalty(f.asset_class ?? asset_class, f_price, +(f.fail_days ?? 1), +(f.partial_settled_pct ?? 0));
     batch_total_exposure += p;
-    batch_detail.push({ ...f, penalty: p });
+    batch_detail.push({ ...f, penalty_type: f_type, penalty: p });
   }
   if (open_fails.length === 0) batch_total_exposure = penalty_amount;
 
@@ -83,6 +94,9 @@ export function compute(pp) {
   if (PENALTY_RATES_BPS[asset_class] === PENALTY_RATES_BPS.equity) {
     compliance_flags.push('RATE_INCREASE_APPLIED');
   }
+  if (resolved_type === 'lmfp') {
+    compliance_flags.push('LMFP_RECLAIM_REVIEW');
+  }
 
   const output_payload = {
     penalty_amount,
@@ -92,6 +106,8 @@ export function compute(pp) {
     partial_settled_pct: +partial_settled_pct,
     partial_credit:   +(notional * partial_settled_pct).toFixed(2),
     notional:         +notional,
+    reference_price:  +reference_price,
+    penalty_type:     resolved_type,
     batch_total_exposure: +batch_total_exposure.toFixed(2),
     batch_detail:     batch_detail.length > 0 ? batch_detail : null,
     rate_table_version: RATE_TABLE_VERSION,
