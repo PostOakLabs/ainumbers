@@ -474,6 +474,27 @@ function runScore(){
 
   var warnings = addrResult.warnings;
 
+  var all_checks = required_checks.concat(optional_checks);
+  var checks_passed_count = all_checks.filter(function(c){ return c.valid !== false; }).length;
+  var checks_total_count = all_checks.length;
+  var readiness_pct = Math.round((checks_passed_count / checks_total_count) * 100);
+  var addressValid = addrResult.errors.length === 0 ? true : false;
+
+  var check_details = {
+    iban: { provided: rawIban.length > 0, valid: ibanResult.valid, error: ibanResult.error },
+    bic: { provided: rawBic.length > 0, valid: bicResult.valid, error: bicResult.error },
+    lei: { provided: rawLei.length > 0, valid: leiResult.valid, error: leiResult.error },
+    uetr: { provided: rawUetr.length > 0, valid: uetrResult.valid, error: uetrResult.error },
+    address: { type: addrResult.structure_type || 'NOT_PROVIDED', valid: addressValid, error: addrResult.errors.join('; ') || null }
+  };
+
+  var remediation_actions = [];
+  if (!uetrResult.valid) remediation_actions.push('Generate a new UUIDv4 UETR for this payment instruction (use RFC 4122 version 4 format).');
+  if (addressValid === false) remediation_actions.push('Fix address structure: ' + (check_details.address.error || 'see check_details.address'));
+  if (ibanResult.valid === false) remediation_actions.push('Correct IBAN: ' + (ibanResult.error || 'invalid'));
+  if (bicResult.valid === false) remediation_actions.push('Correct BIC: ' + (bicResult.error || 'invalid'));
+  if (leiResult.valid === false) remediation_actions.push('Correct LEI: ' + (leiResult.error || 'invalid. For full mod-97 check use lint_lei_payment_binding (art-246)'));
+
   var op = {
     ready: ready,
     required_checks: required_checks,
@@ -482,7 +503,18 @@ function runScore(){
     optional_failed_count: optional_failed.length,
     address_structure_type: addrResult.structure_type,
     silent_fail_hits: addrResult.silent_fail_hits,
-    warnings: warnings
+    warnings: warnings,
+    checks_passed: checks_passed_count,
+    checks_total: checks_total_count,
+    readiness_pct: readiness_pct,
+    check_details: check_details,
+    remediation_actions: remediation_actions,
+    cbpr_plus_deadline: '2026-11-14',
+    chain_gate_note: 'ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.',
+    pii_note: 'IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.',
+    table_version: 'CBPR-PLUS-PREVALIDATION-COMPOSITE-V1',
+    table_source: 'SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration); BIS CPMI d218; ISO 13616:2020 IBAN; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 pacs.008.001.10 (iso20022.org)',
+    regulatory_basis: 'SWIFT CBPR+ Structured Address Migration Bulletin; BIS CPMI d218; ISO 13616 IBAN; ISO 9362 BIC; ISO 17442 LEI; ISO 20022 pacs.008.001.10'
   };
 
   computeExecHash(pp, op).then(function(hash){
