@@ -625,6 +625,8 @@ async function runValidator() {
     ft_liquidity: ftLiquidity,
     max_finality_min: maxFinalityMin
   };
+  const checksFailedCount = checks.filter(function(c) { return c.icon === 'fail'; }).length;
+  const hookRiskFlag = hookPresent === 'yes_unaudited';
   const outputPayload = {
     src_label: src.label,
     dst_label: dst.label,
@@ -635,10 +637,11 @@ async function runValidator() {
     total_points: totalPoints,
     max_points: maxPoints,
     checks_passed: checks.filter(function(c) { return c.icon === 'pass'; }).length,
-    checks_failed: checks.filter(function(c) { return c.icon === 'fail'; }).length,
+    checks_failed: checksFailedCount,
     checks_warned: checks.filter(function(c) { return c.icon === 'warn'; }).length,
     v1_migration_required: v1Relay === 'yes',
-    hook_risk: hookPresent === 'yes_unaudited'
+    hook_risk: hookRiskFlag,
+    compliance_flags: checksFailedCount === 0 && !hookRiskFlag ? ['CCTP_V2_VALIDATED'] : ['CCTP_V2_VALIDATION_FAILED']
   };
   const hash = await sha256({ policy_parameters: policyParameters, output_payload: outputPayload });
 
@@ -660,7 +663,7 @@ async function runValidator() {
     chain: { parent_hashes: [], parent_tool_ids: ['art-42-arc-fit-diagnostic'], chain_depth: 1 },
     policy_parameters: policyParameters,
     output_payload: outputPayload,
-    compliance_flags: outputPayload.checks_failed === 0 && !outputPayload.hook_risk ? ['CCTP_V2_VALIDATED'] : ['CCTP_V2_VALIDATION_FAILED'],
+    compliance_flags: outputPayload.compliance_flags,
     regulatory_refs: [
       'Circle CCTP v2 documentation (developers.circle.com/stablecoins/cctp-getting-started)',
       'Circle CCTP v1 phase-out announcement — 31 Jul 2026',

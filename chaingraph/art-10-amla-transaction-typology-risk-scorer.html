@@ -934,7 +934,12 @@ async function runScoring(){
       average_score:avgScore,max_score:maxScore,
       travel_rule_violations:travelViol.length,
       typology_hit_counts:Object.fromEntries(Object.entries(typologyStats).map(([k,v])=>[k,v.hits])),
-      top_risk_accounts:profiles.slice(0,5).map(p=>({account:p.account,max_score:p.maxScore,typologies:p.typologies}))
+      top_risk_accounts:profiles.slice(0,5).map(p=>({account:p.account,max_score:p.maxScore,typologies:p.typologies})),
+      compliance_flags:[`AML_RISK_${overallRisk}`,
+        ...(travelViol.length?['FATF_TRAVEL_RULE_GAP']:[]),
+        ...(roundTripPairs.length?['ROUND_TRIP_DETECTED']:[]),
+        ...(structViol.length?['STRUCTURING_DETECTED']:[])
+      ]
   };
   const hash=await sha256({policy_parameters:policyParams,output_payload:outputPayload});
 
@@ -948,11 +953,7 @@ async function runScoring(){
     chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
     policy_parameters:policyParams,
     output_payload:outputPayload,
-    compliance_flags:[`AML_RISK_${overallRisk}`,
-      ...(travelViol.length?['FATF_TRAVEL_RULE_GAP']:[]),
-      ...(roundTripPairs.length?['ROUND_TRIP_DETECTED']:[]),
-      ...(structViol.length?['STRUCTURING_DETECTED']:[])
-    ],
+    compliance_flags:outputPayload.compliance_flags,
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',

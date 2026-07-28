@@ -625,6 +625,7 @@ async function runLint() {
     daily_attestation: dailyAttestation,
     mint_burn_segregated: mintBurnSegregated
   };
+  const checksFailedCount = checks.filter(function(c) { return c.icon === 'fail'; }).length;
   const outputPayload = {
     token_name: tokenName,
     score_pct: scorePct,
@@ -635,8 +636,9 @@ async function runLint() {
     ineligible_reserve_pct: ineligPct,
     reserve_sum_valid: totalPct === 100,
     checks_passed: checks.filter(function(c) { return c.icon === 'pass'; }).length,
-    checks_failed: checks.filter(function(c) { return c.icon === 'fail'; }).length,
-    checks_warned: checks.filter(function(c) { return c.icon === 'warn'; }).length
+    checks_failed: checksFailedCount,
+    checks_warned: checks.filter(function(c) { return c.icon === 'warn'; }).length,
+    compliance_flags: checksFailedCount === 0 ? ['XRESERVE_LINT_PASSED'] : ['XRESERVE_LINT_FAILED']
   };
   const hash = await sha256({ policy_parameters: policyParameters, output_payload: outputPayload });
 
@@ -658,7 +660,7 @@ async function runLint() {
     chain: { parent_hashes: [], parent_tool_ids: ['art-42-arc-fit-diagnostic'], chain_depth: 1 },
     policy_parameters: policyParameters,
     output_payload: outputPayload,
-    compliance_flags: outputPayload.checks_failed === 0 ? ['XRESERVE_LINT_PASSED'] : ['XRESERVE_LINT_FAILED'],
+    compliance_flags: outputPayload.compliance_flags,
     regulatory_refs: [
       'GENIUS Act §4 (S.394, 119th Cong., enacted 18 Jul 2025)',
       'GENIUS Act §4(a)(11) — yield prohibition for PPSIs',

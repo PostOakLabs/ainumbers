@@ -724,6 +724,9 @@ async function computeBaselDelta() {
     execution_backend: 'js',
     input_parameters: {portfolio_preset: preset, total_exposure_bn: totalExposureBn, tier1_capital_pct: tier1CapPct * 100, irb_coverage_pct: irbCovPct * 100, irb_density_pct: irbDensity * 100}
   };
+  const complianceFlags = floorBindsAggregate
+    ? ['BASEL31_OUTPUT_FLOOR_BINDING','CAPITAL_PLANNING_REQUIRED']
+    : ['BASEL31_COMPLIANT_CAPITAL_ADEQUATE'];
   const outputPayload = {
     current_rwa_bn: round2(totalCurrentRWA), basel31_rwa_bn: round2(totalBasel31SA_RWA),
     rwa_delta_bn: round2(rwaUpliftBn), rwa_delta_pct: round2(rwaUpliftPct),
@@ -735,7 +738,8 @@ async function computeBaselDelta() {
     asset_class_summary: assetResults.map(r => ({
       asset_class: r.id, ead_bn: round2(r.ead), current_rwa_bn: round2(r.currentRWA),
       basel31_rwa_bn: round2(r.basel31_total_RWA), floor_binding: r.floorBinding
-    }))
+    })),
+    compliance_flags: complianceFlags
   };
 
   const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
@@ -754,9 +758,7 @@ async function computeBaselDelta() {
     chain: {parent_hashes: [], parent_tool_ids: [], chain_depth: 0},
     policy_parameters: policyParams,
     output_payload: outputPayload,
-    compliance_flags: floorBindsAggregate
-      ? ['BASEL31_OUTPUT_FLOOR_BINDING','CAPITAL_PLANNING_REQUIRED']
-      : ['BASEL31_COMPLIANT_CAPITAL_ADEQUATE'],
+    compliance_flags: complianceFlags,
     audit_signature: {
       payloadType: 'application/vnd.openchain.graph+json;version=0.2',
       payload: '',
